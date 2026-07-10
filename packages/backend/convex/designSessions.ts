@@ -3,6 +3,8 @@ export {
   listArchived,
   countActive,
   get,
+  getByNumId,
+  getInternal,
 } from "./_designSessions/queries";
 
 export {

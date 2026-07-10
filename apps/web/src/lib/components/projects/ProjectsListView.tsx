@@ -14,6 +14,7 @@ import {
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import { entityPathSegment } from "@/lib/numId";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -22,7 +23,7 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
-  onOpenProject: (id: string) => void;
+  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -129,8 +130,12 @@ export function ProjectsListView({
                                 sandboxStatus={
                                   project.reviewProjectSandboxStatus
                                 }
-                                href={`${basePath}/projects/${project._id}`}
-                                onClick={() => onOpenProject(project._id)}
+                                href={
+                                  entityPathSegment(project)
+                                    ? `${basePath}/projects/${entityPathSegment(project)}`
+                                    : `${basePath}/projects`
+                                }
+                                onClick={() => onOpenProject(project)}
                                 onDelete={() =>
                                   onDelete(project._id, project.title)
                                 }

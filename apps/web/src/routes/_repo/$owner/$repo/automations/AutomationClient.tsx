@@ -23,6 +23,7 @@ import { SettingToggle } from "./_components/SettingToggle";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
 
@@ -98,7 +99,9 @@ export function AutomationClient({
         value={activeTab}
         onValueChange={(v) => {
           if (isAutomationTab(v)) {
-            navigate({ to: `${basePath}/automations/${automation._id}/${v}` });
+            const segment = entityPathSegment(automation);
+            if (!segment) return;
+            navigate({ to: `${basePath}/automations/${segment}/${v}` });
           }
         }}
         className="space-y-4"

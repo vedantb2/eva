@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
+import { entityVisible, filterActiveEntities } from "../numId";
 import { sessionValidator } from "./helpers";
 
 /** Lists all non-archived sessions for a repo, sorted by most recently updated. */
@@ -8,11 +9,13 @@ export const list = authQuery({
   returns: v.array(sessionValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .filter((q) => q.neq(q.field("archived"), true))
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("sessions")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .filter((q) => q.neq(q.field("archived"), true))
+        .collect(),
+    );
     return sessions.sort(
       (a, b) =>
         (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
@@ -26,12 +29,14 @@ export const listArchived = authQuery({
   returns: v.array(sessionValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo_and_archived", (q) =>
-        q.eq("repoId", args.repoId).eq("archived", true),
-      )
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("sessions")
+        .withIndex("by_repo_and_archived", (q) =>
+          q.eq("repoId", args.repoId).eq("archived", true),
+        )
+        .collect(),
+    );
     return sessions.sort(
       (a, b) =>
         (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
@@ -45,13 +50,15 @@ export const countActive = authQuery({
   returns: v.number(),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo_and_status", (q) =>
-        q.eq("repoId", args.repoId).eq("status", "active"),
-      )
-      .filter((q) => q.neq(q.field("archived"), true))
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("sessions")
+        .withIndex("by_repo_and_status", (q) =>
+          q.eq("repoId", args.repoId).eq("status", "active"),
+        )
+        .filter((q) => q.neq(q.field("archived"), true))
+        .collect(),
+    );
     return sessions.length;
   },
 });
@@ -64,6 +71,25 @@ export const get = authQuery({
     const session = await ctx.db.get(args.id);
     if (!session) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
-    return session;
+    return entityVisible(session);
+  },
+});
+
+/** Resolves a session by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(sessionValidator, v.null()),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    return entityVisible(session);
   },
 });

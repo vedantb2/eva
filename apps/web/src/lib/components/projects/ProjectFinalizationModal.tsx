@@ -11,11 +11,13 @@ import {
   Button,
   Spinner,
 } from "@conductor/ui";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { parseSpec } from "@/lib/utils/parseSpec";
+import { entityPathSegment } from "@/lib/numId";
 import { IconFileText, IconRocket, IconCircleCheck } from "@tabler/icons-react";
 
 interface ProjectFinalizationModalProps {
@@ -34,6 +36,7 @@ export function ProjectFinalizationModal({
   basePath,
 }: ProjectFinalizationModalProps) {
   const navigate = useNavigate();
+  const project = useQuery(api.projects.get, { id: projectId });
   const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.projects.get, { id: projectId });
@@ -101,7 +104,10 @@ export function ProjectFinalizationModal({
         phase: "finalized",
       });
       await startDevelopment({ projectId });
-      navigate({ to: `${basePath}/projects/${projectId}` });
+      const segment = project ? entityPathSegment(project) : null;
+      if (segment) {
+        navigate({ to: `${basePath}/projects/${segment}` });
+      }
     } finally {
       setIsLoading(false);
     }

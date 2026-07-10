@@ -7,6 +7,7 @@ export {
   captureDiagnosticsAndStopSandbox,
   archiveSandbox,
   verifySandboxLiveness,
+  getSandboxProviderKind,
   startSandboxAsyncKickoff,
   pollSandboxStarted,
 } from "./_daytona/lifecycle";

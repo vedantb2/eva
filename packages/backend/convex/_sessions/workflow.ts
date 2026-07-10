@@ -132,6 +132,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -140,15 +141,18 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Thaw an archived/stopped sandbox across polling steps before the start
-    // action, so a multi-minute cold-storage restore doesn't blow the
-    // per-action 10-minute limit inside startSessionSandbox →
-    // ensureSandboxRunning.
-    if (args.existingSandboxId) {
+    // Daytona-only pre-thaw: archived restores can exceed the 10-minute action
+    // limit, so poll across workflow steps first. Vercel resume is handled
+    // inside startSessionSandbox → ensureSandboxRunning; running kickoff here
+    // only added ~6–8s of workflow step-scheduling latency (measured).
+    if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
           sandboxId: args.existingSandboxId,
+          vercelSandboxId: args.vercelSandboxId,
           repoId: args.repoId,
+          // Must match SessionDetailClient + startSandbox seed entity.
+          streamingEntityId: `session-startup-${args.sessionId}`,
         });
       } catch (error) {
         await step.runMutation(internal.sessions.sandboxError, {
@@ -164,6 +168,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     await step.runAction(internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -210,14 +215,16 @@ export const sessionExecuteWorkflow = workflow.define({
     let sandboxId: string | null = null;
     let validatedSandboxId: string | null = null;
 
-    if (data.sandboxId) {
-      // Bring an archived/stopped sandbox back to "started" via durable
-      // polling steps first, so a multi-minute cold-storage thaw doesn't blow
-      // the per-action 10-minute limit inside validateSandbox. Once started,
-      // the validate below hits its fast (echo) path.
+    if (data.sandboxId || data.vercelSandboxId) {
+      // Bring an archived/stopped sandbox back to "started" via durable polling
+      // steps first, so a multi-minute cold-storage thaw doesn't blow the
+      // per-action 10-minute limit inside validateSandbox. Once started, the
+      // validate below hits its fast (echo) path.
+      let started: Awaited<ReturnType<typeof ensureSandboxStartedSteps>>;
       try {
-        await ensureSandboxStartedSteps(step, {
+        started = await ensureSandboxStartedSteps(step, {
           sandboxId: data.sandboxId,
+          vercelSandboxId: data.vercelSandboxId,
           repoId: data.repoId,
           streamingEntityId: args.sessionId,
         });
@@ -235,12 +242,15 @@ export const sessionExecuteWorkflow = workflow.define({
         return;
       }
 
-      const validation = await step.runAction(
-        internal.daytona.validateSandbox,
-        { sandboxId: data.sandboxId, repoId: data.repoId },
-        { retry: false },
-      );
-      validatedSandboxId = validation.healthy ? data.sandboxId : null;
+      const thawId = started.thawId;
+      if (thawId) {
+        const validation = await step.runAction(
+          internal.daytona.validateSandbox,
+          { sandboxId: thawId, repoId: data.repoId },
+          { retry: false },
+        );
+        validatedSandboxId = validation.healthy ? thawId : null;
+      }
     }
 
     if (validatedSandboxId) {
@@ -251,13 +261,14 @@ export const sessionExecuteWorkflow = workflow.define({
         {
           sessionId: args.sessionId,
           existingSandboxId: data.sandboxId,
+          vercelSandboxId: data.vercelSandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
           branchName: data.branchName ?? `eva/session-${args.sessionId}`,
           baseBranch: data.baseBranch,
           repoId: data.repoId,
-          startDesktop: true,
+          startDesktop: false,
         },
         { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
       );
@@ -266,6 +277,7 @@ export const sessionExecuteWorkflow = workflow.define({
       await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
         sessionId: args.sessionId,
         sandboxId,
+        vercelSandboxId: prepared.vercelSandboxId,
         branchName: data.branchName,
       });
     }
@@ -328,15 +340,26 @@ export const sessionExecuteWorkflow = workflow.define({
       data.turnKind === "agent"
     ) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          repoId: data.repoId,
-          branchName: data.branchName,
-        });
-        pushSucceeded = true;
+        const status = await step.runAction(
+          internal.daytona.runSandboxCommand,
+          {
+            sandboxId,
+            command: `test -d ${WORKSPACE_DIR}/.git && cd ${WORKSPACE_DIR} && git status --porcelain`,
+            timeoutSeconds: 10,
+            repoId: data.repoId,
+          },
+        );
+        if (status.trim()) {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            repoId: data.repoId,
+            branchName: data.branchName,
+          });
+          pushSucceeded = true;
+        }
       } catch (error) {
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -448,6 +471,7 @@ export const getSessionData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -480,6 +504,7 @@ export const getSessionData = internalQuery({
 
     return {
       sandboxId: session.sandboxId,
+      vercelSandboxId: session.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: session.repoId,
@@ -499,18 +524,23 @@ export const updateSandboxId = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     branchName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const updates: {
       sandboxId: string;
+      vercelSandboxId?: string;
       branchName?: string;
       updatedAt: number;
     } = {
       sandboxId: args.sandboxId,
       updatedAt: Date.now(),
     };
+    if (args.vercelSandboxId !== undefined) {
+      updates.vercelSandboxId = args.vercelSandboxId;
+    }
     if (args.branchName) {
       updates.branchName = args.branchName;
     }
@@ -544,15 +574,22 @@ export const saveResult = internalMutation({
       .first();
     if (!last) return null;
 
+    const publishFailedAfterResult =
+      args.result !== null &&
+      args.error !== null &&
+      args.error.startsWith(
+        "Session completed locally, but Eva could not publish",
+      );
     const patch: {
       content: string;
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
     } = {
-      content: args.success
-        ? args.result || "I couldn't process your message."
-        : `Error: ${args.error || "Unknown error during execution."}`,
+      content:
+        args.success || publishFailedAfterResult
+          ? args.result || "I couldn't process your message."
+          : `Error: ${args.error || "Unknown error during execution."}`,
       finishedAt: Date.now(),
     };
     if (args.activityLog) {

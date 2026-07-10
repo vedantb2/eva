@@ -36,11 +36,7 @@ import {
 import { formatDurationMs } from "@conductor/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
-import {
-  BuildRow,
-  BuildStatusBadge,
-  WarmupStatusBadge,
-} from "./_components/BuildRow";
+import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
 
 export function SnapshotsClient({
   activeTab,
@@ -133,21 +129,15 @@ export function SnapshotsClient({
   const isSeeding = (lastBuild?.seededApps ?? []).some(
     (a) => a.status === "running",
   );
-  const seedingRepoIds = new Set(
-    (lastBuild?.seededApps ?? [])
-      .filter((a) => a.status === "running")
-      .map((a) => a.repoId),
-  );
-  const warmupByRepoId = new Map(
-    (lastBuild?.seededApps ?? []).map((app) => [
-      app.repoId,
-      {
-        seededSnapshotName: app.seededSnapshotName,
-        warmupStatus: app.warmupStatus,
-        warmupError: app.warmupError,
-      },
-    ]),
-  );
+  // The build now produces a single seeded snapshot shared by every app in the
+  // repo, so the per-app rows all carry the same seededSnapshotName. Take the
+  // first seeded entry as the one shared snapshot.
+  const sharedSeededSnapshotName =
+    seededApps?.find((app) => app.seededSnapshotName !== null)
+      ?.seededSnapshotName ?? null;
+  const hasSeedableApps = (seededApps?.length ?? 0) > 0;
+  const baseImageReady =
+    lastBuild?.status === "success" && !isRunning && !isSeeding;
 
   const handleSnapshotsTabChange = useCallback(
     (value: string) => {
@@ -355,67 +345,91 @@ export function SnapshotsClient({
                       ? "Seeding..."
                       : "Rebuild Now"}
                 </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Always rebuilds the base Image below.
+                  {hasSeedableApps
+                    ? " Also re-captures the optional seeded snapshot when apps have Stop Commands."
+                    : " No seed file or Stop Commands required."}
+                </p>
               </div>
-              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
-                <h3 className="text-sm font-medium">Seeded Snapshots</h3>
+              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
+                <h3 className="text-sm font-medium">Base Image</h3>
                 <p className="text-xs text-muted-foreground">
-                  Per-app running-sandbox snapshots with the DB already seeded.
-                  Apps without one fall back to the base Image (slower cold
-                  start).
+                  Declarative snapshot with toolchain,{" "}
+                  <code className="font-mono text-[11px]">pnpm install</code>,
+                  and your build commands. This is what sandboxes boot from
+                  unless a seeded snapshot exists. Rebuild Now always refreshes
+                  this — no seed file needed.
+                </p>
+                {baseImageReady ? (
+                  <div className="flex items-start gap-1 text-xs text-green-500">
+                    <IconCheck size={12} className="mt-0.5 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="mr-1 text-muted-foreground">
+                        Active:
+                      </span>
+                      <span className="font-mono break-all text-foreground">
+                        {snapshot.snapshotName}
+                      </span>
+                    </span>
+                  </div>
+                ) : isRunning ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                    <Spinner size="sm" />
+                    Building base Image…
+                  </span>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-mono">{snapshot.snapshotName}</span>
+                    {lastBuild?.status === "error"
+                      ? " — last build failed; click Rebuild Now to retry."
+                      : " — not built yet; click Rebuild Now."}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-surface border border-border bg-muted/40 p-4 space-y-3">
+                <h3 className="text-sm font-medium">
+                  Seeded snapshot{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Running-sandbox capture with DB and services already started.
+                  Only needed when cold boot is too slow — e.g. carepulse with
+                  Supabase + Convex data. Configure Stop Commands on an app
+                  (Settings → App); upload seed files only if startup commands
+                  reference them.
                 </p>
                 {seededApps === undefined ? (
                   <p className="text-xs text-muted-foreground">Loading…</p>
-                ) : seededApps.length === 0 ? (
+                ) : isSeeding ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                    <Spinner size="sm" />
+                    Capturing seeded snapshot…
+                  </span>
+                ) : sharedSeededSnapshotName ? (
+                  <div className="flex items-start gap-1 text-xs text-green-500">
+                    <IconCheck size={12} className="mt-0.5 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="mr-1 text-muted-foreground">
+                        Active:
+                      </span>
+                      <span className="font-mono break-all">
+                        {sharedSeededSnapshotName}
+                      </span>
+                    </span>
+                  </div>
+                ) : !hasSeedableApps ? (
                   <p className="text-xs text-muted-foreground">
-                    No seedable apps for this snapshot.
+                    Not configured — no apps have Stop Commands. Sandboxes use
+                    the base Image only, which is fine for most repos.
                   </p>
                 ) : (
-                  <div className="space-y-2 text-xs">
-                    {seededApps.map((app) => {
-                      const warmup = warmupByRepoId.get(app.repoId);
-                      const warmupMatchesSnapshot =
-                        app.seededSnapshotName !== null &&
-                        warmup?.seededSnapshotName === app.seededSnapshotName;
-                      return (
-                        <div
-                          key={app.repoId}
-                          className="flex items-start justify-between gap-3"
-                        >
-                          <span className="font-medium shrink-0">
-                            {app.app ?? app.name}
-                          </span>
-                          {seedingRepoIds.has(app.repoId) ? (
-                            <span className="inline-flex shrink-0 items-center gap-1 text-blue-500">
-                              <Spinner size="sm" />
-                              Seeding…
-                            </span>
-                          ) : app.seededSnapshotName ? (
-                            <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
-                              <IconCheck
-                                size={12}
-                                className="mt-0.5 shrink-0"
-                              />
-                              <span className="min-w-0 space-y-1">
-                                <span className="block font-mono break-all">
-                                  {app.seededSnapshotName}
-                                </span>
-                                {warmupMatchesSnapshot && (
-                                  <WarmupStatusBadge
-                                    status={warmup.warmupStatus}
-                                    error={warmup.warmupError}
-                                  />
-                                )}
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="shrink-0 text-muted-foreground">
-                              Using base Image
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Not captured yet — run Rebuild Now after configuring app
+                    startup/background/stop commands.
+                  </p>
                 )}
               </div>
             </>
@@ -446,7 +460,6 @@ export function SnapshotsClient({
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
-                      <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Seeded</th>
                     </tr>
                   </thead>
@@ -631,18 +644,24 @@ function ConfigFilesSection({
 
       <div className="rounded-surface border border-border bg-card p-4 space-y-4">
         <div>
-          <h3 className="text-sm font-medium">Sandbox Config Files</h3>
+          <h3 className="text-sm font-medium">
+            Sandbox Config Files{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional — seeded snapshots only)
+            </span>
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Files uploaded here will be copied into the codebase root when a
-            sandbox starts. They are also available at{" "}
+            Files uploaded here are copied into the codebase root when a sandbox
+            starts. They are also available at{" "}
             <code className="font-mono text-[11px]">
               /home/eva/sandbox-config/
             </code>{" "}
             and{" "}
             <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>
             {". "}
-            Use for sensitive files like database seeds that cannot be committed
-            to the repo.
+            Only needed when app startup commands reference sensitive seeds
+            (e.g. SQL dumps) that cannot live in git. Base Image rebuilds do not
+            require any files here.
           </p>
         </div>
 

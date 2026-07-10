@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -42,6 +42,7 @@ import {
 } from "@conductor/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import { entityPathSegment } from "@/lib/numId";
 import { IconGripVertical } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -100,6 +101,7 @@ export function GroupTasksModal({
 }: GroupTasksModalProps) {
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
+  const convex = useConvex();
   const [title, setTitle] = useState("");
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
@@ -145,10 +147,14 @@ export function GroupTasksModal({
         title: title.trim(),
         taskIds,
       });
+      const created = await convex.query(api.projects.get, { id: projectId });
+      const segment = created ? entityPathSegment(created) : null;
       setTitle("");
       onSuccess();
       onClose();
-      navigate({ to: `${basePath}/projects/${projectId}` });
+      if (segment) {
+        navigate({ to: `${basePath}/projects/${segment}` });
+      }
     } finally {
       setIsLoading(false);
     }

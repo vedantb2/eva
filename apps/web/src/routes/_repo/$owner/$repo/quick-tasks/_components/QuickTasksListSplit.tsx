@@ -18,7 +18,7 @@ interface QuickTasksListSplitProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (id: Id<"agentTasks">) => void;
+  onOpenTask: (task: { numId?: number }) => void;
   selectedTaskId?: string;
   detailTab?: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
@@ -28,7 +28,7 @@ interface QuickTasksListSplitProps {
 /**
  * List-view master/detail layout: the quick-task list on the left, the selected
  * task's detail on the right. Mirrors the projects task-list layout while
- * keeping the existing `/quick-tasks/$taskId` routing. The action-slot provider
+ * keeping the existing `/quick-tasks/$numId` routing. The action-slot provider
  * wraps both panes so `TaskDetailInline` can portal its action buttons into the
  * right pane's header.
  */

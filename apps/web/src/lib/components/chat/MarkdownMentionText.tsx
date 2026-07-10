@@ -13,7 +13,7 @@ import {
   MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
-import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
 import { remarkMentionChips, MENTION_HREF_REGEX } from "./remarkMentionChips";
 
 interface MarkdownMentionTextProps {
@@ -51,6 +51,7 @@ export function MarkdownMentionText({
   atKind = "doc",
 }: MarkdownMentionTextProps) {
   const navigate = useNavigate();
+  const navigateToDocById = useDocMentionNavigate(repoBasePath);
 
   return (
     <Streamdown
@@ -108,9 +109,9 @@ export function MarkdownMentionText({
           const navigateToDoc = (e: MouseEvent<HTMLButtonElement>) => {
             e.preventDefault();
             e.stopPropagation();
-            navigate({
-              to: `${repoBasePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
-            });
+            if (isMentionTokenDocId(id)) {
+              void navigateToDocById(id);
+            }
           };
           if (isMentionTokenDocId(id)) {
             return (

@@ -3,7 +3,6 @@
 import { forwardRef, useCallback, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
@@ -19,6 +18,7 @@ import {
   isSkillTokenId,
   isMentionTokenDocId,
 } from "@/lib/components/mentions";
+import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
 
@@ -67,14 +67,15 @@ export const DescriptionMentionEditor = forwardRef<
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
   const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
+  const navigateToDocById = useDocMentionNavigate(basePath);
 
   const handleMentionChipClick = useCallback(
     (id: string) => {
-      navigate({
-        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
-      });
+      if (isMentionTokenDocId(id)) {
+        void navigateToDocById(id, docs);
+      }
     },
-    [navigate, basePath],
+    [docs, navigateToDocById],
   );
 
   const handleSkillChipClick = useCallback(

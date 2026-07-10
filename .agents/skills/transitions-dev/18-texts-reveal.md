@@ -27,7 +27,7 @@ Add more lines by adding `.t-stagger-line--N` with
 
 | Variable             | Default                          | Notes                         |
 | -------------------- | -------------------------------- | ----------------------------- |
-| `--stagger-dur`      | `600ms`                          | sourced from `--p18-dur`      |
+| `--stagger-dur`      | `500ms`                          | sourced from `--p18-dur`      |
 | `--stagger-distance` | `12px`                           | sourced from `--p18-distance` |
 | `--stagger-stagger`  | `40ms`                           | sourced from `--p18-stagger`  |
 | `--stagger-blur`     | `3px`                            | sourced from `--p18-blur`     |
@@ -37,7 +37,7 @@ The `:root` defaults below match the live tuning on [transitions.dev](https://tr
 
 ```css
 :root {
-  --stagger-dur: 600ms;
+  --stagger-dur: 500ms;
   --stagger-distance: 12px;
   --stagger-stagger: 40ms;
   --stagger-blur: 3px;

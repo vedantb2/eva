@@ -27,6 +27,7 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { TimelineBar } from "./_components/TimelineBar";
 import { TimelineSidebarMeta } from "./_components/TimelineSidebarMeta";
 import { TimelineToolbar } from "./_components/TimelineToolbar";
@@ -189,9 +190,12 @@ export function ProjectsTimeline({
 
   const handleSelectItem = useCallback(
     (id: string) => {
-      navigate({ to: `${basePath}/projects/${id}` });
+      const project = scheduledProjectMap.get(id);
+      const segment = project ? entityPathSegment(project) : null;
+      if (!segment) return;
+      navigate({ to: `${basePath}/projects/${segment}` });
     },
-    [navigate, basePath],
+    [navigate, basePath, scheduledProjectMap],
   );
 
   const handleMove = useCallback(

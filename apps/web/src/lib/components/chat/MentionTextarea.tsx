@@ -2,7 +2,6 @@
 
 import { forwardRef, useCallback } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { usePromptInputController } from "@conductor/ui";
 import type { Doc, Id } from "@conductor/backend";
 import {
@@ -15,6 +14,7 @@ import {
   isSkillTokenId,
   isMentionTokenDocId,
 } from "@/lib/components/mentions";
+import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
 
 export type MentionTextareaHandle = MentionEditorHandle;
 
@@ -62,14 +62,15 @@ export const MentionTextarea = forwardRef<
   const navigate = useNavigate();
   const controller = usePromptInputController();
   const value = controller.textInput.value;
+  const navigateToDocById = useDocMentionNavigate(repoBasePath);
 
   const handleMentionChipClick = useCallback(
     (id: string) => {
-      navigate({
-        to: `${repoBasePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
-      });
+      if (isMentionTokenDocId(id)) {
+        void navigateToDocById(id, docs);
+      }
     },
-    [navigate, repoBasePath],
+    [docs, navigateToDocById],
   );
 
   const handleSkillChipClick = useCallback(

@@ -29,6 +29,8 @@ import {
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
+import { entityPathSegment } from "@/lib/numId";
+import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -36,9 +38,14 @@ export function QuickTasksClient() {
   // layout level so the list stays mounted while the detail changes.
   const params = useParams({ strict: false });
   const routeState = useQuickTaskRouteState();
+  const numIdParam =
+    typeof params.numId === "string" ? params.numId : undefined;
+  const { basePath, repo, repoId } = useRepo();
+  const taskResolve = useAgentTaskByNumId(numIdParam, repoId);
   const selectedTaskId =
-    typeof params.taskId === "string" ? params.taskId : undefined;
-  const { basePath, repo } = useRepo();
+    taskResolve.status === "ready" && taskResolve.convexId
+      ? taskResolve.convexId
+      : undefined;
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const { draft: draftParam } = useSearch({
     from: "/_repo/$owner/$repo/quick-tasks",
@@ -219,8 +226,10 @@ export function QuickTasksClient() {
     });
   };
 
-  const handleOpenTask = (id: string) => {
-    navigate({ to: `${basePath}/quick-tasks/${id}/activity` });
+  const handleOpenTask = (task: { numId?: number }) => {
+    const segment = entityPathSegment(task);
+    if (!segment) return;
+    navigate({ to: `${basePath}/quick-tasks/${segment}/activity` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);

@@ -12,6 +12,7 @@ import { RunAllDialog } from "./RunAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
 import type { DisplayTaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 
@@ -24,7 +25,7 @@ interface QuickTasksKanbanBoardProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (id: Id<"agentTasks">) => void;
+  onOpenTask: (task: { numId?: number }) => void;
 }
 
 export function QuickTasksKanbanBoard({
@@ -142,7 +143,7 @@ export function QuickTasksKanbanBoard({
           if (isSelecting) {
             onToggleSelect(task._id);
           } else {
-            onOpenTask(task._id);
+            onOpenTask(task);
           }
         }}
         fillHeight
@@ -179,7 +180,11 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
-            href={`${basePath}/quick-tasks/${task._id}/activity`}
+            href={
+              entityPathSegment(task)
+                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                : `${basePath}/quick-tasks`
+            }
             groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}

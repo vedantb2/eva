@@ -3,7 +3,17 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { exec, getSandbox } from "./helpers";
+import {
+  execHandle,
+  getSandboxHandle,
+  KILL_PRIOR_AGENT_PROCESSES_CMD,
+} from "./helpers";
+import {
+  resolveSandboxCredentials,
+  resolveSandboxCredentialsOnly,
+  resolveSandboxProviderKind,
+} from "../envVarResolver";
+import { getSandboxClient } from "../_sandbox/factory";
 
 /**
  * Short wait window for the start kick-off. A stopped→started fast resume
@@ -12,8 +22,8 @@ import { exec, getSandbox } from "./helpers";
  * via pollSandboxStarted.
  */
 const KICKOFF_START_WAIT_SECONDS = 30;
-/** States from which a sandbox can never reach "started" — fail fast on these. */
-const TERMINAL_FAILURE_STATES = ["error", "destroyed", "build_failed"];
+/** States from which a sandbox can never reach "running" — fail fast on these. */
+const TERMINAL_FAILURE_STATES = ["error", "gone"];
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -52,14 +62,16 @@ export const verifySandboxLiveness = internalAction({
     pidAlive: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId).catch(
-      (err: Error) => {
-        console.log(
-          `[watchdog][liveness] sandboxId=${args.sandboxId} probe_unreachable (getSandbox failed): ${err.message}`,
-        );
-        return null;
-      },
-    );
+    const sandbox = await getSandboxHandle(
+      ctx,
+      args.repoId,
+      args.sandboxId,
+    ).catch((err: Error) => {
+      console.log(
+        `[watchdog][liveness] sandboxId=${args.sandboxId} probe_unreachable (getSandbox failed): ${err.message}`,
+      );
+      return null;
+    });
     if (!sandbox) {
       return {
         alive: true,
@@ -68,7 +80,7 @@ export const verifySandboxLiveness = internalAction({
     }
 
     const refreshOk = await sandbox
-      .refreshData()
+      .refresh()
       .then(() => true)
       .catch((err: Error) => {
         console.log(
@@ -84,20 +96,20 @@ export const verifySandboxLiveness = internalAction({
     }
 
     const state = sandbox.state;
-    // Anything that is not "started" means the callback cannot possibly be
+    // Anything that is not "running" means the callback cannot possibly be
     // running. Not started => not alive, and the watchdog should proceed to
     // clean up.
-    if (state !== "started") {
+    if (state !== "running") {
       return {
         alive: false,
         reason: "sandbox_not_started",
-        sandboxState: state ?? "unknown",
+        sandboxState: state,
       };
     }
 
     // Sandbox is started — verify the callback runner PID is still alive.
     // Short timeout so we never block the watchdog path on exec hangs.
-    const pidAlive = await exec(sandbox, CALLBACK_LIVENESS_COMMAND, 5)
+    const pidAlive = await execHandle(sandbox, CALLBACK_LIVENESS_COMMAND, 5)
       .then(() => true)
       .catch(() => false);
 
@@ -110,7 +122,11 @@ export const verifySandboxLiveness = internalAction({
       };
     }
 
-    const agentAlive = await exec(sandbox, AGENT_PROCESS_LIVENESS_COMMAND, 5)
+    const agentAlive = await execHandle(
+      sandbox,
+      AGENT_PROCESS_LIVENESS_COMMAND,
+      5,
+    )
       .then(() => true)
       .catch(() => false);
     if (agentAlive) {
@@ -142,12 +158,8 @@ export const killSandboxProcess = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await exec(
-        sandbox,
-        "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
-        10,
-      );
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     } catch {
       // Sandbox may already be stopped/deleted
     }
@@ -155,16 +167,34 @@ export const killSandboxProcess = internalAction({
   },
 });
 
-/** Stops a Daytona sandbox (preserves state, fast resume). Silently ignores already-stopped sandboxes. */
+/** Stops a Daytona/Vercel sandbox (preserves state, fast resume). */
 export const stopSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       await sandbox.stop();
-    } catch {
-      // Sandbox may already be stopped, archived, or deleted
+      console.log(`[daytona] stopSandbox ok sandboxId=${args.sandboxId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Already gone / already idle — treat as success so finalize can close.
+      const benign =
+        /already.?stopped|not found|does not exist|no active session|destroyed|gone/i.test(
+          message,
+        ) && !/did not reach a terminal stopped state/i.test(message);
+      if (benign) {
+        console.log(
+          `[daytona] stopSandbox ignored benign error for ${args.sandboxId}: ${message}`,
+        );
+        return null;
+      }
+      // Real stop failures must propagate — swallowing them made Eva mark the
+      // session closed while Vercel still showed running.
+      console.error(
+        `[daytona] stopSandbox failed for ${args.sandboxId}: ${message}`,
+      );
+      throw error instanceof Error ? error : new Error(message);
     }
     return null;
   },
@@ -199,8 +229,12 @@ export const captureDiagnosticsAndStopSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      const diagnostics = await exec(sandbox, KILL_DIAGNOSTICS_COMMAND, 15);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      const diagnostics = await execHandle(
+        sandbox,
+        KILL_DIAGNOSTICS_COMMAND,
+        15,
+      );
       const trimmed = diagnostics.trim().slice(0, 4000);
       console.log(
         `[watchdog][diagnostics] runId=${args.runId} sandboxId=${args.sandboxId}\n${trimmed}`,
@@ -228,7 +262,7 @@ export const deleteSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       await sandbox.delete();
     } catch {
       // Sandbox may already be deleted or expired
@@ -247,8 +281,8 @@ export const archiveSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await sandbox.refreshData();
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await sandbox.refresh();
       const state = sandbox.state;
       console.log(
         `[daytona] Archiving sandbox ${args.sandboxId}, current state: ${state}`,
@@ -261,7 +295,7 @@ export const archiveSandbox = internalAction({
       }
 
       // Stop first if currently running (archive requires stopped state)
-      if (state === "started") {
+      if (state === "running") {
         await sandbox.stop();
         console.log(`[daytona] Stopped sandbox ${args.sandboxId}`);
       }
@@ -286,18 +320,47 @@ export const archiveSandbox = internalAction({
  * minutes — waiting inline would blow the Convex per-action time limit. So this
  * fires the start (the thaw then proceeds server-side on Daytona) with only a
  * short wait window: a stopped→started fast resume completes here and returns
- * "started"; an archived thaw times out the wait (expected) and returns the
+ * "running"; an archived thaw times out the wait (expected) and returns the
  * in-progress state so the caller can poll via pollSandboxStarted. Throws only
  * when the sandbox is in a terminal failure state.
  */
+/** Returns the active sandbox provider for a repo (for workflow thaw id selection). */
+export const getSandboxProviderKind = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.literal("daytona"), v.literal("vercel")),
+  handler: async (ctx, args) => {
+    // Do not call resolveSandboxCredentials here — that decrypts the full env
+    // map and was the multi-second gap before kickoff on resume.
+    return resolveSandboxProviderKind(ctx, args.repoId);
+  },
+});
+
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
-  returns: v.object({ state: v.string() }),
+  returns: v.object({
+    state: v.string(),
+    provider: v.union(v.literal("daytona"), v.literal("vercel")),
+  }),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await sandbox.refreshData();
-    if (sandbox.state === "started") {
-      return { state: "started" };
+    const kickoffStartedAt = Date.now();
+    const credentials = await resolveSandboxCredentialsOnly(ctx, args.repoId);
+    const sandbox = await getSandboxClient(credentials).get(args.sandboxId);
+    await sandbox.refresh();
+    if (sandbox.state === "running") {
+      console.log(
+        `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} already running (elapsed=${Date.now() - kickoffStartedAt}ms)`,
+      );
+      return { state: "running", provider: credentials.kind };
+    }
+    // Vercel resumes on the first exec inside ensureSandboxRunning (with
+    // progress UI). Waiting here blocks the workflow step for the full restore
+    // (~10–30s) with no streaming activity — measured ~17s on carepulse resume.
+    if (credentials.kind === "vercel") {
+      const state: string = sandbox.state;
+      console.log(
+        `[daytona] startSandboxAsyncKickoff: vercel sandbox ${args.sandboxId} state=${state} (defer resume to ensureSandboxRunning, elapsed=${Date.now() - kickoffStartedAt}ms)`,
+      );
+      return { state, provider: "vercel" as const };
     }
     try {
       // start() POSTs the start request, then waits up to the given window. The
@@ -309,17 +372,17 @@ export const startSandboxAsyncKickoff = internalAction({
         `[daytona] startSandboxAsyncKickoff: start() did not complete within ${KICKOFF_START_WAIT_SECONDS}s for ${args.sandboxId} (expected for a cold thaw): ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    await sandbox.refreshData();
-    const state = sandbox.state ?? "unknown";
+    await sandbox.refresh();
+    const state = sandbox.state;
     if (TERMINAL_FAILURE_STATES.includes(state)) {
       throw new Error(
         `Sandbox ${args.sandboxId} is in terminal state "${state}": ${sandbox.errorReason ?? "no reason given"}`,
       );
     }
     console.log(
-      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state}`,
+      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state} (elapsed=${Date.now() - kickoffStartedAt}ms)`,
     );
-    return { state };
+    return { state, provider: credentials.kind };
   },
 });
 
@@ -333,9 +396,14 @@ export const pollSandboxStarted = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.object({ state: v.string() }),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await sandbox.refreshData();
-    const state = sandbox.state ?? "unknown";
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    await sandbox.refresh();
+    let state = sandbox.state;
+    if (state !== "running" && !TERMINAL_FAILURE_STATES.includes(state)) {
+      await sandbox.start(KICKOFF_START_WAIT_SECONDS);
+      await sandbox.refresh();
+      state = sandbox.state;
+    }
     if (TERMINAL_FAILURE_STATES.includes(state)) {
       throw new Error(
         `Sandbox ${args.sandboxId} reached terminal state "${state}" during restore: ${sandbox.errorReason ?? "no reason given"}`,

@@ -2,10 +2,12 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { exec, getSandbox, workspaceDirShell } from "./helpers";
+import { resolveSandboxCredentials } from "../envVarResolver";
+import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome } from "./desktop";
+import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
 
-/** Starts or stops a code-server instance inside a sandbox on port 8080. */
+/** Starts or stops a code-server instance inside a sandbox. */
 export const toggleCodeServer = action({
   args: {
     sandboxId: v.string(),
@@ -24,74 +26,70 @@ export const toggleCodeServer = action({
     console.log(
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
     );
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    // Vercel: listen internally so the auth proxy can own exposed 8080.
+    // Daytona: listen on 8080 (proxy sits on a separate 9xxx port).
+    const listenPort =
+      credentials.kind === "vercel" ? VERCEL_EDITOR_INTERNAL_PORT : 8080;
+    const bindAddr = credentials.kind === "vercel" ? "127.0.0.1" : "0.0.0.0";
 
     if (args.action === "start") {
-      // Check if already running
       try {
-        const checkResult = await exec(
-          sandbox,
-          "pgrep -f 'code-server.*8080'",
+        const checkResult = await execHandle(
+          handle,
+          `curl -fsS http://127.0.0.1:${listenPort}/ >/dev/null 2>&1 && echo running || true`,
           5,
         );
-        if (checkResult.trim()) {
-          console.log(
-            `[code-server] Already running (pid: ${checkResult.trim()})`,
-          );
+        if (checkResult.trim().includes("running")) {
           return {
             success: true,
-            message: `Already running (pid: ${checkResult.trim()})`,
+            message: `Already running on ${listenPort}`,
           };
         }
       } catch {
         // Not running, proceed to start
       }
 
-      // Start code-server
-      console.log(`[code-server] Starting code-server on port 8080...`);
+      console.log(
+        `[code-server] Starting code-server on port ${listenPort}...`,
+      );
       try {
-        await exec(
-          sandbox,
-          `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${workspaceDirShell()} > /tmp/code-server.log 2>&1 &`,
-          10,
+        // Native detached exec — `… &` inside sync runCommand zombies on Vercel.
+        await handle.execDetached(
+          `code-server --port ${listenPort} --auth none --bind-addr ${bindAddr} ${workspaceDirShell()} > /tmp/code-server.log 2>&1`,
         );
 
-        // Wait a moment and check if it started
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const pidCheck = await exec(
-          sandbox,
-          "pgrep -f 'code-server.*8080' || echo 'not running'",
-          5,
+        const ready = await execHandle(
+          handle,
+          `for i in $(seq 1 20); do curl -fsS http://127.0.0.1:${listenPort}/ >/dev/null 2>&1 && echo ready && exit 0; sleep 0.5; done; echo not_ready`,
+          20,
         );
-        const logs = await exec(
-          sandbox,
+        const logs = await execHandle(
+          handle,
           "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs yet'",
           5,
         );
 
-        if (pidCheck.trim() && pidCheck.trim() !== "not running") {
-          console.log(
-            `[code-server] Started successfully (pid: ${pidCheck.trim()})`,
-          );
-          console.log(`[code-server] Logs:\n${logs}`);
+        if (ready.trim().includes("ready")) {
+          console.log(`[code-server] Started successfully on ${listenPort}`);
           return {
             success: true,
-            message: `Started (pid: ${pidCheck.trim()})`,
+            message: `Started on ${listenPort}`,
             logs,
           };
-        } else {
-          console.error(`[code-server] Failed to start. Logs:\n${logs}`);
-          return { success: false, message: "Failed to start", logs };
         }
+        console.error(`[code-server] Failed to start. Logs:\n${logs}`);
+        return { success: false, message: "Failed to start", logs };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(`[code-server] Error starting: ${errorMsg}`);
-        // Try to get logs anyway
         let logs = "";
         try {
-          logs = await exec(
-            sandbox,
+          logs = await execHandle(
+            handle,
             "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs'",
             5,
           );
@@ -101,10 +99,9 @@ export const toggleCodeServer = action({
         return { success: false, message: errorMsg, logs };
       }
     } else {
-      // Stop code-server
       console.log(`[code-server] Stopping code-server...`);
       try {
-        await exec(sandbox, "pkill -f code-server || true", 10);
+        await execHandle(handle, "pkill -f code-server || true", 10);
         console.log(`[code-server] Stopped`);
         return { success: true, message: "Stopped" };
       } catch (error) {
@@ -128,14 +125,17 @@ export const toggleDesktopServer = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    if (!handle.desktop) {
+      throw new Error("Desktop is not available for this sandbox provider");
+    }
 
     if (args.action === "start") {
       // Resolution comes from the VNC_RESOLUTION env var set at sandbox creation
       // (see createSandbox in git.ts) — Xvfb starts at 1920x1080 natively.
-      await sandbox.computerUse.start();
+      await handle.desktop.start();
     } else {
-      await sandbox.computerUse.stop();
+      await handle.desktop.stop();
     }
 
     return null;
@@ -153,8 +153,8 @@ export const launchChromeInDesktop = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await launchChrome(sandbox);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    await launchChrome(handle);
 
     return null;
   },

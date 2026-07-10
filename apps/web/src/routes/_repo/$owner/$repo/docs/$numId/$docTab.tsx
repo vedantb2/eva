@@ -1,0 +1,72 @@
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api } from "@conductor/backend";
+import {
+  DOC_VIEWER_DEFAULT_TAB,
+  isDocViewerTab,
+  type DocViewerTab,
+} from "@/lib/search-params";
+import { DocViewer } from "@/lib/components/docs/DocViewer";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
+import { parseRouteNumId } from "@/lib/numId";
+import { Spinner } from "@conductor/ui";
+
+export const Route = createFileRoute("/_repo/$owner/$repo/docs/$numId/$docTab")(
+  {
+    beforeLoad: ({ params }) => {
+      if (!isDocViewerTab(params.docTab)) {
+        throw redirect({
+          to: "/$owner/$repo/docs/$numId/$docTab",
+          params: {
+            owner: params.owner,
+            repo: params.repo,
+            numId: params.numId,
+            docTab: DOC_VIEWER_DEFAULT_TAB,
+          },
+          search: (prev) => prev,
+        });
+      }
+    },
+    component: DocDetailTabPage,
+  },
+);
+
+function DocDetailTabPage() {
+  const { numId, docTab } = Route.useParams();
+  const { repoId } = useRepo();
+  const parsedNumId = parseRouteNumId(numId);
+  const doc = useQuery(
+    api.docs.getByNumId,
+    parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
+  );
+  const tab: DocViewerTab = isDocViewerTab(docTab)
+    ? docTab
+    : DOC_VIEWER_DEFAULT_TAB;
+
+  if (parsedNumId === null) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+        <p>Document not found</p>
+      </div>
+    );
+  }
+
+  if (doc === undefined) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (doc === null) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+        <p>Document not found</p>
+      </div>
+    );
+  }
+
+  return <DocViewer doc={doc} activeTab={tab} />;
+}

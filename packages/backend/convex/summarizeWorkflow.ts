@@ -34,8 +34,9 @@ export const summarizeSessionWorkflow = workflow.define({
       { sessionId: args.sessionId },
     );
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: sessionData.sandboxId,
+      vercelSandboxId: sessionData.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: sessionData.repoOwner,
       repoName: sessionData.repoName,
@@ -78,6 +79,7 @@ export const getSessionData = internalQuery({
   args: { sessionId: v.id("sessions") },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -106,6 +108,7 @@ Respond with ONLY a JSON array of strings, no other text. Example: ["Login form 
 
     return {
       sandboxId: session.sandboxId,
+      vercelSandboxId: session.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: session.repoId,

@@ -59,7 +59,9 @@ export const repairStuckProjectInterview = internalMutation({
       activeWorkflowId: undefined,
       reviewProjectSandboxStatus: "closed",
       lastSandboxActivity: Date.now(),
-      ...(args.clearSandboxId === true ? { sandboxId: undefined } : {}),
+      ...(args.clearSandboxId === true
+        ? { sandboxId: undefined, vercelSandboxId: undefined }
+        : {}),
     });
 
     return { clearedWorkflow, removedEmptyAssistant, resetSandboxStatus };

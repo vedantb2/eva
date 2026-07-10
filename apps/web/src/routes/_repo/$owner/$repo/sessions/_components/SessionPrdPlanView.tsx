@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -31,6 +31,7 @@ import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
 interface SessionPrdPlanViewProps {
@@ -51,6 +52,7 @@ export function SessionPrdPlanView({
   const isPanel = variant === "panel";
   const { basePath } = useRepo();
   const navigate = useNavigate();
+  const convex = useConvex();
   const updatePlanContent = useMutation(api.sessions.updatePlanContent);
   const createDocFromSession = useMutation(api.docs.createFromSession);
   const linkedDoc = useQuery(api.docs.getBySession, { sessionId });
@@ -110,11 +112,23 @@ export function SessionPrdPlanView({
     setIsSavingDoc(true);
     try {
       const docId = await createDocFromSession({ sessionId });
-      navigate({ to: `${basePath}/docs/${docId}/${DOC_VIEWER_DEFAULT_TAB}` });
+      const doc = await convex.query(api.docs.get, { id: docId });
+      const segment = doc ? entityPathSegment(doc) : null;
+      if (!segment) {
+        return;
+      }
+      navigate({ to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}` });
     } finally {
       setIsSavingDoc(false);
     }
-  }, [basePath, createDocFromSession, navigate, planContent, sessionId]);
+  }, [
+    basePath,
+    convex,
+    createDocFromSession,
+    navigate,
+    planContent,
+    sessionId,
+  ]);
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";

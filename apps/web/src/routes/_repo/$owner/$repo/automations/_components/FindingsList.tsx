@@ -1,7 +1,10 @@
+"use client";
+
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import type { Doc, Id } from "@conductor/backend";
 import { Button, Badge, Checkbox, Spinner, cn } from "@conductor/ui";
 import {
   IconChevronDown,
@@ -9,6 +12,7 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import { entityPathSegment } from "@/lib/numId";
 
 type AutomationRun = Doc<"automationRuns">;
 type Finding = NonNullable<AutomationRun["findings"]>[number];
@@ -131,9 +135,15 @@ function FindingRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasTaskCreated = finding.taskId !== undefined;
-  const taskUrl = hasTaskCreated
-    ? `/${repoOwner}/${repoName}/quick-tasks/${finding.taskId}/activity`
-    : null;
+  const task = useQuery(
+    api.agentTasks.get,
+    hasTaskCreated && finding.taskId ? { id: finding.taskId } : "skip",
+  );
+  const taskSegment = task ? entityPathSegment(task) : null;
+  const taskUrl =
+    taskSegment !== null
+      ? `/${repoOwner}/${repoName}/quick-tasks/${taskSegment}/activity`
+      : null;
 
   return (
     <div

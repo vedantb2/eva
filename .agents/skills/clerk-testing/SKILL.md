@@ -1,11 +1,14 @@
 ---
 name: clerk-testing
-description: E2E testing for Clerk apps. Use with Playwright or Cypress for auth flow tests.
+description:
+  E2E testing for Clerk apps. Use with Playwright or Cypress for auth flow
+  tests.
 allowed-tools: WebFetch
 license: MIT
 metadata:
   author: clerk
-  version: "1.0.0"
+  version: 1.2.0
+compatibility: Requires CLERK_TESTING_TOKEN from Clerk dashboard
 ---
 
 # Testing
@@ -55,4 +58,6 @@ Test auth = isolated session state. Each test needs fresh auth context.
 
 ## See Also
 
-- [Demo Repo](https://github.com/clerk/clerk-playwright-nextjs/tree/95c7189a48c24d7e9e9744897040aa9418f68ac2/e2e)
+- `clerk-setup` - Install Clerk before adding tests
+- `clerk-nextjs-patterns` - Next.js patterns being tested
+- [Demo Repo](https://github.com/clerk/clerk-playwright-nextjs/tree/main/e2e)

@@ -238,6 +238,54 @@ export const getSeededAppStatus = authQuery({
   },
 });
 
+/**
+ * Resolves the PRIMARY seed app for a whole-repo seeded snapshot build (see
+ * SNAPSHOT_SINGLE_REFACTOR_DESIGN.md). Among the seedable apps (siblings with
+ * stopCommands, not the monorepo parent), the primary is the one whose
+ * combined startup/background/stop commands need Supabase state capture
+ * (owns start-db/supabase/seed:sql) — for carepulse that is apps/web. Falls
+ * back to the first seedable app if none match. Returns null when there are
+ * no seedable apps at all.
+ */
+export const getPrimarySeedAppRepo = internalQuery({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.union(
+    v.object({
+      primaryRepoId: v.id("githubRepos"),
+      seedableRepoIds: v.array(v.id("githubRepos")),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const apps = await findSeedableAppRepos(ctx.db, args.repoSnapshotId);
+    if (apps.length === 0) return null;
+
+    const seedableRepoIds = apps.map((r) => r._id);
+    let primary = apps.find((r) =>
+      shouldCaptureSupabaseState([
+        ...(r.startupCommands ?? []),
+        ...(r.backgroundCommands ?? []),
+        ...(r.stopCommands ?? []),
+      ]),
+    );
+    if (!primary) primary = apps[0];
+
+    return { primaryRepoId: primary._id, seedableRepoIds };
+  },
+});
+
+/** Mirrors snapshotActions.shouldCaptureSupabaseState — kept local to avoid a "use node" import. */
+function shouldCaptureSupabaseState(commands: string[]): boolean {
+  return commands.some((command) => {
+    const lower = command.toLowerCase();
+    return (
+      lower.includes("supabase") ||
+      lower.includes("start-db") ||
+      lower.includes("seed:sql")
+    );
+  });
+}
+
 /** Sets (or clears) an app repo's seeded snapshot name (+ input fingerprint). */
 export const setSeededSnapshotName = internalMutation({
   args: {
@@ -253,6 +301,29 @@ export const setSeededSnapshotName = internalMutation({
         ? { seededFingerprint: args.seededFingerprint ?? undefined }
         : {}),
     });
+    return null;
+  },
+});
+
+/**
+ * Writes the SAME seeded snapshot id to every seedable app repo. Used by the
+ * single whole-repo seeded snapshot flow: one snapshot is built (from the
+ * primary app) but every seedable app repo's `seededSnapshotName` must point
+ * at it so any app can boot from it (getRepoSnapshotName reads this field
+ * per-repo at sandbox-create time).
+ */
+export const setSeededSnapshotNameForAll = internalMutation({
+  args: {
+    repoIds: v.array(v.id("githubRepos")),
+    seededSnapshotName: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    for (const repoId of args.repoIds) {
+      await ctx.db.patch(repoId, {
+        seededSnapshotName: args.seededSnapshotName ?? undefined,
+      });
+    }
     return null;
   },
 });

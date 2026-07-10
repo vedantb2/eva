@@ -1,4 +1,4 @@
-# Caching with Auth (CRITICAL)
+# Caching with Auth
 
 **CRITICAL**: Cache keys MUST include userId/orgId to prevent data leaking between users.
 

@@ -78,6 +78,7 @@ var DONE_FILE = "/tmp/run-design.done";
 var CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 var CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 var CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
+var CLAUDE_BIN_PATH = process.env.CLAUDE_BIN_PATH || "/tmp/claude-cli/bin/claude";
 var CODEX_RUNTIME_HOME_DIR = process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 var CODEX_PERSIST_DIR = process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
 var CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
@@ -139,6 +140,7 @@ var normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
 var normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
+var claudeCommand = existsSync(CLAUDE_BIN_PATH) ? JSON.stringify(CLAUDE_BIN_PATH) : "claude";
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
 var cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
@@ -148,7 +150,7 @@ var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto -
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
 var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
-var claudeBaseCmd = "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -1634,6 +1636,20 @@ function hydratePersistedClaudeState() {
     "hydratePersistedClaudeState finished in " + String(Date.now() - startedAt) + "ms"
   );
 }
+function ensureClaudeWorkspaceTrust() {
+  const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
+  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  const parsed = existsSync3(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
+  const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
+  const rawProjects = config.projects;
+  const projects = rawProjects && typeof rawProjects === "object" && !Array.isArray(rawProjects) ? { ...rawProjects } : {};
+  const rawProject = projects[WORK_DIR];
+  const projectEntry = rawProject && typeof rawProject === "object" && !Array.isArray(rawProject) ? { ...rawProject } : {};
+  projectEntry.hasTrustDialogAccepted = true;
+  projects[WORK_DIR] = projectEntry;
+  config.projects = projects;
+  writeFileSync3(configPath, JSON.stringify(config, null, 2));
+}
 function resolveClaudeSessionMode() {
   const configuredSessionId = process.env.CLAUDE_SESSION_ID;
   if (!configuredSessionId) {
@@ -1641,7 +1657,18 @@ function resolveClaudeSessionMode() {
   }
   const persistedState = readClaudeSessionState();
   if (persistedState) {
-    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+    if (existsSync3(
+      buildClaudeTranscriptPath(
+        CLAUDE_LOCAL_PROJECT_DIR,
+        persistedState.resumeSessionId
+      )
+    )) {
+      return { mode: "resume", sessionId: persistedState.resumeSessionId };
+    }
+    log(
+      "resolveClaudeSessionMode: persisted state without transcript, starting fresh session"
+    );
+    return { mode: "session", sessionId: configuredSessionId };
   }
   if (existsSync3(
     buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId)
@@ -1688,6 +1715,7 @@ function prepareClaudeSessionState() {
     "Hydrating saved session..."
   );
   hydratePersistedClaudeState();
+  ensureClaudeWorkspaceTrust();
   const sessionMode = resolveClaudeSessionMode();
   callbackState.activeClaudeSessionMode = sessionMode.mode;
   updateThinkingStep(
@@ -3804,7 +3832,7 @@ try {
   }
   await setFinalizingState();
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
-  const runSucceededWithResult = finalResultEvent !== void 0 && !finalResultEvent.isError;
+  const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError;
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;

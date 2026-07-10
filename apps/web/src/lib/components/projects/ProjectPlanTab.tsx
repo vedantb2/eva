@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Input } from "@conductor/ui";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
@@ -13,6 +14,7 @@ import {
   IconCircleCheck,
   IconArrowBack,
 } from "@tabler/icons-react";
+import { entityPathSegment } from "@/lib/numId";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface ProjectPlanTabProps {
@@ -32,6 +34,7 @@ export function ProjectPlanTab({
   onRejectSpec,
 }: ProjectPlanTabProps) {
   const navigate = useNavigate();
+  const project = useQuery(api.projects.get, { id: projectId });
   const startDevelopment = useMutation(api.projects.startDevelopment);
   const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
     (localStore, args) => {
@@ -97,7 +100,10 @@ export function ProjectPlanTab({
         });
       }
       await startDevelopment({ projectId });
-      navigate({ to: `${basePath}/projects/${projectId}` });
+      const segment = project ? entityPathSegment(project) : null;
+      if (segment) {
+        navigate({ to: `${basePath}/projects/${segment}` });
+      }
     } finally {
       setIsLoading(false);
     }

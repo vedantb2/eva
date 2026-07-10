@@ -222,7 +222,7 @@ try {
     Boolean(finalToolStallErrorMessage);
 
   const runSucceededWithResult =
-    finalResultEvent !== undefined && !finalResultEvent.isError;
+    finalResultEvent != null && !finalResultEvent.isError;
 
   let errorValue: string | null = null;
   if (finalResultEvent?.isError) {

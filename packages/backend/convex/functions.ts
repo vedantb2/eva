@@ -22,6 +22,7 @@ import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { scheduleProjectPrSync } from "./_projects/prSync";
+import { isEntityDeleted } from "./numId";
 
 /** Checks if a user has access to a repo — either as the connector or via team membership. */
 export async function hasRepoAccess(
@@ -317,6 +318,31 @@ export async function deleteTaskRelatedData(
     await ctx.db.delete(event._id);
   }
   await ctx.db.delete(taskId);
+}
+
+/**
+ * Soft-deletes a task: cancels schedules and sandbox cleanup, but keeps the row.
+ */
+export async function softDeleteAgentTask(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<void> {
+  const task = await ctx.db.get(taskId);
+  if (!task || isEntityDeleted(task)) return;
+  if (task.scheduledFunctionId) {
+    try {
+      await ctx.scheduler.cancel(task.scheduledFunctionId);
+    } catch {
+      // may have already fired
+    }
+  }
+  if (!task.projectId && task.sandboxId && task.repoId) {
+    await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
+  }
+  await ctx.db.patch(taskId, { deletedAt: Date.now() });
 }
 
 /** Authenticated query wrapper — injects userId into context, throws if not authenticated. */

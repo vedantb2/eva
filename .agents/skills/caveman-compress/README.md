@@ -17,7 +17,7 @@ Claude read `CLAUDE.md` on every session start. If file big, cost big. Caveman m
 ## What It Do
 
 ```
-/caveman:compress CLAUDE.md
+/caveman-compress CLAUDE.md
 ```
 
 ```
@@ -55,7 +55,7 @@ All validations passed ✅ — headings, code blocks, URLs, file paths preserved
 </td>
 <td width="50%">
 
-### 🪨 Caveman (285 tokens)
+### <img src="../../docs/assets/dancing-rock.svg" width="20" height="20" alt="rock"/> Caveman (285 tokens)
 
 > "Prefer TypeScript strict mode always. No `any` unless unavoidable — comment why if used. Proper types catch bugs early."
 
@@ -71,7 +71,7 @@ All validations passed ✅ — headings, code blocks, URLs, file paths preserved
 
 ## Install
 
-Compress is built in with the `caveman` plugin. Install `caveman` once, then use `/caveman:compress`.
+Compress is built in with the `caveman` plugin. Install `caveman` once, then use `/caveman-compress`.
 
 If you need local files, the compress skill lives at:
 
@@ -84,30 +84,30 @@ caveman-compress/
 ## Usage
 
 ```
-/caveman:compress <filepath>
+/caveman-compress <filepath>
 ```
 
 Examples:
 
 ```
-/caveman:compress CLAUDE.md
-/caveman:compress docs/preferences.md
-/caveman:compress todos.md
+/caveman-compress CLAUDE.md
+/caveman-compress docs/preferences.md
+/caveman-compress todos.md
 ```
 
 ### What files work
 
-| Type                                  | Compress?              |
-| ------------------------------------- | ---------------------- |
-| `.md`, `.txt`, `.rst`                 | ✅ Yes                 |
-| Extensionless natural language        | ✅ Yes                 |
-| `.py`, `.js`, `.ts`, `.json`, `.yaml` | ❌ Skip (code/config)  |
-| `*.original.md`                       | ❌ Skip (backup files) |
+| Type                                            | Compress?              |
+| ----------------------------------------------- | ---------------------- |
+| `.md`, `.txt`, `.rst`, `.typ`, `.typst`, `.tex` | ✅ Yes                 |
+| Extensionless natural language                  | ✅ Yes                 |
+| `.py`, `.js`, `.ts`, `.json`, `.yaml`           | ❌ Skip (code/config)  |
+| `*.original.md`                                 | ❌ Skip (backup files) |
 
 ## How It Work
 
 ```
-/caveman:compress CLAUDE.md
+/caveman-compress CLAUDE.md
         ↓
 detect file type        (no tokens)
         ↓

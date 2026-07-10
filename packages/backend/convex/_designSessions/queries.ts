@@ -1,21 +1,22 @@
 import { v } from "convex/values";
-import { sessionStatusValidator } from "../validators";
+import { designSessionFields } from "../validators";
 import { authQuery, hasRepoAccess } from "../functions";
+import { internalQuery } from "../_generated/server";
+import { entityVisible, filterActiveEntities } from "../numId";
 
 export const designSessionValidator = v.object({
   _id: v.id("designSessions"),
   _creationTime: v.number(),
-  repoId: v.id("githubRepos"),
-  userId: v.id("users"),
-  title: v.string(),
-  status: sessionStatusValidator,
-  sandboxId: v.optional(v.string()),
-  branchName: v.optional(v.string()),
-  activeWorkflowId: v.optional(v.string()),
-  archived: v.optional(v.boolean()),
-  selectedVariationIndex: v.optional(v.number()),
-  updatedAt: v.optional(v.number()),
-  devPort: v.optional(v.number()),
+  ...designSessionFields,
+});
+
+/** Internal fetch of a design session by id (status checks in node actions). */
+export const getInternal = internalQuery({
+  args: { id: v.id("designSessions") },
+  returns: v.union(designSessionValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
 });
 
 /** Lists active (non-archived) design sessions for a repo, sorted by most recently updated. */
@@ -24,10 +25,12 @@ export const list = authQuery({
   returns: v.array(designSessionValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("designSessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("designSessions")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return sessions
       .filter((s) => !s.archived)
       .sort(
@@ -43,10 +46,12 @@ export const listArchived = authQuery({
   returns: v.array(designSessionValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("designSessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("designSessions")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return sessions
       .filter((s) => s.archived === true)
       .sort(
@@ -62,10 +67,12 @@ export const countActive = authQuery({
   returns: v.number(),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
-    const sessions = await ctx.db
-      .query("designSessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const sessions = filterActiveEntities(
+      await ctx.db
+        .query("designSessions")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return sessions.filter((s) => s.status === "active" && !s.archived).length;
   },
 });
@@ -78,6 +85,25 @@ export const get = authQuery({
     const session = await ctx.db.get(args.id);
     if (!session) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
-    return session;
+    return entityVisible(session);
+  },
+});
+
+/** Resolves a design session by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(designSessionValidator, v.null()),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
+    const session = await ctx.db
+      .query("designSessions")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    return entityVisible(session);
   },
 });

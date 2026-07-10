@@ -217,7 +217,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       },
     );
 
-    if (!data.sandboxId) {
+    if (!data.sandboxId && !data.vercelSandboxId) {
       await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
         taskId: args.taskId,
         success: false,
@@ -234,9 +234,11 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     // Bring an archived/stopped sandbox back to "started" via durable polling
     // steps before validating, so a multi-minute cold-storage thaw doesn't blow
     // the per-action 10-minute limit. Once started, validate hits its fast path.
+    let started: Awaited<ReturnType<typeof ensureSandboxStartedSteps>>;
     try {
-      await ensureSandboxStartedSteps(step, {
+      started = await ensureSandboxStartedSteps(step, {
         sandboxId: data.sandboxId,
+        vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
       });
@@ -254,9 +256,22 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
+    const activeSandboxId = started.thawId;
+    if (!activeSandboxId) {
+      await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+        taskId: args.taskId,
+        success: false,
+        result: null,
+        error:
+          "No active sandbox. Start the task sandbox before sending chat messages.",
+        activityLog: null,
+      });
+      return;
+    }
+
     const validation = await step.runAction(
       internal.daytona.validateSandbox,
-      { sandboxId: data.sandboxId, repoId: data.repoId },
+      { sandboxId: activeSandboxId, repoId: data.repoId },
       { retry: false },
     );
 
@@ -273,7 +288,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     }
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId: data.sandboxId,
+      sandboxId: activeSandboxId,
       entityId: args.taskId,
       prompt: data.prompt,
       userId: args.userId,
@@ -291,10 +306,10 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     let savedSuccess = result.success;
     let savedError = result.error;
 
-    if (result.success && data.sandboxId && data.branchName) {
+    if (result.success && activeSandboxId && data.branchName) {
       try {
         await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId: data.sandboxId,
+          sandboxId: activeSandboxId,
           installationId: data.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
@@ -353,6 +368,7 @@ export const getChatData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -403,6 +419,7 @@ export const getChatData = internalQuery({
 
     return {
       sandboxId: task.sandboxId,
+      vercelSandboxId: task.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: task.repoId,

@@ -102,14 +102,21 @@ export const docInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${INTERVIEW_PROMPT} ${questionPrompt}`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
+      vercelSandboxId: docData.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       repoId: docData.repoId,
       streamingEntityId: args.docId,
       ephemeral: false,
+    });
+
+    await step.runMutation(internal.docInterviewWorkflow.saveDocSandboxId, {
+      docId: args.docId,
+      sandboxId,
+      vercelSandboxId,
     });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
@@ -147,6 +154,7 @@ export const getDocData = internalQuery({
   args: { docId: v.id("docs") },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -160,10 +168,30 @@ export const getDocData = internalQuery({
 
     return {
       sandboxId: doc.sandboxId,
+      vercelSandboxId: doc.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: doc.repoId,
     };
+  },
+});
+
+/** Persists sandbox ids on a doc after prepare so Vercel reuse works. */
+export const saveDocSandboxId = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.docId, {
+      sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
+    });
+    return null;
   },
 });
 
@@ -363,14 +391,21 @@ Generate a product description, acceptance criteria, and user journeys for this 
 
 Output ONLY valid JSON.`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
+      vercelSandboxId: docData.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       repoId: docData.repoId,
       streamingEntityId: args.docId,
       ephemeral: false,
+    });
+
+    await step.runMutation(internal.docInterviewWorkflow.saveDocSandboxId, {
+      docId: args.docId,
+      sandboxId,
+      vercelSandboxId,
     });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {

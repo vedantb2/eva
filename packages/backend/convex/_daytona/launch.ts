@@ -1,10 +1,10 @@
 "use node";
 
-import type { Sandbox } from "@daytonaio/sdk";
 import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
-import { exec, requireEnv } from "./helpers";
+import { execHandle, requireEnv } from "./helpers";
+import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
@@ -19,6 +19,9 @@ import {
   OPENCODE_RUNTIME_HOME_DIR,
 } from "./volumes";
 
+const CLAUDE_INSTALL_TIMEOUT_SECONDS = 300;
+const CLAUDE_FALLBACK_INSTALL_DIR = "/tmp/claude-cli";
+const CLAUDE_FALLBACK_BIN_PATH = `${CLAUDE_FALLBACK_INSTALL_DIR}/bin/claude`;
 const CODEX_INSTALL_TIMEOUT_SECONDS = 300;
 const CODEX_FALLBACK_INSTALL_DIR = "/tmp/codex-cli";
 const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
@@ -30,8 +33,9 @@ const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencod
 // require re-downloading if the installer symlinks to /tmp.
 const CURSOR_INSTALL_TIMEOUT_SECONDS = 300;
 const CURSOR_FALLBACK_BIN_PATH = "/home/eva/.local/bin/cursor-agent";
-const CALLBACK_READY_TIMEOUT_SECONDS = 75;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
+const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
+const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
 /** Computes a scoped streaming HMAC if the deployment encryption key is available. */
 function computeStreamingHmac(entityId: string): string | null {
@@ -47,9 +51,18 @@ function resolveConvexSiteUrl(convexCloudUrl: string): string {
   return convexCloudUrl.replace(".convex.cloud", ".convex.site");
 }
 
+/** Installs the Claude CLI globally if not already available on the sandbox. */
+async function ensureClaudeCliAvailable(sandbox: SandboxHandle): Promise<void> {
+  await execHandle(
+    sandbox,
+    `if ! command -v claude >/dev/null 2>&1 && [ ! -x ${quote([CLAUDE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code; fi`,
+    CLAUDE_INSTALL_TIMEOUT_SECONDS,
+  );
+}
+
 /** Installs the Codex CLI globally if not already available on the sandbox. */
-async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureCodexCliAvailable(sandbox: SandboxHandle): Promise<void> {
+  await execHandle(
     sandbox,
     `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
     CODEX_INSTALL_TIMEOUT_SECONDS,
@@ -57,8 +70,10 @@ async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
 }
 
 /** Installs the opencode CLI globally if not already available on the sandbox. */
-async function ensureOpencodeCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureOpencodeCliAvailable(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  await execHandle(
     sandbox,
     `if ! command -v opencode >/dev/null 2>&1 && [ ! -x ${quote([OPENCODE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([OPENCODE_FALLBACK_INSTALL_DIR])} opencode-ai; fi`,
     OPENCODE_INSTALL_TIMEOUT_SECONDS,
@@ -66,33 +81,27 @@ async function ensureOpencodeCliAvailable(sandbox: Sandbox): Promise<void> {
 }
 
 /** Installs the Cursor CLI if not already available on the sandbox. Cursor ships as a curl-bash installer (not npm) that drops the `cursor-agent` binary into ~/.local/bin. */
-async function ensureCursorCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureCursorCliAvailable(sandbox: SandboxHandle): Promise<void> {
+  await execHandle(
     sandbox,
-    `if ! command -v cursor-agent >/dev/null 2>&1 && [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ]; then curl -fsS https://cursor.com/install | bash; fi`,
+    `if ! command -v cursor-agent >/dev/null 2>&1 && [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ]; then curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh; fi; if [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent ${quote([CURSOR_FALLBACK_BIN_PATH])}; fi`,
     CURSOR_INSTALL_TIMEOUT_SECONDS,
   );
 }
 
 /** Uploads the bundled callback runner + fingerprint without starting a process. */
 export async function uploadCallbackScriptBundle(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
 ): Promise<void> {
   await Promise.all([
-    sandbox.fs.uploadFile(
-      Buffer.from(CALLBACK_SCRIPT, "utf-8"),
-      "/tmp/run-design.mjs",
-    ),
-    sandbox.fs.uploadFile(
-      Buffer.from(CALLBACK_SCRIPT_FINGERPRINT, "utf-8"),
-      "/tmp/eva-callback-fp",
-    ),
+    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT),
+    sandbox.writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT),
   ]);
 }
 
 /** Uploads prompt and callback script to the sandbox, then launches the AI runner process. */
 export async function launchScript(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   prompt: string,
   completionMutation: string,
   entityIdField: string,
@@ -114,33 +123,29 @@ export async function launchScript(
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
-  if (provider === "codex") {
-    await ensureCodexCliAvailable(sandbox);
-  } else if (provider === "opencode") {
-    await ensureOpencodeCliAvailable(sandbox);
-  } else if (provider === "cursor") {
-    await ensureCursorCliAvailable(sandbox);
-  }
+  const providerPrep: Promise<void> =
+    provider === "claude"
+      ? ensureClaudeCliAvailable(sandbox)
+      : provider === "codex"
+        ? ensureCodexCliAvailable(sandbox)
+        : provider === "opencode"
+          ? ensureOpencodeCliAvailable(sandbox)
+          : provider === "cursor"
+            ? ensureCursorCliAvailable(sandbox)
+            : Promise.resolve();
   const uploadTasks: Array<Promise<void>> = [
-    sandbox.fs
-      .uploadFile(Buffer.from(prompt, "utf-8"), "/tmp/design-prompt.txt")
-      .then(() => {
-        console.log(
-          `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
-    sandbox.fs
-      .uploadFile(Buffer.from(CALLBACK_SCRIPT, "utf-8"), "/tmp/run-design.mjs")
-      .then(() => {
-        console.log(
-          `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
-    sandbox.fs
-      .uploadFile(
-        Buffer.from(CALLBACK_SCRIPT_FINGERPRINT, "utf-8"),
-        "/tmp/eva-callback-fp",
-      )
+    sandbox.writeFile("/tmp/design-prompt.txt", prompt).then(() => {
+      console.log(
+        `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+    }),
+    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT).then(() => {
+      console.log(
+        `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+    }),
+    sandbox
+      .writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT)
       .then(() => {
         console.log(
           `[daytona][launchScript] callback fingerprint uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
@@ -161,17 +166,15 @@ export async function launchScript(
       },
     });
     uploadTasks.push(
-      sandbox.fs
-        .uploadFile(Buffer.from(mcpConfig, "utf-8"), "/tmp/eva-mcp.json")
-        .then(() => {
-          console.log(
-            `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-          );
-        }),
+      sandbox.writeFile("/tmp/eva-mcp.json", mcpConfig).then(() => {
+        console.log(
+          `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
     );
   }
 
-  await Promise.all(uploadTasks);
+  await Promise.all([providerPrep, ...uploadTasks]);
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
@@ -190,6 +193,7 @@ export async function launchScript(
     `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
     `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,
+    `CLAUDE_BIN_PATH=${quote([CLAUDE_FALLBACK_BIN_PATH])}`,
     `OPENCODE_RUNTIME_HOME_DIR=${quote([OPENCODE_RUNTIME_HOME_DIR])}`,
     `OPENCODE_PERSIST_DIR=${quote([OPENCODE_PERSIST_VOLUME_MOUNT_PATH])}`,
     `EVA_OPENCODE_BIN_PATH=${quote([OPENCODE_FALLBACK_BIN_PATH])}`,
@@ -227,13 +231,81 @@ export async function launchScript(
     }
   }
   envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
-  const envVars = envParts.join(" ");
-  await exec(
-    sandbox,
-    `rm -f /tmp/run-design.pid /tmp/run-design.ready; ${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt ${CALLBACK_READY_POLL_ATTEMPTS} ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
-    CALLBACK_READY_TIMEOUT_SECONDS,
+  const exportLines = envParts.map((part) => `export ${part}`);
+  const runnerLaunchScript = [
+    "#!/usr/bin/env bash",
+    "set -euo pipefail",
+    `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
+    "rm -f /tmp/run-design.pid /tmp/run-design.ready",
+    ...exportLines,
+    "nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
+    "echo $! > /tmp/run-design.pid",
+  ].join("\n");
+  await sandbox.writeFile("/tmp/eva-launch-runner.sh", runnerLaunchScript);
+  // Use the provider-native detached path; waitForRunnerReady confirms the
+  // backgrounded runner actually started.
+  // Use handle.exec (not execHandle) so cwd stays at the Vercel default — the script
+  await sandbox.execDetached(
+    "chmod +x /tmp/eva-launch-runner.sh && /tmp/eva-launch-runner.sh",
+    { timeoutSeconds: 15 },
   );
+  await waitForRunnerReady(sandbox, entityId);
   console.log(
     `[daytona][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+  );
+}
+
+/** Polls for /tmp/run-design.ready after a detached runner launch. */
+async function waitForRunnerReady(
+  sandbox: SandboxHandle,
+  entityId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < CALLBACK_READY_POLL_ATTEMPTS; attempt++) {
+    const ready = (
+      await execHandle(
+        sandbox,
+        `test -f /tmp/run-design.ready && echo yes || echo no`,
+        5,
+      )
+    ).trim();
+    if (ready === "yes") {
+      return;
+    }
+
+    const alive = (
+      await execHandle(
+        sandbox,
+        `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -z "$pid" ]; then echo pending; elif kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
+        5,
+      )
+    ).trim();
+    if (alive === "dead") {
+      const log = await execHandle(
+        sandbox,
+        `tail -n 120 /tmp/design.log 2>/dev/null || true`,
+        10,
+      );
+      throw new Error(
+        `[daytona][launchScript] runner died entityId=${entityId}: ${log}`,
+      );
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, CALLBACK_READY_POLL_INTERVAL_MS);
+    });
+  }
+
+  const log = await execHandle(
+    sandbox,
+    `tail -n 120 /tmp/design.log 2>/dev/null || true`,
+    10,
+  );
+  await execHandle(
+    sandbox,
+    `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi`,
+    5,
+  );
+  throw new Error(
+    `[daytona][launchScript] runner ready timeout entityId=${entityId}: ${log}`,
   );
 }

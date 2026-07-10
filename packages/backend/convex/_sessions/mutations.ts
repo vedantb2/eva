@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
+import { allocateNumId } from "../numId";
 import {
   roleValidator,
   sessionModeValidator,
@@ -22,6 +23,7 @@ export const create = authMutation({
     }
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -29,6 +31,7 @@ export const create = authMutation({
       status: "starting",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
+      numId,
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });

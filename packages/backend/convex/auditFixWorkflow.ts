@@ -21,6 +21,7 @@ export const auditFixWorkflow = workflow.define({
     auditId: v.id("audits"),
     selectedFailures: v.array(auditFailureValidator),
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),
     userId: v.id("users"),
@@ -33,17 +34,21 @@ export const auditFixWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     let resumeSandboxId = args.sandboxId;
-    if (resumeSandboxId) {
+    let resumeVercelSandboxId = args.vercelSandboxId;
+    if (resumeSandboxId || resumeVercelSandboxId) {
       try {
-        await ensureSandboxStartedSteps(step, {
+        const started = await ensureSandboxStartedSteps(step, {
           sandboxId: resumeSandboxId,
+          vercelSandboxId: resumeVercelSandboxId,
           repoId: args.repoId,
         });
+        resumeSandboxId = started.thawId;
       } catch {
         // Thaw exhausted its ceiling or the sandbox is gone — fall back to a
         // fresh sandbox (launchSelectedAuditFixes creates one when sandboxId is
         // undefined, checking out the pushed branch).
         resumeSandboxId = undefined;
+        resumeVercelSandboxId = undefined;
       }
     }
     await step.runAction(internal.daytona.launchSelectedAuditFixes, {

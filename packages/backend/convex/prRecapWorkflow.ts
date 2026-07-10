@@ -108,7 +108,7 @@ export const prRecapWorkflow = workflow.define({
 
     let sandboxId: string | undefined;
     try {
-      sandboxId = await prepareSandboxSteps(step, {
+      ({ sandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
@@ -119,7 +119,7 @@ export const prRecapWorkflow = workflow.define({
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
         // Recap agents only read the diff in-repo; no convex import / dev daemons.
         skipStartupCommands: true,
-      });
+      }));
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,

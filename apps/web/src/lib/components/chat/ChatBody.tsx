@@ -20,6 +20,7 @@ import {
 } from "@conductor/ui";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import {
   IconPlayerStop,
@@ -276,151 +277,173 @@ export function ChatBody({
     [queuedMessages, formatQueuedInfo],
   );
 
+  // Index of the latest user message — everything from here to the end is the
+  // "last turn" that gets viewport min-height so stick-to-bottom pins it to the top.
+  const lastUserMessageIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (message && message.role === "user" && !message.isSystemAlert) {
+        return i;
+      }
+    }
+    return -1;
+  }, [messages]);
+
+  const renderMessage = (message: ChatBodyMessage) => {
+    if (message.isSystemAlert) {
+      return (
+        <SystemAlertMessage
+          key={message._id}
+          content={message.content ?? ""}
+          errorDetail={message.errorDetail}
+          timestamp={message.timestamp}
+        />
+      );
+    }
+
+    return (
+      <motion.div
+        key={message._id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <AIMessage from={message.role}>
+          <MessageContent
+            className={
+              message.role === "user"
+                ? "group rounded-surface bg-secondary text-foreground px-4 py-3"
+                : "px-1 py-2"
+            }
+          >
+            {message.role === "assistant" && !message.content ? (
+              <>
+                <StreamingActivityDisplay
+                  activity={streamingActivity}
+                  name="Eva"
+                  startedAt={message.timestamp}
+                />
+                {message._id === lastMessage?._id && streamingContent ? (
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                    {streamingContent}
+                  </MessageResponse>
+                ) : null}
+                {activePendingQuestion && (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={activePendingQuestion}
+                      onAnswer={handleQuestionAnswer}
+                      isLoading={isExecuting}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {message.role === "assistant" ? (
+                  <>
+                    {message.activityLog && (
+                      <ActivityLogDisplay
+                        activityLog={message.activityLog}
+                        name="Eva"
+                        icon={evaIcon}
+                        startedAt={message.timestamp}
+                        finishedAt={message.finishedAt}
+                        finalText={message.content}
+                      />
+                    )}
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {message.content}
+                    </MessageResponse>
+                    {message.imageUrl && (
+                      <ScreenshotPreview url={message.imageUrl} />
+                    )}
+                    {message.videoUrl && (
+                      <VideoPreview url={message.videoUrl} />
+                    )}
+                    {message._id === lastMessage?._id &&
+                      activePendingQuestion && (
+                        <div className="mt-3">
+                          <MultipleChoiceQuestion
+                            questions={activePendingQuestion}
+                            onAnswer={handleQuestionAnswer}
+                          />
+                        </div>
+                      )}
+                  </>
+                ) : (
+                  <MessageMentionText
+                    text={message.content}
+                    repoBasePath={repoBasePath}
+                  />
+                )}
+              </>
+            )}
+          </MessageContent>
+          {message.role === "assistant" && message.content ? (
+            <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+              <ChatMessageActions
+                copyText={message.content}
+                className="ml-0.5"
+                revealOnHover={false}
+              />
+              {message.finishedAt && message.timestamp ? (
+                <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                  {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                  {formatDuration(message.timestamp, message.finishedAt)}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {message.role === "user" && (
+            <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
+              <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                {message.mode && (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                    {message.mode === "plan" ? (
+                      <>
+                        <IconClipboardList className="w-2.5 h-2.5" /> PRD
+                      </>
+                    ) : (
+                      <>
+                        <IconCode className="w-2.5 h-2.5" /> Edit
+                      </>
+                    )}
+                  </div>
+                )}
+                {message.timestamp && (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {dayjs(message.timestamp).format("h:mm A")}
+                  </span>
+                )}
+              </div>
+              <UserMessageAvatar userId={message.userId} />
+            </div>
+          )}
+        </AIMessage>
+      </motion.div>
+    );
+  };
+
   return (
     <>
       {preConversationContent}
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0
-            ? (emptyStateOverride ?? (
-                <ConversationEmptyState title={emptyStateTitle} />
-              ))
-            : messages.map((message) =>
-                message.isSystemAlert ? (
-                  <SystemAlertMessage
-                    key={message._id}
-                    content={message.content ?? ""}
-                    errorDetail={message.errorDetail}
-                    timestamp={message.timestamp}
-                  />
-                ) : (
-                  <motion.div
-                    key={message._id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <AIMessage from={message.role}>
-                      <MessageContent
-                        className={
-                          message.role === "user"
-                            ? "group rounded-surface bg-secondary text-foreground px-4 py-3"
-                            : "px-1 py-2"
-                        }
-                      >
-                        {message.role === "assistant" && !message.content ? (
-                          <>
-                            <StreamingActivityDisplay
-                              activity={streamingActivity}
-                              name="Eva"
-                              startedAt={message.timestamp}
-                            />
-                            {message._id === lastMessage?._id &&
-                            streamingContent ? (
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
-                                {streamingContent}
-                              </MessageResponse>
-                            ) : null}
-                            {activePendingQuestion && (
-                              <div className="mt-3">
-                                <MultipleChoiceQuestion
-                                  questions={activePendingQuestion}
-                                  onAnswer={handleQuestionAnswer}
-                                  isLoading={isExecuting}
-                                />
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {message.role === "assistant" ? (
-                              <>
-                                {message.activityLog && (
-                                  <ActivityLogDisplay
-                                    activityLog={message.activityLog}
-                                    name="Eva"
-                                    icon={evaIcon}
-                                    startedAt={message.timestamp}
-                                    finishedAt={message.finishedAt}
-                                    finalText={message.content}
-                                  />
-                                )}
-                                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                  {message.content}
-                                </MessageResponse>
-                                {message.imageUrl && (
-                                  <ScreenshotPreview url={message.imageUrl} />
-                                )}
-                                {message.videoUrl && (
-                                  <VideoPreview url={message.videoUrl} />
-                                )}
-                                {message._id === lastMessage?._id &&
-                                  activePendingQuestion && (
-                                    <div className="mt-3">
-                                      <MultipleChoiceQuestion
-                                        questions={activePendingQuestion}
-                                        onAnswer={handleQuestionAnswer}
-                                      />
-                                    </div>
-                                  )}
-                              </>
-                            ) : (
-                              <MessageMentionText
-                                text={message.content}
-                                repoBasePath={repoBasePath}
-                              />
-                            )}
-                          </>
-                        )}
-                      </MessageContent>
-                      {message.role === "assistant" && message.content ? (
-                        <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                          <ChatMessageActions
-                            copyText={message.content}
-                            className="ml-0.5"
-                            revealOnHover={false}
-                          />
-                          {message.finishedAt && message.timestamp ? (
-                            <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                              {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                              {formatDuration(
-                                message.timestamp,
-                                message.finishedAt,
-                              )}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {message.role === "user" && (
-                        <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
-                          <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {message.mode && (
-                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                {message.mode === "plan" ? (
-                                  <>
-                                    <IconClipboardList className="w-2.5 h-2.5" />{" "}
-                                    PRD
-                                  </>
-                                ) : (
-                                  <>
-                                    <IconCode className="w-2.5 h-2.5" /> Edit
-                                  </>
-                                )}
-                              </div>
-                            )}
-                            {message.timestamp && (
-                              <span className="text-[11px] text-muted-foreground/60">
-                                {dayjs(message.timestamp).format("h:mm A")}
-                              </span>
-                            )}
-                          </div>
-                          <UserMessageAvatar userId={message.userId} />
-                        </div>
-                      )}
-                    </AIMessage>
-                  </motion.div>
-                ),
-              )}
+          {messages.length === 0 ? (
+            (emptyStateOverride ?? (
+              <ConversationEmptyState title={emptyStateTitle} />
+            ))
+          ) : lastUserMessageIndex < 0 ? (
+            messages.map(renderMessage)
+          ) : (
+            <>
+              {messages.slice(0, lastUserMessageIndex).map(renderMessage)}
+              <ChatLastTurn>
+                {messages.slice(lastUserMessageIndex).map(renderMessage)}
+              </ChatLastTurn>
+            </>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

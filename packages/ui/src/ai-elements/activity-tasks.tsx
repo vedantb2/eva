@@ -129,25 +129,24 @@ function ActivityBlockList({
       : blocks.slice(0, MAX_VISIBLE_BLOCKS)
     : blocks;
 
+  // Streaming turns show the toggle above the list (newest kept at the
+  // bottom); settled turns show it below. Same element either way.
+  const toggle =
+    overflow > 0 ? (
+      <OverflowToggle
+        expanded={expanded}
+        overflow={overflow}
+        onToggle={() => setExpanded((v) => !v)}
+      />
+    ) : null;
+
   return (
     <>
-      {overflow > 0 && isStreaming && (
-        <OverflowToggle
-          expanded={expanded}
-          overflow={overflow}
-          onToggle={() => setExpanded((v) => !v)}
-        />
-      )}
+      {isStreaming && toggle}
       {visible.map((block, i) => (
         <ActivityBlockRow key={i} block={block} />
       ))}
-      {overflow > 0 && !isStreaming && (
-        <OverflowToggle
-          expanded={expanded}
-          overflow={overflow}
-          onToggle={() => setExpanded((v) => !v)}
-        />
-      )}
+      {!isStreaming && toggle}
     </>
   );
 }
@@ -194,9 +193,38 @@ export const ActivityTasks = memo(
 
     void finalText;
 
-    const headerText = `${name ?? "Eva"} is ${verb.toLowerCase()}...${
-      startedAt ? ` (${formatElapsed(elapsed)})` : ""
-    }`;
+    // When real tool/file blocks exist, they already shimmer their own titles —
+    // don't also show the random "Eva is inferring…" header above them.
+    // When only hidden steps (thinking) remain, prefer that step's label over
+    // a random verb so sandbox startup can say "Starting sandbox..." immediately.
+    const activeStep =
+      steps.find((step) => step.status === "active") ?? steps[0];
+    const headerText =
+      blocks.length > 0
+        ? null
+        : `${
+            activeStep?.label ?? `${name ?? "Eva"} is ${verb.toLowerCase()}...`
+          }${startedAt ? ` (${formatElapsed(elapsed)})` : ""}`;
+
+    // Settled turn with a known per-turn duration (P1): collapse the whole
+    // turn's activity behind one "Worked for Ns" trigger, default closed.
+    if (!isStreaming && duration) {
+      return (
+        <Collapsible
+          className={cn("group text-sm", className)}
+          defaultOpen={false}
+          {...props}
+        >
+          <CollapsibleTrigger className="flex w-full items-center gap-2 border-b border-border pb-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground">
+            <span>Worked for {duration}</span>
+            <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+            <ActivityBlockList blocks={blocks} isStreaming={false} />
+          </CollapsibleContent>
+        </Collapsible>
+      );
+    }
 
     // Settled turn with a known per-turn duration (P1): collapse the whole
     // turn's activity behind one "Worked for Ns" trigger, default closed.
@@ -220,14 +248,14 @@ export const ActivityTasks = memo(
 
     return (
       <div className={cn("space-y-1.5 text-sm", className)} {...props}>
-        {isStreaming && (
+        {isStreaming && headerText ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Spinner size="sm" />
             <Shimmer as="span" duration={2.5} spread={1.5}>
               {headerText}
             </Shimmer>
           </div>
-        )}
+        ) : null}
         <ActivityBlockList blocks={blocks} isStreaming={isStreaming} />
       </div>
     );

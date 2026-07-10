@@ -11,8 +11,6 @@ Avoid interleaving style writes with layout reads. When you read a layout proper
 
 **This is OK (browser batches style changes):**
 
-**This is OK (browser batches style changes):**
-
 ```typescript
 function updateElementStyles(element: HTMLElement) {
   // Each line invalidates style, but browser batches the recalculation

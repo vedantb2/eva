@@ -6,6 +6,7 @@ import {
   hasRepoAccess,
   recomputeProjectPhase,
 } from "../functions";
+import { allocateNumId } from "../numId";
 import { createNotification } from "../notifications";
 import { ensureSubscribed } from "../taskSubscribers";
 import {
@@ -79,6 +80,7 @@ export const saveDraft = authMutation({
       createdBy: ctx.userId,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       projectId: args.projectId,
+      numId: await allocateNumId(ctx.db, args.repoId, "agentTasks"),
     });
     await ensureSubscribed(ctx, draftId, ctx.userId);
     return draftId;

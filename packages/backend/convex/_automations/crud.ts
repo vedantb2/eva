@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { aiModelValidator, automationFields } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
+import { allocateNumId, entityVisible, filterActiveEntities } from "../numId";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
 import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";
@@ -36,7 +37,40 @@ export const get = authQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const automation = await ctx.db.get(args.id);
+    if (!automation) return null;
+    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
+      return null;
+    }
+    return entityVisible(automation);
+  },
+});
+
+/** Resolves an automation by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("automations"),
+      _creationTime: v.number(),
+      ...automationFields,
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return null;
+    }
+    const automation = await ctx.db
+      .query("automations")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    return entityVisible(automation);
   },
 });
 
@@ -52,6 +86,7 @@ export const create = authMutation({
       throw new Error("Not authorized");
     }
     const now = Date.now();
+    const numId = await allocateNumId(ctx.db, args.repoId, "automations");
     return await ctx.db.insert("automations", {
       repoId: args.repoId,
       title: args.title,
@@ -61,6 +96,7 @@ export const create = authMutation({
       createdBy: ctx.userId,
       createdAt: now,
       updatedAt: now,
+      numId,
     });
   },
 });
@@ -132,7 +168,7 @@ export const update = authMutation({
   },
 });
 
-/** Deletes an automation, its cron job, and all associated runs. */
+/** Soft-deletes an automation: stops cron scheduling but keeps the row and runs. */
 export const remove = authMutation({
   args: { id: v.id("automations") },
   returns: v.null(),
@@ -146,15 +182,12 @@ export const remove = authMutation({
     const cronName = `automation-${String(args.id)}`;
     await safeDeleteCron(ctx, cronName, automation.cronJobId);
 
-    const runs = await ctx.db
-      .query("automationRuns")
-      .withIndex("by_automation", (q) => q.eq("automationId", args.id))
-      .collect();
-    for (const run of runs) {
-      await ctx.db.delete(run._id);
-    }
-
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, {
+      enabled: false,
+      cronJobId: undefined,
+      deletedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

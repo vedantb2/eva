@@ -73,15 +73,6 @@ function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function Layout({ children }: { children: ReactNode }) {
-  return (
-    <div>
-      <Header />
-      {children}
-    </div>
-  );
-}
-
 export default function Page() {
   return (
     <Layout>

@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { SessionListSidebar } from "@/lib/components/sidebar/SessionListSidebar";
+import { entityPathSegment } from "@/lib/numId";
 import { IconTerminal2 } from "@tabler/icons-react";
 
 type ChatEntry = FunctionReturnType<
@@ -33,6 +34,7 @@ export function SessionsSidebar({
   onNavigate,
   createRequestId,
 }: SessionsSidebarProps) {
+  const convex = useConvex();
   const sessions = useQuery(api.sessions.list, { repoId });
   const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
   const rawChatEntries = useQuery(api.sessions.listChatEntries, { repoId });
@@ -104,12 +106,14 @@ export function SessionsSidebar({
 
   // Deep link into the existing project/task sandbox page (defaulting to the
   // "preview" tab) and stay highlighted for any tab under that sandbox.
-  const chatEntries: SidebarChatEntry[] | undefined = rawChatEntries?.map(
-    (entry) => {
+  const chatEntries: SidebarChatEntry[] | undefined = rawChatEntries
+    ?.map((entry) => {
+      const entrySegment = entityPathSegment(entry);
+      if (!entrySegment) return null;
       const entryBasePath =
         entry.kind === "project"
-          ? `${basePath}/projects/${entry.id}`
-          : `${basePath}/quick-tasks/${entry.id}`;
+          ? `${basePath}/projects/${entrySegment}`
+          : `${basePath}/quick-tasks/${entrySegment}`;
       const isSelected =
         pathname === entryBasePath || pathname.startsWith(`${entryBasePath}/`);
       return {
@@ -117,8 +121,8 @@ export function SessionsSidebar({
         href: `${entryBasePath}/sandbox/preview`,
         isSelected,
       };
-    },
-  );
+    })
+    .filter((entry) => entry !== null);
 
   return (
     <SessionListSidebar
@@ -131,7 +135,12 @@ export function SessionsSidebar({
       createRequestId={createRequestId}
       onCreate={async (title) => {
         const id = await createSession({ repoId, title });
-        return id;
+        const session = await convex.query(api.sessions.get, { id });
+        const segment = session ? entityPathSegment(session) : null;
+        if (!segment) {
+          throw new Error("Created session is missing numId");
+        }
+        return segment;
       }}
       onArchive={async (session) => {
         if (session.sandboxId) {
@@ -153,7 +162,12 @@ export function SessionsSidebar({
           repoId,
           title: `${session.title} (copy)`,
         });
-        return id;
+        const created = await convex.query(api.sessions.get, { id });
+        const segment = created ? entityPathSegment(created) : null;
+        if (!segment) {
+          throw new Error("Duplicated session is missing numId");
+        }
+        return segment;
       }}
       emptyIcon={<IconTerminal2 size={28} />}
       emptyLabel="No sessions yet"

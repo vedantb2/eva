@@ -3,36 +3,41 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveAllEnvVars, resolveDaytonaApiKey } from "./envVarResolver";
+import {
+  resolveAllEnvVars,
+  resolveDaytonaApiKey,
+  resolveSandboxCredentials,
+} from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
-  exec,
-  getSandbox,
+  execHandle,
+  getSandboxHandle,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
-import {
-  createSandbox,
-  createSandboxAndPrepareRepo,
-  SESSION_LIFECYCLE,
-  WARMING_LIFECYCLE,
-} from "./_daytona/git";
+import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
 import {
   getSnapshot,
   deleteSnapshotByName,
   waitForSnapshotRemoval,
   triggerSandboxSnapshot,
 } from "./_daytona/snapshots";
+import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
+import { Sandbox } from "@vercel/sandbox";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
 const SEED_PREP_LABEL_KEY = "eva.purpose";
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
-const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
+
+// Pinned Supabase CLI version installed on fresh Vercel sandboxes (no base
+// Image toolchain baked in). Matches the version baked into the Daytona
+// Image (buildSnapshotImage) so seed behaviour is identical across providers.
+const SUPABASE_CLI_VERSION = "2.90.0";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -440,8 +445,8 @@ export const pollSnapshotProgress = internalAction({
       return "error";
     }
 
-    const daytona = getDaytona(daytonaApiKey);
-    const snapshot = await getSnapshot(daytona, args.snapshotName);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
+    const snapshot = await getSnapshot(client, args.snapshotName);
     if (!snapshot) {
       // The base snapshot was just kicked off, so a missing one is unexpected;
       // throw so the workflow step fails (matches the prior get-throws path).
@@ -535,15 +540,15 @@ export const deleteExistingSnapshot = internalAction({
       return null;
     }
 
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
 
-    const deleted = await deleteSnapshotByName(daytona, args.snapshotName);
+    const deleted = await deleteSnapshotByName(client, args.snapshotName);
     if (deleted) {
       await ctx.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
         chunk: "Deleting existing snapshot, waiting for removal...\n",
       });
-      await waitForSnapshotRemoval(daytona, args.snapshotName);
+      await waitForSnapshotRemoval(client, args.snapshotName);
     }
 
     return null;
@@ -564,8 +569,8 @@ export const deleteDaytonaSnapshot = internalAction({
       );
     }
 
-    const daytona = getDaytona(daytonaApiKey);
-    await deleteSnapshotByName(daytona, args.snapshotName);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
+    await deleteSnapshotByName(client, args.snapshotName);
     return null;
   },
 });
@@ -858,6 +863,7 @@ export const launchSeedRun = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const startupCommands: string[] | null = await ctx.runQuery(
       internal.repoSnapshots.getStartupCommands,
       { repoId: args.repoId },
@@ -880,11 +886,126 @@ export const launchSeedRun = internalAction({
       "exec > /tmp/seedrun.log 2>&1",
       "set -x",
       "rm -f /tmp/.seedrun-done",
-      // ---- update: latest code + fresh deps/artifacts ----
+    ];
+    // Daytona bakes its whole agent-CLI toolchain (claude, codex, opencode,
+    // cursor-agent, supabase, docker, ...) into the sandbox's Image via
+    // buildSnapshotImage — every fresh Daytona sandbox already has them.
+    //
+    // Vercel has NO equivalent custom Image: a fresh Vercel sandbox boots
+    // bare `node24` with none of this installed. The ONLY place the CLIs get
+    // installed for Vercel is right here, once, on the seed-prep sandbox —
+    // they end up on disk only because this stage runs before the capture
+    // below (triggerSeededSnapshot) bakes the whole filesystem into the
+    // seeded `snap_*` snapshot. A session sandbox that boots from anything
+    // OTHER than that seeded snapshot (i.e. bare node24, because no seed
+    // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
+    // — this is expected, not a bug; see getRepoSnapshotName.
+    if (credentials.kind === "vercel") {
+      lines.push(
+        'echo "SEEDRUN-STAGE:toolchain"',
+        // Staging dirs eva's commands hardcode as /home/eva/... — the Vercel
+        // sandbox user is not literally "eva", so pre-create + open them up.
+        "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
+        'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+        "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        // Start dockerd detached and wait for it to come up.
+        'sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+        'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
+        'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
+        "git config --global --add safe.directory '*'",
+        // Pinned Supabase CLI (tarball — same pinned version as the Daytona Image's .deb install).
+        `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+        'sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+        'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+        'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
+        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
+        // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
+        // Amazon Linux has no openbox/fluxbox packages — Chrome runs on Xvnc
+        // without a WM (same as the GUI reference).
+        'sudo rm -rf /opt/novnc /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+        "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
+        'sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
+        'curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1 || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
+        "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
+        "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
+        "mkdir -p /home/eva/.claude/plugins/marketplaces",
+        'git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
+        'git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
+        'git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
+        `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+        // Persist PATH additions into the sandbox filesystem itself (not just
+        // the current shell) so agent CLIs survive into the captured snap_*
+        // and are found by every later session exec:
+        //   - /etc/profile.d runs for every `bash -lc` login-shell exec (see
+        //     SOURCE_ENV / exec() in vercelProvider.ts) — the durable fix.
+        //   - .bashrc/.eva-env.sh are best-effort belt-and-suspenders; note
+        //     .eva-env.sh gets fully REWRITTEN by every session create() with
+        //     that session's env vars (vercelProvider.ts renderEnvFile), so
+        //     /etc/profile.d is what actually has to carry this across boots.
+        'echo "SEEDRUN-STAGE:path-setup"',
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /home/eva/.bashrc",
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /vercel/sandbox/.eva-env.sh",
+      );
+
+      // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
+      // sandbox the way they are into the Daytona Image — download them here so
+      // the update stage below can copy them into /tmp/repo before install.
+      const configFiles: SandboxConfigFile[] = await ctx.runQuery(
+        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+        { repoId: args.repoId },
+      );
+      const downloadableFiles = filterDownloadableConfigFiles(configFiles);
+      if (downloadableFiles.length > 0) {
+        lines.push('echo "SEEDRUN-STAGE:config-files"');
+        downloadableFiles.forEach((file, i) => {
+          const commands = buildConfigFileDownloadCommands(
+            file,
+            "/home/eva/sandbox-config",
+          );
+          commands.forEach((command) => {
+            lines.push(
+              `( ${command} ) || { echo "SEEDRUN-FAILED:config-${i}"; exit 1; }`,
+            );
+          });
+        });
+      }
+    }
+    // ---- update: latest code + fresh deps/artifacts ----
+    lines.push(
       'echo "SEEDRUN-STAGE:update"',
       'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
       `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
-    ];
+    );
+    if (credentials.kind === "vercel") {
+      lines.push(
+        // Mirror config files into the repo tree, same as the Daytona Image does
+        // post-clone (they are staged outside the repo so they survive git clean).
+        "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
+        'echo "SEEDRUN-STAGE:install"',
+        'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
+      );
+    }
+    // Vercel node24 base has no container runtime. Install Docker if missing,
+    // then ensure the daemon is running and the socket is group-accessible so
+    // startup/background commands can run `docker ps` without sudo. Kept as a
+    // defensive re-check even though the toolchain stage above already starts
+    // dockerd — idempotent, so harmless when it is already running.
+    if (credentials.kind === "vercel") {
+      lines.push(
+        'echo "SEEDRUN-STAGE:docker-bootstrap"',
+        // Install Docker if not already present (skip on warm snapshots that
+        // already have it baked in).
+        'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
+        // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
+        'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+        // Open the socket so non-root `docker` commands work (background/startup
+        // commands run as the sandbox user without sudo).
+        "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+        // Block until the daemon is fully ready.
+        "until docker info >/dev/null 2>&1; do sleep 1; done",
+      );
+    }
     args.buildCommands.forEach((command, i) => {
       lines.push(
         `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
@@ -918,8 +1039,7 @@ export const launchSeedRun = internalAction({
     });
     lines.push('echo "SEEDRUN-DONE"', "touch /tmp/.seedrun-done");
     const script = lines.join("\n");
-    const b64 = Buffer.from(script, "utf8").toString("base64");
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     // Process-based guard makes the launch idempotent so the workflow can
     // retry a timed-out launch exec without racing a second copy. It must be
     // the LIVE process (pgrep, self-match-proof bracket pattern), not a
@@ -928,11 +1048,32 @@ export const launchSeedRun = internalAction({
     // file-based guard would skip the launch and instantly report the baked
     // "done" — capturing without ever re-seeding. Stale markers are scrubbed
     // before every fresh launch for the same reason.
-    await exec(
+    const alreadyRunning = await execHandle(
       sandbox,
-      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
-      120,
+      'pgrep -f "[s]eedrun.sh" >/dev/null && echo ALREADY-RUNNING || echo NOT-RUNNING',
+      30,
     );
+    if (!alreadyRunning.includes("ALREADY-RUNNING")) {
+      // Never inline the script as base64 in a shell command — carepulse's
+      // startup/background arrays make the payload far larger than ARG_MAX.
+      // Use the provider writeFile API (Vercel writeFiles / Daytona upload).
+      await execHandle(
+        sandbox,
+        "rm -f /tmp/.seedrun-done /tmp/seedrun.log /tmp/seedrun.sh",
+        30,
+      );
+      await sandbox.writeFile("/tmp/seedrun.sh", script);
+      await execHandle(sandbox, "chmod +x /tmp/seedrun.sh", 30);
+      const wrote = await execHandle(
+        sandbox,
+        "test -s /tmp/seedrun.sh && echo WROTE || echo WRITE-FAILED",
+        30,
+      );
+      if (!wrote.includes("WROTE")) {
+        throw new Error("Failed to write /tmp/seedrun.sh to the prep sandbox");
+      }
+      await sandbox.execDetached("/tmp/seedrun.sh");
+    }
     return null;
   },
 });
@@ -949,9 +1090,9 @@ export const fetchSeedDiagnostics = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
-      return await exec(
+      return await execHandle(
         sandbox,
         [
           'echo "== git state =="',
@@ -984,15 +1125,31 @@ export const pollSeedRun = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    const out = await exec(
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const out = await execHandle(
       sandbox,
-      'test -f /tmp/.seedrun-done && echo DONE; grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1; true',
+      [
+        "test -f /tmp/.seedrun-done && echo DONE",
+        'grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1',
+        "test -f /tmp/seedrun.sh || echo NO-SCRIPT",
+        'pgrep -f "[s]eedrun.sh" >/dev/null || echo NO-PROC',
+        "true",
+      ].join("; "),
       30,
     );
     if (out.includes("DONE")) return "done";
     const failed = out.match(/SEEDRUN-FAILED:([a-z0-9-]+)/);
     if (failed) return `failed:${failed[1]}`;
+    if (out.includes("NO-SCRIPT")) return "failed:no-script";
+    // Script file exists but process died without writing done/failed markers.
+    if (out.includes("NO-PROC") && !out.includes("DONE")) {
+      const hasLog = await execHandle(
+        sandbox,
+        "test -s /tmp/seedrun.log && echo HAS-LOG || echo NO-LOG",
+        15,
+      );
+      if (hasLog.includes("NO-LOG")) return "failed:exited-no-log";
+    }
     return "running";
   },
 });
@@ -1006,11 +1163,19 @@ export const createSeedPrepSandbox = internalAction({
   args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args): Promise<{ sandboxId: string }> => {
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+    const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
       ctx,
       args.repoId,
     );
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient(credentials);
+    // For Vercel, snapshot IDs are `snap_*`; Daytona uses `snapshot-*` /
+    // `seeded-*` names. Passing a Daytona name to the Vercel adapter 404s —
+    // instead we fall back to a fresh sandbox (no snapshot source) so the first
+    // Vercel build can bootstrap the chain by cloning the repo from scratch.
+    const effectiveImageSnapshot =
+      credentials.kind === "vercel" && !args.imageSnapshot.startsWith("snap_")
+        ? undefined
+        : args.imageSnapshot;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -1025,13 +1190,13 @@ export const createSeedPrepSandbox = internalAction({
     };
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
-      daytona,
+      client,
       repo.installationId,
       repo.owner,
       repo.name,
       { ...sandboxEnvVars, REPO_ID: args.repoId },
       seedPrepLifecycle,
-      args.imageSnapshot,
+      effectiveImageSnapshot,
       undefined, // volumes
       undefined, // onSandboxAcquired
       undefined, // onProgress
@@ -1039,8 +1204,39 @@ export const createSeedPrepSandbox = internalAction({
       // Large seeded snapshots take well over the 30s default to boot; 180s
       // avoids the spurious create timeout + orphaned sandbox on warm boots.
       180,
+      // Skip pnpm/yarn install: launchSeedRun's buildCommands install deps
+      // inside the detached seed script. Installing here would blow Convex's
+      // 600s per-action ceiling on providers (Vercel) that don't have deps
+      // pre-baked into their base snapshot.
+      true,
     );
     return { sandboxId: sandbox.id };
+  },
+});
+
+/**
+ * Provider-agnostic delete of a seed-prep sandbox. Used by the snapshot build
+ * workflow after the seed run completes (success or failure) so the sandbox does
+ * not linger. Works for both Daytona and Vercel providers.
+ */
+export const deleteSeedPrepSandbox = internalAction({
+  args: { repoId: v.id("githubRepos"), sandboxId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
+    try {
+      const handle = await client.get(args.sandboxId);
+      await handle.delete();
+    } catch (e) {
+      // Best-effort: log but do not fail the build if delete fails.
+      console.error(
+        `[snapshot] deleteSeedPrepSandbox: failed to delete ${args.sandboxId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    return null;
   },
 });
 
@@ -1073,17 +1269,20 @@ export const triggerSeededSnapshot = internalAction({
     sandboxId: v.string(),
     seededName: v.string(),
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    await triggerSandboxSnapshot(
-      daytona,
-      args.sandboxId,
-      args.seededName,
-      SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
-    );
-    return null;
+  // Returns the effective snapshot identifier used by the provider.
+  // For Daytona this equals seededName (name IS the id); for Vercel it is the
+  // `snap_*` id returned by the API. The workflow must use this value — not
+  // seededName — when polling and writing seededSnapshotName to the DB.
+  returns: v.object({ snapshotId: v.string() }),
+  handler: async (ctx, args): Promise<{ snapshotId: string }> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
+    const handle = await client.get(args.sandboxId);
+    const { snapshotId } = await handle.createSnapshot({
+      name: args.seededName,
+      timeoutSeconds: SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+    });
+    return { snapshotId };
   },
 });
 
@@ -1105,105 +1304,127 @@ export const pollSeededSnapshotState = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
     // Not registered yet (or a transient lookup miss) → treat as still pending.
-    const snapshot = await getSnapshot(daytona, args.seededName);
-    return snapshot ? snapshot.state : "pending";
+    const snapshot = await client.getSnapshot(args.seededName);
+    if (!snapshot) return "pending";
+    // SandboxSnapshotInfo.status uses "ready" for success; the workflow polls
+    // for "active" (the Daytona-era term). Map "ready" → "active" so the
+    // existing isTerminalSnapshotState / state === "active" checks still work.
+    return snapshot.status === "ready" ? "active" : snapshot.status;
   },
 });
 
 /**
- * Warms Daytona's create-from-snapshot cache for a newly active seeded snapshot.
- * The first sandbox from a large seeded filesystem can take several minutes;
- * paying that cost inside the build makes the next user-created sandbox fast.
+ * Best-effort safety net run at the end of every whole-repo seeded-snapshot
+ * build (success or failure): deletes any seed-prep sandbox left behind for
+ * the given repos. The workflow already deletes the prep sandbox it created
+ * explicitly on every path, so this only catches leaks (e.g. a crash between
+ * creating a sandbox and deleting it). Never throws — a failure here must not
+ * fail the build.
+ *
+ * The provider-neutral SandboxClient contract (_sandbox/provider.ts) has no
+ * "list sandboxes" method, so this reuses the label-gated Daytona sweep
+ * (sweepSeedPrepSandboxes) which lists via the Daytona SDK directly. On
+ * Vercel there is no equivalent list API; the sandbox's own autoStop/ephemeral
+ * lifecycle plus the explicit per-step deletes are relied on instead.
  */
-export const warmSeededSnapshotCache = internalAction({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    repoId: v.id("githubRepos"),
-    seededName: v.string(),
-  },
+export const stopAllRepoSandboxes = internalAction({
+  args: { seedableRepoIds: v.array(v.id("githubRepos")) },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-      ctx,
-      args.repoId,
-    );
-    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: args.repoId,
-    });
-    if (!repo) {
-      await ctx.runMutation(
-        internal.repoSnapshots.updateSeededAppWarmupStatus,
-        {
-          buildId: args.buildId,
-          repoId: args.repoId,
-          status: "error",
-          error: "Repo not found",
-        },
-      );
-      return null;
-    }
-
-    const daytona = getDaytona(daytonaApiKey);
-    let sandboxId: string | null = null;
+    if (args.seedableRepoIds.length === 0) return null;
+    const primaryRepoId = args.seedableRepoIds[0];
     try {
-      const sandbox = await createSandbox(
-        daytona,
-        repo.installationId,
-        { ...sandboxEnvVars, REPO_ID: args.repoId },
-        {
-          ...WARMING_LIFECYCLE,
-          labels: {
-            "eva.managed": "true",
-            "eva.purpose": "snapshot-warmup",
-            "eva.repoId": args.repoId,
-            "eva.snapshotName": args.seededName,
-          },
-        },
-        args.seededName,
-        undefined,
-        SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS,
+      const { credentials } = await resolveSandboxCredentials(
+        ctx,
+        primaryRepoId,
       );
-      sandboxId = sandbox.id;
-      await sandbox.delete();
-      sandboxId = null;
-      await ctx.runMutation(
-        internal.repoSnapshots.updateSeededAppWarmupStatus,
-        {
-          buildId: args.buildId,
-          repoId: args.repoId,
-          status: "success",
-        },
-      );
-      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-        buildId: args.buildId,
-        chunk: `[warm ${args.repoId}] warmed ${args.seededName}\n`,
+      if (credentials.kind === "daytona") {
+        await ctx.runAction(internal.snapshotActions.sweepSeedPrepSandboxes, {
+          repoId: primaryRepoId,
+          scopedRepoIds: args.seedableRepoIds,
+        });
+        return null;
+      }
+      // Vercel: delete every seed-prep sandbox tagged for these repos so none
+      // keep running/billing. Filtered STRICTLY by the seed-prep purpose tag +
+      // repoId — user session sandboxes use a label-less lifecycle and so are
+      // never matched. This is a safety net; the workflow already deletes the
+      // build's own prep sandbox explicitly on every exit path. It also reclaims
+      // orphans left by a crashed build.
+      const seedableSet = new Set<string>(args.seedableRepoIds);
+      const list = await Sandbox.list({
+        token: credentials.token,
+        teamId: credentials.teamId,
+        projectId: credentials.projectId,
       });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      await ctx.runMutation(
-        internal.repoSnapshots.updateSeededAppWarmupStatus,
-        {
-          buildId: args.buildId,
-          repoId: args.repoId,
-          status: "error",
-          error: message,
-        },
-      );
-      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-        buildId: args.buildId,
-        chunk: `[warm ${args.repoId}] failed for ${args.seededName}: ${message}\n`,
-      });
-      if (sandboxId) {
+      // list() yields plain metadata (no .delete()); re-hydrate matches through
+      // the provider client to stop+remove them.
+      const client = getSandboxClient(credentials);
+      let deleted = 0;
+      for await (const meta of list) {
+        const tags: Record<string, string> = meta.tags ?? {};
+        if (tags[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) continue;
+        const sandboxRepoId = tags["eva.repoId"];
+        if (sandboxRepoId === undefined || !seedableSet.has(sandboxRepoId)) {
+          continue;
+        }
         try {
-          const sandbox = await daytona.get(sandboxId);
-          await sandbox.delete();
-        } catch {
-          // Best-effort cleanup only; the warming lifecycle is ephemeral.
+          const handle = await client.get(meta.name);
+          await handle.delete();
+          deleted++;
+        } catch (err) {
+          console.warn(
+            `[snapshot] stopAllRepoSandboxes: failed to delete ${meta.name}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
         }
       }
+      console.log(
+        `[snapshot] stopAllRepoSandboxes: deleted ${deleted} vercel seed-prep sandbox(es)`,
+      );
+    } catch (e) {
+      console.error(
+        `[snapshot] stopAllRepoSandboxes: best-effort sweep failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    return null;
+  },
+});
+
+/**
+ * Provider-agnostic delete of a seeded snapshot by its id/name. Resolves the
+ * repo's provider (Daytona or Vercel) and calls the neutral deleteSnapshot, so
+ * previous `snap_*` (Vercel) or `seeded-*` (Daytona) captures don't accumulate
+ * — the single-snapshot build makes a fresh capture each run. Best-effort: a
+ * missing/foreign-provider snapshot just no-ops (deleteSnapshot returns false).
+ */
+export const deleteSeededSnapshot = internalAction({
+  args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    try {
+      const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+      const client = getSandboxClient(credentials);
+      const deleted = await client.deleteSnapshot(args.snapshotName);
+      // Explicit confirmation so "keep-last" / rebuild deletion can be
+      // verified in Convex logs, not just the build's UI log stream.
+      console.log(
+        deleted
+          ? `[snapshot] deleteSeededSnapshot: deleted ${args.snapshotName}`
+          : `[snapshot] deleteSeededSnapshot: ${args.snapshotName} not found (already gone)`,
+      );
+    } catch (e) {
+      console.error(
+        `[snapshot] deleteSeededSnapshot: failed to delete ${args.snapshotName}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
     }
     return null;
   },

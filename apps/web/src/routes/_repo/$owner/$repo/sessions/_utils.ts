@@ -27,6 +27,7 @@ export interface TerminalControlMessage {
 
 export interface TerminalHistoryWriter {
   append: (chunk: string) => void;
+  clear: () => void;
   dispose: () => void;
 }
 
@@ -47,6 +48,17 @@ function parseJsonObject(raw: string): JsonObject | null {
   }
 }
 
+export function parseVercelExitMessage(
+  raw: string,
+): { type: "exit"; code: number | undefined } | null {
+  const parsed = parseJsonObject(raw);
+  if (parsed?.type !== "exit") return null;
+  return {
+    type: "exit",
+    code: typeof parsed.code === "number" ? parsed.code : undefined,
+  };
+}
+
 export function parseTerminalControlMessage(
   raw: string,
 ): TerminalControlMessage | null {
@@ -59,6 +71,64 @@ export function parseTerminalControlMessage(
     status: parsed.status,
     error: typeof parsed.error === "string" ? parsed.error : undefined,
   };
+}
+
+export type PtyProtocol = "daytona" | "vercel";
+
+type VercelPtyOutboundMessage =
+  | {
+      type: "start";
+      command: string;
+      args: string[];
+      env: string[];
+      cwd: string;
+      cols: number;
+      rows: number;
+    }
+  | {
+      type: "resize";
+      cols: number;
+      rows: number;
+    };
+
+/** Vercel controller-hosted PTY uses JSON control frames on the WebSocket. */
+export function sendVercelPtyControl(
+  ws: WebSocket,
+  message: VercelPtyOutboundMessage,
+): void {
+  ws.send(JSON.stringify(message));
+}
+
+const VERCEL_PTY_CWD = "/tmp/repo";
+
+function safeVercelSessionName(sessionName: string | undefined): string {
+  const source =
+    sessionName !== undefined && sessionName.length > 0
+      ? sessionName
+      : "eva_terminal";
+  const safe = source.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 96);
+  return safe.length > 0 ? safe : "eva_terminal";
+}
+
+/** Matches Vercel sandbox CLI: token in URL, then a `start` frame launches the shell. */
+export function startVercelPty(
+  ws: WebSocket,
+  opts: { cols: number; rows: number; cwd?: string; sessionName?: string },
+): void {
+  const cwd = opts.cwd ?? VERCEL_PTY_CWD;
+  const sessionName = safeVercelSessionName(opts.sessionName);
+  sendVercelPtyControl(ws, {
+    type: "start",
+    command: "bash",
+    args: [
+      "-lc",
+      `cd ${cwd} 2>/dev/null || cd /vercel/sandbox; if command -v tmux >/dev/null 2>&1; then exec tmux new-session -A -s ${sessionName}; fi; exec bash -l`,
+    ],
+    env: ["TERM=xterm-256color"],
+    cwd,
+    cols: opts.cols,
+    rows: opts.rows,
+  });
 }
 
 function boundedTerminalHistory(value: string): string {
@@ -113,6 +183,10 @@ export function createTerminalHistoryWriter(
       if (flushTimer === null) {
         flushTimer = setTimeout(flush, FLUSH_DELAY_MS);
       }
+    },
+    clear(): void {
+      pending = "";
+      setHistory("");
     },
     dispose(): void {
       window.removeEventListener("pagehide", flush);

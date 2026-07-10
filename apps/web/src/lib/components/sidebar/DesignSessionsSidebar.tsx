@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { SessionListSidebar } from "@/lib/components/sidebar/SessionListSidebar";
+import { entityPathSegment } from "@/lib/numId";
 import { IconPalette } from "@tabler/icons-react";
 
 interface DesignSessionsSidebarProps {
@@ -22,6 +23,7 @@ export function DesignSessionsSidebar({
   onNavigate,
   createRequestId,
 }: DesignSessionsSidebarProps) {
+  const convex = useConvex();
   const sessions = useQuery(api.designSessions.list, { repoId });
   const archivedSessions = useQuery(api.designSessions.listArchived, {
     repoId,
@@ -103,7 +105,12 @@ export function DesignSessionsSidebar({
       createRequestId={createRequestId}
       onCreate={async (title) => {
         const id = await createSession({ repoId, title });
-        return id;
+        const session = await convex.query(api.designSessions.get, { id });
+        const segment = session ? entityPathSegment(session) : null;
+        if (!segment) {
+          throw new Error("Created design session is missing numId");
+        }
+        return segment;
       }}
       onArchive={async (session) => {
         await archiveSession({ id: session._id });
@@ -122,7 +129,12 @@ export function DesignSessionsSidebar({
           repoId,
           title: `${session.title} (copy)`,
         });
-        return id;
+        const created = await convex.query(api.designSessions.get, { id });
+        const segment = created ? entityPathSegment(created) : null;
+        if (!segment) {
+          throw new Error("Duplicated design session is missing numId");
+        }
+        return segment;
       }}
       emptyIcon={<IconPalette size={28} />}
       emptyLabel="No design sessions yet"

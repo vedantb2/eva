@@ -7,15 +7,20 @@ import { api } from "@conductor/backend";
 // Must match PREVIEW_GRANT_PARAM in packages/backend/convex/previewGrantConfig.ts.
 const GRANT_PARAM = "__eva_grant";
 
-// Open-redirect guard: only ever redirect back to a Daytona preview origin over
-// https. The proxy builds the `return` from its own Host, but this is the
-// trust boundary on the eva side, so we re-validate rather than trust input.
+// Open-redirect guard: only ever redirect back to a Daytona or Vercel preview
+// origin over https. The proxy builds the `return` from its own Host, but
+// this is the trust boundary on the eva side, so we re-validate rather than
+// trust input.
 const ALLOWED_RETURN_SUFFIXES = [
   ".daytona.work",
   ".daytona.works",
   ".daytonaproxy01.eu",
 ];
 const DAYTONA_PREVIEW_HOST_PREFIX = /^[3-9]\d{3}-/;
+// Vercel sandbox preview URLs (`https://*.vercel.run`) give each exposed port
+// its own subdomain — there's no Daytona-style `3000-xxx` port prefix to
+// validate, so those hosts skip the DAYTONA_PREVIEW_HOST_PREFIX check below.
+const VERCEL_PREVIEW_SUFFIX = ".vercel.run";
 
 const validateSearch = (search: Record<string, string>) => ({
   sandbox: typeof search.sandbox === "string" ? search.sandbox : "",
@@ -33,6 +38,11 @@ function parseAllowedReturn(url: string): URL | null {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return null;
+
+    if (parsed.hostname.endsWith(VERCEL_PREVIEW_SUFFIX)) {
+      return parsed;
+    }
+
     const isAllowedDaytonaHost = ALLOWED_RETURN_SUFFIXES.some((suffix) =>
       parsed.hostname.endsWith(suffix),
     );

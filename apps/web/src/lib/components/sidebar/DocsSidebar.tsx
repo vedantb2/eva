@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -43,6 +43,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -60,6 +61,7 @@ export function DocsSidebar({
   createRequestId,
 }: DocsSidebarProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const docs = useQuery(api.docs.list, { repoId });
   const createDoc = useMutation(api.docs.create);
   const removeDoc = useMutation(api.docs.remove).withOptimisticUpdate(
@@ -125,10 +127,13 @@ export function DocsSidebar({
         title: newDocTitle.trim(),
         content: "",
       });
+      const created = await convex.query(api.docs.get, { id });
+      const segment = created ? entityPathSegment(created) : null;
+      if (!segment) return;
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
       navigate({
-        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
       onNavigate?.();
@@ -173,12 +178,15 @@ export function DocsSidebar({
     setIsUploading(true);
     try {
       const id = await createDoc({ repoId, title, content: prdContent });
+      const created = await convex.query(api.docs.get, { id });
+      const segment = created ? entityPathSegment(created) : null;
+      if (!segment) return;
       setIsCreateDialogOpen(false);
       setShowUploadSection(false);
       setPastedPrdContent("");
       setNewDocTitle("");
       navigate({
-        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
       onNavigate?.();
@@ -219,9 +227,15 @@ export function DocsSidebar({
     if (!docToDelete) return;
     setIsDeleting(true);
     try {
-      const isViewing = pathname.startsWith(
-        `${basePath}/docs/${docToDelete.id}`,
-      );
+      const docToDeleteSegment = docToDelete
+        ? docs?.find((d) => d._id === docToDelete.id)
+        : undefined;
+      const deletePathSegment = docToDeleteSegment
+        ? entityPathSegment(docToDeleteSegment)
+        : null;
+      const isViewing =
+        deletePathSegment !== null &&
+        routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
@@ -305,8 +319,12 @@ export function DocsSidebar({
         ) : (
           <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
-              const href = `${basePath}/docs/${doc._id}/${defaultDocTab(doc.kind)}`;
-              const isSelected = pathname.startsWith(href);
+              const segment = entityPathSegment(doc);
+              if (!segment) return null;
+              const href = `${basePath}/docs/${segment}/${defaultDocTab(doc.kind)}`;
+              const isSelected = pathname.startsWith(
+                `${basePath}/docs/${segment}`,
+              );
               return (
                 <ContextMenu key={doc._id}>
                   <ContextMenuTrigger asChild>

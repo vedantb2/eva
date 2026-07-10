@@ -5,6 +5,7 @@ import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { AnimatePresence, motion } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
+import { entityPathSegment } from "@/lib/numId";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
   phaseConfig,
@@ -21,7 +22,7 @@ interface ProjectsKanbanViewProps {
   owner: string;
   name: string;
   basePath: string;
-  onOpenProject: (id: string) => void;
+  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -77,7 +78,7 @@ function VirtualProjectColumn({
   owner: string;
   name: string;
   basePath: string;
-  onOpenProject: (id: string) => void;
+  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }) {
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
@@ -123,8 +124,12 @@ function VirtualProjectColumn({
                   planningMode={project.planningMode}
                   isBuilding={project.activeBuildWorkflowId !== undefined}
                   sandboxStatus={project.reviewProjectSandboxStatus}
-                  href={`${basePath}/projects/${project._id}`}
-                  onClick={() => onOpenProject(project._id)}
+                  href={
+                    entityPathSegment(project)
+                      ? `${basePath}/projects/${entityPathSegment(project)}`
+                      : `${basePath}/projects`
+                  }
+                  onClick={() => onOpenProject(project)}
                   onDelete={() => onDelete(project._id, project.title)}
                 />
               </div>

@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import { useNavigate } from "@tanstack/react-router";
+import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -22,6 +23,7 @@ const PROJECT_ENABLED_TABS = [
 
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
+  projectNumId?: number;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
@@ -33,6 +35,7 @@ interface ProjectSandboxPanelProps {
 
 export function ProjectSandboxPanel({
   projectId,
+  projectNumId,
   sandboxId,
   isActive,
   repoId,
@@ -43,6 +46,7 @@ export function ProjectSandboxPanel({
 }: ProjectSandboxPanelProps) {
   const navigate = useNavigate();
   const { basePath } = useRepo();
+  const projectPathSegment = entityPathSegment({ numId: projectNumId });
   const projectIdStr = String(projectId);
 
   const activeTab: SandboxTab = sandboxTab;
@@ -57,12 +61,12 @@ export function ProjectSandboxPanel({
 
   const navigateToSandboxTab = useCallback(
     (tab: SandboxTab) => {
-      if (tab === "prd") return;
+      if (tab === "prd" || !projectPathSegment) return;
       navigate({
-        to: `${basePath}/projects/${projectIdStr}/sandbox/${tab}`,
+        to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
       });
     },
-    [basePath, navigate, projectIdStr],
+    [basePath, navigate, projectPathSegment],
   );
 
   const preview = useSandboxPreview({

@@ -12,9 +12,10 @@ import {
   authMutation,
   hasRepoAccess,
   hasTaskAccess,
-  deleteTaskRelatedData,
+  softDeleteAgentTask,
   recomputeProjectPhase,
 } from "../functions";
+import { allocateNumId } from "../numId";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
@@ -372,7 +373,7 @@ export const updateStatus = authMutation({
   },
 });
 
-/** Deletes a task and all its related data (runs, dependencies, etc.). */
+/** Soft-deletes a task (row retained; hidden from lists and direct URLs). */
 export const remove = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
@@ -380,7 +381,7 @@ export const remove = authMutation({
     const task = await ctx.db.get(args.id);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
       throw new Error("Task not found");
-    await deleteTaskRelatedData(ctx, args.id);
+    await softDeleteAgentTask(ctx, args.id);
     return null;
   },
 });
@@ -421,6 +422,7 @@ export const createQuickTask = authMutation({
       taskNumber = maxTaskNumber + 1;
     }
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;
+    const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
     const taskId = await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -437,6 +439,7 @@ export const createQuickTask = authMutation({
       assignedTo: args.assignedTo,
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);
     if (args.assignedTo) {
@@ -480,6 +483,7 @@ export const createQuickTasksBatch = authMutation({
     const now = Date.now();
     const taskIds: Id<"agentTasks">[] = [];
     for (const task of args.tasks) {
+      const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
       const taskId = await ctx.db.insert("agentTasks", {
         title: task.title,
         description: task.description,
@@ -490,6 +494,7 @@ export const createQuickTasksBatch = authMutation({
         createdBy: ctx.userId,
         baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         model: repo.defaultModel,
+        numId,
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
@@ -576,6 +581,7 @@ export const createBatchWithDependencies = authMutation({
     const taskIds: Id<"agentTasks">[] = [];
     for (let i = 0; i < args.tasks.length; i++) {
       const task = args.tasks[i];
+      const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
       const taskId = await ctx.db.insert("agentTasks", {
         title: task.title,
         description: task.description,
@@ -587,6 +593,7 @@ export const createBatchWithDependencies = authMutation({
         createdBy: ctx.userId,
         baseBranch,
         model,
+        numId,
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
@@ -611,6 +618,7 @@ export const createBatchWithDependencies = authMutation({
 
     let projectId: Id<"projects"> | undefined;
     if (args.projectTitle) {
+      const projectNumId = await allocateNumId(ctx.db, args.repoId, "projects");
       projectId = await ctx.db.insert("projects", {
         repoId: args.repoId,
         userId: ctx.userId,
@@ -620,6 +628,7 @@ export const createBatchWithDependencies = authMutation({
         planningMode: "tasks_only",
         baseBranch,
         projectStartDate: now,
+        numId: projectNumId,
       });
       await ctx.db.patch(projectId, {
         branchName: buildProjectBranchName(projectId),
@@ -661,7 +670,7 @@ export const reorderProjectTasks = authMutation({
   },
 });
 
-/** Deletes a task and all tasks that transitively depend on it. */
+/** Soft-deletes a task and all tasks that transitively depend on it. */
 export const deleteCascade = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
@@ -684,7 +693,7 @@ export const deleteCascade = authMutation({
     };
     await collectDependents(args.id);
     for (const taskId of tasksToDelete) {
-      await deleteTaskRelatedData(ctx, taskId);
+      await softDeleteAgentTask(ctx, taskId);
     }
     return null;
   },

@@ -1,8 +1,8 @@
 "use node";
 
-import type { Sandbox } from "@daytonaio/sdk";
 import type { JWK } from "jose";
-import { exec } from "./helpers";
+import type { SandboxHandle } from "../_sandbox/provider";
+import { execHandle } from "./helpers";
 import {
   PREVIEW_GRANT_AUDIENCE,
   PREVIEW_GRANT_ISSUER,
@@ -16,11 +16,16 @@ import {
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
+export const VERCEL_PREVIEW_PROXY_PORT = 54321;
+/** noVNC/websockify listens here; auth proxy owns exposed 6080. */
+export const VERCEL_DESKTOP_INTERNAL_PORT = 16080;
+/** code-server listens here; auth proxy owns exposed 8080. */
+export const VERCEL_EDITOR_INTERNAL_PORT = 18080;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v3";
+const SCRIPT_VERSION = "auth-v10";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -32,6 +37,13 @@ interface PreviewProxyAuthParams {
   webAppUrl: string;
   /** Whether to inject the navigation-sync script into HTML responses. */
   inject: boolean;
+  /**
+   * Port advertised in preview-auth redirects / grant claims. Defaults to the
+   * upstream targetPort. On Vercel, desktop/editor listen internally
+   * (16080/18080) while the browser hits the exposed proxy port (6080/8080) —
+   * pass the exposed port here so grants and /preview-auth stay aligned.
+   */
+  authPort?: number;
 }
 
 function isPort(value: number): boolean {
@@ -53,10 +65,12 @@ function previewProxyPortCandidates(targetPort: number): number[] {
   return candidates;
 }
 
-async function listListeningPorts(sandbox: Sandbox): Promise<Set<number>> {
+async function listListeningPorts(
+  sandbox: SandboxHandle,
+): Promise<Set<number>> {
   const ports = new Set<number>();
   try {
-    const output = await exec(
+    const output = await execHandle(
       sandbox,
       "(ss -ltnH 2>/dev/null || netstat -ltn 2>/dev/null || true) | awk '{print $4}'",
       5,
@@ -78,9 +92,17 @@ async function listListeningPorts(sandbox: Sandbox): Promise<Set<number>> {
 }
 
 async function resolvePreviewProxyPort(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
+  fixedProxyPort?: number,
 ): Promise<number> {
+  if (fixedProxyPort !== undefined) {
+    if (!isPort(fixedProxyPort) || fixedProxyPort === targetPort) {
+      throw new Error(`Invalid fixed preview proxy port: ${fixedProxyPort}`);
+    }
+    return fixedProxyPort;
+  }
+
   const candidates = previewProxyPortCandidates(targetPort);
   const listeningPorts = await listListeningPorts(sandbox);
 
@@ -138,6 +160,9 @@ const SESSION_TTL_SECONDS = ${PREVIEW_SESSION_TTL_SECONDS};
 const INJECT_ENABLED = ${params.inject ? "true" : "false"};
 const SCRIPT_VERSION = ${JSON.stringify(SCRIPT_VERSION)};
 const GATE_ENABLED = PUBLIC_KEY_JWK !== null && WEB_APP_URL.length > 0;
+// Port shown to /preview-auth and matched against grant claims. May differ from
+// targetPort when the proxy fronts an internal-only upstream (Vercel desktop).
+const AUTH_PORT = ${params.authPort ?? "targetPort"};
 
 let PUBLIC_KEY = null;
 if (GATE_ENABLED) {
@@ -246,7 +271,7 @@ function buildAuthBootstrapHtml() {
     WEB_APP_URL +
     "/preview-auth?sandbox=" + encodeURIComponent(SANDBOX_ID) +
     "&repo=" + encodeURIComponent(REPO_ID) +
-    "&port=" + encodeURIComponent(String(targetPort)) +
+    "&port=" + encodeURIComponent(String(AUTH_PORT)) +
     "&return=";
   const inline =
     "var u=new URL(location.href);" +
@@ -262,6 +287,13 @@ function buildAuthBootstrapHtml() {
   );
 }
 
+// noVNC's vnc_lite.html loads RFB via <script type="module" crossorigin="anonymous">,
+// which intentionally omits cookies on ./core/rfb.js. Without an exception those
+// module fetches 401 and the page never leaves the default "Loading" status.
+// Static assets are public open-source files; HTML documents and WebSockets stay gated.
+const STATIC_ASSET_RE =
+  /\.(?:js|mjs|cjs|css|map|svg|png|jpe?g|gif|ico|webp|woff2?|ttf|otf|wasm)(?:\?|$)/i;
+
 // Returns true if the request is authorized and may proceed. Returns false when
 // it has already written a response (cookie-set redirect, login redirect, 401).
 function authorize(clientReq, clientRes) {
@@ -274,6 +306,11 @@ function authorize(clientReq, clientRes) {
       "https://" + (clientReq.headers["host"] || "127.0.0.1"),
     );
   } catch {}
+
+  const isGet = (clientReq.method || "GET").toUpperCase() === "GET";
+  if (isGet && parsed && STATIC_ASSET_RE.test(parsed.pathname)) {
+    return true;
+  }
 
   const cookies = parseCookies(clientReq.headers["cookie"]);
   const session = cookies[SESSION_COOKIE];
@@ -307,7 +344,6 @@ function authorize(clientReq, clientRes) {
   }
 
   const accept = String(clientReq.headers["accept"] || "");
-  const isGet = (clientReq.method || "GET").toUpperCase() === "GET";
   if (isGet && accept.indexOf("text/html") !== -1) {
     clientRes.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
@@ -448,13 +484,67 @@ function injectHtml(html) {
   return tag + html;
 }
 
+// noVNC's vnc_lite.html uses <script type="module" crossorigin="anonymous">.
+// That forces credentialsless CORS on every relative import. Even with ACAO:*
+// some browsers still fail the module graph behind Vercel's edge ("Failed to
+// fetch dynamically imported module"). Dropping crossorigin makes the loads
+// ordinary same-origin module fetches (cookies included).
+function stripModuleCrossorigin(html) {
+  return html.replace(
+    /(<script\b[^>]*\btype\s*=\s*["']module["'][^>]*)\s+crossorigin(?:\s*=\s*["'][^"']*["'])?/gi,
+    "$1",
+  );
+}
+
+// Vercel Sandbox edge serves identical noVNC bytes that fail ES-module
+// instantiation for larger files (inflate.js / rfb.js), while the same files
+// load fine from a public CDN. Point the RFB import at jsDelivr; the WebSocket
+// still targets this origin via host/path query params.
+const NOVNC_CDN_RFB =
+  "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.7.0/core/rfb.js";
+
+function rewriteNovncModuleImports(html) {
+  return html
+    .replace(
+      /import\s+RFB\s+from\s+['"]\.\/core\/rfb\.js['"]/g,
+      "import RFB from " + JSON.stringify(NOVNC_CDN_RFB),
+    )
+    .replace(
+      /from\s+['"]\.\/core\/rfb\.js['"]/g,
+      "from " + JSON.stringify(NOVNC_CDN_RFB),
+    );
+}
+
+function rewriteHtml(html, injects) {
+  let out = stripModuleCrossorigin(html);
+  out = rewriteNovncModuleImports(out);
+  if (injects) {
+    out = injectHtml(out);
+  }
+  return out;
+}
+
+// Vercel exposes each sandbox port on its OWN "*.vercel.run" subdomain (unlike
+// Daytona's single host + port-prefix scheme). The proxy has no way to learn
+// its own external hostname (Vercel's edge terminates TLS before this
+// process), so it cannot rewrite a redirect to "the current host, new path" —
+// it can only strip the host entirely and rely on the browser resolving a
+// path-only Location against whatever origin it is already on. That is
+// exactly what we want: any absolute "*.vercel.run" Location (e.g. the app
+// building an absolute URL from a Host header that resolved to the unproxied
+// dev-server port) would otherwise send the browser to a DIFFERENT port's
+// subdomain than the one it loaded the page from, which Vercel's edge then
+// rejects as "port is not exposed" for that host/path combination.
+const VERCEL_HOST_SUFFIX = ".vercel.run";
+
 function rewriteLocationHeader(value) {
   try {
     const parsed = new URL(value, "http://127.0.0.1:" + String(targetPort));
-    const isLocal =
+    const isLocalUpstream =
       (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") &&
       Number(parsed.port || "80") === targetPort;
-    if (isLocal) {
+    const isVercelHost = parsed.hostname.endsWith(VERCEL_HOST_SUFFIX);
+    if (isLocalUpstream || isVercelHost) {
       return parsed.pathname + parsed.search + parsed.hash;
     }
     return value;
@@ -463,7 +553,7 @@ function rewriteLocationHeader(value) {
   }
 }
 
-function responseHeaders(upstreamHeaders, injectsHtml) {
+function responseHeaders(upstreamHeaders, injectsHtml, addCors) {
   const headers = {};
   for (const name of Object.keys(upstreamHeaders)) {
     const lower = name.toLowerCase();
@@ -488,6 +578,13 @@ function responseHeaders(upstreamHeaders, injectsHtml) {
 
   if (injectsHtml) {
     headers["cache-control"] = "no-store";
+  }
+
+  // noVNC loads RFB as <script type="module" crossorigin="anonymous">, which
+  // requires ACAO even for same-origin module graphs. Without it the browser
+  // rejects the module and the page never leaves "Loading".
+  if (addCors) {
+    headers["access-control-allow-origin"] = "*";
   }
 
   return headers;
@@ -542,18 +639,30 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
     },
     function handleUpstream(upstreamRes) {
       const contentType = String(upstreamRes.headers["content-type"] || "");
-      const contentEncoding = String(upstreamRes.headers["content-encoding"] || "");
-      const injectsHtml =
-        route.injects &&
-        contentType.toLowerCase().includes("text/html") &&
-        !contentEncoding;
+      const contentEncoding = String(
+        upstreamRes.headers["content-encoding"] || "",
+      );
+      const isHtml =
+        contentType.toLowerCase().includes("text/html") && !contentEncoding;
+      const injectsHtml = route.injects && isHtml;
+      // Always rewrite HTML so noVNC module scripts lose crossorigin=.
+      const rewriteHtmlBody = isHtml;
+      let pathname = route.path;
+      try {
+        pathname = new URL(route.path, "https://127.0.0.1").pathname;
+      } catch {}
+      const addCors = STATIC_ASSET_RE.test(pathname);
 
       clientRes.writeHead(
         upstreamRes.statusCode || 502,
-        responseHeaders(upstreamRes.headers, injectsHtml),
+        responseHeaders(
+          upstreamRes.headers,
+          rewriteHtmlBody,
+          addCors,
+        ),
       );
 
-      if (!injectsHtml) {
+      if (!rewriteHtmlBody) {
         upstreamRes.pipe(clientRes);
         return;
       }
@@ -564,7 +673,7 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
       });
       upstreamRes.on("end", function handleEnd() {
         const html = Buffer.concat(chunks).toString("utf8");
-        clientRes.end(injectHtml(html));
+        clientRes.end(rewriteHtml(html, injectsHtml));
       });
     },
   );
@@ -580,16 +689,43 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
 });
 
 server.on("upgrade", function handleUpgrade(req, socket, head) {
+  // WebSockets cannot follow the HTML grant→cookie 302. In cross-site iframes
+  // (Eva web app → *.vercel.run) the Partitioned session cookie is also often
+  // missing on the upgrade request, which left noVNC stuck on "Loading".
+  // Accept either a valid session cookie OR a grant on the upgrade URL
+  // (DesktopPanel forwards __eva_grant via noVNC's path query param).
   if (GATE_ENABLED) {
     const cookies = parseCookies(req.headers["cookie"]);
     const session = cookies[SESSION_COOKIE];
-    if (!session || !verifySession(session)) {
+    let authorized = Boolean(session && verifySession(session));
+    if (!authorized) {
+      try {
+        const parsed = new URL(
+          req.url || "/",
+          "https://" + (req.headers["host"] || "127.0.0.1"),
+        );
+        const grant = parsed.searchParams.get(GRANT_PARAM);
+        if (grant && verifyGrant(grant)) {
+          authorized = true;
+        }
+      } catch {}
+    }
+    if (!authorized) {
       socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       socket.destroy();
       return;
     }
   }
-  const route = resolveRoute(req.url || "/");
+  // Strip grant from the upstream path so websockify sees a clean /websockify.
+  let upgradeUrl = req.url || "/";
+  if (GATE_ENABLED && upgradeUrl.indexOf(GRANT_PARAM) !== -1) {
+    try {
+      const u = new URL(upgradeUrl, "https://127.0.0.1");
+      u.searchParams.delete(GRANT_PARAM);
+      upgradeUrl = u.pathname + u.search + u.hash;
+    } catch {}
+  }
+  const route = resolveRoute(upgradeUrl);
   const upstream = net.connect(route.port, "127.0.0.1", function handleConnect() {
     const lines = [
       (req.method || "GET") + " " + route.path + " HTTP/" + req.httpVersion,
@@ -637,12 +773,12 @@ server.listen(proxyPort, "0.0.0.0", function handleListen() {
 }
 
 async function proxyAlreadyRunning(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   proxyPort: number,
 ): Promise<boolean> {
   try {
-    const health = await exec(
+    const health = await execHandle(
       sandbox,
       `curl -fsS http://127.0.0.1:${proxyPort}${HEALTH_PATH}`,
       5,
@@ -656,7 +792,7 @@ async function proxyAlreadyRunning(
 }
 
 async function launchProxy(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   proxyPort: number,
   authParams: PreviewProxyAuthParams,
@@ -670,11 +806,22 @@ async function launchProxy(
     script,
     SCRIPT_MARKER,
     `if [ -f '${pidPath}' ] && kill -0 "$(cat '${pidPath}')" 2>/dev/null; then kill "$(cat '${pidPath}')" 2>/dev/null || true; fi`,
-    `EVA_PREVIEW_TARGET_PORT=${targetPort} EVA_PREVIEW_PROXY_PORT=${proxyPort} nohup node '${scriptPath}' > '${logPath}' 2>&1 & echo $! > '${pidPath}'`,
-    `i=0; while [ "$i" -lt 20 ]; do if curl -fsS 'http://127.0.0.1:${proxyPort}${HEALTH_PATH}' >/dev/null 2>&1; then exit 0; fi; i=$((i+1)); sleep 0.25; done; tail -n 80 '${logPath}' 2>/dev/null || true; exit 1`,
+    `if command -v fuser >/dev/null 2>&1; then fuser -k ${proxyPort}/tcp >/dev/null 2>&1 || true; fi`,
+    `if command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${proxyPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; fi`,
+    `sleep 0.2`,
   ].join("\n");
 
-  await exec(sandbox, command, 15, "/tmp");
+  await execHandle(sandbox, command, 15, "/tmp");
+  // Detach the proxy process so it survives on Vercel (nohup … & zombies there).
+  await sandbox.execDetached(
+    `EVA_PREVIEW_TARGET_PORT=${targetPort} EVA_PREVIEW_PROXY_PORT=${proxyPort} node '${scriptPath}' > '${logPath}' 2>&1`,
+  );
+  await execHandle(
+    sandbox,
+    `i=0; while [ "$i" -lt 20 ]; do if curl -fsS 'http://127.0.0.1:${proxyPort}${HEALTH_PATH}' >/dev/null 2>&1; then exit 0; fi; i=$((i+1)); sleep 0.25; done; tail -n 80 '${logPath}' 2>/dev/null || true; exit 1`,
+    15,
+    "/tmp",
+  );
 }
 
 /**
@@ -683,15 +830,20 @@ async function launchProxy(
  * full-page navigations to Eva via postMessage.
  */
 export async function ensurePreviewNavigationProxy(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   authParams: PreviewProxyAuthParams,
+  fixedProxyPort?: number,
 ): Promise<number> {
   if (!isPort(targetPort)) {
     throw new Error(`Invalid preview target port: ${targetPort}`);
   }
 
-  const proxyPort = await resolvePreviewProxyPort(sandbox, targetPort);
+  const proxyPort = await resolvePreviewProxyPort(
+    sandbox,
+    targetPort,
+    fixedProxyPort,
+  );
   if (await proxyAlreadyRunning(sandbox, targetPort, proxyPort)) {
     return proxyPort;
   }

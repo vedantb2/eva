@@ -6,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
@@ -33,14 +34,13 @@ export function useQuickTaskNeighbors({
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const [{ view }] = useQuickTaskFilters();
-  const typedTaskId = taskId as Id<"agentTasks">;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
   const selectedTask = useMemo(() => {
     if (!tasks) return undefined;
-    return tasks.find((t) => t._id === typedTaskId);
-  }, [typedTaskId, tasks]);
+    return tasks.find((t) => t._id === taskId);
+  }, [taskId, tasks]);
 
   const orderedTasks = useFilteredQuickTasks(tasks, {
     // Kanban and list both render tasks grouped by status, so prev/next must
@@ -52,21 +52,26 @@ export function useQuickTaskNeighbors({
     if (orderedTasks.length === 0) {
       return { prevTaskId: null, nextTaskId: null };
     }
-    const idx = orderedTasks.findIndex((t) => t._id === typedTaskId);
+    const idx = orderedTasks.findIndex((t) => t._id === taskId);
     if (idx === -1) return { prevTaskId: null, nextTaskId: null };
     return {
       prevTaskId: idx > 0 ? orderedTasks[idx - 1]._id : null,
       nextTaskId:
         idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
     };
-  }, [typedTaskId, orderedTasks]);
+  }, [taskId, orderedTasks]);
 
   const goToTask = (id: Id<"agentTasks">) => {
+    const task = orderedTasks.find((t) => t._id === id);
+    const segment = task ? entityPathSegment(task) : null;
+    if (!segment) return;
     if (navSurface === "sandbox" && sandboxTab) {
-      navigate({ to: `${basePath}/quick-tasks/${id}/sandbox/${sandboxTab}` });
+      navigate({
+        to: `${basePath}/quick-tasks/${segment}/sandbox/${sandboxTab}`,
+      });
       return;
     }
-    navigate({ to: `${basePath}/quick-tasks/${id}/${detailTab}` });
+    navigate({ to: `${basePath}/quick-tasks/${segment}/${detailTab}` });
   };
 
   return {

@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  snapshotWarmupStatusValidator,
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
@@ -13,6 +13,42 @@ import { workflow } from "../workflowManager";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
+
+type SeededAppReturn = {
+  repoId: Id<"githubRepos">;
+  seededSnapshotName: string | null;
+  app?: string;
+  status?: "running" | "seeded" | "fallback";
+};
+
+/** Drops legacy warmup fields still present on older prod rows. */
+function sanitizeSeededApps(
+  seededApps: Doc<"snapshotBuilds">["seededApps"],
+): SeededAppReturn[] | undefined {
+  if (seededApps === undefined) {
+    return undefined;
+  }
+  return seededApps.map((app) => {
+    const cleaned: SeededAppReturn = {
+      repoId: app.repoId,
+      seededSnapshotName: app.seededSnapshotName,
+    };
+    if (app.app !== undefined) {
+      cleaned.app = app.app;
+    }
+    if (app.status !== undefined) {
+      cleaned.status = app.status;
+    }
+    return cleaned;
+  });
+}
+
+function sanitizeBuildForReturn(build: Doc<"snapshotBuilds">) {
+  return {
+    ...build,
+    seededApps: sanitizeSeededApps(build.seededApps),
+  };
+}
 
 /** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
@@ -30,8 +66,6 @@ export const listBuilds = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
       seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
   ),
@@ -43,7 +77,7 @@ export const listBuilds = authQuery({
       )
       .order("desc")
       .take(20);
-    return builds;
+    return builds.map((build) => sanitizeBuildForReturn(build));
   },
 });
 
@@ -63,14 +97,16 @@ export const getBuild = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
       seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.buildId);
+    const build = await ctx.db.get(args.buildId);
+    if (!build) {
+      return null;
+    }
+    return sanitizeBuildForReturn(build);
   },
 });
 
@@ -320,54 +356,6 @@ export const recordSeededApp = internalMutation({
       },
     ];
     await ctx.db.patch(args.buildId, { seededApps });
-    return null;
-  },
-});
-
-/** Updates a seeded app's cache-warm status without changing its seed outcome. */
-export const updateSeededAppWarmupStatus = internalMutation({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    repoId: v.id("githubRepos"),
-    status: snapshotWarmupStatusValidator,
-    error: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const build = await ctx.db.get(args.buildId);
-    if (!build) return null;
-    const seededApps = (build.seededApps ?? []).map((app) => {
-      if (app.repoId !== args.repoId) return app;
-      return {
-        repoId: app.repoId,
-        app: app.app,
-        status: app.status,
-        seededSnapshotName: app.seededSnapshotName,
-        warmupStatus: args.status,
-        warmupError: args.error,
-      };
-    });
-    const seededEntries = seededApps.filter((app) => app.status === "seeded");
-    const warmupStatus: "pending" | "success" | "error" | undefined =
-      seededApps.some((app) => app.status === "running")
-        ? "pending"
-        : seededEntries.some((app) => app.warmupStatus === "error")
-          ? "error"
-          : seededEntries.some(
-                (app) => !app.warmupStatus || app.warmupStatus === "pending",
-              )
-            ? "pending"
-            : seededEntries.length > 0
-              ? "success"
-              : undefined;
-    const warmupError = seededEntries.find(
-      (app) => app.warmupStatus === "error" && app.warmupError,
-    )?.warmupError;
-    await ctx.db.patch(args.buildId, {
-      seededApps,
-      warmupStatus,
-      warmupError,
-    });
     return null;
   },
 });

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { taskStatusValidator } from "../validators";
 import { authQuery, hasRepoAccess, hasTaskAccess } from "../functions";
+import { entityVisible, filterActiveEntities } from "../numId";
 import { agentTaskValidator } from "./helpers";
 
 /** Validator for a task document enriched with its latest run start time. */
@@ -18,10 +19,12 @@ export const listByProject = authQuery({
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       return [];
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const tasks = filterActiveEntities(
+      await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    );
     const sorted = tasks.sort(
       (a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0),
     );
@@ -49,7 +52,26 @@ export const get = authQuery({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    return task;
+    return entityVisible(task);
+  },
+});
+
+/** Resolves a task by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(agentTaskValidator, v.null()),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
+    const task = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    return entityVisible(task);
   },
 });
 
@@ -108,7 +130,9 @@ export const getActiveTasks = authQuery({
       ),
     );
 
-    return taskArrays.flat().sort((a, b) => b.updatedAt - a.updatedAt);
+    return filterActiveEntities(taskArrays.flat()).sort(
+      (a, b) => b.updatedAt - a.updatedAt,
+    );
   },
 });
 
@@ -136,7 +160,9 @@ export const getAllTasks = authQuery({
           .collect(),
       ),
     );
-    const tasks = taskArrays.flat().sort((a, b) => a.createdAt - b.createdAt);
+    const tasks = filterActiveEntities(taskArrays.flat()).sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
     const enriched = await Promise.all(
       tasks.map(async (task) => {
         const latestRun = await ctx.db
@@ -174,13 +200,13 @@ export const getDependentTasks = authQuery({
     const depTasks = await Promise.all(
       dependents.map((dep) => ctx.db.get(dep.taskId)),
     );
-    return depTasks
-      .filter((t): t is Exclude<typeof t, null> => t !== null)
-      .map((t) => ({
-        _id: t._id,
-        title: t.title,
-        taskNumber: t.taskNumber,
-      }));
+    return filterActiveEntities(
+      depTasks.filter((t): t is Exclude<typeof t, null> => t !== null),
+    ).map((t) => ({
+      _id: t._id,
+      title: t.title,
+      taskNumber: t.taskNumber,
+    }));
   },
 });
 

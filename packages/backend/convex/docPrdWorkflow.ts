@@ -89,14 +89,21 @@ export const docPrdWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
+      vercelSandboxId: docData.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,
       repoId: docData.repoId,
       streamingEntityId: args.docId,
       ephemeral: false,
+    });
+
+    await step.runMutation(internal.docInterviewWorkflow.saveDocSandboxId, {
+      docId: args.docId,
+      sandboxId,
+      vercelSandboxId,
     });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
@@ -133,6 +140,7 @@ export const getDocData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -160,6 +168,7 @@ Output ONLY valid JSON.`;
 
     return {
       sandboxId: doc.sandboxId,
+      vercelSandboxId: doc.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: doc.repoId,

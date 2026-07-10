@@ -4,6 +4,8 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { resolveSandboxContext } from "./helpers";
+import { resolveSandboxCredentials } from "../envVarResolver";
+import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import {
   launchDevServerInBackground,
   resetDevTerminalForResume,
@@ -40,17 +42,23 @@ export const runDevServerInTaskSandbox = internalAction({
     }
 
     const rootDir = repo.rootDirectory ?? "";
-    const { daytona } = await resolveSandboxContext(ctx, args.repoId);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { client } = await resolveSandboxContext(ctx, args.repoId);
+    const handle = await client.get(args.sandboxId);
 
     const { port: devPort, devCommand } = await startSessionServices(
-      sandbox,
+      handle,
       rootDir,
       devOverrides(repo),
     );
 
-    await launchDevServerInBackground(sandbox, devCommand);
-    await resetDevTerminalForResume(sandbox, `task-${args.taskId}`);
+    await launchDevServerInBackground(handle, devCommand, devPort);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    if (credentials.kind === "daytona") {
+      await resetDevTerminalForResume(
+        unwrapDaytonaSandbox(handle),
+        `task-${args.taskId}`,
+      );
+    }
 
     await ctx.runMutation(internal._agentTasks.sandbox.patchTaskDevServer, {
       taskId: args.taskId,

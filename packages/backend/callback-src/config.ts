@@ -84,6 +84,8 @@ export const CLAUDE_RUNTIME_CONFIG_DIR =
   process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 export const CLAUDE_PERSIST_DIR =
   process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
+export const CLAUDE_BIN_PATH =
+  process.env.CLAUDE_BIN_PATH || "/tmp/claude-cli/bin/claude";
 export const CODEX_RUNTIME_HOME_DIR =
   process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 export const CODEX_PERSIST_DIR =
@@ -184,6 +186,9 @@ export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
 export const normalizedCursorModel = MODEL.startsWith("cursor:")
   ? MODEL.slice("cursor:".length)
   : MODEL;
+export const claudeCommand = existsSync(CLAUDE_BIN_PATH)
+  ? JSON.stringify(CLAUDE_BIN_PATH)
+  : "claude";
 export const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
@@ -222,7 +227,9 @@ export const cursorExecBaseCmd =
   JSON.stringify(normalizedCursorModel) +
   " --output-format stream-json --approve-mcps";
 export const claudeBaseCmd =
-  "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " +
+  "cat /tmp/design-prompt.txt | " +
+  claudeCommand +
+  " -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
   " " +
   toolsArg +

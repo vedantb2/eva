@@ -3,6 +3,7 @@
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { entityPathSegment } from "@/lib/numId";
 import { useNavigate } from "@tanstack/react-router";
 import { IconChevronRight } from "@tabler/icons-react";
 import { phaseConfig } from "@/lib/components/projects/ProjectPhaseBadge";
@@ -51,7 +52,9 @@ export function UnscheduledProjectsSection({
               <button
                 type="button"
                 onClick={() =>
-                  navigate({ to: `${basePath}/projects/${project._id}` })
+                  navigate({
+                    to: `${basePath}/projects/${entityPathSegment(project) ?? ""}`,
+                  })
                 }
                 className="flex-1 truncate text-left text-xs font-medium hover:text-primary"
               >

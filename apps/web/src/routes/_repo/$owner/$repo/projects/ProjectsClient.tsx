@@ -6,6 +6,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -181,8 +182,10 @@ export function ProjectsClient() {
     setParams({ hiddenPhases: [...hidden] });
   };
 
-  const handleOpenProject = (id: string) => {
-    navigate({ to: `${basePath}/projects/${id}` });
+  const handleOpenProject = (project: { numId?: number }) => {
+    const segment = entityPathSegment(project);
+    if (!segment) return;
+    navigate({ to: `${basePath}/projects/${segment}` });
   };
 
   const hasActiveFilters =

@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { notifySubscribers } from "./taskSubscribers";
 import { logTaskActivity } from "./taskActivity";
 import type { Doc } from "./_generated/dataModel";
+import { preferPersistedSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import { buildProjectBranchName } from "./_projects/helpers";
 import {
   deriveProjectPhaseFromPrEvent,
@@ -242,15 +243,20 @@ export const handlePrClosed = internalMutation({
       const newPhase = args.merged ? "completed" : "cancelled";
       if (args.merged && project) {
         const nextVersion = (project.branchVersion ?? 1) + 1;
-        if (project.sandboxId) {
+        const deleteId = preferPersistedSandboxId({
+          sandboxId: project.sandboxId,
+          vercelSandboxId: project.vercelSandboxId,
+        });
+        if (deleteId) {
           await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-            sandboxId: project.sandboxId,
+            sandboxId: deleteId,
             repoId: project.repoId,
           });
         }
         await ctx.db.patch(task.projectId, {
           phase: newPhase,
           sandboxId: undefined,
+          vercelSandboxId: undefined,
           lastSandboxActivity: undefined,
           branchVersion: nextVersion,
           branchName: buildProjectBranchName(task.projectId, nextVersion),

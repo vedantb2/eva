@@ -1,4 +1,4 @@
-# Server vs Client (CRITICAL)
+# Server vs Client
 
 ## CRITICAL: Always `await auth()`
 
@@ -32,13 +32,15 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) return <div>Please sign in</div>;
+  const { isAuthenticated } = await auth();
+  if (!isAuthenticated) return <div>Please sign in</div>;
 
   const user = await currentUser();
   return <h1>Welcome, {user?.firstName}!</h1>;
 }
 ```
+
+> **Core 2 ONLY (skip if current SDK):** `isAuthenticated` is not available. Use `const { userId } = await auth()` and check `if (!userId)` instead.
 
 ## Client Component
 
@@ -84,5 +86,19 @@ export function ProfileForm({ initialData }) {
   return <form>...</form>;
 }
 ```
+
+## Conditional Rendering
+
+Use `<Show>` for client-side conditional rendering based on auth state:
+
+```tsx
+import { Show } from "@clerk/nextjs";
+
+<Show when="signed-in" fallback={<div>Please sign in</div>}>
+  <Dashboard />
+</Show>;
+```
+
+> **Core 2 ONLY (skip if current SDK):** Use `<SignedIn>` and `<SignedOut>` components instead of `<Show>`.
 
 [Docs](https://clerk.com/docs/reference/nextjs/auth)

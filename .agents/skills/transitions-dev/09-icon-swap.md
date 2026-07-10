@@ -21,7 +21,7 @@ and scale.
 
 | Variable                  | Default       | Notes                           |
 | ------------------------- | ------------- | ------------------------------- |
-| `--icon-swap-dur`         | `200ms`       | sourced from `--p5-dur`         |
+| `--icon-swap-dur`         | `250ms`       | sourced from `--p5-dur`         |
 | `--icon-swap-blur`        | `2px`         | sourced from `--p5-blur`        |
 | `--icon-swap-start-scale` | `0.25`        | sourced from `--p5-start-scale` |
 | `--icon-swap-ease`        | `ease-in-out` | sourced from `--p5-ease`        |
@@ -30,7 +30,7 @@ The `:root` defaults below match the live tuning on [transitions.dev](https://tr
 
 ```css
 :root {
-  --icon-swap-dur: 200ms;
+  --icon-swap-dur: 250ms;
   --icon-swap-blur: 2px;
   --icon-swap-start-scale: 0.25;
   --icon-swap-ease: ease-in-out;

@@ -85,7 +85,7 @@ export const testGenWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId } = await prepareSandboxSteps(step, {
       installationId: args.installationId,
       repoOwner: docData.repoOwner,
       repoName: docData.repoName,

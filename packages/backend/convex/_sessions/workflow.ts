@@ -349,9 +349,10 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
-    // pushes (see prompts.ts). Push after a successful AGENT turn only —
-    // conversational turns make no commits — and only when the working tree
-    // has changes.
+    // pushes (see prompts.ts). Always push after a successful AGENT turn —
+    // matching project/task chat. Do NOT gate on `git status --porcelain`:
+    // after a proper commit the tree is clean, so that check skipped every
+    // publish and left commits stranded in the sandbox.
     let pushSucceeded = false;
     if (
       args.mode !== "plan" &&
@@ -360,26 +361,15 @@ export const sessionExecuteWorkflow = workflow.define({
       data.turnKind === "agent"
     ) {
       try {
-        const status = await step.runAction(
-          internal.daytona.runSandboxCommand,
-          {
-            sandboxId,
-            command: `test -d ${WORKSPACE_DIR}/.git && cd ${WORKSPACE_DIR} && git status --porcelain`,
-            timeoutSeconds: 10,
-            repoId: data.repoId,
-          },
-        );
-        if (status.trim()) {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
-            sandboxId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            repoId: data.repoId,
-            branchName: data.branchName,
-          });
-          pushSucceeded = true;
-        }
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: data.repoId,
+          branchName: data.branchName,
+        });
+        pushSucceeded = true;
       } catch (error) {
         const publishError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(

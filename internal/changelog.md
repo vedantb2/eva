@@ -1,5 +1,11 @@
 # Changelog
 
+## Session agent commits actually publish to GitHub - 2026-07-10
+
+- Session workflow no longer gates `pushSandboxBranch` on a dirty working tree; after the agent commits the tree is clean, so that check skipped every publish and left commits stranded in the sandbox.
+- Sandboxes now set `pull.rebase true` (create + resume) so agent `git pull` no longer fatals on divergent branches, and session prompts tell the agent to commit only — Eva still owns pull/push/ship.
+- Reason for change: prod session "test2" committed locally but never pushed; agent also hit `git pull --tags origin main` divergent-branch fatal.
+
 ## Suppress spurious "Resuming sandbox" step for active chats - 2026-07-10
 
 - Session, project, and agent-task chats no longer flash a "Resuming sandbox..." step on every message when the sandbox is already active; on Vercel the step now only shows for a genuine resume.

@@ -56,7 +56,7 @@ export function buildEditPrompt(
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Only work on "${branchName}" — never interact with main.
-- Do not git push — Eva publishes "${branchName}" after you finish.
+- Do not git pull, git push, or run ship/PR skills — Eva publishes "${branchName}" after you finish. Commit only.
 - If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
 - Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;

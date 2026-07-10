@@ -415,6 +415,10 @@ export async function createSandbox(
         "git config --global --add safe.directory '*'",
         10,
       );
+      // Agents (esp. Cursor ship skills) often run `git pull` without
+      // --rebase/--no-rebase; modern git fatals on divergent branches unless
+      // a default is set. Rebase keeps session history linear when they do.
+      await execHandle(sandbox, "git config --global pull.rebase true", 10);
     });
 
     // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).

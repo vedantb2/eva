@@ -153,6 +153,8 @@ export async function ensureGitCredentialHelper(
       `git config --global --add credential.helper ''`,
       `git config --global --add credential.helper ${HELPER_SCRIPT_PATH}`,
       `git config --global --replace-all credential.https://github.com.helper ${HELPER_SCRIPT_PATH}`,
+      // Agents often `git pull` without a strategy; modern git fatals otherwise.
+      `git config --global pull.rebase true`,
       ...repoCleanupSteps,
     ].join(" && "),
     20,

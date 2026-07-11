@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
@@ -113,16 +114,14 @@ const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
 const EVA_ENTRYPOINT_B64 =
   "IyEvYmluL2Jhc2gKIyBFdmEgc2FuZGJveCBlbnRyeXBvaW50IOKAlCBzdGFydHMgZG9ja2VyZCwgdGhlbiBzbGVlcHMuIERheXRvbmEgcmUtcnVucyB0aGlzCiMgb24gZXZlcnkgcmVzdW1lIGZyb20gYXV0by1zdG9wLCBzbyBkb2NrZXJkIHN1cnZpdmVzIHRoZSByZXN1bWUgY3ljbGUgd2l0aG91dAojIG5lZWRpbmcgRXZhJ3MgYmFja2VuZCB0byBjYWxsIGVuc3VyZURvY2tlckRhZW1vbi4gZW5zdXJlRG9ja2VyRGFlbW9uIHN0YXlzIGFzCiMgYSBkZWZlbnNpdmUgZmFsbGJhY2sgZm9yIG9sZGVyIHNuYXBzaG90cyBhbmQgY29sZC1zdGFydCByYWNlcy4Kc3VkbyBiYXNoIC1jICcKICBybSAtZiAvdmFyL3J1bi9kb2NrZXIucGlkIC92YXIvcnVuL2RvY2tlci5zb2NrIC9ydW4vZG9ja2VyL2NvbnRhaW5lcmQvY29udGFpbmVyZC5waWQgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sudHRycGMgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLWRlYnVnLnNvY2sgMj4vZGV2L251bGwgfHwgdHJ1ZQogIHNldHNpZCBkb2NrZXJkIDwvZGV2L251bGwgPi92YXIvbG9nL2RvY2tlcmQubG9nIDI+JjEgJgonCmV4ZWMgc2xlZXAgaW5maW5pdHkK";
 
-/** Type guard for record-shaped objects. */
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v);
-}
+// Boundary schemas for the small Daytona/GitHub JSON responses this module reads.
+const urlResponseSchema = z.object({ url: z.string() });
+const shaResponseSchema = z.object({ sha: z.string() });
 
 /** Safely extracts a URL string from an unknown JSON response. */
 function extractUrl(data: unknown): string | null {
-  if (!isRecord(data)) return null;
-  if (typeof data["url"] === "string") return data["url"];
-  return null;
+  const parsed = urlResponseSchema.safeParse(data);
+  return parsed.success ? parsed.data.url : null;
 }
 
 /**
@@ -804,9 +803,9 @@ export const getImageFingerprint = internalAction({
           },
         );
         if (resp.ok) {
-          const data: unknown = await resp.json();
-          if (isRecord(data) && typeof data["sha"] === "string") {
-            lockfileSha = data["sha"];
+          const parsed = shaResponseSchema.safeParse(await resp.json());
+          if (parsed.success) {
+            lockfileSha = parsed.data.sha;
             break;
           }
         }

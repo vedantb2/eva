@@ -9,10 +9,12 @@
     "ext:dev:once": "pnpm --filter eva-assist-extension dev:once",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
+    "lint": "eslint .",
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
+    "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",
+    "*.{ts,tsx}": "eslint"
   },
   "pnpm": {
     "overrides": {
@@ -36,9 +38,12 @@
   },
   "devDependencies": {
     "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^9.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
     "@tanstack/react-hotkeys": "^0.3.2",

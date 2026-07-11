@@ -1,5 +1,6 @@
 "use node";
 
+import { z } from "zod";
 import type { Sandbox } from "@daytonaio/sdk";
 import type { SandboxHandle } from "../_sandbox/provider";
 import {
@@ -42,10 +43,16 @@ export async function detectPackageManager(
   return "npm";
 }
 
-/** Type guard that checks if a value is a non-array plain object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+// Boundary schema for the sandbox package.json. Only the fields dev-port
+// detection needs are modelled; anything malformed falls back to empty via
+// `.catch`, so detection degrades to framework defaults instead of throwing.
+const packageJsonSchema = z
+  .object({
+    scripts: z.record(z.string(), z.string()).catch({}),
+    dependencies: z.record(z.string(), z.string()).catch({}),
+    devDependencies: z.record(z.string(), z.string()).catch({}),
+  })
+  .catch({ scripts: {}, dependencies: {}, devDependencies: {} });
 
 const FRAMEWORK_DEFAULT_PORTS: Record<string, number> = {
   next: 3000,
@@ -68,20 +75,15 @@ export async function detectDevPort(
       `cat ${dir}/package.json 2>/dev/null || echo "{}"`,
       5,
     );
-    const pkg: unknown = JSON.parse(raw);
-    if (!isRecord(pkg)) return 3000;
+    const pkg = packageJsonSchema.parse(JSON.parse(raw));
 
-    const scripts = isRecord(pkg.scripts) ? pkg.scripts : {};
-    const devScript = typeof scripts.dev === "string" ? scripts.dev : "";
-
+    const devScript = pkg.scripts.dev ?? "";
     const portMatch = devScript.match(/(?:--port|--p|-p|PORT=)\s*(\d+)/);
     if (portMatch?.[1]) {
       return parseInt(portMatch[1], 10);
     }
 
-    const deps = isRecord(pkg.dependencies) ? pkg.dependencies : {};
-    const devDeps = isRecord(pkg.devDependencies) ? pkg.devDependencies : {};
-    const allDeps = { ...deps, ...devDeps };
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
     for (const [framework, port] of Object.entries(FRAMEWORK_DEFAULT_PORTS)) {
       if (framework in allDeps) return port;
     }

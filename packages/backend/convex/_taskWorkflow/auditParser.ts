@@ -1,4 +1,4 @@
-import { isRecord } from "@conductor/shared/typeGuards";
+import { z } from "zod";
 
 type AuditSeverity = "critical" | "high" | "medium" | "low";
 type EvalResult = {
@@ -9,60 +9,52 @@ type EvalResult = {
 };
 type AuditSection = { name: string; results: EvalResult[] };
 
-/** Type guard that validates an item conforms to the EvalResult shape. */
-function isEvalResult(item: unknown): item is EvalResult {
-  if (!isRecord(item)) return false;
-  return (
-    typeof item.requirement === "string" &&
-    typeof item.passed === "boolean" &&
-    typeof item.detail === "string"
-  );
-}
+// Boundary schemas for the LLM audit JSON. Invalid results and sections are
+// dropped (`.catch(null)` + filter); an unrecognised severity falls back to
+// "medium" and a missing summary to a default — matching the previous
+// hand-rolled parsing behaviour exactly.
+const severitySchema = z
+  .enum(["critical", "high", "medium", "low"])
+  .catch("medium");
 
-/** Parses a value into a valid AuditSeverity, defaulting to "medium". */
-function parseSeverity(value: unknown): AuditSeverity {
-  if (value === "critical") return "critical";
-  if (value === "high") return "high";
-  if (value === "medium") return "medium";
-  if (value === "low") return "low";
-  return "medium";
-}
+const evalResultSchema = z.object({
+  requirement: z.string(),
+  passed: z.boolean(),
+  detail: z.string(),
+  severity: severitySchema,
+});
 
-/** Filters and normalizes an array of unknown items into typed EvalResult entries. */
-function parseResultsArray(value: unknown): EvalResult[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isEvalResult).map((item) => {
-    if (!isRecord(item)) return item;
-    return {
-      requirement: String(item.requirement),
-      passed: Boolean(item.passed),
-      detail: String(item.detail),
-      severity: parseSeverity(item.severity),
-    };
-  });
-}
+const auditSectionSchema = z.object({
+  name: z.string(),
+  results: z.array(evalResultSchema.nullable().catch(null)),
+});
+
+const auditRootSchema = z.object({
+  sections: z.array(auditSectionSchema.nullable().catch(null)).catch([]),
+  summary: z.string().catch("Audit completed"),
+});
 
 /** Parses raw JSON into structured audit sections with validated results. */
 export function parseSectionsFromJson(raw: unknown): AuditSection[] {
-  if (!isRecord(raw)) return [];
+  const parsed = auditRootSchema.safeParse(raw);
+  if (!parsed.success) return [];
 
-  if (Array.isArray(raw.sections)) {
-    return raw.sections
-      .filter(isRecord)
-      .filter((s) => typeof s.name === "string" && Array.isArray(s.results))
-      .map((s) => ({
-        name: String(s.name),
-        results: parseResultsArray(s.results),
-      }));
+  const sections: AuditSection[] = [];
+  for (const section of parsed.data.sections) {
+    if (!section) continue;
+    sections.push({
+      name: section.name,
+      results: section.results.flatMap((r) => (r ? [r] : [])),
+    });
   }
-
-  return [];
+  return sections;
 }
 
 /** Extracts the summary string from parsed audit JSON, with a fallback default. */
 export function extractSummaryFromJson(raw: unknown): string {
-  if (!isRecord(raw)) return "Audit completed";
-  return typeof raw.summary === "string" ? raw.summary : "Audit completed";
+  const parsed = auditRootSchema.safeParse(raw);
+  if (!parsed.success) return "Audit completed";
+  return parsed.data.summary;
 }
 
 /** Collects all failed audit results across sections into a flat list of failures. */

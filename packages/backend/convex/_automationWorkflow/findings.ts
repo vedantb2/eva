@@ -1,4 +1,4 @@
-import { isRecord } from "@conductor/shared/typeGuards";
+import { z } from "zod";
 
 export interface ParsedFinding {
   id: string;
@@ -9,14 +9,18 @@ export interface ParsedFinding {
   suggestedFix?: string;
 }
 
-type Severity = ParsedFinding["severity"];
+// Boundary schema for one finding in the LLM's FINDINGS_JSON block. Any item
+// that fails validation (missing fields, bad severity) becomes null via
+// `.catch(null)` and is skipped, preserving the original per-item behaviour.
+const findingItemSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  severity: z.enum(["low", "medium", "high", "critical"]),
+  filePaths: z.array(z.string()).optional().catch(undefined),
+  suggestedFix: z.string().optional().catch(undefined),
+});
 
-const VALID_SEVERITIES: Record<string, Severity> = {
-  low: "low",
-  medium: "medium",
-  high: "high",
-  critical: "critical",
-};
+const findingsArraySchema = z.array(findingItemSchema.nullable().catch(null));
 
 /** Extracts structured findings from the FINDINGS_JSON marker in the LLM result text. */
 export function parseFindingsFromResult(
@@ -30,49 +34,28 @@ export function parseFindingsFromResult(
   if (!jsonMatch) return null;
 
   try {
-    const parsed: unknown = JSON.parse(jsonMatch[1].trim());
-    if (!Array.isArray(parsed)) return null;
+    const parsed = findingsArraySchema.safeParse(
+      JSON.parse(jsonMatch[1].trim()),
+    );
+    if (!parsed.success) return null;
 
-    const findings: ParsedFinding[] = [];
-    for (let i = 0; i < parsed.length; i++) {
-      const item: unknown = parsed[i];
-      if (!isRecord(item)) continue;
+    // Map before filtering so the `finding-${i}` id keeps the original array
+    // index even when earlier items were skipped.
+    const findings: ParsedFinding[] = parsed.data
+      .map((item, i): ParsedFinding | null => {
+        if (!item) return null;
+        const finding: ParsedFinding = {
+          id: `finding-${String(i)}`,
+          title: item.title,
+          description: item.description,
+          severity: item.severity,
+        };
+        if (item.filePaths) finding.filePaths = item.filePaths;
+        if (item.suggestedFix) finding.suggestedFix = item.suggestedFix;
+        return finding;
+      })
+      .filter((f): f is ParsedFinding => f !== null);
 
-      const title = item.title;
-      const description = item.description;
-      const severityRaw = item.severity;
-
-      if (typeof title !== "string" || typeof description !== "string")
-        continue;
-      if (typeof severityRaw !== "string") continue;
-
-      const severity = VALID_SEVERITIES[severityRaw];
-      if (!severity) continue;
-
-      const finding: ParsedFinding = {
-        id: `finding-${String(i)}`,
-        title,
-        description,
-        severity,
-      };
-
-      if (
-        Array.isArray(item.filePaths) &&
-        item.filePaths.every((fp: unknown) => typeof fp === "string")
-      ) {
-        const paths: string[] = [];
-        for (const fp of item.filePaths) {
-          if (typeof fp === "string") paths.push(fp);
-        }
-        finding.filePaths = paths;
-      }
-
-      if (typeof item.suggestedFix === "string") {
-        finding.suggestedFix = item.suggestedFix;
-      }
-
-      findings.push(finding);
-    }
     return findings.length > 0 ? findings : null;
   } catch {
     return null;

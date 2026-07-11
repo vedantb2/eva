@@ -32,6 +32,7 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { z } from "zod";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import {
@@ -81,46 +82,30 @@ const REASONING_LEVEL_OPTIONS = REASONING_LEVELS.map((value) => ({
   label: REASONING_LEVEL_LABELS[value],
 }));
 
-interface ParsedQuestion {
-  question: string;
-  header: string;
-  options: Array<{ label: string; description: string }>;
-  multiSelect: boolean;
-}
+// Boundary schema for the pending-question JSON emitted by the agent. A
+// question with any malformed field (or option) is dropped via
+// `.catch(null)` + filter, matching the previous per-item guard behaviour.
+const questionSchema = z.object({
+  question: z.string(),
+  header: z.string(),
+  multiSelect: z.boolean(),
+  options: z.array(z.object({ label: z.string(), description: z.string() })),
+});
 
-function isRecord(val: unknown): val is Record<string, unknown> {
-  return typeof val === "object" && val !== null;
-}
+type ParsedQuestion = z.infer<typeof questionSchema>;
 
-function isOptionItem(
-  val: unknown,
-): val is { label: string; description: string } {
-  return (
-    isRecord(val) &&
-    typeof val.label === "string" &&
-    typeof val.description === "string"
-  );
-}
-
-function isParsedQuestion(val: unknown): val is ParsedQuestion {
-  return (
-    isRecord(val) &&
-    typeof val.question === "string" &&
-    typeof val.header === "string" &&
-    typeof val.multiSelect === "boolean" &&
-    Array.isArray(val.options) &&
-    val.options.every(isOptionItem)
-  );
-}
+const pendingQuestionSchema = z.object({
+  questions: z.array(questionSchema.nullable().catch(null)),
+});
 
 function parsePendingQuestion(
   raw: string | undefined | null,
 ): ParsedQuestion[] | null {
   if (!raw) return null;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return null;
-    const questions = parsed.questions.filter(isParsedQuestion);
+    const parsed = pendingQuestionSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    const questions = parsed.data.questions.flatMap((q) => (q ? [q] : []));
     return questions.length > 0 ? questions : null;
   } catch {
     return null;

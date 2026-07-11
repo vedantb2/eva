@@ -46,6 +46,7 @@ Implementation:
 - Never use `unknown`
 - Never use `as` for type assertions
 - Never use the non-null assertion operator `!`.
+- NEVER use `isRecord(object: unknown)` type guards — an `unknown` reaching that point is the bug; parse at the boundary (Zod) instead.
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
 - Minimize surface area of change.

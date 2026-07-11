@@ -1,5 +1,11 @@
 # Changelog
 
+## Ban the generic `isRecord` type guard; parse boundaries with Zod - 2026-07-11
+
+- Removed every `isRecord(value: unknown)` guard from the codebase (9 sites) and replaced each with a Zod boundary schema (`safeParse`), so external JSON — GitHub webhooks, Linear/Daytona API responses, LLM findings/audit/question output, sandbox package.json, Claude Code result events — is typed at entry instead of narrowed from `unknown` downstream.
+- Added a root ESLint flat config with a single custom rule `eva/no-is-record` that flags any `isRecord` identifier; its error message instructs the author (human or agent) that the leaked `unknown` is the real bug and to parse at the boundary. Wired into `pnpm lint` and lint-staged so a reintroduction blocks the commit.
+- Reason for change: the generic guard is a recognisable AI-generated pattern that masks an `unknown` leaking past where it should have been parsed; the ban plus the prompt-injecting lint message force the underlying fix rather than the symptom.
+
 ## Remove project/quick-task sandbox chats from the sessions sidebar - 2026-07-10
 
 - The sessions sidebar no longer interleaves virtual project and quick-task sandbox chat entries; it lists real sessions only, as it did before. Backend `sessions.listChatEntries` and its `_sessions/chatEntries` query are gone.

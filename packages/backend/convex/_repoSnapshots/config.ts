@@ -468,7 +468,6 @@ export const saveRepoSnapshot = authMutation({
       const cronspec = resolveCronspec(args.schedule);
       const cronJobId = await safeReplaceCron(ctx, {
         name: cronName,
-        existingCronJobId: appSpecific.cronJobId,
         cronspec: cronspec && appSpecific.enabled === true ? cronspec : null,
         handler: internal.repoSnapshots.triggerScheduledBuild,
         args: { repoSnapshotId: appSpecific._id },
@@ -518,7 +517,6 @@ export const saveRepoSnapshot = authMutation({
 
           const cronJobId = await safeReplaceCron(ctx, {
             name: cronName,
-            existingCronJobId: undefined,
             cronspec: resolveCronspec(args.schedule),
             handler: internal.repoSnapshots.triggerScheduledBuild,
             args: { repoSnapshotId: id },
@@ -547,7 +545,6 @@ export const saveRepoSnapshot = authMutation({
 
     const cronJobId = await safeReplaceCron(ctx, {
       name: cronName,
-      existingCronJobId: undefined,
       cronspec: resolveCronspec(args.schedule),
       handler: internal.repoSnapshots.triggerScheduledBuild,
       args: { repoSnapshotId: id },
@@ -574,7 +571,6 @@ export const setSnapshotEnabled = authMutation({
     const cronName = `snapshot-rebuild-${config.repoId}`;
     const cronJobId = await safeReplaceCron(ctx, {
       name: cronName,
-      existingCronJobId: config.cronJobId,
       cronspec: args.enabled ? resolveCronspec(config.schedule) : null,
       handler: internal.repoSnapshots.triggerScheduledBuild,
       args: { repoSnapshotId: config._id },
@@ -598,7 +594,7 @@ export const deleteRepoSnapshot = authMutation({
     if (!config) return null;
 
     const cronName = `snapshot-rebuild-${config.repoId}`;
-    await safeDeleteCron(ctx, cronName, config.cronJobId);
+    await safeDeleteCron(ctx, cronName);
 
     await ctx.scheduler.runAfter(
       0,

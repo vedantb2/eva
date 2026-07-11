@@ -157,7 +157,6 @@ export const update = authMutation({
     const cronName = `automation-${String(args.id)}`;
     patch.cronJobId = await safeReplaceCron(ctx, {
       name: cronName,
-      existingCronJobId: automation.cronJobId,
       cronspec: newEnabled && newSchedule ? newSchedule : null,
       handler: internal.automations.triggerAutomation,
       args: { automationId: args.id },
@@ -180,7 +179,7 @@ export const remove = authMutation({
     }
 
     const cronName = `automation-${String(args.id)}`;
-    await safeDeleteCron(ctx, cronName, automation.cronJobId);
+    await safeDeleteCron(ctx, cronName);
 
     await ctx.db.patch(args.id, {
       enabled: false,

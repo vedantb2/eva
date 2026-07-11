@@ -6,6 +6,7 @@ import { allocateNumId, entityVisible, filterActiveEntities } from "../numId";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
 import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";
+import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
@@ -70,7 +71,20 @@ export const getByNumId = authQuery({
         q.eq("repoId", args.repoId).eq("numId", args.numId),
       )
       .first();
-    return entityVisible(automation);
+    if (automation) return entityVisible(automation);
+
+    // Shared automations are stored on the canonical (parent) repo, so a
+    // child-app lookup misses them; mirror listAutomationsForRepo's fallback.
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
+    if (canonicalId === args.repoId) return null;
+    const sharedAutomation = await ctx.db
+      .query("automations")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", canonicalId).eq("numId", args.numId),
+      )
+      .first();
+    if (!sharedAutomation || sharedAutomation.shared !== true) return null;
+    return entityVisible(sharedAutomation);
   },
 });
 

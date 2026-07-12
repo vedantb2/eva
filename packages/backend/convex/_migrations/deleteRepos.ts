@@ -1,5 +1,6 @@
-import { internalMutation } from "../_generated/server";
+import { internalMutation, type MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { v } from "convex/values";
 
 const STEPS = [
@@ -330,6 +331,22 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
+/** Schedules the first deletion step for each target repo. */
+async function scheduleRepoDeletions(
+  ctx: MutationCtx,
+  targets: Doc<"githubRepos">[],
+): Promise<void> {
+  for (const repo of targets) {
+    const label = `${repo.owner}/${repo.name}${repo.rootDirectory ? ` (${repo.rootDirectory})` : ""}`;
+    await ctx.scheduler.runAfter(0, internal.migrations.deleteRepoStep, {
+      repoId: repo._id,
+      step: STEPS[0],
+      totalDeleted: 0,
+      repoLabel: label,
+    });
+  }
+}
+
 /** Schedules deletion of all repos not owned by "evalucom" (or vvedantb/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},
@@ -344,15 +361,7 @@ export const deleteNonEvalucomRepos = internalMutation({
     console.log(
       `[cleanup] Scheduling deletion for ${targets.length} non-evalucom repos`,
     );
-    for (const repo of targets) {
-      const label = `${repo.owner}/${repo.name}${repo.rootDirectory ? ` (${repo.rootDirectory})` : ""}`;
-      await ctx.scheduler.runAfter(0, internal.migrations.deleteRepoStep, {
-        repoId: repo._id,
-        step: STEPS[0],
-        totalDeleted: 0,
-        repoLabel: label,
-      });
-    }
+    await scheduleRepoDeletions(ctx, targets);
 
     return { reposScheduled: targets.length };
   },
@@ -372,15 +381,7 @@ export const deleteEvalucomRepos = internalMutation({
     console.log(
       `[cleanup] Scheduling deletion for ${targets.length} evalucom repos`,
     );
-    for (const repo of targets) {
-      const label = `${repo.owner}/${repo.name}${repo.rootDirectory ? ` (${repo.rootDirectory})` : ""}`;
-      await ctx.scheduler.runAfter(0, internal.migrations.deleteRepoStep, {
-        repoId: repo._id,
-        step: STEPS[0],
-        totalDeleted: 0,
-        repoLabel: label,
-      });
-    }
+    await scheduleRepoDeletions(ctx, targets);
 
     return { reposScheduled: targets.length };
   },

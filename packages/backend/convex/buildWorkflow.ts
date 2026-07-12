@@ -36,9 +36,7 @@ export const buildProjectWorkflow = workflow.define({
 
     // Step 2: Execute tasks sequentially
     let failedTaskId: string | undefined;
-    for (let i = 0; i < tasks.length; i++) {
-      const task = tasks[i];
-
+    for (const task of tasks) {
       await step.runMutation(internal.buildWorkflow.startTaskForBuild, {
         taskId: task._id,
         projectId: args.projectId,

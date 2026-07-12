@@ -312,18 +312,6 @@ export const archiveSandbox = internalAction({
   },
 });
 
-/**
- * Issues a start request for a sandbox and returns the observed state WITHOUT
- * blocking on a full cold-storage thaw.
- *
- * Archived sandboxes rehydrate from object storage, which can take well over 10
- * minutes — waiting inline would blow the Convex per-action time limit. So this
- * fires the start (the thaw then proceeds server-side on Daytona) with only a
- * short wait window: a stopped→started fast resume completes here and returns
- * "running"; an archived thaw times out the wait (expected) and returns the
- * in-progress state so the caller can poll via pollSandboxStarted. Throws only
- * when the sandbox is in a terminal failure state.
- */
 /** Returns the active sandbox provider for a repo (for workflow thaw id selection). */
 export const getSandboxProviderKind = internalAction({
   args: { repoId: v.id("githubRepos") },
@@ -368,6 +356,18 @@ export const getSnapshotSandboxProviderKind = internalAction({
   },
 });
 
+/**
+ * Issues a start request for a sandbox and returns the observed state WITHOUT
+ * blocking on a full cold-storage thaw.
+ *
+ * Archived sandboxes rehydrate from object storage, which can take well over 10
+ * minutes — waiting inline would blow the Convex per-action time limit. So this
+ * fires the start (the thaw then proceeds server-side on Daytona) with only a
+ * short wait window: a stopped→started fast resume completes here and returns
+ * "running"; an archived thaw times out the wait (expected) and returns the
+ * in-progress state so the caller can poll via pollSandboxStarted. Throws only
+ * when the sandbox is in a terminal failure state.
+ */
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.object({

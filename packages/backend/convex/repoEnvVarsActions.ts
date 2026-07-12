@@ -21,12 +21,8 @@ export const revealValue = action({
       internal.repoEnvVars.getAllInternal,
       { repoId: args.repoId },
     );
-    for (const entry of vars) {
-      if (entry.key === args.key) {
-        return decryptValue(entry.value);
-      }
-    }
-    return null;
+    const entry = vars.find((entry) => entry.key === args.key);
+    return entry ? decryptValue(entry.value) : null;
   },
 });
 

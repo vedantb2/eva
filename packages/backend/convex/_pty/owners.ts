@@ -41,6 +41,11 @@ export interface ResolvedOwner {
   isStoppingOrClosed: boolean;
 }
 
+/** A sandbox in `stopping`/`closed` must not be exec'd against (see ResolvedOwner.isStoppingOrClosed). */
+function isStoppingOrClosed(status: string | undefined): boolean {
+  return status === "stopping" || status === "closed";
+}
+
 export async function resolveOwner(
   ctx: ActionCtx,
   owner:
@@ -65,8 +70,7 @@ export async function resolveOwner(
         });
       },
       ownerIdSuffix: String(owner.sessionId).slice(-8),
-      isStoppingOrClosed:
-        session.status === "stopping" || session.status === "closed",
+      isStoppingOrClosed: isStoppingOrClosed(session.status),
     };
   }
 
@@ -83,9 +87,7 @@ export async function resolveOwner(
       defaultPtyId: undefined,
       setDefaultPtyId: undefined,
       ownerIdSuffix: String(owner.taskId).slice(-8),
-      isStoppingOrClosed:
-        task.reviewTaskSandboxStatus === "stopping" ||
-        task.reviewTaskSandboxStatus === "closed",
+      isStoppingOrClosed: isStoppingOrClosed(task.reviewTaskSandboxStatus),
     };
   }
 
@@ -100,8 +102,6 @@ export async function resolveOwner(
     defaultPtyId: undefined,
     setDefaultPtyId: undefined,
     ownerIdSuffix: String(owner.projectId).slice(-8),
-    isStoppingOrClosed:
-      project.reviewProjectSandboxStatus === "stopping" ||
-      project.reviewProjectSandboxStatus === "closed",
+    isStoppingOrClosed: isStoppingOrClosed(project.reviewProjectSandboxStatus),
   };
 }

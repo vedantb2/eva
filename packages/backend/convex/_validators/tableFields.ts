@@ -30,6 +30,7 @@ import {
   evalResultValidator,
   logEntryValidator,
   terminalPaneValidator,
+  userFlowValidator,
   variationValidator,
 } from "./shapes";
 
@@ -509,9 +510,7 @@ export const docFields = {
   prRecapError: v.optional(v.string()),
   pendingAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   description: v.optional(v.string()),
-  userFlows: v.optional(
-    v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
-  ),
+  userFlows: v.optional(v.array(userFlowValidator)),
   requirements: v.optional(v.array(v.string())),
   interviewHistory: v.optional(
     v.array(

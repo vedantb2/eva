@@ -107,14 +107,16 @@ http.route({
 });
 
 /** Parses and validates the request body for the env-vars endpoint. */
+const envVarsBodySchema = z.object({
+  repoId: z.string().min(1),
+  userId: z.string().min(1),
+});
+
 function parseEnvVarsBody(
   body: unknown,
 ): { repoId: string; userId: string } | null {
-  if (typeof body !== "object" || body === null) return null;
-  if (!("repoId" in body) || typeof body.repoId !== "string") return null;
-  if (!("userId" in body) || typeof body.userId !== "string") return null;
-  if (body.repoId.length === 0 || body.userId.length === 0) return null;
-  return { repoId: body.repoId, userId: body.userId };
+  const parsed = envVarsBodySchema.safeParse(body);
+  return parsed.success ? parsed.data : null;
 }
 
 http.route({

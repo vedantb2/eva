@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import type {
   GenericDatabaseReader,
   GenericDatabaseWriter,
@@ -143,34 +144,25 @@ export async function deleteProjectDetails(
   }
 }
 
-interface ParsedTask {
-  title: string;
-  description: string;
-  dependencies: number[];
-}
+const parsedTaskSchema = z
+  .object({
+    title: z.string().catch(""),
+    description: z.string().catch(""),
+    dependencies: z.array(z.number()).catch([]),
+  })
+  .catch({ title: "", description: "", dependencies: [] });
 
-interface ParsedSpec {
-  title: string;
-  description: string;
-  tasks: ParsedTask[];
-}
+const parsedSpecSchema = z
+  .object({
+    title: z.string().catch(""),
+    description: z.string().catch(""),
+    tasks: z.array(parsedTaskSchema).catch([]),
+  })
+  .catch({ title: "", description: "", tasks: [] });
+
+type ParsedSpec = z.infer<typeof parsedSpecSchema>;
 
 /** Parses a JSON spec string into a structured object with title, description, and tasks. */
 export function parseSpec(specJson: string): ParsedSpec {
-  const parsed = JSON.parse(specJson);
-  return {
-    title: parsed.title ?? "",
-    description: parsed.description ?? "",
-    tasks: (parsed.tasks ?? []).map(
-      (t: {
-        title?: string;
-        description?: string;
-        dependencies?: number[];
-      }) => ({
-        title: t.title ?? "",
-        description: t.description ?? "",
-        dependencies: t.dependencies ?? [],
-      }),
-    ),
-  };
+  return parsedSpecSchema.parse(JSON.parse(specJson));
 }

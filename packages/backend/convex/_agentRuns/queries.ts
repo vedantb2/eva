@@ -1,7 +1,21 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { deploymentStatusValidator, agentRunFields } from "../validators";
 import { authQuery, hasTaskAccess, hasRepoAccess } from "../functions";
+
+/** Loads a run and its parent task, enforcing task access. Returns null if the run is missing or inaccessible. */
+async function loadAccessibleRun(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  id: Id<"agentRuns">,
+): Promise<{ run: Doc<"agentRuns">; task: Doc<"agentTasks"> } | null> {
+  const run = await db.get(id);
+  if (!run) return null;
+  const task = await db.get(run.taskId);
+  if (!task || !(await hasTaskAccess(db, task, userId))) return null;
+  return { run, task };
+}
 
 export const agentRunValidator = v.object({
   _id: v.id("agentRuns"),
@@ -16,13 +30,9 @@ export const get = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(agentRunSummaryValidator, v.null()),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) {
-      return null;
-    }
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
-    return run;
+    const loaded = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
+    if (!loaded) return null;
+    return loaded.run;
   },
 });
 
@@ -38,14 +48,12 @@ export const getWithDetails = authQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) return null;
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+    const loaded = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
+    if (!loaded) return null;
     return {
-      ...run,
-      taskTitle: task.title,
-      taskDescription: task.description,
+      ...loaded.run,
+      taskTitle: loaded.task.title,
+      taskDescription: loaded.task.description,
     };
   },
 });
@@ -55,10 +63,8 @@ export const getActivityLog = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) return null;
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return null;
+    const loaded = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
+    if (!loaded) return null;
 
     const activityLog =
       (await ctx.db

@@ -31,10 +31,11 @@ export const repairStuckProjectInterview = internalMutation({
 
     if (details) {
       const last = details.conversationHistory.at(-1);
+      const trimmedContent = last?.content.trim();
       if (
         last?.role === "assistant" &&
-        (last.content.trim() === "" ||
-          last.content.trim() === JSON.stringify({ error: true }))
+        (trimmedContent === "" ||
+          trimmedContent === JSON.stringify({ error: true }))
       ) {
         await ctx.db.patch(details._id, {
           conversationHistory: details.conversationHistory.slice(0, -1),

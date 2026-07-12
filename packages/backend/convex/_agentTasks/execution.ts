@@ -93,6 +93,17 @@ export const startExecution = authMutation({
       task.projectId,
     );
 
+    const branchName =
+      task.projectId && project
+        ? (project.branchName ??
+          buildProjectBranchName(task.projectId, project.branchVersion))
+        : undefined;
+    const baseBranch = resolveTaskWorkflowBaseBranch(
+      task,
+      repo,
+      project ?? undefined,
+    );
+
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.id,
       status: "queued",
@@ -121,12 +132,8 @@ export const startExecution = authMutation({
           repoId: task.repoId,
           installationId: repo.installationId,
           projectId: task.projectId,
-          branchName:
-            task.projectId && project
-              ? (project.branchName ??
-                buildProjectBranchName(task.projectId, project.branchVersion))
-              : undefined,
-          baseBranch: resolveTaskWorkflowBaseBranch(task, repo, project),
+          branchName,
+          baseBranch,
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           userId: ctx.userId,
@@ -161,16 +168,8 @@ export const startExecution = authMutation({
       repoId: task.repoId,
       installationId: repo.installationId,
       projectId: task.projectId,
-      branchName:
-        task.projectId && project
-          ? (project.branchName ??
-            buildProjectBranchName(task.projectId, project.branchVersion))
-          : undefined,
-      baseBranch: resolveTaskWorkflowBaseBranch(
-        task,
-        repo,
-        project ?? undefined,
-      ),
+      branchName,
+      baseBranch,
       isFirstTaskOnBranch: firstOnBranch,
       model: task.model ?? repo.defaultModel,
     };

@@ -234,36 +234,18 @@ export const saveResult = internalMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc) return null;
 
-    if (!args.success || !args.result) {
-      const history = updateLastHistoryEntry(
-        doc.interviewHistory ?? [],
-        JSON.stringify({ error: true }),
-        args.activityLog,
-      );
-      await ctx.db.patch(args.docId, {
-        interviewHistory: history,
-        activeWorkflowId: undefined,
-      });
-      return null;
-    }
-
-    const parsed = extractFirstJsonValue(args.result);
-    if (parsed === undefined) {
-      const history = updateLastHistoryEntry(
-        doc.interviewHistory ?? [],
-        JSON.stringify({ error: true }),
-        args.activityLog,
-      );
-      await ctx.db.patch(args.docId, {
-        interviewHistory: history,
-        activeWorkflowId: undefined,
-      });
-      return null;
-    }
+    const parsed =
+      args.success && args.result
+        ? extractFirstJsonValue(args.result)
+        : undefined;
+    const content =
+      parsed === undefined
+        ? JSON.stringify({ error: true })
+        : JSON.stringify(parsed);
 
     const history = updateLastHistoryEntry(
       doc.interviewHistory ?? [],
-      JSON.stringify(parsed),
+      content,
       args.activityLog,
     );
     await ctx.db.patch(args.docId, {

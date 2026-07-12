@@ -11,20 +11,28 @@ type ProjectBaseBranchSource =
   | null
   | undefined;
 
+// Returns the first candidate that is non-empty after trimming, else the
+// configured fallback. Callers pass candidates in priority order.
+function firstBranchOrFallback(
+  ...candidates: Array<string | undefined>
+): string {
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed) return trimmed;
+  }
+  return FALLBACK_GIT_BASE_BRANCH;
+}
+
 export function resolveTaskWorkflowBaseBranch(
   task: Pick<Doc<"agentTasks">, "baseBranch" | "projectId">,
   repo: RepoBaseBranchSource,
   project?: ProjectBaseBranchSource,
 ): string {
-  if (task.projectId) {
-    const fromProject = project?.baseBranch?.trim();
-    if (fromProject) return fromProject;
-  }
-  const fromTask = task.baseBranch?.trim();
-  if (fromTask) return fromTask;
-  const fromRepo = repo?.defaultBaseBranch?.trim();
-  if (fromRepo) return fromRepo;
-  return FALLBACK_GIT_BASE_BRANCH;
+  return firstBranchOrFallback(
+    task.projectId ? project?.baseBranch : undefined,
+    task.baseBranch,
+    repo?.defaultBaseBranch,
+  );
 }
 
 export async function resolveTaskWorkflowBaseBranchForTask(
@@ -32,16 +40,12 @@ export async function resolveTaskWorkflowBaseBranchForTask(
   task: Pick<Doc<"agentTasks">, "baseBranch" | "projectId">,
   repo: RepoBaseBranchSource,
 ): Promise<string> {
-  if (task.projectId) {
-    const project = await db.get(task.projectId);
-    const fromProject = project?.baseBranch?.trim();
-    if (fromProject) return fromProject;
-  }
-  const fromTask = task.baseBranch?.trim();
-  if (fromTask) return fromTask;
-  const fromRepo = repo?.defaultBaseBranch?.trim();
-  if (fromRepo) return fromRepo;
-  return FALLBACK_GIT_BASE_BRANCH;
+  const project = task.projectId ? await db.get(task.projectId) : null;
+  return firstBranchOrFallback(
+    project?.baseBranch,
+    task.baseBranch,
+    repo?.defaultBaseBranch,
+  );
 }
 
 export function resolveNewTaskBaseBranch(
@@ -49,11 +53,9 @@ export function resolveNewTaskBaseBranch(
   repo: RepoBaseBranchSource,
   project?: ProjectBaseBranchSource,
 ): string {
-  const explicit = explicitBaseBranch?.trim();
-  if (explicit) return explicit;
-  const fromProject = project?.baseBranch?.trim();
-  if (fromProject) return fromProject;
-  const fromRepo = repo?.defaultBaseBranch?.trim();
-  if (fromRepo) return fromRepo;
-  return FALLBACK_GIT_BASE_BRANCH;
+  return firstBranchOrFallback(
+    explicitBaseBranch,
+    project?.baseBranch,
+    repo?.defaultBaseBranch,
+  );
 }

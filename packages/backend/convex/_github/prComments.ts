@@ -8,14 +8,16 @@ export function buildPrRecapCommentBody(params: {
   status: "ready" | "error" | "skipped";
   message?: string;
 }): string {
+  const messageSuffix = params.message ? `: ${params.message}` : ".";
+
   if (params.status === "skipped") {
     return `${PR_RECAP_COMMENT_MARKER}
-_Eva skipped generating a recap for this update${params.message ? `: ${params.message}` : "."}_`;
+_Eva skipped generating a recap for this update${messageSuffix}_`;
   }
 
   if (params.status === "error") {
     return `${PR_RECAP_COMMENT_MARKER}
-_Eva could not generate a PR recap${params.message ? `: ${params.message}` : "."}_`;
+_Eva could not generate a PR recap${messageSuffix}_`;
   }
 
   return `${PR_RECAP_COMMENT_MARKER}

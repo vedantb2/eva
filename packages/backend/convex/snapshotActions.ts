@@ -599,11 +599,7 @@ export const sweepSeedPrepSandboxes = internalAction({
     const referenced = new Set(
       await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
     );
-    const scopedRepoIds = args.scopedRepoIds ?? [];
-    const scopedRepoIdStrings: string[] = [];
-    for (const repoId of scopedRepoIds) {
-      scopedRepoIdStrings.push(repoId);
-    }
+    const scopedRepoIdStrings: string[] = args.scopedRepoIds ?? [];
 
     let scanned = 0;
     let matched = 0;

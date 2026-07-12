@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import {
   runStatusValidator,
@@ -12,6 +13,20 @@ import {
   hasTaskAccess,
   recomputeProjectPhase,
 } from "../functions";
+
+/** Loads a run and its parent task, enforcing task access. Throws "Run not found" if the run is missing or inaccessible. */
+async function loadAccessibleRun(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  id: Id<"agentRuns">,
+): Promise<{ run: Doc<"agentRuns">; task: Doc<"agentTasks"> }> {
+  const run = await db.get(id);
+  if (!run) throw new Error("Run not found");
+  const task = await db.get(run.taskId);
+  if (!task || !(await hasTaskAccess(db, task, userId)))
+    throw new Error("Run not found");
+  return { run, task };
+}
 
 /** Builds a human-readable notification message for a completed or failed run. */
 function buildRunNotificationMessage(params: {
@@ -50,11 +65,7 @@ export const updateStatus = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) throw new Error("Run not found");
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
-      throw new Error("Run not found");
+    const { run, task } = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
     if (run.status === "success" || run.status === "error")
       throw new Error("Cannot update completed run");
     await ctx.db.patch(args.id, { status: args.status });
@@ -80,11 +91,7 @@ export const appendLog = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) throw new Error("Run not found");
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
-      throw new Error("Run not found");
+    const { run } = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
     if (run.status === "success" || run.status === "error")
       throw new Error("Cannot append to completed run");
     const newLog = {
@@ -111,11 +118,7 @@ export const complete = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.id);
-    if (!run) throw new Error("Run not found");
-    const task = await ctx.db.get(run.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
-      throw new Error("Run not found");
+    const { run, task } = await loadAccessibleRun(ctx.db, ctx.userId, args.id);
     if (run.status === "success" || run.status === "error")
       throw new Error("Run already completed");
     const now = Date.now();

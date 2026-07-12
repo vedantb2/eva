@@ -401,14 +401,15 @@ async function upsertPrRecapDocImpl(
       existing.content.trim().length > 0 &&
       existing.content !== args.content;
 
+    const snapshot = await ctx.runQuery(
+      components.prosemirrorSync.lib.getSnapshot,
+      { id: existing._id },
+    );
+
     if (shouldSnapshot) {
-      const priorSnapshot = await ctx.runQuery(
-        components.prosemirrorSync.lib.getSnapshot,
-        { id: existing._id },
-      );
       const pmContent =
-        priorSnapshot.content !== null
-          ? JSON.stringify(priorSnapshot.content)
+        snapshot.content !== null
+          ? JSON.stringify(snapshot.content)
           : JSON.stringify(markdownToDocJson(existing.content));
       await ctx.runMutation(internal.docVersions.saveRecapSnapshot, {
         docId: existing._id,
@@ -419,10 +420,6 @@ async function upsertPrRecapDocImpl(
       });
     }
 
-    const snapshot = await ctx.runQuery(
-      components.prosemirrorSync.lib.getSnapshot,
-      { id: existing._id },
-    );
     if (snapshot.content !== null) {
       await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
         id: existing._id,

@@ -6,21 +6,14 @@ type LegacySessionJson = {
   startupRequestedAt?: number;
 };
 
-function readLegacySessionJson(session: Doc<"sessions">): LegacySessionJson {
-  const serialized = JSON.stringify(session);
-  const parsed: Doc<"sessions"> & LegacySessionJson = JSON.parse(serialized);
-  return { startupRequestedAt: parsed.startupRequestedAt };
-}
-
 function stripLegacySessionFields(
   session: Doc<"sessions">,
 ): Omit<Doc<"sessions">, "_id" | "_creationTime"> | null {
-  const legacy = readLegacySessionJson(session);
-  if (legacy.startupRequestedAt === undefined) {
-    return null;
-  }
   const serialized = JSON.stringify(session);
   const parsed: Doc<"sessions"> & LegacySessionJson = JSON.parse(serialized);
+  if (parsed.startupRequestedAt === undefined) {
+    return null;
+  }
   const {
     _id: omittedId,
     _creationTime: omittedCreationTime,

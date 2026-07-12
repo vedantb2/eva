@@ -1,8 +1,64 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
 import { githubRepoValidator, pickDefaultVisibleAppRepo } from "./helpers";
 import { getAIProviderAvailability } from "../validators";
+
+/** True when the user connected the repo or shares its team. */
+async function userCanAccessRepo(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  repo: Doc<"githubRepos">,
+): Promise<boolean> {
+  if (repo.connectedBy === userId) return true;
+  const teamId = repo.teamId;
+  if (!teamId) return false;
+  const membership = await db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+  return membership !== null;
+}
+
+/** All repos the user can access (connected + team), de-duplicated. */
+async function gatherAccessibleRepos(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  includeHidden: boolean,
+): Promise<Array<Doc<"githubRepos">>> {
+  const userTeamMemberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const teamRepoResults = await Promise.all(
+    userTeamMemberships.map((m) =>
+      db
+        .query("githubRepos")
+        .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+        .collect(),
+    ),
+  );
+
+  const connectedRepos = await db
+    .query("githubRepos")
+    .withIndex("by_connected_by", (q) => q.eq("connectedBy", userId))
+    .collect();
+
+  const seen = new Set<string>();
+  const repos: Array<Doc<"githubRepos">> = [];
+  for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+    if (seen.has(String(repo._id))) continue;
+    seen.add(String(repo._id));
+    if (!includeHidden && repo.hidden === true) continue;
+    repos.push(repo);
+  }
+  return repos;
+}
 
 /** Lists all GitHub repos accessible to the current user across their teams. */
 export const list = authQuery({
@@ -11,34 +67,11 @@ export const list = authQuery({
   },
   returns: v.array(githubRepoValidator),
   handler: async (ctx, args) => {
-    const userTeamMemberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-
-    const teamRepoResults = await Promise.all(
-      userTeamMemberships.map((m) =>
-        ctx.db
-          .query("githubRepos")
-          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
-          .collect(),
-      ),
+    return await gatherAccessibleRepos(
+      ctx.db,
+      ctx.userId,
+      args.includeHidden === true,
     );
-
-    const connectedRepos = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
-      .collect();
-
-    const seen = new Set<string>();
-    const repos = [];
-    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-      if (seen.has(String(repo._id))) continue;
-      seen.add(String(repo._id));
-      if (!args.includeHidden && repo.hidden === true) continue;
-      repos.push(repo);
-    }
-    return repos;
   },
 });
 
@@ -50,21 +83,7 @@ export const get = authQuery({
     const repo = await ctx.db.get(args.id);
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -79,21 +98,7 @@ export const getByIdString = authQuery({
     const repo = await ctx.db.get(id);
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -118,21 +123,8 @@ export const getProviderAvailability = authQuery({
       return unavailable;
     }
 
-    if (repo.connectedBy !== ctx.userId) {
-      const teamId = repo.teamId;
-      if (teamId) {
-        const membership = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", (q) =>
-            q.eq("teamId", teamId).eq("userId", ctx.userId),
-          )
-          .first();
-        if (!membership) {
-          return unavailable;
-        }
-      } else {
-        return unavailable;
-      }
+    if (!(await userCanAccessRepo(ctx.db, ctx.userId, repo))) {
+      return unavailable;
     }
 
     const repoEnvDoc = await ctx.db
@@ -187,21 +179,7 @@ export const getByOwnerAndName = authQuery({
 
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -352,33 +330,7 @@ export const listGroupedByCodebase = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    const userTeamMemberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-
-    const teamRepoResults = await Promise.all(
-      userTeamMemberships.map((m) =>
-        ctx.db
-          .query("githubRepos")
-          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
-          .collect(),
-      ),
-    );
-
-    const connectedRepos = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
-      .collect();
-
-    const seen = new Set<string>();
-    const repos = [];
-    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-      if (seen.has(String(repo._id))) continue;
-      seen.add(String(repo._id));
-      if (repo.hidden === true) continue;
-      repos.push(repo);
-    }
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
 
     // Group by owner/name
     const codebaseMap = new Map<

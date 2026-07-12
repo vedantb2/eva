@@ -226,27 +226,28 @@ export const taskExecutionWorkflow = workflow.define({
           console.log(
             `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
           );
+          const createPrArgs = {
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
+            baseBranch: args.baseBranch,
+            title: data.taskTitle,
+            taskId: args.taskId,
+            projectId: args.projectId,
+            taskDescription: data.taskDescription,
+            rootDirectory: data.rootDirectory,
+            changeRequests,
+            proofs,
+            draft: createPrAsDraft,
+          };
           if (args.isFirstTaskOnBranch) {
             // Quick tasks land in business_review on completion; the PR should
             // mirror that by opening as draft. The user promotes it to ready
             // when they move the task to code_review.
             completionPrUrl = await step.runAction(
               internal.taskWorkflowActions.createTaskPullRequest,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                baseBranch: args.baseBranch,
-                title: data.taskTitle,
-                taskId: args.taskId,
-                projectId: args.projectId,
-                taskDescription: data.taskDescription,
-                rootDirectory: data.rootDirectory,
-                changeRequests,
-                proofs,
-                draft: createPrAsDraft,
-              },
+              createPrArgs,
               PR_STEP_RETRY,
             );
           } else {
@@ -276,21 +277,7 @@ export const taskExecutionWorkflow = workflow.define({
               );
               completionPrUrl = await step.runAction(
                 internal.taskWorkflowActions.createTaskPullRequest,
-                {
-                  installationId: args.installationId,
-                  repoOwner: data.repoOwner,
-                  repoName: data.repoName,
-                  branchName: data.branchName,
-                  baseBranch: args.baseBranch,
-                  title: data.taskTitle,
-                  taskId: args.taskId,
-                  projectId: args.projectId,
-                  taskDescription: data.taskDescription,
-                  rootDirectory: data.rootDirectory,
-                  changeRequests,
-                  proofs,
-                  draft: createPrAsDraft,
-                },
+                createPrArgs,
                 PR_STEP_RETRY,
               );
             }

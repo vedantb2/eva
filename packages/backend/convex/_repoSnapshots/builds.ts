@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
@@ -30,6 +34,27 @@ async function resolveBuildKind(
 ): Promise<"base" | "seeded"> {
   const repo = await ctx.db.get(repoId);
   return (repo?.stopCommands?.length ?? 0) > 0 ? "seeded" : "base";
+}
+
+/**
+ * If a build is currently running for a snapshot, either expire it (when stale)
+ * or report it as blocking. Returns true only when a non-stale build is still
+ * running, in which case the caller must not start a new build.
+ */
+async function expireStaleBuild(
+  ctx: MutationCtx,
+  runningBuild: Doc<"snapshotBuilds"> | null,
+): Promise<boolean> {
+  if (!runningBuild || runningBuild.status !== "running") return false;
+  if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
+    await ctx.db.patch(runningBuild._id, {
+      status: "error",
+      error: "Build timed out (exceeded 20 minutes)",
+      completedAt: Date.now(),
+    });
+    return false;
+  }
+  return true;
 }
 
 type SeededAppReturn = {
@@ -218,17 +243,7 @@ export const triggerScheduledBuild = internalMutation({
       .order("desc")
       .first();
 
-    if (runningBuild && runningBuild.status === "running") {
-      if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
-        await ctx.db.patch(runningBuild._id, {
-          status: "error",
-          error: "Build timed out (exceeded 20 minutes)",
-          completedAt: Date.now(),
-        });
-      } else {
-        return null;
-      }
-    }
+    if (await expireStaleBuild(ctx, runningBuild)) return null;
 
     const now = Date.now();
     const kind = await resolveBuildKind(ctx, config.repoId);
@@ -339,16 +354,8 @@ export const startBuild = authMutation({
       .order("desc")
       .first();
 
-    if (runningBuild && runningBuild.status === "running") {
-      if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
-        await ctx.db.patch(runningBuild._id, {
-          status: "error",
-          error: "Build timed out (exceeded 20 minutes)",
-          completedAt: Date.now(),
-        });
-      } else {
-        throw new Error("A build is already running for this snapshot");
-      }
+    if (await expireStaleBuild(ctx, runningBuild)) {
+      throw new Error("A build is already running for this snapshot");
     }
 
     const now = Date.now();
@@ -428,16 +435,8 @@ export const startBuildForRepo = internalMutation({
       )
       .order("desc")
       .first();
-    if (runningBuild && runningBuild.status === "running") {
-      if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
-        await ctx.db.patch(runningBuild._id, {
-          status: "error",
-          error: "Build timed out (exceeded 20 minutes)",
-          completedAt: Date.now(),
-        });
-      } else {
-        throw new Error("A build is already running for this snapshot");
-      }
+    if (await expireStaleBuild(ctx, runningBuild)) {
+      throw new Error("A build is already running for this snapshot");
     }
 
     const now = Date.now();

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
@@ -267,6 +268,32 @@ No markdown, no explanation, no text outside the JSON.${rootDirInstruction}`;
   },
 });
 
+/**
+ * Schema for the LLM evaluation JSON. Per-field `.catch()` defaults fold
+ * validation and fallback values into a single parse: a non-string requirement
+ * or detail becomes "", `passed` is true only when strictly boolean-true, a
+ * malformed item collapses to a default entry, a missing/non-array `results`
+ * becomes undefined (triggering the per-requirement fallback), and a
+ * non-string summary becomes "Evaluation completed".
+ */
+const evalJsonSchema = z
+  .object({
+    results: z
+      .array(
+        z
+          .object({
+            requirement: z.string().catch(""),
+            passed: z.boolean().catch(false),
+            detail: z.string().catch(""),
+          })
+          .catch({ requirement: "", passed: false, detail: "" }),
+      )
+      .optional()
+      .catch(undefined),
+    summary: z.string().catch("Evaluation completed"),
+  })
+  .catch({ results: undefined, summary: "Evaluation completed" });
+
 /** Saves evaluation results, parsing the LLM JSON into per-requirement pass/fail entries. */
 export const saveResult = internalMutation({
   args: {
@@ -285,38 +312,23 @@ export const saveResult = internalMutation({
     if (args.success && args.result) {
       const { json } = llmJson.extract(args.result);
       if (json.length > 0) {
-        const parsed = json[0] as {
-          results?: Array<{
-            requirement?: string;
-            passed?: boolean;
-            detail?: string;
-          }>;
-          summary?: string;
-        };
+        const parsed = evalJsonSchema.parse(json[0]);
 
         const doc = await ctx.db.get(report.docId);
         const requirements = doc?.requirements ?? [];
 
-        const results = Array.isArray(parsed.results)
-          ? parsed.results.map((item) => ({
-              requirement:
-                typeof item.requirement === "string" ? item.requirement : "",
-              passed: item.passed === true,
-              detail: typeof item.detail === "string" ? item.detail : "",
-            }))
-          : requirements.map((r) => ({
-              requirement: r,
-              passed: false,
-              detail: "No evaluation produced",
-            }));
+        const results =
+          parsed.results ??
+          requirements.map((r) => ({
+            requirement: r,
+            passed: false,
+            detail: "No evaluation produced",
+          }));
 
         await ctx.db.patch(args.reportId, {
           status: "completed",
           results,
-          summary:
-            typeof parsed.summary === "string"
-              ? parsed.summary
-              : "Evaluation completed",
+          summary: parsed.summary,
           activeWorkflowId: undefined,
           updatedAt: Date.now(),
         });

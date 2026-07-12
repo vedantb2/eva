@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { cancelTrackedWorkflow } from "../workflowManager";
@@ -49,10 +50,10 @@ const AGENT_WORK_LABELS = new Set([
   "Reading tasks...",
 ]);
 
-type StreamingStep = {
-  label?: string;
-  status?: string;
-};
+const activeStreamingStepSchema = z.object({
+  label: z.string(),
+  status: z.literal("active"),
+});
 
 /** Parses streaming activity JSON and returns labels of steps with "active" status. */
 function getActiveStreamingLabels(
@@ -67,19 +68,8 @@ function getActiveStreamingLabels(
       return [];
     }
     return parsed.flatMap((item) => {
-      if (
-        item &&
-        typeof item === "object" &&
-        "label" in item &&
-        "status" in item &&
-        typeof item.label === "string" &&
-        typeof item.status === "string" &&
-        item.status === "active"
-      ) {
-        const step: StreamingStep = item;
-        return step.label ? [step.label] : [];
-      }
-      return [];
+      const step = activeStreamingStepSchema.safeParse(item);
+      return step.success && step.data.label ? [step.data.label] : [];
     });
   } catch {
     return [];

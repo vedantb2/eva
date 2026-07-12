@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
@@ -20,58 +21,44 @@ const prdCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
-interface ParsedDocFields {
-  description?: string;
-  requirements?: string[];
-  userFlows?: Array<{ name: string; steps: string[] }>;
-}
+/** Trimmed, non-empty strings; non-strings and blanks are dropped rather than rejected. */
+const trimmedStringList = z
+  .array(z.string().catch(""))
+  .catch([])
+  .transform((items) => items.map((s) => s.trim()).filter((s) => s.length > 0));
+
+/**
+ * Parses parsed doc fields (description, requirements, user flows) from LLM output.
+ * Missing or invalid values fall back to their defaults instead of rejecting the whole payload.
+ */
+const parsedDocFieldsSchema = z
+  .object({
+    description: z
+      .string()
+      .catch("")
+      .transform((s) => s.trim())
+      .transform((s) => (s.length > 0 ? s : undefined)),
+    requirements: trimmedStringList,
+    userFlows: z
+      .array(
+        z
+          .object({ name: z.string().catch(""), steps: trimmedStringList })
+          .catch({ name: "", steps: [] }),
+      )
+      .catch([])
+      .transform((flows) =>
+        flows
+          .map((flow) => ({ name: flow.name.trim(), steps: flow.steps }))
+          .filter((flow) => flow.name.length > 0 && flow.steps.length > 0),
+      ),
+  })
+  .catch({ description: undefined, requirements: [], userFlows: [] });
 
 /** Normalizes and sanitizes parsed doc fields (description, requirements, user flows) from LLM output. */
-function normalizeParsedDocFields(raw: unknown): ParsedDocFields {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return { description: undefined, requirements: [], userFlows: [] };
-  }
-  const obj: Record<string, unknown> = Object.fromEntries(Object.entries(raw));
-
-  const description =
-    typeof obj.description === "string" && obj.description.trim().length > 0
-      ? obj.description.trim()
-      : undefined;
-
-  const requirementsRaw: unknown[] = Array.isArray(obj.requirements)
-    ? obj.requirements
-    : [];
-  const requirements: string[] = [];
-  for (const item of requirementsRaw) {
-    if (typeof item !== "string") continue;
-    const trimmed = item.trim();
-    if (trimmed.length > 0) requirements.push(trimmed);
-  }
-
-  const userFlowsRaw: unknown[] = Array.isArray(obj.userFlows)
-    ? obj.userFlows
-    : [];
-  const userFlows: Array<{ name: string; steps: string[] }> = [];
-  for (const flow of userFlowsRaw) {
-    if (typeof flow !== "object" || flow === null || Array.isArray(flow)) {
-      continue;
-    }
-    const f: Record<string, unknown> = Object.fromEntries(Object.entries(flow));
-    if (typeof f.name !== "string") continue;
-    const name = f.name.trim();
-    if (name.length === 0) continue;
-    const rawSteps: unknown[] = Array.isArray(f.steps) ? f.steps : [];
-    const steps: string[] = [];
-    for (const step of rawSteps) {
-      if (typeof step !== "string") continue;
-      const trimmed = step.trim();
-      if (trimmed.length > 0) steps.push(trimmed);
-    }
-    if (steps.length === 0) continue;
-    userFlows.push({ name, steps });
-  }
-
-  return { description, requirements, userFlows };
+function normalizeParsedDocFields(
+  raw: unknown,
+): z.infer<typeof parsedDocFieldsSchema> {
+  return parsedDocFieldsSchema.parse(raw);
 }
 
 // --- Workflow definition ---

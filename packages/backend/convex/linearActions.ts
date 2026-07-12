@@ -58,20 +58,6 @@ export const fetchIssues = action({
       return [];
     }
 
-    const aliases = args.identifiers.map(
-      (id, idx) => `issue${idx}: issue(id: "${id}")`,
-    );
-    const query = `
-      query {
-        ${aliases.join("\n")}
-      }
-      fragment IssueData on Issue {
-        identifier
-        title
-        description
-      }
-    `.replace(/fragment IssueData on Issue \{[^}]+\}/g, "");
-
     const fieldsQuery = `
       query {
         ${args.identifiers

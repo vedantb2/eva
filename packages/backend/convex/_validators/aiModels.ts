@@ -243,15 +243,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
   },
 ];
 
-export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
-  "claude:opus",
-  "claude:sonnet",
-  "claude:haiku",
-  "claude:opusplan",
-  "claude:claude-opus-4-5-20251101",
-  "claude:claude-opus-4-6",
-  "claude:claude-fable-5",
-];
+export const CLAUDE_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "claude",
+).map((option) => option.id);
 export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "codex",
 ).map((option) => option.id);

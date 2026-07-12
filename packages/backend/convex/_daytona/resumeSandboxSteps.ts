@@ -30,6 +30,20 @@ type EnsureSandboxStartedArgs = {
   sandboxRunning?: boolean;
 };
 
+/** Surfaces a single-tool "active" activity to a streaming entity. */
+async function setResumeActivity(
+  step: WorkflowCtx,
+  entityId: string,
+  label: string,
+): Promise<void> {
+  await step.runMutation(internal.streaming.internalSet, {
+    entityId,
+    currentActivity: JSON.stringify([
+      { type: "tool", label, status: "active" },
+    ]),
+  });
+}
+
 /**
  * Brings a (possibly archived) sandbox to the "running" state as a sequence of
  * short workflow steps, so a multi-minute cold-storage thaw can outlast the
@@ -89,16 +103,11 @@ export async function ensureSandboxStartedSteps(
   // Also skip cold-storage copy — that is Daytona archived restore only.
   if (provider === "vercel") {
     if (args.streamingEntityId && !args.sandboxRunning) {
-      await step.runMutation(internal.streaming.internalSet, {
-        entityId: args.streamingEntityId,
-        currentActivity: JSON.stringify([
-          {
-            type: "tool",
-            label: "Resuming sandbox...",
-            status: "active",
-          },
-        ]),
-      });
+      await setResumeActivity(
+        step,
+        args.streamingEntityId,
+        "Resuming sandbox...",
+      );
     }
     console.log(
       `[daytona] ensureSandboxStartedSteps vercel skip-kickoff thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
@@ -116,17 +125,11 @@ export async function ensureSandboxStartedSteps(
   if (kickoff.state === "running") return { provider, thawId };
 
   if (args.streamingEntityId) {
-    await step.runMutation(internal.streaming.internalSet, {
-      entityId: args.streamingEntityId,
-      currentActivity: JSON.stringify([
-        {
-          type: "tool",
-          label:
-            "Restoring sandbox from cold storage (can take several minutes)...",
-          status: "active",
-        },
-      ]),
-    });
+    await setResumeActivity(
+      step,
+      args.streamingEntityId,
+      "Restoring sandbox from cold storage (can take several minutes)...",
+    );
   }
 
   let state = kickoff.state;

@@ -1,6 +1,35 @@
+import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import { teamMemberRoleValidator } from "./validators";
+
+/** Fetches a user's membership row for a team, or null if they aren't a member. */
+function getTeamMembership(
+  db: GenericDatabaseReader<DataModel>,
+  teamId: Id<"teams">,
+  userId: Id<"users">,
+): Promise<Doc<"teamMembers"> | null> {
+  return db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+}
+
+/** Throws with the given message unless the user is an owner of the team. */
+async function requireTeamOwner(
+  db: GenericDatabaseReader<DataModel>,
+  teamId: Id<"teams">,
+  userId: Id<"users">,
+  errorMessage: string,
+): Promise<void> {
+  const membership = await getTeamMembership(db, teamId, userId);
+  if (!membership || membership.role !== "owner") {
+    throw new Error(errorMessage);
+  }
+}
 
 /** Lists all members of a team with their user profiles. Returns empty if the requester isn't a member. */
 export const list = authQuery({
@@ -24,12 +53,11 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const currentUserMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
-      )
-      .first();
+    const currentUserMembership = await getTeamMembership(
+      ctx.db,
+      args.teamId,
+      ctx.userId,
+    );
 
     if (!currentUserMembership) return [];
 
@@ -65,16 +93,12 @@ export const add = authMutation({
   },
   returns: v.id("teamMembers"),
   handler: async (ctx, args) => {
-    const currentUserMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
-      )
-      .first();
-
-    if (!currentUserMembership || currentUserMembership.role !== "owner") {
-      throw new Error("Only team owners can add members");
-    }
+    await requireTeamOwner(
+      ctx.db,
+      args.teamId,
+      ctx.userId,
+      "Only team owners can add members",
+    );
 
     const targetUser = await ctx.db
       .query("users")
@@ -85,12 +109,11 @@ export const add = authMutation({
       throw new Error("User not found");
     }
 
-    const existingMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", targetUser._id),
-      )
-      .first();
+    const existingMembership = await getTeamMembership(
+      ctx.db,
+      args.teamId,
+      targetUser._id,
+    );
 
     if (existingMembership) {
       throw new Error("User is already a member of this team");
@@ -115,23 +138,18 @@ export const remove = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUserMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
-      )
-      .first();
+    await requireTeamOwner(
+      ctx.db,
+      args.teamId,
+      ctx.userId,
+      "Only team owners can remove members",
+    );
 
-    if (!currentUserMembership || currentUserMembership.role !== "owner") {
-      throw new Error("Only team owners can remove members");
-    }
-
-    const targetMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", args.userId),
-      )
-      .first();
+    const targetMembership = await getTeamMembership(
+      ctx.db,
+      args.teamId,
+      args.userId,
+    );
 
     if (!targetMembership) {
       throw new Error("User is not a member of this team");
@@ -164,23 +182,18 @@ export const updateRole = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUserMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", ctx.userId),
-      )
-      .first();
+    await requireTeamOwner(
+      ctx.db,
+      args.teamId,
+      ctx.userId,
+      "Only team owners can change member roles",
+    );
 
-    if (!currentUserMembership || currentUserMembership.role !== "owner") {
-      throw new Error("Only team owners can change member roles");
-    }
-
-    const targetMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", args.userId),
-      )
-      .first();
+    const targetMembership = await getTeamMembership(
+      ctx.db,
+      args.teamId,
+      args.userId,
+    );
 
     if (!targetMembership) {
       throw new Error("User is not a member of this team");

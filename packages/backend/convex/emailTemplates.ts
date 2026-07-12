@@ -51,6 +51,16 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Removes trailing slashes so a base URL can have a path appended cleanly. */
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+/** Returns the "Hi Name," greeting line, escaping the name when present. */
+function renderGreeting(recipientName?: string): string {
+  return recipientName ? `Hi ${escapeHtml(recipientName)},` : "Hi,";
+}
+
 const MONTHS = [
   "Jan",
   "Feb",
@@ -74,7 +84,7 @@ function formatDate(timestamp: number): string {
 
 /** Joins the app base URL with a notification path, tolerating slashes on either side. */
 function buildLink(appUrl: string, href: string): string {
-  const base = appUrl.replace(/\/+$/, "");
+  const base = stripTrailingSlash(appUrl);
   const path = href.startsWith("/") ? href : `/${href}`;
   return `${base}${path}`;
 }
@@ -91,7 +101,7 @@ export function wrapEmailLayout(opts: {
   /** Footer line explaining why the recipient got the email. Defaults to the digest wording. */
   footerText?: string;
 }): string {
-  const logoUrl = `${opts.appUrl.replace(/\/+$/, "")}/icon.png`;
+  const logoUrl = `${stripTrailingSlash(opts.appUrl)}/icon.png`;
   const footerText = opts.footerText ?? DEFAULT_FOOTER_TEXT;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -160,9 +170,7 @@ function renderNotification(n: DigestNotification, appUrl: string): string {
 /** Builds the full daily unread-notification digest email as an HTML string. */
 export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
   const count = opts.notifications.length;
-  const greeting = opts.recipientName
-    ? `Hi ${escapeHtml(opts.recipientName)},`
-    : "Hi,";
+  const greeting = renderGreeting(opts.recipientName);
   const heading =
     opts.heading ??
     `You have ${count} unread notification${count === 1 ? "" : "s"}`;
@@ -201,9 +209,7 @@ export interface AutomationEmailOptions {
  * it in, so this stays a pure module with no markdown dependency.
  */
 export function buildAutomationEmailHtml(opts: AutomationEmailOptions): string {
-  const greeting = opts.recipientName
-    ? `Hi ${escapeHtml(opts.recipientName)},`
-    : "Hi,";
+  const greeting = renderGreeting(opts.recipientName);
 
   const bodyHtml = `
     <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>
@@ -211,7 +217,7 @@ export function buildAutomationEmailHtml(opts: AutomationEmailOptions): string {
     <p style="margin:0 0 20px;font-size:13px;color:${MUTED};">${escapeHtml(formatDate(opts.publishedAt))}</p>
     <div style="font-size:14px;line-height:22px;color:${TEXT};">${opts.contentHtml}</div>
     <p style="margin:24px 0 0;">
-      <a href="${escapeHtml(opts.appUrl.replace(/\/+$/, ""))}" style="display:inline-block;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">Open the app</a>
+      <a href="${escapeHtml(stripTrailingSlash(opts.appUrl))}" style="display:inline-block;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">Open the app</a>
     </p>
   `;
 

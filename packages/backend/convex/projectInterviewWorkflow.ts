@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -36,15 +37,10 @@ const interviewSaveOutcomeValidator = v.union(
 /** Stored on the assistant row when the interview agent signals readiness. */
 const INTERVIEW_COMPLETE_CONTENT = JSON.stringify({ interviewComplete: true });
 
+const interviewReadySchema = z.object({ ready: z.boolean() });
+
 function isInterviewReady(parsed: unknown): boolean {
-  if (typeof parsed !== "object" || parsed === null) {
-    return false;
-  }
-  if (!("ready" in parsed)) {
-    return false;
-  }
-  const ready = parsed.ready;
-  return ready === true;
+  return interviewReadySchema.safeParse(parsed).data?.ready === true;
 }
 
 interface PreviousAnswer {

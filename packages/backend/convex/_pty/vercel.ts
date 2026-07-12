@@ -16,7 +16,7 @@ function tmuxSessionName(ptyInstanceId: string | undefined): string {
       ? ptyInstanceId
       : "terminal";
   const safe = source.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
-  return `eva_${safe.length > 0 ? safe : "terminal"}`;
+  return `eva_${safe}`;
 }
 
 /** Ensures Vercel browser terminals attach to one shared pane process. */
@@ -33,18 +33,18 @@ export async function ensureVercelSharedTerminal(
     `tmux has-session -t ${sessionName} >/dev/null 2>&1 && echo existing || echo missing`,
     { cwd: "/", timeoutSeconds: 5 },
   );
+  const sessionExists = existing.output.trim() === "existing";
   return {
     sessionName,
-    isNewPty: existing.output.trim() !== "existing",
-    initialOutput:
-      existing.output.trim() === "existing"
-        ? (
-            await handle.exec(
-              `tmux capture-pane -pt ${sessionName} -S -2000 2>/dev/null || true`,
-              { cwd: "/", timeoutSeconds: 10 },
-            )
-          ).output
-        : "",
+    isNewPty: !sessionExists,
+    initialOutput: sessionExists
+      ? (
+          await handle.exec(
+            `tmux capture-pane -pt ${sessionName} -S -2000 2>/dev/null || true`,
+            { cwd: "/", timeoutSeconds: 10 },
+          )
+        ).output
+      : "",
   };
 }
 

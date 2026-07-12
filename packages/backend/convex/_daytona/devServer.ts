@@ -15,13 +15,19 @@ const SUPABASE_DUMP_PATH =
   "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
 const SUPABASE_RESTORE_MARKER = "/tmp/.eva-supabase-db-web-restored";
 
+/** Absolute shell path to the package root, defaulting to the workspace root. */
+function packageDirShell(rootDir: string): string {
+  const workspaceRoot = workspaceDirShell();
+  return rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+}
+
 /** Detects the package manager (pnpm, yarn, or npm) by checking lock files. */
 export async function detectPackageManager(
   sandbox: SandboxHandle,
   rootDir = "",
 ): Promise<string> {
   const workspaceRoot = workspaceDirShell();
-  const dir = rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+  const dir = packageDirShell(rootDir);
   // Prefer the package rootDir, then fall back to the workspace root — monorepos
   // often keep pnpm-lock.yaml at the repo root while rootDirectory points at an app.
   // Also treat packageManager / workspace: deps as pnpm so npm never hits workspace:*.
@@ -66,9 +72,7 @@ export async function detectDevPort(
   sandbox: SandboxHandle,
   rootDir: string,
 ): Promise<number> {
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const dir = packageDirShell(rootDir);
   try {
     const raw = await execHandle(
       sandbox,
@@ -123,9 +127,7 @@ export async function startSessionServices(
   }
 
   const pm = await detectPackageManager(sandbox, rootDir);
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const dir = packageDirShell(rootDir);
   const devCommand = `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${port} ${pm} run dev`;
   return { port, devCommand };
 }

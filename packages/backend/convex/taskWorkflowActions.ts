@@ -298,29 +298,21 @@ export const createTaskPr = action({
       return { url: data.existingPrUrl };
     }
 
-    const sections = buildTaskPrSections(
-      data.taskDescription,
-      data.changeRequests,
-      data.proofs,
-    );
-    const evaUrl = buildEvaTaskUrl(
-      data.repoOwner,
-      data.repoName,
-      args.taskId,
-      data.projectId,
-      data.rootDirectory || undefined,
-    );
-    const body = buildPrBody(sections, evaUrl);
+    const body = buildTaskPullRequestBody({
+      repoOwner: data.repoOwner,
+      repoName: data.repoName,
+      taskId: args.taskId,
+      projectId: data.projectId,
+      taskDescription: data.taskDescription,
+      rootDirectory: data.rootDirectory,
+      changeRequests: data.changeRequests,
+      proofs: data.proofs,
+    });
 
-    const labels = [
-      "eva",
-      data.isQuickTask ? "quick-task" : "project",
-      ...(data.rootDirectory
-        ? [data.rootDirectory.split("/").pop()].filter(
-            (l): l is string => l !== undefined && l !== "",
-          )
-        : []),
-    ];
+    const labels = buildTaskPullRequestLabels({
+      rootDirectory: data.rootDirectory,
+      isQuickTask: data.isQuickTask,
+    });
 
     const prUrl: string = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,
@@ -385,15 +377,10 @@ export const createProjectPr = action({
     );
     const body = buildPrBody(sections, evaUrl);
 
-    const labels = [
-      "eva",
-      "project",
-      ...(data.rootDirectory
-        ? [data.rootDirectory.split("/").pop()].filter(
-            (l): l is string => l !== undefined && l !== "",
-          )
-        : []),
-    ];
+    const labels = buildTaskPullRequestLabels({
+      rootDirectory: data.rootDirectory,
+      isQuickTask: false,
+    });
 
     const prUrl: string = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,

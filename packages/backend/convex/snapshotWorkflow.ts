@@ -468,12 +468,9 @@ export const snapshotBuildWorkflow = workflow.define({
         return;
       }
 
-      // Get this app's previous seeded snapshot (for keep-last-good fallback and later cleanup).
-      // Note: app.seededSnapshotName is stored on the githubRepos record, queried above as `repo`.
-      // The `repo` object already has this field since getRepo returns it.
-      const appRepoRecord = repo;
-      const previousSeededSnapshotName =
-        appRepoRecord?.seededSnapshotName ?? null;
+      // Get this app's previous seeded snapshot (for keep-last-good fallback and
+      // later cleanup). Stored on the githubRepos record, queried above as `repo`.
+      const previousSeededSnapshotName = repo.seededSnapshotName ?? null;
 
       // Capture the refreshed filesystem into ONE snapshot. Trigger fires the
       // POST without blocking; poll across separate steps so a long DB

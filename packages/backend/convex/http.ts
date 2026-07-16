@@ -94,9 +94,14 @@ http.route({
     if (touchOnly) {
       await ctx.runMutation(internal.streaming.internalTouch, { entityId });
     } else {
+      if (!currentActivity) {
+        return new Response("Missing required heartbeat fields", {
+          status: 400,
+        });
+      }
       await ctx.runMutation(internal.streaming.internalSet, {
         entityId,
-        currentActivity: currentActivity!,
+        currentActivity,
         currentContent: params.get("currentContent") ?? "",
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
       });

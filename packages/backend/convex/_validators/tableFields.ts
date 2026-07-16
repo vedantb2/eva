@@ -197,6 +197,9 @@ export const sessionFields = {
       turnKind: v.optional(
         v.union(v.literal("conversational"), v.literal("agent")),
       ),
+      // Input image attachments for this turn; the daemon downloads these and
+      // hands the agent local file paths when it claims the turn.
+      attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     }),
   ),
 };
@@ -407,6 +410,9 @@ export const messageFields = {
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  // User-attached input images (pasted/dropped in the composer), stored via
+  // Convex file storage. Delivered to the agent as files it can read.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   pendingQuestion: v.optional(v.string()),
 };
 
@@ -430,6 +436,8 @@ export const queuedMessageFields = {
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),
+  // Carried from the composer through the queue to the started user message.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
 };
 
 export const taskSandboxEventFields = {

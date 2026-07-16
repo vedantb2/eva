@@ -21,6 +21,7 @@ export const startExecute = authMutation({
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -64,8 +65,17 @@ export const startExecute = authMutation({
       mode: args.mode,
     });
 
+    // Carry the composer's image attachments on the staged turn. The daemon
+    // downloads them when it claims the turn. Passed explicitly (not read from
+    // the user message row) because the composer fires addMessage + startExecute
+    // in parallel, so the row may not be committed yet.
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
+      pendingTurn: {
+        prompt,
+        requestedAt: Date.now(),
+        turnKind,
+        attachmentStorageIds: args.attachmentStorageIds,
+      },
       updatedAt: Date.now(),
     });
 
@@ -156,6 +166,7 @@ export const enqueueMessage = authMutation({
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -176,6 +187,7 @@ export const enqueueMessage = authMutation({
       mode: args.mode,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;

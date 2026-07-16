@@ -53,6 +53,7 @@ export const addMessage = authMutation({
   args: {
     projectId: v.id("projects"),
     content: v.string(),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -67,6 +68,7 @@ export const addMessage = authMutation({
       content: args.content,
       timestamp: Date.now(),
       userId: ctx.userId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -114,6 +116,7 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -134,6 +137,7 @@ export const enqueueMessage = authMutation({
       userId: ctx.userId,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -296,6 +300,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       repoId: data.repoId,
       sessionPersistenceId: args.projectId,
       streamingEntityId,
+      attachmentStorageIds: data.attachmentStorageIds,
     });
 
     const result = await step.awaitEvent(projectChatCompleteEvent);
@@ -374,6 +379,7 @@ export const getChatData = internalQuery({
     branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -381,6 +387,14 @@ export const getChatData = internalQuery({
 
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    // Input images the composer attached to the triggering user message.
+    const triggeringUserMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("role"), "user"))
+      .first();
 
     const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
     const user = await ctx.db.get(args.userId);
@@ -426,6 +440,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
+      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
   },
 });

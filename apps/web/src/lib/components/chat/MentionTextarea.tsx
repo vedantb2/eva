@@ -2,7 +2,10 @@
 
 import { forwardRef, useCallback, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { usePromptInputController } from "@conductor/ui";
+import {
+  usePromptInputController,
+  usePromptInputAttachments,
+} from "@conductor/ui";
 import type { Doc, Id } from "@conductor/backend";
 import {
   MentionEditor,
@@ -48,6 +51,12 @@ interface MentionTextareaProps {
    * moves back toward the live draft (terminal-style history).
    */
   history?: string[];
+  /**
+   * When true, pasted images are added as attachments (via the prompt-input
+   * attachment context) instead of being inserted as text. Opt-in so surfaces
+   * that don't send attachments (e.g. design chat) keep plain-text paste.
+   */
+  enableImagePaste?: boolean;
 }
 
 export const MentionTextarea = forwardRef<
@@ -63,11 +72,13 @@ export const MentionTextarea = forwardRef<
     initialMentionMap,
     initialSkillMap,
     history,
+    enableImagePaste,
   },
   ref,
 ) {
   const navigate = useNavigate();
   const controller = usePromptInputController();
+  const attachments = usePromptInputAttachments();
   const value = controller.textInput.value;
   const navigateToDocById = useDocMentionNavigate(repoBasePath);
 
@@ -167,6 +178,7 @@ export const MentionTextarea = forwardRef<
       }
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Message input"}
+      onImageFiles={enableImagePaste ? attachments.add : undefined}
       dataSlot="input-group-control"
       className="min-h-9 max-h-40 self-stretch overflow-y-auto rounded-none px-3.5 py-3 text-left focus-visible:outline-none"
       emptySlashContent={

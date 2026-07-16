@@ -61,6 +61,12 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   skillChipClassName?: string;
   onEnterSubmit?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /**
+   * Called when image files are pasted into the editor. When provided, pasted
+   * images are handed off here (as attachments) instead of being inserted as
+   * text; non-image clipboard content still pastes as plain text.
+   */
+  onImageFiles?: (files: File[]) => void;
+  /**
    * Called when ArrowUp is pressed on the first line, or ArrowDown on the last
    * line, while the mention popup is closed. Return true if the navigation was
    * handled (e.g. a history entry was applied) to suppress caret movement.
@@ -227,6 +233,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   skillChipClassName = SKILL_CHIP_CLASS,
   onEnterSubmit,
   onHistoryNavigate,
+  onImageFiles,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
@@ -762,6 +769,22 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLDivElement>) => {
+      // Hand pasted image files to the attachment handler instead of inserting
+      // them as text. Only images are intercepted; other files fall through.
+      if (onImageFiles) {
+        const imageFiles: File[] = [];
+        for (const item of e.clipboardData.items) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+        if (imageFiles.length > 0) {
+          e.preventDefault();
+          onImageFiles(imageFiles);
+          return;
+        }
+      }
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       const sel = window.getSelection();
@@ -774,7 +797,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       sel.addRange(range);
       handleInput();
     },
-    [handleInput],
+    [handleInput, onImageFiles],
   );
 
   const isEmpty = value === "" || value === "\n";

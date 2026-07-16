@@ -16,9 +16,12 @@ import {
   ModelSelect,
   ReasoningLever,
   usePromptInputController,
+  usePromptInputAttachments,
+  toast,
   type PromptInputMessage,
   type ModelOption,
 } from "@conductor/ui";
+import { parseStorageId } from "@/lib/components/artifacts/_meta";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
@@ -68,6 +71,7 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 export type ChatBodyMessage = Doc<"messages"> & {
   imageUrl?: string | null;
   videoUrl?: string | null;
+  attachmentUrls?: (string | null)[];
 };
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
@@ -83,6 +87,22 @@ const REASONING_LEVEL_OPTIONS = REASONING_LEVELS.map((value) => ({
   value,
   label: REASONING_LEVEL_LABELS[value],
 }));
+
+const MAX_IMAGE_ATTACHMENTS = 5;
+const MAX_IMAGE_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function imageAttachmentErrorMessage(err: {
+  code: "max_files" | "max_file_size" | "accept";
+}): string {
+  switch (err.code) {
+    case "max_files":
+      return `You can attach up to ${MAX_IMAGE_ATTACHMENTS} images.`;
+    case "max_file_size":
+      return "Images must be 10 MB or smaller.";
+    case "accept":
+      return "Only image files can be attached.";
+  }
+}
 
 // Boundary schema for the pending-question JSON emitted by the agent. A
 // question with any malformed field (or option) is dropped via
@@ -140,8 +160,14 @@ interface ChatBodyProps {
    */
   reasoningLevel?: ReasoningLevel;
   onReasoningLevelChange?: (level: ReasoningLevel) => void;
-  /** Called with the tokenized content. Caller decides whether to send or enqueue. */
-  onSend: (content: string) => Promise<void>;
+  /**
+   * Called with the tokenized content and any uploaded image attachment storage
+   * ids. Caller decides whether to send or enqueue.
+   */
+  onSend: (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => Promise<void>;
   onCancel: () => Promise<void>;
   /** Optional slot inserted above the conversation (session summary accordion). */
   preConversationContent?: React.ReactNode;
@@ -214,6 +240,7 @@ export function ChatBody({
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
+  const generateUploadUrl = useMutation(api.messages.generateUploadUrl);
   const updateQueuedMessage = useMutation(
     api.queuedMessages.update,
   ).withOptimisticUpdate((localStore, args) => {
@@ -285,19 +312,60 @@ export function ChatBody({
     }
   }, [pendingQuestionRaw]);
 
-  const handleSubmit = useCallback(
-    async (text: string) => {
-      const visible = text.trim();
-      if (!visible) return;
-      const content = mentionRef.current?.tokenize(visible) ?? visible;
-      await onSend(content);
+  // Uploads pasted/dropped composer images to Convex storage (the prompt-input
+  // layer has already converted their blob URLs to data URLs) and returns the
+  // resulting storage ids. Non-image files and failed uploads are dropped.
+  const uploadImageAttachments = useCallback(
+    async (files: PromptInputMessage["files"]): Promise<Id<"_storage">[]> => {
+      const images = files.filter((file) =>
+        file.mediaType?.startsWith("image/"),
+      );
+      const results = await Promise.all(
+        images.map(async (file) => {
+          try {
+            const blob = await (await fetch(file.url)).blob();
+            const uploadUrl = await generateUploadUrl({});
+            const res = await fetch(uploadUrl, {
+              method: "POST",
+              headers: { "Content-Type": file.mediaType ?? blob.type },
+              body: blob,
+            });
+            if (!res.ok) return null;
+            return parseStorageId(await res.text());
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return results.filter((id): id is Id<"_storage"> => id !== null);
     },
-    [onSend],
+    [generateUploadUrl],
   );
 
-  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
+  const handleSubmit = useCallback(
+    async (text: string, files: PromptInputMessage["files"]) => {
+      const visible = text.trim();
+      const imageCount = files.filter((file) =>
+        file.mediaType?.startsWith("image/"),
+      ).length;
+      const attachmentStorageIds = await uploadImageAttachments(files);
+      if (attachmentStorageIds.length < imageCount) {
+        toast.error("Some images could not be uploaded.");
+      }
+      // Allow sending with images and no text, but not an empty message.
+      if (!visible && attachmentStorageIds.length === 0) return;
+      const content = mentionRef.current?.tokenize(visible) ?? visible;
+      await onSend(
+        content,
+        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
+      );
+    },
+    [onSend, uploadImageAttachments],
+  );
+
+  const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
     if (isInputDisabled) return;
-    await handleSubmit(text);
+    await handleSubmit(text, files);
   };
 
   const handleQuestionAnswer = useCallback(
@@ -427,10 +495,15 @@ export function ChatBody({
                       )}
                   </>
                 ) : (
-                  <MessageMentionText
-                    text={message.content}
-                    repoBasePath={repoBasePath}
-                  />
+                  <>
+                    <UserAttachmentImages urls={message.attachmentUrls} />
+                    {message.content ? (
+                      <MessageMentionText
+                        text={message.content}
+                        repoBasePath={repoBasePath}
+                      />
+                    ) : null}
+                  </>
                 )}
               </>
             )}
@@ -591,7 +664,17 @@ export function ChatBody({
                     initialDisplay={draft.initialDisplay}
                   />
                 )}
-                <PromptInput onSubmit={handlePromptSubmit}>
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  accept="image/*"
+                  multiple
+                  maxFiles={MAX_IMAGE_ATTACHMENTS}
+                  maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+                  onError={(err) =>
+                    toast.error(imageAttachmentErrorMessage(err))
+                  }
+                >
+                  <ChatAttachmentPreview />
                   <MentionTextarea
                     ref={mentionRef}
                     repoBasePath={repoBasePath}
@@ -602,6 +685,7 @@ export function ChatBody({
                     initialMentionMap={draft?.mentionMap}
                     initialSkillMap={draft?.skillMap}
                     history={messageHistory}
+                    enableImagePaste
                   />
                   <PromptInputFooter>
                     <PromptInputTools>
@@ -658,13 +742,76 @@ function ChatBodySubmit({
   disabled: boolean;
   isExecuting: boolean;
 }) {
-  const { textInput } = usePromptInputController();
-  const isEmpty = textInput.value.trim().length === 0;
+  const { textInput, attachments } = usePromptInputController();
+  // Sendable when there is text or at least one attached image.
+  const isEmpty =
+    textInput.value.trim().length === 0 && attachments.files.length === 0;
 
   return (
     <PromptInputSubmit
       disabled={disabled || isEmpty}
       title={isExecuting ? "Queue message" : "Send message"}
     />
+  );
+}
+
+/** Renders a user message's attached input images as thumbnails that open full size. */
+function UserAttachmentImages({ urls }: { urls?: (string | null)[] }) {
+  const resolved = (urls ?? []).filter((url): url is string => Boolean(url));
+  if (resolved.length === 0) return null;
+
+  return (
+    <div className="mb-2 flex flex-wrap gap-2">
+      {resolved.map((url) => (
+        <a
+          key={url}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="block size-24 overflow-hidden rounded-surface border border-border bg-muted"
+        >
+          <img
+            src={url}
+            alt="Attached image"
+            className="size-full object-cover"
+          />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A row of thumbnails for the images currently attached in the composer, shown
+ * above the input. Each has a remove button. Renders nothing when empty. Must be
+ * rendered inside <PromptInput> so it reads the validated attachment context.
+ */
+function ChatAttachmentPreview() {
+  const attachments = usePromptInputAttachments();
+  if (attachments.files.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 border-b border-border p-2">
+      {attachments.files.map((file) => (
+        <div
+          key={file.id}
+          className="group relative size-16 overflow-hidden rounded-surface border border-border bg-muted"
+        >
+          <img
+            src={file.url}
+            alt={file.filename ?? "Attached image"}
+            className="size-full object-cover"
+          />
+          <button
+            type="button"
+            aria-label="Remove image"
+            onClick={() => attachments.remove(file.id)}
+            className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
+          >
+            <IconX className="size-3" />
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

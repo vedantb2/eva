@@ -1,5 +1,12 @@
 # Changelog
 
+## Paste and attach images in sandbox chat - 2026-07-17
+
+- The chat composer (shared by session, project sandbox, and quick-task sandbox chats) now accepts images: paste with Ctrl+V, drag-and-drop, and see thumbnails before sending. Attached images render back in the sent user message.
+- Images upload to Convex file storage on send and are delivered to the agent as files it reads. The two CLI-based chats (projects, quick tasks) write the images into the sandbox at launch and point the agent at their paths; sessions carry the images on the pulled turn so the warm daemon downloads them before running the model (no file-write race).
+- Limited to images, up to 5 per message and 10 MB each, with a toast on rejects or failed uploads. Attachments also survive being queued while the agent is busy.
+- Reason for change: users needed to show the model a screenshot or mockup directly in chat rather than describing it or committing it to the repo first.
+
 ## PR recaps generate an interactive file-by-file walkthrough - 2026-07-17
 
 - PR recap generation now produces **two outputs** in a single agent run: the existing markdown recap (stored in the doc's Markdown tab and posted to GitHub) and a new interactive HTML walkthrough (stored in the doc's HTML field and shown as the Walkthrough tab). The agent emits them separated by a marker; older runs without the marker fall back to markdown-only.

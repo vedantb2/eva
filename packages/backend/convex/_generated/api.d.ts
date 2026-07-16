@@ -29,6 +29,7 @@ import type * as _automations_findings from "../_automations/findings.js";
 import type * as _automations_helpers from "../_automations/helpers.js";
 import type * as _automations_runs from "../_automations/runs.js";
 import type * as _automations_triggers from "../_automations/triggers.js";
+import type * as _daytona_attachments from "../_daytona/attachments.js";
 import type * as _daytona_audit from "../_daytona/audit.js";
 import type * as _daytona_callbackScript from "../_daytona/callbackScript.js";
 import type * as _daytona_callbackScriptFingerprint from "../_daytona/callbackScriptFingerprint.js";
@@ -297,6 +298,7 @@ declare const fullApi: ApiFromModules<{
   "_automations/helpers": typeof _automations_helpers;
   "_automations/runs": typeof _automations_runs;
   "_automations/triggers": typeof _automations_triggers;
+  "_daytona/attachments": typeof _daytona_attachments;
   "_daytona/audit": typeof _daytona_audit;
   "_daytona/callbackScript": typeof _daytona_callbackScript;
   "_daytona/callbackScriptFingerprint": typeof _daytona_callbackScriptFingerprint;

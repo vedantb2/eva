@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { authQuery } from "./functions";
+import { authQuery, authMutation } from "./functions";
 import { variationValidator, messageFields } from "./validators";
 
 const parentIdValidator = messageFields.parentId;
@@ -13,9 +13,19 @@ const messageValidator = v.object({
   ...messageFields,
   imageUrl: v.optional(v.union(v.string(), v.null())),
   videoUrl: v.optional(v.union(v.string(), v.null())),
+  // Resolved URLs for user-attached input images, in the same order as
+  // attachmentStorageIds. Entries that fail to resolve are null.
+  attachmentUrls: v.optional(v.array(v.union(v.string(), v.null()))),
 });
 
-/** Fetches messages for a parent and resolves their image/video storage URLs. */
+/** Temporary upload URL for a composer image attachment (client POSTs the file, then sends the message). */
+export const generateUploadUrl = authMutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => ctx.storage.generateUploadUrl(),
+});
+
+/** Fetches messages for a parent and resolves their image/video/attachment storage URLs. */
 async function resolveMessageUrls(
   ctx: Pick<QueryCtx, "db" | "storage">,
   parentId: typeof parentIdValidator.type,
@@ -32,6 +42,11 @@ async function resolveMessageUrls(
         : undefined,
       videoUrl: m.videoStorageId
         ? await ctx.storage.getUrl(m.videoStorageId)
+        : undefined,
+      attachmentUrls: m.attachmentStorageIds
+        ? await Promise.all(
+            m.attachmentStorageIds.map((id) => ctx.storage.getUrl(id)),
+          )
         : undefined,
     })),
   );

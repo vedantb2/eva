@@ -316,6 +316,7 @@ export const sessionExecuteWorkflow = workflow.define({
       sessionId: args.sessionId,
       prompt: data.prompt,
       turnKind: data.turnKind,
+      attachmentStorageIds: data.attachmentStorageIds,
     });
 
     const result = await step.awaitEvent(sessionCompleteEvent);
@@ -587,6 +588,7 @@ export const getSessionData = internalQuery({
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -607,6 +609,16 @@ export const getSessionData = internalQuery({
       mode: args.mode,
     });
 
+    // Input images attached to the triggering user message. Used to re-stage
+    // pendingTurn on the queued/cancel-race path (immediate sends stage them
+    // directly in startExecute).
+    const triggeringUserMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("role"), "user"))
+      .first();
+
     return {
       sandboxId: session.sandboxId,
       vercelSandboxId: session.vercelSandboxId,
@@ -621,6 +633,7 @@ export const getSessionData = internalQuery({
       allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
+      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
   },
 });
@@ -762,12 +775,16 @@ export const claimPendingTurn = authMutation({
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+    // Resolved download URLs for this turn's input image attachments. The daemon
+    // fetches these and hands the agent local file paths before running the turn.
+    attachmentUrls: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
       turnKind: "agent",
-    } satisfies { prompt: null; turnKind: SessionTurnKind };
+      attachmentUrls: [],
+    } satisfies { prompt: null; turnKind: SessionTurnKind; attachmentUrls: [] };
     const session = await ctx.db.get(args.sessionId);
     if (!session) return emptyClaim;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
@@ -778,11 +795,19 @@ export const claimPendingTurn = authMutation({
     const prompt = session.pendingTurn.prompt;
     const turnKind: SessionTurnKind = session.pendingTurn.turnKind ?? "agent";
     const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
+    const resolvedUrls = await Promise.all(
+      (session.pendingTurn.attachmentStorageIds ?? []).map((id) =>
+        ctx.storage.getUrl(id),
+      ),
+    );
+    const attachmentUrls = resolvedUrls.filter(
+      (url): url is string => url !== null,
+    );
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
-      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs}`,
+      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, turnKind };
+    return { prompt, turnKind, attachmentUrls };
   },
 });
 
@@ -796,6 +821,7 @@ export const ensurePendingTurn = internalMutation({
     sessionId: v.id("sessions"),
     prompt: v.string(),
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -817,6 +843,7 @@ export const ensurePendingTurn = internalMutation({
         prompt: args.prompt,
         requestedAt: Date.now(),
         turnKind: args.turnKind,
+        attachmentStorageIds: args.attachmentStorageIds,
       },
       updatedAt: Date.now(),
     });
@@ -896,6 +923,7 @@ export const restageOpenTurn = internalMutation({
         prompt,
         requestedAt: Date.now(),
         turnKind,
+        attachmentStorageIds: lastUser.attachmentStorageIds,
       },
       updatedAt: Date.now(),
     });

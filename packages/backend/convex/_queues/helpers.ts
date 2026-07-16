@@ -64,6 +64,7 @@ export async function startNextQueuedSessionMessage(
     timestamp: now,
     userId: nextMessage.userId,
     mode: nextMessage.mode,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
   });
 
   try {
@@ -207,6 +208,7 @@ export async function startNextQueuedProjectChatMessage(
     content: nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
   });
 
   try {
@@ -274,6 +276,7 @@ export async function startNextQueuedTaskChatMessage(
     content: nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
   });
 
   try {

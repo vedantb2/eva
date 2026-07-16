@@ -26,6 +26,10 @@ import {
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import { uploadCallbackScriptBundle } from "./launch";
 import {
+  materializeAttachmentsToSandbox,
+  buildAttachmentPromptNote,
+} from "./attachments";
+import {
   resolveSandboxCredentials,
   resolveDaytonaApiKey,
 } from "../envVarResolver";
@@ -1254,6 +1258,7 @@ export const launchOnExistingSandbox = internalAction({
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1262,6 +1267,18 @@ export const launchOnExistingSandbox = internalAction({
       `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
     );
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+
+    // Download any user-attached input images into the sandbox and point the
+    // agent at them via a prompt note (the CLI providers read files by path).
+    let prompt = args.prompt;
+    if (args.attachmentStorageIds && args.attachmentStorageIds.length > 0) {
+      const paths = await materializeAttachmentsToSandbox(
+        ctx,
+        sandbox,
+        args.attachmentStorageIds,
+      );
+      prompt += buildAttachmentPromptNote(paths);
+    }
 
     await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     console.log(
@@ -1308,7 +1325,7 @@ export const launchOnExistingSandbox = internalAction({
       ctx,
       sandbox,
       args.userId,
-      args.prompt,
+      prompt,
       args.completionMutation,
       args.entityIdField,
       args.entityId,

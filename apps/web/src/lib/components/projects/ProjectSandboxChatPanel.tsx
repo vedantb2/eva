@@ -82,17 +82,18 @@ export function ProjectSandboxChatPanel({
     Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
       if (isExecuting) {
         await enqueueMessage({
           projectId,
           message: content,
           model,
           reasoningLevel,
+          attachmentStorageIds,
         });
         return;
       }
-      await addMessage({ projectId, content });
+      await addMessage({ projectId, content, attachmentStorageIds });
       await startExecute({
         projectId,
         message: content,

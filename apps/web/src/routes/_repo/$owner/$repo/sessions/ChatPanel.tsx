@@ -205,6 +205,8 @@ export function ChatPanel({
         activityLog: "",
         imageUrl: undefined,
         videoUrl: undefined,
+        attachmentStorageIds: args.attachmentStorageIds,
+        attachmentUrls: undefined,
       };
       const assistantPlaceholder: SessionMessage = {
         _id: optimisticMessageId(),
@@ -217,6 +219,7 @@ export function ChatPanel({
         activityLog: "",
         imageUrl: undefined,
         videoUrl: undefined,
+        attachmentUrls: undefined,
       };
       localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
         ...existing,
@@ -243,7 +246,7 @@ export function ChatPanel({
   const isExecuting = lastAssistantHasNoContent;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
       if (isExecuting) {
         await enqueueMessage({
           sessionId,
@@ -251,6 +254,7 @@ export function ChatPanel({
           mode,
           model,
           reasoningLevel,
+          attachmentStorageIds,
         });
         return;
       }
@@ -262,13 +266,20 @@ export function ChatPanel({
       // round-trip. Convex rolls the temp docs back automatically once the real
       // rows arrive (on success OR error).
       void Promise.all([
-        addMessage({ id: sessionId, role: "user", content, mode }),
+        addMessage({
+          id: sessionId,
+          role: "user",
+          content,
+          mode,
+          attachmentStorageIds,
+        }),
         startExecution({
           sessionId,
           message: content,
           mode,
           model,
           reasoningLevel,
+          attachmentStorageIds,
         }),
       ]).catch(async (error) => {
         const errorMessage =

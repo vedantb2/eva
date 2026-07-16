@@ -43,6 +43,7 @@ export const addMessage = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     content: v.string(),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -60,6 +61,7 @@ export const addMessage = authMutation({
       content: args.content,
       timestamp: Date.now(),
       userId: ctx.userId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -109,6 +111,7 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -132,6 +135,7 @@ export const enqueueMessage = authMutation({
       userId: ctx.userId,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -309,6 +313,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,
       streamingEntityId,
+      attachmentStorageIds: data.attachmentStorageIds,
     });
 
     const result = await step.awaitEvent(agentTaskChatCompleteEvent);
@@ -387,6 +392,7 @@ export const getChatData = internalQuery({
     branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -395,6 +401,14 @@ export const getChatData = internalQuery({
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    // Input images the composer attached to the triggering user message.
+    const triggeringUserMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("role"), "user"))
+      .first();
 
     const user = await ctx.db.get(args.userId);
     const customInstructionsBlock = buildCustomInstructionsBlock(
@@ -439,6 +453,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
+      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
   },
 });

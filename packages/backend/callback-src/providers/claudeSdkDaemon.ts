@@ -150,6 +150,7 @@ type TurnKind = "conversational" | "agent";
 type ClaimedTurn = {
   prompt: string;
   turnKind: TurnKind;
+  attachmentUrls: string[];
 };
 
 /**
@@ -356,13 +357,23 @@ function readClaimedPrompt(result: JsonValue): string | null {
   return typeof prompt === "string" ? prompt : null;
 }
 
+function readClaimedAttachmentUrls(payload: {
+  [key: string]: JsonValue;
+}): string[] {
+  const field = payload.attachmentUrls;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((url): url is string => typeof url === "string");
+}
+
 function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent" };
+    return { prompt, turnKind: "agent", attachmentUrls: [] };
   }
   const inner = result.value;
   const payload =
@@ -372,7 +383,11 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const turnKindField = payload.turnKind;
   const turnKind: TurnKind =
     turnKindField === "conversational" ? "conversational" : "agent";
-  return { prompt, turnKind };
+  return {
+    prompt,
+    turnKind,
+    attachmentUrls: readClaimedAttachmentUrls(payload),
+  };
 }
 
 type DaemonMessage = Record<string, JsonValue>;
@@ -625,6 +640,62 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
+/** Mirrors attachmentExtensionForMimeType in convex/_daytona/attachments.ts. */
+function attachmentExtensionForMimeType(mimeType: string): string {
+  const type = mimeType.split(";")[0]?.trim() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return ".png";
+  }
+}
+
+/**
+ * Downloads this turn's input images into the sandbox filesystem and appends a
+ * note pointing the agent at them, so a claimed turn's prompt references files
+ * that already exist on disk (no race — the daemon owns ordering). Uses the same
+ * flat `/tmp/eva-attachment-<n>.<ext>` scheme + note text as the CLI launch path
+ * (convex/_daytona/attachments.ts). Failed downloads are skipped.
+ */
+async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths: string[] = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" });
+      if (!res.ok) {
+        log(`daemon: attachment download failed status=${res.status}`);
+        continue;
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const extension = attachmentExtensionForMimeType(
+        res.headers.get("content-type") ?? "",
+      );
+      const path = `/tmp/eva-attachment-${index}${extension}`;
+      writeFileSync(path, bytes);
+      paths.push(path);
+    } catch (error) {
+      log(
+        `daemon: attachment download error ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  if (paths.length === 0) return;
+  const list = paths.map((p) => `- ${p}`).join("\n");
+  turn.prompt += `\n\n---\nThe user attached the following image file(s). View them with your file-reading tool before responding:\n${list}`;
+}
+
 async function waitForNextTurn(): Promise<ClaimedTurn | null> {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
@@ -639,6 +710,7 @@ async function waitForNextTurn(): Promise<ClaimedTurn | null> {
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {
+      await materializeTurnAttachments(turn);
       return turn;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);

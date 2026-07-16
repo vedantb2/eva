@@ -212,7 +212,7 @@ export function RepoRail({
                     RAIL_TILE_CLASS,
                     active
                       ? "border-primary/40 bg-primary/15"
-                      : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
+                      : "border-transparent opacity-50 hover:bg-sidebar-accent/50 hover:opacity-100",
                   )}
                 >
                   <RepoLogo

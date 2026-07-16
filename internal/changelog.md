@@ -1,10 +1,10 @@
 # Changelog
 
-## Theme and Personalisation live under the rail settings menu - 2026-07-16
+## Global settings live under the rail settings menu - 2026-07-16
 
-- A settings gear under the rail avatar opens Theme and Personalisation as global `/settings/*` routes (user-level prefs, not per-repo).
-- Those links are gone from the repo Settings sidebar PREFERENCES section and from the root sidebar Theme item; old `/$owner/$repo/settings/{theme,personalisation}` URLs redirect to the global pages.
-- Reason for change: preferences belong with the always-visible account rail, not buried in repo settings.
+- A settings gear under the rail avatar opens Theme, Personalisation, Notifications, and Sandboxes as global `/settings/*` routes.
+- Those links are gone from the repo Settings sidebar PREFERENCES section and from the root sidebar (Theme / Notifications / Sandboxes); old `/$owner/$repo/settings/{theme,personalisation}` URLs redirect to the global pages.
+- Reason for change: user-level settings belong with the always-visible account rail, not scattered across root nav and repo settings.
 
 ## Inbox moves onto the left icon rail - 2026-07-16
 

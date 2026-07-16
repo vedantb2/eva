@@ -8,7 +8,13 @@ import {
   DropdownMenuItem,
   cn,
 } from "@conductor/ui";
-import { IconPalette, IconSettings, IconUserCog } from "@tabler/icons-react";
+import {
+  IconBell,
+  IconPalette,
+  IconServerBolt,
+  IconSettings,
+  IconUserCog,
+} from "@tabler/icons-react";
 
 const SETTINGS_ITEMS = [
   {
@@ -21,11 +27,21 @@ const SETTINGS_ITEMS = [
     href: "/settings/personalisation",
     icon: IconUserCog,
   },
+  {
+    name: "Notifications",
+    href: "/settings/notifications",
+    icon: IconBell,
+  },
+  {
+    name: "Sandboxes",
+    href: "/settings/sandboxes",
+    icon: IconServerBolt,
+  },
 ] as const;
 
 /**
- * Compact settings gear under the rail avatar. Opens Theme and Personalisation
- * as global routes — preferences are user-level, not per-repo.
+ * Compact settings gear under the rail avatar. Opens global settings routes
+ * (theme, personalisation, notifications, sandboxes) — user-level, not per-repo.
  */
 export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();

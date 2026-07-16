@@ -2,10 +2,8 @@
 
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  IconBell,
   IconHome,
   IconLayoutDashboard,
-  IconServerBolt,
   IconTestPipe,
   IconUsers,
 } from "@tabler/icons-react";
@@ -20,8 +18,6 @@ const ROOT_NAV_ITEMS = [
   { name: "Home", href: "/home", icon: IconHome },
   { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
-  { name: "Notifications", href: "/settings/notifications", icon: IconBell },
-  { name: "Sandboxes", href: "/settings/sandboxes", icon: IconServerBolt },
   {
     name: "Testing",
     href: "/testing",

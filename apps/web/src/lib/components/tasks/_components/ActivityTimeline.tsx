@@ -23,7 +23,6 @@ import { AuditTimelineItem } from "./AuditTimelineItem";
 import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
-import { TaskSubscribers } from "./TaskSubscribers";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -253,10 +252,6 @@ export function ActivityTimeline({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-4 pt-4 md:px-6">
-        <TaskSubscribers taskId={taskId} users={users} />
-      </div>
-
       <Conversation className="min-h-0 flex-1 max-md:h-[65dvh] max-md:flex-none">
         <ConversationContent className="gap-4 px-4 py-4 md:px-6">
           {activityTimeline.length === 0 ? (

@@ -11,7 +11,8 @@
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "warn",
     "import/no-duplicates": "error",
-    "eva/no-is-record": "error"
+    "eva/no-is-record": "error",
+    "typescript/no-explicit-any": "error"
   },
   "ignorePatterns": [
     "**/node_modules/**",

@@ -24,6 +24,7 @@ import {
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
+import { TaskSubscribers } from "./_components/TaskSubscribers";
 import { TaskReactionsProvider } from "./_components/TaskReactionsProvider";
 import { AuditSection } from "./_components/AuditSection";
 import { StatusFieldsSection } from "./_components/StatusFieldsSection";
@@ -291,27 +292,30 @@ export function TaskDetailInline({
                       inline={true}
                     />
 
-                    <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
-                      <TabsTrigger
-                        value="activity"
-                        className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                      >
-                        <span className="hidden sm:inline">Activity</span>
-                        <span className="sm:hidden">Runs</span>
-                        {isActivityBusy ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                        ) : null}
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="audit"
-                        className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                      >
-                        Audit
-                        {isAuditBusy ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                        ) : null}
-                      </TabsTrigger>
-                    </TabsList>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
+                        <TabsTrigger
+                          value="activity"
+                          className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                        >
+                          <span className="hidden sm:inline">Activity</span>
+                          <span className="sm:hidden">Runs</span>
+                          {isActivityBusy ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                          ) : null}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="audit"
+                          className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                        >
+                          Audit
+                          {isAuditBusy ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                          ) : null}
+                        </TabsTrigger>
+                      </TabsList>
+                      <TaskSubscribers taskId={taskId} users={users} />
+                    </div>
                   </div>
                   <TabsContent
                     value="activity"

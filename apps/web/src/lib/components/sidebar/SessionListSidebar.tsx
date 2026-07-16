@@ -181,7 +181,7 @@ export function SessionListSidebar<T extends SessionItem>({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2 animate-in fade-in duration-300">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder={searchPlaceholder}
           value={searchQuery}

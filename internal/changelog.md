@@ -1,12 +1,19 @@
 # Changelog
 
+## Theme and Personalisation live under the rail settings menu - 2026-07-16
+
+- A settings gear under the rail avatar opens Theme and Personalisation as global `/settings/*` routes (user-level prefs, not per-repo).
+- Those links are gone from the repo Settings sidebar PREFERENCES section and from the root sidebar Theme item; old `/$owner/$repo/settings/{theme,personalisation}` URLs redirect to the global pages.
+- Reason for change: preferences belong with the always-visible account rail, not buried in repo settings.
+
 ## Inbox moves onto the left icon rail - 2026-07-16
 
 - Inbox is now a top tile on the vertical repo rail (links to global `/inbox`), with an unread count badge on the bottom-right of the icon when there are notifications.
 - The Eva mark sits above Inbox on the same rail (links to `/home`) in a white rounded-full chip; the sidebar header wordmark is gone so brand + global actions live in one place.
+- The account menu is an avatar-only tile at the bottom of the rail (name/email in the dropdown); online teammates stay in the main sidebar footer.
 - Drafts stay in the main sidebar above the BUILD/SHIP nav because they are per-repo/app; only the global Inbox left the sidebar list.
 - On `/inbox`, the main sidebar no longer shows the global Home/Teams/Theme list — Eva and Inbox already live on the rail, so that panel stays empty aside from the header and footer.
-- Reason for change: Inbox and Eva home are cross-cutting and belong with always-visible rail actions, while keeping Drafts next to the active app's workflow.
+- Reason for change: Inbox, Eva home, and account access are cross-cutting and belong with always-visible rail actions, while keeping Drafts next to the active app's workflow.
 
 ## Repo switching moved to a left icon rail - 2026-07-16
 

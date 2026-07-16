@@ -23,7 +23,6 @@ import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
-import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -261,6 +260,9 @@ export function Sidebar() {
           pathname={pathname}
           onSelect={handleRepoSwitch}
           onNavigate={closeMobileSidebar}
+          userName={user?.fullName || user?.firstName || "User"}
+          userEmail={user?.primaryEmailAddress?.emailAddress}
+          showSearch={isRepoRoute}
         />
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
           <div
@@ -480,12 +482,6 @@ export function Sidebar() {
 
           <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
             <TeamMembers collapsed={collapsed} />
-            <SidebarUserMenu
-              collapsed={collapsed}
-              name={user?.fullName || user?.firstName || "User"}
-              email={user?.primaryEmailAddress?.emailAddress}
-              showSearch={isRepoRoute}
-            />
           </div>
         </div>
       </aside>

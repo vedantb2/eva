@@ -5,7 +5,6 @@ import {
   IconBell,
   IconHome,
   IconLayoutDashboard,
-  IconPalette,
   IconServerBolt,
   IconTestPipe,
   IconUsers,
@@ -21,7 +20,6 @@ const ROOT_NAV_ITEMS = [
   { name: "Home", href: "/home", icon: IconHome },
   { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
-  { name: "Theme", href: "/settings/theme", icon: IconPalette },
   { name: "Notifications", href: "/settings/notifications", icon: IconBell },
   { name: "Sandboxes", href: "/settings/sandboxes", icon: IconServerBolt },
   {

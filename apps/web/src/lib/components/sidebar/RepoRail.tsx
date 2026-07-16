@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 import { InboxIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
+import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
+import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import {
   appLeafName,
   appMatchesLabel,
@@ -41,6 +43,9 @@ interface RepoRailProps {
   pathname: string;
   onSelect: (owner: string, name: string, rootDirectory?: string) => void;
   onNavigate: () => void;
+  userName: string;
+  userEmail?: string;
+  showSearch?: boolean;
 }
 
 /** Whether a repo row (root repo or monorepo app) matches the active URL. */
@@ -61,9 +66,9 @@ const RAIL_TILE_CLASS =
   "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
 
 /**
- * Far-left icon rail: Eva (home) and Inbox at the top, then one icon per
- * repo/app. Clicking a repo switches the active app (preserving the current
- * sub-page via the parent's onSelect). Always visible; the active row is chipped.
+ * Far-left icon rail: Eva (home) and Inbox at the top, repo/app icons in the
+ * middle, and account avatar + settings at the bottom. Clicking a repo switches
+ * the active app (preserving the current sub-page via the parent's onSelect).
  */
 export function RepoRail({
   repos,
@@ -73,6 +78,9 @@ export function RepoRail({
   pathname,
   onSelect,
   onNavigate,
+  userName,
+  userEmail,
+  showSearch,
 }: RepoRailProps) {
   const unreadCount = useQuery(api.notifications.countUnread);
   const homeActive =
@@ -186,6 +194,14 @@ export function RepoRail({
             </Tooltip>
           );
         })}
+      </div>
+      <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
+        <SidebarUserMenu
+          name={userName}
+          email={userEmail}
+          showSearch={showSearch}
+        />
+        <RailSettingsMenu onNavigate={onNavigate} />
       </div>
     </div>
   );

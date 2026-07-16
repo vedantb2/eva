@@ -6,12 +6,10 @@ import {
   IconKey,
   IconCamera,
   IconFolders,
-  IconPalette,
   IconSettings2,
   IconReceipt2,
   IconShieldCheck,
   IconPlug,
-  IconUserCog,
   IconTerminal2,
   IconSparkles,
   IconLayoutGrid,
@@ -40,7 +38,6 @@ export function SettingsSidebar({
     GENERAL: true,
     SANDBOX: true,
     REVIEW: true,
-    PREFERENCES: true,
   });
 
   const toggleSection = (label: string) => {
@@ -78,17 +75,6 @@ export function SettingsSidebar({
         { name: "Audits", href: `${baseUrl}/audits`, icon: IconShieldCheck },
         { name: "MCP Config", href: `${baseUrl}/mcp-config`, icon: IconPlug },
         { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
-      ],
-    },
-    {
-      label: "PREFERENCES",
-      items: [
-        { name: "Theme", href: `${baseUrl}/theme`, icon: IconPalette },
-        {
-          name: "Personalisation",
-          href: `${baseUrl}/personalisation`,
-          icon: IconUserCog,
-        },
       ],
     },
   ];

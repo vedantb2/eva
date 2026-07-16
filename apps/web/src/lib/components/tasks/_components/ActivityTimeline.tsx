@@ -4,10 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import {
   Button,
-  Conversation,
-  ConversationContent,
   ConversationEmptyState,
-  ConversationScrollButton,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -263,101 +260,98 @@ export function ActivityTimeline({
   ].sort((a, b) => a.timestamp - b.timestamp);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <Conversation className="min-h-0 flex-1 max-md:h-[65dvh] max-md:flex-none">
-        <ConversationContent className="gap-4 px-4 py-4 md:px-6">
-          {activityTimeline.length === 0 ? (
-            <ConversationEmptyState title="No activity yet" />
-          ) : (
-            activityTimeline.map((item, index) => {
-              if (item.kind === "audit") {
-                const audit = item.audit;
-                const auditIndex = (allAudits ?? []).indexOf(audit);
-                const isLatest = auditIndex === 0;
-                return (
-                  <AuditTimelineItem
-                    key={`audit-${audit._id}`}
-                    audit={audit}
-                    isLatest={isLatest}
-                    isFirst={index === activityTimeline.length - 1}
-                    auditStreaming={auditStreaming}
-                    auditElapsed={auditElapsed}
-                    fixElapsed={fixElapsed}
-                  />
-                );
-              }
-              if (item.kind === "taskActivity") {
-                return (
-                  <TaskActivityItem
-                    key={`activity-${item.activity._id}`}
-                    event={item.activity}
-                    users={users}
-                  />
-                );
-              }
-              if (item.kind === "proof") {
-                return (
-                  <ProofTimelineItem
-                    key={`proof-${item.proof._id}`}
-                    proof={item.proof}
-                  />
-                );
-              }
-              if (item.kind === "sandboxEvent") {
-                const event = item.event;
-                return (
-                  <SystemAlertMessage
-                    key={`sandbox-${event._id}`}
-                    content={sandboxEventLabel(event.event)}
-                    errorDetail={event.errorDetail}
-                    timestamp={event.createdAt}
-                  />
-                );
-              }
-              if (item.kind === "comment") {
-                const comment = item.comment;
-                return (
-                  <CommentThread
-                    key={`comment-${comment._id}`}
-                    comment={comment}
-                    taskId={taskId}
-                    users={users}
-                    repliesByParentId={repliesByParentId}
-                    onDeleteRequest={setDeletingCommentId}
-                  />
-                );
-              }
-              const run = item.run;
-              const isActiveRun =
-                run.status === "running" || run.status === "queued";
-              const runComment = runCommentMap.get(run._id);
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
+        {activityTimeline.length === 0 ? (
+          <ConversationEmptyState title="No activity yet" />
+        ) : (
+          activityTimeline.map((item, index) => {
+            if (item.kind === "audit") {
+              const audit = item.audit;
+              const auditIndex = (allAudits ?? []).indexOf(audit);
+              const isLatest = auditIndex === 0;
               return (
-                <Suspense key={run._id} fallback={<Spinner size="sm" />}>
-                  <RunTimelineItem
-                    run={run}
-                    isActiveRun={isActiveRun}
-                    streaming={streaming}
-                    activeRunElapsed={activeRunElapsed}
-                    isStopping={isStopping}
-                    onStopConfirm={onStopConfirm}
-                    runComment={runComment}
-                    runCommentReplies={
-                      runComment
-                        ? (repliesByParentId.get(runComment._id) ?? [])
-                        : []
-                    }
-                    users={users}
-                    proofs={proofsByRunId.get(run._id)}
-                  />
-                </Suspense>
+                <AuditTimelineItem
+                  key={`audit-${audit._id}`}
+                  audit={audit}
+                  isLatest={isLatest}
+                  isFirst={index === activityTimeline.length - 1}
+                  auditStreaming={auditStreaming}
+                  auditElapsed={auditElapsed}
+                  fixElapsed={fixElapsed}
+                />
               );
-            })
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+            }
+            if (item.kind === "taskActivity") {
+              return (
+                <TaskActivityItem
+                  key={`activity-${item.activity._id}`}
+                  event={item.activity}
+                  users={users}
+                />
+              );
+            }
+            if (item.kind === "proof") {
+              return (
+                <ProofTimelineItem
+                  key={`proof-${item.proof._id}`}
+                  proof={item.proof}
+                />
+              );
+            }
+            if (item.kind === "sandboxEvent") {
+              const event = item.event;
+              return (
+                <SystemAlertMessage
+                  key={`sandbox-${event._id}`}
+                  content={sandboxEventLabel(event.event)}
+                  errorDetail={event.errorDetail}
+                  timestamp={event.createdAt}
+                />
+              );
+            }
+            if (item.kind === "comment") {
+              const comment = item.comment;
+              return (
+                <CommentThread
+                  key={`comment-${comment._id}`}
+                  comment={comment}
+                  taskId={taskId}
+                  users={users}
+                  repliesByParentId={repliesByParentId}
+                  onDeleteRequest={setDeletingCommentId}
+                />
+              );
+            }
+            const run = item.run;
+            const isActiveRun =
+              run.status === "running" || run.status === "queued";
+            const runComment = runCommentMap.get(run._id);
+            return (
+              <Suspense key={run._id} fallback={<Spinner size="sm" />}>
+                <RunTimelineItem
+                  run={run}
+                  isActiveRun={isActiveRun}
+                  streaming={streaming}
+                  activeRunElapsed={activeRunElapsed}
+                  isStopping={isStopping}
+                  onStopConfirm={onStopConfirm}
+                  runComment={runComment}
+                  runCommentReplies={
+                    runComment
+                      ? (repliesByParentId.get(runComment._id) ?? [])
+                      : []
+                  }
+                  users={users}
+                  proofs={proofsByRunId.get(run._id)}
+                />
+              </Suspense>
+            );
+          })
+        )}
+      </div>
 
-      <div className="shrink-0 px-4 pb-4 pt-2 md:px-6">
+      <div className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-background/95 px-4 pb-4 pt-2 backdrop-blur-sm md:px-6">
         <TaskActivityComposer
           taskId={taskId}
           isProjectTask={isProjectTask}

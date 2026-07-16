@@ -204,21 +204,13 @@ export function TaskDetailInline({
     />
   );
 
-  const isActivityTab = activeTab === "activity";
-
   const detailContent = (
     <TaskReactionsProvider taskId={taskId}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar md:overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
             <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden">
-              <div
-                className={
-                  isActivityTab
-                    ? "flex min-h-0 min-w-0 flex-col overflow-x-hidden md:flex-1 md:overflow-hidden"
-                    : "min-h-0 min-w-0 overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar"
-                }
-              >
+              <div className="flex min-h-0 min-w-0 flex-col overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar">
                 <Tabs
                   value={activeTab}
                   onValueChange={(v) => {
@@ -302,7 +294,7 @@ export function TaskDetailInline({
                   </div>
                   <TabsContent
                     value="activity"
-                    className="mt-3 flex min-h-0 flex-1 flex-col sm:mt-4 md:overflow-hidden"
+                    className="mt-3 flex flex-col sm:mt-4"
                   >
                     <ActivityTimeline
                       taskId={taskId}

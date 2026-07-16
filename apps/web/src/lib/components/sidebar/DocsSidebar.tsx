@@ -344,6 +344,7 @@ export function DocsSidebar({
                             : doc.content,
                         )}
                         updatedAt={doc.updatedAt ?? doc._creationTime}
+                        userId={doc.createdBy}
                       >
                         <Link
                           to={href}

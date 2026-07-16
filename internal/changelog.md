@@ -1,5 +1,11 @@
 # Changelog
 
+## Doc/automation hover cards show author - 2026-07-16
+
+- Docs and automations sidebar hover cards now show the author's avatar and name next to the updated time, matching the session hover pattern more closely.
+- New docs store optional `createdBy` going forward (no backfill); legacy docs omit the author until recreated.
+- Reason for change: title/preview alone made it hard to see who owns an item when scanning the sidebar.
+
 ## Move Computer to the + menu and add a Diffs tab - 2026-07-16
 
 - The sandbox "Computer" (remote desktop) tab moves out of the tab row into the `+` menu, where it is rarely needed; picking it there still opens the desktop view. The tab row is now Preview, Editor, Terminal, Diffs.

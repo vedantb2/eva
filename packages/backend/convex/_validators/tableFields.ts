@@ -538,6 +538,8 @@ export const docFields = {
   testPrUrl: v.optional(v.string()),
   contentUpdatedAt: v.optional(v.number()),
   lastParsedAt: v.optional(v.number()),
+  /** Set on create going forward; optional so legacy docs need no backfill. */
+  createdBy: v.optional(v.id("users")),
   createdAt: v.number(),
   updatedAt: v.number(),
 };

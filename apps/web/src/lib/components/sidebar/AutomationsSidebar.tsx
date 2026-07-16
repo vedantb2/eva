@@ -137,6 +137,7 @@ export function AutomationsSidebar({
                     title={automation.title}
                     preview={sidebarTextPreview(automation.description)}
                     updatedAt={automation.updatedAt}
+                    userId={automation.createdBy}
                   >
                     <Link
                       to={href}

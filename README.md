@@ -258,7 +258,7 @@ If a snapshot is missing or in an error state, sandbox creation falls back to a 
 - Agent CLIs: Claude Code, Codex, opencode, Cursor
 - agent-browser, Convex CLI, Supabase CLI, code-server (VS Code in the browser)
 
-To change the base tooling, edit `buildSnapshotImage()` in `packages/backend/convex/snapshotActions.ts`. For per-project needs, prefer **Build Commands** and **Config Files** in the Snapshots settings over editing the image definition.
+To change the base tooling, edit `buildSnapshotImage()` in `packages/backend/convex/snapshotActions.ts`. For per-project needs, prefer **Build Commands** and **Config Files** in the Snapshots settings over editing the base tooling definition.
 
 ### When to Rebuild
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Repo switcher replaced with inline accordion in sidebar - 2026-07-16
+
+- The RepoSwitcher popover is gone; all visible repos now appear as an inline accordion list in the sidebar, with only the active repo expanded to show its monorepo apps and per-repo nav nested beneath.
+- Clicking any repo row switches to it in one action (vs. popover + 3-column drill-down), and the current sub-page is preserved (Sessions in repo A → click repo B → Sessions in repo B).
+- Monorepo apps nest indented under their parent codebase; apps-only parents auto-navigate to the first app when clicked.
+- In collapsed icon-rail mode, the accordion is hidden and only the per-repo nav renders as tooltipped icons (unchanged).
+- Reason for change: faster one-click repo switching with less UI footprint, and easier visual scanning when you have many repos.
+
 ## Docs slim to Markdown + HTML tabs; testing arena flags issues into tasks - 2026-07-16
 
 - Documents now have two tabs: **Markdown** (the content editor, renamed from Content) and **HTML** (renders a stored `html` field read-only in a sandboxed iframe). The Description, Requirements, and User Flows tabs and the "Re-extract" flow (`docPrdWorkflow`) are gone; PRD upload no longer auto-parses.

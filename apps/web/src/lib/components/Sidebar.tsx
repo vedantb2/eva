@@ -4,12 +4,11 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
-import { useMemo, useState, type ComponentType } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconChevronLeft,
-  IconChevronRight,
   IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
@@ -18,36 +17,10 @@ import {
   IconSun,
   IconX,
 } from "@tabler/icons-react";
-import {
-  AutomationsIcon,
-  DesignsIcon,
-  DocumentsIcon,
-  DraftsIcon,
-  InboxIcon,
-  ProjectsIcon,
-  QuickTasksIcon,
-  SessionsIcon,
-  SettingsIcon,
-  StatsIcon,
-  TestingArenaIcon,
-} from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@conductor/backend";
-import {
-  Button,
-  Spinner,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-} from "@conductor/ui";
-import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
-import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
-import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
-import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
-import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
-import { DraftsCountBadge } from "@/lib/components/sidebar/DraftsCountBadge";
+import { Button, Spinner, cn } from "@conductor/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
@@ -56,14 +29,10 @@ import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
-import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
+import { RepoAccordion } from "@/lib/components/sidebar/RepoAccordion";
+import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
+import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
-import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
-import {
-  SharedLayoutNav,
-  SharedLayoutNavSurface,
-  sidebarNavLinkClass,
-} from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -80,42 +49,6 @@ const KNOWN_SUB_PAGES = new Set([
   "inbox",
   "drafts",
 ]);
-
-const CONTEXT_SIDEBAR_BY_NAV_NAME = {
-  Designs: "designs",
-  Sessions: "sessions",
-  Settings: "settings",
-  Documents: "docs",
-  "Testing Arena": "testing-arena",
-  Automations: "automations",
-} as const;
-
-type ContextSidebarMode =
-  | "main"
-  | "designs"
-  | "sessions"
-  | "settings"
-  | "docs"
-  | "testing-arena"
-  | "automations";
-
-type RepoMainNavIcon = ComponentType<{
-  size?: number;
-  className?: string;
-}>;
-
-type RepoMainNavItem = {
-  name: string;
-  href: string;
-  icon: RepoMainNavIcon;
-  devOnly?: boolean;
-};
-
-type RepoMainNavGroup = {
-  label: string;
-  items: RepoMainNavItem[];
-  devOnly?: boolean;
-};
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);
@@ -149,21 +82,6 @@ export function Sidebar() {
   });
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
-  const [openNavSections, setOpenNavSections] = useState<
-    Record<string, boolean>
-  >({
-    BUILD: true,
-    SHIP: true,
-    TEST: true,
-    MORE: true,
-  });
-
-  const toggleNavSection = (label: string) => {
-    setOpenNavSections((prev) => ({
-      ...prev,
-      [label]: !(prev[label] ?? true),
-    }));
-  };
 
   const repos = useQuery(api.githubRepos.list, {});
 
@@ -236,107 +154,9 @@ export function Sidebar() {
     owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
 
-  const isDev = import.meta.env.DEV;
-
-  const repoNavigation = useMemo(() => {
-    if (!isRepoRoute || !repoBasePath) return [];
-    const allGroups: RepoMainNavGroup[] = [
-      {
-        label: "BUILD",
-        items: [
-          {
-            name: "Designs",
-            href: `${repoBasePath}/designs`,
-            icon: DesignsIcon,
-            devOnly: true,
-          },
-        ],
-      },
-      {
-        label: "SHIP",
-        items: [
-          {
-            name: "Projects",
-            href: `${repoBasePath}/projects`,
-            icon: ProjectsIcon,
-          },
-          {
-            name: "Quick Tasks",
-            href: `${repoBasePath}/quick-tasks`,
-            icon: QuickTasksIcon,
-          },
-          {
-            name: "Sessions",
-            href: `${repoBasePath}/sessions`,
-            icon: SessionsIcon,
-          },
-        ],
-      },
-      {
-        label: "TEST",
-        // devOnly: true,
-        items: [
-          {
-            name: "Documents",
-            href: `${repoBasePath}/docs`,
-            icon: DocumentsIcon,
-            // devOnly: true,
-          },
-          {
-            name: "Testing Arena",
-            href: `${repoBasePath}/testing-arena`,
-            icon: TestingArenaIcon,
-          },
-        ],
-      },
-      {
-        label: "MORE",
-        items: [
-          {
-            name: "Automations",
-            href: `${repoBasePath}/automations`,
-            icon: AutomationsIcon,
-          },
-          {
-            name: "Stats",
-            href: `${repoBasePath}/stats`,
-            icon: StatsIcon,
-          },
-          {
-            name: "Settings",
-            href: `${repoBasePath}/settings/config`,
-            icon: SettingsIcon,
-          },
-        ],
-      },
-    ];
-    if (isDev) return allGroups;
-    return allGroups
-      .filter((g) => !g.devOnly)
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((i) => !i.devOnly),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [repoBasePath, isRepoRoute, isDev]);
-
-  const repoTopNavItems = useMemo((): RepoMainNavItem[] => {
-    if (!isRepoRoute || !repoBasePath) return [];
-    return [
-      {
-        name: "Inbox",
-        href: `${repoBasePath}/inbox`,
-        icon: InboxIcon,
-      },
-      {
-        name: "Drafts",
-        href: `${repoBasePath}/drafts`,
-        icon: DraftsIcon,
-      },
-    ];
-  }, [repoBasePath, isRepoRoute]);
-
   const { theme, toggleTheme } = useThemeContext();
+
+  const closeMobileSidebar = () => setMobileOpen(false);
 
   const handleRepoSwitch = (
     selectedOwner: string,
@@ -349,125 +169,7 @@ export function Sidebar() {
       segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
     const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
     navigate({ to: `${base}${preservePath}` });
-  };
-
-  const navItemClass = (isActive: boolean) =>
-    sidebarNavLinkClass(isActive, collapsed);
-
-  const closeMobileSidebar = () => setMobileOpen(false);
-
-  const renderRepoNavItem = (item: RepoMainNavItem) => {
-    const isActive = pathname.startsWith(item.href);
-    const contextMode =
-      CONTEXT_SIDEBAR_BY_NAV_NAME[
-        item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
-      ];
-
-    if (contextMode && !collapsed) {
-      const showActiveCount =
-        (item.name === "Sessions" || item.name === "Designs") && repo;
-      return (
-        <SharedLayoutNavSurface
-          key={item.name}
-          itemId={item.name}
-          isActive={isActive}
-          className="group relative"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setContextSidebarMode(contextMode);
-            }}
-            className={cn(navItemClass(isActive), "w-full pr-9")}
-          >
-            <item.icon
-              size={19}
-              className={cn(
-                "shrink-0",
-                isActive ? "text-sidebar-primary" : "text-muted-foreground",
-              )}
-            />
-            <span className="truncate">{item.name}</span>
-            {showActiveCount && (
-              <ActiveCountBadge
-                repoId={repo._id}
-                type={item.name === "Sessions" ? "sessions" : "designs"}
-              />
-            )}
-            {item.name === "Automations" && repo && (
-              <UnreadAutomationsBadge repoId={repo._id} />
-            )}
-          </button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setContextSidebarMode(contextMode);
-            }}
-            title={`Open ${item.name.toLowerCase()} sidebar`}
-          >
-            <IconChevronRight size={14} className="text-muted-foreground" />
-          </Button>
-        </SharedLayoutNavSurface>
-      );
-    }
-
-    const linkElement = (
-      <SharedLayoutNavSurface
-        key={item.name}
-        itemId={item.name}
-        isActive={isActive}
-      >
-        <Link
-          to={item.href}
-          onClick={() => {
-            if (contextMode) {
-              setContextSidebarMode(contextMode);
-            }
-            if (!contextMode) {
-              closeMobileSidebar();
-            }
-          }}
-          className={navItemClass(isActive)}
-        >
-          <item.icon
-            size={19}
-            className={cn(
-              "shrink-0",
-              isActive ? "text-sidebar-primary" : "text-muted-foreground",
-            )}
-          />
-          {!collapsed && <span className="truncate">{item.name}</span>}
-          {item.name === "Inbox" && !collapsed && <UnreadInboxBadge />}
-          {item.name === "Drafts" && !collapsed && repo && (
-            <DraftsCountBadge repoId={repo._id} />
-          )}
-          {item.name === "Quick Tasks" &&
-            !collapsed &&
-            repo &&
-            repoBasePath && (
-              <ActiveTasksBadge repoId={repo._id} basePath={repoBasePath} />
-            )}
-          {item.name === "Projects" && !collapsed && repo && repoBasePath && (
-            <BuildingProjectsBadge repoId={repo._id} basePath={repoBasePath} />
-          )}
-        </Link>
-      </SharedLayoutNavSurface>
-    );
-
-    if (collapsed) {
-      return (
-        <Tooltip key={item.name}>
-          <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-          <TooltipContent side="right">{item.name}</TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return linkElement;
+    closeMobileSidebar();
   };
 
   const contextSidebarTitle =
@@ -758,39 +460,32 @@ export function Sidebar() {
                           <Spinner size="sm" />
                         </div>
                       )
+                    ) : collapsed ? (
+                      <RepoNavSections
+                        repoBasePath={repoBasePath}
+                        pathname={pathname}
+                        collapsed
+                        repo={repo}
+                        onOpenContextSidebar={setContextSidebarMode}
+                        onNavigate={closeMobileSidebar}
+                      />
                     ) : (
-                      <div className="space-y-4">
-                        {!collapsed && (
-                          <RepoSwitcher
-                            repos={repos ?? []}
-                            currentOwner={owner}
-                            currentName={repoName}
-                            currentAppName={appName}
-                            onSelect={handleRepoSwitch}
-                          />
-                        )}
-
-                        <SharedLayoutNav
-                          layoutId="repo-main-nav"
-                          className="space-y-4"
-                        >
-                          <div className="space-y-1">
-                            {repoTopNavItems.map(renderRepoNavItem)}
-                          </div>
-                          {repoNavigation.map((group) => (
-                            <div key={group.label}>
-                              <CollapsibleSidebarSection
-                                label={group.label}
-                                open={openNavSections[group.label] ?? true}
-                                onToggle={() => toggleNavSection(group.label)}
-                                showHeader={!collapsed}
-                              >
-                                {group.items.map(renderRepoNavItem)}
-                              </CollapsibleSidebarSection>
-                            </div>
-                          ))}
-                        </SharedLayoutNav>
-                      </div>
+                      <RepoAccordion
+                        repos={repos ?? []}
+                        currentOwner={owner}
+                        currentName={repoName}
+                        currentAppName={appName}
+                        onSelect={handleRepoSwitch}
+                      >
+                        <RepoNavSections
+                          repoBasePath={repoBasePath}
+                          pathname={pathname}
+                          collapsed={false}
+                          repo={repo}
+                          onOpenContextSidebar={setContextSidebarMode}
+                          onNavigate={closeMobileSidebar}
+                        />
+                      </RepoAccordion>
                     )}
                   </motion.div>
                 )}

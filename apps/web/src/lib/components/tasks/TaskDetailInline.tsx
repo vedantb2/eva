@@ -3,30 +3,17 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { Id } from "@conductor/backend";
-import {
-  Badge,
-  Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@conductor/ui";
+import { Badge } from "@conductor/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
 import { useTaskDetail } from "./useTaskDetail";
-import {
-  isTaskDetailTab,
-  getUserDisplayName,
-  TASK_DETAIL_TAB_LIST_CLASS,
-  TASK_DETAIL_TAB_TRIGGER_CLASS,
-} from "./_components/task-detail-constants";
+import { getUserDisplayName } from "./_components/task-detail-constants";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { TaskSubscribers } from "./_components/TaskSubscribers";
 import { TaskReactionsProvider } from "./_components/TaskReactionsProvider";
-import { AuditSection } from "./_components/AuditSection";
 import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
@@ -62,11 +49,8 @@ export function TaskDetailInline({
     status,
     runs,
     allAudits,
-    latestAudit,
-    pastAudits,
     comments,
     proofs,
-    sandboxEvents,
     taskActivity,
     users,
     creatorUser,
@@ -81,14 +65,12 @@ export function TaskDetailInline({
     hasRuns,
     canEditTaskText,
     isActivityBusy,
-    isAuditBusy,
     activeRunElapsed,
     auditElapsed,
     fixElapsed,
     latestPrUrl,
     latestPrError,
     latestDeployment,
-    activeTab,
     setActiveTab,
     baseBranch,
     setBaseBranch,
@@ -211,15 +193,7 @@ export function TaskDetailInline({
           <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
             <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden">
               <div className="flex min-h-0 min-w-0 flex-col overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar">
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(v) => {
-                    if (isTaskDetailTab(v)) {
-                      setActiveTab(v);
-                    }
-                  }}
-                  className="flex min-h-0 flex-1 flex-col"
-                >
+                <div className="flex min-h-0 flex-1 flex-col">
                   <div className="shrink-0 space-y-4 px-4 pt-4 md:px-6 md:pr-6 md:pt-5">
                     <div>
                       <TaskHeader
@@ -268,40 +242,21 @@ export function TaskDetailInline({
                     />
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
-                        <TabsTrigger
-                          value="activity"
-                          className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                        >
-                          <span className="hidden sm:inline">Activity</span>
-                          <span className="sm:hidden">Runs</span>
-                          {isActivityBusy ? (
-                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                          ) : null}
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="audit"
-                          className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                        >
-                          Audit
-                          {isAuditBusy ? (
-                            <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                          ) : null}
-                        </TabsTrigger>
-                      </TabsList>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        Activity
+                        {isActivityBusy ? (
+                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                        ) : null}
+                      </div>
                       <TaskSubscribers taskId={taskId} users={users} />
                     </div>
                   </div>
-                  <TabsContent
-                    value="activity"
-                    className="mt-3 flex flex-col sm:mt-4"
-                  >
+                  <div className="mt-3 flex flex-col sm:mt-4">
                     <ActivityTimeline
                       taskId={taskId}
                       runs={runs}
                       allAudits={allAudits}
                       comments={comments}
-                      sandboxEvents={sandboxEvents}
                       taskActivity={taskActivity}
                       proofs={proofs}
                       users={users}
@@ -323,17 +278,8 @@ export function TaskDetailInline({
                       setExecutionError={setExecutionError}
                       onRequestChangesSubmitted={() => setActiveTab("activity")}
                     />
-                  </TabsContent>
-                  <TabsContent
-                    value="audit"
-                    className="mt-3 px-4 pb-4 sm:mt-4 md:px-6"
-                  >
-                    <AuditSection
-                      latestAudit={latestAudit}
-                      pastAudits={pastAudits}
-                    />
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="mt-6 flex shrink-0 flex-col min-w-0 overflow-x-hidden px-4 pb-4 md:mt-0 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5">

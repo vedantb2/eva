@@ -30,6 +30,7 @@ import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { RunActivityLog } from "../RunActivityLog";
 import { RunProofRows, type TaskProof } from "./ProofTimelineItem";
+import { RunAuditRow } from "./AuditTimelineItem";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -43,6 +44,9 @@ const RUN_ACCORDION_SCROLL_CLASS =
 
 type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
+>[number];
+type Audit = NonNullable<
+  FunctionReturnType<typeof api.audits.listByTask>
 >[number];
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
 type Users = FunctionReturnType<typeof api.users.listAll>;
@@ -80,6 +84,11 @@ export function RunTimelineItem({
   runCommentReplies,
   users,
   proofs,
+  audit,
+  isLatestAudit,
+  auditStreaming,
+  auditElapsed,
+  fixElapsed,
 }: {
   run: Run;
   isActiveRun: boolean;
@@ -91,6 +100,11 @@ export function RunTimelineItem({
   runCommentReplies: TaskComment[];
   users: Users | undefined;
   proofs?: TaskProof[];
+  audit?: Audit;
+  isLatestAudit: boolean;
+  auditStreaming: Streaming | undefined;
+  auditElapsed: number;
+  fixElapsed: number;
 }) {
   const hasRunComment = runComment !== undefined;
   // The run's initiator: the change-request comment's author when the run was
@@ -189,6 +203,15 @@ export function RunTimelineItem({
           )}
         </div>
         {proofs && proofs.length > 0 ? <RunProofRows proofs={proofs} /> : null}
+        {audit ? (
+          <RunAuditRow
+            audit={audit}
+            isLatest={isLatestAudit}
+            auditStreaming={auditStreaming}
+            auditElapsed={auditElapsed}
+            fixElapsed={fixElapsed}
+          />
+        ) : null}
         <AccordionContent>
           <div className="space-y-2">
             {runComment ? (

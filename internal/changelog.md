@@ -1,5 +1,12 @@
 # Changelog
 
+## Task Activity reorganized: audits nested under runs, sandbox events removed from feed - 2026-07-16
+
+- Audit results now appear inline under each code-run in the Activity timeline (not a separate tab), with an always-visible "Eva completed audit" row showing the pass/fail badge; expanding it reveals the per-section results and Run Fixes button.
+- Sandbox lifecycle events (started/reconnected/stopped) are no longer shown in the Activity feed, since they already appear in the sandbox preview chat (the backend writes both a `taskSandboxEvents` row and an `isSystemAlert` chat message; the chat copy is sufficient).
+- The separate "Audit" tab and "Activity" / "Audit" tab bar are gone; the task detail view now shows a single Activity feed.
+- Reason for change: audits provide context when shown alongside the run that was audited (one timeline view instead of two tab-swaps); sandbox events in the feed were redundant noise because they're already in the chat.
+
 ## Rail app icons show a live sandbox indicator - 2026-07-16
 
 - App tiles on the left rail show a glowing green dot (bottom-right) when that app has any active sandbox on a session, quick task, or project.

@@ -14,6 +14,8 @@ import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { AuditActivityLog } from "../AuditActivityLog";
+import { AuditResults } from "./AuditResults";
+import { LogoMark } from "@/lib/components/LogoMark";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 
@@ -186,5 +188,117 @@ export function AuditTimelineItem({
         </AccordionItem>
       </Accordion>
     </Fragment>
+  );
+}
+
+/** Passed/total result count across all sections of a completed audit. */
+function auditScore(audit: Audit): { passed: number; total: number } {
+  const passed = audit.sections.reduce(
+    (sum, s) => sum + s.results.filter((r) => r.passed).length,
+    0,
+  );
+  const total = audit.sections.reduce((sum, s) => sum + s.results.length, 0);
+  return { passed, total };
+}
+
+/**
+ * Audit shown nested under its run in the activity timeline (an audit's `runId`
+ * is the code-generation run itself). Mirrors the `RunProofRows` layout — a
+ * top border plus an indented left rail — but is its own accordion because the
+ * audit has expandable detail (results + Run Fixes). Streaming/elapsed state
+ * only applies to the latest audit, gated by `isLatest`.
+ */
+export function RunAuditRow({
+  audit,
+  isLatest,
+  auditStreaming,
+  auditElapsed,
+  fixElapsed,
+}: {
+  audit: Audit;
+  isLatest: boolean;
+  auditStreaming: Streaming | undefined;
+  auditElapsed: number;
+  fixElapsed: number;
+}) {
+  const isAuditStreaming = isLatest && audit.status === "running";
+  const isFixStreaming = isLatest && audit.fixStatus === "fixing";
+  const score = audit.status === "completed" ? auditScore(audit) : null;
+
+  const durationLabel = isFixStreaming
+    ? formatElapsed(fixElapsed)
+    : isAuditStreaming
+      ? formatElapsed(auditElapsed)
+      : audit.completedAt
+        ? formatDuration(audit.createdAt, audit.completedAt)
+        : null;
+
+  return (
+    <div className="border-t border-border/60">
+      <div className="ml-2 border-l-2 border-muted-foreground/25 pl-3">
+        <Accordion
+          type="multiple"
+          defaultValue={isAuditStreaming || isFixStreaming ? [audit._id] : []}
+        >
+          <AccordionItem value={audit._id} className="border-none">
+            <AccordionTrigger className="py-1.5">
+              <div className="flex flex-1 items-center gap-2 min-w-0 mr-2">
+                <LogoMark size={16} className="shrink-0" />
+                <span className="text-xs font-medium text-foreground">
+                  {audit.status === "running"
+                    ? "Eva is auditing"
+                    : audit.status === "error"
+                      ? "Audit failed"
+                      : "Eva completed audit"}
+                </span>
+                {score ? (
+                  <Badge
+                    variant={
+                      score.passed === score.total ? "success" : "warning"
+                    }
+                  >
+                    {score.passed}/{score.total}
+                  </Badge>
+                ) : null}
+                {durationLabel ? (
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {durationLabel}
+                  </span>
+                ) : null}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-2 pb-2">
+                {isAuditStreaming &&
+                  auditStreaming?.currentActivity &&
+                  (() => {
+                    const steps = parseActivitySteps(
+                      auditStreaming.currentActivity,
+                    );
+                    return steps ? (
+                      <ActivityTasks
+                        steps={steps}
+                        isStreaming
+                        name="Auditing"
+                      />
+                    ) : null;
+                  })()}
+                {isFixStreaming &&
+                  auditStreaming?.currentActivity &&
+                  (() => {
+                    const steps = parseActivitySteps(
+                      auditStreaming.currentActivity,
+                    );
+                    return steps ? (
+                      <ActivityTasks steps={steps} isStreaming name="Fixing" />
+                    ) : null;
+                  })()}
+                <AuditResults auditData={audit} />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
+    </div>
   );
 }

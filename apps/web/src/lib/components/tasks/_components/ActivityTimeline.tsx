@@ -20,7 +20,6 @@ import { AuditTimelineItem } from "./AuditTimelineItem";
 import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
-import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
   buildRepliesByParentId,
@@ -37,10 +36,6 @@ type Audits = FunctionReturnType<typeof api.audits.listByTask>;
 type Comments = FunctionReturnType<typeof api.taskComments.listByTask>;
 type Comment = NonNullable<Comments>[number];
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
-type SandboxEvents = FunctionReturnType<
-  typeof api.taskSandboxEvents.listByTask
->;
-type SandboxEvent = NonNullable<SandboxEvents>[number];
 type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
@@ -64,11 +59,6 @@ type ActivityItem =
       proof: Proof;
     }
   | {
-      kind: "sandboxEvent";
-      timestamp: number;
-      event: SandboxEvent;
-    }
-  | {
       kind: "taskActivity";
       timestamp: number;
       activity: TaskActivityEvent;
@@ -79,27 +69,11 @@ type ActivityItem =
       comment: Comment;
     };
 
-function sandboxEventLabel(event: SandboxEvent["event"]): string {
-  switch (event) {
-    case "started":
-      return "Sandbox started";
-    case "reconnected":
-      return "Sandbox reconnected";
-    case "stopped":
-      return "Sandbox stopped";
-    case "stop_failed":
-      return "Failed to stop sandbox";
-    case "failed":
-      return "Failed to start sandbox";
-  }
-}
-
 export function ActivityTimeline({
   taskId,
   runs,
   allAudits,
   comments,
-  sandboxEvents,
   taskActivity,
   proofs,
   users,
@@ -126,7 +100,6 @@ export function ActivityTimeline({
   runs: Runs | undefined;
   allAudits: Audits | undefined;
   comments: Comments | undefined;
-  sandboxEvents: SandboxEvents | undefined;
   taskActivity: TaskActivity | undefined;
   proofs: Proofs | undefined;
   users: Users | undefined;
@@ -219,13 +192,27 @@ export function ActivityTimeline({
     }
   }
 
+  // An audit's `runId` is the code-generation run it audited, so nest each
+  // audit under its run. Audits with no matching loaded run (session audits,
+  // legacy) fall back to a top-level timeline item so nothing disappears.
+  const latestAuditId = allAudits?.[0]?._id;
+  const auditsByRunId = new Map<string, NonNullable<Audits>[number]>();
+  const orphanAudits: NonNullable<Audits>[number][] = [];
+  for (const audit of allAudits ?? []) {
+    if (audit.runId && runIds.has(audit.runId)) {
+      auditsByRunId.set(audit.runId, audit);
+    } else {
+      orphanAudits.push(audit);
+    }
+  }
+
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
       (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
   );
 
   const activityTimeline: ActivityItem[] = [
-    ...(allAudits ?? []).map((audit) => ({
+    ...orphanAudits.map((audit) => ({
       kind: "audit" as const,
       timestamp: audit.createdAt,
       audit,
@@ -234,11 +221,6 @@ export function ActivityTimeline({
       kind: "run" as const,
       timestamp: run.startedAt ?? run._creationTime,
       run,
-    })),
-    ...(sandboxEvents ?? []).map((event) => ({
-      kind: "sandboxEvent" as const,
-      timestamp: event.createdAt,
-      event,
     })),
     ...(taskActivity ?? []).map((activity) => ({
       kind: "taskActivity" as const,
@@ -299,17 +281,6 @@ export function ActivityTimeline({
                 />
               );
             }
-            if (item.kind === "sandboxEvent") {
-              const event = item.event;
-              return (
-                <SystemAlertMessage
-                  key={`sandbox-${event._id}`}
-                  content={sandboxEventLabel(event.event)}
-                  errorDetail={event.errorDetail}
-                  timestamp={event.createdAt}
-                />
-              );
-            }
             if (item.kind === "comment") {
               const comment = item.comment;
               return (
@@ -344,6 +315,13 @@ export function ActivityTimeline({
                   }
                   users={users}
                   proofs={proofsByRunId.get(run._id)}
+                  audit={auditsByRunId.get(run._id)}
+                  isLatestAudit={
+                    auditsByRunId.get(run._id)?._id === latestAuditId
+                  }
+                  auditStreaming={auditStreaming}
+                  auditElapsed={auditElapsed}
+                  fixElapsed={fixElapsed}
                 />
               </Suspense>
             );

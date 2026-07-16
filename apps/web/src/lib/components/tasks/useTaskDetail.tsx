@@ -69,7 +69,6 @@ export function useTaskDetail(
       task?.repoId ? { repoId: task.repoId } : "skip",
     ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
-  const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
     api.streaming.get,
     (latestAudit?.status === "running" ||
@@ -100,7 +99,6 @@ export function useTaskDetail(
   const enabledAuditCount =
     auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
-  const sandboxEvents = useQuery(api.taskSandboxEvents.listByTask, { taskId });
   const taskActivity = useQuery(api.taskActivity.listByTask, { taskId });
   const repoForTask = useQuery(
     api.githubRepos.get,
@@ -377,11 +375,8 @@ export function useTaskDetail(
     status,
     runs,
     allAudits,
-    latestAudit,
-    pastAudits,
     comments,
     proofs,
-    sandboxEvents,
     taskActivity,
     users,
     creatorUser,
@@ -402,8 +397,6 @@ export function useTaskDetail(
       Boolean(hasActiveRun) ||
       latestAudit?.status === "running" ||
       latestAudit?.fixStatus === "fixing",
-    isAuditBusy:
-      latestAudit?.status === "running" || latestAudit?.fixStatus === "fixing",
 
     activeRun,
     activeRunElapsed,

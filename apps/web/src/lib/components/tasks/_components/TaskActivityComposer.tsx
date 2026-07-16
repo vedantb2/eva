@@ -23,7 +23,7 @@ interface TaskActivityComposerProps {
 // mounts the inner form exactly once when the draft resolves.
 // ---------------------------------------------------------------------------
 
-/** Comment / request-changes input above the task activity timeline. */
+/** Comment / request-changes input pinned below the task activity timeline. */
 export function TaskActivityComposer({
   taskId,
   isProjectTask,
@@ -45,7 +45,7 @@ export function TaskActivityComposer({
   // placeholder using the same chrome so layout doesn't shift.
   if (draft === undefined) {
     return (
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3">
         <div className="overflow-hidden rounded-surface border border-input bg-card">
           <CommentMentionInput
             value=""

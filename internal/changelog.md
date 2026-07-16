@@ -1,5 +1,12 @@
 # Changelog
 
+## Chat-style task Activity tab - 2026-07-16
+
+- The task Activity tab now reads like a Slack/Discord thread: activity (runs, audits, comments, sandbox events) is ordered oldest-first/newest-last, the list scrolls in its own bounded region, and the view auto-scrolls to the newest item with a "scroll to bottom" button that appears when you scroll up.
+- The comment composer is pinned at the bottom of the tab instead of sitting above the timeline; the task header, description, and tab bar stay fixed above the scrolling list.
+- Applies everywhere the task detail view is used (quick tasks, split list pane, project layout). Proof and Audit tabs keep their existing page-scroll behavior.
+- Reason for change: the old newest-first list with a top composer was the opposite of familiar chat UX, making it harder to follow a task's conversation and see the latest activity.
+
 ## Per-repo logos for easier navigation - 2026-07-16
 
 - Repos can now have an uploaded logo image shown next to the repo name on the home page (`/home`), team repos page (`/teams/:id/repos`), and in the repo settings (App tab). Logos are per-app, not shared across monorepo siblings.

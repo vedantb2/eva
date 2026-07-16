@@ -9,6 +9,7 @@ import {
   pickDefaultVisibleAppRepo,
 } from "./helpers";
 import { getAIProviderAvailability } from "../validators";
+import { filterActiveEntities } from "../numId";
 
 /** True when the user connected the repo or shares its team. */
 async function userCanAccessRepo(
@@ -64,6 +65,43 @@ async function gatherAccessibleRepos(
   return repos;
 }
 
+/** True when this app has a live sandbox on a session, quick task, or project. */
+async function repoHasActiveSandbox(
+  db: GenericDatabaseReader<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<boolean> {
+  const activeSession = filterActiveEntities(
+    await db
+      .query("sessions")
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", repoId).eq("status", "active"),
+      )
+      .collect(),
+  ).find((s) => s.archived !== true && s.sandboxId !== undefined);
+  if (activeSession) return true;
+
+  const activeProject = filterActiveEntities(
+    await db
+      .query("projects")
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+      .collect(),
+  ).find(
+    (p) =>
+      p.reviewProjectSandboxStatus === "active" && p.sandboxId !== undefined,
+  );
+  if (activeProject) return true;
+
+  const activeTask = filterActiveEntities(
+    await db
+      .query("agentTasks")
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+      .collect(),
+  ).find(
+    (t) => t.reviewTaskSandboxStatus === "active" && t.sandboxId !== undefined,
+  );
+  return activeTask !== undefined;
+}
+
 /** Attaches a resolved `logoUrl` (from `logoStorageId`) to each repo. */
 async function attachLogoUrls(
   storage: StorageReader,
@@ -92,6 +130,25 @@ export const list = authQuery({
       args.includeHidden === true,
     );
     return await attachLogoUrls(ctx.storage, repos);
+  },
+});
+
+/**
+ * Repo/app ids that currently have an active sandbox on a session, quick task,
+ * or project. Used by the left rail to show a live indicator on app icons.
+ */
+export const listReposWithActiveSandboxes = authQuery({
+  args: {},
+  returns: v.array(v.id("githubRepos")),
+  handler: async (ctx) => {
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
+    const flags = await Promise.all(
+      repos.map(async (repo) => ({
+        id: repo._id,
+        active: await repoHasActiveSandbox(ctx.db, repo._id),
+      })),
+    );
+    return flags.filter((f) => f.active).map((f) => f.id);
   },
 });
 

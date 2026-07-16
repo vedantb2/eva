@@ -90,6 +90,10 @@ export function RepoRail({
   showSearch,
 }: RepoRailProps) {
   const unreadCount = useQuery(api.notifications.countUnread);
+  const activeSandboxRepoIds = useQuery(
+    api.githubRepos.listReposWithActiveSandboxes,
+  );
+  const activeSandboxRepoIdSet = new Set(activeSandboxRepoIds ?? []);
   const homeActive =
     pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
@@ -191,6 +195,7 @@ export function RepoRail({
           const tooltip = row.rootDirectory
             ? `${row.owner}/${row.name} · ${label}`
             : `${row.owner}/${row.name}`;
+          const hasActiveSandbox = activeSandboxRepoIdSet.has(row._id);
 
           return (
             <Tooltip key={row._id}>
@@ -200,7 +205,9 @@ export function RepoRail({
                   onClick={() =>
                     onSelect(row.owner, row.name, row.rootDirectory)
                   }
-                  aria-label={tooltip}
+                  aria-label={
+                    hasActiveSandbox ? `${tooltip}, sandbox active` : tooltip
+                  }
                   className={cn(
                     RAIL_TILE_CLASS,
                     active
@@ -222,6 +229,15 @@ export function RepoRail({
                       </span>
                     }
                   />
+                  {hasActiveSandbox ? (
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5"
+                      aria-hidden
+                    >
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
+                    </span>
+                  ) : null}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">{tooltip}</TooltipContent>

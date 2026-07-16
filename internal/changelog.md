@@ -1,5 +1,10 @@
 # Changelog
 
+## Rail app icons show a live sandbox indicator - 2026-07-16
+
+- App tiles on the left rail show a glowing green dot (bottom-right) when that app has any active sandbox on a session, quick task, or project.
+- Reason for change: makes it obvious at a glance which apps currently have a running sandbox without opening each one.
+
 ## File Viewer tab with clickable chat file chips - 2026-07-16
 
 - Clicking a file chip in a session's chat activity now opens that file's current contents, read live from the sandbox, in a new read-only Files tab.

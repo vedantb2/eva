@@ -1,5 +1,6 @@
 export {
   list,
+  listReposWithActiveSandboxes,
   get,
   getByIdString,
   getProviderAvailability,

@@ -46,14 +46,9 @@ export function QuickTaskSplitDetailPane({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        {selectedTask?.title || selectedTask?.taskNumber !== undefined ? (
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {selectedTask?.taskNumber !== undefined ? (
-              <span className="mr-1 font-mono tabular-nums text-muted-foreground">
-                #{selectedTask.taskNumber}
-              </span>
-            ) : null}
-            {selectedTask?.title}
+        {selectedTask?.taskNumber !== undefined ? (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold font-mono tabular-nums text-muted-foreground">
+            #{selectedTask.taskNumber}
           </span>
         ) : (
           <span className="flex-1" />

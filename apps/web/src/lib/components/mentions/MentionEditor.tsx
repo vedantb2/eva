@@ -127,16 +127,14 @@ function renderMenuItemRow(
   detail: string | null,
 ): ReactNode {
   return (
-    <span className="flex min-w-0 w-full items-center gap-1.5">
-      <span className="shrink-0 text-muted-foreground">{prefix}</span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="shrink-0 text-muted-foreground">{prefix}</span>
         <span className="truncate">{label}</span>
-        {detail ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {detail}
-          </span>
-        ) : null}
       </span>
+      {detail ? (
+        <span className="truncate text-xs text-muted-foreground">{detail}</span>
+      ) : null}
     </span>
   );
 }

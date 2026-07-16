@@ -208,6 +208,20 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
+  const runIds = new Set((runs ?? []).map((run) => run._id));
+  const proofsByRunId = new Map<string, Proof[]>();
+  const orphanProofs: Proof[] = [];
+  for (const proof of proofs ?? []) {
+    if (!proof.url && !proof.message) continue;
+    if (proof.runId && runIds.has(proof.runId)) {
+      const existing = proofsByRunId.get(proof.runId) ?? [];
+      existing.push(proof);
+      proofsByRunId.set(proof.runId, existing);
+    } else {
+      orphanProofs.push(proof);
+    }
+  }
+
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
       (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
@@ -234,13 +248,11 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...(proofs ?? [])
-      .filter((proof) => proof.url || proof.message)
-      .map((proof) => ({
-        kind: "proof" as const,
-        timestamp: proof.createdAt,
-        proof,
-      })),
+    ...orphanProofs.map((proof) => ({
+      kind: "proof" as const,
+      timestamp: proof.createdAt,
+      proof,
+    })),
     ...topLevelComments
       .filter((comment) => !commentsShownWithRuns.has(comment._id))
       .map((comment) => ({
@@ -335,6 +347,7 @@ export function ActivityTimeline({
                         : []
                     }
                     users={users}
+                    proofs={proofsByRunId.get(run._id)}
                   />
                 </Suspense>
               );

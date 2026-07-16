@@ -29,6 +29,7 @@ import type { TaskComment } from "../_utils/commentThread";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { RunActivityLog } from "../RunActivityLog";
+import { RunProofRows, type TaskProof } from "./ProofTimelineItem";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -78,6 +79,7 @@ export function RunTimelineItem({
   runComment,
   runCommentReplies,
   users,
+  proofs,
 }: {
   run: Run;
   isActiveRun: boolean;
@@ -88,6 +90,7 @@ export function RunTimelineItem({
   runComment: TaskComment | undefined;
   runCommentReplies: TaskComment[];
   users: Users | undefined;
+  proofs?: TaskProof[];
 }) {
   const hasRunComment = runComment !== undefined;
   // The run's initiator: the change-request comment's author when the run was
@@ -185,6 +188,7 @@ export function RunTimelineItem({
             </Tooltip>
           )}
         </div>
+        {proofs && proofs.length > 0 ? <RunProofRows proofs={proofs} /> : null}
         <AccordionContent>
           <div className="space-y-2">
             {runComment ? (

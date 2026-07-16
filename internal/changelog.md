@@ -1,5 +1,11 @@
 # Changelog
 
+## Nest Eva proofs under the related run in Activity - 2026-07-16
+
+- Proofs linked to a run now sit under that run's accordion header (visible when collapsed): media opens via "View capture" / "View captures (N)" gallery, message-only proofs stay truncated inline.
+- New captures store `runId` from the agent callback so they attach to the correct run; legacy proofs without `runId` remain standalone timeline rows.
+- Reason for change: proofs belong to a specific run but floated as separate events, making the Activity thread harder to scan.
+
 ## Keep sandbox tabs visible when stopped on tasks and projects - 2026-07-16
 
 - Quick-task and project sandboxes now keep the tab bar mounted when the sandbox is stopped (same as sessions), so Diffs and other panes stay reachable without starting the sandbox first.

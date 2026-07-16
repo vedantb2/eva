@@ -6,7 +6,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import type { FunctionReturnType } from "convex/server";
@@ -19,7 +19,7 @@ export function ProofTimelineItem({ proof }: { proof: Proof }) {
     <Accordion type="multiple">
       <AccordionItem
         value={`proof-${proof._id}`}
-        className="rounded-surface border border-border bg-card px-3"
+        className="rounded-surface bg-muted/40 px-3"
       >
         <AccordionTrigger>
           <div className="flex flex-1 items-center gap-2 mr-2 min-w-0">
@@ -27,9 +27,10 @@ export function ProofTimelineItem({ proof }: { proof: Proof }) {
             <span className="font-medium text-sm truncate">
               Eva attached proof
             </span>
-            <span className="text-xs text-muted-foreground shrink-0 ml-auto">
-              {dayjs(proof.createdAt).format("DD/MM/YYYY HH:mm")}
-            </span>
+            <RelativeDateTime
+              at={proof.createdAt}
+              className="shrink-0 text-xs ml-auto"
+            />
           </div>
         </AccordionTrigger>
         <AccordionContent>

@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
@@ -27,7 +28,7 @@ interface SandboxPanelProps {
   terminalPanes?: SharedTerminalPane[];
   planContent?: string;
   isArchived?: boolean;
-  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
@@ -84,12 +85,12 @@ export function SandboxPanel({
     [allCustomTabs],
   );
 
-  // If the URL points at a custom tab that no longer exists (deleted / disabled),
-  // fall back to preview. Wait for the query to load before deciding.
+  // If the URL points at a custom tab that no longer exists (deleted / disabled /
+  // renamed), fall back to preview. Wait for the query to load before deciding.
   useEffect(() => {
     if (isSessionSandboxTab(activeTab)) return;
     if (allCustomTabs === undefined) return;
-    if (!customTabs.some((tab) => tab._id === activeTab)) {
+    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === activeTab)) {
       onTabChange("preview");
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);

@@ -14,7 +14,7 @@ export function SessionDetailClient({
   onSandboxTabChange,
 }: {
   sessionId: string;
-  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeSandboxTab: string;
   onSandboxTabChange: (tab: string) => void;
 }) {

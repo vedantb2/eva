@@ -12,6 +12,7 @@ import {
 import type { Doc } from "@conductor/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { isSessionSandboxTab } from "@/lib/search-params";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import {
   Tabs,
@@ -48,7 +49,7 @@ const allTabs: Array<{
 ];
 
 interface SandboxTabBarProps {
-  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
   onTabChange: (tab: string) => void;
   onNewPreview: () => void;
@@ -117,10 +118,11 @@ export function SandboxTabBar({
           ) : null}
           {customTabs?.map((tab) => {
             const Icon = resolveTablerIcon(tab.icon);
+            const slug = slugifyAppTabName(tab.name);
             return (
               <TabsTrigger
                 key={tab._id}
-                value={tab._id}
+                value={slug}
                 className={TAB_TRIGGER_CLASS}
               >
                 <Icon className="w-3.5 h-3.5" />

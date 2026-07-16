@@ -10,10 +10,10 @@ export const Route = createFileRoute(
   component: SessionSandboxRoute,
 });
 
-// The tab segment is a builtin SandboxTab or a custom tab's Convex id. Custom
-// ids can't be validated synchronously here (they live in Convex), so the raw
-// segment is passed through and SandboxPanel falls back to "preview" if it
-// resolves to no known tab.
+// The tab segment is a builtin SandboxTab or a custom tab's name slug (e.g.
+// "supabase"). Custom slugs can't be validated synchronously here (they live
+// in Convex), so the raw segment is passed through and SandboxPanel falls back
+// to "preview" if it resolves to no known tab.
 function SessionSandboxRoute() {
   const { numId, sandboxTab } = Route.useParams();
   const navigate = useNavigate();

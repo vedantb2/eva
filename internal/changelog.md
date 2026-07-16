@@ -1,5 +1,11 @@
 # Changelog
 
+## Custom sandbox tabs use name slugs in the URL - 2026-07-16
+
+- Session URLs for custom tabs now use a slug of the tab name (e.g. `/sessions/25/supabase`) instead of the Convex document id, so links stay readable and stable as long as the name stays the same.
+- Settings → Tabs enforces unique names per app (case-insensitive via the slug) and blocks names that collide with built-in tabs (`preview`, `editor`, `terminal`, `desktop`, `diffs`, `prd`).
+- Reason for change: opaque ids in the URL were hard to share and recognize; duplicate or reserved names would also break slug-based routing.
+
 ## Nest Eva proofs under the related run in Activity - 2026-07-16
 
 - Proofs linked to a run now sit under that run's accordion header (visible when collapsed): media opens via "View capture" / "View captures (N)" gallery, message-only proofs stay truncated inline.

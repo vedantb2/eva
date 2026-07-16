@@ -2,6 +2,7 @@
 
 import type { Doc, Id } from "@conductor/backend";
 import { cn } from "@conductor/ui";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
@@ -16,7 +17,7 @@ import type { SandboxPanesApi } from "./useSandboxPanes";
 import type { SandboxPreviewApi } from "./useSandboxPreview";
 
 interface SandboxPaneSlotsProps {
-  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
   panes: SandboxPanesApi;
   preview: SandboxPreviewApi;
@@ -197,22 +198,25 @@ export function SandboxPaneSlots({
       <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
         <DiffsPanel prUrl={prUrl} repoId={repoId} />
       </div>
-      {customTabs?.map((tab) => (
-        <div
-          key={tab._id}
-          className={activeTab === tab._id ? "h-full" : "hidden"}
-        >
-          {activeTab === tab._id ? (
-            <CustomTabPanel
-              name={tab.name}
-              port={tab.port}
-              sandboxId={sandboxId}
-              isActive={isActive}
-              repoId={repoId}
-            />
-          ) : null}
-        </div>
-      ))}
+      {customTabs?.map((tab) => {
+        const slug = slugifyAppTabName(tab.name);
+        return (
+          <div
+            key={tab._id}
+            className={activeTab === slug ? "h-full" : "hidden"}
+          >
+            {activeTab === slug ? (
+              <CustomTabPanel
+                name={tab.name}
+                port={tab.port}
+                sandboxId={sandboxId}
+                isActive={isActive}
+                repoId={repoId}
+              />
+            ) : null}
+          </div>
+        );
+      })}
     </>
   );
 }

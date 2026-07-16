@@ -41,7 +41,8 @@ function authorDisplayName(user: {
   return "Unknown";
 }
 
-function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
+/** Avatar + display name for sidebar hover footers (sessions, docs, automations). */
+export function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
   const user = useQuery(api.users.get, { id: userId });
   if (!user) {
     return (

@@ -2,7 +2,7 @@
 
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import { compactRelativeTime } from "@conductor/shared/dates";
 import {
   cn,
   HoverCard,
@@ -14,6 +14,7 @@ import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
+import { HoverCardAuthor } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 function prStateIconColor(
@@ -30,20 +31,6 @@ function prStateIconColor(
     default:
       return "text-muted-foreground";
   }
-}
-
-function compactTimeAgo(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return "now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${String(minutes)}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${String(hours)}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${String(days)}d`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${String(months)}mo`;
-  return `${String(Math.floor(months / 12))}y`;
 }
 
 interface SidebarSessionItemProps {
@@ -121,9 +108,9 @@ export function SidebarSessionItem({
           </p>
         ) : null}
         <div className="mt-3 flex items-center justify-between gap-2">
-          <UserInitials userId={userId} />
+          <HoverCardAuthor userId={userId} />
           <span className="shrink-0 text-xs text-muted-foreground">
-            {compactTimeAgo(createdAt)}
+            {compactRelativeTime(createdAt)}
           </span>
         </div>
       </HoverCardContent>

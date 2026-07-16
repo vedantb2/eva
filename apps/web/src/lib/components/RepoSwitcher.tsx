@@ -11,6 +11,9 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
+import { RepoLogo } from "@/lib/components/RepoLogo";
+
+type RepoWithLogo = Doc<"githubRepos"> & { logoUrl?: string | null };
 
 const AVATAR_PALETTE = [
   "bg-blue-500",
@@ -54,8 +57,14 @@ function OwnerAvatar({ owner }: { owner: string }) {
   );
 }
 
+/** Matches a monorepo app row to the URL `appName` segment. */
+function appMatchesLabel(app: RepoWithLogo, appName: string): boolean {
+  const leaf = app.rootDirectory?.split("/").pop();
+  return leaf === appName || app.rootDirectory === appName;
+}
+
 interface RepoSwitcherProps {
-  repos: Doc<"githubRepos">[];
+  repos: RepoWithLogo[];
   currentOwner: string | null;
   currentName: string | null;
   currentAppName: string | undefined;
@@ -66,7 +75,9 @@ interface RepoSwitcherProps {
 interface UniqueRepo {
   owner: string;
   name: string;
-  apps: Doc<"githubRepos">[];
+  /** Root (non-app) doc when the repo itself is selectable. */
+  root: RepoWithLogo | null;
+  apps: RepoWithLogo[];
 }
 
 export function RepoSwitcher({
@@ -94,11 +105,14 @@ export function RepoSwitcher({
       if (existing) {
         if (repo.rootDirectory) {
           existing.apps.push(repo);
+        } else {
+          existing.root = repo;
         }
       } else {
         repoMap.set(key, {
           owner: repo.owner,
           name: repo.name,
+          root: repo.rootDirectory ? null : repo,
           apps: repo.rootDirectory ? [repo] : [],
         });
       }
@@ -178,6 +192,25 @@ export function RepoSwitcher({
     );
   }, [repos, currentOwner, currentName]);
 
+  const currentLogoUrl = useMemo(() => {
+    if (!currentOwner || !currentName) return null;
+    if (currentAppName) {
+      const app = repos.find(
+        (r) =>
+          r.owner === currentOwner &&
+          r.name === currentName &&
+          r.rootDirectory &&
+          appMatchesLabel(r, currentAppName),
+      );
+      return app?.logoUrl ?? null;
+    }
+    const root = repos.find(
+      (r) =>
+        r.owner === currentOwner && r.name === currentName && !r.rootDirectory,
+    );
+    return root?.logoUrl ?? null;
+  }, [repos, currentOwner, currentName, currentAppName]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
@@ -196,7 +229,7 @@ export function RepoSwitcher({
     }
   };
 
-  const handleAppClick = (app: Doc<"githubRepos">) => {
+  const handleAppClick = (app: RepoWithLogo) => {
     onSelect(app.owner, app.name, app.rootDirectory);
     setOpen(false);
   };
@@ -211,6 +244,14 @@ export function RepoSwitcher({
 
   const hasSelection = Boolean(currentOwner && currentName);
 
+  const triggerFallback = currentOwner ? (
+    <OwnerAvatar owner={currentOwner} key={currentOwner} />
+  ) : (
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+      <IconBrandGithub size={16} className="text-muted-foreground" />
+    </div>
+  );
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -221,13 +262,11 @@ export function RepoSwitcher({
             className,
           )}
         >
-          {currentOwner ? (
-            <OwnerAvatar owner={currentOwner} key={currentOwner} />
-          ) : (
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-              <IconBrandGithub size={16} className="text-muted-foreground" />
-            </div>
-          )}
+          <RepoLogo
+            logoUrl={currentLogoUrl}
+            size={36}
+            fallback={triggerFallback}
+          />
           <div className="flex min-w-0 flex-1 flex-col">
             {hasSelection ? (
               <>
@@ -333,9 +372,15 @@ export function RepoSwitcher({
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <IconBrandGithub
+                      <RepoLogo
+                        logoUrl={isMonorepo ? null : repo.root?.logoUrl}
                         size={14}
-                        className="shrink-0 text-muted-foreground"
+                        fallback={
+                          <IconBrandGithub
+                            size={14}
+                            className="shrink-0 text-muted-foreground"
+                          />
+                        }
                       />
                       <span className="truncate">{repo.name}</span>
                     </div>
@@ -373,9 +418,15 @@ export function RepoSwitcher({
                       onClick={() => handleAppClick(app)}
                       className={itemClass(isSelected)}
                     >
-                      <IconFolder
+                      <RepoLogo
+                        logoUrl={app.logoUrl}
                         size={14}
-                        className="shrink-0 text-muted-foreground"
+                        fallback={
+                          <IconFolder
+                            size={14}
+                            className="shrink-0 text-muted-foreground"
+                          />
+                        }
                       />
                       <span className="truncate">{appLabel}</span>
                     </div>

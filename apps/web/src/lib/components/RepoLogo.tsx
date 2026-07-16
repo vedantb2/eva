@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 export function RepoLogo({
   logoUrl,
   fallback,
-  size = 20,
+  size = 28,
 }: {
   logoUrl?: string | null;
   fallback: ReactNode;

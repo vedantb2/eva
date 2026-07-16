@@ -77,9 +77,10 @@ export function RepoCard({
                 <CardContent className="flex items-center gap-3 p-3">
                   <RepoLogo
                     logoUrl={repo.logoUrl}
+                    size={28}
                     fallback={
                       <IconBrandGithub
-                        size={20}
+                        size={28}
                         className={
                           repo.connected === false
                             ? "text-destructive/60"

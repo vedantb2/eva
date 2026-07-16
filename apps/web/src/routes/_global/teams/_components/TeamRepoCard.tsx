@@ -41,8 +41,9 @@ export function TeamRepoCard({
         <div className="flex items-center gap-2">
           <RepoLogo
             logoUrl={repo.logoUrl}
+            size={28}
             fallback={
-              <IconGitBranch size={20} className="text-muted-foreground" />
+              <IconGitBranch size={28} className="text-muted-foreground" />
             }
           />
           <div>

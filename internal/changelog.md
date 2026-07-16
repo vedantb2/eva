@@ -1,5 +1,13 @@
 # Changelog
 
+## File Viewer tab with clickable chat file chips - 2026-07-16
+
+- Clicking a file chip in a session's chat activity now opens that file's current contents, read live from the sandbox, in a new read-only Files tab.
+- The sandbox callback carries the full file path on read/write/edit/notebook steps so chips can resolve the file; older messages keep plain (non-clickable) chips.
+- Reading a stopped sandbox is refused rather than resumed, so clicking a file never silently wakes (and bills) a Vercel VM.
+- The viewer loads only when the selected file changes or on Refresh, and caches the last read, so the agent's 5-second heartbeat no longer re-fetches and flickers.
+- Reason for change: while following along in chat, jumping to a referenced file's live contents was previously only possible via the full code-server Editor tab.
+
 ## Global pages are rail-only; Home/Teams/Artifacts live on the icon rail - 2026-07-16
 
 - Teams and Artifacts join Eva and Inbox on the left rail; the empty root sidebar panel is gone on global routes so content uses full width (`lg:pl-16`).

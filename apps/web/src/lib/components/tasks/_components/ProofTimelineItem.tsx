@@ -208,42 +208,44 @@ export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
 
   return (
     <div className="border-t border-border/60">
-      {mediaProofs.length > 0 ? (
-        <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-          <LogoMark size={16} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">
-            <span className="font-medium text-foreground">
-              Eva attached proof
-            </span>{" "}
-            <button
-              type="button"
-              onClick={() => setGalleryOpen(true)}
-              className="font-medium text-primary underline-offset-2 hover:underline"
-            >
-              {mediaProofs.length === 1
-                ? "View capture"
-                : `View captures (${mediaProofs.length})`}
-            </button>
-          </span>
-        </div>
-      ) : null}
-      {messageProofs.map((proof) => (
-        <div
-          key={proof._id}
-          className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground"
-        >
-          <LogoMark size={16} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">
-            <span className="font-medium text-foreground">
-              Eva attached proof
+      <div className="ml-2 space-y-0 border-l-2 border-muted-foreground/25 pl-3">
+        {mediaProofs.length > 0 ? (
+          <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+            <LogoMark size={16} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-medium text-foreground">
+                Eva attached proof
+              </span>{" "}
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {mediaProofs.length === 1
+                  ? "View capture"
+                  : `View captures (${mediaProofs.length})`}
+              </button>
             </span>
-            <span className="text-muted-foreground">
-              {" "}
-              — {truncateProofMessage(proof.message ?? "")}
+          </div>
+        ) : null}
+        {messageProofs.map((proof) => (
+          <div
+            key={proof._id}
+            className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground"
+          >
+            <LogoMark size={16} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-medium text-foreground">
+                Eva attached proof
+              </span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {truncateProofMessage(proof.message ?? "")}
+              </span>
             </span>
-          </span>
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
       {mediaProofs.length > 0 ? (
         <ProofCaptureGallery
           proofs={mediaProofs}

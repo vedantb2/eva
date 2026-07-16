@@ -110,6 +110,7 @@ export default defineConfig({
       "@tiptap/core",
       "@convex-dev/prosemirror-sync",
       "frimousse",
+      "sonner",
     ],
   },
   build: {

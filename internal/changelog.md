@@ -1,5 +1,12 @@
 # Changelog
 
+## Autosave automation settings and add a Sonner toast - 2026-07-16
+
+- The automation Settings tab no longer has a Save button: text fields (title, prompt, cron) autosave on blur and toggles/model select save immediately, so changes persist without an extra click.
+- Toggle and model changes use an optimistic update so they feel instant, and every save confirms with a "Saved" toast in the top-right.
+- Added Sonner as the app's first imperative toast API (`toast` from `@conductor/ui`), mounted globally and themed to match light/dark.
+- Reason for change: the explicit Save button was easy to forget and out of step with the rest of the settings screens, which already autosave.
+
 ## Tag sandboxes from Convex ENVIRONMENT when set - 2026-07-14
 
 - Sandbox creates stamp Eva tags (`eva.managed`, `eva.env`, `eva.purpose`, `eva.repoId`, `eva.deployment`) only when Convex `ENVIRONMENT` is set; otherwise labels behave as before (caller-only, e.g. seed-prep).

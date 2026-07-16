@@ -3,6 +3,7 @@ import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
 import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
+import { AppToaster } from "@/lib/components/AppToaster";
 
 export interface RouterContext {
   isSignedIn: boolean;
@@ -19,6 +20,7 @@ function RootComponent() {
         <Outlet />
       </NuqsAdapter>
       <ChangelogDialog />
+      <AppToaster />
       <Analytics />
     </ClientProvider>
   );

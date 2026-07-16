@@ -59,7 +59,7 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
           className={cn(
             "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
             isActive
-              ? "border-border bg-sidebar-accent text-sidebar-primary"
+              ? "border-primary bg-primary text-primary-foreground"
               : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
           )}
         >

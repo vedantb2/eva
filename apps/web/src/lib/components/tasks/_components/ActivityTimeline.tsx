@@ -20,6 +20,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
 import { TaskSubscribers } from "./TaskSubscribers";
@@ -47,6 +48,8 @@ type SandboxEvent = NonNullable<SandboxEvents>[number];
 type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
+type Proofs = FunctionReturnType<typeof api.taskProof.listByTask>;
+type Proof = NonNullable<Proofs>[number];
 
 type ActivityItem =
   | {
@@ -58,6 +61,11 @@ type ActivityItem =
       kind: "run";
       timestamp: number;
       run: NonNullable<Runs>[number];
+    }
+  | {
+      kind: "proof";
+      timestamp: number;
+      proof: Proof;
     }
   | {
       kind: "sandboxEvent";
@@ -97,6 +105,7 @@ export function ActivityTimeline({
   comments,
   sandboxEvents,
   taskActivity,
+  proofs,
   users,
   streaming,
   auditStreaming,
@@ -123,6 +132,7 @@ export function ActivityTimeline({
   comments: Comments | undefined;
   sandboxEvents: SandboxEvents | undefined;
   taskActivity: TaskActivity | undefined;
+  proofs: Proofs | undefined;
   users: Users | undefined;
   streaming: Streaming | undefined;
   auditStreaming: Streaming | undefined;
@@ -225,6 +235,13 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
+    ...(proofs ?? [])
+      .filter((proof) => proof.url || proof.message)
+      .map((proof) => ({
+        kind: "proof" as const,
+        timestamp: proof.createdAt,
+        proof,
+      })),
     ...topLevelComments
       .filter((comment) => !commentsShownWithRuns.has(comment._id))
       .map((comment) => ({
@@ -268,6 +285,14 @@ export function ActivityTimeline({
                     key={`activity-${item.activity._id}`}
                     event={item.activity}
                     users={users}
+                  />
+                );
+              }
+              if (item.kind === "proof") {
+                return (
+                  <ProofTimelineItem
+                    key={`proof-${item.proof._id}`}
+                    proof={item.proof}
                   />
                 );
               }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Merge Proof into the Activity timeline - 2026-07-16
+
+- The separate "Proof" tab is gone. Each proof Eva attaches (screenshot, video, or note) now appears inline in the Activity thread at the moment it was captured, so proofs sit in chronological order alongside runs, audits, and comments.
+- Each proof is its own collapsible accordion showing the Eva logo and "Eva attached proof"; opening it reveals the image, video, or message. This replaces the old carousel, so multiple proofs no longer hide behind one another.
+- Old `.../proof` tab URLs redirect to Activity automatically.
+- Reason for change: proofs were siloed in a tab and stacked in a carousel, disconnected from when they happened; folding them into the timeline makes it obvious what Eva did and when.
+
 ## Chat-style task Activity tab - 2026-07-16
 
 - The task Activity tab now reads like a Slack/Discord thread: activity (runs, audits, comments, sandbox events) is ordered oldest-first/newest-last, the list scrolls in its own bounded region, and the view auto-scrolls to the newest item with a "scroll to bottom" button that appears when you scroll up.

@@ -25,7 +25,6 @@ import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { TaskReactionsProvider } from "./_components/TaskReactionsProvider";
-import { ProofSection } from "./_components/ProofSection";
 import { AuditSection } from "./_components/AuditSection";
 import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
@@ -81,9 +80,7 @@ export function TaskDetailInline({
     isProjectTask,
     hasRuns,
     canEditTaskText,
-    showProofSection,
     isActivityBusy,
-    isProofBusy,
     isAuditBusy,
     activeRunElapsed,
     auditElapsed,
@@ -306,15 +303,6 @@ export function TaskDetailInline({
                         ) : null}
                       </TabsTrigger>
                       <TabsTrigger
-                        value="proof"
-                        className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                      >
-                        Proof
-                        {isProofBusy ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                        ) : null}
-                      </TabsTrigger>
-                      <TabsTrigger
                         value="audit"
                         className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                       >
@@ -336,6 +324,7 @@ export function TaskDetailInline({
                       comments={comments}
                       sandboxEvents={sandboxEvents}
                       taskActivity={taskActivity}
+                      proofs={proofs}
                       users={users}
                       streaming={streaming}
                       auditStreaming={auditStreaming}
@@ -355,18 +344,6 @@ export function TaskDetailInline({
                       setExecutionError={setExecutionError}
                       onRequestChangesSubmitted={() => setActiveTab("activity")}
                     />
-                  </TabsContent>
-                  <TabsContent
-                    value="proof"
-                    className="mt-3 px-4 pb-4 sm:mt-4 md:px-6"
-                  >
-                    {showProofSection ? (
-                      <ProofSection
-                        proofs={proofs}
-                        status={status}
-                        isQuickTask={task?.projectId === undefined}
-                      />
-                    ) : null}
                   </TabsContent>
                   <TabsContent
                     value="audit"

@@ -51,16 +51,16 @@ export function getUserDisplayName(user: {
   return "Unnamed User";
 }
 
-export type TaskDetailTab = "activity" | "proof" | "audit";
+export type TaskDetailTab = "activity" | "audit";
 
-export const TASK_DETAIL_TABS = ["activity", "proof", "audit"] as const;
+export const TASK_DETAIL_TABS = ["activity", "audit"] as const;
 
 export function isTaskDetailTab(v: string): v is TaskDetailTab {
   return (TASK_DETAIL_TABS as readonly string[]).includes(v);
 }
 
 /**
- * Compact tabs for Activity / Proof / Audit on task detail.
+ * Compact tabs for Activity / Audit on task detail.
  * Radius comes from the shared Tabs primitives (`rounded-lg` → `--radius`).
  * `tabs-segmented` (defined in globals.css) drives the trough + active-pill
  * fills per mode, so the active pill stays lighter/raised in both light and

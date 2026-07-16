@@ -353,7 +353,6 @@ export function useTaskDetail(
       : !hasRuns
         ? "Run Eva on this task before requesting changes"
         : undefined;
-  const showProofSection = status !== undefined && status !== "todo";
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestPrError = runs?.find((r) => r.prError)?.prError;
@@ -397,14 +396,12 @@ export function useTaskDetail(
     requestChangesBlockedReason,
     hasRuns,
     canEditTaskText,
-    showProofSection,
     showTabsColumn,
     hasEnabledAuditCategories,
     isActivityBusy:
       Boolean(hasActiveRun) ||
       latestAudit?.status === "running" ||
       latestAudit?.fixStatus === "fixing",
-    isProofBusy: status === "in_progress",
     isAuditBusy:
       latestAudit?.status === "running" || latestAudit?.fixStatus === "fixing",
 

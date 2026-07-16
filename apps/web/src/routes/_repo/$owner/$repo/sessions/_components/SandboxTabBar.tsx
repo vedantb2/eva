@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   IconWorld,
   IconDeviceDesktop,
@@ -11,7 +12,6 @@ import {
 } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
-import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import {
@@ -80,13 +80,17 @@ export function SandboxTabBar({
   // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
   const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
 
-  // The hotkey cycles builtins only; when a custom tab is active, treat it as
-  // preview so Shift+Tab re-enters the builtin cycle.
+  const customTabSlugs = useMemo(
+    () => (customTabs ?? []).map((tab) => slugifyAppTabName(tab.name)),
+    [customTabs],
+  );
+
   useCycleSandboxTabHotkey({
-    activeTab: isSessionSandboxTab(activeTab) ? activeTab : "preview",
+    activeTab,
     onTabChange,
     enabledTabs,
     showPrdTab,
+    customTabSlugs,
   });
 
   return (

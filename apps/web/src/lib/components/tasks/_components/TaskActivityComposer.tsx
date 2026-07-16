@@ -39,7 +39,7 @@ export function TaskActivityComposer({
   });
 
   const editorClassName =
-    "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+    "min-h-9 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   // While draft is undefined (query not yet resolved), show a disabled
   // placeholder using the same chrome so layout doesn't shift.

@@ -16,6 +16,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
   clearStreamingActivity,
+  resolveTaskBranchName,
 } from "./_taskWorkflow/helpers";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
 import {
@@ -23,7 +24,6 @@ import {
   TASK_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
-import { resolveTaskBranchName } from "./_taskWorkflow/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 

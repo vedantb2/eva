@@ -7,14 +7,13 @@ import {
   internalQuery,
   type MutationCtx,
 } from "./_generated/server";
-import { components } from "./_generated/api";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import {
   prRecapStatusValidator,
   roleValidator,
   docKindValidator,
+  docFields,
 } from "./validators";
-import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
 import { workflow } from "./workflowManager";

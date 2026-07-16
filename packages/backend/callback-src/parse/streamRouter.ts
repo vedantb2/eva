@@ -1,9 +1,11 @@
 import { PROVIDER } from "../config.js";
-import { buildStreamingPayload } from "../runtime/heartbeats.js";
+import {
+  buildStreamingPayload,
+  sendStreamingHeartbeatUpdate,
+} from "../runtime/heartbeats.js";
 import { getProviderAdapter } from "../providers/index.js";
 import { callbackState as S } from "../runtime/state.js";
 import { tryParseJson } from "../utils.js";
-import { sendStreamingHeartbeatUpdate } from "../runtime/heartbeats.js";
 
 /** Buffers stdout chunks and processes complete lines for realtime event handling. */
 export function processRealtimeStdoutChunk(text: string): void {

@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { formatDurationMsShort } from "@conductor/shared/duration";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { DataModel, Id } from "../_generated/dataModel";
+import type { DataModel, Id, Doc } from "../_generated/dataModel";
 import {
   execHandle,
   resolveSandboxContext,
@@ -39,12 +39,11 @@ import {
   detectPackageManager,
   resetDevTerminalForResume,
   startSessionServices,
+  launchDevServerInBackground,
 } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
-import type { Doc } from "../_generated/dataModel";
 import { startDesktopWithChrome } from "./desktop";
-import { launchDevServerInBackground } from "./devServer";
 
 /** Per-app dev server overrides loaded from the githubRepos doc. */
 function devOverrides(

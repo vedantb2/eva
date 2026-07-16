@@ -2,7 +2,10 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { resolveSandboxCredentials } from "./envVarResolver";
+import {
+  resolveSandboxCredentials,
+  resolveDaytonaApiKey,
+} from "./envVarResolver";
 import { getSandboxHandle } from "./_daytona/helpers";
 import { unwrapVercelSandbox } from "./_sandbox/vercelProvider";
 import { unwrapDaytonaSandbox } from "./_sandbox/daytonaProvider";
@@ -16,7 +19,6 @@ import {
   connectVercelInteractive,
   ensureVercelSharedTerminal,
 } from "./_pty/vercel";
-import { resolveDaytonaApiKey } from "./envVarResolver";
 
 /** Returns the explicit PTY instance id when provided and non-empty, else null. */
 function toExplicitPtyId(ptyInstanceId: string | undefined): string | null {

@@ -42,11 +42,13 @@ const evaPlugin = {
 };
 
 // This config enforces only `eva/no-is-record`, but the codebase carries a few
-// legacy `// eslint-disable-next-line react-hooks/exhaustive-deps` comments. A
-// flat config errors on a disable directive for a rule it does not know, so we
-// register that rule name as a no-op purely to keep those comments valid. We do
-// NOT run the react-hooks linter — this is a compatibility shim, not a ruleset.
-const reactHooksCompatPlugin = {
+// legacy `// eslint-disable-next-line react/exhaustive-deps` comments (renamed
+// to oxlint's rule id — oxlint is now the linter that actually checks hook
+// deps). A flat config errors on a disable directive for a rule it does not
+// know, so we register that rule name as a no-op purely to keep those
+// comments valid. We do NOT run the react hooks linter here — this is a
+// compatibility shim, not a ruleset.
+const reactCompatPlugin = {
   rules: {
     "exhaustive-deps": { meta: { schema: [] }, create: () => ({}) },
   },
@@ -70,14 +72,14 @@ export default tseslint.config(
   },
   {
     files: ["**/*.{ts,tsx}"],
-    // Legacy inline `eslint-disable react-hooks/exhaustive-deps` comments would
+    // Legacy inline `eslint-disable react/exhaustive-deps` comments would
     // otherwise be flagged as unused (the rule is a no-op here); silence that.
     linterOptions: { reportUnusedDisableDirectives: "off" },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-    plugins: { eva: evaPlugin, "react-hooks": reactHooksCompatPlugin },
+    plugins: { eva: evaPlugin, react: reactCompatPlugin },
     rules: { "eva/no-is-record": "error" },
   },
 );

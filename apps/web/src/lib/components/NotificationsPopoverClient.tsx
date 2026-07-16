@@ -3,7 +3,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link } from "@tanstack/react-router";
 import { useDisclosure } from "@/lib/hooks/use-disclosure";
 import {
   Popover,
@@ -17,7 +17,6 @@ import {
 } from "@conductor/ui";
 import { IconBell, IconChecks, IconBellOff } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { Link } from "@tanstack/react-router";
 import {
   typeConfig,
   NotificationIcon,

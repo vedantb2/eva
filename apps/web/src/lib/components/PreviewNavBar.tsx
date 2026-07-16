@@ -7,9 +7,10 @@ import {
   useRef,
   type RefObject,
 } from "react";
-import { Input, Spinner } from "@conductor/ui";
-import { WebPreviewNavigationButton } from "@conductor/ui";
 import {
+  Input,
+  Spinner,
+  WebPreviewNavigationButton,
   Dialog,
   DialogContent,
   DialogHeader,

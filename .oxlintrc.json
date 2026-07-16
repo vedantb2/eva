@@ -1,9 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "react", "unicorn", "oxc", "import"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
     "perf": "warn"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "import/no-duplicates": "error"
   },
   "ignorePatterns": [
     "**/node_modules/**",

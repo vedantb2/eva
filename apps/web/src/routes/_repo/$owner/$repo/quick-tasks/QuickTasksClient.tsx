@@ -265,7 +265,7 @@ export function QuickTasksClient() {
       clearDraftParam();
     }
     // clearDraftParam is defined inline each render — only run when these values change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [drafts, draftParam, initialDraft]);
 
   if (tasks === undefined) {

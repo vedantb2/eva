@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { branchParser } from "@/lib/search-params";
+import { branchParser, isTestingArenaTab } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -42,7 +42,6 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { UITestingPanel } from "../UITestingPanelClient";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { isTestingArenaTab } from "@/lib/search-params";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab",

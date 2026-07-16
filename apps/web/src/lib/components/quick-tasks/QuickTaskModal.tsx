@@ -30,8 +30,8 @@ import {
   DEFAULT_AI_MODEL,
   normalizeAIModel,
   type AIModel,
+  type Id,
 } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import {
   FALLBACK_GIT_BASE_BRANCH,
   UI_TASK_DESCRIPTION_HINT,
@@ -138,7 +138,7 @@ export function QuickTaskModal({
             skillMap: new Map<string, string>(),
           },
     // initialDraft is stable for the lifetime of this mount (key remount on change).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
     [],
   );
 

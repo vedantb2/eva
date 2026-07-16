@@ -5,8 +5,7 @@ import type {
   GenericDatabaseWriter,
 } from "convex/server";
 import { projectFields, conversationMessageValidator } from "../validators";
-import type { DataModel } from "../_generated/dataModel";
-import type { Id, Doc } from "../_generated/dataModel";
+import type { DataModel, Id, Doc } from "../_generated/dataModel";
 
 type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
 

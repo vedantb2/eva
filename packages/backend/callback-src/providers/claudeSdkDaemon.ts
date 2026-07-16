@@ -27,8 +27,10 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { syncClaudeStateToPersist } from "../session/claudeSession.js";
-import { prepareClaudeSessionState } from "../session/claudeSession.js";
+import {
+  syncClaudeStateToPersist,
+  prepareClaudeSessionState,
+} from "../session/claudeSession.js";
 import {
   buildSdkOptions,
   buildConversationalSdkOptions,

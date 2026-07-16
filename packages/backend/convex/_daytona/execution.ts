@@ -25,10 +25,16 @@ import {
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import { uploadCallbackScriptBundle } from "./launch";
-import { resolveSandboxCredentials } from "../envVarResolver";
+import {
+  resolveSandboxCredentials,
+  resolveDaytonaApiKey,
+} from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
-import { resolveDaytonaApiKey } from "../envVarResolver";
-import { detectPackageManager, launchDevServerInBackground } from "./devServer";
+import {
+  detectPackageManager,
+  launchDevServerInBackground,
+  restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox,
+} from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 
 async function resolveDevCommandForPreview(
@@ -84,7 +90,6 @@ import {
 } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
-import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),

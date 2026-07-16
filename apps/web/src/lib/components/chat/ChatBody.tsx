@@ -42,8 +42,9 @@ import {
   REASONING_LEVELS,
   type AIModel,
   type ReasoningLevel,
+  type Doc,
+  type Id,
 } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { tokenizedToEditable } from "@/lib/components/mentions";

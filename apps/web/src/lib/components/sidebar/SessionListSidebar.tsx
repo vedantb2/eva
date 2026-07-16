@@ -219,7 +219,7 @@ export function SessionListSidebar<T extends SessionItem>({
             </p>
           </div>
         ) : (
-          <SharedLayoutNav layoutId={layoutId}>
+          <SharedLayoutNav layoutId={layoutId} className="space-y-1">
             <AnimatePresence initial={false}>
               {filteredSessions.map((session) => {
                 const pathSegment = entityPathSegment(session);

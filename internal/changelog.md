@@ -7,6 +7,12 @@
 - The diff is the canonical pushed PR diff fetched from GitHub. Applies to all three sandbox surfaces: sessions, projects, and quick tasks.
 - Reason for change: the Computer tab held a permanent slot in the tab bar despite little use, and there was no in-app way to review a PR's changes without switching to GitHub.
 
+## Sidebar hover previews for docs and automations - 2026-07-16
+
+- Docs and automations sidebars now use the same whole-row hover card as sessions: title, a short preview (doc description or content / automation description), and updated time — so scanning stays title-first without losing context.
+- Session rows get the same vertical spacing as the docs list (`space-y-1`) so the sidebars feel consistent.
+- Reason for change: hover-revealed timestamps were easy to miss and inconsistent with the denser session hover pattern users preferred.
+
 ## Compact session sidebar rows with hover details - 2026-07-16
 
 - Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.

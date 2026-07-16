@@ -30,7 +30,6 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import {
   searchParser,
@@ -43,6 +42,10 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  SidebarListHoverCard,
+  sidebarTextPreview,
+} from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 
 interface DocsSidebarProps {
@@ -333,39 +336,37 @@ export function DocsSidebar({
                       isActive={isSelected}
                       className="group"
                     >
-                      <Link
-                        to={href}
-                        search={(prev) => prev}
-                        onClick={onNavigate}
-                        className={sidebarNavLinkClass(isSelected)}
+                      <SidebarListHoverCard
+                        title={doc.title}
+                        preview={sidebarTextPreview(
+                          doc.description?.trim()
+                            ? doc.description
+                            : doc.content,
+                        )}
+                        updatedAt={doc.updatedAt ?? doc._creationTime}
                       >
-                        {doc.kind === "pr-recap" ? (
-                          <IconGitMerge
-                            size={16}
-                            className={cn(
-                              "shrink-0",
-                              isSelected
-                                ? "text-sidebar-primary"
-                                : "text-muted-foreground",
-                            )}
-                          />
-                        ) : null}
-                        <span className="min-w-0 flex-1 truncate">
-                          {doc.title}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
-                            isSelected
-                              ? "max-w-[80px] pl-2 opacity-100"
-                              : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
-                          )}
+                        <Link
+                          to={href}
+                          search={(prev) => prev}
+                          onClick={onNavigate}
+                          className={sidebarNavLinkClass(isSelected)}
                         >
-                          {compactRelativeTime(
-                            doc.updatedAt ?? doc._creationTime,
-                          )}
-                        </span>
-                      </Link>
+                          {doc.kind === "pr-recap" ? (
+                            <IconGitMerge
+                              size={16}
+                              className={cn(
+                                "shrink-0",
+                                isSelected
+                                  ? "text-sidebar-primary"
+                                  : "text-muted-foreground",
+                              )}
+                            />
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">
+                            {doc.title}
+                          </span>
+                        </Link>
+                      </SidebarListHoverCard>
                     </SharedLayoutNavSurface>
                   </ContextMenuTrigger>
                   <ContextMenuContent onClick={(e) => e.stopPropagation()}>

@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 import { InboxIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
   appLeafName,
@@ -60,9 +61,9 @@ const RAIL_TILE_CLASS =
   "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
 
 /**
- * Far-left icon rail: Inbox at the top (global), then one icon per repo/app.
- * Clicking a repo switches the active app (preserving the current sub-page via
- * the parent's onSelect). Always visible; the active row is chipped.
+ * Far-left icon rail: Eva (home) and Inbox at the top, then one icon per
+ * repo/app. Clicking a repo switches the active app (preserving the current
+ * sub-page via the parent's onSelect). Always visible; the active row is chipped.
  */
 export function RepoRail({
   repos,
@@ -74,6 +75,8 @@ export function RepoRail({
   onNavigate,
 }: RepoRailProps) {
   const unreadCount = useQuery(api.notifications.countUnread);
+  const homeActive =
+    pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
   const unreadLabel =
     unreadCount && unreadCount > 0
@@ -85,6 +88,26 @@ export function RepoRail({
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/home"
+              onClick={onNavigate}
+              aria-label="Eva home"
+              className={cn(
+                RAIL_TILE_CLASS,
+                homeActive
+                  ? "border-border bg-sidebar-accent"
+                  : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
+              )}
+            >
+              <span className="flex size-8 items-center justify-center rounded-full bg-white shadow-sm">
+                <LogoMark size={20} className="shrink-0" />
+              </span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Eva</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Link

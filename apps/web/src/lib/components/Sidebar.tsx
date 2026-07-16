@@ -344,17 +344,6 @@ export function Sidebar() {
                       <IconHome size={16} className="text-sidebar-primary" />
                     </Button>
                   )}
-                  {!collapsed && (
-                    <Link
-                      to="/home"
-                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
-                    >
-                      <LogoMark size={24} className="shrink-0" />
-                      <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                        Eva
-                      </span>
-                    </Link>
-                  )}
 
                   <div
                     className={cn(

@@ -6,6 +6,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Input } from "@conductor/ui";
 import { parseCommandLines } from "./_utils";
+import { LogoSettingsSection } from "./_components/LogoSettingsSection";
 
 export function AppClient() {
   const { repo, repoId, owner, name } = useRepo();
@@ -85,6 +86,8 @@ export function AppClient() {
   return (
     <PageWrapper title="App" comfortable>
       <div className="space-y-4">
+        <LogoSettingsSection repoId={repoId} />
+
         <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">System Prompt</h3>

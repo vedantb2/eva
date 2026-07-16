@@ -294,6 +294,75 @@ export const updateConfig = authMutation({
   },
 });
 
+/** Generates a short-lived upload URL for a repo logo image (auth-checked). */
+export const generateLogoUploadUrl = authMutation({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    if (repo.connectedBy !== ctx.userId) {
+      const teamId = repo.teamId;
+      if (teamId) {
+        const membership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", ctx.userId),
+          )
+          .first();
+        if (!membership) throw new Error("Not authorized");
+      } else {
+        throw new Error("Not authorized");
+      }
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Sets (or clears with null) a repo's logo. Per-app: patches only this repo,
+ * never siblings. Deletes the previously stored image so replacing or removing
+ * a logo does not leave orphaned storage objects.
+ */
+export const setLogo = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    storageId: v.union(v.id("_storage"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    if (repo.connectedBy !== ctx.userId) {
+      const teamId = repo.teamId;
+      if (teamId) {
+        const membership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", ctx.userId),
+          )
+          .first();
+        if (!membership) throw new Error("Not authorized");
+      } else {
+        throw new Error("Not authorized");
+      }
+    }
+
+    const previousId = repo.logoStorageId;
+    if (previousId && previousId !== args.storageId) {
+      await ctx.storage.delete(previousId);
+    }
+
+    await ctx.db.patch(args.repoId, {
+      logoStorageId: args.storageId ?? undefined,
+    });
+    return null;
+  },
+});
+
 /** Toggles the hidden visibility flag on a repository. */
 export const toggleHidden = authMutation({
   args: {

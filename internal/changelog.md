@@ -1,5 +1,12 @@
 # Changelog
 
+## Per-repo logos for easier navigation - 2026-07-16
+
+- Repos can now have an uploaded logo image shown next to the repo name on the home page (`/home`), team repos page (`/teams/:id/repos`), and in the repo settings (App tab). Logos are per-app, not shared across monorepo siblings.
+- Upload/change/remove controls available via right-click context menu on repo cards (home + team pages) and a dedicated Logo section in the App settings page. Convex file storage stores the image; old logos are deleted when replaced or removed to avoid orphaned files.
+- Added `logoStorageId` optional field to the `githubRepos` table; `list` and `listByTeam` queries now resolve logo URLs via Convex storage.
+- Reason for change: generic icons made it hard to distinguish repos at a glance; branded logos improve visual scanning and recognition.
+
 ## Merge Preview and Terminal tabs; Terminal shows user terminals only - 2026-07-16
 
 - The Preview and Terminal tabs are now merged: Preview stays top-level, and the default dev-server terminal is relocated to the bottom as a collapsible "Console" row (terminal icon + title left, chevron right). Collapsed by default; when expanded it splits the preview/console at an adjustable 60/40 ratio with a draggable divider (clamped 15–85%), and expanded state + ratio persist in localStorage.

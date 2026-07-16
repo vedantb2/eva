@@ -1,9 +1,13 @@
 import { v } from "convex/values";
-import type { GenericDatabaseReader } from "convex/server";
+import type { GenericDatabaseReader, StorageReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
-import { githubRepoValidator, pickDefaultVisibleAppRepo } from "./helpers";
+import {
+  githubRepoValidator,
+  githubRepoWithLogoValidator,
+  pickDefaultVisibleAppRepo,
+} from "./helpers";
 import { getAIProviderAvailability } from "../validators";
 
 /** True when the user connected the repo or shares its team. */
@@ -60,18 +64,47 @@ async function gatherAccessibleRepos(
   return repos;
 }
 
+/** Attaches a resolved `logoUrl` (from `logoStorageId`) to each repo. */
+async function attachLogoUrls(
+  storage: StorageReader,
+  repos: Array<Doc<"githubRepos">>,
+): Promise<Array<Doc<"githubRepos"> & { logoUrl?: string | null }>> {
+  return await Promise.all(
+    repos.map(async (repo) => ({
+      ...repo,
+      logoUrl: repo.logoStorageId
+        ? await storage.getUrl(repo.logoStorageId)
+        : undefined,
+    })),
+  );
+}
+
 /** Lists all GitHub repos accessible to the current user across their teams. */
 export const list = authQuery({
   args: {
     includeHidden: v.optional(v.boolean()),
   },
-  returns: v.array(githubRepoValidator),
+  returns: v.array(githubRepoWithLogoValidator),
   handler: async (ctx, args) => {
-    return await gatherAccessibleRepos(
+    const repos = await gatherAccessibleRepos(
       ctx.db,
       ctx.userId,
       args.includeHidden === true,
     );
+    return await attachLogoUrls(ctx.storage, repos);
+  },
+});
+
+/** Resolves the current logo image URL for a repo (null when none set). */
+export const getLogoUrl = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return null;
+    if (!(await userCanAccessRepo(ctx.db, ctx.userId, repo))) return null;
+    if (!repo.logoStorageId) return null;
+    return await ctx.storage.getUrl(repo.logoStorageId);
   },
 });
 
@@ -201,7 +234,7 @@ export const getTeamIdForRepo = internalQuery({
 /** Lists all non-hidden repos belonging to a specific team. */
 export const listByTeam = authQuery({
   args: { teamId: v.id("teams") },
-  returns: v.array(githubRepoValidator),
+  returns: v.array(githubRepoWithLogoValidator),
   handler: async (ctx, args) => {
     const membership = await ctx.db
       .query("teamMembers")
@@ -217,7 +250,10 @@ export const listByTeam = authQuery({
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    return repos.filter((r) => r.hidden !== true);
+    return await attachLogoUrls(
+      ctx.storage,
+      repos.filter((r) => r.hidden !== true),
+    );
   },
 });
 

@@ -5,6 +5,7 @@
 - Inbox is now a top tile on the vertical repo rail (links to global `/inbox`), with an unread count badge on the bottom-right of the icon when there are notifications.
 - The Eva mark sits above Inbox on the same rail (links to `/home`) in a white rounded-full chip; the sidebar header wordmark is gone so brand + global actions live in one place.
 - Drafts stay in the main sidebar above the BUILD/SHIP nav because they are per-repo/app; only the global Inbox left the sidebar list.
+- On `/inbox`, the main sidebar no longer shows the global Home/Teams/Theme list — Eva and Inbox already live on the rail, so that panel stays empty aside from the header and footer.
 - Reason for change: Inbox and Eva home are cross-cutting and belong with always-visible rail actions, while keeping Drafts next to the active app's workflow.
 
 ## Repo switching moved to a left icon rail - 2026-07-16

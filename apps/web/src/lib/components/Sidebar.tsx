@@ -149,6 +149,7 @@ export function Sidebar() {
   }, [pathname]);
 
   const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
+  const isInboxRoute = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
@@ -386,7 +387,7 @@ export function Sidebar() {
 
           <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
             <div className="space-y-4">
-              {!isRepoRoute && (
+              {!isRepoRoute && !isInboxRoute && (
                 <RootSidebarContent
                   collapsed={collapsed}
                   onNavigate={closeMobileSidebar}

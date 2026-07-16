@@ -46,7 +46,7 @@ function ProofMediaViewer({ proof }: { proof: TaskProof }) {
       <img
         src={proof.url}
         alt={proof.fileName ?? "Eva attached proof"}
-        className="media-outline h-full w-full object-contain"
+        className="media-outline mx-auto block h-auto w-auto max-w-none"
       />
     );
   }
@@ -103,14 +103,14 @@ export function ProofCaptureGallery({
             Open in new tab
           </a>
         </DialogHeader>
-        <div className="relative flex min-h-[50vh] items-center justify-center">
+        <div className="relative">
           {proofs.length > 1 ? (
             <>
               <Button
                 type="button"
                 variant="secondary"
                 size="icon-sm"
-                className="absolute left-2 z-10"
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2"
                 disabled={safeIndex === 0}
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
                 aria-label="Previous capture"
@@ -121,7 +121,7 @@ export function ProofCaptureGallery({
                 type="button"
                 variant="secondary"
                 size="icon-sm"
-                className="absolute right-2 z-10"
+                className="absolute right-2 top-1/2 z-10 -translate-y-1/2"
                 disabled={safeIndex >= proofs.length - 1}
                 onClick={() =>
                   setIndex((i) => Math.min(proofs.length - 1, i + 1))
@@ -132,7 +132,11 @@ export function ProofCaptureGallery({
               </Button>
             </>
           ) : null}
-          <ProofMediaViewer key={current._id} proof={current} />
+          <div className="max-h-[90vh] overflow-auto scrollbar">
+            <div className="flex min-h-[50vh] min-w-full items-start justify-center p-4 pt-10">
+              <ProofMediaViewer key={current._id} proof={current} />
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

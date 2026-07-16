@@ -20,7 +20,7 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   return (
     <div
-      className={`relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}
+      className={`relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-36" : "lg:pl-80"}`}
     >
       <div className="relative flex flex-1 flex-col bg-background">
         <div

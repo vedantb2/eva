@@ -1,12 +1,11 @@
 # Changelog
 
-## Repo switcher replaced with inline accordion in sidebar - 2026-07-16
+## Repo switching moved to a left icon rail - 2026-07-16
 
-- The RepoSwitcher popover is gone; all visible repos now appear as an inline accordion list in the sidebar, with only the active repo expanded to show its monorepo apps and per-repo nav nested beneath.
-- Clicking any repo row switches to it in one action (vs. popover + 3-column drill-down), and the current sub-page is preserved (Sessions in repo A → click repo B → Sessions in repo B).
-- Monorepo apps nest indented under their parent codebase; apps-only parents auto-navigate to the first app when clicked.
-- In collapsed icon-rail mode, the accordion is hidden and only the per-repo nav renders as tooltipped icons (unchanged).
-- Reason for change: faster one-click repo switching with less UI footprint, and easier visual scanning when you have many repos.
+- The RepoSwitcher popover is gone; a slim icon rail now sits to the left of the main sidebar showing one icon per repo/monorepo app, and clicking one switches to it in a single action while preserving the current sub-page (Sessions in repo A → click repo B → Sessions in repo B).
+- The main sidebar keeps its familiar single-repo layout (Inbox/Drafts, then the BUILD/SHIP/TEST/MORE nav and the Sessions/Settings/etc. drill-downs) — the rail only handles switching, so the two concerns are visually separate.
+- Each rail icon uses the repo's logo, falling back to a coloured letter tile, with a hover tooltip naming the owner/repo (and app for monorepos); the active icon carries the surface-fill chip.
+- Reason for change: an activity-bar-style rail makes switching a one-click, always-visible action while leaving the per-repo navigation untouched — clearer than nesting every repo in an accordion.
 
 ## Docs slim to Markdown + HTML tabs; testing arena flags issues into tasks - 2026-07-16
 

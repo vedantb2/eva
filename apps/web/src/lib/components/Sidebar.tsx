@@ -29,7 +29,7 @@ import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
-import { RepoAccordion } from "@/lib/components/sidebar/RepoAccordion";
+import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
@@ -246,280 +246,254 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 motion-base transition-transform duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed
-            ? "w-[min(16rem,calc(100vw-3rem))] lg:w-20"
-            : "w-[min(16rem,calc(100vw-3rem))]",
+          "w-[min(20rem,calc(100vw-1.5rem))]",
+          collapsed ? "lg:w-36" : "lg:w-80",
         )}
       >
-        <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
-            <div
+        <RepoRail
+          repos={repos ?? []}
+          currentOwner={owner}
+          currentName={repoName}
+          currentAppName={appName}
+          onSelect={handleRepoSwitch}
+        />
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
+          <div
+            className={cn(
+              "flex h-16 items-center",
+              collapsed ? "px-2" : "px-3",
+            )}
+          >
+            <motion.div
+              key={
+                showContextSidebar
+                  ? `${contextSidebarMode}-header`
+                  : "main-header"
+              }
               className={cn(
-                "flex h-16 items-center",
-                collapsed ? "px-2" : "px-3",
+                "relative flex w-full items-center",
+                collapsed ? "justify-center" : "justify-between",
               )}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <motion.div
-                key={
-                  showContextSidebar
-                    ? `${contextSidebarMode}-header`
-                    : "main-header"
-                }
-                className={cn(
-                  "relative flex w-full items-center",
-                  collapsed ? "justify-center" : "justify-between",
-                )}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {showContextSidebar ? (
-                  <>
-                    {!collapsed && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => setContextSidebarMode("main")}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Back to main sidebar"
-                      >
-                        <IconChevronLeft size={16} />
-                      </Button>
-                    )}
-                    {!collapsed && (
-                      <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
-                        {contextSidebarTitle}
-                      </span>
-                    )}
-
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
-                        title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
-                        }
-                      >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {!collapsed && repoBasePath && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => navigate({ to: repoBasePath })}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Repo home"
-                      >
-                        <IconHome size={16} className="text-sidebar-primary" />
-                      </Button>
-                    )}
-                    {!collapsed && (
-                      <Link
-                        to="/home"
-                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
-                      >
-                        <LogoMark size={24} className="shrink-0" />
-                        <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                          Eva
-                        </span>
-                      </Link>
-                    )}
-
-                    <div
-                      className={cn(
-                        "flex items-center gap-1",
-                        collapsed ? "lg:mx-auto" : "ml-auto",
-                      )}
+              {showContextSidebar ? (
+                <>
+                  {!collapsed && (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setContextSidebarMode("main")}
+                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                      title="Back to main sidebar"
                     >
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
-                        title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
-                        }
-                      >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            </div>
+                      <IconChevronLeft size={16} />
+                    </Button>
+                  )}
+                  {!collapsed && (
+                    <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
+                      {contextSidebarTitle}
+                    </span>
+                  )}
 
-            <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
-              <div className="space-y-4">
-                {!isRepoRoute && (
-                  <RootSidebarContent
-                    collapsed={collapsed}
-                    onNavigate={closeMobileSidebar}
-                  />
-                )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
+                    >
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={() => setCollapsed(!collapsed)}
+                      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                      {collapsed ? (
+                        <IconLayoutSidebarLeftCollapseFilled
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      ) : (
+                        <IconLayoutSidebarLeftCollapse
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {!collapsed && repoBasePath && (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => navigate({ to: repoBasePath })}
+                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                      title="Repo home"
+                    >
+                      <IconHome size={16} className="text-sidebar-primary" />
+                    </Button>
+                  )}
+                  {!collapsed && (
+                    <Link
+                      to="/home"
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
+                    >
+                      <LogoMark size={24} className="shrink-0" />
+                      <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                        Eva
+                      </span>
+                    </Link>
+                  )}
 
-                {isRepoRoute && repoBasePath && (
-                  <motion.div
-                    key={
-                      showContextSidebar
-                        ? `${contextSidebarMode}-nav`
-                        : "main-nav"
-                    }
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2 }}
+                  <div
+                    className={cn(
+                      "flex items-center gap-1",
+                      collapsed ? "lg:mx-auto" : "ml-auto",
+                    )}
                   >
-                    {showContextSidebar ? (
-                      collapsed ? null : contextSidebarMode === "settings" ? (
-                        <SettingsSidebar
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
+                    >
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={() => setCollapsed(!collapsed)}
+                      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                      {collapsed ? (
+                        <IconLayoutSidebarLeftCollapseFilled
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      ) : (
+                        <IconLayoutSidebarLeftCollapse
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+
+          <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
+            <div className="space-y-4">
+              {!isRepoRoute && (
+                <RootSidebarContent
+                  collapsed={collapsed}
+                  onNavigate={closeMobileSidebar}
+                />
+              )}
+
+              {isRepoRoute && repoBasePath && (
+                <motion.div
+                  key={
+                    showContextSidebar
+                      ? `${contextSidebarMode}-nav`
+                      : "main-nav"
+                  }
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {showContextSidebar ? (
+                    collapsed ? null : contextSidebarMode === "settings" ? (
+                      <SettingsSidebar
+                        basePath={repoBasePath}
+                        pathname={pathname}
+                        onNavigate={closeMobileSidebar}
+                      />
+                    ) : repo ? (
+                      contextSidebarMode === "designs" ? (
+                        <DesignSessionsSidebar
+                          repoId={repo._id}
                           basePath={repoBasePath}
                           pathname={pathname}
                           onNavigate={closeMobileSidebar}
                         />
-                      ) : repo ? (
-                        contextSidebarMode === "designs" ? (
-                          <DesignSessionsSidebar
-                            repoId={repo._id}
-                            basePath={repoBasePath}
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : contextSidebarMode === "sessions" ? (
-                          <SessionsSidebar
-                            repoId={repo._id}
-                            basePath={repoBasePath}
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : contextSidebarMode === "docs" ? (
-                          <DocsSidebar
-                            repoId={repo._id}
-                            basePath={repoBasePath}
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : contextSidebarMode === "testing-arena" ? (
-                          <TestingArenaSidebar
-                            repoId={repo._id}
-                            basePath={repoBasePath}
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : (
-                          <AutomationsSidebar
-                            repoId={repo._id}
-                            basePath={repoBasePath}
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        )
+                      ) : contextSidebarMode === "sessions" ? (
+                        <SessionsSidebar
+                          repoId={repo._id}
+                          basePath={repoBasePath}
+                          pathname={pathname}
+                          onNavigate={closeMobileSidebar}
+                        />
+                      ) : contextSidebarMode === "docs" ? (
+                        <DocsSidebar
+                          repoId={repo._id}
+                          basePath={repoBasePath}
+                          pathname={pathname}
+                          onNavigate={closeMobileSidebar}
+                        />
+                      ) : contextSidebarMode === "testing-arena" ? (
+                        <TestingArenaSidebar
+                          repoId={repo._id}
+                          basePath={repoBasePath}
+                          pathname={pathname}
+                          onNavigate={closeMobileSidebar}
+                        />
                       ) : (
-                        <div className="flex items-center justify-center py-8">
-                          <Spinner size="sm" />
-                        </div>
+                        <AutomationsSidebar
+                          repoId={repo._id}
+                          basePath={repoBasePath}
+                          pathname={pathname}
+                          onNavigate={closeMobileSidebar}
+                        />
                       )
-                    ) : collapsed ? (
-                      <div className="space-y-4">
-                        <RepoTopNav
-                          repoBasePath={repoBasePath}
-                          pathname={pathname}
-                          collapsed
-                          repo={repo}
-                          onNavigate={closeMobileSidebar}
-                        />
-                        <RepoNavSections
-                          repoBasePath={repoBasePath}
-                          pathname={pathname}
-                          collapsed
-                          repo={repo}
-                          onOpenContextSidebar={setContextSidebarMode}
-                          onNavigate={closeMobileSidebar}
-                        />
-                      </div>
                     ) : (
-                      <div className="space-y-3">
-                        <RepoTopNav
-                          repoBasePath={repoBasePath}
-                          pathname={pathname}
-                          collapsed={false}
-                          repo={repo}
-                          onNavigate={closeMobileSidebar}
-                        />
-                        <RepoAccordion
-                          repos={repos ?? []}
-                          currentOwner={owner}
-                          currentName={repoName}
-                          currentAppName={appName}
-                          onSelect={handleRepoSwitch}
-                        >
-                          <RepoNavSections
-                            repoBasePath={repoBasePath}
-                            pathname={pathname}
-                            collapsed={false}
-                            repo={repo}
-                            onOpenContextSidebar={setContextSidebarMode}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        </RepoAccordion>
+                      <div className="flex items-center justify-center py-8">
+                        <Spinner size="sm" />
                       </div>
-                    )}
-                  </motion.div>
-                )}
-              </div>
-            </nav>
-
-            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
-              <TeamMembers collapsed={collapsed} />
-              <SidebarUserMenu
-                collapsed={collapsed}
-                name={user?.fullName || user?.firstName || "User"}
-                email={user?.primaryEmailAddress?.emailAddress}
-                showSearch={isRepoRoute}
-              />
+                    )
+                  ) : (
+                    <div className="space-y-4">
+                      <RepoTopNav
+                        repoBasePath={repoBasePath}
+                        pathname={pathname}
+                        collapsed={collapsed}
+                        repo={repo}
+                        onNavigate={closeMobileSidebar}
+                      />
+                      <RepoNavSections
+                        repoBasePath={repoBasePath}
+                        pathname={pathname}
+                        collapsed={collapsed}
+                        repo={repo}
+                        onOpenContextSidebar={setContextSidebarMode}
+                        onNavigate={closeMobileSidebar}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </div>
+          </nav>
+
+          <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
+            <TeamMembers collapsed={collapsed} />
+            <SidebarUserMenu
+              collapsed={collapsed}
+              name={user?.fullName || user?.firstName || "User"}
+              email={user?.primaryEmailAddress?.emailAddress}
+              showSearch={isRepoRoute}
+            />
           </div>
         </div>
       </aside>

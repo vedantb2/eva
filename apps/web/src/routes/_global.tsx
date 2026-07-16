@@ -4,7 +4,7 @@ import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
+import { SidebarProvider } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 
 export const Route = createFileRoute("/_global")({
@@ -17,11 +17,9 @@ export const Route = createFileRoute("/_global")({
 });
 
 function GlobalMainContent() {
-  const { collapsed } = useSidebar();
+  // Global pages are rail-only (w-16); the wider repo sidebar never mounts here.
   return (
-    <div
-      className={`relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-36" : "lg:pl-80"}`}
-    >
+    <div className="relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 lg:pl-16">
       <div className="relative flex flex-1 flex-col bg-background">
         <div
           aria-hidden

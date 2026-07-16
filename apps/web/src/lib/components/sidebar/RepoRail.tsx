@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
+import { IconCode, IconLayoutDashboard, IconUsers } from "@tabler/icons-react";
 import { InboxIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -65,10 +66,16 @@ function isRowActive(
 const RAIL_TILE_CLASS =
   "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
 
+function railTileActive(active: boolean): string {
+  return active
+    ? "border-border bg-sidebar-accent text-sidebar-primary"
+    : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
+}
+
 /**
- * Far-left icon rail: Eva (home) and Inbox at the top, repo/app icons in the
- * middle, and account avatar + settings at the bottom. Clicking a repo switches
- * the active app (preserving the current sub-page via the parent's onSelect).
+ * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts), then
+ * repos, then Testing (dev) / account / settings at the bottom. Clicking a repo
+ * switches the active app (preserving the current sub-page via onSelect).
  */
 export function RepoRail({
   repos,
@@ -86,12 +93,18 @@ export function RepoRail({
   const homeActive =
     pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
+  const teamsActive = pathname === "/teams" || pathname.startsWith("/teams/");
+  const artifactsActive =
+    pathname === "/artifacts" || pathname.startsWith("/artifacts/");
+  const testingActive =
+    pathname === "/testing" || pathname.startsWith("/testing/");
   const unreadLabel =
     unreadCount && unreadCount > 0
       ? unreadCount > 99
         ? "99+"
         : String(unreadCount)
       : null;
+  const showTesting = import.meta.env.DEV;
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
@@ -124,12 +137,7 @@ export function RepoRail({
               aria-label={
                 unreadLabel ? `Inbox, ${unreadLabel} unread` : "Inbox"
               }
-              className={cn(
-                RAIL_TILE_CLASS,
-                inboxActive
-                  ? "border-border bg-sidebar-accent text-sidebar-primary"
-                  : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
-              )}
+              className={cn(RAIL_TILE_CLASS, railTileActive(inboxActive))}
             >
               <InboxIcon size={22} className="shrink-0" />
               {unreadLabel ? (
@@ -142,6 +150,32 @@ export function RepoRail({
           <TooltipContent side="right">
             {unreadLabel ? `Inbox (${unreadLabel})` : "Inbox"}
           </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/teams"
+              onClick={onNavigate}
+              aria-label="Teams"
+              className={cn(RAIL_TILE_CLASS, railTileActive(teamsActive))}
+            >
+              <IconUsers size={22} className="shrink-0" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Teams</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/artifacts"
+              onClick={onNavigate}
+              aria-label="Artifacts"
+              className={cn(RAIL_TILE_CLASS, railTileActive(artifactsActive))}
+            >
+              <IconLayoutDashboard size={22} className="shrink-0" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Artifacts</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
@@ -196,6 +230,21 @@ export function RepoRail({
         })}
       </div>
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
+        {showTesting ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/testing"
+                onClick={onNavigate}
+                aria-label="Testing"
+                className={cn(RAIL_TILE_CLASS, railTileActive(testingActive))}
+              >
+                <IconCode size={22} className="shrink-0" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Testing</TooltipContent>
+          </Tooltip>
+        ) : null}
         <SidebarUserMenu
           name={userName}
           email={userEmail}

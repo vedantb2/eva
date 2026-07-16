@@ -1,5 +1,11 @@
 # Changelog
 
+## Global pages are rail-only; Home/Teams/Artifacts live on the icon rail - 2026-07-16
+
+- Teams and Artifacts join Eva and Inbox on the left rail; the empty root sidebar panel is gone on global routes so content uses full width (`lg:pl-16`).
+- Dev-only Testing sits above the account avatar on the rail (`IconCode`). Online teammates stay in the repo sidebar footer only.
+- Reason for change: after moving settings into the rail menu, the second column on `/home`/`/teams`/etc. was empty chrome — folding remaining global nav into the rail finishes that cleanup.
+
 ## Global settings live under the rail settings menu - 2026-07-16
 
 - A settings gear under the rail avatar opens Theme, Personalisation, Notifications, and Sandboxes as global `/settings/*` routes.

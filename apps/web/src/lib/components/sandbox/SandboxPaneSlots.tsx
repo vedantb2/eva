@@ -10,6 +10,7 @@ import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
 import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
+import { ConsoleDock } from "./ConsoleDock";
 import type { SandboxPanesApi } from "./useSandboxPanes";
 import type { SandboxPreviewApi } from "./useSandboxPreview";
 
@@ -47,7 +48,8 @@ export function SandboxPaneSlots({
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
-    termPanes,
+    consolePane,
+    userTermPanes,
     resolvedPreviewActive,
     resolvedTermActive,
     setPreviewActive,
@@ -56,57 +58,79 @@ export function SandboxPaneSlots({
     handleCloseTerminal,
   } = panes;
 
+  const previewRegion = (
+    <div className="flex h-full min-h-0 flex-col">
+      {activeTab === "preview" ? (
+        <PreviewPaneTabs
+          previewIds={previewIds}
+          activeId={resolvedPreviewActive}
+          onSelect={setPreviewActive}
+          onClose={handleClosePreview}
+        />
+      ) : null}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {activeTab === "preview" && previewIds.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            Preparing preview...
+          </div>
+        ) : null}
+        {previewIds.map((id) => (
+          <div
+            key={id}
+            className={cn(
+              resolvedPreviewActive === id
+                ? "flex min-h-0 flex-1 flex-col"
+                : "hidden",
+            )}
+          >
+            <WebPreviewPanel
+              isActive={isActive}
+              sandboxId={sandboxId}
+              vercelSandboxId={vercelSandboxId}
+              previewInfo={preview.previewInfo}
+              isLoading={preview.isLoading}
+              error={preview.error}
+              iframeKey={preview.iframeKey}
+              onRefresh={preview.fetchPreview}
+              port={preview.effectivePort}
+              onPortChange={preview.setPort}
+              pathStorageKey={[
+                "conductor",
+                owner.kind,
+                cacheKey,
+                "preview-path",
+                id,
+                preview.effectivePort,
+              ].join(":")}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div
         className={activeTab === "preview" ? "h-full flex flex-col" : "hidden"}
       >
-        {activeTab === "preview" ? (
-          <PreviewPaneTabs
-            previewIds={previewIds}
-            activeId={resolvedPreviewActive}
-            onSelect={setPreviewActive}
-            onClose={handleClosePreview}
-          />
-        ) : null}
-        <div className="flex min-h-0 flex-1 flex-col">
-          {activeTab === "preview" && previewIds.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              Preparing preview...
-            </div>
-          ) : null}
-          {previewIds.map((id) => (
-            <div
-              key={id}
-              className={cn(
-                resolvedPreviewActive === id
-                  ? "flex min-h-0 flex-1 flex-col"
-                  : "hidden",
-              )}
-            >
-              <WebPreviewPanel
-                isActive={isActive}
+        <ConsoleDock
+          storageKey={`conductor:${owner.kind}:${cacheKey}:console`}
+          preview={previewRegion}
+          renderConsole={(visible) =>
+            consolePane ? (
+              <TerminalPanel
+                owner={owner}
                 sandboxId={sandboxId}
-                vercelSandboxId={vercelSandboxId}
-                previewInfo={preview.previewInfo}
-                isLoading={preview.isLoading}
-                error={preview.error}
-                iframeKey={preview.iframeKey}
-                onRefresh={preview.fetchPreview}
-                port={preview.effectivePort}
-                onPortChange={preview.setPort}
-                pathStorageKey={[
-                  "conductor",
-                  owner.kind,
-                  cacheKey,
-                  "preview-path",
-                  id,
-                  preview.effectivePort,
-                ].join(":")}
+                isActive={isActive}
+                ptyInstanceId={consolePane.id}
+                isForeground={activeTab === "preview" && visible}
+                runDevCommandOnConnect
+                devCommand={devCommand}
               />
-            </div>
-          ))}
-        </div>
+            ) : null
+          }
+        />
       </div>
       <div className={activeTab === "editor" ? "h-full" : "hidden"}>
         <EditorPanel
@@ -122,14 +146,14 @@ export function SandboxPaneSlots({
       >
         {activeTab === "terminal" ? (
           <TerminalPaneTabs
-            termIds={termPanes.map((pane) => pane.id)}
+            termIds={userTermPanes.map((pane) => pane.id)}
             activeId={resolvedTermActive}
             onSelect={setTermActive}
             onClose={handleCloseTerminal}
           />
         ) : null}
         <div className="flex min-h-0 flex-1 flex-col">
-          {termPanes.map((pane, index) => (
+          {userTermPanes.map((pane) => (
             <div
               key={pane.id}
               className={cn(
@@ -146,7 +170,7 @@ export function SandboxPaneSlots({
                 isForeground={
                   resolvedTermActive === pane.id && activeTab === "terminal"
                 }
-                runDevCommandOnConnect={index === 0}
+                runDevCommandOnConnect={false}
                 devCommand={devCommand}
               />
             </div>

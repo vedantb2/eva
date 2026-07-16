@@ -14,13 +14,6 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 
-const PROJECT_ENABLED_TABS = [
-  "preview",
-  "terminal",
-  "editor",
-  "desktop",
-] as const;
-
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
   projectNumId?: number;
@@ -104,7 +97,7 @@ export function ProjectSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={PROJECT_ENABLED_TABS}
+        enabledTabs={panes.enabledTabs}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots

@@ -51,7 +51,7 @@ type ResolvedOwner =
 function defaultPane(ownerKey: string, createdAt: number): TerminalPane {
   return {
     id: `${ownerKey}-terminal-default`,
-    title: "Terminal",
+    title: "Console",
     createdAt,
   };
 }
@@ -61,9 +61,11 @@ function nextPane(
   count: number,
   createdAt: number,
 ): TerminalPane {
+  // `count` includes the default console pane at index 0, so the first
+  // user-created terminal is "Terminal 1".
   return {
     id: `${ownerKey}-terminal-${createdAt}`,
-    title: `Terminal ${count + 1}`,
+    title: `Terminal ${count}`,
     createdAt,
   };
 }

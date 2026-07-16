@@ -88,6 +88,7 @@ export function SandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
+        enabledTabs={panes.enabledTabs}
         showPrdTab
       />
       <div className="flex-1 overflow-hidden bg-card">

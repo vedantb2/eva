@@ -11,6 +11,20 @@ import type { SandboxTab } from "@/lib/search-params";
 export const MAX_TERMINAL_PANES = 8;
 export const MAX_PREVIEW_PANES = 8;
 
+// Base sandbox tabs (PRD is added separately per-surface). Stable references so
+// the Shift+Tab hotkey memo and tab bar filter don't recompute every render.
+const ALL_SANDBOX_TABS: ReadonlyArray<SandboxTab> = [
+  "preview",
+  "desktop",
+  "editor",
+  "terminal",
+];
+const SANDBOX_TABS_WITHOUT_TERMINAL: ReadonlyArray<SandboxTab> = [
+  "preview",
+  "desktop",
+  "editor",
+];
+
 interface PaneStorageState {
   ids: string[];
   activeId: string;
@@ -22,7 +36,10 @@ export type SharedTerminalPane = NonNullable<
 
 export interface SandboxPanesApi {
   previewIds: string[];
-  termPanes: SharedTerminalPane[];
+  /** The default dev-server pane (index 0), rendered as the preview Console. */
+  consolePane: SharedTerminalPane | undefined;
+  /** User-created terminals (index 1..N), shown in the Terminal tab. */
+  userTermPanes: SharedTerminalPane[];
   resolvedPreviewActive: string;
   resolvedTermActive: string;
   setPreviewActive: (id: string) => void;
@@ -33,6 +50,8 @@ export interface SandboxPanesApi {
   handleCloseTerminal: (id: string) => Promise<void>;
   newPreviewDisabled: boolean;
   newTerminalDisabled: boolean;
+  /** Base tabs to render — hides "terminal" when there are no user terminals. */
+  enabledTabs: ReadonlyArray<SandboxTab>;
 }
 
 interface UseSandboxPanesArgs {
@@ -96,6 +115,11 @@ export function useSandboxPanes({
   );
   const termPanes = terminalPanes ?? [];
   const termIds = termPanes.map((pane) => pane.id);
+  // Pane 0 is the shared dev-server pane (rendered as the preview Console);
+  // panes 1..N are the user-created terminals shown in the Terminal tab.
+  const consolePane = termPanes[0];
+  const userTermPanes = termPanes.slice(1);
+  const userTermIds = userTermPanes.map((pane) => pane.id);
   const setTermActive = useCallback(
     (activeId: string) => {
       setTermActiveState(activeId);
@@ -110,11 +134,16 @@ export function useSandboxPanes({
   // idempotent for concurrent viewers.
   useEffect(() => {
     if (termIds.length > 0) return;
-    void ensureDefaultTerminalPane({ owner }).then((panes) => {
-      const firstPane = panes[0];
-      if (firstPane) setTermActive(firstPane.id);
-    });
-  }, [termIds.length, ensureDefaultTerminalPane, owner, setTermActive]);
+    void ensureDefaultTerminalPane({ owner });
+  }, [termIds.length, ensureDefaultTerminalPane, owner]);
+
+  // The Terminal tab is hidden when there are no user terminals; if we land on
+  // it anyway (last one closed, collaborator closed it, or a direct URL), fall
+  // back to the preview tab.
+  useEffect(() => {
+    if (activeTab !== "terminal" || userTermPanes.length > 0) return;
+    setActiveTab("preview");
+  }, [activeTab, userTermPanes.length, setActiveTab]);
 
   useEffect(() => {
     if (activeTab !== "preview" || previewIds.length > 0) return;
@@ -123,12 +152,13 @@ export function useSandboxPanes({
     setPreviewActive(id);
   }, [activeTab, previewIds.length, setPreviewIds, setPreviewActive]);
 
-  // Reconcile active id if it points at a removed pane.
+  // Reconcile active id if it points at a removed pane (or the console pane,
+  // whose id can linger in localStorage from before this became user-only).
   useEffect(() => {
-    if (termIds.length === 0) return;
-    if (termActive && termIds.includes(termActive)) return;
-    setTermActive(termIds[0]);
-  }, [termIds, termActive, setTermActive]);
+    if (userTermIds.length === 0) return;
+    if (termActive && userTermIds.includes(termActive)) return;
+    setTermActive(userTermIds[0]);
+  }, [userTermIds, termActive, setTermActive]);
 
   useEffect(() => {
     if (previewIds.length === 0) return;
@@ -137,10 +167,10 @@ export function useSandboxPanes({
   }, [previewIds, previewActive, setPreviewActive]);
 
   const resolvedTermActive =
-    termIds.length > 0
-      ? termActive && termIds.includes(termActive)
+    userTermIds.length > 0
+      ? termActive && userTermIds.includes(termActive)
         ? termActive
-        : termIds[0]
+        : userTermIds[0]
       : "";
   const resolvedPreviewActive =
     previewIds.length > 0
@@ -175,10 +205,11 @@ export function useSandboxPanes({
 
   const handleCloseTerminal = useCallback(
     async (ptyId: string) => {
-      if (termIds[0] === ptyId) return;
-      const removedIdx = termIds.indexOf(ptyId);
+      // The console pane is never closable from the UI.
+      if (consolePane?.id === ptyId) return;
+      const removedIdx = userTermIds.indexOf(ptyId);
       if (removedIdx < 0) return;
-      const next = termIds.filter((id) => id !== ptyId);
+      const next = userTermIds.filter((id) => id !== ptyId);
       try {
         await disconnectPtyAction({ owner, ptyInstanceId: ptyId });
       } catch {
@@ -191,7 +222,8 @@ export function useSandboxPanes({
       }
     },
     [
-      termIds,
+      consolePane,
+      userTermIds,
       termActive,
       disconnectPtyAction,
       closeTerminalPane,
@@ -219,9 +251,13 @@ export function useSandboxPanes({
   const newPreviewDisabled =
     !isActive || previewIds.length >= MAX_PREVIEW_PANES;
 
+  const enabledTabs =
+    userTermPanes.length > 0 ? ALL_SANDBOX_TABS : SANDBOX_TABS_WITHOUT_TERMINAL;
+
   return {
     previewIds,
-    termPanes,
+    consolePane,
+    userTermPanes,
     resolvedPreviewActive,
     resolvedTermActive,
     setPreviewActive,
@@ -232,5 +268,6 @@ export function useSandboxPanes({
     handleCloseTerminal,
     newPreviewDisabled,
     newTerminalDisabled,
+    enabledTabs,
   };
 }

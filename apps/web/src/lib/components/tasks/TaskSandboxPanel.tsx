@@ -11,8 +11,6 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 
-const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
-
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
   sandboxId: string | undefined;
@@ -102,7 +100,7 @@ export function TaskSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={TASK_ENABLED_TABS}
+        enabledTabs={panes.enabledTabs}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots

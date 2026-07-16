@@ -1,5 +1,13 @@
 # Changelog
 
+## Merge Preview and Terminal tabs; Terminal shows user terminals only - 2026-07-16
+
+- The Preview and Terminal tabs are now merged: Preview stays top-level, and the default dev-server terminal is relocated to the bottom as a collapsible "Console" row (terminal icon + title left, chevron right). Collapsed by default; when expanded it splits the preview/console at an adjustable 60/40 ratio with a draggable divider (clamped 15–85%), and expanded state + ratio persist in localStorage.
+- The Terminal tab is now hidden until you create a user terminal (via the `+` dropdown → "New Terminal"); it shows only the user-created terminals (panes 1+), each with a close button, and hides again when the last one closes. Browsing to the Terminal tab URL with no user terminals auto-switches to Preview.
+- The Console pane (the shared dev-server terminal that auto-runs the dev command) is never closable and always mounted, so it preserves the PTY websocket, xterm buffer, and dev-server scrollback through preview tab switches, console collapse/expand, and divider drag. Same for preview iframes — no remounts.
+- Applies to all three surfaces sharing this sandbox stack: sessions, quick tasks, and projects.
+- Reason for change: the separate Terminal tab consumed vertical space in the tab bar and often sat unused when only checking the preview; the collapsible Console saves space while keeping dev-server logs accessible. User terminals are a separate, optional flow in the `+` menu.
+
 ## Composer message-history recall and reorderable queue - 2026-07-16
 
 - The chat composer now recalls previously sent messages: ArrowUp on the first line steps back through your sent messages and ArrowDown moves forward to your live draft, terminal-style. Works across session, quick-task, project, and design chats.

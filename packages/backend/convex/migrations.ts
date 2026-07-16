@@ -20,4 +20,3 @@ export {
   backfillNumIdsForEntityType,
 } from "./_migrations/backfillNumIds";
 export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";
-export { clearEvaluationReports } from "./_migrations/clearEvaluationReports";

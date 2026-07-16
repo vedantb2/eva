@@ -28,7 +28,6 @@ import {
   conversationMessageValidator,
   customThemeValidator,
   evalIssueValidator,
-  evalResultValidator,
   logEntryValidator,
   terminalPaneValidator,
   userFlowValidator,
@@ -625,10 +624,7 @@ export const evaluationReportFields = {
   repoId: v.id("githubRepos"),
   docId: v.id("docs"),
   status: evaluationStatusValidator,
-  // Legacy per-requirement pass/fail results. Optional so pre-issues rows still
-  // validate; new runs write `issues` instead. Remove after clearing old rows.
-  results: v.optional(v.array(evalResultValidator)),
-  // Severity-ranked issues flagged against the document (the new run output).
+  // Severity-ranked issues flagged against the document.
   issues: v.optional(v.array(evalIssueValidator)),
   summary: v.optional(v.string()),
   error: v.optional(v.string()),

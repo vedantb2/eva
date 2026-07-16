@@ -66,11 +66,7 @@ export const updateLastInternal = internalMutation({
     const patch: {
       content?: string;
       activityLog?: string;
-      variations?: Array<{
-        label: string;
-        route?: string;
-        filePath?: string;
-      }>;
+      variations?: (typeof variationValidator.type)[];
       imageStorageId?: Id<"_storage">;
       videoStorageId?: Id<"_storage">;
     } = {};

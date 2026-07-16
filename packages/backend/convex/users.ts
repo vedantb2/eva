@@ -88,7 +88,7 @@ export const listOnlineTeammates = authQuery({
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
 
-    const teammateIds = new Map<string, Id<"users">>();
+    const teammateIds = new Set<Id<"users">>();
     for (const membership of memberships) {
       const teamMembers = await ctx.db
         .query("teamMembers")
@@ -96,7 +96,7 @@ export const listOnlineTeammates = authQuery({
         .collect();
       for (const tm of teamMembers) {
         if (tm.userId !== ctx.userId) {
-          teammateIds.set(tm.userId, tm.userId);
+          teammateIds.add(tm.userId);
         }
       }
     }
@@ -104,7 +104,7 @@ export const listOnlineTeammates = authQuery({
     const now = Date.now();
     const twoMinutes = 2 * 60 * 1000;
     const online = [];
-    for (const id of teammateIds.values()) {
+    for (const id of teammateIds) {
       const user = await ctx.db.get(id);
       if (user && user.lastSeenAt && now - user.lastSeenAt < twoMinutes) {
         online.push({

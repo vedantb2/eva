@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { taskStatusValidator } from "../validators";
 import { authQuery, hasRepoAccess, hasTaskAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
@@ -10,6 +11,26 @@ export const agentTaskWithLastRunValidator = v.object({
   ...agentTaskValidator.fields,
   lastRunStartedAt: v.optional(v.number()),
 });
+
+/** Enriches each task with the start time of its most recent run. */
+async function enrichTasksWithLastRun(
+  db: QueryCtx["db"],
+  tasks: Array<Doc<"agentTasks">>,
+) {
+  return Promise.all(
+    tasks.map(async (task) => {
+      const latestRun = await db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .order("desc")
+        .first();
+      return {
+        ...task,
+        lastRunStartedAt: latestRun?.startedAt,
+      };
+    }),
+  );
+}
 
 /** Lists all tasks for a project, enriched with latest run time. */
 export const listByProject = authQuery({
@@ -28,20 +49,7 @@ export const listByProject = authQuery({
     const sorted = tasks.sort(
       (a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0),
     );
-    const enriched = await Promise.all(
-      sorted.map(async (task) => {
-        const latestRun = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .order("desc")
-          .first();
-        return {
-          ...task,
-          lastRunStartedAt: latestRun?.startedAt,
-        };
-      }),
-    );
-    return enriched;
+    return enrichTasksWithLastRun(ctx.db, sorted);
   },
 });
 
@@ -163,20 +171,7 @@ export const getAllTasks = authQuery({
     const tasks = filterActiveEntities(taskArrays.flat()).sort(
       (a, b) => a.createdAt - b.createdAt,
     );
-    const enriched = await Promise.all(
-      tasks.map(async (task) => {
-        const latestRun = await ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .order("desc")
-          .first();
-        return {
-          ...task,
-          lastRunStartedAt: latestRun?.startedAt,
-        };
-      }),
-    );
-    return enriched;
+    return enrichTasksWithLastRun(ctx.db, tasks);
   },
 });
 

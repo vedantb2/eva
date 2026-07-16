@@ -46,12 +46,7 @@ export async function finalizePrRecapOutcome(
     });
   }
 
-  const commentStatus =
-    params.outcome.kind === "ready"
-      ? "ready"
-      : params.outcome.kind === "skipped"
-        ? "skipped"
-        : "error";
+  const commentStatus = params.outcome.kind;
 
   const commentMessage =
     params.outcome.kind === "ready" ? undefined : params.outcome.message;

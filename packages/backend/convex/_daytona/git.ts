@@ -602,21 +602,28 @@ export async function syncRepo(
   });
 }
 
+/** Checks whether the remote tracking ref origin/<branch> exists (SDK branches() only lists local). */
+async function remoteTrackingBranchExists(
+  sandbox: SandboxHandle,
+  branch: string,
+): Promise<boolean> {
+  const workspaceDir = workspaceDirShell();
+  const result = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([branch])} >/dev/null 2>&1 && printf yes || printf no`,
+      10,
+    )
+  ).trim();
+  return result === "yes";
+}
+
 /** Resolves the best available base ref: prefers origin/<base>, falls back to local, then HEAD. */
 export async function resolveBaseTarget(
   sandbox: SandboxHandle,
   baseBranch: string,
 ): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
-  // Check remote tracking branch via shell (SDK branches() only lists local)
-  const workspaceDir = workspaceDirShell();
-  const remoteCheck = (
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([baseBranch])} >/dev/null 2>&1 && printf yes || printf no`,
-      10,
-    )
-  ).trim();
-  if (remoteCheck === "yes") {
+  if (await remoteTrackingBranchExists(sandbox, baseBranch)) {
     return { ref: `origin/${baseBranch}`, source: "remote" };
   }
   // Check local branches via SDK
@@ -641,16 +648,7 @@ async function resolveBranchStartTarget(
   ref: string;
   source: "localBranch" | "remoteBranch" | "base";
 }> {
-  // Check remote tracking branch via shell (SDK branches() only lists local)
-  const workspaceDir = workspaceDirShell();
-  const remoteCheck = (
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([branchName])} >/dev/null 2>&1 && printf yes || printf no`,
-      10,
-    )
-  ).trim();
-  if (remoteCheck === "yes") {
+  if (await remoteTrackingBranchExists(sandbox, branchName)) {
     return { ref: `origin/${branchName}`, source: "remoteBranch" };
   }
   // Check local branches via SDK

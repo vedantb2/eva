@@ -241,6 +241,24 @@ async function resolveVercelCredentialsForRepo(
 }
 
 /**
+ * Finds a DAYTONA_API_KEY across the target repo and its monorepo siblings
+ * (target first). Returns the key and the repo it came from, or null if none
+ * of the repos define it. Callers own their own logging/throwing.
+ */
+async function findDaytonaApiKey(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<{ apiKey: string; credentialRepoId: Id<"githubRepos"> } | null> {
+  const repoIds = await listMonorepoRepoIds(ctx, repoId);
+  for (const credentialRepoId of repoIds) {
+    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
+    const apiKey = allVars.DAYTONA_API_KEY;
+    if (apiKey) return { apiKey, credentialRepoId };
+  }
+  return null;
+}
+
+/**
  * Resolves only the selected provider's credentials (no full sandbox env map).
  * Used by kickoff/thaw paths that only need to call the provider SDK.
  */
@@ -259,16 +277,12 @@ export async function resolveSandboxCredentialsOnly(
     return credentials;
   }
 
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    const apiKey = allVars.DAYTONA_API_KEY;
-    if (apiKey) {
-      console.log(
-        `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona credentialRepoId=${credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
-      );
-      return { kind: "daytona", apiKey };
-    }
+  const daytona = await findDaytonaApiKey(ctx, repoId);
+  if (daytona) {
+    console.log(
+      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona credentialRepoId=${daytona.credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
+    );
+    return { kind: "daytona", apiKey: daytona.apiKey };
   }
 
   throw new Error(
@@ -303,16 +317,12 @@ export async function resolveSandboxCredentials(
     };
   }
 
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    const apiKey = allVars.DAYTONA_API_KEY;
-    if (apiKey) {
-      return {
-        credentials: { kind: "daytona", apiKey },
-        sandboxEnvVars,
-      };
-    }
+  const daytona = await findDaytonaApiKey(ctx, repoId);
+  if (daytona) {
+    return {
+      credentials: { kind: "daytona", apiKey: daytona.apiKey },
+      sandboxEnvVars,
+    };
   }
 
   throw new Error(

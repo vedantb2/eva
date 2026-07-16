@@ -7,6 +7,7 @@ import {
 import { redirectUriMatchesRegistered } from "../_mcp/redirectUri";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
+const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Authorize the current Clerk-authenticated user against an MCP OAuth client
@@ -146,7 +147,6 @@ export const getClient = internalQuery({
     if (!client) return null;
 
     // 24h TTL for client registrations
-    const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
     if (Date.now() - client.registeredAt > CLIENT_TTL_MS) {
       return null;
     }
@@ -168,7 +168,6 @@ export const cleanupExpired = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
     // Cleanup expired auth codes
     const expiredCodes = await ctx.db

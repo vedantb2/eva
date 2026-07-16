@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { aiModelValidator, runModeValidator } from "../validators";
 import {
@@ -40,6 +41,48 @@ function userDisplayName(user: Doc<"users"> | null): string {
   const combined = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
   if (combined) return combined;
   return user.email ?? "Reviewer";
+}
+
+/** Fetches a task's comments as PR change-request lines, oldest first. */
+async function getChangeRequestContents(
+  ctx: QueryCtx,
+  taskId: Id<"agentTasks">,
+): Promise<string[]> {
+  const comments = await ctx.db
+    .query("taskComments")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  return comments
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((c) => c.content);
+}
+
+/** Fetches a task's proof attachments with resolved storage URLs and content types. */
+async function getTaskProofSummaries(ctx: QueryCtx, taskId: Id<"agentTasks">) {
+  const taskProofs = await ctx.db
+    .query("taskProof")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+
+  return Promise.all(
+    taskProofs.map(async (p) => {
+      if (!p.storageId) {
+        return {
+          fileName: p.fileName ?? null,
+          message: p.message ?? null,
+          url: null,
+          contentType: null,
+        };
+      }
+      const meta = await ctx.db.system.get("_storage", p.storageId);
+      return {
+        fileName: p.fileName ?? null,
+        message: p.message ?? null,
+        url: (await ctx.storage.getUrl(p.storageId)) ?? null,
+        contentType: meta?.contentType ?? null,
+      };
+    }),
+  );
 }
 
 /** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
@@ -326,38 +369,8 @@ export const getTaskPrCreationData = internalQuery({
     const latestRun = sortedRuns[0] ?? null;
     const existingPrUrl = sortedRuns.find((r) => r.prUrl)?.prUrl ?? null;
 
-    const comments = await ctx.db
-      .query("taskComments")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    const changeRequests = comments
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((c) => c.content);
-
-    const taskProofs = await ctx.db
-      .query("taskProof")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-
-    const proofs = await Promise.all(
-      taskProofs.map(async (p) => {
-        if (!p.storageId) {
-          return {
-            fileName: p.fileName ?? null,
-            message: p.message ?? null,
-            url: null,
-            contentType: null,
-          };
-        }
-        const meta = await ctx.db.system.get("_storage", p.storageId);
-        return {
-          fileName: p.fileName ?? null,
-          message: p.message ?? null,
-          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
-          contentType: meta?.contentType ?? null,
-        };
-      }),
-    );
+    const changeRequests = await getChangeRequestContents(ctx, args.taskId);
+    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return {
       installationId: repo.installationId,
@@ -399,38 +412,8 @@ export const getPrEnrichmentData = internalQuery({
     ),
   }),
   handler: async (ctx, args) => {
-    const comments = await ctx.db
-      .query("taskComments")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    const changeRequests = comments
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((c) => c.content);
-
-    const taskProofs = await ctx.db
-      .query("taskProof")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-
-    const proofs = await Promise.all(
-      taskProofs.map(async (p) => {
-        if (!p.storageId) {
-          return {
-            fileName: p.fileName ?? null,
-            message: p.message ?? null,
-            url: null,
-            contentType: null,
-          };
-        }
-        const meta = await ctx.db.system.get("_storage", p.storageId);
-        return {
-          fileName: p.fileName ?? null,
-          message: p.message ?? null,
-          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
-          contentType: meta?.contentType ?? null,
-        };
-      }),
-    );
+    const changeRequests = await getChangeRequestContents(ctx, args.taskId);
+    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return { changeRequests, proofs };
   },

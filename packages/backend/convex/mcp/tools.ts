@@ -47,10 +47,9 @@ export function registerTools(
   // ─────────────────────────────────────────────────────────────────────────────
 
   async function getContext(): Promise<{ deployKey: string; userId: string }> {
-    const result = await ctx.runAction(internal.mcp.nodeActions.getContext, {
+    return ctx.runAction(internal.mcp.nodeActions.getContext, {
       clerkUserId,
     });
-    return result;
   }
 
   async function getUserRepos(userId: string): Promise<RepoInfo[]> {
@@ -908,7 +907,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       app: z.string().optional().describe("Monorepo app name"),
     },
     async ({ docId, repoName, prUrl, app }) => {
-      await getContext();
+      const { userId } = await getContext();
 
       if (docId) {
         const document = await ctx.runAction(
@@ -922,7 +921,6 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       }
 
       if (repoName && prUrl) {
-        const { userId } = await getContext();
         const resolved = await resolveRepoByName(repoName, app, userId);
         if ("isError" in resolved) return resolved;
         const document = await ctx.runAction(

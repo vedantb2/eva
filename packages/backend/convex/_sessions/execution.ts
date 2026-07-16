@@ -4,6 +4,7 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  normalizeAIModel,
   reasoningLevelValidator,
   sessionModeValidator,
 } from "../validators";
@@ -11,7 +12,6 @@ import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
-import { normalizeAIModel } from "../validators";
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({

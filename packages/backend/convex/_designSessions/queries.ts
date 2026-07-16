@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { designSessionFields } from "../validators";
 import { authQuery, hasRepoAccess } from "../functions";
 import { internalQuery } from "../_generated/server";
+import { Doc } from "../_generated/dataModel";
 import { entityVisible, filterActiveEntities } from "../numId";
 
 export const designSessionValidator = v.object({
@@ -9,6 +10,14 @@ export const designSessionValidator = v.object({
   _creationTime: v.number(),
   ...designSessionFields,
 });
+
+/** Sorts design sessions by most recently updated (falling back to creation time). */
+function byMostRecentlyUpdated(
+  a: Doc<"designSessions">,
+  b: Doc<"designSessions">,
+): number {
+  return (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime);
+}
 
 /** Internal fetch of a design session by id (status checks in node actions). */
 export const getInternal = internalQuery({
@@ -31,12 +40,7 @@ export const list = authQuery({
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
         .collect(),
     );
-    return sessions
-      .filter((s) => !s.archived)
-      .sort(
-        (a, b) =>
-          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-      );
+    return sessions.filter((s) => !s.archived).sort(byMostRecentlyUpdated);
   },
 });
 
@@ -54,10 +58,7 @@ export const listArchived = authQuery({
     );
     return sessions
       .filter((s) => s.archived === true)
-      .sort(
-        (a, b) =>
-          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-      );
+      .sort(byMostRecentlyUpdated);
   },
 });
 

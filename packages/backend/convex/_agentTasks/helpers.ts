@@ -40,11 +40,11 @@ export function buildTaskNotificationMessage(
     description && description.length > 180
       ? `${description.slice(0, 177)}...`
       : description;
-  if (action === "assigned") {
-    const message = `${scopeLabel}. ${taskNumberLabel}Status: ${task.status.replace(/_/g, " ")}.`;
-    return summary ? `${message} ${summary}` : message;
-  }
-  const message = `${scopeLabel}. ${taskNumberLabel}Status changed to done.`;
+  const statusPart =
+    action === "assigned"
+      ? `Status: ${task.status.replace(/_/g, " ")}.`
+      : "Status changed to done.";
+  const message = `${scopeLabel}. ${taskNumberLabel}${statusPart}`;
   return summary ? `${message} ${summary}` : message;
 }
 

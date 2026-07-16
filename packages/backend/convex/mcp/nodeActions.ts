@@ -29,6 +29,24 @@ function getClerkSecretKey(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// JWT Claim Schemas (boundary parsing for verified payloads)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const refreshTokenClaims = z.object({
+  sub: z.string(),
+  type: z.literal("refresh"),
+});
+
+const oauthTokenClaims = z.object({ sub: z.string() });
+
+const internalTokenClaims = z.object({
+  sub: z.string(),
+  iss: z.literal("eva"),
+  aud: z.literal("mcp-internal"),
+  repoId: z.string(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Internal Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -92,26 +110,20 @@ export const refreshToken = internalAction({
       const secret = new TextEncoder().encode(getJwtSecret());
       const { payload } = await jwtVerify(refreshToken, secret);
 
-      if (
-        typeof payload !== "object" ||
-        payload === null ||
-        !("sub" in payload) ||
-        typeof payload.sub !== "string" ||
-        !("type" in payload) ||
-        payload.type !== "refresh"
-      ) {
+      const claims = refreshTokenClaims.safeParse(payload);
+      if (!claims.success) {
         return { success: false as const, error: "Invalid refresh token" };
       }
 
       // Issue tokens directly (secret already defined above)
-      const accessToken = await new SignJWT({ sub: payload.sub })
+      const accessToken = await new SignJWT({ sub: claims.data.sub })
         .setProtectedHeader({ alg: "HS256" })
         .setExpirationTime("1h")
         .setIssuedAt()
         .sign(secret);
 
       const newRefreshToken = await new SignJWT({
-        sub: payload.sub,
+        sub: claims.data.sub,
         type: "refresh",
       })
         .setProtectedHeader({ alg: "HS256" })
@@ -152,24 +164,20 @@ export const verifyAccessToken = internalAction({
       const secret = new TextEncoder().encode(getJwtSecret());
       const { payload } = await jwtVerify(token, secret);
 
-      if (
-        typeof payload === "object" &&
-        payload !== null &&
-        "sub" in payload &&
-        typeof payload.sub === "string"
-      ) {
+      const claims = oauthTokenClaims.safeParse(payload);
+      if (claims.success) {
         // Best-effort Clerk lookup — agent/test users may not exist in Clerk but
         // a verified JWT sub is still authoritative for MCP auth.
         try {
           const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
-          await clerk.users.getUser(payload.sub);
+          await clerk.users.getUser(claims.data.sub);
         } catch (err) {
           console.warn(
             "[MCP][verifyAccessToken] Clerk getUser failed (using JWT sub):",
             err instanceof Error ? err.message : err,
           );
         }
-        return { clerkUserId: payload.sub };
+        return { clerkUserId: claims.data.sub };
       }
       // OAuth payload missing sub — fall through to internal token
     } catch {
@@ -188,18 +196,8 @@ export const verifyAccessToken = internalAction({
       const { payload } = await jwtVerify(token, secret);
 
       // Validate internal token structure
-      if (
-        typeof payload !== "object" ||
-        payload === null ||
-        !("sub" in payload) ||
-        typeof payload.sub !== "string" ||
-        !("iss" in payload) ||
-        payload.iss !== "eva" ||
-        !("aud" in payload) ||
-        payload.aud !== "mcp-internal" ||
-        !("repoId" in payload) ||
-        typeof payload.repoId !== "string"
-      ) {
+      const claims = internalTokenClaims.safeParse(payload);
+      if (!claims.success) {
         console.error(
           "[MCP][verifyAccessToken] internal token payload invalid",
         );
@@ -207,8 +205,8 @@ export const verifyAccessToken = internalAction({
       }
 
       return {
-        clerkUserId: payload.sub,
-        scopedRepoId: payload.repoId,
+        clerkUserId: claims.data.sub,
+        scopedRepoId: claims.data.repoId,
       };
     } catch (err) {
       console.error(
@@ -319,6 +317,16 @@ function isDocId(value: string): value is Id<"docs"> {
   return value.length > 0;
 }
 
+const prRecapDocSchema = z.object({
+  kind: z.literal("pr-recap"),
+  _id: z.string().refine(isDocId),
+  repoId: z.string().refine(isGithubRepoId),
+  prUrl: z.string(),
+  prNumber: z.number(),
+  // A non-string title falls back to `PR #<n>` rather than rejecting the doc.
+  title: z.string().optional().catch(undefined),
+});
+
 function parsePrRecapDocForPublish(doc: JsonValue): {
   docId: Id<"docs">;
   repoId: Id<"githubRepos">;
@@ -326,30 +334,15 @@ function parsePrRecapDocForPublish(doc: JsonValue): {
   prNumber: number;
   title: string;
 } | null {
-  if (typeof doc !== "object" || doc === null) return null;
-  if (!("kind" in doc) || doc.kind !== "pr-recap") return null;
-  if (!("_id" in doc) || typeof doc._id !== "string" || !isDocId(doc._id)) {
-    return null;
-  }
-  if (
-    !("repoId" in doc) ||
-    typeof doc.repoId !== "string" ||
-    !isGithubRepoId(doc.repoId)
-  ) {
-    return null;
-  }
-  if (!("prUrl" in doc) || typeof doc.prUrl !== "string") return null;
-  if (!("prNumber" in doc) || typeof doc.prNumber !== "number") return null;
-  const title =
-    "title" in doc && typeof doc.title === "string"
-      ? doc.title
-      : `PR #${doc.prNumber}`;
+  const parsed = prRecapDocSchema.safeParse(doc);
+  if (!parsed.success) return null;
+  const { _id, repoId, prUrl, prNumber, title } = parsed.data;
   return {
-    docId: doc._id,
-    repoId: doc.repoId,
-    prUrl: doc.prUrl,
-    prNumber: doc.prNumber,
-    title,
+    docId: _id,
+    repoId,
+    prUrl,
+    prNumber,
+    title: title ?? `PR #${prNumber}`,
   };
 }
 

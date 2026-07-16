@@ -1,7 +1,13 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { authQuery, hasRepoAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
 import { sessionValidator } from "./helpers";
+
+/** Sorts sessions by most recently updated (falling back to creation time). */
+function byMostRecentlyUpdated(a: Doc<"sessions">, b: Doc<"sessions">): number {
+  return (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime);
+}
 
 /** Lists all non-archived sessions for a repo, sorted by most recently updated. */
 export const list = authQuery({
@@ -16,10 +22,7 @@ export const list = authQuery({
         .filter((q) => q.neq(q.field("archived"), true))
         .collect(),
     );
-    return sessions.sort(
-      (a, b) =>
-        (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-    );
+    return sessions.sort(byMostRecentlyUpdated);
   },
 });
 
@@ -37,10 +40,7 @@ export const listArchived = authQuery({
         )
         .collect(),
     );
-    return sessions.sort(
-      (a, b) =>
-        (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-    );
+    return sessions.sort(byMostRecentlyUpdated);
   },
 });
 

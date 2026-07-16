@@ -1,7 +1,29 @@
 import { v } from "convex/values";
+import type { MutationCtx } from "./_generated/server";
 import { internalQuery } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
 import { syncSettingFields } from "./validators";
+
+/** Creates the sync setting for an owner/name pair, or patches its enabled flag if it already exists. */
+async function upsertSyncSetting(
+  ctx: MutationCtx,
+  owner: string,
+  name: string,
+  enabled: boolean,
+): Promise<void> {
+  const existing = await ctx.db
+    .query("syncSettings")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", owner).eq("name", name),
+    )
+    .unique();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, { enabled });
+  } else {
+    await ctx.db.insert("syncSettings", { owner, name, enabled });
+  }
+}
 
 /** Lists all sync settings as owner/name/enabled triples (internal use only). */
 export const listAll = internalQuery({
@@ -47,22 +69,7 @@ export const set = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("syncSettings")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.owner).eq("name", args.name),
-      )
-      .unique();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, { enabled: args.enabled });
-    } else {
-      await ctx.db.insert("syncSettings", {
-        owner: args.owner,
-        name: args.name,
-        enabled: args.enabled,
-      });
-    }
+    await upsertSyncSetting(ctx, args.owner, args.name, args.enabled);
     return null;
   },
 });
@@ -76,22 +83,7 @@ export const bulkSet = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     for (const repo of args.repos) {
-      const existing = await ctx.db
-        .query("syncSettings")
-        .withIndex("by_owner_and_name", (q) =>
-          q.eq("owner", args.owner).eq("name", repo.name),
-        )
-        .unique();
-
-      if (existing) {
-        await ctx.db.patch(existing._id, { enabled: repo.enabled });
-      } else {
-        await ctx.db.insert("syncSettings", {
-          owner: args.owner,
-          name: repo.name,
-          enabled: repo.enabled,
-        });
-      }
+      await upsertSyncSetting(ctx, args.owner, repo.name, repo.enabled);
     }
     return null;
   },

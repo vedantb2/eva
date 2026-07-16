@@ -1,6 +1,20 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, type QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
+
+/** Computes a team's display name, deriving personal-team labels from the current user or owner. */
+async function resolveDisplayName(
+  ctx: QueryCtx,
+  team: Doc<"teams">,
+  currentUserId: Id<"users">,
+): Promise<string> {
+  if (!team.isPersonal) return team.name;
+  if (team.createdBy === currentUserId) return "My Team";
+  const owner = await ctx.db.get(team.createdBy);
+  const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
+  return `${ownerName}'s Team`;
+}
 
 /** Gets the user's personal team, creating one (with owner membership) if it doesn't exist. */
 export const getOrCreatePersonal = internalMutation({
@@ -88,19 +102,9 @@ export const list = authQuery({
     for (const membership of memberships) {
       const team = await ctx.db.get(membership.teamId);
       if (team) {
-        let displayName = team.name;
-        if (team.isPersonal) {
-          if (team.createdBy === ctx.userId) {
-            displayName = "My Team";
-          } else {
-            const owner = await ctx.db.get(team.createdBy);
-            const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
-            displayName = `${ownerName}'s Team`;
-          }
-        }
         teams.push({
           ...team,
-          displayName,
+          displayName: await resolveDisplayName(ctx, team, ctx.userId),
           userRole: membership.role,
         });
       }
@@ -139,20 +143,9 @@ export const get = authQuery({
 
     if (!membership) return null;
 
-    let displayName = team.name;
-    if (team.isPersonal) {
-      if (team.createdBy === ctx.userId) {
-        displayName = "My Team";
-      } else {
-        const owner = await ctx.db.get(team.createdBy);
-        const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
-        displayName = `${ownerName}'s Team`;
-      }
-    }
-
     return {
       ...team,
-      displayName,
+      displayName: await resolveDisplayName(ctx, team, ctx.userId),
       userRole: membership.role,
     };
   },

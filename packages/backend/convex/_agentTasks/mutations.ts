@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import {
   taskStatusValidator,
@@ -26,6 +26,17 @@ import { logTaskActivity } from "../taskActivity";
 function extractPrNumber(prUrl: string): number | null {
   const match = prUrl.match(/\/pull\/(\d+)/);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/** Highest taskNumber among a project's tasks, or 0 if none are numbered. */
+function maxTaskNumberOf(tasks: Doc<"agentTasks">[]): number {
+  let max = 0;
+  for (const t of tasks) {
+    if (t.taskNumber !== undefined && t.taskNumber > max) {
+      max = t.taskNumber;
+    }
+  }
+  return max;
 }
 
 // Status transitions that notify subscribers. Mid-run automated transitions
@@ -75,13 +86,7 @@ export const update = authMutation({
           .query("agentTasks")
           .withIndex("by_project", (q) => q.eq("projectId", newProjectId))
           .collect();
-        let maxTaskNumber = 0;
-        for (const t of existingTasks) {
-          if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
-            maxTaskNumber = t.taskNumber;
-          }
-        }
-        updates.taskNumber = maxTaskNumber + 1;
+        updates.taskNumber = maxTaskNumberOf(existingTasks) + 1;
       }
     }
     if (args.tags !== undefined) updates.tags = normalizeTaskTags(args.tags);
@@ -413,13 +418,7 @@ export const createQuickTask = authMutation({
         .query("agentTasks")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect();
-      let maxTaskNumber = 0;
-      for (const t of existingTasks) {
-        if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
-          maxTaskNumber = t.taskNumber;
-        }
-      }
-      taskNumber = maxTaskNumber + 1;
+      taskNumber = maxTaskNumberOf(existingTasks) + 1;
     }
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;
     const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");

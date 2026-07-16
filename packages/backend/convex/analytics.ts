@@ -65,14 +65,11 @@ export const getImpactStats = authQuery({
           prUrls.add(s.prUrl);
         }
       }
-      const filteredTasks =
-        from !== undefined
-          ? allTasks.filter((t) => t.updatedAt >= from)
-          : allTasks;
-      const done = filteredTasks.filter((t) => t.status === "done").length;
+      let done = 0;
       for (let i = 0; i < allTasks.length; i++) {
         const task = allTasks[i];
         if (from !== undefined && task.updatedAt < from) continue;
+        if (task.status === "done") done++;
         for (const run of allTaskRuns[i]) {
           if (run.prUrl) prUrls.add(run.prUrl);
         }

@@ -83,11 +83,7 @@ export async function upsertStreamingActivity(
     .first();
   const now = Date.now();
   if (existing) {
-    if (existing.currentActivity !== currentActivity) {
-      await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
-    } else {
-      await ctx.db.patch(existing._id, { lastUpdatedAt: now });
-    }
+    await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
   } else {
     await ctx.db.insert("streamingActivity", {
       entityId,

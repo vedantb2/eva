@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
 import { createNotification } from "./notifications";
 import { ensureDocSubscribed, notifyDocSubscribers } from "./docSubscribers";
@@ -78,8 +78,9 @@ export const create = authMutation({
       throw new Error("Agent-targeted comments must be root threads");
     }
 
+    let parent: Doc<"docComments"> | null = null;
     if (args.parentId) {
-      const parent = await ctx.db.get(args.parentId);
+      parent = await ctx.db.get(args.parentId);
       if (!parent || parent.docId !== args.docId) {
         throw new Error("Parent comment not found");
       }
@@ -112,10 +113,9 @@ export const create = authMutation({
 
     await ensureDocSubscribed(ctx, args.docId, ctx.userId);
 
-    if (args.parentId) {
-      const parent = await ctx.db.get(args.parentId);
+    if (parent) {
       if (
-        parent?.authorId &&
+        parent.authorId &&
         parent.authorId !== ctx.userId &&
         !notifiedUserIds.has(parent.authorId)
       ) {

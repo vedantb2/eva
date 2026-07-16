@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
@@ -32,6 +33,11 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 
 // Full read/write + Bash for local commits; Eva pushes after success.
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
+
+/** Streaming-activity entity id for a project chat. */
+function chatStreamEntityId(projectId: Id<"projects">): string {
+  return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
+}
 
 // --- Completion event ---
 
@@ -155,7 +161,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
@@ -202,6 +208,15 @@ export const projectChatExecuteWorkflow = workflow.define({
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
+    const saveFailure = (error: string) =>
+      step.runMutation(internal.projectChatWorkflow.saveResult, {
+        projectId: args.projectId,
+        success: false,
+        result: null,
+        error,
+        activityLog: null,
+      });
+
     await step.runMutation(
       internal.projectChatWorkflow.addAssistantPlaceholder,
       {
@@ -217,18 +232,13 @@ export const projectChatExecuteWorkflow = workflow.define({
     });
 
     if (!data.sandboxId && !data.vercelSandboxId) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "No active sandbox. Start the project sandbox before sending chat messages.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "No active sandbox. Start the project sandbox before sending chat messages.",
+      );
       return;
     }
 
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
 
     // Bring an archived/stopped sandbox back to "started" via durable polling
     // steps before validating, so a multi-minute cold-storage thaw doesn't blow
@@ -243,29 +253,19 @@ export const projectChatExecuteWorkflow = workflow.define({
         sandboxRunning: data.sandboxStatus === "active",
       });
     } catch (error) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Project sandbox could not be restored from cold storage. Please retry.",
-        activityLog: null,
-      });
+      await saveFailure(
+        error instanceof Error
+          ? error.message
+          : "Project sandbox could not be restored from cold storage. Please retry.",
+      );
       return;
     }
 
     const activeSandboxId = started.thawId;
     if (!activeSandboxId) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "No active sandbox. Start the project sandbox before sending chat messages.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "No active sandbox. Start the project sandbox before sending chat messages.",
+      );
       return;
     }
 
@@ -276,14 +276,9 @@ export const projectChatExecuteWorkflow = workflow.define({
     );
 
     if (!validation.healthy) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "Project sandbox is no longer reachable. Restart it from the sandbox panel.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "Project sandbox is no longer reachable. Restart it from the sandbox panel.",
+      );
       return;
     }
 
@@ -446,7 +441,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
     await clearStreamingActivity(ctx, streamingEntityId);
 
     const project = await ctx.db.get(args.projectId);

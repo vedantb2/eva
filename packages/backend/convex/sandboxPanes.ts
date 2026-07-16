@@ -68,6 +68,16 @@ function nextPane(
   };
 }
 
+/** Existing panes, or a fresh list seeded with the stable default pane. */
+function panesOrDefault(
+  owner: ResolvedOwner,
+  createdAt: number,
+): TerminalPane[] {
+  return owner.panes && owner.panes.length > 0
+    ? owner.panes
+    : [defaultPane(owner.ownerKey, createdAt)];
+}
+
 async function resolveOwner(
   db: GenericDatabaseReader<DataModel>,
   userId: Id<"users">,
@@ -154,10 +164,7 @@ export const createTerminalPane = authMutation({
     const owner = await resolveOwner(ctx.db, ctx.userId, args.owner);
     if (!owner) throw new Error("Sandbox owner not found");
     const createdAt = Date.now();
-    const panes =
-      owner.panes && owner.panes.length > 0
-        ? owner.panes
-        : [defaultPane(owner.ownerKey, createdAt)];
+    const panes = panesOrDefault(owner, createdAt);
     const pane = nextPane(owner.ownerKey, panes.length, createdAt);
     await patchPanes(ctx.db, owner, [...panes, pane]);
     return pane;
@@ -174,10 +181,7 @@ export const closeTerminalPane = authMutation({
   handler: async (ctx, args) => {
     const owner = await resolveOwner(ctx.db, ctx.userId, args.owner);
     if (!owner) return [];
-    const panes =
-      owner.panes && owner.panes.length > 0
-        ? owner.panes
-        : [defaultPane(owner.ownerKey, Date.now())];
+    const panes = panesOrDefault(owner, Date.now());
     if (panes[0]?.id === args.paneId) return panes;
     const next = panes.filter((pane) => pane.id !== args.paneId);
     await patchPanes(ctx.db, owner, next);

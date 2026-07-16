@@ -1,5 +1,7 @@
+import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 
 const designPersonaValidator = v.object({
   _id: v.id("designPersonas"),
@@ -9,6 +11,20 @@ const designPersonaValidator = v.object({
   name: v.string(),
   prompt: v.string(),
 });
+
+/** Fetches a persona by ID, throwing if not found or the user lacks repo access. */
+async function getPersonaWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  id: Id<"designPersonas">,
+  userId: Id<"users">,
+): Promise<Doc<"designPersonas">> {
+  const persona = await db.get(id);
+  if (!persona) throw new Error("Persona not found");
+  if (!(await hasRepoAccess(db, persona.repoId, userId))) {
+    throw new Error("Not authorized");
+  }
+  return persona;
+}
 
 /** Lists all design personas for a repo. */
 export const list = authQuery({
@@ -65,10 +81,7 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const persona = await ctx.db.get(args.id);
-    if (!persona) throw new Error("Persona not found");
-    if (!(await hasRepoAccess(ctx.db, persona.repoId, ctx.userId)))
-      throw new Error("Not authorized");
+    await getPersonaWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { name: args.name, prompt: args.prompt });
     return null;
   },
@@ -79,10 +92,7 @@ export const remove = authMutation({
   args: { id: v.id("designPersonas") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const persona = await ctx.db.get(args.id);
-    if (!persona) throw new Error("Persona not found");
-    if (!(await hasRepoAccess(ctx.db, persona.repoId, ctx.userId)))
-      throw new Error("Not authorized");
+    await getPersonaWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.delete(args.id);
     return null;
   },

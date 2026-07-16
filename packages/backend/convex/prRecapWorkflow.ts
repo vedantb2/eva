@@ -12,7 +12,10 @@ import {
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
-import { finalizePrRecapOutcome } from "./_prRecapWorkflow/finalizeOutcome";
+import {
+  finalizePrRecapOutcome,
+  type PrRecapOutcome,
+} from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import {
@@ -55,18 +58,22 @@ export const prRecapWorkflow = workflow.define({
       repoData.prRecapModel ?? repoData.defaultModel ?? "sonnet",
     );
 
+    function finalize(outcome: PrRecapOutcome): Promise<void> {
+      return finalizePrRecapOutcome(step, {
+        ...args,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
+        outcome,
+      });
+    }
+
     const authCheck = await step.runAction(
       internal._github.prRecapService.checkProviderAuth,
       { repoId: args.repoId, model },
     );
     if (!authCheck.ok) {
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: { kind: "error", message: authCheck.message },
-      });
+      await finalize({ kind: "error", message: authCheck.message });
       return;
     }
 
@@ -81,13 +88,7 @@ export const prRecapWorkflow = workflow.define({
     );
 
     if (diff.additions + diff.deletions < MIN_DIFF_LINES) {
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: { kind: "skipped", message: "Diff too small to recap" },
-      });
+      await finalize({ kind: "skipped", message: "Diff too small to recap" });
       return;
     }
 
@@ -137,13 +138,7 @@ export const prRecapWorkflow = workflow.define({
       const result = await step.awaitEvent(prRecapCompleteEvent);
 
       if (result.success && result.result) {
-        await finalizePrRecapOutcome(step, {
-          ...args,
-          repoOwner: repoData.repoOwner,
-          repoName: repoData.repoName,
-          linkRootDirectory: repoData.linkRootDirectory,
-          outcome: { kind: "ready", content: result.result.trim() },
-        });
+        await finalize({ kind: "ready", content: result.result.trim() });
         if (
           args.consumeAgentCommentIds &&
           args.consumeAgentCommentIds.length > 0
@@ -160,15 +155,9 @@ export const prRecapWorkflow = workflow.define({
         return;
       }
 
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: {
-          kind: "error",
-          message: result.error ?? "Recap generation failed",
-        },
+      await finalize({
+        kind: "error",
+        message: result.error ?? "Recap generation failed",
       });
     } finally {
       if (sandboxId) {

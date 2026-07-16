@@ -126,13 +126,7 @@ async function fetchSkill(
       ref,
     });
 
-    if (Array.isArray(response.data)) {
-      return {
-        ok: false,
-        warning: formatSkillSkipWarning(directory.path, "missing_file"),
-      };
-    }
-    if (response.data.type !== "file") {
+    if (Array.isArray(response.data) || response.data.type !== "file") {
       return {
         ok: false,
         warning: formatSkillSkipWarning(directory.path, "missing_file"),

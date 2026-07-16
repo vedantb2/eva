@@ -487,12 +487,9 @@ export const getPreviewUrl = action({
     // Public route port: on Vercel app/dev previews this is always 54321, never
     // the upstream listen port (e.g. Vite 5173).
     let previewPort = fixedVercelProxyPort ?? args.port;
-    const proxyTargetPort =
-      credentials.kind === "vercel" && args.port === 6080
-        ? VERCEL_DESKTOP_INTERNAL_PORT
-        : credentials.kind === "vercel" && args.port === 8080
-          ? VERCEL_EDITOR_INTERNAL_PORT
-          : args.port;
+    // Same upstream mapping used for the readiness probe above (Vercel desktop/
+    // editor listen on internal ports; everything else on args.port).
+    const proxyTargetPort = upstreamPort;
     const shouldStartPreviewProxy =
       credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
     if (ready && shouldStartPreviewProxy) {

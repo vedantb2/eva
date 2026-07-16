@@ -14,11 +14,7 @@ export const migrateRepoSkillsToGithubMetadata = internalMutation({
       const existingDescription = skill.description?.trim();
       const promptDescription = skill.prompt?.trim();
       const description =
-        existingDescription && existingDescription.length > 0
-          ? existingDescription
-          : promptDescription && promptDescription.length > 0
-            ? promptDescription
-            : "Legacy prompt skill";
+        existingDescription || promptDescription || "Legacy prompt skill";
 
       await ctx.db.patch(skill._id, {
         description,

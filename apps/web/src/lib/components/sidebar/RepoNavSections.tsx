@@ -8,8 +8,6 @@ import {
   AutomationsIcon,
   DesignsIcon,
   DocumentsIcon,
-  DraftsIcon,
-  InboxIcon,
   ProjectsIcon,
   QuickTasksIcon,
   SessionsIcon,
@@ -28,9 +26,7 @@ import {
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
-import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
-import { DraftsCountBadge } from "@/lib/components/sidebar/DraftsCountBadge";
 import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
 import {
   SharedLayoutNav,
@@ -72,9 +68,10 @@ interface RepoNavSectionsProps {
 }
 
 /**
- * Per-repo navigation (Inbox/Drafts + BUILD/SHIP/TEST/MORE groups). Rendered
+ * Per-repo build-pipeline navigation (BUILD/SHIP/TEST/MORE groups). Rendered
  * either standalone in the collapsed icon rail or nested under the active
- * repo row inside `RepoAccordion`.
+ * repo row inside `RepoAccordion`. Inbox/Drafts live in `RepoTopNav`, above
+ * the accordion.
  */
 export function RepoNavSections({
   repoBasePath,
@@ -181,22 +178,6 @@ export function RepoNavSections({
       .filter((g) => g.items.length > 0);
   }, [repoBasePath, isDev]);
 
-  const repoTopNavItems = useMemo(
-    (): RepoMainNavItem[] => [
-      {
-        name: "Inbox",
-        href: `${repoBasePath}/inbox`,
-        icon: InboxIcon,
-      },
-      {
-        name: "Drafts",
-        href: `${repoBasePath}/drafts`,
-        icon: DraftsIcon,
-      },
-    ],
-    [repoBasePath],
-  );
-
   const navItemClass = (isActive: boolean) =>
     sidebarNavLinkClass(isActive, collapsed);
 
@@ -282,10 +263,6 @@ export function RepoNavSections({
             )}
           />
           {!collapsed && <span className="truncate">{item.name}</span>}
-          {item.name === "Inbox" && !collapsed && <UnreadInboxBadge />}
-          {item.name === "Drafts" && !collapsed && repo && (
-            <DraftsCountBadge repoId={repo._id} />
-          )}
           {item.name === "Quick Tasks" && !collapsed && repo && (
             <ActiveTasksBadge repoId={repo._id} basePath={repoBasePath} />
           )}
@@ -310,7 +287,6 @@ export function RepoNavSections({
 
   return (
     <SharedLayoutNav layoutId="repo-main-nav" className="space-y-4">
-      <div className="space-y-1">{repoTopNavItems.map(renderRepoNavItem)}</div>
       {repoNavigation.map((group) => (
         <div key={group.label}>
           <CollapsibleSidebarSection

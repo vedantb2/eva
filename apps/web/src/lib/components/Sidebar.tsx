@@ -31,6 +31,7 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoAccordion } from "@/lib/components/sidebar/RepoAccordion";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
+import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
@@ -461,31 +462,49 @@ export function Sidebar() {
                         </div>
                       )
                     ) : collapsed ? (
-                      <RepoNavSections
-                        repoBasePath={repoBasePath}
-                        pathname={pathname}
-                        collapsed
-                        repo={repo}
-                        onOpenContextSidebar={setContextSidebarMode}
-                        onNavigate={closeMobileSidebar}
-                      />
-                    ) : (
-                      <RepoAccordion
-                        repos={repos ?? []}
-                        currentOwner={owner}
-                        currentName={repoName}
-                        currentAppName={appName}
-                        onSelect={handleRepoSwitch}
-                      >
+                      <div className="space-y-4">
+                        <RepoTopNav
+                          repoBasePath={repoBasePath}
+                          pathname={pathname}
+                          collapsed
+                          repo={repo}
+                          onNavigate={closeMobileSidebar}
+                        />
                         <RepoNavSections
                           repoBasePath={repoBasePath}
                           pathname={pathname}
-                          collapsed={false}
+                          collapsed
                           repo={repo}
                           onOpenContextSidebar={setContextSidebarMode}
                           onNavigate={closeMobileSidebar}
                         />
-                      </RepoAccordion>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <RepoTopNav
+                          repoBasePath={repoBasePath}
+                          pathname={pathname}
+                          collapsed={false}
+                          repo={repo}
+                          onNavigate={closeMobileSidebar}
+                        />
+                        <RepoAccordion
+                          repos={repos ?? []}
+                          currentOwner={owner}
+                          currentName={repoName}
+                          currentAppName={appName}
+                          onSelect={handleRepoSwitch}
+                        >
+                          <RepoNavSections
+                            repoBasePath={repoBasePath}
+                            pathname={pathname}
+                            collapsed={false}
+                            repo={repo}
+                            onOpenContextSidebar={setContextSidebarMode}
+                            onNavigate={closeMobileSidebar}
+                          />
+                        </RepoAccordion>
+                      </div>
                     )}
                   </motion.div>
                 )}

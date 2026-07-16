@@ -33,6 +33,7 @@ import {
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { DocContentTab } from "./DocContentTab";
+import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
@@ -236,7 +237,8 @@ export function DocRecapViewer({
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="content">Markdown</TabsTrigger>
+            <TabsTrigger value="html">Walkthrough</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (
@@ -288,6 +290,20 @@ export function DocRecapViewer({
             onToggleSuggestions={toggleSuggestions}
             onSuggestionCount={setSuggestionCount}
           />
+        </TabsContent>
+
+        <TabsContent
+          value="html"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
+        >
+          {doc.html ? (
+            <HtmlPreviewFrame html={doc.html} title="PR walkthrough" />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No walkthrough generated yet. It is created the next time this
+              recap runs.
+            </p>
+          )}
         </TabsContent>
       </Tabs>
     </div>

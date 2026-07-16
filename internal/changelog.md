@@ -1,5 +1,13 @@
 # Changelog
 
+## PR recaps generate an interactive file-by-file walkthrough - 2026-07-17
+
+- PR recap generation now produces **two outputs** in a single agent run: the existing markdown recap (stored in the doc's Markdown tab and posted to GitHub) and a new interactive HTML walkthrough (stored in the doc's HTML field and shown as the Walkthrough tab). The agent emits them separated by a marker; older runs without the marker fall back to markdown-only.
+- The walkthrough is a self-contained file-by-file stepper: an overview screen with the PR summary, stats, schema/API changes, and risks, followed by one screen per changed file showing its diff hunks (added lines green, removed lines red) and a plain-English explanation. Prev/Next buttons and a clickable file list let reviewers jump around.
+- The HTML is rendered in a sandboxed iframe with `allow-scripts` but no same-origin access, so the page's inline JS runs (interactivity works) but it cannot reach eva's cookies, storage, or DOM. The prompt requires the page to be fully self-contained: no external resources, CDN scripts, or storage APIs.
+- Both Markdown and HTML tabs are available on all recap docs (regular docs also have an HTML tab for future use); the Walkthrough tab shows an empty state if the recap was generated before this change.
+- Reason for change: reviewers spent time hunting the diff; a guided walkthrough that threads the code changes through the recap's rationale is much faster to follow.
+
 ## Task Activity reorganized: audits nested under runs, sandbox events removed from feed - 2026-07-16
 
 - Audit results now appear inline under each code-run in the Activity timeline (not a separate tab), with an always-visible "Eva completed audit" row showing the pass/fail badge; expanding it reveals the per-section results and Run Fixes button.

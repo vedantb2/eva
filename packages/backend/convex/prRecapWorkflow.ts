@@ -11,7 +11,10 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
-import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
+import {
+  buildPrRecapPrompt,
+  parsePrRecapOutput,
+} from "./_prRecapWorkflow/prompts";
 import {
   finalizePrRecapOutcome,
   type PrRecapOutcome,
@@ -138,7 +141,8 @@ export const prRecapWorkflow = workflow.define({
       const result = await step.awaitEvent(prRecapCompleteEvent);
 
       if (result.success && result.result) {
-        await finalize({ kind: "ready", content: result.result.trim() });
+        const { markdown, html } = parsePrRecapOutput(result.result);
+        await finalize({ kind: "ready", content: markdown, html });
         if (
           args.consumeAgentCommentIds &&
           args.consumeAgentCommentIds.length > 0

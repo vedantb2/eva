@@ -395,6 +395,7 @@ async function upsertPrRecapDocImpl(
     title: string;
     headSha: string;
     content: string;
+    html?: string;
     prRecapStatus: "pending" | "ready" | "error";
     prRecapError?: string;
     clearActiveWorkflowId?: boolean;
@@ -454,6 +455,9 @@ async function upsertPrRecapDocImpl(
       prRecapStatus: args.prRecapStatus,
       prRecapError:
         args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+      // Only overwrite html when the agent produced one, so a failed regen does
+      // not wipe a previously generated walkthrough.
+      ...(args.html !== undefined ? { html: args.html } : {}),
       ...(args.clearActiveWorkflowId ? { activeWorkflowId: undefined } : {}),
     });
     return existing._id;
@@ -464,6 +468,7 @@ async function upsertPrRecapDocImpl(
     kind: "pr-recap",
     title: args.title,
     content: args.content,
+    html: args.html,
     prUrl: args.prUrl,
     prNumber: args.prNumber,
     headSha: args.headSha,
@@ -486,6 +491,7 @@ export const upsertPrRecapDoc = internalMutation({
     title: v.string(),
     headSha: v.string(),
     content: v.string(),
+    html: v.optional(v.string()),
     prRecapStatus: prRecapStatusValidator,
     prRecapError: v.optional(v.string()),
     clearActiveWorkflowId: v.optional(v.boolean()),

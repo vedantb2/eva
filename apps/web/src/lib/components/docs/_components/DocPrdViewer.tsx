@@ -37,6 +37,7 @@ import {
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { DocInterviewDialog } from "../DocInterviewDialog";
 import { DocContentTab } from "./DocContentTab";
+import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocModeSwitcher } from "./DocModeSwitcher";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { DocTestGenDialog } from "./DocTestGenDialog";
@@ -354,12 +355,7 @@ export function DocPrdViewer({
           className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
         >
           {doc.html ? (
-            <iframe
-              title="HTML preview"
-              srcDoc={doc.html}
-              sandbox=""
-              className="h-full w-full rounded-surface border border-border bg-card"
-            />
+            <HtmlPreviewFrame html={doc.html} title="HTML preview" />
           ) : (
             <p className="text-sm text-muted-foreground">
               No HTML for this document yet.

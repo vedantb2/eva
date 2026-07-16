@@ -128,7 +128,7 @@ function renderMenuItemRow(
 ): ReactNode {
   return (
     <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className="flex min-w-0 items-center gap-0.5">
         <span className="shrink-0 text-muted-foreground">{prefix}</span>
         <span className="truncate">{label}</span>
       </span>

@@ -1,5 +1,11 @@
 # Changelog
 
+## Keep sandbox tabs visible when stopped on tasks and projects - 2026-07-16
+
+- Quick-task and project sandboxes now keep the tab bar mounted when the sandbox is stopped (same as sessions), so Diffs and other panes stay reachable without starting the sandbox first.
+- Individual panes still show their own inactive empty states; only tasks/projects that never had a sandbox get the full empty message.
+- Reason for change: the whole-panel "Start Sandbox" gate blocked tabs that do not need a running sandbox (especially Diffs).
+
 ## Custom sandbox tabs per app - 2026-07-16
 
 - You can now define custom tabs per app under Settings → Tabs: give each a name, a Tabler icon name (e.g. `IconBolt`), and a sandbox port. Enabled tabs show in every session for that app, alongside Preview/Editor/Terminal/Diffs — for example a "Supabase" tab on port 53432 or a "Convex" dashboard tab.

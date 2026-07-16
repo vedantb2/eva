@@ -11,7 +11,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@conductor/ui";
-import { IconLoader2, IconClock, IconPlayerPlay } from "@tabler/icons-react";
+import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
 import { useTaskDetail } from "./useTaskDetail";
@@ -35,7 +35,6 @@ import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfi
 import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
-import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
@@ -128,7 +127,6 @@ export function TaskDetailInline({
     isRunningBackgroundCommands,
     devServerCommandLabel,
     sandboxId,
-    sandboxStartupActivity,
     canCreatePr,
     isCreatingPr,
     handleCreatePr,
@@ -158,11 +156,12 @@ export function TaskDetailInline({
     setEmbeddedSandboxTab(tab);
   };
 
-  // The startup shimmer must only show while the sandbox is actually
-  // starting/stopping — tasks that have never had a sandbox (e.g. todo
-  // status, where canStartSandbox is false) get an honest empty state.
+  // Always mount the sandbox panel when the task can have a sandbox so tabs
+  // (Diffs, etc.) stay reachable while stopped — same as sessions. Panes
+  // self-gate with their own inactive empty states. Tasks that never ran
+  // still get the honest empty message.
   const sandboxRightPanel =
-    isSandboxActive && sandboxId && task?.repoId ? (
+    task?.repoId && canViewSandbox ? (
       <TaskSandboxPanel
         taskId={taskId}
         sandboxId={sandboxId}
@@ -176,31 +175,13 @@ export function TaskDetailInline({
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
       />
-    ) : isSandboxStarting || isSandboxStopping ? (
-      <div className="flex h-full items-center justify-center">
-        <div className="w-full max-w-md px-4">
-          <StreamingActivityDisplay
-            activity={sandboxStartupActivity}
-            thinkingLabel={
-              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
-            }
-          />
-        </div>
-      </div>
     ) : (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">
-            {canViewSandbox
-              ? "Sandbox is not running"
-              : "No sandbox for this task yet — it becomes available once the task has run"}
+            No sandbox for this task yet — it becomes available once the task
+            has run
           </p>
-          {canViewSandbox ? (
-            <Button onClick={handleStartSandbox}>
-              <IconPlayerPlay size={16} />
-              Start Sandbox
-            </Button>
-          ) : null}
         </div>
       </div>
     );

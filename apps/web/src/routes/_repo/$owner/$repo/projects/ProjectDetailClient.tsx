@@ -237,10 +237,14 @@ export function ProjectDetailClient({
     hasPlanContext;
 
   const tab = sandboxTab ?? "preview";
-  const isSandboxInactive =
-    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
+  // Always mount the sandbox panel when the project can have one so tabs
+  // stay reachable while stopped — same as sessions. Panes self-gate.
   const projectSandboxPanel =
-    isSandboxActive && projectSandboxId ? (
+    canStartSandbox ||
+    projectSandboxId ||
+    isSandboxActive ||
+    isSandboxStarting ||
+    isSandboxStopping ? (
       <ProjectSandboxPanel
         projectId={typedProjectId}
         projectNumId={projectNumId}
@@ -254,28 +258,13 @@ export function ProjectDetailClient({
         terminalPanes={project.terminalPanes}
         sandboxTab={tab}
       />
-    ) : isSandboxInactive && canStartSandbox ? (
+    ) : (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <IconTerminal2 size={32} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Sandbox is not running
+            Sandbox is not available for this project yet
           </p>
-          <Button onClick={handleStartSandbox}>
-            <IconPlayerPlay size={16} />
-            Start Sandbox
-          </Button>
-        </div>
-      </div>
-    ) : (
-      <div className="flex h-full items-center justify-center">
-        <div className="w-full max-w-md px-4">
-          <StreamingActivityDisplay
-            activity={sandboxStartupActivity}
-            thinkingLabel={
-              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
-            }
-          />
         </div>
       </div>
     );

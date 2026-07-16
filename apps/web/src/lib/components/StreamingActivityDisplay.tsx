@@ -15,6 +15,7 @@ export function StreamingActivityDisplay({
   icon,
   thinkingLabel = "Working...",
   startedAt,
+  onOpenFile,
 }: {
   activity: string | undefined;
   isStreaming?: boolean;
@@ -22,6 +23,7 @@ export function StreamingActivityDisplay({
   icon?: ReactNode;
   thinkingLabel?: string;
   startedAt?: number;
+  onOpenFile?: (path: string) => void;
 }) {
   const steps = parseActivitySteps(activity);
 
@@ -34,6 +36,7 @@ export function StreamingActivityDisplay({
       name={name}
       icon={icon}
       startedAt={startedAt}
+      onOpenFile={onOpenFile}
     />
   );
 }
@@ -45,6 +48,7 @@ export function ActivityLogDisplay({
   startedAt,
   finishedAt,
   finalText,
+  onOpenFile,
 }: {
   activityLog: string;
   name?: string;
@@ -52,6 +56,7 @@ export function ActivityLogDisplay({
   startedAt?: number;
   finishedAt?: number;
   finalText?: string;
+  onOpenFile?: (path: string) => void;
 }) {
   const steps = parseActivitySteps(activityLog);
   const duration =
@@ -65,6 +70,7 @@ export function ActivityLogDisplay({
         icon={icon}
         duration={duration}
         finalText={finalText}
+        onOpenFile={onOpenFile}
       />
     );
   }

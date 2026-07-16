@@ -73,9 +73,16 @@ const sandboxTabs = [
   "terminal",
   "desktop",
   "diffs",
+  "files",
   "prd",
 ] as const;
 export type SandboxTab = (typeof sandboxTabs)[number];
+
+// Full sandbox path of the file open in the session File Viewer tab, persisted
+// in the URL so a viewed file survives reload and is shareable.
+export const fileViewerPathParser = parseAsString
+  .withDefault("")
+  .withOptions(searchOptions);
 
 export function isSessionSandboxTab(s: string): s is SandboxTab {
   return (sandboxTabs as readonly string[]).includes(s);

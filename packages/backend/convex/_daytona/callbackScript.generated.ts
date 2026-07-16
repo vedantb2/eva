@@ -422,10 +422,12 @@ function parsePriorStep(value) {
     return null;
   }
   const detail = value.detail;
+  const path = value.path;
   return {
     type,
     label,
     detail: typeof detail === "string" ? detail : void 0,
+    path: typeof path === "string" ? path : void 0,
     status: "complete"
   };
 }
@@ -676,13 +678,15 @@ function opencodeToolToStep(part) {
   const tool = typeof part.tool === "string" ? part.tool : "tool";
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
   const input = stateObj && "input" in stateObj && stateObj.input && typeof stateObj.input === "object" && !Array.isArray(stateObj.input) ? stateObj.input : {};
-  const path = typeof input.filePath === "string" ? shortenPath(input.filePath) : typeof input.file_path === "string" ? shortenPath(input.file_path) : typeof input.path === "string" ? shortenPath(input.path) : "";
+  const rawPath = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (tool) {
     case "read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "glob":
@@ -704,6 +708,7 @@ function opencodeToolToStep(part) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "edit":
@@ -711,6 +716,7 @@ function opencodeToolToStep(part) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "bash":
@@ -807,6 +813,7 @@ function cursorToolToStep(toolCall) {
       type: "read",
       label: "Reading file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -815,6 +822,7 @@ function cursorToolToStep(toolCall) {
       type: "write",
       label: "Creating file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -823,6 +831,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Editing file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -831,6 +840,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Deleting file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -899,13 +909,15 @@ function cursorToolToStep(toolCall) {
   };
 }
 function toolCallToStep(name, input) {
-  const path = typeof input.file_path === "string" ? shortenPath(String(input.file_path)) : "";
+  const rawPath = typeof input.file_path === "string" ? String(input.file_path) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (name) {
     case "Read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Glob":
@@ -927,6 +939,7 @@ function toolCallToStep(name, input) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Edit":
@@ -934,6 +947,7 @@ function toolCallToStep(name, input) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Bash":
@@ -970,6 +984,7 @@ function toolCallToStep(name, input) {
         type: "notebook",
         label: "Editing notebook...",
         detail: typeof input.notebook_path === "string" ? shortenPath(String(input.notebook_path)) : void 0,
+        path: typeof input.notebook_path === "string" ? String(input.notebook_path) : void 0,
         status: "active"
       };
     case "Agent":
@@ -1100,6 +1115,7 @@ function codexItemToStep(item) {
       type: "read",
       label: "Reading file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1124,6 +1140,7 @@ function codexItemToStep(item) {
       type: "write",
       label: "Creating file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1132,6 +1149,7 @@ function codexItemToStep(item) {
       type: "edit",
       label: "Editing file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }

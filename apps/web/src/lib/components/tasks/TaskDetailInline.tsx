@@ -149,7 +149,8 @@ export function TaskDetailInline({
     routing?.mode === "quick-sandbox" ? routeSandboxTab : embeddedSandboxTab;
   const handleSandboxTabChange = (tab: SandboxTab) => {
     if (routing?.mode === "quick-sandbox") {
-      const nextTab: TaskRouteSandboxTab = tab === "prd" ? "preview" : tab;
+      const nextTab: TaskRouteSandboxTab =
+        tab === "prd" || tab === "files" ? "preview" : tab;
       routing.quick.onSandboxTabChange(nextTab);
       return;
     }

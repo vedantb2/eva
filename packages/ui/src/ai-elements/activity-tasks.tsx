@@ -38,6 +38,11 @@ export interface ActivityTasksProps extends ComponentProps<"div"> {
   startedAt?: number;
   duration?: string;
   finalText?: string;
+  /**
+   * When provided, file chips with a known full path become clickable and call
+   * this with the path. Pass a stable callback — {@link ActivityTasks} is memoised.
+   */
+  onOpenFile?: (path: string) => void;
 }
 
 const FILE_TYPES = new Set<ActivityStep["type"]>([
@@ -63,7 +68,13 @@ function getFileVerb(type: ActivityStep["type"], active: boolean): string {
   return active ? "Reading" : "Read";
 }
 
-function ActivityBlockRow({ block }: { block: ActivityBlock }) {
+function ActivityBlockRow({
+  block,
+  onOpenFile,
+}: {
+  block: ActivityBlock;
+  onOpenFile?: (path: string) => void;
+}) {
   const isActive = block.status === "active";
   const title = getBlockTitle(block);
   const isFileType = FILE_TYPES.has(block.type);
@@ -88,7 +99,20 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
             <TaskItem key={i}>
               <span className="inline-flex max-w-full items-center gap-1">
                 {fileVerb}
-                <TaskItemFile>{item.detail ?? item.label}</TaskItemFile>
+                {item.path && onOpenFile ? (
+                  <button
+                    type="button"
+                    title={item.path}
+                    onClick={() => onOpenFile(item.path ?? "")}
+                    className="inline-flex min-w-0 max-w-full cursor-pointer"
+                  >
+                    <TaskItemFile className="transition-colors hover:bg-muted">
+                      {item.detail ?? item.label}
+                    </TaskItemFile>
+                  </button>
+                ) : (
+                  <TaskItemFile>{item.detail ?? item.label}</TaskItemFile>
+                )}
               </span>
             </TaskItem>
           ) : block.type === "bash" ? (
@@ -116,9 +140,11 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
 function ActivityBlockList({
   blocks,
   isStreaming,
+  onOpenFile,
 }: {
   blocks: ActivityBlock[];
   isStreaming?: boolean;
+  onOpenFile?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const overflow = blocks.length - MAX_VISIBLE_BLOCKS;
@@ -144,7 +170,7 @@ function ActivityBlockList({
     <>
       {isStreaming && toggle}
       {visible.map((block, i) => (
-        <ActivityBlockRow key={i} block={block} />
+        <ActivityBlockRow key={i} block={block} onOpenFile={onOpenFile} />
       ))}
       {!isStreaming && toggle}
     </>
@@ -181,6 +207,7 @@ export const ActivityTasks = memo(
     startedAt,
     duration,
     finalText,
+    onOpenFile,
     ...props
   }: ActivityTasksProps) => {
     const verb = useSpinnerVerb(Boolean(isStreaming));
@@ -220,7 +247,11 @@ export const ActivityTasks = memo(
             <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList blocks={blocks} isStreaming={false} />
+            <ActivityBlockList
+              blocks={blocks}
+              isStreaming={false}
+              onOpenFile={onOpenFile}
+            />
           </CollapsibleContent>
         </Collapsible>
       );
@@ -240,7 +271,11 @@ export const ActivityTasks = memo(
             <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList blocks={blocks} isStreaming={false} />
+            <ActivityBlockList
+              blocks={blocks}
+              isStreaming={false}
+              onOpenFile={onOpenFile}
+            />
           </CollapsibleContent>
         </Collapsible>
       );
@@ -256,7 +291,11 @@ export const ActivityTasks = memo(
             </Shimmer>
           </div>
         ) : null}
-        <ActivityBlockList blocks={blocks} isStreaming={isStreaming} />
+        <ActivityBlockList
+          blocks={blocks}
+          isStreaming={isStreaming}
+          onOpenFile={onOpenFile}
+        />
       </div>
     );
   },

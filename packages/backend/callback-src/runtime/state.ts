@@ -15,10 +15,12 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
     return null;
   }
   const detail = value.detail;
+  const path = value.path;
   return {
     type,
     label,
     detail: typeof detail === "string" ? detail : undefined,
+    path: typeof path === "string" ? path : undefined,
     status: "complete",
   };
 }

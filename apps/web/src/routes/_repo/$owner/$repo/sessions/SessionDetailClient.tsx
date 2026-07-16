@@ -12,11 +12,14 @@ export function SessionDetailClient({
   sessionId,
   activeSandboxTab,
   onSandboxTabChange,
+  onOpenFile,
 }: {
   sessionId: string;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeSandboxTab: string;
   onSandboxTabChange: (tab: string) => void;
+  /** Opens a file (by full sandbox path) in the File Viewer tab. */
+  onOpenFile: (path: string) => void;
 }) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
@@ -123,6 +126,7 @@ export function SessionDetailClient({
           deploymentStatus={session.deploymentStatus}
           sandboxCollapsed={rightPanelCollapsed}
           onToggleSandbox={onToggleRightPanel}
+          onOpenFile={onOpenFile}
         />
       )}
       rightPanel={

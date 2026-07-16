@@ -1,7 +1,9 @@
 "use node";
 
 import { v } from "convex/values";
+import { quote } from "shell-quote";
 import { action } from "../_generated/server";
+import { api } from "../_generated/api";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome } from "./desktop";
@@ -157,5 +159,78 @@ export const launchChromeInDesktop = action({
     await launchChrome(handle);
 
     return null;
+  },
+});
+
+/** Cap on how many bytes the File Viewer will read from a single file. */
+const MAX_FILE_VIEWER_BYTES = 512 * 1024;
+const NOT_FOUND_MARKER = "__EVA_NOT_FOUND__";
+
+/**
+ * Reads a single file's contents out of a running sandbox for the chat File
+ * Viewer. Uses a shell `head -c` so the read is size-capped in the sandbox
+ * rather than streaming an arbitrarily large file back.
+ *
+ * Never resumes a stopped sandbox: on Vercel any exec on a stopped VM revives
+ * it (see getPreviewUrl in execution.ts), so we check `handle.state` — which is
+ * fresh, since getSandboxHandle fetches with resume:false — before touching it.
+ */
+export const readSandboxFile = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    path: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      status: v.literal("ok"),
+      content: v.string(),
+      truncated: v.boolean(),
+    }),
+    v.object({ status: v.literal("not_running") }),
+    v.object({ status: v.literal("not_found") }),
+    v.object({ status: v.literal("binary") }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Authorize against the sandbox's repo, same as getPreviewUrl: a null repo
+    // means the caller is neither the connector nor a team member.
+    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
+    if (!repo) throw new Error("Not authorized to access this repository");
+
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    if (handle.state !== "running") {
+      return { status: "not_running" as const };
+    }
+
+    // `p` is single-quoted by shell-quote, so an arbitrary path cannot inject.
+    // Output: first line is the byte count (or the not-found marker), and the
+    // file bytes follow the first newline. The script always exits 0 so
+    // execHandle does not throw for a missing file.
+    const p = quote([args.path]);
+    const script =
+      `p=${p}; ` +
+      `if [ ! -f "$p" ]; then echo ${NOT_FOUND_MARKER}; ` +
+      `else wc -c < "$p" | tr -d ' '; head -c ${MAX_FILE_VIEWER_BYTES} "$p"; fi`;
+    const out = await execHandle(handle, script, 30);
+
+    const newlineIndex = out.indexOf("\n");
+    const firstLine = (
+      newlineIndex === -1 ? out : out.slice(0, newlineIndex)
+    ).trim();
+    if (firstLine === NOT_FOUND_MARKER) {
+      return { status: "not_found" as const };
+    }
+
+    const content = newlineIndex === -1 ? "" : out.slice(newlineIndex + 1);
+    if (content.includes(String.fromCharCode(0))) {
+      return { status: "binary" as const };
+    }
+
+    const size = Number.parseInt(firstLine, 10);
+    const truncated = Number.isFinite(size) && size > MAX_FILE_VIEWER_BYTES;
+    return { status: "ok" as const, content, truncated };
   },
 });

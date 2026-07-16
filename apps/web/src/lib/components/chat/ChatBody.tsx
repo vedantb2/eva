@@ -171,6 +171,12 @@ interface ChatBodyProps {
    * mounting with an empty initial value before the persisted draft is known.
    */
   isDraftLoading?: boolean;
+  /**
+   * When provided, file chips in assistant activity blocks become clickable and
+   * call this with the file's full path (sessions wire this to the File Viewer
+   * tab). Pass a stable callback — the activity renderer is memoised.
+   */
+  onOpenFile?: (path: string) => void;
 }
 
 export function ChatBody({
@@ -202,6 +208,7 @@ export function ChatBody({
   formatQueuedInfo,
   draft,
   isDraftLoading,
+  onOpenFile,
 }: ChatBodyProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
@@ -368,6 +375,7 @@ export function ChatBody({
                   activity={streamingActivity}
                   name="Eva"
                   startedAt={message.timestamp}
+                  onOpenFile={onOpenFile}
                 />
                 {message._id === lastMessage?._id && streamingContent ? (
                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
@@ -396,6 +404,7 @@ export function ChatBody({
                         startedAt={message.timestamp}
                         finishedAt={message.finishedAt}
                         finalText={message.content}
+                        onOpenFile={onOpenFile}
                       />
                     )}
                     <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">

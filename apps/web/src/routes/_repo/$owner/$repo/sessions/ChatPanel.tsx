@@ -109,6 +109,8 @@ interface ChatPanelProps {
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
+  /** Opens a file (by full sandbox path) in the File Viewer tab. */
+  onOpenFile?: (path: string) => void;
 }
 
 export function ChatPanel({
@@ -134,6 +136,7 @@ export function ChatPanel({
   deploymentStatus,
   sandboxCollapsed,
   onToggleSandbox,
+  onOpenFile,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -635,6 +638,7 @@ export function ChatPanel({
         formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
+        onOpenFile={onOpenFile}
       />
       <Dialog
         open={showSummaryModal}

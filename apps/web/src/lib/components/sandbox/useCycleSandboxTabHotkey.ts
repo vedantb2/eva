@@ -17,18 +17,20 @@ const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
 ];
 
 /**
- * Returns the Shift+Tab cycle order: enabled builtins, then PRD if shown, then
- * custom tab slugs in display order.
+ * Returns the Shift+Tab cycle order: enabled builtins, then the File Viewer and
+ * PRD if shown, then custom tab slugs in display order.
  */
 export function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
   showPrdTab?: boolean,
   customTabSlugs?: ReadonlyArray<string>,
+  showFilesTab?: boolean,
 ): string[] {
   const tabs = enabledTabs
     ? SANDBOX_TAB_BAR_ORDER.filter((tab) => enabledTabs.includes(tab))
     : [...SANDBOX_TAB_BAR_ORDER];
-  const withPrd = showPrdTab ? [...tabs, "prd"] : tabs;
+  const withFiles = showFilesTab ? [...tabs, "files"] : tabs;
+  const withPrd = showPrdTab ? [...withFiles, "prd"] : withFiles;
   if (!customTabSlugs || customTabSlugs.length === 0) return withPrd;
   return [...withPrd, ...customTabSlugs];
 }
@@ -39,6 +41,7 @@ export function useCycleSandboxTabHotkey({
   onTabChange,
   enabledTabs,
   showPrdTab,
+  showFilesTab,
   customTabSlugs,
   enabled = true,
 }: {
@@ -46,12 +49,19 @@ export function useCycleSandboxTabHotkey({
   onTabChange: (tab: string) => void;
   enabledTabs?: ReadonlyArray<SandboxTab>;
   showPrdTab?: boolean;
+  showFilesTab?: boolean;
   customTabSlugs?: ReadonlyArray<string>;
   enabled?: boolean;
 }) {
   const cyclableTabs = useMemo(
-    () => getCyclableSandboxTabs(enabledTabs, showPrdTab, customTabSlugs),
-    [enabledTabs, showPrdTab, customTabSlugs],
+    () =>
+      getCyclableSandboxTabs(
+        enabledTabs,
+        showPrdTab,
+        customTabSlugs,
+        showFilesTab,
+      ),
+    [enabledTabs, showPrdTab, customTabSlugs, showFilesTab],
   );
 
   useHotkey(

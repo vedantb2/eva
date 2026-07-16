@@ -7,6 +7,7 @@ import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { FileViewerPanel } from "./FileViewerPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
   useSandboxPanes,
@@ -106,6 +107,7 @@ export function SandboxPanel({
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={panes.enabledTabs}
         showPrdTab
+        showFilesTab
         customTabs={customTabs}
       />
       <div className="flex-1 overflow-hidden bg-card">
@@ -137,6 +139,15 @@ export function SandboxPanel({
                 </div>
               </div>
             )
+          ) : null}
+        </div>
+        <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+          {activeTab === "files" ? (
+            <FileViewerPanel
+              sandboxId={sandboxId}
+              repoId={repoId}
+              isActive={isActive}
+            />
           ) : null}
         </div>
         <SandboxPaneSlots

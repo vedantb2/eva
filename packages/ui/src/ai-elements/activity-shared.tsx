@@ -36,6 +36,8 @@ export interface ActivityStep {
     | "tool";
   label: string;
   detail?: string;
+  /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
+  path?: string;
   status: "complete" | "active";
 }
 

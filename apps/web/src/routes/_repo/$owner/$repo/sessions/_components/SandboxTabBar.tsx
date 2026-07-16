@@ -8,6 +8,7 @@ import {
   IconTerminal2,
   IconClipboardList,
   IconGitCompare,
+  IconFileText,
   IconPlus,
 } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
@@ -30,6 +31,7 @@ type SandboxTab =
   | "editor"
   | "terminal"
   | "diffs"
+  | "files"
   | "prd";
 
 const TAB_TRIGGER_CLASS =
@@ -57,6 +59,8 @@ interface SandboxTabBarProps {
   newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
+  /** Shows the File Viewer tab (sessions only). */
+  showFilesTab?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
   enabledTabs?: ReadonlyArray<SandboxTab>;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
@@ -71,6 +75,7 @@ export function SandboxTabBar({
   newPreviewDisabled = false,
   newTerminalDisabled = false,
   showPrdTab = false,
+  showFilesTab = false,
   enabledTabs,
   customTabs,
 }: SandboxTabBarProps) {
@@ -90,6 +95,7 @@ export function SandboxTabBar({
     onTabChange,
     enabledTabs,
     showPrdTab,
+    showFilesTab,
     customTabSlugs,
   });
 
@@ -114,6 +120,12 @@ export function SandboxTabBar({
               </TabsTrigger>
             );
           })}
+          {showFilesTab ? (
+            <TabsTrigger value="files" className={TAB_TRIGGER_CLASS}>
+              <IconFileText className="w-3.5 h-3.5" />
+              Files
+            </TabsTrigger>
+          ) : null}
           {showPrdTab ? (
             <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
               <IconClipboardList className="w-3.5 h-3.5" />

@@ -3,14 +3,23 @@
 import { useMemo } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 
-type SandboxTab = "preview" | "desktop" | "editor" | "terminal" | "prd";
+type SandboxTab =
+  | "preview"
+  | "desktop"
+  | "editor"
+  | "terminal"
+  | "diffs"
+  | "prd";
 
-/** Tab order matches `SandboxTabBar` visual order (preview → computer → editor → terminal). */
+/**
+ * Tab order matches `SandboxTabBar`'s visible tab row (preview → editor →
+ * terminal → diffs). Desktop is excluded — it now lives in the `+` menu.
+ */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
-  "desktop",
   "editor",
   "terminal",
+  "diffs",
 ];
 
 export function getCyclableSandboxTabs(

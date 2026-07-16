@@ -21,6 +21,7 @@ interface ProjectSandboxPanelProps {
   vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
+  prUrl?: string;
   devPort?: number;
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
@@ -34,6 +35,7 @@ export function ProjectSandboxPanel({
   vercelSandboxId,
   isActive,
   repoId,
+  prUrl,
   devPort,
   devCommand,
   terminalPanes,
@@ -81,7 +83,7 @@ export function ProjectSandboxPanel({
   });
 
   const handleTabChange = useCallback(
-    (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
+    (tab: SandboxTab) => {
       if (tab === "prd") return;
       navigateToSandboxTab(tab);
     },
@@ -111,6 +113,7 @@ export function ProjectSandboxPanel({
           repoId={repoId}
           cacheKey={projectIdStr}
           devCommand={devCommand}
+          prUrl={prUrl}
         />
       </div>
     </div>

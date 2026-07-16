@@ -6,6 +6,7 @@ import {
   IconCode,
   IconTerminal2,
   IconClipboardList,
+  IconGitCompare,
   IconPlus,
 } from "@tabler/icons-react";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
@@ -19,25 +20,34 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 
-type SandboxTab = "preview" | "desktop" | "editor" | "terminal" | "prd";
+type SandboxTab =
+  | "preview"
+  | "desktop"
+  | "editor"
+  | "terminal"
+  | "diffs"
+  | "prd";
 
 const SANDBOX_TABS: Set<string> = new Set([
   "preview",
   "desktop",
   "editor",
   "terminal",
+  "diffs",
   "prd",
 ]);
 
+// Desktop ("Computer") is intentionally absent — it lives in the `+` menu, not
+// the tab row, since it is rarely used.
 const allTabs: Array<{
   value: SandboxTab;
   label: string;
   icon: typeof IconWorld;
 }> = [
   { value: "preview", label: "Preview", icon: IconWorld },
-  { value: "desktop", label: "Computer", icon: IconDeviceDesktop },
   { value: "editor", label: "Editor", icon: IconCode },
   { value: "terminal", label: "Terminal", icon: IconTerminal2 },
+  { value: "diffs", label: "Diffs", icon: IconGitCompare },
 ];
 
 interface SandboxTabBarProps {
@@ -66,10 +76,11 @@ export function SandboxTabBar({
   showPrdTab = false,
   enabledTabs,
 }: SandboxTabBarProps) {
-  const newTabDisabled = newPreviewDisabled && newTerminalDisabled;
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs;
+  // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
+  const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
 
   useCycleSandboxTabHotkey({
     activeTab,
@@ -116,7 +127,6 @@ export function SandboxTabBar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                disabled={newTabDisabled}
                 className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Open tab menu"
               >
@@ -124,6 +134,12 @@ export function SandboxTabBar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[10rem]">
+              {showDesktopItem ? (
+                <DropdownMenuItem onClick={() => onTabChange("desktop")}>
+                  <IconDeviceDesktop size={14} />
+                  Computer
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onClick={onNewPreview}
                 disabled={newPreviewDisabled}

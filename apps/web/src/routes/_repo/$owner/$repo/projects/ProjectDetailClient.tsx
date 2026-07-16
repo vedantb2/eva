@@ -248,6 +248,7 @@ export function ProjectDetailClient({
         vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
+        prUrl={project.prUrl}
         devPort={project.devPort}
         devCommand={project.devCommand}
         terminalPanes={project.terminalPanes}

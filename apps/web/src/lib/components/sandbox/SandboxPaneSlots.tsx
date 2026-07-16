@@ -8,6 +8,7 @@ import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPane
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
+import { DiffsPanel } from "./DiffsPanel";
 import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
 import { ConsoleDock } from "./ConsoleDock";
@@ -27,12 +28,14 @@ interface SandboxPaneSlotsProps {
   /** sessionStorage cache namespace for editor / desktop URL caches. */
   cacheKey: string;
   devCommand?: string;
+  /** PR URL for the Diffs tab; absent when no PR exists for this surface. */
+  prUrl?: string;
 }
 
 /**
- * Renders the four standard sandbox tab slots (preview, terminal, editor,
- * desktop) as a fragment. Callers wrap this in their own flex container and
- * may add their own slots alongside (e.g. session PRD slot).
+ * Renders the standard sandbox tab slots (preview, terminal, editor, desktop,
+ * diffs) as a fragment. Callers wrap this in their own flex container and may
+ * add their own slots alongside (e.g. session PRD slot).
  */
 export function SandboxPaneSlots({
   activeTab,
@@ -45,6 +48,7 @@ export function SandboxPaneSlots({
   repoId,
   cacheKey,
   devCommand,
+  prUrl,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -185,6 +189,9 @@ export function SandboxPaneSlots({
           isActive={isActive}
           repoId={repoId}
         />
+      </div>
+      <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
+        <DiffsPanel prUrl={prUrl} repoId={repoId} />
       </div>
     </>
   );

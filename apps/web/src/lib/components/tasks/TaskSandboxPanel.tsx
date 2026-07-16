@@ -29,6 +29,7 @@ interface TaskSandboxPanelProps {
    */
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
+  prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
 }
@@ -50,6 +51,7 @@ export function TaskSandboxPanel({
   devPort,
   devCommand,
   terminalPanes,
+  prUrl,
   activeTab,
   onTabChange,
 }: TaskSandboxPanelProps) {
@@ -84,7 +86,7 @@ export function TaskSandboxPanel({
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   const handleTabChange = useCallback(
-    (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
+    (tab: SandboxTab) => {
       if (tab === "prd") return;
       onTabChange(tab);
     },
@@ -114,6 +116,7 @@ export function TaskSandboxPanel({
           repoId={repoId}
           cacheKey={taskIdStr}
           devCommand={devCommand}
+          prUrl={prUrl}
         />
       </div>
     </div>

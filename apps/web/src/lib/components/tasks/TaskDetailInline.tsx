@@ -172,6 +172,7 @@ export function TaskDetailInline({
         devPort={task.devPort}
         devCommand={task.devCommand}
         terminalPanes={task.terminalPanes}
+        prUrl={latestPrUrl}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
       />

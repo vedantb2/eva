@@ -109,6 +109,8 @@ export default defineConfig({
       "@tiptap/react",
       "@tiptap/core",
       "@convex-dev/prosemirror-sync",
+      "@pierre/diffs",
+      "shiki",
       "frimousse",
       "sonner",
     ],

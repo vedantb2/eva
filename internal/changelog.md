@@ -1,5 +1,12 @@
 # Changelog
 
+## Move Computer to the + menu and add a Diffs tab - 2026-07-16
+
+- The sandbox "Computer" (remote desktop) tab moves out of the tab row into the `+` menu, where it is rarely needed; picking it there still opens the desktop view. The tab row is now Preview, Editor, Terminal, Diffs.
+- New "Diffs" tab shows the pull request's diff in a GitHub-style viewer (powered by `@pierre/diffs`): syntax-highlighted, unified or split view (the choice persists in the URL), with a Refresh button and light/dark theming. Surfaces with no PR yet show an empty state.
+- The diff is the canonical pushed PR diff fetched from GitHub. Applies to all three sandbox surfaces: sessions, projects, and quick tasks.
+- Reason for change: the Computer tab held a permanent slot in the tab bar despite little use, and there was no in-app way to review a PR's changes without switching to GitHub.
+
 ## Compact session sidebar rows with hover details - 2026-07-16
 
 - Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.

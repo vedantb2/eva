@@ -66,6 +66,7 @@ import type * as _githubRepos_sync from "../_githubRepos/sync.js";
 import type * as _github_api from "../_github/api.js";
 import type * as _github_helpers from "../_github/helpers.js";
 import type * as _github_prComments from "../_github/prComments.js";
+import type * as _github_prDiff from "../_github/prDiff.js";
 import type * as _github_prFlow from "../_github/prFlow.js";
 import type * as _github_prRecapService from "../_github/prRecapService.js";
 import type * as _github_sync from "../_github/sync.js";
@@ -77,6 +78,7 @@ import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMenti
 import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessageTokens.js";
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
+import type * as _messages_preview from "../_messages/preview.js";
 import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.js";
 import type * as _migrations_backfillQueuedMessageOrder from "../_migrations/backfillQueuedMessageOrder.js";
 import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
@@ -331,6 +333,7 @@ declare const fullApi: ApiFromModules<{
   "_github/api": typeof _github_api;
   "_github/helpers": typeof _github_helpers;
   "_github/prComments": typeof _github_prComments;
+  "_github/prDiff": typeof _github_prDiff;
   "_github/prFlow": typeof _github_prFlow;
   "_github/prRecapService": typeof _github_prRecapService;
   "_github/sync": typeof _github_sync;
@@ -342,6 +345,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/resolveMessageTokens": typeof _mentions_resolveMessageTokens;
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;
   "_mentions/skillToken": typeof _mentions_skillToken;
+  "_messages/preview": typeof _messages_preview;
   "_migrations/backfillNumIds": typeof _migrations_backfillNumIds;
   "_migrations/backfillQueuedMessageOrder": typeof _migrations_backfillQueuedMessageOrder;
   "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;

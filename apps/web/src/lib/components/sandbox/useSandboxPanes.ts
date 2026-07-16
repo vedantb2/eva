@@ -18,11 +18,13 @@ const ALL_SANDBOX_TABS: ReadonlyArray<SandboxTab> = [
   "desktop",
   "editor",
   "terminal",
+  "diffs",
 ];
 const SANDBOX_TABS_WITHOUT_TERMINAL: ReadonlyArray<SandboxTab> = [
   "preview",
   "desktop",
   "editor",
+  "diffs",
 ];
 
 interface PaneStorageState {

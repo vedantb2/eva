@@ -133,6 +133,7 @@ export function SessionDetailClient({
           vercelSandboxId={session.vercelSandboxId}
           isActive={isSandboxActive}
           repoId={session.repoId}
+          prUrl={session.prUrl}
           devPort={session.devPort}
           devCommand={session.devCommand}
           terminalPanes={session.terminalPanes}

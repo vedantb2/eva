@@ -72,6 +72,7 @@ const sandboxTabs = [
   "editor",
   "terminal",
   "desktop",
+  "diffs",
   "prd",
 ] as const;
 export type SandboxTab = (typeof sandboxTabs)[number];
@@ -85,12 +86,20 @@ const taskRouteSandboxTabs = [
   "editor",
   "terminal",
   "desktop",
+  "diffs",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
 export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return (taskRouteSandboxTabs as readonly string[]).includes(s);
 }
+
+// Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
+const diffViews = ["unified", "split"] as const;
+export type DiffView = (typeof diffViews)[number];
+export const diffViewParser = parseAsStringLiteral(diffViews)
+  .withDefault("unified")
+  .withOptions(tabOptions);
 
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)

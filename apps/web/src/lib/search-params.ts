@@ -121,13 +121,6 @@ export const viewModeParser = parseAsStringLiteral(viewModes)
   .withDefault("desktop")
   .withOptions(tabOptions);
 
-const testingTabs = ["code", "ui"] as const;
-export type TestingArenaTab = (typeof testingTabs)[number];
-
-export function isTestingArenaTab(s: string): s is TestingArenaTab {
-  return (testingTabs as readonly string[]).includes(s);
-}
-
 const snapshotSettingsTabs = [
   "configuration",
   "status",

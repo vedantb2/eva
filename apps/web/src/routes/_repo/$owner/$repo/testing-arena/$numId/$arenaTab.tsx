@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { branchParser, isTestingArenaTab } from "@/lib/search-params";
+import { branchParser } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -11,24 +11,18 @@ import type { FunctionReturnType } from "convex/server";
 import {
   ActivityTasks,
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Spinner,
   TestError,
   TestErrorMessage,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
-  IconWorld,
-  IconCode,
   IconCheck,
   IconAlertTriangle,
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { UITestingPanel } from "../UITestingPanelClient";
 import { IssuesList } from "../_components/IssuesList";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -36,19 +30,6 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab",
 )({
-  beforeLoad: ({ params }) => {
-    if (!isTestingArenaTab(params.arenaTab)) {
-      throw redirect({
-        to: "/$owner/$repo/testing-arena/$numId/$arenaTab",
-        params: {
-          owner: params.owner,
-          repo: params.repo,
-          numId: params.numId,
-          arenaTab: "code",
-        },
-      });
-    }
-  },
   component: TestingArenaDetailRoute,
 });
 
@@ -337,9 +318,8 @@ function CodeTestingContent({
 }
 
 function TestingArenaDetailRoute() {
-  const { numId, arenaTab } = Route.useParams();
-  const navigate = useNavigate();
-  const { repo, basePath, repoId } = useRepo();
+  const { numId } = Route.useParams();
+  const { repo, repoId } = useRepo();
   const parsedNumId = parseRouteNumId(numId);
   const doc = useQuery(
     api.docs.getByNumId,
@@ -358,7 +338,6 @@ function TestingArenaDetailRoute() {
   );
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isRunning, setIsRunning] = useState(false);
-  const activeTab = isTestingArenaTab(arenaTab) ? arenaTab : "code";
   const [branch, setBranch] = useQueryState("branch", branchParser);
 
   const hasActiveRun =
@@ -406,65 +385,34 @@ function TestingArenaDetailRoute() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-2 py-2 flex flex-col gap-1.5 sm:px-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => {
-              if (v === "code" || v === "ui") {
-                navigate({
-                  to: `${basePath}/testing-arena/${numId}/${v}`,
-                });
-              }
-            }}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-2 sm:px-4">
+        <h1 className="min-w-0 truncate text-sm font-medium">{doc.title}</h1>
+        <div className="flex items-center gap-2">
+          <BranchSelect
+            value={branch}
+            onValueChange={setBranch}
+            className="h-7 text-xs w-24 sm:w-36"
+          />
+          <Button
+            size="sm"
+            onClick={handleRunTest}
+            disabled={isRunning || hasActiveRun || !hasContent}
+            title={
+              !hasContent
+                ? "Add content to this document to run tests"
+                : undefined
+            }
           >
-            <TabsList className="h-8">
-              <TabsTrigger value="code" className="text-xs space-x-2">
-                <IconCode size={14} />
-                <span>Code Testing</span>
-              </TabsTrigger>
-              <TabsTrigger value="ui" className="text-xs space-x-2">
-                <IconWorld size={14} />
-                <span>UI Testing</span>
-                <span className="rounded-full border border-border px-1.5 text-[10px] font-medium text-muted-foreground">
-                  Soon
-                </span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {activeTab === "code" && (
-            <div className="flex items-center gap-2">
-              <BranchSelect
-                value={branch}
-                onValueChange={setBranch}
-                className="h-7 text-xs w-24 sm:w-36"
-              />
-              <Button
-                size="sm"
-                onClick={handleRunTest}
-                disabled={isRunning || hasActiveRun || !hasContent}
-                title={
-                  !hasContent
-                    ? "Add content to this document to run tests"
-                    : undefined
-                }
-              >
-                <IconPlayerPlay size={16} />
-                {isRunning || hasActiveRun ? "Running..." : "Run Test"}
-              </Button>
-            </div>
-          )}
+            <IconPlayerPlay size={16} />
+            {isRunning || hasActiveRun ? "Running..." : "Run Test"}
+          </Button>
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
-        {activeTab === "code" ? (
-          <CodeTestingContent
-            reports={reports}
-            streamingActivity={streaming?.currentActivity}
-          />
-        ) : (
-          <UITestingPanel />
-        )}
+        <CodeTestingContent
+          reports={reports}
+          streamingActivity={streaming?.currentActivity}
+        />
       </div>
     </div>
   );

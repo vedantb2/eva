@@ -17,7 +17,7 @@ GitHub Repository
         ↓
        Eva
         ↓
-Cloud Sandbox (Daytona)
+Cloud Sandbox (Vercel Sandbox)
         ↓
 AI Agent (Claude, Codex, opencode, Cursor)
         ↓
@@ -61,7 +61,7 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 
 - **Frontend**: Vite, TanStack Router, React, Tailwind CSS
 - **Backend**: Convex
-- **Sandboxes**: Daytona SDK
+- **Sandboxes**: Vercel Sandbox
 - **Auth**: Clerk
 
 ## Apps
@@ -83,7 +83,7 @@ Eva is self-hosted - there is no managed cloud version. You create your own Conv
 - pnpm
 - Convex account
 - Clerk account
-- Daytona account
+- Vercel account with Sandbox API access
 - GitHub account (for GitHub App)
 
 ### Step 1: Clone and Install
@@ -196,13 +196,17 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 
 **Git default branch (not an env var):** When a task has no `baseBranch` and the repo has no **Default base branch** (Eva **Settings → Config**), sandboxes and PRs use `staging` (`FALLBACK_GIT_BASE_BRANCH` in `@conductor/shared`). Team/repo **env vars** apply inside sandboxes only; they do not set the PR merge base.
 
-### Step 7: Add Daytona API Key
+### Step 7: Add Vercel Sandbox Credentials
 
-The Daytona API key is stored as a **team or repo env var** in the dashboard (not as a Convex deployment env var).
+Sandbox credentials are stored as **team or repo env vars** in the dashboard (not as Convex deployment env vars).
 
-1. Get your API key from [Daytona](https://app.daytona.io)
+1. Get an access token, team ID, and project ID from your [Vercel](https://vercel.com) account
 2. In Eva dashboard, go to **Team Settings → Environment Variables**
-3. Add `DAYTONA_API_KEY` with your key
+3. Add:
+   - `SANDBOX_PROVIDER` = `vercel`
+   - `VERCEL_TOKEN` = your access token
+   - `VERCEL_TEAM_ID` = your team ID
+   - `VERCEL_PROJECT_ID` = your project ID
 
 ### Step 8: Run
 
@@ -222,18 +226,18 @@ Eva supports Convex and Supabase MCP connections. To add these, add your Convex 
 
 ## Sandbox Snapshots
 
-Eva runs agents inside Daytona sandboxes that boot from pre-built snapshots. Snapshots bundle the OS, system tooling, agent CLIs, your dependencies, and a clone of your repo so sandboxes start fast.
+Eva runs agents inside Vercel sandboxes that boot from pre-built snapshots. Snapshots bundle the OS, system tooling, agent CLIs, your dependencies, and a clone of your repo so sandboxes start fast.
 
 ### How It Works
 
-Eva builds snapshots itself from the backend — no GitHub Actions workflow is involved. When a build is triggered, `packages/backend/convex/snapshotActions.ts` (`buildSnapshotImage`):
+Eva builds snapshots itself from the backend — no GitHub Actions workflow is involved. A fresh Vercel sandbox boots a bare `node24` image with none of Eva's tooling installed, so the build runs against a **seed-prep sandbox**: `packages/backend/convex/snapshotActions.ts`:
 
-1. Defines a Daytona image with all required tooling (see the list below)
+1. Boots a seed-prep sandbox and installs all required tooling on it (see the list below)
 2. Clones your repo at the configured branch using a GitHub installation token, then runs `pnpm install`
 3. Runs any custom build commands you have configured
-4. Pushes the built image to Daytona as a named snapshot, then warms Daytona's cache so the first sandbox starts fast
+4. Captures the seed-prep sandbox's filesystem into a Vercel snapshot (`snap_*`) so later sandboxes boot from it directly instead of repeating the install
 
-`DAYTONA_API_KEY` is read from your team or repo environment variables (see Step 7) — not from a GitHub Actions secret.
+`VERCEL_TOKEN`, `VERCEL_TEAM_ID`, and `VERCEL_PROJECT_ID` are read from your team or repo environment variables (see Step 7) — not from a GitHub Actions secret.
 
 ### Rebuilding a Snapshot
 
@@ -244,7 +248,7 @@ In the Eva dashboard, open your repo's **Settings → Snapshots**:
 - **Builds** — watch progress and read build logs.
 - **Config Files** — upload files (e.g. database seeds) to bake into the image.
 
-If a snapshot is missing or in an error state, sandbox creation falls back to a default Daytona snapshot plus a fresh `git clone`, so tasks still run (slower on first setup).
+If a snapshot is missing or in an error state, sandbox creation falls back to a bare sandbox plus a fresh `git clone` (and, for Vercel, a fresh tooling install), so tasks still run (slower on first setup).
 
 ### What's In the Snapshot
 
@@ -273,7 +277,7 @@ Your codebase needs the `agent-browser` skill installed for screenshots or video
 You may face authentication issues in the preview URL if your auth provider blocks frame ancestors (e.g. AuthKit does this for security). Options:
 
 1. **Open in a new tab** — simplest fix.
-2. **Add the Daytona domain** to your auth provider's allowlist and callback URLs, then use the preview URL directly.
+2. **Add the Vercel Sandbox domain** to your auth provider's allowlist and callback URLs, then use the preview URL directly.
 3. **Implement backend auth** — if you want the iframe to work, implement a separate login page that doesn't make network requests to your auth provider (e.g. AuthKit), so it renders inside the iframe. Add instructions to your `CLAUDE.md` so the agent knows how to use this flow with `agent-browser`.
 
 This restriction is not unique to Eva — it's a standard iframe security limitation.

@@ -19,7 +19,6 @@ import {
   getProjectConversation,
   setProjectConversation,
   setProjectGeneratedSpec,
-  deleteProjectDetails,
   buildProjectBranchName,
 } from "./helpers";
 import { scheduleProjectPrSync } from "./prSync";
@@ -99,7 +98,6 @@ export const update = authMutation({
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const {
-      id,
       generatedSpec,
       projectLead,
       priority,

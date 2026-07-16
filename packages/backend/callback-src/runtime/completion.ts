@@ -1,8 +1,5 @@
 import {
-  CLAUDE_RUNTIME_CONFIG_DIR,
   CODEX_PRICING_PER_MILLION,
-  CODEX_RUNTIME_HOME_DIR,
-  CURSOR_RUNTIME_HOME_DIR,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   PROVIDER,
@@ -55,7 +52,7 @@ export function writeDoneFile(
       accumulatedStepCount: S.accumulatedSteps.length,
       parsedStreamEventCount: S.parsedStreamEventCount,
       rawLogBytesWritten: S.rawLogBytesWritten,
-      ...(extras || {}),
+      ...extras,
     };
     writeFileSync(DONE_FILE, JSON.stringify(payload));
   } catch (err) {

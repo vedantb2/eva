@@ -143,7 +143,7 @@ export function DesignChatPanel({
       reordered,
     );
   });
-  const { repo, basePath } = useRepo();
+  const { basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const [isSending, setIsSending] = useState(false);

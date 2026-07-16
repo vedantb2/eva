@@ -17,7 +17,7 @@ type Repo = FunctionReturnType<typeof api.githubRepos.listByTeam>[number];
 /** A single repo row in the team repos tab, with logo display + owner actions. */
 export function TeamRepoCard({
   repo,
-  teamId,
+  teamId: _teamId,
   isOwner,
   onRemove,
 }: {

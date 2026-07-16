@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,
 });
 
-function MainContent({ children }: { children: React.ReactNode }) {
+function MainContent({ children: _children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   return (
     <div

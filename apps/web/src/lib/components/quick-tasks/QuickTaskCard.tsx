@@ -29,7 +29,6 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import {
@@ -93,7 +92,7 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
-  deploymentStatus,
+  deploymentStatus: _deploymentStatus,
   sandboxStatus,
   groupedCodebases,
   href,

@@ -3,7 +3,6 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { resolveAllEnvVars } from "./envVarResolver";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";

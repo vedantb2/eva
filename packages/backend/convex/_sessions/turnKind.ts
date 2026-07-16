@@ -14,9 +14,9 @@ const TOOL_OR_MCP_PATTERN =
 const CONVERSATIONAL_PREFIX_PATTERN =
   /^(hi|hey|hello|sup|thanks|thank you|what is|what's|how many|how much|who is|when is|where is|loop latency test)/i;
 
-const MATH_PATTERN = /^\s*\d+\s*[\+\-\*\/]\s*\d+/;
+const MATH_PATTERN = /^\s*\d+\s*[+\-*/]\s*\d+/;
 const MATH_QUESTION_PATTERN =
-  /^(what is|what's|how much is|calculate|compute)\s+\d+\s*[\+\-\*\/]\s*\d+/i;
+  /^(what is|what's|how much is|calculate|compute)\s+\d+\s*[+\-*/]\s*\d+/i;
 
 /**
  * Classifies a user message for the Agent SDK daemon. Conversational turns use a

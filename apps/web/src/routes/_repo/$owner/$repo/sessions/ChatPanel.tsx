@@ -39,12 +39,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import {
-  api,
-  findAIModelOption,
-  normalizeAIModel,
-  type AIModel,
-} from "@conductor/backend";
+import { api, findAIModelOption, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { FunctionReturnType } from "convex/server";

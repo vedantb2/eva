@@ -23,7 +23,6 @@ import {
   getSnapshot,
   deleteSnapshotByName,
   waitForSnapshotRemoval,
-  triggerSandboxSnapshot,
 } from "./_daytona/snapshots";
 import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
@@ -335,7 +334,7 @@ export const kickOffSnapshotBuild = internalAction({
       return null;
     }
 
-    const daytona = getDaytona(daytonaApiKey);
+    const _daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo

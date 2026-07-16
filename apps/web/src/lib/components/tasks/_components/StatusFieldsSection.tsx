@@ -96,9 +96,9 @@ export function StatusFieldsSection({
   baseBranch,
   setBaseBranch,
   latestDeployment,
-  hasActiveRun,
+  hasActiveRun: _hasActiveRun,
   allTags,
-  requestingChanges,
+  requestingChanges: _requestingChanges,
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
     (localStore, args) => {

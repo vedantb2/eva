@@ -174,17 +174,15 @@ const groupByWeeks = (
 
   const paddingDays = firstDate.diff(firstCalendarDate, "day");
   const paddedActivities: Array<Activity | undefined> = [
-    ...new Array<undefined>(paddingDays).fill(undefined),
+    ...Array.from<undefined>({ length: paddingDays }),
     ...normalizedActivities,
   ];
 
   const numberOfWeeks = Math.ceil(paddedActivities.length / 7);
 
-  return new Array(numberOfWeeks)
-    .fill(undefined)
-    .map((_, weekIndex) =>
-      paddedActivities.slice(weekIndex * 7, weekIndex * 7 + 7),
-    );
+  return Array.from({ length: numberOfWeeks }, (_, weekIndex) =>
+    paddedActivities.slice(weekIndex * 7, weekIndex * 7 + 7),
+  );
 };
 
 const getMonthLabels = (
@@ -497,7 +495,7 @@ export const ContributionGraphLegend = ({
       <span className="mr-1 text-muted-foreground">
         {labels.legend?.less || "Less"}
       </span>
-      {new Array(maxLevel + 1).fill(undefined).map((_, level) =>
+      {Array.from({ length: maxLevel + 1 }, (_, level) =>
         children ? (
           <Fragment key={level}>{children({ level })}</Fragment>
         ) : (

@@ -4,10 +4,7 @@ import {
   customQuery,
   customAction,
 } from "convex-helpers/server/customFunctions";
-import type {
-  GenericDatabaseReader,
-  GenericDatabaseWriter,
-} from "convex/server";
+import type { GenericDatabaseReader } from "convex/server";
 import { makeFunctionReference } from "convex/server";
 import {
   query,

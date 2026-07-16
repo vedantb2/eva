@@ -152,11 +152,11 @@ export function QuickTasksTableView({
   tasks: externalTasks,
   projectNames,
   isSelecting,
-  selectedIds,
+  selectedIds: _selectedIds,
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
-  const { repoId, basePath } = useRepo();
+  const { basePath } = useRepo();
   const users = useQuery(api.users.listAll);
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([

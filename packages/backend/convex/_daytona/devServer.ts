@@ -5,7 +5,6 @@ import type { Sandbox } from "@daytonaio/sdk";
 import type { SandboxHandle } from "../_sandbox/provider";
 import {
   ensureDockerDaemon,
-  exec,
   execHandle,
   bootstrapVercelDocker,
   workspaceDirShell,

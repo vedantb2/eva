@@ -176,7 +176,7 @@ export const ActivityTasks = memo(
     steps,
     isStreaming,
     name,
-    icon,
+    icon: _icon,
     className,
     startedAt,
     duration,

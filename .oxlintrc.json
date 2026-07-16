@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/_generated/**",
+    "**/*.generated.ts",
+    "**/routeTree.gen.ts",
+    "**/*.d.ts",
+    "**/.output/**",
+    "**/.vite/**",
+    "**/.wxt/**",
+    "**/convex/_daytona/callbackScript.generated.ts",
+    "video/**"
+  ]
+}

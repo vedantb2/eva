@@ -22,7 +22,7 @@ export function DesignDetailClient({
   const messages = useQuery(api.messages.listByParent, {
     parentId: designSessionId,
   });
-  const { repo } = useRepo();
+  const { repo: _repo } = useRepo();
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);

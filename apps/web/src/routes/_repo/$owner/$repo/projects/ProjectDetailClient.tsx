@@ -61,7 +61,6 @@ import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 
 export function ProjectDetailClient({
@@ -109,8 +108,6 @@ export function ProjectDetailClient({
     api.agentRuns.getLatestDeploymentByProject,
     { projectId: typedProjectId },
   );
-  const currentUserId = useQuery(api.auth.me);
-  const isOwner = project ? currentUserId === project.userId : false;
 
   const {
     canStartSandbox,

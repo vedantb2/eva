@@ -8,7 +8,6 @@ import {
 } from "@/lib/search-params";
 import { DocViewer } from "@/lib/components/docs/DocViewer";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { parseRouteNumId } from "@/lib/numId";
 import { Spinner } from "@conductor/ui";
 

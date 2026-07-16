@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -41,11 +40,6 @@ const interviewReadySchema = z.object({ ready: z.boolean() });
 
 function isInterviewReady(parsed: unknown): boolean {
   return interviewReadySchema.safeParse(parsed).data?.ready === true;
-}
-
-interface PreviousAnswer {
-  question: string;
-  answer: string;
 }
 
 /** Builds a prompt that asks one implementation-focused question. Session persistence provides prior context. */

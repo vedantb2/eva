@@ -183,7 +183,9 @@ export function PreviewNavBar({
 
   function reload() {
     if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
+      // Reassigning the same src forces the iframe to reload its document.
+      const currentSrc = iframeRef.current.src;
+      iframeRef.current.src = currentSrc;
     }
   }
 

@@ -23,7 +23,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  Badge,
   ModelSelect,
 } from "@conductor/ui";
 import {
@@ -35,8 +34,6 @@ import {
   IconCalendarDue,
   IconGitBranch,
   IconInfoCircle,
-  IconTags,
-  IconChevronDown,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import {

@@ -141,14 +141,14 @@ function renderMenuItemRow(
   );
 }
 
-function defaultRenderItem(item: MentionItem, isSelected: boolean): ReactNode {
+function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("@", item.label, detail);
 }
 
 function defaultRenderSlashItem(
   item: SlashItem,
-  isSelected: boolean,
+  _isSelected: boolean,
 ): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("/", item.label, detail);

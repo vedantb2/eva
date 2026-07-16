@@ -364,7 +364,7 @@ export const LETTER_SPACING_VALUES: Record<
   wider: { label: "Wider", value: "0.03em" },
 };
 
-function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
+function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "cyan";
   const radius = customTheme.radius ?? "xl";
   const fontFamily = customTheme.fontFamily ?? "inter";
@@ -390,7 +390,6 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   }
 
   const colors = ACCENT_COLORS[accentColor];
-  const mode = isDark ? colors.dark : colors.light;
 
   const existing = document.getElementById("custom-theme-accent");
   let styleEl: HTMLStyleElement;

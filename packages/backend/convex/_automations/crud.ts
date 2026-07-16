@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { aiModelValidator, automationFields } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
-import { allocateNumId, entityVisible, filterActiveEntities } from "../numId";
+import { allocateNumId, entityVisible } from "../numId";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
 import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";

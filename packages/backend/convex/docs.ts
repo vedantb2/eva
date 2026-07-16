@@ -10,7 +10,6 @@ import {
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
 import {
-  evaluationStatusValidator,
   prRecapStatusValidator,
   roleValidator,
   docKindValidator,
@@ -26,13 +25,6 @@ import {
   hasCodebaseRepoAccess,
   resolveCodebaseDocsRepoId,
 } from "./_githubRepos/helpers";
-
-const interviewMessageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-});
 
 const docValidator = v.object({
   _id: v.id("docs"),

@@ -118,7 +118,7 @@ function extractApiErrorDetail(e: unknown): string {
   if (e === null || typeof e !== "object") return String(e);
   try {
     return JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 1000);
-  } catch (_err) {
+  } catch {
     return e instanceof Error ? e.message : String(e);
   }
 }

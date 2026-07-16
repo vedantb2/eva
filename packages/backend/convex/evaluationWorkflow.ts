@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
-import { evalResultValidator, workflowCompleteValidator } from "./validators";
+import { workflowCompleteValidator } from "./validators";
 import { trackEvaluationWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,

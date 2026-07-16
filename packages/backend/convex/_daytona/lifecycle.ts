@@ -9,7 +9,6 @@ import {
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
 import {
-  resolveSandboxCredentials,
   resolveSandboxCredentialsOnly,
   resolveSandboxProviderKind,
 } from "../envVarResolver";

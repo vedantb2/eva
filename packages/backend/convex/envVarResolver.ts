@@ -87,18 +87,6 @@ export async function resolveDaytonaApiKey(
   return { daytonaApiKey, sandboxEnvVars: sandboxVars };
 }
 
-/**
- * Reads the active sandbox provider for a repo from the `SANDBOX_PROVIDER`
- * env var (team or repo scope). Defaults to `daytona` so nothing changes until
- * a repo/team explicitly opts into `vercel`. Any unrecognised value falls back
- * to daytona rather than throwing — the flag should never take a repo offline.
- */
-function readProviderKind(
-  allVars: Record<string, string>,
-): SandboxProviderKind {
-  return allVars.SANDBOX_PROVIDER === "vercel" ? "vercel" : "daytona";
-}
-
 /** All repos in the same codebase (owner/name), requested repo first. */
 async function listMonorepoRepoIds(
   ctx: GenericActionCtx<DataModel>,
@@ -172,33 +160,6 @@ export async function resolveSandboxProviderKind(
     `[env] resolveSandboxProviderKind repoId=${repoId} kind=daytona elapsed=${Date.now() - startedAt}ms`,
   );
   return "daytona";
-}
-
-const CREDENTIAL_ENV_KEYS = [
-  "SANDBOX_PROVIDER",
-  "VERCEL_TOKEN",
-  "VERCEL_TEAM_ID",
-  "VERCEL_PROJECT_ID",
-  "DAYTONA_API_KEY",
-] as const;
-
-/**
- * Decrypts only provider credential keys from an encrypted env-var list.
- * Kickoff/thaw must not pay for decrypting the full team+repo env map.
- */
-function decryptCredentialKeys(
-  vars: Array<{ key: string; value: string }>,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const entry of vars) {
-    for (const key of CREDENTIAL_ENV_KEYS) {
-      if (entry.key === key) {
-        out[key] = decryptValue(entry.value);
-        break;
-      }
-    }
-  }
-  return out;
 }
 
 /**

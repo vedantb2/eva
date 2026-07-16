@@ -2,7 +2,6 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   activityLogTypeValidator,
-  sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
   auditSectionValidator,

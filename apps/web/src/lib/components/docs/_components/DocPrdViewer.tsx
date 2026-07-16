@@ -21,7 +21,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  Textarea,
 } from "@conductor/ui";
 import {
   IconCheck,
@@ -40,7 +39,6 @@ import { DocInterviewDialog } from "../DocInterviewDialog";
 import { DocContentTab } from "./DocContentTab";
 import { DocModeSwitcher } from "./DocModeSwitcher";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
-import { DocReExtractButton } from "./DocReExtractButton";
 import { DocTestGenDialog } from "./DocTestGenDialog";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
@@ -296,20 +294,8 @@ export function DocPrdViewer({
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="requirements">
-              Requirements
-              <span className="ml-1.5 text-muted-foreground">
-                {doc.requirements?.length ?? 0}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="user-flows">
-              User Flows
-              <span className="ml-1.5 text-muted-foreground">
-                {doc.userFlows?.length ?? 0}
-              </span>
-            </TabsTrigger>
+            <TabsTrigger value="content">Markdown</TabsTrigger>
+            <TabsTrigger value="html">HTML</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (
@@ -344,26 +330,8 @@ export function DocPrdViewer({
                 </Button>
               </>
             )}
-            {activeTab === "requirements" || activeTab === "user-flows" ? (
-              <DocReExtractButton doc={doc} />
-            ) : null}
           </div>
         </div>
-
-        <TabsContent
-          value="description"
-          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
-        >
-          <Textarea
-            value={doc.description ?? ""}
-            onChange={(e) =>
-              updateDoc({ id: doc._id, description: e.target.value })
-            }
-            placeholder="A short summary of this PRD."
-            rows={6}
-            className="scrollbar bg-card"
-          />
-        </TabsContent>
 
         <TabsContent
           value="content"
@@ -382,51 +350,19 @@ export function DocPrdViewer({
         </TabsContent>
 
         <TabsContent
-          value="requirements"
-          className="scrollbar mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
+          value="html"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
         >
-          {(doc.requirements?.length ?? 0) > 0 ? (
-            <ul className="list-disc space-y-2 pl-5">
-              {(doc.requirements ?? []).map((req, i) => (
-                <li key={i} className="text-sm">
-                  {req}
-                </li>
-              ))}
-            </ul>
+          {doc.html ? (
+            <iframe
+              title="HTML preview"
+              srcDoc={doc.html}
+              sandbox=""
+              className="h-full w-full rounded-surface border border-border bg-card"
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No requirements extracted yet. Add content to the document and
-              click &ldquo;Re-extract&rdquo; to populate them.
-            </p>
-          )}
-        </TabsContent>
-
-        <TabsContent
-          value="user-flows"
-          className="scrollbar mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
-        >
-          {(doc.userFlows?.length ?? 0) > 0 ? (
-            <div className="space-y-4">
-              {(doc.userFlows ?? []).map((flow, i) => (
-                <div
-                  key={i}
-                  className="rounded-surface border border-border bg-card p-3 sm:p-4"
-                >
-                  <p className="text-sm font-medium">{flow.name}</p>
-                  <ol className="mt-2 list-decimal space-y-1 pl-5">
-                    {flow.steps.map((step, j) => (
-                      <li key={j} className="text-sm text-muted-foreground">
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No user flows extracted yet. Add content to the document and click
-              &ldquo;Re-extract&rdquo; to populate them.
+              No HTML for this document yet.
             </p>
           )}
         </TabsContent>

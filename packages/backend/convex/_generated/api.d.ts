@@ -83,6 +83,7 @@ import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.
 import type * as _migrations_backfillQueuedMessageOrder from "../_migrations/backfillQueuedMessageOrder.js";
 import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
+import type * as _migrations_clearEvaluationReports from "../_migrations/clearEvaluationReports.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
@@ -178,7 +179,6 @@ import type * as designSessions from "../designSessions.js";
 import type * as designWorkflow from "../designWorkflow.js";
 import type * as docComments from "../docComments.js";
 import type * as docInterviewWorkflow from "../docInterviewWorkflow.js";
-import type * as docPrdWorkflow from "../docPrdWorkflow.js";
 import type * as docSubscribers from "../docSubscribers.js";
 import type * as docVersions from "../docVersions.js";
 import type * as docs from "../docs.js";
@@ -352,6 +352,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/backfillQueuedMessageOrder": typeof _migrations_backfillQueuedMessageOrder;
   "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;
   "_migrations/cleanup": typeof _migrations_cleanup;
+  "_migrations/clearEvaluationReports": typeof _migrations_clearEvaluationReports;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
@@ -447,7 +448,6 @@ declare const fullApi: ApiFromModules<{
   designWorkflow: typeof designWorkflow;
   docComments: typeof docComments;
   docInterviewWorkflow: typeof docInterviewWorkflow;
-  docPrdWorkflow: typeof docPrdWorkflow;
   docSubscribers: typeof docSubscribers;
   docVersions: typeof docVersions;
   docs: typeof docs;

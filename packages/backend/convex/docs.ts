@@ -129,7 +129,7 @@ export const getByNumId = authQuery({
   },
 });
 
-/** Creates a new doc in a repo. Requirements/userFlows are populated by extraction (docPrdWorkflow), not by this mutation. */
+/** Creates a new doc in a repo. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),

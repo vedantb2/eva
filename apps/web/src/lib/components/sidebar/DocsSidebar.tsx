@@ -79,8 +79,6 @@ export function DocsSidebar({
       }
     },
   );
-  const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
-
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [docListFilter, setDocListFilter] = useQueryState(
     "docFilter",
@@ -193,7 +191,6 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       onNavigate?.();
-      await startPrdParse({ docId: id });
     } catch (error) {
       console.error("PRD upload failed", error);
     } finally {

@@ -27,6 +27,7 @@ import {
   automationFindingValidator,
   conversationMessageValidator,
   customThemeValidator,
+  evalIssueValidator,
   evalResultValidator,
   logEntryValidator,
   terminalPaneValidator,
@@ -511,6 +512,8 @@ export const docFields = {
   sessionId: v.optional(v.id("sessions")),
   title: v.string(),
   content: v.string(),
+  // Stored HTML for the doc's HTML tab; rendered read-only in an iframe.
+  html: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   prNumber: v.optional(v.number()),
   headSha: v.optional(v.string()),
@@ -622,7 +625,11 @@ export const evaluationReportFields = {
   repoId: v.id("githubRepos"),
   docId: v.id("docs"),
   status: evaluationStatusValidator,
-  results: v.array(evalResultValidator),
+  // Legacy per-requirement pass/fail results. Optional so pre-issues rows still
+  // validate; new runs write `issues` instead. Remove after clearing old rows.
+  results: v.optional(v.array(evalResultValidator)),
+  // Severity-ranked issues flagged against the document (the new run output).
+  issues: v.optional(v.array(evalIssueValidator)),
   summary: v.optional(v.string()),
   error: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),

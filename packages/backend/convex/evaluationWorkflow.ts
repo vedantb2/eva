@@ -34,7 +34,7 @@ const fixCompleteEvent = defineEvent({
 
 // --- Workflow definition ---
 
-/** Runs an evaluation: analyzes the codebase against doc requirements and saves pass/fail results. Fixing failures is opt-in via startFix. */
+/** Runs an evaluation: analyzes the codebase against the document and saves a severity-ranked issue list. Fixing issues is opt-in via startFix. */
 export const evaluationWorkflow = workflow.define({
   args: {
     reportId: v.id("evaluationReports"),
@@ -99,7 +99,7 @@ export const evaluationWorkflow = workflow.define({
 });
 
 /**
- * Fixes the failing requirements of a completed evaluation: spins up a sandbox
+ * Fixes the flagged issues of a completed evaluation: spins up a sandbox
  * with write access, lets the agent commit, then pushes the branch and opens a
  * PR. Started on demand by the startFix mutation. The fix branch name is passed
  * in (not derived inside the handler) so workflow replays stay deterministic.
@@ -234,28 +234,27 @@ export const getDocData = internalQuery({
       ? `\nIMPORTANT: Unless the user mentions otherwise, focus your evaluation on the app at "${rootDirectory}".`
       : "";
 
-    const requirements = doc.requirements ?? [];
+    // The document itself is the specification. The agent explores the codebase
+    // and reports whatever issues it finds, ranked by severity — no fixed
+    // checklist, so the result set may differ between runs.
+    const prompt = `You are a QA engineer reviewing whether a codebase satisfies a specification document.
 
-    // Two-phase prompt: first explore the codebase, then generate evaluation JSON
-    const prompt = `You are a QA engineer evaluating whether a codebase meets a specification.
-
-## Feature: ${doc.title}
-${doc.description || ""}
-
-## Requirements to verify:
-${requirements.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+## Specification: ${doc.title}
+${doc.content}
 
 ## Phase 1: Explore
-For each requirement, search the codebase for evidence of implementation. Check routes, components, API handlers, schemas, and business logic.
+Use the specification above as the source of truth. Search the codebase (routes, components, API handlers, schemas, business logic) for anything that is missing, incomplete, broken, or contradicts the specification.
 
-## Phase 2: Evaluate
-Based on your analysis, output ONLY valid JSON:
-{"results": [{"requirement": "...", "passed": true, "detail": "..."}], "summary": "..."}
+## Phase 2: Report issues
+Output ONLY valid JSON listing the issues you found, ranked most severe first:
+{"issues": [{"title": "...", "description": "...", "severity": "critical", "filePaths": ["..."], "suggestedFix": "..."}], "summary": "..."}
 
 Rules:
-- "passed": true = fully implemented and functional; false = missing, partial, or broken
-- "detail": brief plain-language explanation (no file paths or code)
-- Exactly ${requirements.length} results, one per requirement, in order
+- Report only real gaps between the spec and the code; if the code fully satisfies the spec, return an empty "issues" array.
+- "severity" must be one of: "critical", "high", "medium", "low".
+- "title": short label for the issue. "description": plain-language explanation of the gap.
+- "filePaths" and "suggestedFix" are optional but helpful when known.
+- "summary": one-sentence overview of the codebase's state against the spec.
 
 No markdown, no explanation, no text outside the JSON.${rootDirInstruction}`;
 
@@ -270,31 +269,38 @@ No markdown, no explanation, no text outside the JSON.${rootDirInstruction}`;
 
 /**
  * Schema for the LLM evaluation JSON. Per-field `.catch()` defaults fold
- * validation and fallback values into a single parse: a non-string requirement
- * or detail becomes "", `passed` is true only when strictly boolean-true, a
- * malformed item collapses to a default entry, a missing/non-array `results`
- * becomes undefined (triggering the per-requirement fallback), and a
- * non-string summary becomes "Evaluation completed".
+ * validation and fallback values into a single parse: a malformed issue collapses
+ * to a default entry, an unknown severity becomes "medium", a missing/non-array
+ * `issues` becomes an empty list, and a non-string summary becomes a default.
  */
 const evalJsonSchema = z
   .object({
-    results: z
+    issues: z
       .array(
         z
           .object({
-            requirement: z.string().catch(""),
-            passed: z.boolean().catch(false),
-            detail: z.string().catch(""),
+            title: z.string().catch("Untitled issue"),
+            description: z.string().catch(""),
+            severity: z
+              .enum(["critical", "high", "medium", "low"])
+              .catch("medium"),
+            filePaths: z.array(z.string()).optional().catch(undefined),
+            suggestedFix: z.string().optional().catch(undefined),
           })
-          .catch({ requirement: "", passed: false, detail: "" }),
+          .catch({
+            title: "Untitled issue",
+            description: "",
+            severity: "medium",
+            filePaths: undefined,
+            suggestedFix: undefined,
+          }),
       )
-      .optional()
-      .catch(undefined),
+      .catch([]),
     summary: z.string().catch("Evaluation completed"),
   })
-  .catch({ results: undefined, summary: "Evaluation completed" });
+  .catch({ issues: [], summary: "Evaluation completed" });
 
-/** Saves evaluation results, parsing the LLM JSON into per-requirement pass/fail entries. */
+/** Saves evaluation results, parsing the LLM JSON into a severity-ranked issue list. */
 export const saveResult = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -314,20 +320,18 @@ export const saveResult = internalMutation({
       if (json.length > 0) {
         const parsed = evalJsonSchema.parse(json[0]);
 
-        const doc = await ctx.db.get(report.docId);
-        const requirements = doc?.requirements ?? [];
-
-        const results =
-          parsed.results ??
-          requirements.map((r) => ({
-            requirement: r,
-            passed: false,
-            detail: "No evaluation produced",
-          }));
+        const issues = parsed.issues.map((issue, i) => ({
+          id: `issue-${i}`,
+          title: issue.title,
+          description: issue.description,
+          severity: issue.severity,
+          filePaths: issue.filePaths,
+          suggestedFix: issue.suggestedFix,
+        }));
 
         await ctx.db.patch(args.reportId, {
           status: "completed",
-          results,
+          issues,
           summary: parsed.summary,
           activeWorkflowId: undefined,
           updatedAt: Date.now(),
@@ -444,35 +448,34 @@ export const getFixData = internalQuery({
       ? `\nIMPORTANT: Unless the user mentions otherwise, focus your changes on the app at "${rootDirectory}".`
       : "";
 
-    const failedResults = report.results.filter((r) => !r.passed);
+    const issues = report.issues ?? [];
 
-    const prompt = `You are a senior software engineer. Your task is to fix failing requirements in this codebase.
+    const prompt = `You are a senior software engineer. Your task is to fix the issues flagged against this codebase.
 
 ## Feature: ${doc.title}
-${doc.description || ""}
 
-## Failing Requirements:
-${failedResults.map((r, i) => `${i + 1}. ${r.requirement}\n   Issue: ${r.detail}`).join("\n")}
+## Issues to fix:
+${issues.map((issue, i) => `${i + 1}. [${issue.severity}] ${issue.title}\n   ${issue.description}${issue.filePaths && issue.filePaths.length > 0 ? `\n   Files: ${issue.filePaths.join(", ")}` : ""}${issue.suggestedFix ? `\n   Suggested fix: ${issue.suggestedFix}` : ""}`).join("\n")}
 
 ## Instructions:
 1. Explore the codebase to understand the current implementation
-2. Fix each failing requirement by making the necessary code changes
+2. Fix each issue by making the necessary code changes
 3. After making changes, commit your work with a clear commit message
 4. Do NOT push. Eva publishes the branch after you finish successfully.
 5. Make sure your changes don't break existing functionality
 
 Rules:
-- Make minimal, focused changes to fix only the failing requirements
+- Make minimal, focused changes to fix only the flagged issues
 - Follow existing code patterns and conventions
 - Do not refactor unrelated code
 - Do NOT run git push or gh pr commands${rootDirInstruction}`;
 
     const prDescription = `## Evaluation Fix
 
-Automatically generated fix for failing requirements in **${doc.title}**.
+Automatically generated fix for issues flagged in **${doc.title}**.
 
 ### Issues Fixed:
-${failedResults.map((r) => `- ${r.requirement}: ${r.detail}`).join("\n")}
+${issues.map((issue) => `- [${issue.severity}] ${issue.title}: ${issue.description}`).join("\n")}
 
 ---
 *Implemented by Eva*`;
@@ -581,10 +584,8 @@ export const startEvaluation = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Document not found");
     }
-    if ((doc.requirements ?? []).length === 0) {
-      throw new Error(
-        "Add requirements to this document before running a test",
-      );
+    if (doc.content.trim().length === 0) {
+      throw new Error("Add content to this document before running a test");
     }
 
     const repo = await ctx.db.get(args.repoId);
@@ -604,7 +605,7 @@ export const startEvaluation = authMutation({
       repoId: args.repoId,
       docId: args.docId,
       status: "pending",
-      results: [],
+      issues: [],
       branchName: args.branchName,
       createdAt: now,
       updatedAt: now,
@@ -630,7 +631,7 @@ export const startEvaluation = authMutation({
 
 /**
  * Public mutation to start an opt-in fix for a completed evaluation that has
- * failing requirements. Idempotent: returns without starting if a fix is already
+ * flagged issues. Idempotent: returns without starting if a fix is already
  * running or has completed. Retrying after a fix error uses a fresh branch name.
  */
 export const startFix = authMutation({
@@ -646,8 +647,8 @@ export const startFix = authMutation({
     if (report.status !== "completed") {
       throw new Error("Evaluation is not complete");
     }
-    if (!report.results.some((r) => !r.passed)) {
-      throw new Error("No failing requirements to fix");
+    if ((report.issues ?? []).length === 0) {
+      throw new Error("No issues to fix");
     }
     if (report.fixStatus === "fixing" || report.fixStatus === "fix_completed") {
       return null;

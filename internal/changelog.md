@@ -1,5 +1,12 @@
 # Changelog
 
+## Docs slim to Markdown + HTML tabs; testing arena flags issues into tasks - 2026-07-16
+
+- Documents now have two tabs: **Markdown** (the content editor, renamed from Content) and **HTML** (renders a stored `html` field read-only in a sandboxed iframe). The Description, Requirements, and User Flows tabs and the "Re-extract" flow (`docPrdWorkflow`) are gone; PRD upload no longer auto-parses.
+- The Testing Arena no longer scores a fixed requirement checklist. A run reads the document itself as the specification and returns a severity-ranked list of issues found in the codebase (may differ between runs). Each run lists its issues with per-item checkboxes and **Create Tasks** / **Create & Run** buttons that turn selected issues into agent tasks, matching the automations "actions only" flow. The opt-in auto-fix PR button remains.
+- Runs now require the document to have content (not requirements) before testing. Report results move from `results` (per-requirement pass/fail) to a new optional `issues` array; the legacy `results` field is kept optional for old rows and cleared by the `clearEvaluationReports` migration.
+- Reason for change: the four-tab doc model and the rigid pass/fail scoring added maintenance and friction; a freeform issue list that converts straight into tasks is simpler and more actionable.
+
 ## Custom sandbox tabs use name slugs in the URL - 2026-07-16
 
 - Session URLs for custom tabs now use a slug of the tab name (e.g. `/sessions/25/supabase`) instead of the Convex document id, so links stay readable and stable as long as the name stays the same.

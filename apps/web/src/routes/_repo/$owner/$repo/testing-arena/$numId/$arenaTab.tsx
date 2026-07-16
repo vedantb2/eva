@@ -15,16 +15,6 @@ import {
   TabsList,
   TabsTrigger,
   Spinner,
-  TestResults,
-  TestResultsHeader,
-  TestResultsSummary,
-  TestResultsProgress,
-  TestResultsContent,
-  TestSuite,
-  TestSuiteName,
-  TestSuiteContent,
-  TestSuiteStats,
-  Test,
   TestError,
   TestErrorMessage,
 } from "@conductor/ui";
@@ -33,13 +23,13 @@ import {
   IconWorld,
   IconCode,
   IconCheck,
-  IconX,
   IconAlertTriangle,
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { UITestingPanel } from "../UITestingPanelClient";
+import { IssuesList } from "../_components/IssuesList";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
@@ -76,9 +66,7 @@ function ReportCard({
   const startFix = useMutation(api.evaluationWorkflow.startFix);
   const [isStartingFix, setIsStartingFix] = useState(false);
 
-  const passed = report.results.filter((r) => r.passed);
-  const failed = report.results.filter((r) => !r.passed);
-  const total = report.results.length;
+  const issues = report.issues ?? [];
 
   const handleFix = async () => {
     setIsStartingFix(true);
@@ -89,162 +77,120 @@ function ReportCard({
     }
   };
 
-  const summary =
-    total > 0
-      ? { passed: passed.length, failed: failed.length, skipped: 0, total }
-      : undefined;
+  if (report.status === "running") {
+    const steps = parseActivitySteps(streamingActivity);
+    return steps ? (
+      <div className="px-1 py-3">
+        <ActivityTasks steps={steps} isStreaming />
+      </div>
+    ) : (
+      <div className="flex items-center gap-3 px-1 py-3">
+        <Spinner size="sm" />
+        <span className="text-sm text-muted-foreground truncate">
+          {streamingActivity || "Reviewing codebase..."}
+        </span>
+      </div>
+    );
+  }
+
+  if (report.status === "error" && report.error) {
+    return (
+      <TestError>
+        <TestErrorMessage>{report.error}</TestErrorMessage>
+      </TestError>
+    );
+  }
+
+  if (report.status !== "completed") return null;
 
   return (
-    <TestResults summary={summary}>
-      {report.status === "running" &&
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">
+          {issues.length === 0
+            ? "No issues found"
+            : `${issues.length} issue${issues.length === 1 ? "" : "s"} found`}
+        </span>
+        <div className="flex items-center gap-2">
+          {issues.length > 0 && report.fixStatus === undefined && (
+            <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
+              <IconTool size={14} />
+              {isStartingFix ? "Starting..." : "Fix issues"}
+            </Button>
+          )}
+          {report.fixStatus === "fixing" && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Spinner size="sm" />
+              Fixing issues...
+            </span>
+          )}
+          {report.fixStatus === "fix_error" && (
+            <>
+              <span className="flex items-center gap-1.5 text-xs text-destructive">
+                <IconAlertTriangle size={14} />
+                Fix failed
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleFix}
+                disabled={isStartingFix}
+              >
+                <IconTool size={14} />
+                {isStartingFix ? "Starting..." : "Retry fix"}
+              </Button>
+            </>
+          )}
+          {report.prUrl && (
+            <a
+              href={report.prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+            >
+              <IconGitPullRequest size={14} />
+              View Fix PR
+            </a>
+          )}
+          <RelativeDateTime
+            at={report.createdAt}
+            className="text-sm text-muted-foreground"
+          />
+        </div>
+      </div>
+
+      {report.fixStatus === "fixing" &&
         (() => {
-          const steps = parseActivitySteps(streamingActivity);
-          return steps ? (
-            <div className="px-4 py-3">
-              <ActivityTasks steps={steps} isStreaming />
+          const fixSteps = parseActivitySteps(streamingActivity);
+          return fixSteps ? (
+            <div className="rounded-surface border border-primary/20 bg-primary/5 px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <IconTool size={14} className="text-primary shrink-0" />
+                <span className="text-xs font-medium text-primary">
+                  Fixing issues...
+                </span>
+              </div>
+              <ActivityTasks steps={fixSteps} isStreaming />
             </div>
           ) : (
-            <div className="flex items-center gap-3 px-4 py-3">
-              <Spinner size="sm" />
-              <span className="text-sm text-muted-foreground truncate">
-                {streamingActivity || "Evaluating codebase..."}
+            <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">
+              <IconTool size={14} className="text-primary shrink-0" />
+              <span className="text-sm text-primary">
+                {streamingActivity ||
+                  "Eva is fixing the flagged issues and will create a PR automatically..."}
               </span>
             </div>
           );
         })()}
 
-      {report.status === "error" && report.error && (
-        <div className="p-4">
-          <TestError>
-            <TestErrorMessage>{report.error}</TestErrorMessage>
-          </TestError>
-        </div>
+      {report.summary && (
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {report.summary}
+        </p>
       )}
 
-      {report.status === "completed" && (
-        <>
-          <TestResultsHeader>
-            <TestResultsSummary />
-            <div className="flex items-center gap-2">
-              {failed.length > 0 && report.fixStatus === undefined && (
-                <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
-                  <IconTool size={14} />
-                  {isStartingFix ? "Starting..." : "Fix issues"}
-                </Button>
-              )}
-              {report.fixStatus === "fixing" && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Spinner size="sm" />
-                  Fixing issues...
-                </span>
-              )}
-              {report.fixStatus === "fix_error" && (
-                <>
-                  <span className="flex items-center gap-1.5 text-xs text-destructive">
-                    <IconAlertTriangle size={14} />
-                    Fix failed
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleFix}
-                    disabled={isStartingFix}
-                  >
-                    <IconTool size={14} />
-                    {isStartingFix ? "Starting..." : "Retry fix"}
-                  </Button>
-                </>
-              )}
-              {report.prUrl && (
-                <a
-                  href={report.prUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
-                >
-                  <IconGitPullRequest size={14} />
-                  View Fix PR
-                </a>
-              )}
-              <RelativeDateTime
-                at={report.createdAt}
-                className="text-sm text-muted-foreground"
-              />
-            </div>
-          </TestResultsHeader>
-
-          <TestResultsContent>
-            <TestResultsProgress />
-
-            {report.fixStatus === "fixing" &&
-              (() => {
-                const fixSteps = parseActivitySteps(streamingActivity);
-                return fixSteps ? (
-                  <div className="rounded-surface border border-primary/20 bg-primary/5 px-4 py-3">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <IconTool size={14} className="text-primary shrink-0" />
-                      <span className="text-xs font-medium text-primary">
-                        Fixing issues...
-                      </span>
-                    </div>
-                    <ActivityTasks steps={fixSteps} isStreaming />
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">
-                    <IconTool size={14} className="text-primary shrink-0" />
-                    <span className="text-sm text-primary">
-                      {streamingActivity ||
-                        "Eva is fixing the failing requirements and will create a PR automatically..."}
-                    </span>
-                  </div>
-                );
-              })()}
-
-            {report.summary && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {report.summary}
-              </p>
-            )}
-
-            {failed.length > 0 && (
-              <TestSuite name="Failed" status="failed" defaultOpen>
-                <TestSuiteName>
-                  <TestSuiteStats failed={failed.length} />
-                </TestSuiteName>
-                <TestSuiteContent>
-                  {failed.map((item, idx) => (
-                    <div key={idx}>
-                      <Test name={item.requirement} status="failed" />
-                      <p className="px-4 pb-2 text-xs text-muted-foreground sm:px-6 md:px-10">
-                        {item.detail}
-                      </p>
-                    </div>
-                  ))}
-                </TestSuiteContent>
-              </TestSuite>
-            )}
-
-            {passed.length > 0 && (
-              <TestSuite name="Passed" status="passed">
-                <TestSuiteName>
-                  <TestSuiteStats passed={passed.length} />
-                </TestSuiteName>
-                <TestSuiteContent>
-                  {passed.map((item, idx) => (
-                    <div key={idx}>
-                      <Test name={item.requirement} status="passed" />
-                      <p className="px-4 pb-2 text-xs text-muted-foreground sm:px-6 md:px-10">
-                        {item.detail}
-                      </p>
-                    </div>
-                  ))}
-                </TestSuiteContent>
-              </TestSuite>
-            )}
-          </TestResultsContent>
-        </>
-      )}
-    </TestResults>
+      <IssuesList report={report} />
+    </div>
   );
 }
 
@@ -257,10 +203,7 @@ function RunListItem({
   isActive: boolean;
   onClick: () => void;
 }) {
-  const passed = report.results.filter((r) => r.passed).length;
-  const failed = report.results.filter((r) => !r.passed).length;
-  const total = report.results.length;
-  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const issueCount = (report.issues ?? []).length;
 
   return (
     <button
@@ -273,19 +216,24 @@ function RunListItem({
     >
       {report.status === "completed" && (
         <>
-          {failed === 0 ? (
+          {issueCount === 0 ? (
             <IconCheck size={14} className="text-success shrink-0" />
           ) : report.prUrl ? (
             <IconGitPullRequest size={14} className="text-primary shrink-0" />
           ) : (
-            <IconX size={14} className="text-destructive shrink-0" />
+            <IconAlertTriangle
+              size={14}
+              className="text-destructive shrink-0"
+            />
           )}
           <div className="flex flex-col min-w-0">
             <span className="text-sm tabular-nums">
-              {passed}/{total} passed
+              {issueCount === 0
+                ? "No issues"
+                : `${issueCount} issue${issueCount === 1 ? "" : "s"}`}
             </span>
             <span className="text-xs text-muted-foreground">
-              {passRate}% &middot; <RelativeDateTime at={report.createdAt} />
+              <RelativeDateTime at={report.createdAt} />
               {report.fixStatus === "fixing" && " · Fixing..."}
               {report.prUrl && " · PR created"}
             </span>
@@ -416,7 +364,7 @@ function TestingArenaDetailRoute() {
   const hasActiveRun =
     reports?.some((r) => r.status === "pending" || r.status === "running") ??
     false;
-  const hasRequirements = (doc?.requirements?.length ?? 0) > 0;
+  const hasContent = (doc?.content?.trim().length ?? 0) > 0;
 
   const handleRunTest = async () => {
     if (!doc) return;
@@ -494,10 +442,10 @@ function TestingArenaDetailRoute() {
               <Button
                 size="sm"
                 onClick={handleRunTest}
-                disabled={isRunning || hasActiveRun || !hasRequirements}
+                disabled={isRunning || hasActiveRun || !hasContent}
                 title={
-                  !hasRequirements
-                    ? "Add requirements to this document to run tests"
+                  !hasContent
+                    ? "Add content to this document to run tests"
                     : undefined
                 }
               >

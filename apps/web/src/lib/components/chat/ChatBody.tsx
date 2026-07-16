@@ -46,6 +46,7 @@ import {
 import type { Doc, Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   MentionTextarea,
@@ -239,6 +240,23 @@ export function ChatBody({
       );
     }
   });
+  const reorderQueuedMessages = useMutation(
+    api.queuedMessages.reorder,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: args.parentId,
+    });
+    if (current === undefined) return;
+    const byId = new Map(current.map((m) => [m._id, m]));
+    const reordered = args.orderedIds
+      .map((id) => byId.get(id))
+      .filter((m): m is (typeof current)[number] => m !== undefined);
+    localStore.setQuery(
+      api.queuedMessages.listByParent,
+      { parentId: args.parentId },
+      reordered,
+    );
+  });
 
   const evaIcon = <EvaIcon />;
 
@@ -290,6 +308,18 @@ export function ChatBody({
         info: formatQueuedInfo?.(message),
       })),
     [queuedMessages, formatQueuedInfo],
+  );
+
+  // Previously sent user messages as editable display text, newest-first, for
+  // ArrowUp/ArrowDown history recall in the composer. Tokenized mentions are
+  // de-tokenized to plain label text (the editor's chip map is mount-only).
+  const messageHistory = useMemo(
+    () =>
+      messages
+        .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
+        .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+        .reverse(),
+    [messages],
   );
 
   // Index of the latest user message — everything from here to the end is the
@@ -498,6 +528,11 @@ export function ChatBody({
             onDelete={async (id) => {
               await deleteQueuedMessage({ id });
             }}
+            onReorder={async (orderedIds) => {
+              const parentId = queuedMessages[0]?.parentId;
+              if (!parentId) return;
+              await reorderQueuedMessages({ parentId, orderedIds });
+            }}
           />
           {preInputContent}
           {!hintDismissed ? (
@@ -556,6 +591,7 @@ export function ChatBody({
                     placeholder={placeholder}
                     initialMentionMap={draft?.mentionMap}
                     initialSkillMap={draft?.skillMap}
+                    history={messageHistory}
                   />
                   <PromptInputFooter>
                     <PromptInputTools>

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { forwardRef, type ComponentProps, type ReactNode } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -104,15 +104,19 @@ export const QueueList = ({
 
 export type QueueItemProps = ComponentProps<"li">;
 
-export const QueueItem = ({ className, ...props }: QueueItemProps) => (
-  <li
-    className={cn(
-      "group flex flex-col gap-1 rounded-md px-3 py-1 text-sm transition-colors hover:bg-muted",
-      className,
-    )}
-    {...props}
-  />
+export const QueueItem = forwardRef<HTMLLIElement, QueueItemProps>(
+  ({ className, ...props }, ref) => (
+    <li
+      ref={ref}
+      className={cn(
+        "group flex flex-col gap-1 rounded-md px-3 py-1 text-sm transition-colors hover:bg-muted",
+        className,
+      )}
+      {...props}
+    />
+  ),
 );
+QueueItem.displayName = "QueueItem";
 
 export type QueueItemIndicatorProps = ComponentProps<"span"> & {
   completed?: boolean;

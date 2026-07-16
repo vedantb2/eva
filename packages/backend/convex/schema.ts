@@ -133,10 +133,9 @@ const schema = defineSchema(
     ]),
     taskActivity: defineTable(taskActivityFields).index("by_task", ["taskId"]),
     messages: defineTable(messageFields).index("by_parent", ["parentId"]),
-    queuedMessages: defineTable(queuedMessageFields).index(
-      "by_parent_and_created",
-      ["parentId", "createdAt"],
-    ),
+    queuedMessages: defineTable(queuedMessageFields)
+      .index("by_parent_and_created", ["parentId", "createdAt"])
+      .index("by_parent_and_order", ["parentId", "order"]),
     sessions: defineTable(sessionFields)
       .index("by_repo", ["repoId"])
       .index("by_user", ["userId"])

@@ -16,6 +16,8 @@ import {
   buildMentionPattern,
   buildSkillPattern,
   extractEditableText,
+  isCaretOnFirstLine,
+  isCaretOnLastLine,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
@@ -58,6 +60,12 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   chipClassName?: string;
   skillChipClassName?: string;
   onEnterSubmit?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  /**
+   * Called when ArrowUp is pressed on the first line, or ArrowDown on the last
+   * line, while the mention popup is closed. Return true if the navigation was
+   * handled (e.g. a history entry was applied) to suppress caret movement.
+   */
+  onHistoryNavigate?: (direction: "up" | "down") => boolean;
   renderItem?: (item: TItem, isSelected: boolean) => ReactNode;
   renderSlashItem?: (item: SlashItem, isSelected: boolean) => ReactNode;
   filterSlashItem?: (item: SlashItem, query: string) => boolean;
@@ -220,6 +228,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   chipClassName = MENTION_CHIP_CLASS,
   skillChipClassName = SKILL_CHIP_CLASS,
   onEnterSubmit,
+  onHistoryNavigate,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
@@ -584,6 +593,31 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         }
       }
 
+      // Message-history recall: only when the popup is closed and no modifier
+      // is held, so it never competes with the mention picker or shortcuts.
+      if (
+        onHistoryNavigate &&
+        !trigger.isOpen &&
+        !e.shiftKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        const el = editorRef.current;
+        if (e.key === "ArrowUp" && el && isCaretOnFirstLine(el)) {
+          if (onHistoryNavigate("up")) {
+            e.preventDefault();
+            return;
+          }
+        }
+        if (e.key === "ArrowDown" && el && isCaretOnLastLine(el)) {
+          if (onHistoryNavigate("down")) {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+
       if (e.key === "Enter" && onEnterSubmit) {
         if (isComposing || e.nativeEvent.isComposing) return;
         if (e.shiftKey) return;
@@ -600,6 +634,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       closeTrigger,
       isComposing,
       onEnterSubmit,
+      onHistoryNavigate,
     ],
   );
 

@@ -128,6 +128,7 @@ export const enqueueMessage = authMutation({
       parentId: args.taskId,
       content,
       createdAt: Date.now(),
+      order: Date.now(),
       userId: ctx.userId,
       model: args.model,
       reasoningLevel: args.reasoningLevel,

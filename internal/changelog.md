@@ -1,5 +1,12 @@
 # Changelog
 
+## Composer message-history recall and reorderable queue - 2026-07-16
+
+- The chat composer now recalls previously sent messages: ArrowUp on the first line steps back through your sent messages and ArrowDown moves forward to your live draft, terminal-style. Works across session, quick-task, project, and design chats.
+- Queued messages can be dragged to reorder how they run; the new order persists and dequeue follows it. Recalled messages that contained @/‍ mentions come back as plain text (a known limit of the editor's mount-time chip map).
+- Added an `order` field + index to `queuedMessages` with a `reorder` mutation and a backfill migration for legacy rows; run order no longer depends on creation time.
+- Reason for change: retyping past prompts and being stuck with fixed FIFO queue order were both friction points in day-to-day chat use.
+
 ## Autosave automation settings and add a Sonner toast - 2026-07-16
 
 - The automation Settings tab no longer has a Save button: text fields (title, prompt, cron) autosave on blur and toggles/model select save immediately, so changes persist without an extra click.

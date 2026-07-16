@@ -19,3 +19,4 @@ export {
   backfillNumIds,
   backfillNumIdsForEntityType,
 } from "./_migrations/backfillNumIds";
+export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";

@@ -24,7 +24,7 @@ export async function startNextQueuedSessionMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", sessionId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", sessionId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -118,9 +118,7 @@ export async function startNextQueuedDesignMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) =>
-      q.eq("parentId", designSessionId),
-    )
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", designSessionId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -193,7 +191,7 @@ export async function startNextQueuedProjectChatMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", projectId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", projectId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -260,7 +258,7 @@ export async function startNextQueuedTaskChatMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", taskId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", taskId))
     .order("asc")
     .first();
   if (!nextMessage) {

@@ -45,6 +45,7 @@ import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -125,6 +126,23 @@ export function DesignChatPanel({
       );
     }
   });
+  const reorderQueuedMessages = useMutation(
+    api.queuedMessages.reorder,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: designSessionId,
+    });
+    if (current === undefined) return;
+    const byId = new Map(current.map((m) => [m._id, m]));
+    const reordered = args.orderedIds
+      .map((id) => byId.get(id))
+      .filter((m): m is (typeof current)[number] => m !== undefined);
+    localStore.setQuery(
+      api.queuedMessages.listByParent,
+      { parentId: designSessionId },
+      reordered,
+    );
+  });
   const { repo, basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
@@ -143,6 +161,17 @@ export function DesignChatPanel({
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
+
+  // Previously sent messages as editable display text, newest-first, for
+  // ArrowUp/ArrowDown history recall in the composer.
+  const messageHistory = useMemo(
+    () =>
+      (messages ?? [])
+        .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
+        .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+        .reverse(),
+    [messages],
+  );
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -369,6 +398,12 @@ export function DesignChatPanel({
               onDelete={async (id) => {
                 await deleteQueuedMessage({ id });
               }}
+              onReorder={async (orderedIds) => {
+                await reorderQueuedMessages({
+                  parentId: designSessionId,
+                  orderedIds,
+                });
+              }}
             />
             {!draftSeed.isReady ? (
               // Placeholder that matches the input group's visual footprint.
@@ -398,6 +433,7 @@ export function DesignChatPanel({
                     }
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}
+                    history={messageHistory}
                   />
                   <PromptInputFooter>
                     <PromptInputTools>

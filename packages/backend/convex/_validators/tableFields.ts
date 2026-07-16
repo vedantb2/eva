@@ -284,6 +284,10 @@ export const githubRepoFields = {
   systemPrompt: v.optional(v.string()),
   prRecapsEnabled: v.optional(v.boolean()),
   prRecapModel: v.optional(aiModelValidator),
+  // Convex storage id of an uploaded logo image shown next to the repo in repo
+  // lists. Per-app (not shared across monorepo siblings). Resolved to a URL by
+  // list/listByTeam via ctx.storage.getUrl.
+  logoStorageId: v.optional(v.id("_storage")),
 };
 
 export const projectFields = {
@@ -415,6 +419,10 @@ export const queuedMessageFields = {
   ),
   content: v.string(),
   createdAt: v.number(),
+  // Sort key for queue run order. Enqueue sets Date.now() (appends to the end);
+  // the reorder mutation rewrites this to 0-based positions. Optional so the
+  // field deploys without a migration; legacy rows without it sort first.
+  order: v.optional(v.number()),
   userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),

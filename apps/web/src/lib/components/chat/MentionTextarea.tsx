@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback } from "react";
+import { forwardRef, useCallback, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { usePromptInputController } from "@conductor/ui";
 import type { Doc, Id } from "@conductor/backend";
@@ -42,6 +42,12 @@ interface MentionTextareaProps {
   placeholder?: string;
   initialMentionMap?: Map<string, string>;
   initialSkillMap?: Map<string, string>;
+  /**
+   * Previously sent messages as editable display text, newest-first. When
+   * provided, ArrowUp on the first line recalls older messages and ArrowDown
+   * moves back toward the live draft (terminal-style history).
+   */
+  history?: string[];
 }
 
 export const MentionTextarea = forwardRef<
@@ -56,6 +62,7 @@ export const MentionTextarea = forwardRef<
     placeholder,
     initialMentionMap,
     initialSkillMap,
+    history,
   },
   ref,
 ) {
@@ -63,6 +70,50 @@ export const MentionTextarea = forwardRef<
   const controller = usePromptInputController();
   const value = controller.textInput.value;
   const navigateToDocById = useDocMentionNavigate(repoBasePath);
+
+  // Cursor into `history` (null = editing the live draft) and the draft stashed
+  // when history navigation began, so ArrowDown past the newest entry restores it.
+  const historyIndexRef = useRef<number | null>(null);
+  const stashedDraftRef = useRef("");
+  const setInput = controller.textInput.setInput;
+
+  // Any manual keystroke exits history navigation back to a fresh draft.
+  const handleValueChange = useCallback(
+    (next: string) => {
+      historyIndexRef.current = null;
+      setInput(next);
+    },
+    [setInput],
+  );
+
+  const handleHistoryNavigate = useCallback(
+    (direction: "up" | "down") => {
+      if (!history || history.length === 0) return false;
+      if (direction === "up") {
+        if (historyIndexRef.current === null) {
+          stashedDraftRef.current = value;
+          historyIndexRef.current = 0;
+        } else {
+          historyIndexRef.current = Math.min(
+            historyIndexRef.current + 1,
+            history.length - 1,
+          );
+        }
+        setInput(history[historyIndexRef.current] ?? "");
+        return true;
+      }
+      if (historyIndexRef.current === null) return false;
+      if (historyIndexRef.current === 0) {
+        historyIndexRef.current = null;
+        setInput(stashedDraftRef.current);
+        return true;
+      }
+      historyIndexRef.current -= 1;
+      setInput(history[historyIndexRef.current] ?? "");
+      return true;
+    },
+    [history, value, setInput],
+  );
 
   const handleMentionChipClick = useCallback(
     (id: string) => {
@@ -98,7 +149,10 @@ export const MentionTextarea = forwardRef<
     <MentionEditor
       ref={ref}
       value={value}
-      onValueChange={controller.textInput.setInput}
+      onValueChange={handleValueChange}
+      onHistoryNavigate={
+        history && history.length > 0 ? handleHistoryNavigate : undefined
+      }
       items={items}
       slashItems={slashItems}
       onMentionChipClick={handleMentionChipClick}

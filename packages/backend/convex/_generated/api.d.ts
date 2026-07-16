@@ -78,6 +78,7 @@ import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessag
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
 import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.js";
+import type * as _migrations_backfillQueuedMessageOrder from "../_migrations/backfillQueuedMessageOrder.js";
 import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
@@ -342,6 +343,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;
   "_mentions/skillToken": typeof _mentions_skillToken;
   "_migrations/backfillNumIds": typeof _migrations_backfillNumIds;
+  "_migrations/backfillQueuedMessageOrder": typeof _migrations_backfillQueuedMessageOrder;
   "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;

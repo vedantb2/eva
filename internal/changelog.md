@@ -1,5 +1,11 @@
 # Changelog
 
+## Compact session sidebar rows with hover details - 2026-07-16
+
+- Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.
+- List queries attach `firstMessagePreview` from the earliest user message so existing chats get previews without a schema migration.
+- Reason for change: the always-visible author/date row made the sidebar taller than needed for scanning titles.
+
 ## Merge Proof into the Activity timeline - 2026-07-16
 
 - The separate "Proof" tab is gone. Each proof Eva attaches (screenshot, video, or note) now appears inline in the Activity thread at the moment it was captured, so proofs sit in chronological order alongside runs, audits, and comments.
@@ -42,6 +48,12 @@
 - Toggle and model changes use an optimistic update so they feel instant, and every save confirms with a "Saved" toast in the top-right.
 - Added Sonner as the app's first imperative toast API (`toast` from `@conductor/ui`), mounted globally and themed to match light/dark.
 - Reason for change: the explicit Save button was easy to forget and out of step with the rest of the settings screens, which already autosave.
+
+## Compact session sidebar rows with hover details - 2026-07-16
+
+- Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.
+- List queries attach `firstMessagePreview` from the earliest user message so existing chats get previews without a schema migration.
+- Reason for change: the always-visible author/date row made the sidebar taller than needed for scanning titles.
 
 ## Tag sandboxes from Convex ENVIRONMENT when set - 2026-07-14
 

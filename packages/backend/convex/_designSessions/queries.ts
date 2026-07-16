@@ -2,13 +2,22 @@ import { v } from "convex/values";
 import { designSessionFields } from "../validators";
 import { authQuery, hasRepoAccess } from "../functions";
 import { internalQuery } from "../_generated/server";
-import { Doc } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { entityVisible, filterActiveEntities } from "../numId";
+import { firstUserMessagePreview } from "../_messages/preview";
 
 export const designSessionValidator = v.object({
   _id: v.id("designSessions"),
   _creationTime: v.number(),
   ...designSessionFields,
+});
+
+/** Design session list row with first-user-message hover preview. */
+const designSessionListItemValidator = v.object({
+  _id: v.id("designSessions"),
+  _creationTime: v.number(),
+  ...designSessionFields,
+  firstMessagePreview: v.union(v.string(), v.null()),
 });
 
 /** Sorts design sessions by most recently updated (falling back to creation time). */
@@ -17,6 +26,19 @@ function byMostRecentlyUpdated(
   b: Doc<"designSessions">,
 ): number {
   return (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime);
+}
+
+/** Attaches a short first-user-message preview for sidebar hover cards. */
+async function withFirstMessagePreviews(
+  db: Parameters<typeof firstUserMessagePreview>[0],
+  sessions: Doc<"designSessions">[],
+) {
+  return await Promise.all(
+    sessions.map(async (session) => ({
+      ...session,
+      firstMessagePreview: await firstUserMessagePreview(db, session._id),
+    })),
+  );
 }
 
 /** Internal fetch of a design session by id (status checks in node actions). */
@@ -31,7 +53,7 @@ export const getInternal = internalQuery({
 /** Lists active (non-archived) design sessions for a repo, sorted by most recently updated. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(designSessionValidator),
+  returns: v.array(designSessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = filterActiveEntities(
@@ -40,14 +62,17 @@ export const list = authQuery({
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
         .collect(),
     );
-    return sessions.filter((s) => !s.archived).sort(byMostRecentlyUpdated);
+    return await withFirstMessagePreviews(
+      ctx.db,
+      sessions.filter((s) => !s.archived).sort(byMostRecentlyUpdated),
+    );
   },
 });
 
 /** Lists archived design sessions for a repo. */
 export const listArchived = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(designSessionValidator),
+  returns: v.array(designSessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = filterActiveEntities(
@@ -56,9 +81,10 @@ export const listArchived = authQuery({
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
         .collect(),
     );
-    return sessions
-      .filter((s) => s.archived === true)
-      .sort(byMostRecentlyUpdated);
+    return await withFirstMessagePreviews(
+      ctx.db,
+      sessions.filter((s) => s.archived === true).sort(byMostRecentlyUpdated),
+    );
   },
 });
 

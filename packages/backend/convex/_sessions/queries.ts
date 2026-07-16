@@ -2,17 +2,40 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { authQuery, hasRepoAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
+import { firstUserMessagePreview } from "../_messages/preview";
+import { sessionFields } from "../validators";
 import { sessionValidator } from "./helpers";
+
+/** Session list row: document fields plus first-user-message hover preview. */
+const sessionListItemValidator = v.object({
+  _id: v.id("sessions"),
+  _creationTime: v.number(),
+  ...sessionFields,
+  firstMessagePreview: v.union(v.string(), v.null()),
+});
 
 /** Sorts sessions by most recently updated (falling back to creation time). */
 function byMostRecentlyUpdated(a: Doc<"sessions">, b: Doc<"sessions">): number {
   return (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime);
 }
 
+/** Attaches a short first-user-message preview for sidebar hover cards. */
+async function withFirstMessagePreviews(
+  db: Parameters<typeof firstUserMessagePreview>[0],
+  sessions: Doc<"sessions">[],
+) {
+  return await Promise.all(
+    sessions.map(async (session) => ({
+      ...session,
+      firstMessagePreview: await firstUserMessagePreview(db, session._id),
+    })),
+  );
+}
+
 /** Lists all non-archived sessions for a repo, sorted by most recently updated. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(sessionValidator),
+  returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = filterActiveEntities(
@@ -22,14 +45,17 @@ export const list = authQuery({
         .filter((q) => q.neq(q.field("archived"), true))
         .collect(),
     );
-    return sessions.sort(byMostRecentlyUpdated);
+    return await withFirstMessagePreviews(
+      ctx.db,
+      sessions.sort(byMostRecentlyUpdated),
+    );
   },
 });
 
 /** Lists all archived sessions for a repo, sorted by most recently updated. */
 export const listArchived = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(sessionValidator),
+  returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = filterActiveEntities(
@@ -40,7 +66,10 @@ export const listArchived = authQuery({
         )
         .collect(),
     );
-    return sessions.sort(byMostRecentlyUpdated);
+    return await withFirstMessagePreviews(
+      ctx.db,
+      sessions.sort(byMostRecentlyUpdated),
+    );
   },
 });
 

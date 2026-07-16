@@ -52,6 +52,7 @@ interface SessionItem {
   sandboxId?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  firstMessagePreview?: string | null;
 }
 
 interface SessionListSidebarProps<T extends SessionItem> {

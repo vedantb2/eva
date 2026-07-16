@@ -3,7 +3,12 @@
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import { cn } from "@conductor/ui";
+import {
+  cn,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@conductor/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
@@ -46,12 +51,12 @@ interface SidebarSessionItemProps {
   title: string;
   userId: Id<"users">;
   createdAt: number;
-  updatedAt?: number;
   status: SandboxStatus;
   isSelected: boolean;
   onNavigate?: () => void;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  firstMessagePreview?: string | null;
 }
 
 export function SidebarSessionItem({
@@ -59,60 +64,69 @@ export function SidebarSessionItem({
   title,
   userId,
   createdAt,
-  updatedAt,
   status,
   isSelected,
   onNavigate,
   prUrl,
   prState,
+  firstMessagePreview,
 }: SidebarSessionItemProps) {
-  const timestamp = updatedAt ?? createdAt;
   const statusStyle = SANDBOX_STATUS_STYLES[status];
 
   return (
-    <DynamicLink
-      to={href}
-      onClick={onNavigate}
-      className="block rounded-menu-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <MarqueeOnHover
-          className={cn(
-            "min-w-0 text-sm transition-colors duration-200",
-            isSelected
-              ? "font-medium text-sidebar-primary"
-              : "text-sidebar-foreground",
-          )}
+    <HoverCard openDelay={250} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <DynamicLink
+          to={href}
+          onClick={onNavigate}
+          className="block rounded-menu-item px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
-          {title}
-        </MarqueeOnHover>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {prUrl && (
-            <IconGitPullRequest
-              size={14}
-              className={cn("shrink-0", prStateIconColor(prState))}
-              title={`PR: ${prState || "unknown"}`}
-            />
-          )}
-          <span
-            className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-            title={statusStyle.label}
-          />
-        </div>
-      </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex -space-x-1">
+          <div className="flex items-center justify-between gap-2">
+            <MarqueeOnHover
+              className={cn(
+                "min-w-0 text-sm transition-colors duration-200",
+                isSelected
+                  ? "font-medium text-sidebar-primary"
+                  : "text-sidebar-foreground",
+              )}
+            >
+              {title}
+            </MarqueeOnHover>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {prUrl && (
+                <IconGitPullRequest
+                  size={14}
+                  className={cn("shrink-0", prStateIconColor(prState))}
+                  title={`PR: ${prState || "unknown"}`}
+                />
+              )}
+              <span
+                className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+                title={statusStyle.label}
+              />
+            </div>
+          </div>
+        </DynamicLink>
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="w-64 p-3"
+      >
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        {firstMessagePreview ? (
+          <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
+            {firstMessagePreview}
+          </p>
+        ) : null}
+        <div className="mt-3 flex items-center justify-between gap-2">
           <UserInitials userId={userId} />
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {compactTimeAgo(createdAt)}
+          </span>
         </div>
-        <span
-          className={cn(
-            "shrink-0 text-xs text-muted-foreground/60 transition-opacity",
-            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-          )}
-        >
-          {compactTimeAgo(timestamp)}
-        </span>
-      </div>
-    </DynamicLink>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

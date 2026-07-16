@@ -14,6 +14,7 @@ import {
   IconUserCog,
   IconTerminal2,
   IconSparkles,
+  IconLayoutGrid,
 } from "@tabler/icons-react";
 import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
 import {
@@ -62,6 +63,7 @@ export function SettingsSidebar({
       label: "SANDBOX",
       items: [
         { name: "App", href: `${baseUrl}/app`, icon: IconTerminal2 },
+        { name: "Tabs", href: `${baseUrl}/tabs`, icon: IconLayoutGrid },
         {
           name: "Env Variables",
           href: `${baseUrl}/env-variables/repo`,

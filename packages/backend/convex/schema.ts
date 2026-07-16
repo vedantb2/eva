@@ -44,6 +44,7 @@ import {
   artifactFields,
   designSessionFields,
   repoEntityCounterFields,
+  appTabFields,
 } from "./validators";
 
 const schema = defineSchema(
@@ -182,6 +183,7 @@ const schema = defineSchema(
       name: v.string(),
       prompt: v.string(),
     }).index("by_repo", ["repoId"]),
+    appTabs: defineTable(appTabFields).index("by_repo", ["repoId"]),
     designSessions: defineTable(designSessionFields)
       .index("by_repo", ["repoId"])
       .index("by_user", ["userId"])

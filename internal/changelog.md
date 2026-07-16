@@ -1,5 +1,12 @@
 # Changelog
 
+## Custom sandbox tabs per app - 2026-07-16
+
+- You can now define custom tabs per app under Settings → Tabs: give each a name, a Tabler icon name (e.g. `IconBolt`), and a sandbox port. Enabled tabs show in every session for that app, alongside Preview/Editor/Terminal/Diffs — for example a "Supabase" tab on port 53432 or a "Convex" dashboard tab.
+- Each custom tab opens the service running on that port inside the sandbox, resolved through the same authenticated preview proxy as the Preview tab. It auto-connects (polls until the port is reachable) — there is no start/stop, since the service is launched by the app's own dev/startup commands.
+- Tabs can be toggled on and off; disabling or deleting one removes it from sessions, and stale deep-links to a removed tab fall back to Preview.
+- Reason for change: developers run extra local services (Supabase Studio, the Convex dashboard, and so on) in the sandbox with no way to view them in-app.
+
 ## Doc/automation hover cards show author - 2026-07-16
 
 - Docs and automations sidebar hover cards now show the author's avatar and name next to the updated time, matching the session hover pattern more closely.

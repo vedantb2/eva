@@ -9,7 +9,10 @@ import {
   IconGitCompare,
   IconPlus,
 } from "@tabler/icons-react";
+import type { Doc } from "@conductor/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
+import { isSessionSandboxTab } from "@/lib/search-params";
+import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import {
   Tabs,
   TabsList,
@@ -28,14 +31,8 @@ type SandboxTab =
   | "diffs"
   | "prd";
 
-const SANDBOX_TABS: Set<string> = new Set([
-  "preview",
-  "desktop",
-  "editor",
-  "terminal",
-  "diffs",
-  "prd",
-]);
+const TAB_TRIGGER_CLASS =
+  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
 // Desktop ("Computer") is intentionally absent — it lives in the `+` menu, not
 // the tab row, since it is rarely used.
@@ -51,8 +48,9 @@ const allTabs: Array<{
 ];
 
 interface SandboxTabBarProps {
-  activeTab: SandboxTab;
-  onTabChange: (tab: SandboxTab) => void;
+  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  activeTab: string;
+  onTabChange: (tab: string) => void;
   onNewPreview: () => void;
   onNewTerminal: () => void;
   newPreviewDisabled?: boolean;
@@ -60,10 +58,8 @@ interface SandboxTabBarProps {
   showPrdTab?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
   enabledTabs?: ReadonlyArray<SandboxTab>;
-}
-
-function isSandboxTab(value: string): value is SandboxTab {
-  return SANDBOX_TABS.has(value);
+  /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
+  customTabs?: ReadonlyArray<Doc<"appTabs">>;
 }
 
 export function SandboxTabBar({
@@ -75,6 +71,7 @@ export function SandboxTabBar({
   newTerminalDisabled = false,
   showPrdTab = false,
   enabledTabs,
+  customTabs,
 }: SandboxTabBarProps) {
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
@@ -82,8 +79,10 @@ export function SandboxTabBar({
   // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
   const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
 
+  // The hotkey cycles builtins only; when a custom tab is active, treat it as
+  // preview so Shift+Tab re-enters the builtin cycle.
   useCycleSandboxTabHotkey({
-    activeTab,
+    activeTab: isSessionSandboxTab(activeTab) ? activeTab : "preview",
     onTabChange,
     enabledTabs,
     showPrdTab,
@@ -94,11 +93,7 @@ export function SandboxTabBar({
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
-        onValueChange={(v) => {
-          if (isSandboxTab(v)) {
-            onTabChange(v);
-          }
-        }}
+        onValueChange={onTabChange}
       >
         <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
           {tabs.map((tab) => {
@@ -107,7 +102,7 @@ export function SandboxTabBar({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
+                className={TAB_TRIGGER_CLASS}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
@@ -115,14 +110,24 @@ export function SandboxTabBar({
             );
           })}
           {showPrdTab ? (
-            <TabsTrigger
-              value="prd"
-              className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
-            >
+            <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
               <IconClipboardList className="w-3.5 h-3.5" />
               PRD
             </TabsTrigger>
           ) : null}
+          {customTabs?.map((tab) => {
+            const Icon = resolveTablerIcon(tab.icon);
+            return (
+              <TabsTrigger
+                key={tab._id}
+                value={tab._id}
+                className={TAB_TRIGGER_CLASS}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.name}
+              </TabsTrigger>
+            );
+          })}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

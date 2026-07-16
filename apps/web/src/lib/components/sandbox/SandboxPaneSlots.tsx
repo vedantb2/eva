@@ -1,8 +1,8 @@
 "use client";
 
-import type { Id } from "@conductor/backend";
+import type { Doc, Id } from "@conductor/backend";
 import { cn } from "@conductor/ui";
-import type { SandboxTab } from "@/lib/search-params";
+import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
@@ -16,7 +16,8 @@ import type { SandboxPanesApi } from "./useSandboxPanes";
 import type { SandboxPreviewApi } from "./useSandboxPreview";
 
 interface SandboxPaneSlotsProps {
-  activeTab: SandboxTab;
+  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  activeTab: string;
   panes: SandboxPanesApi;
   preview: SandboxPreviewApi;
   owner: PtyOwner;
@@ -30,6 +31,8 @@ interface SandboxPaneSlotsProps {
   devCommand?: string;
   /** PR URL for the Diffs tab; absent when no PR exists for this surface. */
   prUrl?: string;
+  /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
+  customTabs?: ReadonlyArray<Doc<"appTabs">>;
 }
 
 /**
@@ -49,6 +52,7 @@ export function SandboxPaneSlots({
   cacheKey,
   devCommand,
   prUrl,
+  customTabs,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -193,6 +197,22 @@ export function SandboxPaneSlots({
       <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
         <DiffsPanel prUrl={prUrl} repoId={repoId} />
       </div>
+      {customTabs?.map((tab) => (
+        <div
+          key={tab._id}
+          className={activeTab === tab._id ? "h-full" : "hidden"}
+        >
+          {activeTab === tab._id ? (
+            <CustomTabPanel
+              name={tab.name}
+              port={tab.port}
+              sandboxId={sandboxId}
+              isActive={isActive}
+              repoId={repoId}
+            />
+          ) : null}
+        </div>
+      ))}
     </>
   );
 }

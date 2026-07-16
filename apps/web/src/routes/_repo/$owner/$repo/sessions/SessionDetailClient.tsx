@@ -8,16 +8,15 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 
-import type { SandboxTab } from "@/lib/search-params";
-
 export function SessionDetailClient({
   sessionId,
   activeSandboxTab,
   onSandboxTabChange,
 }: {
   sessionId: string;
-  activeSandboxTab: SandboxTab;
-  onSandboxTabChange: (tab: SandboxTab) => void;
+  /** Builtin tab id (SandboxTab) or a custom tab's Convex id. */
+  activeSandboxTab: string;
+  onSandboxTabChange: (tab: string) => void;
 }) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });

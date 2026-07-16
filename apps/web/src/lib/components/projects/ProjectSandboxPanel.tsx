@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
-import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
+import {
+  isSessionSandboxTab,
+  type SandboxTab,
+  type TaskRouteSandboxTab,
+} from "@/lib/search-params";
 import { useNavigate } from "@tanstack/react-router";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -82,9 +86,10 @@ export function ProjectSandboxPanel({
     terminalPanes,
   });
 
+  // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = useCallback(
-    (tab: SandboxTab) => {
-      if (tab === "prd") return;
+    (tab: string) => {
+      if (!isSessionSandboxTab(tab) || tab === "prd") return;
       navigateToSandboxTab(tab);
     },
     [navigateToSandboxTab],

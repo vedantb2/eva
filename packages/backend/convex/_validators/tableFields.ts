@@ -667,3 +667,16 @@ export const artifactFields = {
   uploadedBy: v.id("users"),
   createdAt: v.number(),
 };
+
+// A user-defined sandbox tab for an app (a `githubRepos` row). Points at a port
+// inside the sandbox, resolved through the same auth proxy as the Preview tab.
+// `icon` is a free-text Tabler icon name (e.g. "IconBolt"); unknown names fall
+// back to a placeholder at render. `order` sorts tabs within the app's list.
+export const appTabFields = {
+  repoId: v.id("githubRepos"),
+  name: v.string(),
+  icon: v.string(),
+  port: v.number(),
+  enabled: v.boolean(),
+  order: v.number(),
+};

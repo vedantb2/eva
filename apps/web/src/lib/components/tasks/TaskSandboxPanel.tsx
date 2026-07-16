@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
-import type { SandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
@@ -85,9 +85,10 @@ export function TaskSandboxPanel({
 
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
+  // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = useCallback(
-    (tab: SandboxTab) => {
-      if (tab === "prd") return;
+    (tab: string) => {
+      if (!isSessionSandboxTab(tab) || tab === "prd") return;
       onTabChange(tab);
     },
     [onTabChange],

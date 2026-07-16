@@ -4,7 +4,6 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
   IconBell,
   IconHome,
-  IconInbox,
   IconLayoutDashboard,
   IconPalette,
   IconServerBolt,
@@ -12,7 +11,6 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
-import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -23,7 +21,6 @@ const ROOT_NAV_ITEMS = [
   { name: "Home", href: "/home", icon: IconHome },
   { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
-  { name: "Inbox", href: "/inbox", icon: IconInbox },
   { name: "Theme", href: "/settings/theme", icon: IconPalette },
   { name: "Notifications", href: "/settings/notifications", icon: IconBell },
   { name: "Sandboxes", href: "/settings/sandboxes", icon: IconServerBolt },
@@ -75,7 +72,6 @@ export function RootSidebarContent({
                 )}
               />
               {!collapsed && <span className="truncate">{item.name}</span>}
-              {!collapsed && item.name === "Inbox" && <UnreadInboxBadge />}
             </Link>
           </SharedLayoutNavSurface>
         );

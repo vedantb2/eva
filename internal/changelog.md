@@ -1,9 +1,15 @@
 # Changelog
 
+## Inbox moves onto the left icon rail - 2026-07-16
+
+- Inbox is now a top tile on the vertical repo rail (links to global `/inbox`), with an unread count badge on the bottom-right of the icon when there are notifications.
+- Drafts stay in the main sidebar above the BUILD/SHIP nav because they are per-repo/app; only the global Inbox left the sidebar list.
+- Reason for change: Inbox is cross-cutting and belongs with always-visible rail actions, while keeping Drafts next to the active app's workflow.
+
 ## Repo switching moved to a left icon rail - 2026-07-16
 
 - The RepoSwitcher popover is gone; a slim icon rail now sits to the left of the main sidebar showing one icon per repo/monorepo app, and clicking one switches to it in a single action while preserving the current sub-page (Sessions in repo A → click repo B → Sessions in repo B).
-- The main sidebar keeps its familiar single-repo layout (Inbox/Drafts, then the BUILD/SHIP/TEST/MORE nav and the Sessions/Settings/etc. drill-downs) — the rail only handles switching, so the two concerns are visually separate.
+- The main sidebar keeps its familiar single-repo layout (Drafts, then the BUILD/SHIP/TEST/MORE nav and the Sessions/Settings/etc. drill-downs) — the rail handles switching and global Inbox, so those concerns stay visually separate.
 - Each rail icon uses the repo's logo, falling back to a coloured letter tile, with a hover tooltip naming the owner/repo (and app for monorepos); the active icon carries the surface-fill chip.
 - Reason for change: an activity-bar-style rail makes switching a one-click, always-visible action while leaving the per-repo navigation untouched — clearer than nesting every repo in an accordion.
 

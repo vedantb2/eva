@@ -70,7 +70,8 @@ interface RepoNavSectionsProps {
 /**
  * Per-repo build-pipeline navigation (BUILD/SHIP/TEST/MORE groups) for the
  * active repo. The far-left `RepoRail` handles switching between repos;
- * Inbox/Drafts live in `RepoTopNav` above these groups.
+ * Inbox/Drafts: Inbox is on the left icon rail (global); Drafts stay above
+ * these groups in `RepoTopNav` because they are per-repo.
  */
 export function RepoNavSections({
   repoBasePath,

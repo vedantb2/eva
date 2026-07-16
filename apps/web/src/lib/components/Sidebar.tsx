@@ -257,7 +257,9 @@ export function Sidebar() {
           currentOwner={owner}
           currentName={repoName}
           currentAppName={appName}
+          pathname={pathname}
           onSelect={handleRepoSwitch}
+          onNavigate={closeMobileSidebar}
         />
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
           <div

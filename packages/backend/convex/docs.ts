@@ -110,7 +110,12 @@ export const get = authQuery({
   },
 });
 
-/** Resolves a doc by per-repo numeric id (URL segment). */
+/**
+ * Resolves a doc by per-repo numeric id (URL segment). PR-recap docs live on the
+ * codebase's root/docs sibling repo but appear in every sibling app's sidebar, so
+ * when the numId is not found on the current repo we look across siblings for a
+ * shared recap with that numId (mirroring the `list` sharing rule).
+ */
 export const getByNumId = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -119,13 +124,31 @@ export const getByNumId = authQuery({
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
-    const doc = await ctx.db
+
+    const own = await ctx.db
       .query("docs")
       .withIndex("by_repo_and_numId", (q) =>
         q.eq("repoId", args.repoId).eq("numId", args.numId),
       )
       .first();
-    return entityVisible(doc);
+    const visibleOwn = entityVisible(own);
+    if (visibleOwn) return visibleOwn;
+
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    for (const siblingId of siblingIds) {
+      if (siblingId === args.repoId) continue;
+      const doc = await ctx.db
+        .query("docs")
+        .withIndex("by_repo_and_numId", (q) =>
+          q.eq("repoId", siblingId).eq("numId", args.numId),
+        )
+        .first();
+      if (doc && doc.kind === "pr-recap") {
+        return entityVisible(doc);
+      }
+    }
+
+    return null;
   },
 });
 

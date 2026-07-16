@@ -115,6 +115,7 @@ import type * as _sandbox_factory from "../_sandbox/factory.js";
 import type * as _sandbox_provider from "../_sandbox/provider.js";
 import type * as _sandbox_resolveExistingSandboxId from "../_sandbox/resolveExistingSandboxId.js";
 import type * as _sandbox_startupActivity from "../_sandbox/startupActivity.js";
+import type * as _sandbox_tags from "../_sandbox/tags.js";
 import type * as _sandbox_vercelProvider from "../_sandbox/vercelProvider.js";
 import type * as _sessions_execution from "../_sessions/execution.js";
 import type * as _sessions_helpers from "../_sessions/helpers.js";
@@ -378,6 +379,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox/provider": typeof _sandbox_provider;
   "_sandbox/resolveExistingSandboxId": typeof _sandbox_resolveExistingSandboxId;
   "_sandbox/startupActivity": typeof _sandbox_startupActivity;
+  "_sandbox/tags": typeof _sandbox_tags;
   "_sandbox/vercelProvider": typeof _sandbox_vercelProvider;
   "_sessions/execution": typeof _sessions_execution;
   "_sessions/helpers": typeof _sessions_helpers;

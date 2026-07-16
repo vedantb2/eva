@@ -1,5 +1,11 @@
 # Changelog
 
+## Tag sandboxes from Convex ENVIRONMENT when set - 2026-07-14
+
+- Sandbox creates stamp Eva tags (`eva.managed`, `eva.env`, `eva.purpose`, `eva.repoId`, `eva.deployment`) only when Convex `ENVIRONMENT` is set; otherwise labels behave as before (caller-only, e.g. seed-prep).
+- `eva.env` mirrors `ENVIRONMENT` (`development` / `production`). Set that var per Convex deployment for Vercel dashboard filtering across shared projects.
+- Reason for change: local and prod sandboxes shared one Vercel project with no filter key; a general `ENVIRONMENT` var is reusable beyond sandbox tags.
+
 ## Ban the generic `isRecord` type guard; parse boundaries with Zod - 2026-07-11
 
 - Removed every `isRecord(value: unknown)` guard from the codebase (9 sites) and replaced each with a Zod boundary schema (`safeParse`), so external JSON — GitHub webhooks, Linear/Daytona API responses, LLM findings/audit/question output, sandbox package.json, Claude Code result events — is typed at entry instead of narrowed from `unknown` downstream.

@@ -30,9 +30,10 @@ import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
 import { Sandbox } from "@vercel/sandbox";
 import type { Id } from "./_generated/dataModel";
+import { SANDBOX_TAG } from "./_sandbox/tags";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
-const SEED_PREP_LABEL_KEY = "eva.purpose";
+const SEED_PREP_LABEL_KEY = SANDBOX_TAG.purpose;
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 
 // Pinned Supabase CLI version installed on fresh Vercel sandboxes (no base
@@ -626,7 +627,7 @@ export const sweepSeedPrepSandboxes = internalAction({
         if (sandbox.labels[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) {
           continue;
         }
-        const sandboxRepoId = sandbox.labels["eva.repoId"];
+        const sandboxRepoId = sandbox.labels[SANDBOX_TAG.repoId];
         if (
           scopedRepoIdStrings.length > 0 &&
           (sandboxRepoId === undefined ||
@@ -1182,9 +1183,8 @@ export const createSeedPrepSandbox = internalAction({
     const seedPrepLifecycle = {
       ...SESSION_LIFECYCLE,
       labels: {
-        "eva.managed": "true",
         [SEED_PREP_LABEL_KEY]: SEED_PREP_LABEL_VALUE,
-        "eva.repoId": args.repoId,
+        [SANDBOX_TAG.repoId]: args.repoId,
       },
     };
     const { sandbox } = await createSandboxAndPrepareRepo(
@@ -1349,10 +1349,10 @@ export const stopAllRepoSandboxes = internalAction({
       }
       // Vercel: delete every seed-prep sandbox tagged for these repos so none
       // keep running/billing. Filtered STRICTLY by the seed-prep purpose tag +
-      // repoId — user session sandboxes use a label-less lifecycle and so are
-      // never matched. This is a safety net; the workflow already deletes the
-      // build's own prep sandbox explicitly on every exit path. It also reclaims
-      // orphans left by a crashed build.
+      // repoId — session/task sandboxes use eva.purpose=persistent|ephemeral
+      // and are never matched. This is a safety net; the workflow already
+      // deletes the build's own prep sandbox explicitly on every exit path.
+      // It also reclaims orphans left by a crashed build.
       const seedableSet = new Set<string>(args.seedableRepoIds);
       const list = await Sandbox.list({
         token: credentials.token,
@@ -1366,7 +1366,7 @@ export const stopAllRepoSandboxes = internalAction({
       for await (const meta of list) {
         const tags: Record<string, string> = meta.tags ?? {};
         if (tags[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) continue;
-        const sandboxRepoId = tags["eva.repoId"];
+        const sandboxRepoId = tags[SANDBOX_TAG.repoId];
         if (sandboxRepoId === undefined || !seedableSet.has(sandboxRepoId)) {
           continue;
         }

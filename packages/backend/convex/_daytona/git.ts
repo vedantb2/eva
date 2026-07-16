@@ -32,6 +32,7 @@ import {
   renderEvaEnvFile,
   VERCEL_DEFAULT_EXPOSED_PORTS,
 } from "../_sandbox/vercelProvider";
+import { buildSandboxLabels } from "../_sandbox/tags";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -349,7 +350,14 @@ export async function createSandbox(
         autoArchiveMinutes: lifecycle.autoArchiveInterval,
         autoDeleteMinutes: lifecycle.autoDeleteInterval,
         ephemeral: lifecycle.ephemeral,
-        labels: lifecycle.labels,
+        // Stamp Eva tags when ENVIRONMENT is set (Vercel dashboard/CLI filter).
+        // Max 5 on Vercel — buildSandboxLabels caps + merges caller overrides.
+        // Without ENVIRONMENT, labels pass through unchanged (seed-prep only).
+        labels: buildSandboxLabels({
+          ephemeral: lifecycle.ephemeral,
+          labels: lifecycle.labels,
+          repoId: sandboxEnvVars.REPO_ID,
+        }),
       },
       volumes: volumes?.map((v) => ({
         volumeId: v.volumeId,

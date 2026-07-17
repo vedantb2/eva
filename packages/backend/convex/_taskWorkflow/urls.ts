@@ -54,7 +54,12 @@ export function buildEvaDocUrl(
   repoOwner: string,
   repoName: string,
   docNumId: number,
-  docTab: "content" | "description" | "requirements" | "user-flows" = "content",
+  docTab:
+    | "content"
+    | "html"
+    | "description"
+    | "requirements"
+    | "user-flows" = "content",
   rootDirectory?: string,
 ): string {
   const segment = repoSegment(repoName, rootDirectory);

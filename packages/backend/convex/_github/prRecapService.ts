@@ -149,7 +149,7 @@ export const upsertPrRecapComment = internalAction({
           args.owner,
           args.repo,
           args.docNumId,
-          "content",
+          "html",
           args.rootDirectory,
         ),
         prNumber: args.prNumber,

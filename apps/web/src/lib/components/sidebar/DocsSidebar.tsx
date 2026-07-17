@@ -107,11 +107,11 @@ export function DocsSidebar({
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
-    const byKind = docs.filter((doc) => {
-      if (docListFilter === "documents") return doc.kind !== "pr-recap";
-      if (docListFilter === "pr-recaps") return doc.kind === "pr-recap";
-      return true;
-    });
+    const byKind = docs.filter((doc) =>
+      docListFilter === "pr-recaps"
+        ? doc.kind === "pr-recap"
+        : doc.kind !== "pr-recap",
+    );
     const q = searchQuery.toLowerCase().trim();
     return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
   }, [docs, searchQuery, docListFilter]);
@@ -282,7 +282,6 @@ export function DocsSidebar({
       <div className="flex gap-1 px-2 pb-2">
         {(
           [
-            ["all", "All"],
             ["documents", "Documents"],
             ["pr-recaps", "PR recaps"],
           ] as const

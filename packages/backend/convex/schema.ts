@@ -21,6 +21,7 @@ import {
   agentRunFields,
   sessionFields,
   githubRepoFields,
+  teamFields,
   syncSettingFields,
   projectFields,
   projectDetailsFields,
@@ -316,12 +317,7 @@ const schema = defineSchema(
       uploadedBy: v.id("users"),
       createdAt: v.number(),
     }).index("by_repo", ["repoId"]),
-    teams: defineTable({
-      name: v.string(),
-      createdBy: v.id("users"),
-      createdAt: v.number(),
-      isPersonal: v.optional(v.boolean()),
-    }).index("by_created_by", ["createdBy"]),
+    teams: defineTable(teamFields).index("by_created_by", ["createdBy"]),
     teamMembers: defineTable({
       teamId: v.id("teams"),
       userId: v.id("users"),

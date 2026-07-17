@@ -332,6 +332,17 @@ export const githubRepoFields = {
   logoStorageId: v.optional(v.id("_storage")),
 };
 
+/** Eva team (personal or shared). Logo is resolved to `logoUrl` in list/get. */
+export const teamFields = {
+  name: v.string(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  isPersonal: v.optional(v.boolean()),
+  // Convex storage id of an uploaded team icon. Resolved to a URL by
+  // teams.list / teams.get / users.listTeamWithMembers via ctx.storage.getUrl.
+  logoStorageId: v.optional(v.id("_storage")),
+};
+
 export const projectFields = {
   ...entityNumIdFields,
   repoId: v.id("githubRepos"),

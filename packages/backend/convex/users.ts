@@ -127,6 +127,7 @@ export const listTeamWithMembers = authQuery({
   returns: v.union(
     v.object({
       teamName: v.string(),
+      logoUrl: v.optional(v.union(v.string(), v.null())),
       members: v.array(
         v.object({
           _id: v.id("users"),
@@ -194,7 +195,11 @@ export const listTeamWithMembers = authQuery({
       return 0;
     });
 
-    return { teamName: displayName, members };
+    const logoUrl = team.logoStorageId
+      ? await ctx.storage.getUrl(team.logoStorageId)
+      : null;
+
+    return { teamName: displayName, logoUrl, members };
   },
 });
 

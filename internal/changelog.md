@@ -1,5 +1,11 @@
 # Changelog
 
+## Team icons on list, detail, and sidebar - 2026-07-17
+
+- Teams can now have an uploaded icon (same Convex storage pattern as app/repo logos); any team member can set, change, or remove it, including personal teams.
+- The icon shows on the Teams list cards, the team detail header, and next to the team name in the sidebar “N online” block.
+- Reason for change: teams were only a name + generic users icon; custom icons make them recognizable the same way codebases already are.
+
 ## Per-user accounts wired across all sandbox chats - 2026-07-17
 
 - Extended per-user provider accounts beyond session chat and quick-task runs to also cover design chat, project sandbox chat, and task sandbox chat.

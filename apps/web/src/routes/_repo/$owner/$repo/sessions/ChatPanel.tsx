@@ -341,7 +341,7 @@ export function ChatPanel({
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
   const handleAnswerBlockingQuestion = useCallback(
-    async (toolUseId: string, answers: Record<string, string | string[]>) => {
+    async (toolUseId: string, answers: Record<string, string>) => {
       await answerPendingQuestion({
         entityId: sessionId,
         toolUseId,

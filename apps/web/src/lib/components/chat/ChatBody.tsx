@@ -146,7 +146,7 @@ interface ChatBodyProps {
   /** Submits a structured answer for {@link blockingQuestion}, resuming the turn. */
   onAnswerBlockingQuestion?: (
     toolUseId: string,
-    answers: Record<string, string | string[]>,
+    answers: Record<string, string>,
   ) => Promise<void>;
   isExecuting: boolean;
   isInputDisabled: boolean;
@@ -370,7 +370,7 @@ export function ChatBody({
   );
 
   const handleBlockingAnswer = useCallback(
-    async (answers: Record<string, string | string[]>) => {
+    async (answers: Record<string, string>) => {
       if (!blockingQuestion || !onAnswerBlockingQuestion) return;
       await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
     },
@@ -486,6 +486,7 @@ export function ChatBody({
                       questions={blockingQuestions}
                       onAnswer={handleQuestionAnswer}
                       onAnswerStructured={handleBlockingAnswer}
+                      isLoading={isExecuting}
                     />
                   </div>
                 ) : activePendingQuestion ? (

@@ -29,11 +29,11 @@ interface MultipleChoiceQuestionProps {
   onAnswer: (answer: string) => void;
   /**
    * When provided, submitting calls this with a structured map (question text →
-   * selected label, or an array for multi-select) INSTEAD of {@link onAnswer}'s
-   * `Q:/A:` string. Used for blocking AskUserQuestion, where the answer becomes a
-   * real tool_result rather than a new chat message.
+   * selected label; multi-select joined as a comma-separated string) INSTEAD of
+   * {@link onAnswer}'s `Q:/A:` string. Used for blocking AskUserQuestion, where
+   * the answer becomes a real tool_result rather than a new chat message.
    */
-  onAnswerStructured?: (answers: Record<string, string | string[]>) => void;
+  onAnswerStructured?: (answers: Record<string, string>) => void;
   isLoading?: boolean;
   questionNumber?: number;
   // Optional controls appended to the submit row (e.g. a question counter and
@@ -108,18 +108,20 @@ export function MultipleChoiceQuestion({
       .join("\n\n");
   };
 
-  // Structured answer keyed by question text: an array for multi-select, a single
-  // string otherwise (or the free-text "Other" value). Shape the SDK's
-  // AskUserQuestion expects back as the tool result.
-  const buildStructuredAnswer = (): Record<string, string | string[]> => {
-    const result: Record<string, string | string[]> = {};
+  // Structured answer keyed by question text → selected label (or free-text
+  // "Other"). Multi-select is a comma-separated string — the shape AskUserQuestion
+  // expects in updatedInput.answers.
+  const buildStructuredAnswer = (): Record<string, string> => {
+    const result: Record<string, string> = {};
     resolvedQuestions.forEach((rq, idx) => {
       if (otherActive[idx]) {
         result[rq.question] = (customAnswers[idx] ?? "").trim();
         return;
       }
       const selected = answers[idx] ?? [];
-      result[rq.question] = rq.multiSelect ? selected : (selected[0] ?? "");
+      result[rq.question] = rq.multiSelect
+        ? selected.join(", ")
+        : (selected[0] ?? "");
     });
     return result;
   };

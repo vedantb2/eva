@@ -411,14 +411,20 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
             : undefined,
         status: "active",
       };
+    // Subagent spawn. Named `Agent` since claude-code v2.1.63; older CLIs emit
+    // `Task`. Match both so subagent runs are always recognised (a bare `Task`
+    // previously fell through to the generic "Using Task..." row).
     case "Agent":
+    case "Task":
       return {
         type: "subtask",
         label: "Running agent...",
         detail:
           typeof input.description === "string"
             ? String(input.description)
-            : undefined,
+            : typeof input.subagent_type === "string"
+              ? String(input.subagent_type)
+              : undefined,
         status: "active",
       };
     case "TodoWrite":

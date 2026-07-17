@@ -1,5 +1,12 @@
 # Changelog
 
+## Richer agent-SDK tool UIs: subagent drill-in, todo checklists, blocking questions - 2026-07-17
+
+- Subagent activity now nests: a subagent row expands to show the reads, edits, and commands it ran, instead of a single opaque "Ran agent" line.
+- Fixed subagent runs going unrecognised — the Agent SDK renamed the tool from `Task` to `Agent`, and both names are now mapped.
+- TodoWrite/TaskCreate/TaskUpdate now render as a single live checklist with per-item status instead of a generic "Updating tasks" row.
+- AskUserQuestion can now block the turn: in SDK sessions the agent pauses via `canUseTool` until the user answers, and the answer resumes the same turn as a real tool result (no timeout while waiting).
+- Reason for change: the Agent SDK integration surfaced these tools generically; this makes subagent work, task tracking, and clarifying questions first-class in the chat.
 ## Chat jump rail matches t3code timeline minimap - 2026-07-17
 
 - The chat jump rail is now a short, vertically-centered scrubber (8px per tick) with fisheye hover and a floating preview of the user turn plus muted assistant reply, instead of a full-height tick strip.

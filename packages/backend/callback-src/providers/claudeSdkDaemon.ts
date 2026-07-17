@@ -132,6 +132,13 @@ function startTurnWatchdog(): void {
   const timer = setInterval(() => {
     if (!turnActive) return;
     const now = Date.now();
+    // A turn paused on a blocking question emits no SDK messages by design —
+    // keep both timers fresh so the wait is never mistaken for a stalled turn.
+    if (S.awaitingQuestionAnswer) {
+      turnStartedAtMs = now;
+      lastMessageAtMs = now;
+      return;
+    }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
       void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
@@ -258,6 +265,8 @@ function resetTurnState(): void {
   S.lastProcessed = 0;
   S.inFlightToolUses = 0;
   S.pendingQuestionData = "";
+  S.todoState.length = 0;
+  S.awaitingQuestionAnswer = false;
   S.lastStepType = "thinking";
 }
 

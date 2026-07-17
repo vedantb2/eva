@@ -19,6 +19,17 @@ export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
 export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 /**
+ * Human-in-the-loop AskUserQuestion. Only the Agent SDK exposes the `canUseTool`
+ * pause needed to block a turn on an answer, and only sessions currently wire the
+ * answering UI — so this is gated to SDK session runs. Elsewhere AskUserQuestion
+ * stays the old fire-and-forget metadata (surfaced after the turn). When enabled
+ * the SDK drops `bypassPermissions` for a `canUseTool` gate that auto-allows every
+ * tool except AskUserQuestion (which waits for the user's answer via Convex).
+ */
+export const BLOCKING_QUESTIONS_ENABLED =
+  process.env.ENTITY_ID_FIELD === "sessionId" &&
+  (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
+/**
  * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
  * so the CLI/MCP/API connection is live) and wait for the first prompt via the
  * handoff protocol instead of running an initial turn. Lets a session-open
@@ -295,6 +306,7 @@ export const TOOL_STEP_TYPES = new Set([
   "notebook",
   "subtask",
   "question",
+  "todos",
 ]);
 
 export const CODEX_PRICING_PER_MILLION: Record<

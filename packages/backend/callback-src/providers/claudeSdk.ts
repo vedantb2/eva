@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import {
   ALLOWED_TOOLS,
+  BLOCKING_QUESTIONS_ENABLED,
   CLAUDE_RUNTIME_CONFIG_DIR,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
@@ -20,6 +21,7 @@ import {
   trimBufferHead,
 } from "../runtime/buffers.js";
 import { resetAttemptState } from "../runtime/cliAttempt.js";
+import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { CliAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
@@ -48,6 +50,18 @@ export type JsonLike =
 
 export type SdkMessage = Record<string, JsonLike>;
 
+/** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
+export type SdkPermissionResult =
+  | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
+  | { behavior: "deny"; message: string };
+
+/** The `canUseTool` permission callback passed to `query()`. */
+export type SdkCanUseTool = (
+  toolName: string,
+  input: Record<string, JsonLike>,
+  options: { signal: AbortSignal; toolUseID?: string },
+) => Promise<SdkPermissionResult>;
+
 export type SdkOptions = {
   cwd: string;
   model: string;
@@ -63,6 +77,8 @@ export type SdkOptions = {
   resume?: string;
   extraArgs?: Record<string, string>;
   includePartialMessages?: boolean;
+  /** Per-tool permission gate. Set only when blocking questions are enabled. */
+  canUseTool?: SdkCanUseTool;
 };
 
 export type SdkUserMessage = {
@@ -190,6 +206,26 @@ function buildSdkOptionsFromParts(
       ? { allowedTools: ALLOWED_TOOLS.split(",") }
       : { allowedTools: [] };
 
+  // Blocking questions need `canUseTool`, which the SDK ignores under
+  // `bypassPermissions`. When enabled we switch to `default` mode and let the
+  // gate auto-allow every tool except AskUserQuestion (which waits for the user).
+  // Otherwise keep the original bypass behaviour (no per-tool gating).
+  const permissionOption: {
+    permissionMode: string;
+    allowDangerouslySkipPermissions: boolean;
+    canUseTool?: SdkCanUseTool;
+  } =
+    tools === "agent" && BLOCKING_QUESTIONS_ENABLED
+      ? {
+          permissionMode: "default",
+          allowDangerouslySkipPermissions: false,
+          canUseTool: buildCanUseTool(),
+        }
+      : {
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
+        };
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -205,8 +241,7 @@ function buildSdkOptionsFromParts(
           preset: "claude_code",
           append: EVA_SDK_SYSTEM_APPEND,
         },
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
+    ...permissionOption,
     // Emit token-level partial (`stream_event`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
@@ -282,6 +317,13 @@ export async function runClaudeSdkAttempt(
   };
   const healthTimer = setInterval(() => {
     const now = Date.now();
+    // A turn paused on a blocking question produces no SDK messages by design —
+    // keep the timers fresh so it is never killed while genuinely waiting.
+    if (S.awaitingQuestionAnswer) {
+      S.activeAttemptStartedAt = now;
+      lastMessageAt = now;
+      return;
+    }
     if (now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
       timedOutForMaxRuntime = true;
       log("runClaudeSdkAttempt: max runtime exceeded — interrupting");

@@ -334,6 +334,23 @@ export function ChatPanel({
     await cancelExecutionMutation({ sessionId });
   }, [cancelExecutionMutation, sessionId]);
 
+  // Blocking AskUserQuestion: the paused sandbox turn posts a question here; the
+  // user's answer resumes the SAME turn (rather than starting a new message).
+  const activeQuestion = useQuery(api.pendingQuestions.getActive, {
+    entityId: sessionId,
+  });
+  const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
+  const handleAnswerBlockingQuestion = useCallback(
+    async (toolUseId: string, answers: Record<string, string>) => {
+      await answerPendingQuestion({
+        entityId: sessionId,
+        toolUseId,
+        answer: JSON.stringify(answers),
+      });
+    },
+    [answerPendingQuestion, sessionId],
+  );
+
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
@@ -658,6 +675,8 @@ export function ChatPanel({
         streamingActivity={streamingActivity}
         streamingContent={streamingContent}
         streamingPendingQuestion={streamingPendingQuestion}
+        blockingQuestion={activeQuestion ?? undefined}
+        onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
         isInputDisabled={!isSandboxActive}
         isArchived={isArchived}

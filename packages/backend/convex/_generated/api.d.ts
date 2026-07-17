@@ -216,6 +216,7 @@ import type * as notificationDigest from "../notificationDigest.js";
 import type * as notificationEmail from "../notificationEmail.js";
 import type * as notifications from "../notifications.js";
 import type * as numId from "../numId.js";
+import type * as pendingQuestions from "../pendingQuestions.js";
 import type * as prBody from "../prBody.js";
 import type * as prRecapWorkflow from "../prRecapWorkflow.js";
 import type * as presence from "../presence.js";
@@ -489,6 +490,7 @@ declare const fullApi: ApiFromModules<{
   notificationEmail: typeof notificationEmail;
   notifications: typeof notifications;
   numId: typeof numId;
+  pendingQuestions: typeof pendingQuestions;
   prBody: typeof prBody;
   prRecapWorkflow: typeof prRecapWorkflow;
   presence: typeof presence;

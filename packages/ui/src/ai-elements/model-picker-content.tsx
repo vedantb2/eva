@@ -1,0 +1,389 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Command as CommandPrimitive } from "cmdk";
+import { IconCheck, IconSearch } from "@tabler/icons-react";
+import { Command, CommandEmpty, CommandItem, CommandList } from "../ui/command";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import { cn } from "../utils/cn";
+import { ProviderIcon } from "./provider-icon";
+import {
+  type ModelAccount,
+  type ModelOption,
+  getProviderLabel,
+} from "./model-picker-types";
+
+export type ModelPickerInstance = {
+  key: string;
+  provider: string;
+  accountId: string | null;
+  label: string;
+  accentColor?: string;
+};
+
+type ModelPickerRow = {
+  compositeKey: string;
+  modelId: string;
+  modelLabel: string;
+  instance: ModelPickerInstance;
+};
+
+export function providerInstanceInitials(label: string): string {
+  const words = label.replace(/[_-]+/g, " ").split(/\s+/u).filter(Boolean);
+  if (words.length === 0) return "";
+  const first = words[0];
+  if (!first) return "";
+  if (words.length === 1) return first.slice(0, 2).toUpperCase();
+  const second = words[1];
+  if (!second) return first.slice(0, 2).toUpperCase();
+  return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
+}
+
+export function teamInstanceKey(provider: string): string {
+  return `team:${provider}`;
+}
+
+export function toCompositeKey(instanceKey: string, modelId: string): string {
+  return `${instanceKey}::${modelId}`;
+}
+
+export function buildPickerInstances<TModel extends string>(
+  options: ReadonlyArray<ModelOption<TModel>>,
+  accounts: ReadonlyArray<ModelAccount> | undefined,
+): ModelPickerInstance[] {
+  const providers: string[] = [];
+  for (const option of options) {
+    if (!providers.includes(option.provider)) {
+      providers.push(option.provider);
+    }
+  }
+
+  const instances: ModelPickerInstance[] = [];
+  for (const provider of providers) {
+    instances.push({
+      key: teamInstanceKey(provider),
+      provider,
+      accountId: null,
+      label: getProviderLabel(provider),
+    });
+    const providerAccounts =
+      accounts?.filter((account) => account.provider === provider) ?? [];
+    for (const account of providerAccounts) {
+      instances.push({
+        key: account.id,
+        provider,
+        accountId: account.id,
+        label: account.label,
+        accentColor: account.accentColor,
+      });
+    }
+  }
+  return instances;
+}
+
+function InstanceIcon({
+  instance,
+  size = 20,
+  showBadge,
+  indicatorBackground = "rgb(var(--popover))",
+}: {
+  instance: ModelPickerInstance;
+  size?: number;
+  showBadge: boolean;
+  indicatorBackground?: string;
+}) {
+  return (
+    <span className="relative isolate inline-flex shrink-0 items-center justify-center overflow-visible">
+      <ProviderIcon provider={instance.provider} size={size} />
+      {showBadge ? (
+        <span
+          className={cn(
+            "pointer-events-none absolute -right-0.5 -bottom-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full px-0.5 text-[7px] font-semibold leading-none",
+            instance.accentColor
+              ? "text-white"
+              : "bg-muted text-muted-foreground",
+          )}
+          style={{
+            backgroundColor: instance.accentColor,
+            boxShadow: `0 0 0 1.5px ${indicatorBackground}`,
+          }}
+          aria-hidden
+        >
+          {providerInstanceInitials(instance.label)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function rowFooter(instance: ModelPickerInstance): string {
+  const providerLabel = getProviderLabel(instance.provider);
+  if (instance.accountId === null) return providerLabel;
+  return `${providerLabel} · ${instance.label}`;
+}
+
+export function ModelPickerContent<TModel extends string>({
+  value,
+  accountId,
+  options,
+  accounts,
+  onSelect,
+}: {
+  value: TModel;
+  accountId: string | null;
+  options: ReadonlyArray<ModelOption<TModel>>;
+  accounts?: ReadonlyArray<ModelAccount>;
+  onSelect: (modelId: TModel, accountId: string | null) => void;
+}) {
+  const instances = useMemo(
+    () => buildPickerInstances(options, accounts),
+    [options, accounts],
+  );
+
+  const initialInstanceKey = useMemo(() => {
+    if (accountId) {
+      const match = instances.find((instance) => instance.key === accountId);
+      if (match) return match.key;
+    }
+    const selected = options.find((option) => option.id === value);
+    if (selected) return teamInstanceKey(selected.provider);
+    const first = instances[0];
+    return first ? first.key : "";
+  }, [accountId, instances, options, value]);
+
+  const [selectedInstanceKey, setSelectedInstanceKey] =
+    useState(initialInstanceKey);
+  const [search, setSearch] = useState("");
+  const [showTopFade, setShowTopFade] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const isSearching = search.trim().length > 0;
+
+  const selectedInstance =
+    instances.find((instance) => instance.key === selectedInstanceKey) ??
+    instances[0];
+
+  const selectedRailIndex = selectedInstance
+    ? instances.findIndex((instance) => instance.key === selectedInstance.key)
+    : -1;
+
+  const activeCompositeKey = useMemo(() => {
+    const selected = options.find((option) => option.id === value);
+    if (!selected) return "";
+    if (accountId) {
+      const accountInstance = instances.find(
+        (instance) => instance.key === accountId,
+      );
+      if (accountInstance) {
+        return toCompositeKey(accountInstance.key, selected.id);
+      }
+    }
+    return toCompositeKey(teamInstanceKey(selected.provider), selected.id);
+  }, [accountId, instances, options, value]);
+
+  const rows = useMemo((): ModelPickerRow[] => {
+    const sourceInstances = isSearching
+      ? instances
+      : selectedInstance
+        ? [selectedInstance]
+        : [];
+    const out: ModelPickerRow[] = [];
+    for (const instance of sourceInstances) {
+      for (const option of options) {
+        if (option.provider !== instance.provider) continue;
+        out.push({
+          compositeKey: toCompositeKey(instance.key, option.id),
+          modelId: option.id,
+          modelLabel: option.label,
+          instance,
+        });
+      }
+    }
+    return out;
+  }, [instances, isSearching, options, selectedInstance]);
+
+  useEffect(() => {
+    searchInputRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const focusSearch = () => {
+    searchInputRef.current?.focus({ preventScroll: true });
+  };
+
+  const updateScrollFades = (element: HTMLElement) => {
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    setShowTopFade(scrollTop > 2);
+    setShowBottomFade(scrollTop + clientHeight < scrollHeight - 2);
+  };
+
+  // Rail button: w-12 gutter, px-1 → 40px square; gap-1 → 4px between.
+  const RAIL_BUTTON = 40;
+  const RAIL_GAP = 4;
+  const RAIL_PAD_TOP = 2;
+  const indicatorTop =
+    selectedRailIndex >= 0
+      ? RAIL_PAD_TOP +
+        selectedRailIndex * (RAIL_BUTTON + RAIL_GAP) +
+        (RAIL_BUTTON - 20) / 2
+      : null;
+
+  const providerCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const instance of instances) {
+      counts.set(instance.provider, (counts.get(instance.provider) ?? 0) + 1);
+    }
+    return counts;
+  }, [instances]);
+
+  return (
+    <div
+      className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
+      data-model-picker-content
+    >
+      {!isSearching ? (
+        <TooltipProvider delayDuration={300}>
+          <div className="w-12 shrink-0 overflow-hidden border-r border-border bg-muted/30">
+            <div className="relative flex flex-col gap-1 px-1 pb-1 pt-0.5">
+              {indicatorTop !== null ? (
+                <div
+                  className="pointer-events-none absolute right-0 z-10 h-5 w-[3px] rounded-l-full bg-primary transition-[top] duration-200 ease-out"
+                  style={{ top: indicatorTop }}
+                  aria-hidden
+                />
+              ) : null}
+              {instances.map((instance) => {
+                const showBadge =
+                  Boolean(instance.accentColor) ||
+                  (providerCounts.get(instance.provider) ?? 0) > 1;
+                return (
+                  <Tooltip key={instance.key}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="relative isolate flex aspect-square w-full cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted"
+                        aria-label={instance.label}
+                        onClick={() => {
+                          setSelectedInstanceKey(instance.key);
+                          focusSearch();
+                        }}
+                      >
+                        <InstanceIcon
+                          instance={instance}
+                          size={20}
+                          showBadge={showBadge}
+                          indicatorBackground="rgb(var(--muted))"
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" sideOffset={8}>
+                      {instance.label}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </div>
+        </TooltipProvider>
+      ) : null}
+
+      <Command
+        key={isSearching ? "all" : selectedInstanceKey}
+        className="flex min-w-0 flex-1 flex-col rounded-none border-0 bg-muted/40"
+        defaultValue={activeCompositeKey || undefined}
+      >
+        <div className="px-4 pt-2.5">
+          <div className="flex items-center gap-2 border-b border-border/70 pb-2.5 transition-colors focus-within:border-ring">
+            <IconSearch
+              className="size-4 shrink-0 text-muted-foreground/55"
+              aria-hidden
+            />
+            <CommandPrimitive.Input
+              ref={searchInputRef}
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Search models..."
+              className="h-auto w-full bg-transparent py-0 text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+
+        <div className="relative min-h-0 flex-1">
+          {showTopFade ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-muted/40 to-transparent"
+              aria-hidden
+            />
+          ) : null}
+          {showBottomFade ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-gradient-to-t from-muted/40 to-transparent"
+              aria-hidden
+            />
+          ) : null}
+
+          <CommandList
+            className="max-h-none h-full flex-1 overflow-y-auto overscroll-contain px-1.5 py-1.5"
+            onScroll={(event) => updateScrollFades(event.currentTarget)}
+            ref={(node) => {
+              if (node) updateScrollFades(node);
+            }}
+          >
+            <CommandEmpty>No models found</CommandEmpty>
+            {rows.map((row) => {
+              const isActive = row.compositeKey === activeCompositeKey;
+              const showBadge =
+                Boolean(row.instance.accentColor) ||
+                (providerCounts.get(row.instance.provider) ?? 0) > 1;
+              return (
+                <CommandItem
+                  key={row.compositeKey}
+                  value={row.compositeKey}
+                  keywords={[
+                    row.modelLabel,
+                    getProviderLabel(row.instance.provider),
+                    row.instance.label,
+                  ]}
+                  onSelect={() => {
+                    const option = options.find(
+                      (entry) => entry.id === row.modelId,
+                    );
+                    if (!option) return;
+                    onSelect(option.id, row.instance.accountId);
+                  }}
+                  className="flex cursor-pointer flex-col items-stretch gap-1 rounded-md px-2 py-2.5 data-[selected=true]:bg-muted"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      {row.modelLabel}
+                    </span>
+                    {isActive ? (
+                      <IconCheck
+                        className="size-3.5 shrink-0 text-primary"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground/70">
+                    <InstanceIcon
+                      instance={row.instance}
+                      size={12}
+                      showBadge={showBadge}
+                      indicatorBackground="rgb(var(--muted))"
+                    />
+                    <span className="truncate">{rowFooter(row.instance)}</span>
+                  </div>
+                </CommandItem>
+              );
+            })}
+          </CommandList>
+        </div>
+      </Command>
+    </div>
+  );
+}

@@ -3,7 +3,7 @@ export * from "./attachments";
 export * from "./confirmation";
 export * from "./conversation";
 export * from "./message";
-export * from "./model-selector";
+export * from "./model-picker";
 export * from "./prompt-input";
 export * from "./provider-icon";
 export * from "./prompt-input-settings";

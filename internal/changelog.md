@@ -1,5 +1,11 @@
 # Changelog
 
+## Model picker matches t3code's searchable popover - 2026-07-17
+
+- Replaced the nested provider → account → model dropdowns with a t3code-style popover: left provider/account rail, search across all models, and a flat two-line list with account accent badges.
+- Same `ModelSelect` props API at every call site — picking a model still sets team vs personal credential via `onAccountChange`.
+- Reason for change: deep submenus made switching models/accounts slow and undiscoverable once personal accounts landed.
+
 ## Stop keeps the partial reply instead of "Execution cancelled" - 2026-07-17
 
 - Killing a session/task/project chat turn now saves whatever text and tool timeline had already streamed; the hardcoded "Execution cancelled by user." string is gone.

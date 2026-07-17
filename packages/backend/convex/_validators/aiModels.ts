@@ -37,18 +37,17 @@ export const aiModelValidator = v.union(
 );
 
 /**
- * Abstract, provider-neutral reasoning effort levels shown on the chat input
- * lever. A single level is threaded to the sandbox as the `AI_REASONING_EFFORT`
- * env var and mapped to each provider's native control in the callback runner
- * (`callback-src/config.ts`): Claude -> `MAX_THINKING_TOKENS`, Codex ->
- * `model_reasoning_effort`. Only Claude and Codex expose a runtime lever, so the
- * UI hides it for other providers (see `providerSupportsReasoning`).
+ * Abstract, provider-neutral reasoning effort levels for the traits menu.
+ * Threaded to the sandbox as `AI_REASONING_EFFORT` only when the user picks a
+ * non-default level; mapped per provider in `callback-src/config.ts` (Claude
+ * `--effort`, Codex `model_reasoning_effort`).
  */
 export const REASONING_LEVELS = [
   "off",
   "low",
   "medium",
   "high",
+  "xhigh",
   "max",
 ] as const;
 export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
@@ -58,10 +57,64 @@ export const reasoningLevelValidator = v.union(
   v.literal("low"),
   v.literal("medium"),
   v.literal("high"),
+  v.literal("xhigh"),
   v.literal("max"),
 );
 
+/** Optional trait overrides threaded from composer → queue → sandbox runner. */
+export const modelTraitsExecutionFields = {
+  reasoningLevel: v.optional(reasoningLevelValidator),
+  thinkingEnabled: v.optional(v.boolean()),
+  use1mContext: v.optional(v.boolean()),
+};
+
 export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
+
+export interface ModelReasoningTraits {
+  levels: ReadonlyArray<ReasoningLevel>;
+  default: ReasoningLevel;
+  ultrathink?: boolean;
+}
+
+export interface ModelTraits {
+  reasoning?: ModelReasoningTraits;
+  thinkingToggle?: boolean;
+  contextWindow1m?: boolean;
+}
+
+export interface StoredModelTraits {
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+}
+
+export interface ModelTraitsExecutionArgs {
+  reasoningLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+}
+
+const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "xhigh", "max"],
+  default: "high",
+  ultrathink: true,
+};
+
+const CLAUDE_REASONING_NO_XHIGH: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "max"],
+  default: "high",
+};
+
+const CLAUDE_REASONING_OPUS_46: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "max"],
+  default: "high",
+  ultrathink: true,
+};
+
+const CODEX_REASONING: ModelReasoningTraits = {
+  levels: ["off", "low", "medium", "high"],
+  default: "medium",
+};
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
@@ -96,6 +149,9 @@ export interface AIModelOption {
   provider: AIProvider;
   label: string;
   requiresAuth: boolean;
+  reasoning?: ModelReasoningTraits;
+  thinkingToggle?: boolean;
+  contextWindow1m?: boolean;
 }
 
 export interface AIProviderAvailability {
@@ -108,66 +164,85 @@ export interface AIProviderAvailability {
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
 
 export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
-  { id: "claude:opus", provider: "claude", label: "Opus", requiresAuth: true },
+  {
+    id: "claude:opus",
+    provider: "claude",
+    label: "Opus",
+    requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+  },
   {
     id: "claude:sonnet",
     provider: "claude",
     label: "Sonnet",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+    contextWindow1m: true,
   },
   {
     id: "claude:haiku",
     provider: "claude",
     label: "Haiku",
     requiresAuth: true,
+    thinkingToggle: true,
   },
   {
     id: "claude:opusplan",
     provider: "claude",
     label: "Opus Plan",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
   },
   {
     id: "claude:claude-opus-4-5-20251101",
     provider: "claude",
     label: "Opus 4.5",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_NO_XHIGH,
   },
   {
     id: "claude:claude-opus-4-6",
     provider: "claude",
     label: "Opus 4.6",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_OPUS_46,
+    contextWindow1m: true,
   },
   {
     id: "claude:claude-fable-5",
     provider: "claude",
     label: "Fable 5",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+    contextWindow1m: true,
   },
   {
     id: "codex:gpt-5.4",
     provider: "codex",
     label: "GPT-5.4",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.4-mini",
     provider: "codex",
     label: "GPT-5.4 mini",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.3-codex",
     provider: "codex",
     label: "GPT-5.3-Codex",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.2-codex",
     provider: "codex",
     label: "GPT-5.2-Codex",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "opencode:openai/gpt-5-codex",
@@ -380,12 +455,103 @@ export function getAIModelProvider(
 }
 
 /**
- * Whether a provider exposes a runtime reasoning-effort lever. Cursor bakes
- * reasoning into the model id (e.g. `cursor:...-high-thinking`) and Opencode has
- * no runtime control, so the chat input hides the lever for them.
+ * Per-model trait capabilities (reasoning levels, thinking toggle, 1M context).
  */
-export function providerSupportsReasoning(provider: AIProvider): boolean {
-  return provider === "claude" || provider === "codex";
+export function getModelTraits(model: string | null | undefined): ModelTraits {
+  const option = findAIModelOption(model);
+  return {
+    ...(option.reasoning ? { reasoning: option.reasoning } : {}),
+    ...(option.thinkingToggle ? { thinkingToggle: true } : {}),
+    ...(option.contextWindow1m ? { contextWindow1m: true } : {}),
+  };
+}
+
+/** Resolves stored effort to a valid level for the model, or undefined when no reasoning trait. */
+export function resolveReasoningLevel(
+  model: string | null | undefined,
+  stored: ReasoningLevel | undefined,
+): ReasoningLevel | undefined {
+  const { reasoning } = getModelTraits(model);
+  if (!reasoning) return undefined;
+  if (stored && reasoning.levels.includes(stored)) return stored;
+  return reasoning.default;
+}
+
+export function modelHasTraits(model: string | null | undefined): boolean {
+  const traits = getModelTraits(model);
+  return Boolean(
+    traits.reasoning || traits.thinkingToggle || traits.contextWindow1m,
+  );
+}
+
+export function getReasoningLevelLabel(level: string): string {
+  switch (level) {
+    case "off":
+      return "Minimal";
+    case "low":
+      return "Low";
+    case "medium":
+      return "Medium";
+    case "high":
+      return "High";
+    case "xhigh":
+      return "Extra High";
+    case "max":
+      return "Max";
+    default:
+      return level;
+  }
+}
+
+/** Display values for the traits menu (stored undefined → model defaults). */
+export function resolveTraitsForDisplay(
+  model: string | null | undefined,
+  stored: StoredModelTraits,
+): {
+  effortLevel: ReasoningLevel | undefined;
+  thinkingEnabled: boolean;
+  use1mContext: boolean;
+} {
+  const traits = getModelTraits(model);
+  return {
+    effortLevel: traits.reasoning
+      ? resolveReasoningLevel(model, stored.effortLevel)
+      : undefined,
+    thinkingEnabled: stored.thinkingEnabled ?? true,
+    use1mContext: stored.use1mContext ?? false,
+  };
+}
+
+/**
+ * Build execution payload: only non-default trait overrides are included so the
+ * runner uses each model's native defaults when the user has not changed them.
+ */
+export function buildTraitsExecutionPayload(
+  model: string | null | undefined,
+  stored: StoredModelTraits,
+): ModelTraitsExecutionArgs {
+  const traits = getModelTraits(model);
+  const payload: ModelTraitsExecutionArgs = {};
+
+  if (traits.reasoning && stored.effortLevel !== undefined) {
+    const { default: defaultLevel } = traits.reasoning;
+    if (stored.effortLevel !== defaultLevel) {
+      const resolved = resolveReasoningLevel(model, stored.effortLevel);
+      if (resolved) {
+        payload.reasoningLevel = resolved;
+      }
+    }
+  }
+
+  if (traits.thinkingToggle && stored.thinkingEnabled === false) {
+    payload.thinkingEnabled = false;
+  }
+
+  if (traits.contextWindow1m && stored.use1mContext === true) {
+    payload.use1mContext = true;
+  }
+
+  return payload;
 }
 
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */

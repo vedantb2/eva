@@ -7,7 +7,7 @@ import {
   PromptInputSpeech,
   PromptInputSubmit,
   ModelSelect,
-  ReasoningLever,
+  TraitsMenu,
   usePromptInputController,
   toast,
   type PromptInputMessage,
@@ -31,11 +31,12 @@ import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
-  getAIModelProvider,
-  providerSupportsReasoning,
+  getModelTraits,
+  getReasoningLevelLabel,
+  modelHasTraits,
   type AIModel,
-  type ReasoningLevel,
   type Id,
+  type StoredModelTraits,
 } from "@conductor/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
@@ -45,9 +46,9 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
-import { REASONING_LEVEL_OPTIONS } from "@/lib/components/chat/chatBodyUtils";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
+import type { resolveTraitsForDisplay } from "@conductor/backend";
 
 interface ChatComposerProps {
   repoId: Id<"githubRepos">;
@@ -64,8 +65,8 @@ interface ChatComposerProps {
   accounts?: ReadonlyArray<ModelAccount>;
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
-  reasoningLevel?: ReasoningLevel;
-  onReasoningLevelChange?: (level: ReasoningLevel) => void;
+  displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
+  onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
     attachmentStorageIds?: Id<"_storage">[],
@@ -95,8 +96,8 @@ export function ChatComposer({
   accounts,
   accountId,
   onAccountChange,
-  reasoningLevel,
-  onReasoningLevelChange,
+  displayTraits,
+  onTraitsChange,
   onSend,
   onCancel,
   beforeQueuedContent,
@@ -277,13 +278,38 @@ export function ChatComposer({
                     onAccountChange={onAccountChange}
                     className="max-w-48 truncate sm:max-w-none"
                   />
-                  {onReasoningLevelChange &&
-                  reasoningLevel &&
-                  providerSupportsReasoning(getAIModelProvider(model)) ? (
-                    <ReasoningLever
-                      value={reasoningLevel}
-                      options={REASONING_LEVEL_OPTIONS}
-                      onValueChange={onReasoningLevelChange}
+                  {onTraitsChange && displayTraits && modelHasTraits(model) ? (
+                    <TraitsMenu
+                      config={getModelTraits(model)}
+                      effortLevel={displayTraits.effortLevel}
+                      thinkingEnabled={displayTraits.thinkingEnabled}
+                      use1mContext={displayTraits.use1mContext}
+                      getLevelLabel={getReasoningLevelLabel}
+                      onEffortLevelChange={(level) => {
+                        if (level === undefined) {
+                          onTraitsChange({ effortLevel: undefined });
+                          return;
+                        }
+                        const { reasoning } = getModelTraits(model);
+                        if (!reasoning) return;
+                        const match = reasoning.levels.find(
+                          (entry) => entry === level,
+                        );
+                        if (match) {
+                          onTraitsChange({ effortLevel: match });
+                        }
+                      }}
+                      onThinkingEnabledChange={(enabled) =>
+                        onTraitsChange({
+                          thinkingEnabled: enabled ? undefined : false,
+                        })
+                      }
+                      onUse1mContextChange={(use1m) =>
+                        onTraitsChange({
+                          use1mContext: use1m ? true : undefined,
+                        })
+                      }
+                      disabled={isInputDisabled}
                     />
                   ) : null}
                 </PromptInputTools>

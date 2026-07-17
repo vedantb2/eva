@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
-import { aiModelValidator, normalizeAIModel } from "../validators";
+import {
+  aiModelValidator,
+  normalizeAIModel,
+  reasoningLevelValidator,
+} from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
 import { trackDesignSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
@@ -14,6 +18,9 @@ export const executeMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
@@ -55,6 +62,9 @@ export const executeMessage = authMutation({
         designSessionId: args.id,
         message: args.message,
         model: normalizeAIModel(args.model),
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
         providerAccountId: args.providerAccountId,
         personaId: args.personaId,
         userId: ctx.userId,
@@ -74,6 +84,9 @@ export const enqueueMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
@@ -96,6 +109,9 @@ export const enqueueMessage = authMutation({
       order: Date.now(),
       userId: ctx.userId,
       model: normalizeAIModel(args.model),
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
       providerAccountId: args.providerAccountId,
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,

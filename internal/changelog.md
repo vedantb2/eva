@@ -1,5 +1,11 @@
 # Changelog
 
+## Native per-model effort traits replace broken thinking budgets - 2026-07-17
+
+- Reasoning lever now maps to Claude `--effort` / SDK `effort` and Codex `model_reasoning_effort` with per-model levels/defaults (plus thinking toggle, 1M context, Ultrathink prompt prefix); deprecated `MAX_THINKING_TOKENS` budgets are gone so Low/Medium/High are no longer identical on Opus 4.6+/Fable 5.
+- Traits menu (sessions, projects, tasks, designs) omits model defaults from the send payload; localStorage renames `reasoningLevel` → `effortLevel` so the old sticky no-op medium is dropped.
+- Reason for change: Agent SDK 0.3.201 treats thinking-token budgets as on/off only; t3code-style native effort is the real control.
+
 ## Session chat: changed-files card + ephemeral diff review comments - 2026-07-17
 
 - Per-turn changed-files card lists edit/write/notebook paths; View diff best-effort strips `/tmp/repo/` or `/workspace/repo/` then sets `diffFile` and opens the Diffs tab (PR sessions only).

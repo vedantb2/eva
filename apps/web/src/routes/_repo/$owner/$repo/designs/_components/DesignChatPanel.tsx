@@ -2,6 +2,11 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import {
+  getModelTraits,
+  getReasoningLevelLabel,
+  modelHasTraits,
+} from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -21,6 +26,7 @@ import {
   PromptInputSubmit,
   PromptInputSpeech,
   ModelSelect,
+  TraitsMenu,
   toast,
   type PromptInputMessage,
 } from "@conductor/ui";
@@ -164,8 +170,15 @@ export function DesignChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
-  const { model, setModel, providerAccountId, setProviderAccountId } =
-    useSessionSettings(designSessionId);
+  const {
+    model,
+    setModel,
+    displayTraits,
+    executionTraits,
+    onTraitsChange,
+    providerAccountId,
+    setProviderAccountId,
+  } = useSessionSettings(designSessionId);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
@@ -221,6 +234,7 @@ export function DesignChatPanel({
         id: designSessionId,
         message,
         model,
+        ...executionTraits,
         providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
@@ -234,6 +248,7 @@ export function DesignChatPanel({
         id: designSessionId,
         message,
         model,
+        ...executionTraits,
         providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
@@ -505,6 +520,40 @@ export function DesignChatPanel({
                         onAccountChange={setProviderAccountId}
                         disabled={!isSandboxActive}
                       />
+                      {modelHasTraits(model) ? (
+                        <TraitsMenu
+                          config={getModelTraits(model)}
+                          effortLevel={displayTraits.effortLevel}
+                          thinkingEnabled={displayTraits.thinkingEnabled}
+                          use1mContext={displayTraits.use1mContext}
+                          getLevelLabel={getReasoningLevelLabel}
+                          onEffortLevelChange={(level) => {
+                            if (level === undefined) {
+                              onTraitsChange({ effortLevel: undefined });
+                              return;
+                            }
+                            const { reasoning } = getModelTraits(model);
+                            if (!reasoning) return;
+                            const match = reasoning.levels.find(
+                              (entry) => entry === level,
+                            );
+                            if (match) {
+                              onTraitsChange({ effortLevel: match });
+                            }
+                          }}
+                          onThinkingEnabledChange={(enabled) =>
+                            onTraitsChange({
+                              thinkingEnabled: enabled ? undefined : false,
+                            })
+                          }
+                          onUse1mContextChange={(use1m) =>
+                            onTraitsChange({
+                              use1mContext: use1m ? true : undefined,
+                            })
+                          }
+                          disabled={!isSandboxActive}
+                        />
+                      ) : null}
                       <PersonaDropdown
                         repoId={repoId}
                         value={selectedPersonaId}

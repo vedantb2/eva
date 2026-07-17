@@ -1,8 +1,4 @@
-import {
-  REASONING_LEVELS,
-  type Doc,
-  type ReasoningLevel,
-} from "@conductor/backend";
+import { type Doc } from "@conductor/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { z } from "zod";
@@ -14,19 +10,6 @@ export type ChatBodyMessage = Doc<"messages"> & {
 };
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
-
-const REASONING_LEVEL_LABELS: Record<ReasoningLevel, string> = {
-  off: "Off",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  max: "Max",
-};
-
-export const REASONING_LEVEL_OPTIONS = REASONING_LEVELS.map((value) => ({
-  value,
-  label: REASONING_LEVEL_LABELS[value],
-}));
 
 // Boundary schema for the pending-question JSON emitted by the agent. A
 // question with any malformed field (or option) is dropped via

@@ -134,30 +134,42 @@ process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
-var CLAUDE_THINKING_BUDGET = {
-  off: "0",
-  low: "4000",
-  medium: "10000",
-  high: "24000",
-  max: "31999"
-};
+var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max"
+]);
+var claudeEffort = PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT) ? REASONING_EFFORT : "";
 var CODEX_REASONING_EFFORT = {
   off: "minimal",
   low: "low",
   medium: "medium",
   high: "high",
+  xhigh: "high",
   max: "high"
 };
-if (PROVIDER === "claude" && CLAUDE_THINKING_BUDGET[REASONING_EFFORT]) {
-  process.env.MAX_THINKING_TOKENS = CLAUDE_THINKING_BUDGET[REASONING_EFFORT];
-}
 var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
+function buildSettingsJson() {
+  const settings = {
+    attribution: { commit: "", pr: "" }
+  };
+  const thinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
+  if (thinkingDisabled) {
+    settings.alwaysThinkingEnabled = false;
+  }
+  return JSON.stringify(settings);
+}
 var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
-var settingsJson = '{"attribution":{"commit":"","pr":""}}';
+var settingsJson = buildSettingsJson();
 var settingsArg = "--settings " + JSON.stringify(settingsJson);
 var mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-var normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
 var normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
@@ -171,7 +183,7 @@ var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto -
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
 var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
-var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + (claudeEffort ? " --effort " + claudeEffort : "") + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -3414,6 +3426,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     DISABLE_ERROR_REPORTING: "1"
   };
   delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -3437,7 +3450,8 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     env,
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
-    extraArgs
+    extraArgs,
+    ...effortOption
   };
 }
 async function runClaudeSdkAttempt(sessionMode) {

@@ -4,10 +4,12 @@ import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   DEFAULT_AI_MODEL,
-  DEFAULT_REASONING_LEVEL,
+  buildTraitsExecutionPayload,
   normalizeAIModel,
+  resolveTraitsForDisplay,
   type AIModel,
   type ReasoningLevel,
+  type StoredModelTraits,
 } from "@conductor/backend";
 
 const SESSION_MODES = ["edit", "plan"] as const;
@@ -23,17 +25,15 @@ function normalizeMode(mode: string): SessionMode {
 interface StoredSettings {
   model: AIModel;
   mode: SessionMode;
-  reasoningLevel: ReasoningLevel;
-  // The user's own provider account whose credentials run this session's turns,
-  // or null for the shared team credential. Stored as a plain string id (the
-  // Convex Id<"userProviderAccounts">) so it round-trips through localStorage.
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
   providerAccountId: string | null;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
   mode: "edit",
-  reasoningLevel: DEFAULT_REASONING_LEVEL,
   providerAccountId: null,
 };
 
@@ -54,9 +54,23 @@ export function useSessionSettings(
     defaults,
   );
 
+  const model = normalizeAIModel(settings.model);
+
+  const storedTraits: StoredModelTraits = {
+    effortLevel: settings.effortLevel,
+    thinkingEnabled: settings.thinkingEnabled,
+    use1mContext: settings.use1mContext,
+  };
+
+  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
+  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
+
   const setModel = useCallback(
-    (model: AIModel) => {
-      setSettings((prev) => ({ ...prev, model: normalizeAIModel(model) }));
+    (nextModel: AIModel) => {
+      setSettings((prev) => ({
+        ...prev,
+        model: normalizeAIModel(nextModel),
+      }));
     },
     [setSettings],
   );
@@ -68,9 +82,9 @@ export function useSessionSettings(
     [setSettings],
   );
 
-  const setReasoningLevel = useCallback(
-    (reasoningLevel: ReasoningLevel) => {
-      setSettings((prev) => ({ ...prev, reasoningLevel }));
+  const onTraitsChange = useCallback(
+    (partial: Partial<StoredModelTraits>) => {
+      setSettings((prev) => ({ ...prev, ...partial }));
     },
     [setSettings],
   );
@@ -83,13 +97,15 @@ export function useSessionSettings(
   );
 
   return {
-    model: normalizeAIModel(settings.model),
+    model,
     mode: normalizeMode(settings.mode),
-    reasoningLevel: settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL,
+    storedTraits,
+    displayTraits,
+    executionTraits,
+    onTraitsChange,
     providerAccountId: settings.providerAccountId ?? null,
     setModel,
     setMode,
-    setReasoningLevel,
     setProviderAccountId,
   };
 }

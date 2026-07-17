@@ -11,7 +11,12 @@ import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type AIModel, type ReasoningLevel, type Id } from "@conductor/backend";
+import {
+  type AIModel,
+  type Id,
+  type StoredModelTraits,
+  type resolveTraitsForDisplay,
+} from "@conductor/backend";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
@@ -63,12 +68,11 @@ interface ChatBodyProps {
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
   /**
-   * Session-wide reasoning effort. When both the level and setter are provided
-   * and the selected model's provider supports a runtime lever (Claude/Codex),
-   * a reasoning lever is shown after the model selector in the input tools row.
+   * Model trait controls (reasoning effort, thinking toggle, 1M context). When
+   * provided, a traits menu is shown after the model selector for capable models.
    */
-  reasoningLevel?: ReasoningLevel;
-  onReasoningLevelChange?: (level: ReasoningLevel) => void;
+  displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
+  onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   /**
    * Called with the tokenized content and any uploaded image attachment storage
    * ids. Caller decides whether to send or enqueue.
@@ -140,8 +144,8 @@ export function ChatBody({
   accounts,
   accountId,
   onAccountChange,
-  reasoningLevel,
-  onReasoningLevelChange,
+  displayTraits,
+  onTraitsChange,
   onSend,
   onCancel,
   preConversationContent,
@@ -282,8 +286,8 @@ export function ChatBody({
           accounts={accounts}
           accountId={accountId}
           onAccountChange={onAccountChange}
-          reasoningLevel={reasoningLevel}
-          onReasoningLevelChange={onReasoningLevelChange}
+          displayTraits={displayTraits}
+          onTraitsChange={onTraitsChange}
           onSend={onSend}
           onCancel={onCancel}
           beforeQueuedContent={beforeQueuedContent}

@@ -9,6 +9,7 @@ import {
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
   WORK_DIR,
+  claudeEffort,
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
@@ -77,6 +78,7 @@ export type SdkOptions = {
   resume?: string;
   extraArgs?: Record<string, string>;
   includePartialMessages?: boolean;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
   /** Per-tool permission gate. Set only when blocking questions are enabled. */
   canUseTool?: SdkCanUseTool;
 };
@@ -244,6 +246,15 @@ function buildSdkOptionsFromParts(
   };
   delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
 
+  const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
+    claudeEffort === "low" ||
+    claudeEffort === "medium" ||
+    claudeEffort === "high" ||
+    claudeEffort === "xhigh" ||
+    claudeEffort === "max"
+      ? { effort: claudeEffort }
+      : {};
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -272,6 +283,7 @@ function buildSdkOptionsFromParts(
       ? { resume: sessionMode.sessionId }
       : {}),
     extraArgs,
+    ...effortOption,
   };
 }
 

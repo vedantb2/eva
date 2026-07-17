@@ -1080,6 +1080,35 @@ export const pushSandboxBranch = internalAction({
   },
 });
 
+type TraitEnvInput = {
+  reasoningLevel?: string;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+};
+
+function buildDaemonOptsSig(
+  normalizedModel: string,
+  allowedTools: string | undefined,
+  providerAccountId: string | undefined,
+  traits: TraitEnvInput,
+): string {
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${providerAccountId ?? ""}`;
+}
+
+function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (traits.reasoningLevel) {
+    env.AI_REASONING_EFFORT = traits.reasoningLevel;
+  }
+  if (traits.thinkingEnabled === false) {
+    env.AI_THINKING_ENABLED = "0";
+  }
+  if (traits.use1mContext === true) {
+    env.AI_CONTEXT_1M = "1";
+  }
+  return env;
+}
+
 /**
  * Pre-warm a session's Claude daemon so the user's FIRST message is warm.
  *
@@ -1101,6 +1130,8 @@ export const prewarmSessionDaemon = internalAction({
     userId: v.id("users"),
     model: v.optional(v.string()),
     reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
@@ -1138,13 +1169,19 @@ export const prewarmSessionDaemon = internalAction({
       // run the turn on the wrong model or without edit tools. The daemon writes
       // this exact signature to /tmp/eva-daemon.opts at boot (via EVA_DAEMON_OPTS
       // below), so the comparison is a literal string match with no drift.
-      // Reasoning level is part of the signature: the daemon freezes its thinking
-      // budget at boot (MAX_THINKING_TOKENS env), so changing the lever mid-session
+      // Reasoning level and trait toggles are part of the signature: the daemon
+      // freezes its effort/thinking/context at boot, so changing them mid-session
       // must respawn the daemon to take effect.
-      // The chosen user account is part of the signature: the daemon freezes
-      // its injected credentials at boot, so switching account mid-session must
-      // respawn the daemon to bill the new account.
-      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}|${args.reasoningLevel ?? ""}|${args.providerAccountId ?? ""}`;
+      const optsSig = buildDaemonOptsSig(
+        normalizedModel,
+        args.allowedTools,
+        args.providerAccountId,
+        {
+          reasoningLevel: args.reasoningLevel,
+          thinkingEnabled: args.thinkingEnabled,
+          use1mContext: args.use1mContext,
+        },
+      );
       // Classify the sandbox daemon: alive (reuse), optsmismatch (model/tools
       // changed — kill + respawn), stale (new callback bundle — reupload without
       // killing; the daemon self-exits on the fp change), or cold (launch fresh).
@@ -1222,9 +1259,11 @@ export const prewarmSessionDaemon = internalAction({
           extraEnvVars: {
             CLAUDE_PREWARM: "1",
             EVA_DAEMON_OPTS: optsSig,
-            ...(args.reasoningLevel
-              ? { AI_REASONING_EFFORT: args.reasoningLevel }
-              : {}),
+            ...buildTraitEnvVars({
+              reasoningLevel: args.reasoningLevel,
+              thinkingEnabled: args.thinkingEnabled,
+              use1mContext: args.use1mContext,
+            }),
           },
           claudeSessionId,
           providerAccountId: args.providerAccountId,
@@ -1255,6 +1294,8 @@ export const launchOnExistingSandbox = internalAction({
     entityIdField: v.string(),
     model: v.optional(v.string()),
     reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1312,12 +1353,16 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
-    // Session-wide reasoning effort. The runner maps this abstract level to each
-    // provider's native control (Claude MAX_THINKING_TOKENS, Codex config.toml)
-    // and ignores it for providers without a runtime lever (see config.ts).
-    if (args.reasoningLevel) {
-      extraEnvVars.AI_REASONING_EFFORT = args.reasoningLevel;
-    }
+    // Session-wide trait overrides. Only non-default values are sent from the UI;
+    // the runner maps effort to each provider's native control (see config.ts).
+    Object.assign(
+      extraEnvVars,
+      buildTraitEnvVars({
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+      }),
+    );
     extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 
     const normalizedModel = normalizeAIModel(args.model);

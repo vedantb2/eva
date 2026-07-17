@@ -181,39 +181,48 @@ process.env.GH_NO_UPDATE_NOTIFIER = "1";
 export const REPO_ID = process.env.REPO_ID;
 
 // --- Reasoning / thinking effort ---
-// `AI_REASONING_EFFORT` is the abstract, provider-neutral level set on the chat
-// input lever (off|low|medium|high|max). Each provider is configured from it:
-//   - Claude: MAX_THINKING_TOKENS env (read by the CLI and the Agent SDK alike).
+// `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
+// when the user picks a non-default level. Mapped per provider below:
+//   - Claude: `--effort` on the CLI and Agent SDK `effort` option.
 //   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
-// Providers without a runtime lever (Cursor, Opencode) ignore it entirely.
 export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+export const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
 
-const CLAUDE_THINKING_BUDGET: Record<string, string> = {
-  off: "0",
-  low: "4000",
-  medium: "10000",
-  high: "24000",
-  max: "31999",
-};
+const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
+
+export const claudeEffort =
+  PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT)
+    ? REASONING_EFFORT
+    : "";
 
 const CODEX_REASONING_EFFORT: Record<string, string> = {
   off: "minimal",
   low: "low",
   medium: "medium",
   high: "high",
+  xhigh: "high",
   max: "high",
 };
 
-// Set the Claude thinking budget at module load so the spawned CLI child (which
-// inherits process.env) and the Agent SDK (which spreads process.env into its
-// options) both pick it up. Unset level => leave the model's own default alone.
-if (PROVIDER === "claude" && CLAUDE_THINKING_BUDGET[REASONING_EFFORT]) {
-  process.env.MAX_THINKING_TOKENS = CLAUDE_THINKING_BUDGET[REASONING_EFFORT];
-}
-
-// Resolved Codex reasoning effort (empty when unset or not Codex).
 export const codexReasoningEffort =
   PROVIDER === "codex" ? (CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "") : "";
+
+function buildSettingsJson(): string {
+  const settings: {
+    attribution: { commit: string; pr: string };
+    alwaysThinkingEnabled?: false;
+  } = {
+    attribution: { commit: "", pr: "" },
+  };
+  const thinkingDisabled =
+    AI_THINKING_ENABLED === "0" ||
+    (PROVIDER === "claude" && REASONING_EFFORT === "off");
+  if (thinkingDisabled) {
+    settings.alwaysThinkingEnabled = false;
+  }
+  return JSON.stringify(settings);
+}
 
 export const toolsArg = ALLOWED_TOOLS
   ? '--allowedTools "' + ALLOWED_TOOLS + '"'
@@ -221,14 +230,18 @@ export const toolsArg = ALLOWED_TOOLS
 export const systemArg = SYSTEM_PROMPT
   ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT)
   : "";
-export const settingsJson = '{"attribution":{"commit":"","pr":""}}';
+export const settingsJson = buildSettingsJson();
 export const settingsArg = "--settings " + JSON.stringify(settingsJson);
 export const mcpArg = existsSync("/tmp/eva-mcp.json")
   ? "--mcp-config /tmp/eva-mcp.json"
   : "";
-export const normalizedClaudeModel = MODEL.startsWith("claude:")
+const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;
+export const normalizedClaudeModel =
+  PROVIDER === "claude" && AI_CONTEXT_1M === "1"
+    ? `${claudeModelBase}[1m]`
+    : claudeModelBase;
 export const normalizedCodexModel = MODEL.startsWith("codex:")
   ? MODEL.slice("codex:".length)
   : MODEL;
@@ -283,6 +296,7 @@ export const claudeBaseCmd =
   claudeCommand +
   " -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
+  (claudeEffort ? " --effort " + claudeEffort : "") +
   " " +
   toolsArg +
   " " +

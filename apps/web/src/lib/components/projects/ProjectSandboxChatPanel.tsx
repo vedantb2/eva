@@ -6,13 +6,15 @@ import { useMutation } from "convex/react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   api,
+  buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
-  DEFAULT_REASONING_LEVEL,
   findAIModelOption,
   normalizeAIModel,
+  resolveTraitsForDisplay,
   type AIModel,
   type Id,
   type ReasoningLevel,
+  type StoredModelTraits,
 } from "@conductor/backend";
 import {
   ChatBody,
@@ -26,7 +28,9 @@ import {
 
 interface StoredSettings {
   model: AIModel;
-  reasoningLevel: ReasoningLevel;
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
   providerAccountId?: string | null;
 }
 
@@ -61,10 +65,16 @@ export function ProjectSandboxChatPanel({
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
     chatSettingsKey(projectId),
-    { model: defaultModel, reasoningLevel: DEFAULT_REASONING_LEVEL },
+    { model: defaultModel },
   );
   const model = normalizeAIModel(settings.model);
-  const reasoningLevel = settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL;
+  const storedTraits: StoredModelTraits = {
+    effortLevel: settings.effortLevel,
+    thinkingEnabled: settings.thinkingEnabled,
+    use1mContext: settings.use1mContext,
+  };
+  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
+  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
   const providerAccountId = settings.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
@@ -76,9 +86,10 @@ export function ProjectSandboxChatPanel({
     [setSettings],
   );
 
-  const setReasoningLevel = useCallback(
-    (next: ReasoningLevel) =>
-      setSettings((prev) => ({ ...prev, reasoningLevel: next })),
+  const onTraitsChange = useCallback(
+    (partial: Partial<StoredModelTraits>) => {
+      setSettings((prev) => ({ ...prev, ...partial }));
+    },
     [setSettings],
   );
 
@@ -101,7 +112,7 @@ export function ProjectSandboxChatPanel({
           projectId,
           message: content,
           model,
-          reasoningLevel,
+          ...executionTraits,
           providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         });
@@ -118,7 +129,7 @@ export function ProjectSandboxChatPanel({
         projectId,
         message: content,
         model,
-        reasoningLevel,
+        ...executionTraits,
         providerAccountId: accountId,
       });
     },
@@ -129,7 +140,7 @@ export function ProjectSandboxChatPanel({
       startExecute,
       projectId,
       model,
-      reasoningLevel,
+      executionTraits,
       providerAccountId,
       resolveAccountId,
     ],
@@ -175,8 +186,8 @@ export function ProjectSandboxChatPanel({
         accounts={accounts}
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
-        reasoningLevel={reasoningLevel}
-        onReasoningLevelChange={setReasoningLevel}
+        displayTraits={displayTraits}
+        onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

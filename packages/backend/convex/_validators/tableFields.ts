@@ -501,6 +501,8 @@ export const queuedMessageFields = {
   // that was selected when it was enqueued.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
   reasoningLevel: v.optional(reasoningLevelValidator),
+  thinkingEnabled: v.optional(v.boolean()),
+  use1mContext: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),

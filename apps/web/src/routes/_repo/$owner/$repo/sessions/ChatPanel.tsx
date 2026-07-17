@@ -110,8 +110,9 @@ export function ChatPanel({
     setMode,
     model,
     setModel,
-    reasoningLevel,
-    setReasoningLevel,
+    displayTraits,
+    executionTraits,
+    onTraitsChange,
     providerAccountId,
     setProviderAccountId,
   } = useSessionSettings(sessionId, {
@@ -148,7 +149,7 @@ export function ChatPanel({
     sessionId,
     mode,
     model,
-    reasoningLevel,
+    executionTraits,
     providerAccountId,
     resolveAccountId,
     accounts,
@@ -309,8 +310,8 @@ export function ChatPanel({
         accounts={accounts}
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
-        reasoningLevel={reasoningLevel}
-        onReasoningLevelChange={setReasoningLevel}
+        displayTraits={displayTraits}
+        onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

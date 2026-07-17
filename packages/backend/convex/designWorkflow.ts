@@ -4,7 +4,11 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { aiModelValidator, workflowCompleteValidator } from "./validators";
+import {
+  aiModelValidator,
+  reasoningLevelValidator,
+  workflowCompleteValidator,
+} from "./validators";
 import {
   buildRootDirectoryInstruction,
   buildCustomInstructionsBlock,
@@ -161,6 +165,9 @@ export const designSessionWorkflow = workflow.define({
     designSessionId: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     userId: v.id("users"),
@@ -198,6 +205,9 @@ export const designSessionWorkflow = workflow.define({
         completionMutation: "designWorkflow:handleCompletion",
         entityIdField: "designSessionId",
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
         providerAccountId: args.providerAccountId,
         allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,

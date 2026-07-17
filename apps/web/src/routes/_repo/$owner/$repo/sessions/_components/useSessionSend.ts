@@ -1,5 +1,5 @@
 import { api } from "@conductor/backend";
-import type { AIModel, Id, ReasoningLevel } from "@conductor/backend";
+import type { AIModel, Id, ModelTraitsExecutionArgs } from "@conductor/backend";
 import type { ModelAccount } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
@@ -23,7 +23,7 @@ interface UseSessionSendParams {
   sessionId: Id<"sessions">;
   mode: SessionMode;
   model: AIModel;
-  reasoningLevel: ReasoningLevel;
+  executionTraits: ModelTraitsExecutionArgs;
   providerAccountId: string | null;
   resolveAccountId: (
     id: string | null,
@@ -36,7 +36,7 @@ export function useSessionSend({
   sessionId,
   mode,
   model,
-  reasoningLevel,
+  executionTraits,
   providerAccountId,
   resolveAccountId,
   accounts,
@@ -113,7 +113,7 @@ export function useSessionSend({
           message: finalContent,
           mode,
           model,
-          reasoningLevel,
+          ...executionTraits,
           providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         });
@@ -135,7 +135,7 @@ export function useSessionSend({
           message: finalContent,
           mode,
           model,
-          reasoningLevel,
+          ...executionTraits,
           providerAccountId: accountId,
           attachmentStorageIds,
         }),
@@ -162,7 +162,7 @@ export function useSessionSend({
       sessionId,
       mode,
       model,
-      reasoningLevel,
+      executionTraits,
       providerAccountId,
       resolveAccountId,
       review,

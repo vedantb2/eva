@@ -1,6 +1,8 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader } from "convex/server";
 import { internal } from "./_generated/api";
 import { internalQuery } from "./_generated/server";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
@@ -11,8 +13,14 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
-import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
-import { finalizePrRecapOutcome } from "./_prRecapWorkflow/finalizeOutcome";
+import {
+  buildPrRecapPrompt,
+  parsePrRecapOutput,
+} from "./_prRecapWorkflow/prompts";
+import {
+  finalizePrRecapOutcome,
+  type PrRecapOutcome,
+} from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import {
@@ -55,18 +63,22 @@ export const prRecapWorkflow = workflow.define({
       repoData.prRecapModel ?? repoData.defaultModel ?? "sonnet",
     );
 
+    function finalize(outcome: PrRecapOutcome): Promise<void> {
+      return finalizePrRecapOutcome(step, {
+        ...args,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
+        outcome,
+      });
+    }
+
     const authCheck = await step.runAction(
       internal._github.prRecapService.checkProviderAuth,
       { repoId: args.repoId, model },
     );
     if (!authCheck.ok) {
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: { kind: "error", message: authCheck.message },
-      });
+      await finalize({ kind: "error", message: authCheck.message });
       return;
     }
 
@@ -81,13 +93,7 @@ export const prRecapWorkflow = workflow.define({
     );
 
     if (diff.additions + diff.deletions < MIN_DIFF_LINES) {
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: { kind: "skipped", message: "Diff too small to recap" },
-      });
+      await finalize({ kind: "skipped", message: "Diff too small to recap" });
       return;
     }
 
@@ -106,76 +112,75 @@ export const prRecapWorkflow = workflow.define({
       reviewerFeedback: args.reviewerFeedback,
     });
 
+    // Sandbox credentials (esp. VERCEL_PROJECT_ID) live on app rows, not the
+    // codebase root that startRecap passes as args.repoId.
+    const sandboxRepoId = repoData.sandboxRepoId;
+
     let sandboxId: string | undefined;
     try {
-      ({ sandboxId } = await prepareSandboxSteps(step, {
-        installationId: args.installationId,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        repoId: args.repoId,
-        ephemeral: true,
-        streamingEntityId: `pr-recap:${String(args.docId)}`,
-        baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
-        // Recap agents only read the diff in-repo; no convex import / dev daemons.
-        skipStartupCommands: true,
-      }));
-
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
-        sandboxId,
-        entityId: String(args.docId),
-        streamingEntityId: `pr-recap:${String(args.docId)}`,
-        prompt,
-        userId: args.userId,
-        completionMutation: "prRecapWorkflow:handleCompletion",
-        entityIdField: "docId",
-        model,
-        allowedTools: "",
-        repoId: args.repoId,
-      });
-
-      const result = await step.awaitEvent(prRecapCompleteEvent);
-
-      if (result.success && result.result) {
-        await finalizePrRecapOutcome(step, {
-          ...args,
+      try {
+        ({ sandboxId } = await prepareSandboxSteps(step, {
+          installationId: args.installationId,
           repoOwner: repoData.repoOwner,
           repoName: repoData.repoName,
-          linkRootDirectory: repoData.linkRootDirectory,
-          outcome: { kind: "ready", content: result.result.trim() },
-        });
-        if (
-          args.consumeAgentCommentIds &&
-          args.consumeAgentCommentIds.length > 0
-        ) {
-          await step.runMutation(
-            internal.docComments.resolveRecapAgentComments,
-            {
-              docId: args.docId,
-              commentIds: args.consumeAgentCommentIds,
-              resolvedBy: args.userId,
-            },
-          );
-        }
-        return;
-      }
+          repoId: sandboxRepoId,
+          ephemeral: true,
+          streamingEntityId: `pr-recap:${String(args.docId)}`,
+          baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+          createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+          // Recap agents only read the diff in-repo; no convex import / dev daemons.
+          skipStartupCommands: true,
+        }));
 
-      await finalizePrRecapOutcome(step, {
-        ...args,
-        repoOwner: repoData.repoOwner,
-        repoName: repoData.repoName,
-        linkRootDirectory: repoData.linkRootDirectory,
-        outcome: {
+        await step.runAction(internal.daytona.launchOnExistingSandbox, {
+          sandboxId,
+          entityId: String(args.docId),
+          streamingEntityId: `pr-recap:${String(args.docId)}`,
+          prompt,
+          userId: args.userId,
+          completionMutation: "prRecapWorkflow:handleCompletion",
+          entityIdField: "docId",
+          model,
+          allowedTools: "",
+          repoId: sandboxRepoId,
+        });
+
+        const result = await step.awaitEvent(prRecapCompleteEvent);
+
+        if (result.success && result.result) {
+          const { markdown, html } = parsePrRecapOutput(result.result);
+          await finalize({ kind: "ready", content: markdown, html });
+          if (
+            args.consumeAgentCommentIds &&
+            args.consumeAgentCommentIds.length > 0
+          ) {
+            await step.runMutation(
+              internal.docComments.resolveRecapAgentComments,
+              {
+                docId: args.docId,
+                commentIds: args.consumeAgentCommentIds,
+                resolvedBy: args.userId,
+              },
+            );
+          }
+          return;
+        }
+
+        await finalize({
           kind: "error",
           message: result.error ?? "Recap generation failed",
-        },
-      });
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Recap generation failed";
+        await finalize({ kind: "error", message });
+      }
     } finally {
       if (sandboxId) {
         try {
           await step.runAction(internal.daytona.deleteSandbox, {
             sandboxId,
-            repoId: args.repoId,
+            repoId: sandboxRepoId,
           });
         } catch (cleanupError) {
           console.error("Failed to cleanup PR recap sandbox:", cleanupError);
@@ -184,6 +189,49 @@ export const prRecapWorkflow = workflow.define({
     }
   },
 });
+
+/**
+ * Picks which githubRepos row to use for sandbox credentials. Prefers the
+ * default visible app when it has VERCEL_PROJECT_ID; otherwise any sibling
+ * (or the workflow repo itself) that defines that key. Falls back to the
+ * workflow repo for Daytona / single-app codebases.
+ */
+async function resolveSandboxRepoId(
+  ctx: { db: GenericDatabaseReader<DataModel> },
+  workflowRepoId: Id<"githubRepos">,
+  siblings: Array<Doc<"githubRepos">>,
+): Promise<Id<"githubRepos">> {
+  async function hasVercelProjectId(
+    repoId: Id<"githubRepos">,
+  ): Promise<boolean> {
+    const envDoc = await ctx.db
+      .query("repoEnvVars")
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+      .first();
+    return (
+      envDoc?.vars.some((entry) => entry.key === "VERCEL_PROJECT_ID") === true
+    );
+  }
+
+  const preferred = pickDefaultVisibleAppRepo(siblings);
+  if (preferred && (await hasVercelProjectId(preferred._id))) {
+    return preferred._id;
+  }
+
+  for (const sibling of siblings) {
+    if (sibling._id === workflowRepoId) continue;
+    if (sibling.rootDirectory === undefined) continue;
+    if (await hasVercelProjectId(sibling._id)) {
+      return sibling._id;
+    }
+  }
+
+  if (await hasVercelProjectId(workflowRepoId)) {
+    return workflowRepoId;
+  }
+
+  return preferred?._id ?? workflowRepoId;
+}
 
 /** Loads repo settings needed for PR recap generation. */
 export const getRepoData = internalQuery({
@@ -195,12 +243,19 @@ export const getRepoData = internalQuery({
     defaultModel: v.optional(aiModelValidator),
     prRecapModel: v.optional(aiModelValidator),
     linkRootDirectory: v.optional(v.string()),
+    /** App row used for sandbox credentials (VERCEL_PROJECT_ID lives here). */
+    sandboxRepoId: v.id("githubRepos"),
   }),
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
     const siblings = await findSiblingRepos(ctx.db, args.repoId);
     const linkRepo = pickDefaultVisibleAppRepo(siblings);
+    const sandboxRepoId = await resolveSandboxRepoId(
+      ctx,
+      args.repoId,
+      siblings,
+    );
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -208,6 +263,7 @@ export const getRepoData = internalQuery({
       defaultModel: repo.defaultModel,
       prRecapModel: repo.prRecapModel,
       linkRootDirectory: linkRepo?.rootDirectory,
+      sandboxRepoId,
     };
   },
 });

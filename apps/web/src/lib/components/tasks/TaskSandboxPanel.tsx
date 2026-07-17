@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
-import type { SandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
@@ -10,8 +10,6 @@ import {
   type SharedTerminalPane,
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-
-const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -31,6 +29,7 @@ interface TaskSandboxPanelProps {
    */
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
+  prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
 }
@@ -52,6 +51,7 @@ export function TaskSandboxPanel({
   devPort,
   devCommand,
   terminalPanes,
+  prUrl,
   activeTab,
   onTabChange,
 }: TaskSandboxPanelProps) {
@@ -85,9 +85,10 @@ export function TaskSandboxPanel({
 
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
+  // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = useCallback(
-    (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
-      if (tab === "prd") return;
+    (tab: string) => {
+      if (!isSessionSandboxTab(tab) || tab === "prd") return;
       onTabChange(tab);
     },
     [onTabChange],
@@ -102,7 +103,7 @@ export function TaskSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={TASK_ENABLED_TABS}
+        enabledTabs={panes.enabledTabs}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots
@@ -116,6 +117,7 @@ export function TaskSandboxPanel({
           repoId={repoId}
           cacheKey={taskIdStr}
           devCommand={devCommand}
+          prUrl={prUrl}
         />
       </div>
     </div>

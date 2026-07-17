@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import {
   taskStatusValidator,
@@ -21,11 +21,23 @@ import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { logTaskActivity } from "../taskActivity";
+import { schedulePrTitleSync } from "../_github/prTitleSync";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
   const match = prUrl.match(/\/pull\/(\d+)/);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/** Highest taskNumber among a project's tasks, or 0 if none are numbered. */
+function maxTaskNumberOf(tasks: Doc<"agentTasks">[]): number {
+  let max = 0;
+  for (const t of tasks) {
+    if (t.taskNumber !== undefined && t.taskNumber > max) {
+      max = t.taskNumber;
+    }
+  }
+  return max;
 }
 
 // Status transitions that notify subscribers. Mid-run automated transitions
@@ -50,10 +62,16 @@ export const update = authMutation({
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.union(v.id("users"), v.null())),
     model: v.optional(aiModelValidator),
+    // null = clear to team credentials. undefined = no change.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     baseBranch: v.optional(v.string()),
     priority: v.optional(v.union(priorityValidator, v.null())),
     // null = clear the override (fall back to repo setting). undefined = no change.
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // null = clear the override (inherit project/default). undefined = no change.
+    runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -75,13 +93,7 @@ export const update = authMutation({
           .query("agentTasks")
           .withIndex("by_project", (q) => q.eq("projectId", newProjectId))
           .collect();
-        let maxTaskNumber = 0;
-        for (const t of existingTasks) {
-          if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
-            maxTaskNumber = t.taskNumber;
-          }
-        }
-        updates.taskNumber = maxTaskNumber + 1;
+        updates.taskNumber = maxTaskNumberOf(existingTasks) + 1;
       }
     }
     if (args.tags !== undefined) updates.tags = normalizeTaskTags(args.tags);
@@ -89,12 +101,16 @@ export const update = authMutation({
     if (args.assignedTo !== undefined)
       updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
+    if (args.providerAccountId !== undefined)
+      updates.providerAccountId = args.providerAccountId ?? undefined;
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
     if (args.screenshotsVideosEnabled !== undefined)
       updates.screenshotsVideosEnabled =
         args.screenshotsVideosEnabled ?? undefined;
+    if (args.runAuditEnabled !== undefined)
+      updates.runAuditEnabled = args.runAuditEnabled ?? undefined;
     await ctx.db.patch(args.id, updates);
 
     if (args.title !== undefined && args.title !== task.title) {
@@ -106,6 +122,26 @@ export const update = authMutation({
         task.title,
         args.title,
       );
+      if (task.repoId) {
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", args.id))
+          .collect();
+        const prUrl = runs
+          .sort(
+            (a, b) =>
+              (b.startedAt ?? b._creationTime) -
+              (a.startedAt ?? a._creationTime),
+          )
+          .find((run) => run.prUrl)?.prUrl;
+        if (prUrl) {
+          await schedulePrTitleSync(ctx, {
+            repoId: task.repoId,
+            prUrl,
+            title: args.title,
+          });
+        }
+      }
     }
     if (
       args.description !== undefined &&
@@ -394,11 +430,13 @@ export const createQuickTask = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     projectId: v.optional(v.id("projects")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     priority: v.optional(priorityValidator),
     screenshotsVideosEnabled: v.optional(v.boolean()),
+    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -413,13 +451,7 @@ export const createQuickTask = authMutation({
         .query("agentTasks")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect();
-      let maxTaskNumber = 0;
-      for (const t of existingTasks) {
-        if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
-          maxTaskNumber = t.taskNumber;
-        }
-      }
-      taskNumber = maxTaskNumber + 1;
+      taskNumber = maxTaskNumberOf(existingTasks) + 1;
     }
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;
     const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
@@ -433,12 +465,14 @@ export const createQuickTask = authMutation({
       createdBy: ctx.userId,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model ?? repo.defaultModel,
+      providerAccountId: args.providerAccountId,
       projectId: args.projectId,
       taskNumber,
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      runAuditEnabled: args.runAuditEnabled,
       numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);

@@ -13,6 +13,7 @@ import {
   MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
+import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
 import { remarkMentionChips, MENTION_HREF_REGEX } from "./remarkMentionChips";
 
@@ -26,6 +27,14 @@ interface MarkdownMentionTextProps {
    * chat) or a user (comments). `/` is always a skill. Defaults to `doc`.
    */
   atKind?: "doc" | "user";
+}
+
+/** Caps embedded media so markdown screenshots/videos don't dominate the pane. */
+const MARKDOWN_MEDIA_CLASS = "max-h-80 w-auto max-w-full object-contain";
+
+/** Stop parent click-to-edit handlers when interacting with media. */
+function stopParentClick(e: MouseEvent) {
+  e.stopPropagation();
 }
 
 /** Flatten a markdown link's React children back to its plain label text. */
@@ -58,6 +67,36 @@ export function MarkdownMentionText({
       className={className}
       remarkPlugins={[remarkMentionChips]}
       components={{
+        // Replace Streamdown's inline-block image wrapper (download-only hover)
+        // with the shared click-to-fullscreen preview used elsewhere.
+        img: ({ src, alt }) => {
+          if (typeof src !== "string" || src.length === 0) return null;
+          const label =
+            typeof alt === "string" && alt.length > 0 ? alt : "Image";
+          return (
+            <span
+              className="my-4 flex justify-center overflow-hidden"
+              onClick={stopParentClick}
+            >
+              <ScreenshotPreview
+                url={src}
+                alt={label}
+                className={MARKDOWN_MEDIA_CLASS}
+              />
+            </span>
+          );
+        },
+        video: ({ src }) => {
+          if (typeof src !== "string" || src.length === 0) return null;
+          return (
+            <span
+              className="my-4 flex justify-center overflow-hidden"
+              onClick={stopParentClick}
+            >
+              <VideoPreview url={src} className={MARKDOWN_MEDIA_CLASS} />
+            </span>
+          );
+        },
         a: ({ href, children }) => {
           const match =
             typeof href === "string" ? href.match(MENTION_HREF_REGEX) : null;

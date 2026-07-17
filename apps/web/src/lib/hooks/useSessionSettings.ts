@@ -4,8 +4,12 @@ import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   DEFAULT_AI_MODEL,
+  buildTraitsExecutionPayload,
   normalizeAIModel,
+  resolveTraitsForDisplay,
   type AIModel,
+  type ReasoningLevel,
+  type StoredModelTraits,
 } from "@conductor/backend";
 
 const SESSION_MODES = ["edit", "plan"] as const;
@@ -21,11 +25,16 @@ function normalizeMode(mode: string): SessionMode {
 interface StoredSettings {
   model: AIModel;
   mode: SessionMode;
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+  providerAccountId: string | null;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
   mode: "edit",
+  providerAccountId: null,
 };
 
 function storageKey(sessionId: string) {
@@ -45,9 +54,23 @@ export function useSessionSettings(
     defaults,
   );
 
+  const model = normalizeAIModel(settings.model);
+
+  const storedTraits: StoredModelTraits = {
+    effortLevel: settings.effortLevel,
+    thinkingEnabled: settings.thinkingEnabled,
+    use1mContext: settings.use1mContext,
+  };
+
+  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
+  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
+
   const setModel = useCallback(
-    (model: AIModel) => {
-      setSettings((prev) => ({ ...prev, model: normalizeAIModel(model) }));
+    (nextModel: AIModel) => {
+      setSettings((prev) => ({
+        ...prev,
+        model: normalizeAIModel(nextModel),
+      }));
     },
     [setSettings],
   );
@@ -59,10 +82,30 @@ export function useSessionSettings(
     [setSettings],
   );
 
+  const onTraitsChange = useCallback(
+    (partial: Partial<StoredModelTraits>) => {
+      setSettings((prev) => ({ ...prev, ...partial }));
+    },
+    [setSettings],
+  );
+
+  const setProviderAccountId = useCallback(
+    (providerAccountId: string | null) => {
+      setSettings((prev) => ({ ...prev, providerAccountId }));
+    },
+    [setSettings],
+  );
+
   return {
-    model: normalizeAIModel(settings.model),
+    model,
     mode: normalizeMode(settings.mode),
+    storedTraits,
+    displayTraits,
+    executionTraits,
+    onTraitsChange,
+    providerAccountId: settings.providerAccountId ?? null,
     setModel,
     setMode,
+    setProviderAccountId,
   };
 }

@@ -2,12 +2,14 @@ import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import {
   ALLOWED_TOOLS,
+  BLOCKING_QUESTIONS_ENABLED,
   CLAUDE_RUNTIME_CONFIG_DIR,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
   WORK_DIR,
+  claudeEffort,
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
@@ -20,6 +22,7 @@ import {
   trimBufferHead,
 } from "../runtime/buffers.js";
 import { resetAttemptState } from "../runtime/cliAttempt.js";
+import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { CliAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
@@ -48,6 +51,18 @@ export type JsonLike =
 
 export type SdkMessage = Record<string, JsonLike>;
 
+/** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
+export type SdkPermissionResult =
+  | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
+  | { behavior: "deny"; message: string };
+
+/** The `canUseTool` permission callback passed to `query()`. */
+export type SdkCanUseTool = (
+  toolName: string,
+  input: Record<string, JsonLike>,
+  options: { signal: AbortSignal; toolUseID?: string },
+) => Promise<SdkPermissionResult>;
+
 export type SdkOptions = {
   cwd: string;
   model: string;
@@ -63,6 +78,9 @@ export type SdkOptions = {
   resume?: string;
   extraArgs?: Record<string, string>;
   includePartialMessages?: boolean;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /** Per-tool permission gate. Set only when blocking questions are enabled. */
+  canUseTool?: SdkCanUseTool;
 };
 
 export type SdkUserMessage = {
@@ -190,6 +208,53 @@ function buildSdkOptionsFromParts(
       ? { allowedTools: ALLOWED_TOOLS.split(",") }
       : { allowedTools: [] };
 
+  // Blocking questions need `canUseTool`, which the SDK ignores under
+  // `bypassPermissions`. When enabled we switch to `default` mode and let the
+  // gate auto-allow every tool except AskUserQuestion (which waits for the user).
+  // Otherwise keep the original bypass behaviour (no per-tool gating).
+  const permissionOption: {
+    permissionMode: string;
+    allowDangerouslySkipPermissions: boolean;
+    canUseTool?: SdkCanUseTool;
+  } =
+    tools === "agent" && BLOCKING_QUESTIONS_ENABLED
+      ? {
+          permissionMode: "default",
+          allowDangerouslySkipPermissions: false,
+          canUseTool: buildCanUseTool(),
+        }
+      : {
+          permissionMode: "bypassPermissions",
+          allowDangerouslySkipPermissions: true,
+        };
+
+  // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
+  // title / flavour-text side calls) — measured as a ~6s second API call
+  // that delays turn completion after the visible reply.
+  // Policy A: delete CLAUDE_CODE_DISABLE_BACKGROUND_TASKS so session SDK
+  // children can Bash-background (panel tracks/kills). Do not set the key to
+  // undefined — some spawn paths stringify it. launch.ts still sets =1 for
+  // tasks/projects/CLI; Agent/Task bg is stripped in buildCanUseTool.
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+    DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+    DISABLE_TELEMETRY: "1",
+    DISABLE_AUTOUPDATER: "1",
+    DISABLE_ERROR_REPORTING: "1",
+  };
+  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+
+  const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
+    claudeEffort === "low" ||
+    claudeEffort === "medium" ||
+    claudeEffort === "high" ||
+    claudeEffort === "xhigh" ||
+    claudeEffort === "max"
+      ? { effort: claudeEffort }
+      : {};
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -205,24 +270,12 @@ function buildSdkOptionsFromParts(
           preset: "claude_code",
           append: EVA_SDK_SYSTEM_APPEND,
         },
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
+    ...permissionOption,
     // Emit token-level partial (`stream_event`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
     ...allowedToolsOption,
-    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
-    // title / flavour-text side calls) — measured as a ~6s second API call
-    // that delays turn completion after the visible reply.
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      DISABLE_TELEMETRY: "1",
-      DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1",
-    },
+    env,
     ...(sessionMode.mode === "session" && sessionMode.sessionId
       ? { sessionId: sessionMode.sessionId }
       : {}),
@@ -230,6 +283,7 @@ function buildSdkOptionsFromParts(
       ? { resume: sessionMode.sessionId }
       : {}),
     extraArgs,
+    ...effortOption,
   };
 }
 
@@ -282,6 +336,13 @@ export async function runClaudeSdkAttempt(
   };
   const healthTimer = setInterval(() => {
     const now = Date.now();
+    // A turn paused on a blocking question produces no SDK messages by design —
+    // keep the timers fresh so it is never killed while genuinely waiting.
+    if (S.awaitingQuestionAnswer) {
+      S.activeAttemptStartedAt = now;
+      lastMessageAt = now;
+      return;
+    }
     if (now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
       timedOutForMaxRuntime = true;
       log("runClaudeSdkAttempt: max runtime exceeded — interrupting");

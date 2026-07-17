@@ -1,7 +1,12 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import {
+  api,
+  getModelTraits,
+  getReasoningLevelLabel,
+  modelHasTraits,
+  type Id,
+} from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -21,8 +26,18 @@ import {
   PromptInputSubmit,
   PromptInputSpeech,
   ModelSelect,
+  TraitsMenu,
+  toast,
   type PromptInputMessage,
 } from "@conductor/ui";
+import {
+  MAX_IMAGE_ATTACHMENTS,
+  MAX_IMAGE_ATTACHMENT_BYTES,
+  imageAttachmentErrorMessage,
+  useUploadImageAttachments,
+  ChatAttachmentPreview,
+  UserAttachmentImages,
+} from "@/lib/components/chat/imageAttachments";
 import {
   IconPlayerPlay,
   IconPlayerStop,
@@ -42,9 +57,13 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -125,16 +144,44 @@ export function DesignChatPanel({
       );
     }
   });
-  const { repo, basePath } = useRepo();
+  const reorderQueuedMessages = useMutation(
+    api.queuedMessages.reorder,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: designSessionId,
+    });
+    if (current === undefined) return;
+    const byId = new Map(current.map((m) => [m._id, m]));
+    const reordered = args.orderedIds
+      .map((id) => byId.get(id))
+      .filter((m): m is (typeof current)[number] => m !== undefined);
+    localStore.setQuery(
+      api.queuedMessages.listByParent,
+      { parentId: designSessionId },
+      reordered,
+    );
+  });
+  const { basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
+  const uploadImageAttachments = useUploadImageAttachments();
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
-  const { model, setModel } = useSessionSettings(designSessionId);
+  const {
+    model,
+    setModel,
+    displayTraits,
+    executionTraits,
+    onTraitsChange,
+    providerAccountId,
+    setProviderAccountId,
+  } = useSessionSettings(designSessionId);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "designChat" as const,
@@ -143,6 +190,17 @@ export function DesignChatPanel({
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
+
+  // Previously sent messages as editable display text, newest-first, for
+  // ArrowUp/ArrowDown history recall in the composer.
+  const messageHistory = useMemo(
+    () =>
+      (messages ?? [])
+        .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
+        .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+        .reverse(),
+    [messages],
+  );
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -159,17 +217,28 @@ export function DesignChatPanel({
 
   const isExecuting = isSending || parentIsExecuting;
 
-  const handleSend = async (text: string) => {
-    if (!text.trim() || !isSandboxActive) return;
+  const handleSend = async (
+    text: string,
+    attachmentStorageIds: Id<"_storage">[],
+  ) => {
     const visible = text.trim();
+    // Allow sending an image with no text, but not a fully empty message.
+    if ((!visible && attachmentStorageIds.length === 0) || !isSandboxActive) {
+      return;
+    }
     const message = mentionRef.current?.tokenize(visible) ?? visible;
+    const ids =
+      attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined;
     if (isExecuting) {
       await enqueueMessage({
         id: designSessionId,
         message,
         model,
+        ...executionTraits,
+        providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
+        attachmentStorageIds: ids,
       });
       return;
     }
@@ -179,8 +248,11 @@ export function DesignChatPanel({
         id: designSessionId,
         message,
         model,
+        ...executionTraits,
+        providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
+        attachmentStorageIds: ids,
       });
     } catch {
       setIsSending(false);
@@ -191,8 +263,16 @@ export function DesignChatPanel({
     await cancelExecution({ id: designSessionId });
   };
 
-  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
-    await handleSend(text);
+  const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
+    if (!isSandboxActive) return;
+    const imageCount = files.filter((file) =>
+      file.mediaType?.startsWith("image/"),
+    ).length;
+    const attachmentStorageIds = await uploadImageAttachments(files);
+    if (attachmentStorageIds.length < imageCount) {
+      toast.error("Some images could not be uploaded.");
+    }
+    await handleSend(text, attachmentStorageIds);
   };
 
   const queuedMessageItems = useMemo(
@@ -322,24 +402,36 @@ export function DesignChatPanel({
                               </>
                             ) : (
                               <>
-                                <MessageMentionText
-                                  text={message.content}
-                                  repoBasePath={basePath}
+                                <UserAttachmentImages
+                                  urls={message.attachmentUrls}
                                 />
+                                {message.content ? (
+                                  <MessageMentionText
+                                    text={message.content}
+                                    repoBasePath={basePath}
+                                  />
+                                ) : null}
                                 <div className="flex items-center justify-between gap-3">
-                                  {message.personaId && (
-                                    <span className="text-[11px] text-muted-foreground/60">
-                                      {personaMap.get(message.personaId)
-                                        ?.name ?? "Persona"}
-                                    </span>
-                                  )}
-                                  {message.timestamp && (
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    {message.personaId ? (
+                                      <span className="text-[11px] text-muted-foreground/60">
+                                        {personaMap.get(message.personaId)
+                                          ?.name ?? "Persona"}
+                                      </span>
+                                    ) : null}
+                                    {message.credentialSourceLabel ? (
+                                      <span className="text-[11px] text-muted-foreground/60">
+                                        {message.credentialSourceLabel}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {message.timestamp ? (
                                     <span className="text-[11px] text-muted-foreground/60">
                                       {dayjs(message.timestamp).format(
                                         "h:mm A",
                                       )}
                                     </span>
-                                  )}
+                                  ) : null}
                                 </div>
                               </>
                             )}
@@ -369,6 +461,12 @@ export function DesignChatPanel({
               onDelete={async (id) => {
                 await deleteQueuedMessage({ id });
               }}
+              onReorder={async (orderedIds) => {
+                await reorderQueuedMessages({
+                  parentId: designSessionId,
+                  orderedIds,
+                });
+              }}
             />
             {!draftSeed.isReady ? (
               // Placeholder that matches the input group's visual footprint.
@@ -386,7 +484,17 @@ export function DesignChatPanel({
                   mentionRef={mentionRef}
                   initialDisplay={draftSeed.initialDisplay}
                 />
-                <PromptInput onSubmit={handlePromptSubmit}>
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  accept="image/*"
+                  multiple
+                  maxFiles={MAX_IMAGE_ATTACHMENTS}
+                  maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+                  onError={(err) =>
+                    toast.error(imageAttachmentErrorMessage(err))
+                  }
+                >
+                  <ChatAttachmentPreview />
                   <MentionTextarea
                     ref={mentionRef}
                     repoBasePath={basePath}
@@ -394,10 +502,14 @@ export function DesignChatPanel({
                     placeholder={
                       !isSandboxActive
                         ? "Start the sandbox to begin designing..."
-                        : "Describe the design you want..."
+                        : isExecuting
+                          ? "Add a follow-up..."
+                          : "Ask Eva anything... / for skills · @ for docs"
                     }
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}
+                    history={messageHistory}
+                    enableImagePaste
                   />
                   <PromptInputFooter>
                     <PromptInputTools>
@@ -405,8 +517,43 @@ export function DesignChatPanel({
                         value={model}
                         options={modelOptions}
                         onValueChange={setModel}
-                        disabled={!isSandboxActive}
+                        accounts={accounts}
+                        accountId={providerAccountId}
+                        onAccountChange={setProviderAccountId}
                       />
+                      {modelHasTraits(model) ? (
+                        <TraitsMenu
+                          config={getModelTraits(model)}
+                          effortLevel={displayTraits.effortLevel}
+                          thinkingEnabled={displayTraits.thinkingEnabled}
+                          use1mContext={displayTraits.use1mContext}
+                          getLevelLabel={getReasoningLevelLabel}
+                          onEffortLevelChange={(level) => {
+                            if (level === undefined) {
+                              onTraitsChange({ effortLevel: undefined });
+                              return;
+                            }
+                            const { reasoning } = getModelTraits(model);
+                            if (!reasoning) return;
+                            const match = reasoning.levels.find(
+                              (entry) => entry === level,
+                            );
+                            if (match) {
+                              onTraitsChange({ effortLevel: match });
+                            }
+                          }}
+                          onThinkingEnabledChange={(enabled) =>
+                            onTraitsChange({
+                              thinkingEnabled: enabled ? undefined : false,
+                            })
+                          }
+                          onUse1mContextChange={(use1m) =>
+                            onTraitsChange({
+                              use1mContext: use1m ? true : undefined,
+                            })
+                          }
+                        />
+                      ) : null}
                       <PersonaDropdown
                         repoId={repoId}
                         value={selectedPersonaId}

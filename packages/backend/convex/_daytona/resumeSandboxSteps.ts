@@ -20,7 +20,29 @@ type EnsureSandboxStartedArgs = {
   repoId: Id<"githubRepos">;
   /** When set, a "restoring…" activity is surfaced to this streaming entity. */
   streamingEntityId?: string;
+  /**
+   * True when the caller already knows the sandbox is running (e.g. the
+   * session/project/task status is "active"). Suppresses the cosmetic Vercel
+   * "Resuming sandbox…" activity so it does not flash on every message for an
+   * already-running sandbox. Ignored on Daytona, which gates on the real
+   * `kickoff.state` instead.
+   */
+  sandboxRunning?: boolean;
 };
+
+/** Surfaces a single-tool "active" activity to a streaming entity. */
+async function setResumeActivity(
+  step: WorkflowCtx,
+  entityId: string,
+  label: string,
+): Promise<void> {
+  await step.runMutation(internal.streaming.internalSet, {
+    entityId,
+    currentActivity: JSON.stringify([
+      { type: "tool", label, status: "active" },
+    ]),
+  });
+}
 
 /**
  * Brings a (possibly archived) sandbox to the "running" state as a sequence of
@@ -80,17 +102,12 @@ export async function ensureSandboxStartedSteps(
   // start action; extra workflow steps were measured at ~6–8s of pure latency.
   // Also skip cold-storage copy — that is Daytona archived restore only.
   if (provider === "vercel") {
-    if (args.streamingEntityId) {
-      await step.runMutation(internal.streaming.internalSet, {
-        entityId: args.streamingEntityId,
-        currentActivity: JSON.stringify([
-          {
-            type: "tool",
-            label: "Resuming sandbox...",
-            status: "active",
-          },
-        ]),
-      });
+    if (args.streamingEntityId && !args.sandboxRunning) {
+      await setResumeActivity(
+        step,
+        args.streamingEntityId,
+        "Resuming sandbox...",
+      );
     }
     console.log(
       `[daytona] ensureSandboxStartedSteps vercel skip-kickoff thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
@@ -108,17 +125,11 @@ export async function ensureSandboxStartedSteps(
   if (kickoff.state === "running") return { provider, thawId };
 
   if (args.streamingEntityId) {
-    await step.runMutation(internal.streaming.internalSet, {
-      entityId: args.streamingEntityId,
-      currentActivity: JSON.stringify([
-        {
-          type: "tool",
-          label:
-            "Restoring sandbox from cold storage (can take several minutes)...",
-          status: "active",
-        },
-      ]),
-    });
+    await setResumeActivity(
+      step,
+      args.streamingEntityId,
+      "Restoring sandbox from cold storage (can take several minutes)...",
+    );
   }
 
   let state = kickoff.state;

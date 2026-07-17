@@ -52,6 +52,26 @@ interface StorageResponse {
   storageId: string;
 }
 
+function isConvexResponse(value: unknown): value is ConvexResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    typeof value.status === "string" &&
+    "value" in value &&
+    typeof value.value === "string"
+  );
+}
+
+function isStorageResponse(value: unknown): value is StorageResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "storageId" in value &&
+    typeof value.storageId === "string"
+  );
+}
+
 async function convexMutation(
   path: string,
   args: Record<string, string>,
@@ -67,7 +87,10 @@ async function convexMutation(
     fatal(`Convex mutation ${path} failed (${res.status}): ${text}`);
   }
 
-  const data = (await res.json()) as ConvexResponse;
+  const data: unknown = await res.json();
+  if (!isConvexResponse(data)) {
+    fatal(`Convex mutation ${path} returned an unexpected response shape`);
+  }
   if (data.status === "error") {
     fatal(`Convex mutation ${path} error: ${data.errorMessage ?? "unknown"}`);
   }
@@ -141,7 +164,10 @@ async function main() {
     );
   }
 
-  const uploadData = (await uploadRes.json()) as StorageResponse;
+  const uploadData: unknown = await uploadRes.json();
+  if (!isStorageResponse(uploadData)) {
+    fatal("Storage upload returned an unexpected response shape");
+  }
   const storageId = uploadData.storageId;
 
   console.log("5/5 Recording release...");

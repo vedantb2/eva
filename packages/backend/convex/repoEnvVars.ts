@@ -1,6 +1,19 @@
 import { v } from "convex/values";
-import { internalQuery, internalMutation } from "./_generated/server";
+import {
+  internalQuery,
+  internalMutation,
+  type DatabaseReader,
+} from "./_generated/server";
+import { type Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
+
+/** Loads the single env var document for a repo, or null if none exists. */
+function findByRepo(db: DatabaseReader, repoId: Id<"githubRepos">) {
+  return db
+    .query("repoEnvVars")
+    .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+    .first();
+}
 
 /** Lists repo env vars for the authenticated user, masking actual values. */
 export const list = authQuery({
@@ -13,10 +26,7 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return [];
     return doc.vars.map((entry) => ({
       key: entry.key,
@@ -37,10 +47,7 @@ export const getAllInternal = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return [];
     return doc.vars;
   },
@@ -51,10 +58,7 @@ export const getForSandbox = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return [];
     return doc.vars
       .filter((entry) => !entry.sandboxExclude)
@@ -72,28 +76,20 @@ export const upsertVarInternal = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
+    const newEntry = {
+      key: args.key,
+      value: args.value,
+      sandboxExclude: args.sandboxExclude ?? false,
+    };
     if (doc) {
       const vars = doc.vars.filter((entry) => entry.key !== args.key);
-      vars.push({
-        key: args.key,
-        value: args.value,
-        sandboxExclude: args.sandboxExclude ?? false,
-      });
+      vars.push(newEntry);
       await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
     } else {
       await ctx.db.insert("repoEnvVars", {
         repoId: args.repoId,
-        vars: [
-          {
-            key: args.key,
-            value: args.value,
-            sandboxExclude: args.sandboxExclude ?? false,
-          },
-        ],
+        vars: [newEntry],
         updatedAt: Date.now(),
       });
     }
@@ -109,10 +105,7 @@ export const removeVar = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return null;
     const vars = doc.vars.filter((entry) => entry.key !== args.key);
     await ctx.db.patch(doc._id, { vars, updatedAt: Date.now() });
@@ -129,10 +122,7 @@ export const toggleSandboxExclude = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const doc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .first();
+    const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return null;
     const vars = doc.vars.map((entry) =>
       entry.key === args.key

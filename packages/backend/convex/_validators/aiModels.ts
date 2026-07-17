@@ -27,17 +27,96 @@ export const aiModelValidator = v.union(
   v.literal("opencode:openai/gpt-5.3-codex"),
   v.literal("opencode:openai/gpt-5.4"),
   v.literal("opencode:openai/gpt-5.4-mini"),
-  v.literal("cursor:claude-4.6-sonnet-medium-thinking"),
-  v.literal("cursor:claude-opus-4-7-thinking-high"),
-  v.literal("cursor:claude-4.6-opus-high-thinking"),
-  v.literal("cursor:claude-4.5-opus-high-thinking"),
+  v.literal("cursor:grok-4.5-low"),
+  v.literal("cursor:grok-4.5-medium"),
+  v.literal("cursor:grok-4.5-high"),
   v.literal("cursor:gpt-5.5-high"),
-  v.literal("cursor:gpt-5.4-high"),
-  v.literal("cursor:gpt-5.3-codex-high"),
   v.literal("cursor:gemini-3.1-pro"),
-  v.literal("cursor:composer-2"),
   v.literal("cursor:composer-2.5"),
+  // Legacy — still accepted so existing sessions with this lastModel can load;
+  // normalizeAIModel maps it to composer-2.5.
+  v.literal("cursor:composer-2"),
 );
+
+/**
+ * Abstract, provider-neutral reasoning effort levels for the traits menu.
+ * Threaded to the sandbox as `AI_REASONING_EFFORT` only when the user picks a
+ * non-default level; mapped per provider in `callback-src/config.ts` (Claude
+ * `--effort`, Codex `model_reasoning_effort`).
+ */
+export const REASONING_LEVELS = [
+  "off",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+export const reasoningLevelValidator = v.union(
+  v.literal("off"),
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("xhigh"),
+  v.literal("max"),
+);
+
+/** Optional trait overrides threaded from composer → queue → sandbox runner. */
+export const modelTraitsExecutionFields = {
+  reasoningLevel: v.optional(reasoningLevelValidator),
+  thinkingEnabled: v.optional(v.boolean()),
+  use1mContext: v.optional(v.boolean()),
+};
+
+export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
+
+export interface ModelReasoningTraits {
+  levels: ReadonlyArray<ReasoningLevel>;
+  default: ReasoningLevel;
+  ultrathink?: boolean;
+}
+
+export interface ModelTraits {
+  reasoning?: ModelReasoningTraits;
+  thinkingToggle?: boolean;
+  contextWindow1m?: boolean;
+}
+
+export interface StoredModelTraits {
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+}
+
+export interface ModelTraitsExecutionArgs {
+  reasoningLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+}
+
+const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "xhigh", "max"],
+  default: "high",
+  ultrathink: true,
+};
+
+const CLAUDE_REASONING_NO_XHIGH: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "max"],
+  default: "high",
+};
+
+const CLAUDE_REASONING_OPUS_46: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "max"],
+  default: "high",
+  ultrathink: true,
+};
+
+const CODEX_REASONING: ModelReasoningTraits = {
+  levels: ["off", "low", "medium", "high"],
+  default: "medium",
+};
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
@@ -58,23 +137,25 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:claude-4.6-sonnet-medium-thinking"
-  | "cursor:claude-opus-4-7-thinking-high"
-  | "cursor:claude-4.6-opus-high-thinking"
-  | "cursor:claude-4.5-opus-high-thinking"
+  | "cursor:grok-4.5-low"
+  | "cursor:grok-4.5-medium"
+  | "cursor:grok-4.5-high"
   | "cursor:gpt-5.5-high"
-  | "cursor:gpt-5.4-high"
-  | "cursor:gpt-5.3-codex-high"
   | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2"
   | "cursor:composer-2.5";
-export type PersistedAIModel = AIModel | LegacyClaudeModel;
+export type PersistedAIModel =
+  | AIModel
+  | LegacyClaudeModel
+  | "cursor:composer-2";
 
 export interface AIModelOption {
   id: AIModel;
   provider: AIProvider;
   label: string;
   requiresAuth: boolean;
+  reasoning?: ModelReasoningTraits;
+  thinkingToggle?: boolean;
+  contextWindow1m?: boolean;
 }
 
 export interface AIProviderAvailability {
@@ -87,66 +168,85 @@ export interface AIProviderAvailability {
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
 
 export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
-  { id: "claude:opus", provider: "claude", label: "Opus", requiresAuth: true },
+  {
+    id: "claude:opus",
+    provider: "claude",
+    label: "Opus",
+    requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+  },
   {
     id: "claude:sonnet",
     provider: "claude",
     label: "Sonnet",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+    contextWindow1m: true,
   },
   {
     id: "claude:haiku",
     provider: "claude",
     label: "Haiku",
     requiresAuth: true,
+    thinkingToggle: true,
   },
   {
     id: "claude:opusplan",
     provider: "claude",
     label: "Opus Plan",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
   },
   {
     id: "claude:claude-opus-4-5-20251101",
     provider: "claude",
     label: "Opus 4.5",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_NO_XHIGH,
   },
   {
     id: "claude:claude-opus-4-6",
     provider: "claude",
     label: "Opus 4.6",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_OPUS_46,
+    contextWindow1m: true,
   },
   {
     id: "claude:claude-fable-5",
     provider: "claude",
     label: "Fable 5",
     requiresAuth: true,
+    reasoning: CLAUDE_REASONING_FULL,
+    contextWindow1m: true,
   },
   {
     id: "codex:gpt-5.4",
     provider: "codex",
     label: "GPT-5.4",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.4-mini",
     provider: "codex",
     label: "GPT-5.4 mini",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.3-codex",
     provider: "codex",
     label: "GPT-5.3-Codex",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "codex:gpt-5.2-codex",
     provider: "codex",
     label: "GPT-5.2-Codex",
     requiresAuth: true,
+    reasoning: CODEX_REASONING,
   },
   {
     id: "opencode:openai/gpt-5-codex",
@@ -179,27 +279,21 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-sonnet-medium-thinking",
+    id: "cursor:grok-4.5-low",
     provider: "cursor",
-    label: "Claude Sonnet 4.6 Thinking",
+    label: "Grok 4.5 Low",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-opus-4-7-thinking-high",
+    id: "cursor:grok-4.5-medium",
     provider: "cursor",
-    label: "Claude Opus 4.7 High Thinking",
+    label: "Grok 4.5 Medium",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-opus-high-thinking",
+    id: "cursor:grok-4.5-high",
     provider: "cursor",
-    label: "Claude Opus 4.6 High Thinking",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:claude-4.5-opus-high-thinking",
-    provider: "cursor",
-    label: "Claude Opus 4.5 High Thinking",
+    label: "Grok 4.5 High",
     requiresAuth: true,
   },
   {
@@ -209,27 +303,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:gpt-5.4-high",
-    provider: "cursor",
-    label: "GPT-5.4 High",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:gpt-5.3-codex-high",
-    provider: "cursor",
-    label: "GPT-5.3 Codex High",
-    requiresAuth: true,
-  },
-  {
     id: "cursor:gemini-3.1-pro",
     provider: "cursor",
     label: "Gemini 3.1 Pro",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:composer-2",
-    provider: "cursor",
-    label: "Composer 2",
     requiresAuth: true,
   },
   {
@@ -240,15 +316,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
   },
 ];
 
-export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
-  "claude:opus",
-  "claude:sonnet",
-  "claude:haiku",
-  "claude:opusplan",
-  "claude:claude-opus-4-5-20251101",
-  "claude:claude-opus-4-6",
-  "claude:claude-fable-5",
-];
+export const CLAUDE_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "claude",
+).map((option) => option.id);
 export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "codex",
 ).map((option) => option.id);
@@ -274,6 +344,18 @@ export const OPENCODE_AUTH_ENV_KEYS: ReadonlyArray<string> = [
   "OPENCODE_AUTH_JSON_BASE64",
 ];
 export const CURSOR_AUTH_ENV_KEYS: ReadonlyArray<string> = ["CURSOR_API_KEY"];
+
+/**
+ * The canonical auth env-var key per provider. Used to mark a provider
+ * "available" when a user has their own account for it, and as the primary
+ * credential field in the Accounts UI.
+ */
+export const PROVIDER_PRIMARY_AUTH_KEY: Record<AIProvider, string> = {
+  claude: "CLAUDE_CODE_OAUTH_TOKEN",
+  codex: "CODEX_AUTH_JSON",
+  opencode: "OPENCODE_AUTH_JSON",
+  cursor: "CURSOR_API_KEY",
+};
 
 /** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
@@ -330,23 +412,25 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "opencode:openai/gpt-5.4-mini":
       return "opencode:openai/gpt-5.4-mini";
     case "cursor:claude-4.6-sonnet-medium-thinking":
-      return "cursor:claude-4.6-sonnet-medium-thinking";
+      return "cursor:grok-4.5-medium";
     case "cursor:claude-opus-4-7-thinking-high":
-      return "cursor:claude-opus-4-7-thinking-high";
     case "cursor:claude-4.6-opus-high-thinking":
-      return "cursor:claude-4.6-opus-high-thinking";
     case "cursor:claude-4.5-opus-high-thinking":
-      return "cursor:claude-4.5-opus-high-thinking";
+    case "cursor:gpt-5.4-high":
+      return "cursor:grok-4.5-high";
+    case "cursor:gpt-5.3-codex-high":
+      return "cursor:composer-2.5";
+    case "cursor:grok-4.5-low":
+      return "cursor:grok-4.5-low";
+    case "cursor:grok-4.5-medium":
+      return "cursor:grok-4.5-medium";
+    case "cursor:grok-4.5-high":
+      return "cursor:grok-4.5-high";
     case "cursor:gpt-5.5-high":
       return "cursor:gpt-5.5-high";
-    case "cursor:gpt-5.4-high":
-      return "cursor:gpt-5.4-high";
-    case "cursor:gpt-5.3-codex-high":
-      return "cursor:gpt-5.3-codex-high";
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":
-      return "cursor:composer-2";
     case "cursor:composer-2.5":
       return "cursor:composer-2.5";
     case "sonnet":
@@ -365,6 +449,106 @@ export function getAIModelProvider(
   if (normalized.startsWith("opencode:")) return "opencode";
   if (normalized.startsWith("cursor:")) return "cursor";
   return "claude";
+}
+
+/**
+ * Per-model trait capabilities (reasoning levels, thinking toggle, 1M context).
+ */
+export function getModelTraits(model: string | null | undefined): ModelTraits {
+  const option = findAIModelOption(model);
+  return {
+    ...(option.reasoning ? { reasoning: option.reasoning } : {}),
+    ...(option.thinkingToggle ? { thinkingToggle: true } : {}),
+    ...(option.contextWindow1m ? { contextWindow1m: true } : {}),
+  };
+}
+
+/** Resolves stored effort to a valid level for the model, or undefined when no reasoning trait. */
+export function resolveReasoningLevel(
+  model: string | null | undefined,
+  stored: ReasoningLevel | undefined,
+): ReasoningLevel | undefined {
+  const { reasoning } = getModelTraits(model);
+  if (!reasoning) return undefined;
+  if (stored && reasoning.levels.includes(stored)) return stored;
+  return reasoning.default;
+}
+
+export function modelHasTraits(model: string | null | undefined): boolean {
+  const traits = getModelTraits(model);
+  return Boolean(
+    traits.reasoning || traits.thinkingToggle || traits.contextWindow1m,
+  );
+}
+
+export function getReasoningLevelLabel(level: string): string {
+  switch (level) {
+    case "off":
+      return "Minimal";
+    case "low":
+      return "Low";
+    case "medium":
+      return "Medium";
+    case "high":
+      return "High";
+    case "xhigh":
+      return "Extra High";
+    case "max":
+      return "Max";
+    default:
+      return level;
+  }
+}
+
+/** Display values for the traits menu (stored undefined → model defaults). */
+export function resolveTraitsForDisplay(
+  model: string | null | undefined,
+  stored: StoredModelTraits,
+): {
+  effortLevel: ReasoningLevel | undefined;
+  thinkingEnabled: boolean;
+  use1mContext: boolean;
+} {
+  const traits = getModelTraits(model);
+  return {
+    effortLevel: traits.reasoning
+      ? resolveReasoningLevel(model, stored.effortLevel)
+      : undefined,
+    thinkingEnabled: stored.thinkingEnabled ?? true,
+    use1mContext: stored.use1mContext ?? false,
+  };
+}
+
+/**
+ * Build execution payload: only non-default trait overrides are included so the
+ * runner uses each model's native defaults when the user has not changed them.
+ */
+export function buildTraitsExecutionPayload(
+  model: string | null | undefined,
+  stored: StoredModelTraits,
+): ModelTraitsExecutionArgs {
+  const traits = getModelTraits(model);
+  const payload: ModelTraitsExecutionArgs = {};
+
+  if (traits.reasoning && stored.effortLevel !== undefined) {
+    const { default: defaultLevel } = traits.reasoning;
+    if (stored.effortLevel !== defaultLevel) {
+      const resolved = resolveReasoningLevel(model, stored.effortLevel);
+      if (resolved) {
+        payload.reasoningLevel = resolved;
+      }
+    }
+  }
+
+  if (traits.thinkingToggle && stored.thinkingEnabled === false) {
+    payload.thinkingEnabled = false;
+  }
+
+  if (traits.contextWindow1m && stored.use1mContext === true) {
+    payload.use1mContext = true;
+  }
+
+  return payload;
 }
 
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */

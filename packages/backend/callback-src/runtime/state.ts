@@ -1,6 +1,6 @@
 import type { ChildProcess } from "child_process";
 import type { WriteStream } from "fs";
-import type { JsonValue, ProgressStep } from "../types.js";
+import type { JsonValue, ProgressStep, TodoItem } from "../types.js";
 
 function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -15,10 +15,12 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
     return null;
   }
   const detail = value.detail;
+  const path = value.path;
   return {
     type,
     label,
     detail: typeof detail === "string" ? detail : undefined,
+    path: typeof path === "string" ? path : undefined,
     status: "complete",
   };
 }
@@ -61,6 +63,13 @@ type CallbackState = {
   heartbeatFailureStreakStartedAt: number;
   inFlightToolUses: number;
   codexToolItemIds: Set<string>;
+  /** Current todo checklist for this turn, rebuilt from TodoWrite/TaskCreate/
+   * TaskUpdate calls and mirrored into the single "todos" activity step. */
+  todoState: TodoItem[];
+  /** True while a turn is paused inside canUseTool waiting for the user's answer
+   * to a blocking AskUserQuestion. Suspends the per-turn watchdog so a genuinely
+   * waiting turn is never killed for producing no SDK messages. */
+  awaitingQuestionAnswer: boolean;
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
@@ -105,6 +114,8 @@ export const callbackState: CallbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: new Set<string>(),
+  todoState: [],
+  awaitingQuestionAnswer: false,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -173,6 +184,8 @@ export function resetStateForTests(): void {
   callbackState.parsedStreamEventCount = 0;
   callbackState.currentStreamedContent = "";
   callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.todoState.length = 0;
+  callbackState.awaitingQuestionAnswer = false;
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

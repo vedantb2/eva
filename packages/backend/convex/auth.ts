@@ -1,7 +1,7 @@
 import {
   mutation,
-  QueryCtx,
-  MutationCtx,
+  type QueryCtx,
+  type MutationCtx,
   internalQuery,
 } from "./_generated/server";
 import { v } from "convex/values";
@@ -28,10 +28,7 @@ export async function getCurrentUserId(
     .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
     .first();
 
-  if (user) {
-    return user._id;
-  }
-  return null;
+  return user?._id ?? null;
 }
 
 /** Returns the Clerk ID for a given user, or null if the user doesn't exist. */
@@ -102,19 +99,19 @@ export const ensureUserExists = mutation({
       throw new Error("Clerk user ID is required");
     }
 
+    const firstName =
+      typeof identity.firstName === "string" ? identity.firstName : undefined;
+    const lastName =
+      typeof identity.lastName === "string" ? identity.lastName : undefined;
+    const fullName =
+      typeof identity.name === "string" ? identity.name : undefined;
+
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
       .first();
 
     if (existingUser) {
-      const firstName =
-        typeof identity.firstName === "string" ? identity.firstName : undefined;
-      const lastName =
-        typeof identity.lastName === "string" ? identity.lastName : undefined;
-      const fullName =
-        typeof identity.name === "string" ? identity.name : undefined;
-
       const needsUpdate =
         existingUser.email !== (email || undefined) ||
         existingUser.firstName !== firstName ||
@@ -139,11 +136,9 @@ export const ensureUserExists = mutation({
     const userId = await ctx.db.insert("users", {
       clerkId: clerkUserId,
       email: email || undefined,
-      firstName:
-        typeof identity.firstName === "string" ? identity.firstName : undefined,
-      lastName:
-        typeof identity.lastName === "string" ? identity.lastName : undefined,
-      fullName: typeof identity.name === "string" ? identity.name : undefined,
+      firstName,
+      lastName,
+      fullName,
     });
 
     return {

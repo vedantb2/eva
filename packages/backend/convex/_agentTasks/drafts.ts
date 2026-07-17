@@ -95,9 +95,11 @@ export const activateDraft = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     screenshotsVideosEnabled: v.optional(v.boolean()),
+    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -113,11 +115,13 @@ export const activateDraft = authMutation({
       description: args.description,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model,
+      providerAccountId: args.providerAccountId,
       status: "todo",
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      runAuditEnabled: args.runAuditEnabled,
     });
     if (args.assignedTo) {
       await ensureSubscribed(ctx, args.id, args.assignedTo);

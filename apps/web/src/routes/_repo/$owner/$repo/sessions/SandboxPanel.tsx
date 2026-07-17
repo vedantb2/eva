@@ -1,9 +1,13 @@
-import { useCallback, useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import type { SandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab } from "@/lib/search-params";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { FileViewerPanel } from "./FileViewerPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
   useSandboxPanes,
@@ -19,13 +23,15 @@ interface SandboxPanelProps {
   vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
+  prUrl?: string;
   devPort?: number;
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
   planContent?: string;
   isArchived?: boolean;
-  activeTab: SandboxTab;
-  onTabChange: (tab: SandboxTab) => void;
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
 export function SandboxPanel({
@@ -34,6 +40,7 @@ export function SandboxPanel({
   vercelSandboxId,
   isActive,
   repoId,
+  prUrl,
   devPort,
   devCommand,
   terminalPanes,
@@ -67,28 +74,41 @@ export function SandboxPanel({
     owner,
     storageScope: `session:${sessionIdStr}`,
     isActive,
-    activeTab,
+    activeTab: isSessionSandboxTab(activeTab) ? activeTab : null,
     setActiveTab: onTabChange,
     terminalPanes,
   });
 
-  const handleTabChange = useCallback(
-    (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
-      onTabChange(tab);
-    },
-    [onTabChange],
+  // User-defined tabs for this app, in display order, enabled only.
+  const allCustomTabs = useQuery(api.appTabs.list, { repoId });
+  const customTabs = useMemo(
+    () => (allCustomTabs ?? []).filter((tab) => tab.enabled),
+    [allCustomTabs],
   );
+
+  // If the URL points at a custom tab that no longer exists (deleted / disabled /
+  // renamed), fall back to preview. Wait for the query to load before deciding.
+  useEffect(() => {
+    if (isSessionSandboxTab(activeTab)) return;
+    if (allCustomTabs === undefined) return;
+    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === activeTab)) {
+      onTabChange("preview");
+    }
+  }, [activeTab, allCustomTabs, customTabs, onTabChange]);
 
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
         activeTab={activeTab}
-        onTabChange={handleTabChange}
+        onTabChange={onTabChange}
         onNewPreview={panes.handleNewPreview}
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
+        enabledTabs={panes.enabledTabs}
         showPrdTab
+        showFilesTab
+        customTabs={customTabs}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div
@@ -121,6 +141,15 @@ export function SandboxPanel({
             )
           ) : null}
         </div>
+        <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+          {activeTab === "files" ? (
+            <FileViewerPanel
+              sandboxId={sandboxId}
+              repoId={repoId}
+              isActive={isActive}
+            />
+          ) : null}
+        </div>
         <SandboxPaneSlots
           activeTab={activeTab}
           panes={panes}
@@ -132,6 +161,8 @@ export function SandboxPanel({
           repoId={repoId}
           cacheKey={sessionIdStr}
           devCommand={devCommand}
+          prUrl={prUrl}
+          customTabs={customTabs}
         />
       </div>
     </div>

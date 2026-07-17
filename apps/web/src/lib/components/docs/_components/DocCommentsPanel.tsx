@@ -1,17 +1,15 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQueryState } from "nuqs";
 import { docCommentFilterParser } from "@/lib/search-params";
 import { Button, cn } from "@conductor/ui";
-import { IconX, IconMessagePlus } from "@tabler/icons-react";
+import { IconX } from "@tabler/icons-react";
 import { DocCommentThread } from "./DocCommentThread";
 import { DocNewCommentComposer } from "./DocNewCommentComposer";
-import { useState, useCallback } from "react";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 

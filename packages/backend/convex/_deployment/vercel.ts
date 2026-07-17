@@ -1,5 +1,7 @@
 "use node";
 
+import { z } from "zod";
+
 // Thin wrapper around Vercel's "Get a Deployment by ID or URL" REST endpoint.
 // We call this after we already know the per-commit deployment URL (from GitHub
 // Deployment Statuses). The goal is to pick up the stable branch alias Vercel
@@ -17,20 +19,10 @@ function toHostname(urlOrHostname: string): string {
   return urlOrHostname.replace(/^https?:\/\//, "").replace(/\/+$/, "");
 }
 
-/** Type guard: checks the Vercel response shape. We only need `alias`. */
-type VercelDeploymentResponse = {
-  alias?: ReadonlyArray<string>;
-};
-
-function isVercelDeploymentResponse(
-  value: unknown,
-): value is VercelDeploymentResponse {
-  if (value === null || typeof value !== "object") return false;
-  const alias = (value as { alias?: unknown }).alias;
-  if (alias === undefined) return true;
-  if (!Array.isArray(alias)) return false;
-  return alias.every((entry) => typeof entry === "string");
-}
+/** Vercel response shape. We only need `alias`, which is optional. */
+const vercelDeploymentResponseSchema = z.object({
+  alias: z.array(z.string()).optional(),
+});
 
 /**
  * Fetches the stable `-git-` branch alias for a Vercel deployment, identified
@@ -67,11 +59,12 @@ export async function fetchStableBranchAlias(args: {
       return null;
     }
     const payload: unknown = await response.json();
-    if (!isVercelDeploymentResponse(payload)) {
+    const parsed = vercelDeploymentResponseSchema.safeParse(payload);
+    if (!parsed.success) {
       console.log(`[vercel-alias] Unexpected response shape for ${hostname}`);
       return null;
     }
-    const aliases = payload.alias ?? [];
+    const aliases = parsed.data.alias ?? [];
     // Match Vercel's branch alias pattern: `<project>-git-<branch>-<team>.vercel.app`.
     // The `-git-` marker uniquely identifies auto-generated branch aliases and
     // excludes custom domains and the per-commit hash alias.

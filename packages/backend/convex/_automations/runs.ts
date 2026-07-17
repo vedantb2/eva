@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader } from "convex/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
@@ -8,7 +9,23 @@ import {
 } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
 import { cancelTrackedWorkflow } from "../workflowManager";
-import type { Doc } from "../_generated/dataModel";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
+
+/** Loads a run and its automation, throwing unless the user can access the repo. */
+async function loadRunWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  runId: Id<"automationRuns">,
+): Promise<{ run: Doc<"automationRuns">; automation: Doc<"automations"> }> {
+  const run = await db.get(runId);
+  if (!run) throw new Error("Run not found");
+  const automation = await db.get(run.automationId);
+  if (!automation) throw new Error("Automation not found");
+  if (!(await hasRepoAccess(db, automation.repoId, userId))) {
+    throw new Error("Not authorized");
+  }
+  return { run, automation };
+}
 import { taskCompleteEvent } from "../_taskWorkflow/events";
 import {
   recordCompletionLog,
@@ -42,13 +59,7 @@ export const acknowledgeRun = authMutation({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) throw new Error("Run not found");
-    const automation = await ctx.db.get(run.automationId);
-    if (!automation) throw new Error("Automation not found");
-    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
+    await loadRunWithAccess(ctx.db, ctx.userId, args.runId);
     await ctx.db.patch(args.runId, { acknowledged: true });
     return null;
   },
@@ -209,13 +220,7 @@ export const cancelRun = authMutation({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) throw new Error("Run not found");
-    const automation = await ctx.db.get(run.automationId);
-    if (!automation) throw new Error("Automation not found");
-    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
+    const { run } = await loadRunWithAccess(ctx.db, ctx.userId, args.runId);
 
     await cancelTrackedWorkflow(ctx, run.activeWorkflowId);
 

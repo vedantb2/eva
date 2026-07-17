@@ -14,8 +14,15 @@ import {
   BookOpenIcon,
   WrenchIcon,
   MessageSquareIcon,
+  ListTodoIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
+/** One item in a todo checklist step (type "todos"). */
+export interface TodoItem {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+}
 
 export interface ActivityStep {
   type:
@@ -33,10 +40,19 @@ export interface ActivityStep {
     | "reasoning"
     | "response"
     | "question"
+    | "todos"
     | "tool";
   label: string;
   detail?: string;
+  /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
+  path?: string;
   status: "complete" | "active";
+  /** The tool_use id that produced this step (Claude only). */
+  toolUseId?: string;
+  /** Parent `Agent` tool_use id — set on steps that ran inside a subagent. */
+  parentToolUseId?: string;
+  /** Todo checklist snapshot (type "todos" only). */
+  todos?: TodoItem[];
 }
 
 export function EvaThinkingIcon({ className }: { className?: string }) {
@@ -66,6 +82,7 @@ export const stepConfig = {
   reasoning: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
   response: { icon: MessageSquareIcon, defaultLabel: "Response" },
   question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
+  todos: { icon: ListTodoIcon, defaultLabel: "Task list" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 

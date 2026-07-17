@@ -4,10 +4,7 @@ import {
   customQuery,
   customAction,
 } from "convex-helpers/server/customFunctions";
-import type {
-  GenericDatabaseReader,
-  GenericDatabaseWriter,
-} from "convex/server";
+import type { GenericDatabaseReader } from "convex/server";
 import { makeFunctionReference } from "convex/server";
 import {
   query,
@@ -73,6 +70,20 @@ export async function hasTaskAccess(
   return false;
 }
 
+/** Patches a project's phase and fires PR sync for the transition. */
+async function applyPhaseTransition(
+  ctx: MutationCtx,
+  project: Doc<"projects">,
+  newPhase: Doc<"projects">["phase"],
+): Promise<void> {
+  const previousPhase = project.phase;
+  await ctx.db.patch(project._id, { phase: newPhase });
+  const updated = await ctx.db.get(project._id);
+  if (updated) {
+    await scheduleProjectPrSync(ctx, updated, previousPhase, newPhase);
+  }
+}
+
 /** Recalculates a project's delivery phase from child task statuses. */
 export async function recomputeProjectPhase(
   ctx: MutationCtx,
@@ -94,12 +105,7 @@ export async function recomputeProjectPhase(
 
   if (project.activeBuildWorkflowId) {
     if (project.phase !== "in_progress") {
-      const previousPhase = project.phase;
-      await db.patch(projectId, { phase: "in_progress" });
-      const updated = await db.get(projectId);
-      if (updated) {
-        await scheduleProjectPrSync(ctx, updated, previousPhase, "in_progress");
-      }
+      await applyPhaseTransition(ctx, project, "in_progress");
     }
     return;
   }
@@ -112,17 +118,7 @@ export async function recomputeProjectPhase(
     .first();
   if (businessReviewTask) {
     if (project.phase !== "business_review") {
-      const previousPhase = project.phase;
-      await db.patch(projectId, { phase: "business_review" });
-      const updated = await db.get(projectId);
-      if (updated) {
-        await scheduleProjectPrSync(
-          ctx,
-          updated,
-          previousPhase,
-          "business_review",
-        );
-      }
+      await applyPhaseTransition(ctx, project, "business_review");
     }
     return;
   }
@@ -135,12 +131,7 @@ export async function recomputeProjectPhase(
     .first();
   if (codeReviewTask) {
     if (project.phase !== "code_review") {
-      const previousPhase = project.phase;
-      await db.patch(projectId, { phase: "code_review" });
-      const updated = await db.get(projectId);
-      if (updated) {
-        await scheduleProjectPrSync(ctx, updated, previousPhase, "code_review");
-      }
+      await applyPhaseTransition(ctx, project, "code_review");
     }
     return;
   }
@@ -168,29 +159,14 @@ export async function recomputeProjectPhase(
   if (!hasDone && !hasNonDone) {
     // Build-only phase: demote stale in_progress when no active build remains.
     if (project.phase === "in_progress") {
-      const previousPhase = project.phase;
-      await db.patch(projectId, { phase: "business_review" });
-      const updated = await db.get(projectId);
-      if (updated) {
-        await scheduleProjectPrSync(
-          ctx,
-          updated,
-          previousPhase,
-          "business_review",
-        );
-      }
+      await applyPhaseTransition(ctx, project, "business_review");
     }
     return;
   }
 
   const allDone = hasDone !== null && !hasNonDone;
   if (allDone && project.phase !== "completed") {
-    const previousPhase = project.phase;
-    await db.patch(projectId, { phase: "completed" });
-    const updated = await db.get(projectId);
-    if (updated) {
-      await scheduleProjectPrSync(ctx, updated, previousPhase, "completed");
-    }
+    await applyPhaseTransition(ctx, project, "completed");
   }
 }
 

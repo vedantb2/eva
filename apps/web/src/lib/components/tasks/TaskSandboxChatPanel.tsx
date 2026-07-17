@@ -6,21 +6,32 @@ import { useMutation } from "convex/react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   api,
+  buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
   findAIModelOption,
   normalizeAIModel,
+  resolveTraitsForDisplay,
   type AIModel,
   type Id,
+  type ReasoningLevel,
+  type StoredModelTraits,
 } from "@conductor/backend";
 import {
   ChatBody,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
   model: AIModel;
+  effortLevel?: ReasoningLevel;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+  providerAccountId?: string | null;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -59,11 +70,34 @@ export function TaskSandboxChatPanel({
     { model: defaultModel },
   );
   const model = normalizeAIModel(settings.model);
+  const storedTraits: StoredModelTraits = {
+    effortLevel: settings.effortLevel,
+    thinkingEnabled: settings.thinkingEnabled,
+    use1mContext: settings.use1mContext,
+  };
+  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
+  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
+  const providerAccountId = settings.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const setModel = useCallback(
     (next: AIModel) =>
       setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) })),
+    [setSettings],
+  );
+
+  const onTraitsChange = useCallback(
+    (partial: Partial<StoredModelTraits>) => {
+      setSettings((prev) => ({ ...prev, ...partial }));
+    },
+    [setSettings],
+  );
+
+  const setProviderAccountId = useCallback(
+    (next: string | null) =>
+      setSettings((prev) => ({ ...prev, providerAccountId: next })),
     [setSettings],
   );
 
@@ -74,23 +108,44 @@ export function TaskSandboxChatPanel({
     Boolean(task?.activeChatWorkflowId) || lastAssistantHasNoContent;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
       if (isExecuting) {
         await enqueueMessage({
           taskId,
           message: content,
           model,
+          ...executionTraits,
+          providerAccountId: resolveAccountId(providerAccountId),
+          attachmentStorageIds,
         });
         return;
       }
-      await addMessage({ taskId, content });
+      const accountId = resolveAccountId(providerAccountId);
+      await addMessage({
+        taskId,
+        content,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+      });
       await startExecute({
         taskId,
         message: content,
         model,
+        ...executionTraits,
+        providerAccountId: accountId,
       });
     },
-    [isExecuting, enqueueMessage, addMessage, startExecute, taskId, model],
+    [
+      isExecuting,
+      enqueueMessage,
+      addMessage,
+      startExecute,
+      taskId,
+      model,
+      executionTraits,
+      providerAccountId,
+      resolveAccountId,
+    ],
   );
 
   const handleCancel = useCallback(async () => {
@@ -120,7 +175,7 @@ export function TaskSandboxChatPanel({
         placeholder={
           !isSandboxActive
             ? "Sandbox must be running to chat..."
-            : "Ask Eva about this task's sandbox..."
+            : "Ask Eva anything... / for skills · @ for docs"
         }
         emptyStateTitle={
           isSandboxActive
@@ -130,6 +185,11 @@ export function TaskSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        accounts={accounts}
+        accountId={providerAccountId}
+        onAccountChange={setProviderAccountId}
+        displayTraits={displayTraits}
+        onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

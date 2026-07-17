@@ -110,6 +110,9 @@ export function ProjectCard({
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -128,6 +131,9 @@ export function ProjectCard({
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
           },
         );
       }

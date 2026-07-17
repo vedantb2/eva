@@ -1,6 +1,6 @@
 "use client";
 
-import { api } from "@conductor/backend";
+import { type api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { Button } from "@conductor/ui";

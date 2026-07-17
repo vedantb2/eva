@@ -5,9 +5,7 @@ import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Id } from "@conductor/backend";
-import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
-import type { SidebarChatEntry } from "@/lib/components/sidebar/SessionsSidebar";
 import {
   Button,
   ContextMenu,
@@ -54,17 +52,12 @@ interface SessionItem {
   sandboxId?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  firstMessagePreview?: string | null;
 }
 
 interface SessionListSidebarProps<T extends SessionItem> {
   sessions: T[] | undefined;
   archivedSessions: T[] | undefined;
-  /**
-   * Virtual project/quick-task sandbox chat entries, merged into the active
-   * (non-archived) list below. Optional — only `SessionsSidebar` passes
-   * these; `DesignSessionsSidebar` has no equivalent concept.
-   */
-  chatEntries?: SidebarChatEntry[];
   baseUrl: string;
   pathname: string;
   onNavigate?: () => void;
@@ -87,7 +80,6 @@ interface SessionListSidebarProps<T extends SessionItem> {
 export function SessionListSidebar<T extends SessionItem>({
   sessions,
   archivedSessions,
-  chatEntries,
   baseUrl,
   pathname,
   onNavigate,
@@ -135,31 +127,6 @@ export function SessionListSidebar<T extends SessionItem>({
         )
       : sessions;
   }, [sessions, searchQuery]);
-
-  const filteredChatEntries = useMemo(() => {
-    if (!chatEntries) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return query
-      ? chatEntries.filter((entry) => entry.title.toLowerCase().includes(query))
-      : chatEntries;
-  }, [chatEntries, searchQuery]);
-
-  // Merge sessions + virtual chat entries into one sort order (most recent
-  // activity first) for rendering. Kept as a discriminated union rather than
-  // reusing `SessionItem` so each row still renders with its own component.
-  const mergedRows = useMemo(() => {
-    const sessionRows = filteredSessions.map((session) => ({
-      sortKey: session.updatedAt ?? session._creationTime,
-      type: "session" as const,
-      session,
-    }));
-    const chatRows = filteredChatEntries.map((entry) => ({
-      sortKey: entry.lastMessageAt,
-      type: "chat" as const,
-      entry,
-    }));
-    return [...sessionRows, ...chatRows].sort((a, b) => b.sortKey - a.sortKey);
-  }, [filteredSessions, filteredChatEntries]);
 
   const filteredArchivedSessions = useMemo(() => {
     if (!archivedSessions) return [];
@@ -214,7 +181,7 @@ export function SessionListSidebar<T extends SessionItem>({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2 animate-in fade-in duration-300">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder={searchPlaceholder}
           value={searchQuery}
@@ -239,78 +206,22 @@ export function SessionListSidebar<T extends SessionItem>({
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : mergedRows.length === 0 && filteredArchivedSessions.length === 0 ? (
+        ) : filteredSessions.length === 0 &&
+          filteredArchivedSessions.length === 0 ? (
           <div className="p-4 text-center">
             <div className="mx-auto mb-2 flex justify-center text-muted-foreground">
               {emptyIcon}
             </div>
             <p className="text-sm text-muted-foreground">
-              {sessions.length === 0 &&
-              (archivedSessions?.length ?? 0) === 0 &&
-              (chatEntries?.length ?? 0) === 0
+              {sessions.length === 0 && (archivedSessions?.length ?? 0) === 0
                 ? emptyLabel
                 : "No matches found"}
             </p>
           </div>
         ) : (
-          <SharedLayoutNav layoutId={layoutId}>
+          <SharedLayoutNav layoutId={layoutId} className="space-y-1">
             <AnimatePresence initial={false}>
-              {mergedRows.map((row) => {
-                if (row.type === "chat") {
-                  const { entry } = row;
-                  // Virtual entries aren't real sessions, so the menu offers
-                  // copy actions only — no rename/archive/duplicate.
-                  return (
-                    <ContextMenu key={entry.id}>
-                      <ContextMenuTrigger asChild>
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          transition={{ duration: 0.18 }}
-                        >
-                          <SharedLayoutNavSurface
-                            itemId={entry.id}
-                            isActive={entry.isSelected}
-                            className="group mx-1 rounded-menu-item px-3 py-1.5"
-                          >
-                            <SidebarSessionItem
-                              href={entry.href}
-                              title={entry.title}
-                              userId={entry.userId}
-                              createdAt={entry.lastMessageAt}
-                              status={entry.status}
-                              isSelected={entry.isSelected}
-                              onNavigate={onNavigate}
-                            />
-                          </SharedLayoutNavSurface>
-                        </motion.div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(entry.title);
-                          }}
-                        >
-                          <IconClipboard size={16} />
-                          Copy title
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(
-                              window.location.origin + entry.href,
-                            );
-                          }}
-                        >
-                          <IconLink size={16} />
-                          Copy link
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                }
-
-                const { session } = row;
+              {filteredSessions.map((session) => {
                 const pathSegment = entityPathSegment(session);
                 const isSelected =
                   pathSegment !== null && currentSessionNumId === pathSegment;

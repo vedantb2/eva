@@ -24,13 +24,13 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
 import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPanel";
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
-import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -39,7 +39,6 @@ import {
   IconGitPullRequest,
   IconHammer,
   IconPlayerStop,
-  IconPlayerPlay,
   IconTerminal2,
   IconLoader2,
   IconChevronRight,
@@ -61,7 +60,6 @@ import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 
 export function ProjectDetailClient({
@@ -72,16 +70,15 @@ export function ProjectDetailClient({
   selectedTaskId,
   detailTab,
 }: {
-  projectId: string;
+  projectId: Id<"projects">;
   projectNumId?: number;
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
-  selectedTaskId?: string;
+  selectedTaskId?: Id<"agentTasks">;
   detailTab?: TaskDetailTab;
 }) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
-  const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
   const [isStoppingBuild, setIsStoppingBuild] = useState(false);
@@ -103,14 +100,12 @@ export function ProjectDetailClient({
     api.taskWorkflowActions.createProjectPr,
   );
 
-  const project = useQuery(api.projects.get, { id: typedProjectId });
+  const project = useQuery(api.projects.get, { id: projectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
   const latestDeployment = useQuery(
     api.agentRuns.getLatestDeploymentByProject,
-    { projectId: typedProjectId },
+    { projectId: projectId },
   );
-  const currentUserId = useQuery(api.auth.me);
-  const isOwner = project ? currentUserId === project.userId : false;
 
   const {
     canStartSandbox,
@@ -119,14 +114,13 @@ export function ProjectDetailClient({
     isSandboxStopping,
     sandboxStartupActivity,
     sandboxId: projectSandboxId,
-    handleStartSandbox,
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
     handleRunBackgroundCommands,
     isRunningBackgroundCommands,
   } = useProjectSandbox(
-    typedProjectId,
+    projectId,
     project?.phase,
     project?.sandboxId,
     project?.reviewProjectSandboxStatus,
@@ -151,7 +145,7 @@ export function ProjectDetailClient({
     if (!project) return;
     setIsStoppingBuild(true);
     try {
-      await cancelBuild({ projectId: typedProjectId });
+      await cancelBuild({ projectId: projectId });
     } catch (err) {
       console.error("Failed to stop build:", err);
     } finally {
@@ -163,7 +157,7 @@ export function ProjectDetailClient({
     setPrError(null);
     setIsCreatingPr(true);
     try {
-      await createProjectPrAction({ projectId: typedProjectId });
+      await createProjectPrAction({ projectId: projectId });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
@@ -171,13 +165,13 @@ export function ProjectDetailClient({
     } finally {
       setIsCreatingPr(false);
     }
-  }, [createProjectPrAction, typedProjectId]);
+  }, [createProjectPrAction, projectId]);
 
   const handleResolveConflicts = useCallback(async () => {
     setPrError(null);
     setIsResolvingConflicts(true);
     try {
-      await resolveProjectConflicts({ projectId: typedProjectId });
+      await resolveProjectConflicts({ projectId: projectId });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to resolve conflicts";
@@ -185,7 +179,7 @@ export function ProjectDetailClient({
     } finally {
       setIsResolvingConflicts(false);
     }
-  }, [resolveProjectConflicts, typedProjectId]);
+  }, [resolveProjectConflicts, projectId]);
 
   if (project === undefined) {
     return (
@@ -197,11 +191,7 @@ export function ProjectDetailClient({
 
   if (project === null) {
     return (
-      <PageWrapper>
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">Project not found</p>
-        </div>
-      </PageWrapper>
+      <EntityNotFound entityLabel="project" backTo={`${basePath}/projects`} />
     );
   }
 
@@ -240,44 +230,34 @@ export function ProjectDetailClient({
     hasPlanContext;
 
   const tab = sandboxTab ?? "preview";
-  const isSandboxInactive =
-    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
+  // Always mount the sandbox panel when the project can have one so tabs
+  // stay reachable while stopped — same as sessions. Panes self-gate.
   const projectSandboxPanel =
-    isSandboxActive && projectSandboxId ? (
+    canStartSandbox ||
+    projectSandboxId ||
+    isSandboxActive ||
+    isSandboxStarting ||
+    isSandboxStopping ? (
       <ProjectSandboxPanel
-        projectId={typedProjectId}
+        projectId={projectId}
         projectNumId={projectNumId}
         sandboxId={projectSandboxId}
         vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
+        prUrl={project.prUrl}
         devPort={project.devPort}
         devCommand={project.devCommand}
         terminalPanes={project.terminalPanes}
         sandboxTab={tab}
       />
-    ) : isSandboxInactive && canStartSandbox ? (
+    ) : (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <IconTerminal2 size={32} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Sandbox is not running
+            Sandbox is not available for this project yet
           </p>
-          <Button onClick={handleStartSandbox}>
-            <IconPlayerPlay size={16} />
-            Start Sandbox
-          </Button>
-        </div>
-      </div>
-    ) : (
-      <div className="flex h-full items-center justify-center">
-        <div className="w-full max-w-md px-4">
-          <StreamingActivityDisplay
-            activity={sandboxStartupActivity}
-            thinkingLabel={
-              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
-            }
-          />
         </div>
       </div>
     );
@@ -291,7 +271,7 @@ export function ProjectDetailClient({
       defaultRightCollapsed={false}
       leftPanel={() => (
         <ProjectSandboxChatPanel
-          projectId={typedProjectId}
+          projectId={projectId}
           isSandboxActive={isSandboxActive}
         />
       )}
@@ -325,10 +305,7 @@ export function ProjectDetailClient({
           <div className="flex flex-col items-end gap-1">
             {prError && <p className="text-xs text-destructive">{prError}</p>}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <ProjectContextUsage
-                repoId={repo._id}
-                projectId={typedProjectId}
-              />
+              <ProjectContextUsage repoId={repo._id} projectId={projectId} />
               {showMoreMenu && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -499,7 +476,7 @@ export function ProjectDetailClient({
                 </Button>
               ) : (
                 <SplitBuildButton
-                  projectId={typedProjectId}
+                  projectId={projectId}
                   scheduledBuildAt={project.scheduledBuildAt}
                   hasActiveBuild={!!project.activeBuildWorkflowId}
                   onBuild={() => setIsBuildModalOpen(true)}
@@ -510,7 +487,7 @@ export function ProjectDetailClient({
         ) : null
       }
     >
-      <ProjectMetadataBar projectId={typedProjectId} />
+      <ProjectMetadataBar projectId={projectId} />
       <div className="flex min-h-0 flex-1 flex-col">
         {isSandboxSurface ? (
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -518,7 +495,7 @@ export function ProjectDetailClient({
           </div>
         ) : isDraftOrFinalized ? (
           <ProjectTabs
-            projectId={typedProjectId}
+            projectId={projectId}
             projectPhase={project.phase}
             activeWorkflowId={project.activeWorkflowId}
             rawInput={project.rawInput}
@@ -531,7 +508,7 @@ export function ProjectDetailClient({
           />
         ) : (
           <ProjectActiveLayout
-            projectId={typedProjectId}
+            projectId={projectId}
             project={project}
             basePath={basePath}
             selectedTaskId={selectedTaskId}
@@ -571,7 +548,7 @@ export function ProjectDetailClient({
                 setIsStartingBuild(true);
                 try {
                   await startBuild({
-                    projectId: typedProjectId,
+                    projectId: projectId,
                   });
                   setIsBuildModalOpen(false);
                 } finally {

@@ -1,4 +1,5 @@
 import { httpRouter } from "convex/server";
+import { z } from "zod";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
@@ -93,9 +94,14 @@ http.route({
     if (touchOnly) {
       await ctx.runMutation(internal.streaming.internalTouch, { entityId });
     } else {
+      if (!currentActivity) {
+        return new Response("Missing required heartbeat fields", {
+          status: 400,
+        });
+      }
       await ctx.runMutation(internal.streaming.internalSet, {
         entityId,
-        currentActivity: currentActivity!,
+        currentActivity,
         currentContent: params.get("currentContent") ?? "",
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
       });
@@ -106,14 +112,16 @@ http.route({
 });
 
 /** Parses and validates the request body for the env-vars endpoint. */
+const envVarsBodySchema = z.object({
+  repoId: z.string().min(1),
+  userId: z.string().min(1),
+});
+
 function parseEnvVarsBody(
   body: unknown,
 ): { repoId: string; userId: string } | null {
-  if (typeof body !== "object" || body === null) return null;
-  if (!("repoId" in body) || typeof body.repoId !== "string") return null;
-  if (!("userId" in body) || typeof body.userId !== "string") return null;
-  if (body.repoId.length === 0 || body.userId.length === 0) return null;
-  return { repoId: body.repoId, userId: body.userId };
+  const parsed = envVarsBodySchema.safeParse(body);
+  return parsed.success ? parsed.data : null;
 }
 
 http.route({
@@ -303,28 +311,51 @@ http.route({
   }),
 });
 
-/** Type guard that checks whether a value is a non-null object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+// Boundary schema for the GitHub pull_request webhook. Only `action` and
+// `pull_request.html_url` are required — a payload missing them is ignored with
+// a 200 (matching the old early-returns). Every other field is lenient:
+// `.nullable().catch(null)` turns a missing/mistyped value into null, exactly
+// like the previous getString/getBoolean/getNumber helpers.
+const nullableString = z.string().nullable().catch(null);
+const loginObject = z.object({ login: nullableString }).nullable().catch(null);
 
-/** Safely extracts a string value from an object by key, returning null if not a string. */
-function getString(obj: Record<string, unknown>, key: string): string | null {
-  const val = obj[key];
-  return typeof val === "string" ? val : null;
-}
+const prWebhookSchema = z.object({
+  action: z.string(),
+  pull_request: z.object({
+    html_url: z.string(),
+    merged: z.boolean().nullable().catch(null),
+    draft: z.boolean().nullable().catch(null),
+    number: z.number().nullable().catch(null),
+    title: nullableString,
+    head: z
+      .object({ ref: nullableString, sha: nullableString })
+      .nullable()
+      .catch(null),
+    user: loginObject,
+  }),
+  repository: z
+    .object({ name: nullableString, owner: loginObject })
+    .nullable()
+    .catch(null),
+});
 
-/** Safely extracts a boolean value from an object by key, returning null if not a boolean. */
-function getBoolean(obj: Record<string, unknown>, key: string): boolean | null {
-  const val = obj[key];
-  return typeof val === "boolean" ? val : null;
-}
+// Boundary schemas for the deploy-key-protected MCP OAuth endpoints. These are
+// internal, so they are strict: any missing/mistyped field yields a 400.
+const oauthClientSchema = z.object({
+  clientId: z.string().min(1),
+  clientSecret: z.string().optional(),
+  redirectUris: z.array(z.string()).catch([]),
+});
 
-/** Safely extracts a number value from an object by key, returning null if not a number. */
-function getNumber(obj: Record<string, unknown>, key: string): number | null {
-  const val = obj[key];
-  return typeof val === "number" ? val : null;
-}
+const oauthAuthCodeSchema = z.object({
+  code: z.string().min(1),
+  clerkUserId: z.string().min(1),
+  codeChallenge: z.string().min(1),
+  codeChallengeMethod: z.string().min(1),
+  redirectUri: z.string().min(1),
+  clientId: z.string().min(1),
+  expiresAt: z.number(),
+});
 
 /** Verifies a GitHub webhook HMAC-SHA256 signature against the shared secret. */
 async function verifyWebhookSignature(
@@ -372,30 +403,24 @@ http.route({
     }
 
     if (event === "pull_request") {
-      const payload: unknown = JSON.parse(body);
-      if (!isRecord(payload)) {
+      const parsed = prWebhookSchema.safeParse(JSON.parse(body));
+      if (!parsed.success) {
         return new Response("OK", { status: 200 });
       }
 
-      const action = getString(payload, "action");
-      const pullRequest = payload["pull_request"];
-      if (!action || !isRecord(pullRequest)) {
+      const { action, pull_request: pullRequest, repository } = parsed.data;
+      const prUrl = pullRequest.html_url;
+      if (!action || !prUrl) {
         return new Response("OK", { status: 200 });
       }
 
-      const prUrl = getString(pullRequest, "html_url");
-      if (!prUrl) {
-        return new Response("OK", { status: 200 });
-      }
-
-      const merged = getBoolean(pullRequest, "merged");
-      const draft = getBoolean(pullRequest, "draft");
+      const merged = pullRequest.merged;
+      const draft = pullRequest.draft;
 
       // head.ref carries the source branch name. Passed through so the
       // closed-handler can fall back to branch-based reconciliation when no
       // run has the PR URL recorded (e.g. if it was lost during PR creation).
-      const head = pullRequest["head"];
-      const branchName = isRecord(head) ? getString(head, "ref") : null;
+      const branchName = pullRequest.head?.ref ?? null;
 
       // Always sync session PR state for any state-changing action.
       const STATE_ACTIONS = new Set([
@@ -443,19 +468,14 @@ http.route({
         "ready_for_review",
       ]);
       if (RECAP_ACTIONS.has(action)) {
-        const repository = payload["repository"];
-        const prNumber = getNumber(pullRequest, "number");
-        const prTitle = getString(pullRequest, "title");
-        const headSha = isRecord(head) ? getString(head, "sha") : null;
-        const user = pullRequest["user"];
-        const authorLogin = isRecord(user) ? getString(user, "login") : null;
+        const prNumber = pullRequest.number;
+        const prTitle = pullRequest.title;
+        const headSha = pullRequest.head?.sha ?? null;
+        const authorLogin = pullRequest.user?.login ?? null;
 
-        if (isRecord(repository) && prNumber !== null && prTitle && headSha) {
-          const repoName = getString(repository, "name");
-          const ownerRecord = repository["owner"];
-          const owner = isRecord(ownerRecord)
-            ? getString(ownerRecord, "login")
-            : null;
+        if (repository && prNumber !== null && prTitle && headSha) {
+          const repoName = repository.name;
+          const owner = repository.owner?.login ?? null;
 
           if (repoName && owner) {
             await ctx.scheduler.runAfter(
@@ -493,31 +513,15 @@ http.route({
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const body: unknown = await request.json();
-    if (!isRecord(body)) {
+    const parsed = oauthClientSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return new Response("Invalid request body", { status: 400 });
     }
 
-    const clientId = getString(body, "clientId");
-    const clientSecret = getString(body, "clientSecret");
-    const rawUris = body["redirectUris"];
-    const redirectUris: string[] = [];
-    if (Array.isArray(rawUris)) {
-      for (const uri of rawUris) {
-        if (typeof uri === "string") {
-          redirectUris.push(uri);
-        }
-      }
-    }
-
-    if (!clientId) {
-      return new Response("clientId required", { status: 400 });
-    }
-
     await ctx.runMutation(internal.mcp.oauth.registerClient, {
-      clientId,
-      clientSecret: clientSecret ?? undefined,
-      redirectUris,
+      clientId: parsed.data.clientId,
+      clientSecret: parsed.data.clientSecret,
+      redirectUris: parsed.data.redirectUris,
     });
 
     return new Response("OK", { status: 200 });
@@ -560,40 +564,12 @@ http.route({
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const body: unknown = await request.json();
-    if (!isRecord(body)) {
-      return new Response("Invalid request body", { status: 400 });
-    }
-
-    const code = getString(body, "code");
-    const clerkUserId = getString(body, "clerkUserId");
-    const codeChallenge = getString(body, "codeChallenge");
-    const codeChallengeMethod = getString(body, "codeChallengeMethod");
-    const redirectUri = getString(body, "redirectUri");
-    const clientId = getString(body, "clientId");
-    const expiresAt = body["expiresAt"];
-
-    if (
-      !code ||
-      !clerkUserId ||
-      !codeChallenge ||
-      !codeChallengeMethod ||
-      !redirectUri ||
-      !clientId ||
-      typeof expiresAt !== "number"
-    ) {
+    const parsed = oauthAuthCodeSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return new Response("Missing required fields", { status: 400 });
     }
 
-    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
-      code,
-      clerkUserId,
-      codeChallenge,
-      codeChallengeMethod,
-      redirectUri,
-      clientId,
-      expiresAt,
-    });
+    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, parsed.data);
 
     return new Response("OK", { status: 200 });
   }),

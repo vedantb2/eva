@@ -152,11 +152,11 @@ export function QuickTasksTableView({
   tasks: externalTasks,
   projectNames,
   isSelecting,
-  selectedIds,
+  selectedIds: _selectedIds,
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
-  const { repoId, basePath } = useRepo();
+  const { basePath } = useRepo();
   const users = useQuery(api.users.listAll);
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
@@ -293,7 +293,7 @@ export function QuickTasksTableView({
                           e.stopPropagation();
                           if (segment) {
                             window.open(
-                              `${basePath}/quick-tasks/${segment}/activity`,
+                              `${basePath}/quick-tasks/${segment}`,
                               "_blank",
                             );
                           }

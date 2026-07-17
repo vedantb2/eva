@@ -37,5 +37,6 @@ ${args.message}`;
     args.rootDirectory,
     args.customInstructionsBlock,
     args.systemPrompt,
+    false,
   );
 }

@@ -47,6 +47,14 @@ function pemToDer(pem: string): Uint8Array {
   return out;
 }
 
+function wrapBase64Lines(base64: string): string[] {
+  const lines: string[] = [];
+  for (let i = 0; i < base64.length; i += 64) {
+    lines.push(base64.slice(i, i + 64));
+  }
+  return lines;
+}
+
 function derToPem(der: Uint8Array, label: string): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -55,10 +63,7 @@ function derToPem(der: Uint8Array, label: string): string {
     binary += String.fromCharCode(...chunk);
   }
   const base64 = btoa(binary);
-  const lines: string[] = [];
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64));
-  }
+  const lines = wrapBase64Lines(base64);
   return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----`;
 }
 
@@ -94,11 +99,7 @@ export function normalizePemKey(raw: string): string {
   const footer = isRsa
     ? "-----END RSA PRIVATE KEY-----"
     : "-----END PRIVATE KEY-----";
-  const lines: string[] = [header];
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64));
-  }
-  lines.push(footer);
+  const lines = [header, ...wrapBase64Lines(base64), footer];
   return lines.join("\n");
 }
 

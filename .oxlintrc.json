@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "react", "unicorn", "oxc", "import"],
+  "jsPlugins": ["./scripts/oxlint-plugin-eva/index.js"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "import/no-duplicates": "error",
+    "eva/no-is-record": "error",
+    "eva/no-explicit-unknown": "warn",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "never" }
+    ],
+    "typescript/consistent-type-imports": [
+      "error",
+      { "fixStyle": "inline-type-imports" }
+    ]
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/_generated/**",
+    "**/*.generated.ts",
+    "**/routeTree.gen.ts",
+    "**/*.d.ts",
+    "**/.output/**",
+    "**/.vite/**",
+    "**/.wxt/**",
+    "**/convex/_daytona/callbackScript.generated.ts",
+    "video/**"
+  ]
+}

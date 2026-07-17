@@ -27,6 +27,13 @@ interface MultipleChoiceQuestionProps {
   options?: OptionItem[];
   questions?: QuestionItem[];
   onAnswer: (answer: string) => void;
+  /**
+   * When provided, submitting calls this with a structured map (question text →
+   * selected label; multi-select joined as a comma-separated string) INSTEAD of
+   * {@link onAnswer}'s `Q:/A:` string. Used for blocking AskUserQuestion, where
+   * the answer becomes a real tool_result rather than a new chat message.
+   */
+  onAnswerStructured?: (answers: Record<string, string>) => void;
   isLoading?: boolean;
   questionNumber?: number;
   // Optional controls appended to the submit row (e.g. a question counter and
@@ -39,6 +46,7 @@ export function MultipleChoiceQuestion({
   options,
   questions,
   onAnswer,
+  onAnswerStructured,
   isLoading = false,
   trailingControls,
 }: MultipleChoiceQuestionProps) {
@@ -100,10 +108,32 @@ export function MultipleChoiceQuestion({
       .join("\n\n");
   };
 
+  // Structured answer keyed by question text → selected label (or free-text
+  // "Other"). Multi-select is a comma-separated string — the shape AskUserQuestion
+  // expects in updatedInput.answers.
+  const buildStructuredAnswer = (): Record<string, string> => {
+    const result: Record<string, string> = {};
+    resolvedQuestions.forEach((rq, idx) => {
+      if (otherActive[idx]) {
+        result[rq.question] = (customAnswers[idx] ?? "").trim();
+        return;
+      }
+      const selected = answers[idx] ?? [];
+      result[rq.question] = rq.multiSelect
+        ? selected.join(", ")
+        : (selected[0] ?? "");
+    });
+    return result;
+  };
+
   const handleNext = () => {
     if (!currentHasAnswer || isLoading) return;
     if (isLastStep) {
-      onAnswer(formatAnswer());
+      if (onAnswerStructured) {
+        onAnswerStructured(buildStructuredAnswer());
+      } else {
+        onAnswer(formatAnswer());
+      }
     } else {
       setCurrentStep((prev) => prev + 1);
     }

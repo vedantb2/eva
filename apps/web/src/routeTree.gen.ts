@@ -27,6 +27,7 @@ import { Route as GlobalSettingsSyncRouteImport } from './routes/_global/setting
 import { Route as GlobalSettingsSandboxesRouteImport } from './routes/_global/settings/sandboxes'
 import { Route as GlobalSettingsPersonalisationRouteImport } from './routes/_global/settings/personalisation'
 import { Route as GlobalSettingsNotificationsRouteImport } from './routes/_global/settings/notifications'
+import { Route as GlobalSettingsAccountsRouteImport } from './routes/_global/settings/accounts'
 import { Route as GlobalArtifactsArtifactIdRouteImport } from './routes/_global/artifacts/$artifactId'
 import { Route as GlobalTeamsTeamIdRouteRouteImport } from './routes/_global/teams/$teamId/route'
 import { Route as RepoOwnerRepoIndexRouteImport } from './routes/_repo/$owner/$repo/index'
@@ -45,6 +46,7 @@ import { Route as RepoOwnerRepoDocsIndexRouteImport } from './routes/_repo/$owne
 import { Route as RepoOwnerRepoDesignsIndexRouteImport } from './routes/_repo/$owner/$repo/designs/index'
 import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from './routes/_repo/$owner/$repo/automations/index'
 import { Route as RepoOwnerRepoSettingsThemeRouteImport } from './routes/_repo/$owner/$repo/settings/theme'
+import { Route as RepoOwnerRepoSettingsTabsRouteImport } from './routes/_repo/$owner/$repo/settings/tabs'
 import { Route as RepoOwnerRepoSettingsSkillsRouteImport } from './routes/_repo/$owner/$repo/settings/skills'
 import { Route as RepoOwnerRepoSettingsPersonalisationRouteImport } from './routes/_repo/$owner/$repo/settings/personalisation'
 import { Route as RepoOwnerRepoSettingsMonorepoRouteImport } from './routes/_repo/$owner/$repo/settings/monorepo'
@@ -172,6 +174,11 @@ const GlobalSettingsNotificationsRoute =
     path: '/settings/notifications',
     getParentRoute: () => GlobalRoute,
   } as any)
+const GlobalSettingsAccountsRoute = GlobalSettingsAccountsRouteImport.update({
+  id: '/settings/accounts',
+  path: '/settings/accounts',
+  getParentRoute: () => GlobalRoute,
+} as any)
 const GlobalArtifactsArtifactIdRoute =
   GlobalArtifactsArtifactIdRouteImport.update({
     id: '/artifacts/$artifactId',
@@ -272,6 +279,12 @@ const RepoOwnerRepoSettingsThemeRoute =
   RepoOwnerRepoSettingsThemeRouteImport.update({
     id: '/settings/theme',
     path: '/settings/theme',
+    getParentRoute: () => RepoOwnerRepoRoute,
+  } as any)
+const RepoOwnerRepoSettingsTabsRoute =
+  RepoOwnerRepoSettingsTabsRouteImport.update({
+    id: '/settings/tabs',
+    path: '/settings/tabs',
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any)
 const RepoOwnerRepoSettingsSkillsRoute =
@@ -500,6 +513,7 @@ export interface FileRoutesByFullPath {
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/settings/accounts': typeof GlobalSettingsAccountsRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -532,6 +546,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
   '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
   '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
   '/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
@@ -571,6 +586,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof GlobalInboxRoute
   '/testing': typeof GlobalTestingRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/settings/accounts': typeof GlobalSettingsAccountsRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -594,6 +610,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
   '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
   '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/$owner/$repo/automations': typeof RepoOwnerRepoAutomationsIndexRoute
   '/$owner/$repo/designs': typeof RepoOwnerRepoDesignsIndexRoute
@@ -636,6 +653,7 @@ export interface FileRoutesById {
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/_global/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/_global/settings/accounts': typeof GlobalSettingsAccountsRoute
   '/_global/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/_global/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/_global/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -668,6 +686,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/_repo/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
   '/_repo/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/_repo/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
   '/_repo/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/_repo/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
   '/_repo/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
@@ -710,6 +729,7 @@ export interface FileRouteTypes {
     | '/testing'
     | '/teams/$teamId'
     | '/artifacts/$artifactId'
+    | '/settings/accounts'
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
@@ -742,6 +762,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/settings/monorepo'
     | '/$owner/$repo/settings/personalisation'
     | '/$owner/$repo/settings/skills'
+    | '/$owner/$repo/settings/tabs'
     | '/$owner/$repo/settings/theme'
     | '/$owner/$repo/automations/'
     | '/$owner/$repo/designs/'
@@ -781,6 +802,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/testing'
     | '/artifacts/$artifactId'
+    | '/settings/accounts'
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
@@ -804,6 +826,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/settings/monorepo'
     | '/$owner/$repo/settings/personalisation'
     | '/$owner/$repo/settings/skills'
+    | '/$owner/$repo/settings/tabs'
     | '/$owner/$repo/settings/theme'
     | '/$owner/$repo/automations'
     | '/$owner/$repo/designs'
@@ -845,6 +868,7 @@ export interface FileRouteTypes {
     | '/_global/testing'
     | '/_global/teams/$teamId'
     | '/_global/artifacts/$artifactId'
+    | '/_global/settings/accounts'
     | '/_global/settings/notifications'
     | '/_global/settings/personalisation'
     | '/_global/settings/sandboxes'
@@ -877,6 +901,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/settings/monorepo'
     | '/_repo/$owner/$repo/settings/personalisation'
     | '/_repo/$owner/$repo/settings/skills'
+    | '/_repo/$owner/$repo/settings/tabs'
     | '/_repo/$owner/$repo/settings/theme'
     | '/_repo/$owner/$repo/automations/'
     | '/_repo/$owner/$repo/designs/'
@@ -1046,6 +1071,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GlobalSettingsNotificationsRouteImport
       parentRoute: typeof GlobalRoute
     }
+    '/_global/settings/accounts': {
+      id: '/_global/settings/accounts'
+      path: '/settings/accounts'
+      fullPath: '/settings/accounts'
+      preLoaderRoute: typeof GlobalSettingsAccountsRouteImport
+      parentRoute: typeof GlobalRoute
+    }
     '/_global/artifacts/$artifactId': {
       id: '/_global/artifacts/$artifactId'
       path: '/artifacts/$artifactId'
@@ -1170,6 +1202,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/theme'
       fullPath: '/$owner/$repo/settings/theme'
       preLoaderRoute: typeof RepoOwnerRepoSettingsThemeRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/tabs': {
+      id: '/_repo/$owner/$repo/settings/tabs'
+      path: '/settings/tabs'
+      fullPath: '/$owner/$repo/settings/tabs'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsTabsRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
     '/_repo/$owner/$repo/settings/skills': {
@@ -1449,6 +1488,7 @@ interface GlobalRouteChildren {
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
   GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute
+  GlobalSettingsAccountsRoute: typeof GlobalSettingsAccountsRoute
   GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute
   GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute
   GlobalSettingsSandboxesRoute: typeof GlobalSettingsSandboxesRoute
@@ -1465,6 +1505,7 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,
   GlobalArtifactsArtifactIdRoute: GlobalArtifactsArtifactIdRoute,
+  GlobalSettingsAccountsRoute: GlobalSettingsAccountsRoute,
   GlobalSettingsNotificationsRoute: GlobalSettingsNotificationsRoute,
   GlobalSettingsPersonalisationRoute: GlobalSettingsPersonalisationRoute,
   GlobalSettingsSandboxesRoute: GlobalSettingsSandboxesRoute,
@@ -1661,6 +1702,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoSettingsMonorepoRoute: typeof RepoOwnerRepoSettingsMonorepoRoute
   RepoOwnerRepoSettingsPersonalisationRoute: typeof RepoOwnerRepoSettingsPersonalisationRoute
   RepoOwnerRepoSettingsSkillsRoute: typeof RepoOwnerRepoSettingsSkillsRoute
+  RepoOwnerRepoSettingsTabsRoute: typeof RepoOwnerRepoSettingsTabsRoute
   RepoOwnerRepoSettingsThemeRoute: typeof RepoOwnerRepoSettingsThemeRoute
   RepoOwnerRepoAutomationsIndexRoute: typeof RepoOwnerRepoAutomationsIndexRoute
   RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute
@@ -1702,6 +1744,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoSettingsPersonalisationRoute:
     RepoOwnerRepoSettingsPersonalisationRoute,
   RepoOwnerRepoSettingsSkillsRoute: RepoOwnerRepoSettingsSkillsRoute,
+  RepoOwnerRepoSettingsTabsRoute: RepoOwnerRepoSettingsTabsRoute,
   RepoOwnerRepoSettingsThemeRoute: RepoOwnerRepoSettingsThemeRoute,
   RepoOwnerRepoAutomationsIndexRoute: RepoOwnerRepoAutomationsIndexRoute,
   RepoOwnerRepoDesignsIndexRoute: RepoOwnerRepoDesignsIndexRoute,

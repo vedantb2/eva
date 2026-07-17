@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 
 export type PrRecapOutcome =
-  | { kind: "ready"; content: string }
+  | { kind: "ready"; content: string; html?: string }
   | { kind: "error"; message: string }
   | { kind: "skipped"; message: string };
 
@@ -34,6 +34,7 @@ export async function finalizePrRecapOutcome(
       title: `PR #${params.prNumber} — ${params.prTitle}`,
       headSha: params.headSha,
       content: params.outcome.content,
+      html: params.outcome.html,
       prRecapStatus: "ready",
       clearActiveWorkflowId: true,
     });
@@ -46,22 +47,21 @@ export async function finalizePrRecapOutcome(
     });
   }
 
-  const commentStatus =
-    params.outcome.kind === "ready"
-      ? "ready"
-      : params.outcome.kind === "skipped"
-        ? "skipped"
-        : "error";
+  const commentStatus = params.outcome.kind;
 
   const commentMessage =
     params.outcome.kind === "ready" ? undefined : params.outcome.message;
+
+  const docNumId = await step.runQuery(internal.docs.getPathNumId, {
+    docId: params.docId,
+  });
 
   await step.runAction(internal._github.prRecapService.upsertPrRecapComment, {
     installationId: params.installationId,
     owner: params.repoOwner,
     repo: params.repoName,
     prNumber: params.prNumber,
-    docId: String(params.docId),
+    docNumId,
     headSha: params.headSha,
     status: commentStatus,
     message: commentMessage,

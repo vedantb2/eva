@@ -42,7 +42,7 @@ export const protectedResourceMetadata = httpAction(async (_ctx, request) => {
 
 export const register = httpAction(async (ctx, request) => {
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = z.record(z.unknown()).parse(await request.json());
     const clientId = crypto.randomUUID();
 
     const rawUris = body.redirect_uris;
@@ -150,19 +150,20 @@ const refreshBodySchema = z.object({
 
 export const token = httpAction(async (ctx, request) => {
   const contentType = request.headers.get("Content-Type") ?? "";
-  let body: Record<string, string>;
+  let body: unknown;
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const formData = await request.formData();
-    body = {};
+    const formBody: Record<string, string> = {};
     formData.forEach((value, key) => {
       if (typeof value === "string") {
-        body[key] = value;
+        formBody[key] = value;
       }
     });
+    body = formBody;
   } else {
     try {
-      body = (await request.json()) as Record<string, string>;
+      body = await request.json();
     } catch (err) {
       console.error("[MCP][token] failed to parse JSON body:", err);
       return Response.json(
@@ -193,7 +194,7 @@ export const token = httpAction(async (ctx, request) => {
   if (!parseResult.success) {
     console.error(
       "[MCP][token] invalid request body. keys:",
-      Object.keys(body),
+      typeof body === "object" && body !== null ? Object.keys(body) : [],
       "issues:",
       parseResult.error.issues,
     );

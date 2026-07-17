@@ -5,10 +5,21 @@ import type { Doc, Id } from "../_generated/dataModel";
 const TASK_SCOPED_ENTITY_TYPES = new Set([
   "quickTask",
   "taskAudit",
+  "taskProof",
   "task-chat",
 ]);
 
 type LogRow = Pick<Doc<"logs">, "entityType" | "entityId" | "projectId">;
+
+/** Returns the linked agentTasks id for an untagged, task-scoped log row, else undefined. */
+function taskIdForLog(
+  ctx: QueryCtx,
+  entry: LogRow,
+): Id<"agentTasks"> | undefined {
+  if (entry.projectId !== undefined) return undefined;
+  if (!TASK_SCOPED_ENTITY_TYPES.has(entry.entityType)) return undefined;
+  return ctx.db.normalizeId("agentTasks", entry.entityId) ?? undefined;
+}
 
 /** Loads projectId from the linked agent task when a log row was written before
  *  project tagging existed (or before the task was assigned to a project). */
@@ -19,9 +30,7 @@ export async function buildTaskProjectIdLookup(
   const taskIds = new Set<Id<"agentTasks">>();
 
   for (const entry of entries) {
-    if (entry.projectId !== undefined) continue;
-    if (!TASK_SCOPED_ENTITY_TYPES.has(entry.entityType)) continue;
-    const taskId = ctx.db.normalizeId("agentTasks", entry.entityId);
+    const taskId = taskIdForLog(ctx, entry);
     if (taskId) taskIds.add(taskId);
   }
 
@@ -44,10 +53,7 @@ export function resolveLogProjectId(
   if (entry.projectId !== undefined) {
     return entry.projectId;
   }
-  if (!TASK_SCOPED_ENTITY_TYPES.has(entry.entityType)) {
-    return undefined;
-  }
-  const taskId = ctx.db.normalizeId("agentTasks", entry.entityId);
+  const taskId = taskIdForLog(ctx, entry);
   if (!taskId) {
     return undefined;
   }

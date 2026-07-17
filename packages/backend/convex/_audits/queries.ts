@@ -6,6 +6,7 @@ import {
   activityLogTypeValidator,
 } from "../validators";
 import { authQuery, hasTaskAccess } from "../functions";
+import type { Doc } from "../_generated/dataModel";
 
 export const auditReturnValidator = v.object({
   _id: v.id("audits"),
@@ -22,6 +23,24 @@ export const auditReturnValidator = v.object({
   fixCompletedAt: v.optional(v.number()),
 });
 
+/** Maps an audit document to the public return shape. */
+function toAuditReturn(audit: Doc<"audits">) {
+  return {
+    _id: audit._id,
+    _creationTime: audit._creationTime,
+    entityId: audit.entityId,
+    runId: audit.runId,
+    status: audit.status,
+    sections: audit.sections ?? [],
+    summary: audit.summary,
+    error: audit.error,
+    fixStatus: audit.fixStatus,
+    createdAt: audit.createdAt,
+    completedAt: audit.completedAt,
+    fixCompletedAt: audit.fixCompletedAt,
+  };
+}
+
 /** Lists all audits for a task, sorted by most recent first. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
@@ -32,22 +51,7 @@ export const listByTask = authQuery({
       .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
       .collect();
 
-    return audits
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map((audit) => ({
-        _id: audit._id,
-        _creationTime: audit._creationTime,
-        entityId: audit.entityId,
-        runId: audit.runId,
-        status: audit.status,
-        sections: audit.sections ?? [],
-        summary: audit.summary,
-        error: audit.error,
-        fixStatus: audit.fixStatus,
-        createdAt: audit.createdAt,
-        completedAt: audit.completedAt,
-        fixCompletedAt: audit.fixCompletedAt,
-      }));
+    return audits.sort((a, b) => b.createdAt - a.createdAt).map(toAuditReturn);
   },
 });
 
@@ -87,19 +91,6 @@ export const getBySession = authQuery({
 
     if (!latest) return null;
 
-    return {
-      _id: latest._id,
-      _creationTime: latest._creationTime,
-      entityId: latest.entityId,
-      runId: latest.runId,
-      status: latest.status,
-      sections: latest.sections ?? [],
-      summary: latest.summary,
-      error: latest.error,
-      fixStatus: latest.fixStatus,
-      createdAt: latest.createdAt,
-      completedAt: latest.completedAt,
-      fixCompletedAt: latest.fixCompletedAt,
-    };
+    return toAuditReturn(latest);
   },
 });

@@ -7,8 +7,6 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Input,
   Dialog,
@@ -18,9 +16,9 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@conductor/ui";
-import { IconPlus, IconUsers, IconTrash } from "@tabler/icons-react";
-import { Link } from "@tanstack/react-router";
+import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
+import { TeamCard } from "./_components/TeamCard";
 
 export function TeamsClient() {
   const teams = useQuery(api.teams.list) ?? [];
@@ -165,55 +163,9 @@ export function TeamsClient() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {teams.map((team) => {
-          const canDelete =
-            team.userRole === "owner" && team.isPersonal !== true;
-
-          return (
-            <Link
-              key={team._id}
-              to="/teams/$teamId"
-              params={{ teamId: team._id }}
-            >
-              <Card className="h-full transition-colors hover:bg-muted/50">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <IconUsers size={16} className="text-primary" />
-                      </div>
-                      <CardTitle className="text-base">
-                        {team.displayName ?? team.name}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDeleteTarget({
-                              id: team._id,
-                              name: team.displayName ?? team.name,
-                            });
-                          }}
-                        >
-                          <IconTrash size={14} />
-                        </Button>
-                      )}
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                        {team.userRole}
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            </Link>
-          );
-        })}
+        {teams.map((team) => (
+          <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
+        ))}
       </div>
 
       <TeamDeleteDialog

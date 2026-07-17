@@ -11,6 +11,7 @@ import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 // --- Workflow ---
 
@@ -36,9 +37,7 @@ export const buildProjectWorkflow = workflow.define({
 
     // Step 2: Execute tasks sequentially
     let failedTaskId: string | undefined;
-    for (let i = 0; i < tasks.length; i++) {
-      const task = tasks[i];
-
+    for (const task of tasks) {
       await step.runMutation(internal.buildWorkflow.startTaskForBuild, {
         taskId: task._id,
         projectId: args.projectId,
@@ -151,6 +150,11 @@ export const startTaskForBuild = internalMutation({
       logs: [],
       startedAt: Date.now(),
       triggeringCommentId: task.pendingChangeRequestCommentId,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        args.userId,
+      ),
     });
 
     await ctx.db.patch(args.taskId, {

@@ -2,21 +2,23 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { aiModelValidator, automationFields } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
-import { allocateNumId, entityVisible, filterActiveEntities } from "../numId";
+import { allocateNumId, entityVisible } from "../numId";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
 import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";
+import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
+
+/** Return validator for a full automation document. */
+const automationDoc = v.object({
+  _id: v.id("automations"),
+  _creationTime: v.number(),
+  ...automationFields,
+});
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(
-    v.object({
-      _id: v.id("automations"),
-      _creationTime: v.number(),
-      ...automationFields,
-    }),
-  ),
+  returns: v.array(automationDoc),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return [];
@@ -28,14 +30,7 @@ export const list = authQuery({
 /** Returns a single automation by ID. */
 export const get = authQuery({
   args: { id: v.id("automations") },
-  returns: v.union(
-    v.object({
-      _id: v.id("automations"),
-      _creationTime: v.number(),
-      ...automationFields,
-    }),
-    v.null(),
-  ),
+  returns: v.union(automationDoc, v.null()),
   handler: async (ctx, args) => {
     const automation = await ctx.db.get(args.id);
     if (!automation) return null;
@@ -52,14 +47,7 @@ export const getByNumId = authQuery({
     repoId: v.id("githubRepos"),
     numId: v.number(),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("automations"),
-      _creationTime: v.number(),
-      ...automationFields,
-    }),
-    v.null(),
-  ),
+  returns: v.union(automationDoc, v.null()),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return null;
@@ -70,7 +58,20 @@ export const getByNumId = authQuery({
         q.eq("repoId", args.repoId).eq("numId", args.numId),
       )
       .first();
-    return entityVisible(automation);
+    if (automation) return entityVisible(automation);
+
+    // Shared automations are stored on the canonical (parent) repo, so a
+    // child-app lookup misses them; mirror listAutomationsForRepo's fallback.
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
+    if (canonicalId === args.repoId) return null;
+    const sharedAutomation = await ctx.db
+      .query("automations")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", canonicalId).eq("numId", args.numId),
+      )
+      .first();
+    if (!sharedAutomation || sharedAutomation.shared !== true) return null;
+    return entityVisible(sharedAutomation);
   },
 });
 
@@ -151,13 +152,11 @@ export const update = authMutation({
     }
 
     const newSchedule = args.cronSchedule ?? automation.cronSchedule;
-    const newEnabled =
-      args.enabled !== undefined ? args.enabled : automation.enabled;
+    const newEnabled = args.enabled ?? automation.enabled;
 
     const cronName = `automation-${String(args.id)}`;
     patch.cronJobId = await safeReplaceCron(ctx, {
       name: cronName,
-      existingCronJobId: automation.cronJobId,
       cronspec: newEnabled && newSchedule ? newSchedule : null,
       handler: internal.automations.triggerAutomation,
       args: { automationId: args.id },
@@ -180,7 +179,7 @@ export const remove = authMutation({
     }
 
     const cronName = `automation-${String(args.id)}`;
-    await safeDeleteCron(ctx, cronName, automation.cronJobId);
+    await safeDeleteCron(ctx, cronName);
 
     await ctx.db.patch(args.id, {
       enabled: false,

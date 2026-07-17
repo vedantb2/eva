@@ -78,7 +78,8 @@ const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
+      reader.onloadend = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
       // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
@@ -665,7 +666,7 @@ export const PromptInput = ({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
+    // eslint-disable-next-line react/exhaustive-deps -- cleanup only on unmount; filesRef always current
     [usingProvider],
   );
 
@@ -719,7 +720,8 @@ export const PromptInput = ({
         ? controller.textInput.value
         : (() => {
             const formData = new FormData(form);
-            return (formData.get("message") as string) || "";
+            const message = formData.get("message");
+            return typeof message === "string" ? message : "";
           })();
 
       // Reset form immediately after capturing text to avoid race condition
@@ -856,9 +858,9 @@ export const PromptInputTextarea = ({
 
         // Check if the submit button is disabled before submitting
         const { form } = e.currentTarget;
-        const submitButton = form?.querySelector(
+        const submitButton = form?.querySelector<HTMLButtonElement>(
           'button[type="submit"]',
-        ) as HTMLButtonElement | null;
+        );
         if (submitButton?.disabled) {
           return;
         }

@@ -1,10 +1,57 @@
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, type MutationCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { DEFAULT_AI_MODEL, normalizeAIModel } from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { buildAutomationRunBranchName } from "./helpers";
+
+/**
+ * Inserts a queued automation run and starts its execution workflow.
+ * Shared by the cron trigger and the manual "run now" path — both enqueue an
+ * identical run once their eligibility checks pass.
+ */
+async function startAutomationRun(
+  ctx: MutationCtx,
+  automation: Doc<"automations">,
+  repo: Doc<"githubRepos">,
+): Promise<void> {
+  const runId = await ctx.db.insert("automationRuns", {
+    automationId: automation._id,
+    repoId: automation.repoId,
+    status: "queued",
+    startedAt: Date.now(),
+    acknowledged: false,
+  });
+
+  const branchName = buildAutomationRunBranchName(automation._id, runId);
+
+  const workflowId = await workflow.start(
+    ctx,
+    internal.automationWorkflow.automationExecutionWorkflow,
+    {
+      runId,
+      automationId: automation._id,
+      repoId: automation.repoId,
+      installationId: repo.installationId,
+      branchName,
+      description: automation.description,
+      title: automation.title,
+      model: normalizeAIModel(
+        automation.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
+      ),
+      rootDirectory: repo.rootDirectory ?? "",
+      userId: automation.createdBy,
+      readOnly: automation.readOnly === true,
+      actionsEnabled: automation.actionsEnabled === true,
+    },
+  );
+
+  await ctx.db.patch(runId, {
+    activeWorkflowId: String(workflowId),
+  });
+}
 
 /** Called by the cron scheduler to trigger an automation run if eligible. */
 export const triggerAutomation = internalMutation({
@@ -32,41 +79,7 @@ export const triggerAutomation = internalMutation({
       return null;
     }
 
-    const now = Date.now();
-    const runId = await ctx.db.insert("automationRuns", {
-      automationId: args.automationId,
-      repoId: automation.repoId,
-      status: "queued",
-      startedAt: now,
-      acknowledged: false,
-    });
-
-    const branchName = buildAutomationRunBranchName(args.automationId, runId);
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.automationWorkflow.automationExecutionWorkflow,
-      {
-        runId,
-        automationId: args.automationId,
-        repoId: automation.repoId,
-        installationId: repo.installationId,
-        branchName,
-        description: automation.description,
-        title: automation.title,
-        model: normalizeAIModel(
-          automation.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
-        ),
-        rootDirectory: repo.rootDirectory ?? "",
-        userId: automation.createdBy,
-        readOnly: automation.readOnly === true,
-        actionsEnabled: automation.actionsEnabled === true,
-      },
-    );
-
-    await ctx.db.patch(runId, {
-      activeWorkflowId: String(workflowId),
-    });
+    await startAutomationRun(ctx, automation, repo);
 
     return null;
   },
@@ -104,41 +117,7 @@ export const runNow = authMutation({
       throw new Error("A run is already in progress");
     }
 
-    const now = Date.now();
-    const runId = await ctx.db.insert("automationRuns", {
-      automationId: args.automationId,
-      repoId: automation.repoId,
-      status: "queued",
-      startedAt: now,
-      acknowledged: false,
-    });
-
-    const branchName = buildAutomationRunBranchName(args.automationId, runId);
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.automationWorkflow.automationExecutionWorkflow,
-      {
-        runId,
-        automationId: args.automationId,
-        repoId: automation.repoId,
-        installationId: repo.installationId,
-        branchName,
-        description: automation.description,
-        title: automation.title,
-        model: normalizeAIModel(
-          automation.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
-        ),
-        rootDirectory: repo.rootDirectory ?? "",
-        userId: automation.createdBy,
-        readOnly: automation.readOnly === true,
-        actionsEnabled: automation.actionsEnabled === true,
-      },
-    );
-
-    await ctx.db.patch(runId, {
-      activeWorkflowId: String(workflowId),
-    });
+    await startAutomationRun(ctx, automation, repo);
 
     return null;
   },

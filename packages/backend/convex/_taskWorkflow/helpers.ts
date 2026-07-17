@@ -2,9 +2,8 @@ import type { MutationCtx } from "../_generated/server";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer, Validator } from "convex/values";
-import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
-import { workflow } from "../workflowManager";
+import { toWorkflowId, workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
@@ -62,11 +61,13 @@ export async function clearStreamingActivity(
   ctx: MutationCtx,
   entityId: string,
 ): Promise<void> {
-  const streaming = await ctx.db
+  const streamingRows = await ctx.db
     .query("streamingActivity")
     .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-    .first();
-  if (streaming) await ctx.db.delete(streaming._id);
+    .collect();
+  for (const streaming of streamingRows) {
+    await ctx.db.delete(streaming._id);
+  }
 }
 
 /** Creates or updates the streaming activity record for a given entity. */
@@ -81,11 +82,7 @@ export async function upsertStreamingActivity(
     .first();
   const now = Date.now();
   if (existing) {
-    if (existing.currentActivity !== currentActivity) {
-      await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
-    } else {
-      await ctx.db.patch(existing._id, { lastUpdatedAt: now });
-    }
+    await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
   } else {
     await ctx.db.insert("streamingActivity", {
       entityId,
@@ -227,10 +224,9 @@ export async function sendCompletionEvent<
   workflowId: string,
   value: Infer<V>,
 ): Promise<void> {
-  const branded: WorkflowId = workflowId as WorkflowId;
   await workflow.sendEvent(ctx, {
     ...event,
-    workflowId: branded,
+    workflowId: toWorkflowId(workflowId),
     value,
   });
 }

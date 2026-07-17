@@ -9,6 +9,7 @@ import {
   Button,
   useElapsedSeconds,
   formatElapsed,
+  Spinner as UISpinner,
 } from "@conductor/ui";
 import {
   IconAlertTriangle,
@@ -18,7 +19,6 @@ import {
   IconExternalLink,
   IconPlayerStop,
 } from "@tabler/icons-react";
-import { Spinner as UISpinner } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";

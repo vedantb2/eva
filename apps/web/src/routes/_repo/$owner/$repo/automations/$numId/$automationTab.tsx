@@ -7,6 +7,7 @@ import {
   isAutomationTab,
   type AutomationTab,
 } from "@/lib/search-params";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { parseRouteNumId } from "@/lib/numId";
 import { AutomationClient } from "../AutomationClient";
@@ -32,7 +33,7 @@ export const Route = createFileRoute(
 
 function AutomationDetailTabRoute() {
   const { numId, owner, repo, automationTab } = Route.useParams();
-  const { repoId } = useRepo();
+  const { basePath, repoId } = useRepo();
   const parsedNumId = parseRouteNumId(numId);
   const automation = useQuery(
     api.automations.getByNumId,
@@ -44,9 +45,10 @@ function AutomationDetailTabRoute() {
 
   if (parsedNumId === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Automation not found</p>
-      </div>
+      <EntityNotFound
+        entityLabel="automation"
+        backTo={`${basePath}/automations`}
+      />
     );
   }
 
@@ -60,9 +62,10 @@ function AutomationDetailTabRoute() {
 
   if (automation === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Automation not found</p>
-      </div>
+      <EntityNotFound
+        entityLabel="automation"
+        backTo={`${basePath}/automations`}
+      />
     );
   }
 

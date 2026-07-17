@@ -1,18 +1,9 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
+// Canonical quick-task detail URL is `/quick-tasks/$numId` (no tab segment).
+// The layout route renders the detail; this match only needs to exist.
 export const Route = createFileRoute("/_repo/$owner/$repo/quick-tasks/$numId/")(
   {
-    beforeLoad: ({ params }) => {
-      throw redirect({
-        to: "/$owner/$repo/quick-tasks/$numId/$detailTab",
-        params: {
-          owner: params.owner,
-          repo: params.repo,
-          numId: params.numId,
-          detailTab: "activity",
-        },
-        search: { draft: undefined },
-      });
-    },
+    component: () => null,
   },
 );

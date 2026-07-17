@@ -19,6 +19,17 @@ export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
 export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 /**
+ * Human-in-the-loop AskUserQuestion. Only the Agent SDK exposes the `canUseTool`
+ * pause needed to block a turn on an answer, and only sessions currently wire the
+ * answering UI — so this is gated to SDK session runs. Elsewhere AskUserQuestion
+ * stays the old fire-and-forget metadata (surfaced after the turn). When enabled
+ * the SDK drops `bypassPermissions` for a `canUseTool` gate that auto-allows every
+ * tool except AskUserQuestion (which waits for the user's answer via Convex).
+ */
+export const BLOCKING_QUESTIONS_ENABLED =
+  process.env.ENTITY_ID_FIELD === "sessionId" &&
+  (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
+/**
  * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
  * so the CLI/MCP/API connection is live) and wait for the first prompt via the
  * handoff protocol instead of running an initial turn. Lets a session-open
@@ -169,29 +180,91 @@ process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
 
+// --- Reasoning / thinking effort ---
+// `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
+// when the user picks a non-default level. Mapped per provider below:
+//   - Claude: `--effort` on the CLI and Agent SDK `effort` option.
+//   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
+export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+export const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+
+const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
+
+export const claudeEffort =
+  PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT)
+    ? REASONING_EFFORT
+    : "";
+
+const CODEX_REASONING_EFFORT: Record<string, string> = {
+  off: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high",
+};
+
+export const codexReasoningEffort =
+  PROVIDER === "codex" ? (CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "") : "";
+
+function buildSettingsJson(): string {
+  const settings: {
+    attribution: { commit: string; pr: string };
+    alwaysThinkingEnabled?: false;
+  } = {
+    attribution: { commit: "", pr: "" },
+  };
+  const thinkingDisabled =
+    AI_THINKING_ENABLED === "0" ||
+    (PROVIDER === "claude" && REASONING_EFFORT === "off");
+  if (thinkingDisabled) {
+    settings.alwaysThinkingEnabled = false;
+  }
+  return JSON.stringify(settings);
+}
+
 export const toolsArg = ALLOWED_TOOLS
   ? '--allowedTools "' + ALLOWED_TOOLS + '"'
   : "";
 export const systemArg = SYSTEM_PROMPT
   ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT)
   : "";
-export const settingsJson = '{"attribution":{"commit":"","pr":""}}';
+export const settingsJson = buildSettingsJson();
 export const settingsArg = "--settings " + JSON.stringify(settingsJson);
 export const mcpArg = existsSync("/tmp/eva-mcp.json")
   ? "--mcp-config /tmp/eva-mcp.json"
   : "";
-export const normalizedClaudeModel = MODEL.startsWith("claude:")
+const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;
+export const normalizedClaudeModel =
+  PROVIDER === "claude" && AI_CONTEXT_1M === "1"
+    ? `${claudeModelBase}[1m]`
+    : claudeModelBase;
 export const normalizedCodexModel = MODEL.startsWith("codex:")
   ? MODEL.slice("codex:".length)
   : MODEL;
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-export const normalizedCursorModel = MODEL.startsWith("cursor:")
+// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
+// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
+const CURSOR_CLI_MODEL_IDS: Record<string, string> = {
+  "grok-4.5-low": "cursor-grok-4.5-low",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
+  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
+  "cursor-grok-4.5-high": "cursor-grok-4.5-high",
+};
+
+const cursorModelRaw = MODEL.startsWith("cursor:")
   ? MODEL.slice("cursor:".length)
   : MODEL;
+
+export const normalizedCursorModel =
+  CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 export const claudeCommand = existsSync(CLAUDE_BIN_PATH)
   ? JSON.stringify(CLAUDE_BIN_PATH)
   : "claude";
@@ -237,6 +310,7 @@ export const claudeBaseCmd =
   claudeCommand +
   " -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
+  (claudeEffort ? " --effort " + claudeEffort : "") +
   " " +
   toolsArg +
   " " +
@@ -260,6 +334,7 @@ export const TOOL_STEP_TYPES = new Set([
   "notebook",
   "subtask",
   "question",
+  "todos",
 ]);
 
 export const CODEX_PRICING_PER_MILLION: Record<
@@ -293,6 +368,8 @@ export const completedLabels: Record<string, string> = {
   "Creating file...": "Created file",
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
+  "Running in background...": "Started background process",
+  "Stopping background process...": "Stopped background process",
   "Using Skill...": "Used Skill",
   "Fetching URL...": "Fetched URL",
   "Searching web...": "Searched web",

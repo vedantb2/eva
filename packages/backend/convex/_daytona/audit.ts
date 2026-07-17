@@ -9,10 +9,13 @@ import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
 import { auditFailureValidator } from "../validators";
 
-const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
-const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
-const AUDIT_NO_OUTPUT_TIMEOUT_MS = "30000";
-const AUDIT_MAX_TOTAL_RUNTIME_MS = "600000";
+/** Shared Claude runner timeout env vars applied to every audit launch. */
+const AUDIT_TIMEOUT_ENV_VARS = {
+  CLAUDE_FIRST_EVENT_TIMEOUT_MS: "30000",
+  CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: "30000",
+  CLAUDE_NO_OUTPUT_TIMEOUT_MS: "30000",
+  CLAUDE_MAX_TOTAL_RUNTIME_MS: "600000",
+};
 
 /** Builds the system prompt for a session audit given a list of audit categories. */
 function buildSessionAuditPrompt(
@@ -84,10 +87,7 @@ export const launchAudit = internalAction({
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
           RUN_ID: String(args.runId),
-          CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
-          CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
-          CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
-          CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
+          ...AUDIT_TIMEOUT_ENV_VARS,
         },
         enableMcp: false,
       },
@@ -129,10 +129,7 @@ export const launchAuditFix = internalAction({
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
           RUN_ID: String(args.runId),
-          CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
-          CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
-          CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
-          CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
+          ...AUDIT_TIMEOUT_ENV_VARS,
         },
         enableMcp: false,
       },
@@ -225,10 +222,7 @@ export const launchSelectedAuditFixes = internalAction({
           extraEnvVars: {
             STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
             RUN_ID: String(args.runId),
-            CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
-            CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
-            CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
-            CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
+            ...AUDIT_TIMEOUT_ENV_VARS,
           },
           enableMcp: false,
         },
@@ -297,12 +291,7 @@ export const runSessionAudit = internalAction({
         {
           model: repo?.auditReviewModel ?? "haiku",
           claudeSessionId: sessionClaudeUuid(args.sessionId),
-          extraEnvVars: {
-            CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
-            CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
-            CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
-            CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
-          },
+          extraEnvVars: { ...AUDIT_TIMEOUT_ENV_VARS },
           enableMcp: false,
         },
       );

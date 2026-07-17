@@ -1,8 +1,7 @@
 "use client";
 
 import { Checkbox } from "@conductor/ui";
-import { normalizeAIModel, type AIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ConfigModelField } from "./ConfigModelField";
 

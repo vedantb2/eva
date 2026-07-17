@@ -1,78 +1,149 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
-/** Gets the current streaming activity state for an entity (task, session, etc.). */
-export const get = authQuery({
-  args: { entityId: v.string() },
-  returns: v.union(
-    v.object({
-      currentActivity: v.string(),
-      currentContent: v.string(),
-      pendingQuestion: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
-      .first();
-    if (!streaming) return null;
-    return {
-      currentActivity: streaming.currentActivity,
-      currentContent: streaming.currentContent ?? "",
-      pendingQuestion: streaming.pendingQuestion,
-    };
-  },
-});
+/** True when the activity JSON actually has tool steps (not missing / empty / `[]`). */
+function hasToolActivity(activity: string | undefined): boolean {
+  if (activity === undefined) return false;
+  const trimmed = activity.trim();
+  return trimmed.length > 0 && trimmed !== "[]";
+}
+
+/**
+ * Finalize an in-flight assistant message after the user hits stop.
+ * Keeps whatever streamed text / tool timeline exists; deletes the bubble when
+ * nothing was produced (avoids leaving "Execution cancelled by user.").
+ */
+export async function finalizeCancelledAssistantMessage(
+  ctx: MutationCtx,
+  message: Doc<"messages">,
+  streaming: Doc<"streamingActivity"> | null,
+): Promise<void> {
+  if (message.role !== "assistant" || message.finishedAt !== undefined) {
+    return;
+  }
+
+  const streamedContent = streaming?.currentContent?.trim() ?? "";
+  const streamedActivity = streaming?.currentActivity;
+  const hadStreamedActivity = hasToolActivity(streamedActivity);
+  const hadPersistedActivity = hasToolActivity(message.activityLog);
+
+  if (
+    !message.content &&
+    !streamedContent &&
+    !hadStreamedActivity &&
+    !hadPersistedActivity
+  ) {
+    await ctx.db.delete(message._id);
+    return;
+  }
+
+  const patch: {
+    content?: string;
+    activityLog?: string;
+    finishedAt: number;
+  } = { finishedAt: Date.now() };
+  if (!message.content && streamedContent) {
+    patch.content = streamedContent;
+  }
+  if (hadStreamedActivity && streamedActivity !== undefined) {
+    patch.activityLog = streamedActivity;
+  }
+  await ctx.db.patch(message._id, patch);
+}
+
+const activityStateValidator = v.union(
+  v.object({
+    currentActivity: v.string(),
+    currentContent: v.string(),
+    pendingQuestion: v.optional(v.string()),
+  }),
+  v.null(),
+);
+
+const setArgs = {
+  entityId: v.string(),
+  currentActivity: v.string(),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+};
+
+async function readStreamingActivity(ctx: QueryCtx, entityId: string) {
+  const streaming = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .first();
+  if (!streaming) return null;
+  return {
+    currentActivity: streaming.currentActivity,
+    currentContent: streaming.currentContent ?? "",
+    pendingQuestion: streaming.pendingQuestion,
+  };
+}
 
 /** Updates or creates streaming activity state for an entity, only writing on actual changes. */
-export const set = authMutation({
+async function upsertStreamingActivity(
+  ctx: MutationCtx,
   args: {
-    entityId: v.string(),
-    currentActivity: v.string(),
-    currentContent: v.optional(v.string()),
-    pendingQuestion: v.optional(v.string()),
+    entityId: string;
+    currentActivity: string;
+    currentContent?: string;
+    pendingQuestion?: string;
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
-      .first();
-    const now = Date.now();
-    const nextContent = args.currentContent ?? "";
-    if (existing) {
-      const activityChanged = existing.currentActivity !== args.currentActivity;
-      const contentChanged = (existing.currentContent ?? "") !== nextContent;
-      const questionChanged =
-        (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
-      if (activityChanged || contentChanged || questionChanged) {
-        await ctx.db.patch(existing._id, {
-          currentActivity: args.currentActivity,
-          currentContent: nextContent,
-          pendingQuestion: args.pendingQuestion,
-          lastUpdatedAt: now,
-        });
-      } else {
-        await ctx.db.patch(existing._id, {
-          lastUpdatedAt: now,
-        });
-      }
-    } else {
-      await ctx.db.insert("streamingActivity", {
-        entityId: args.entityId,
+): Promise<void> {
+  const existing = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
+    .first();
+  const now = Date.now();
+  const nextContent = args.currentContent ?? "";
+  if (existing) {
+    const activityChanged = existing.currentActivity !== args.currentActivity;
+    const contentChanged = (existing.currentContent ?? "") !== nextContent;
+    const questionChanged =
+      (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
+    if (activityChanged || contentChanged || questionChanged) {
+      await ctx.db.patch(existing._id, {
         currentActivity: args.currentActivity,
         currentContent: nextContent,
         pendingQuestion: args.pendingQuestion,
         lastUpdatedAt: now,
       });
+    } else {
+      await ctx.db.patch(existing._id, {
+        lastUpdatedAt: now,
+      });
     }
+  } else {
+    await ctx.db.insert("streamingActivity", {
+      entityId: args.entityId,
+      currentActivity: args.currentActivity,
+      currentContent: nextContent,
+      pendingQuestion: args.pendingQuestion,
+      lastUpdatedAt: now,
+    });
+  }
+}
+
+/** Gets the current streaming activity state for an entity (task, session, etc.). */
+export const get = authQuery({
+  args: { entityId: v.string() },
+  returns: activityStateValidator,
+  handler: async (ctx, args) => readStreamingActivity(ctx, args.entityId),
+});
+
+/** Updates or creates streaming activity state for an entity, only writing on actual changes. */
+export const set = authMutation({
+  args: setArgs,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertStreamingActivity(ctx, args);
     return null;
   },
 });
@@ -80,26 +151,8 @@ export const set = authMutation({
 /** Gets streaming activity state (internal use, no auth check). */
 export const internalGet = internalQuery({
   args: { entityId: v.string() },
-  returns: v.union(
-    v.object({
-      currentActivity: v.string(),
-      currentContent: v.string(),
-      pendingQuestion: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
-      .first();
-    if (!streaming) return null;
-    return {
-      currentActivity: streaming.currentActivity,
-      currentContent: streaming.currentContent ?? "",
-      pendingQuestion: streaming.pendingQuestion,
-    };
-  },
+  returns: activityStateValidator,
+  handler: async (ctx, args) => readStreamingActivity(ctx, args.entityId),
 });
 
 async function touchStreamingEntity(
@@ -140,46 +193,10 @@ export const internalTouch = internalMutation({
 
 /** Updates or creates streaming activity state (internal use, no auth check). */
 export const internalSet = internalMutation({
-  args: {
-    entityId: v.string(),
-    currentActivity: v.string(),
-    currentContent: v.optional(v.string()),
-    pendingQuestion: v.optional(v.string()),
-  },
+  args: setArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
-      .first();
-    const now = Date.now();
-    const nextContent = args.currentContent ?? "";
-    if (existing) {
-      const activityChanged = existing.currentActivity !== args.currentActivity;
-      const contentChanged = (existing.currentContent ?? "") !== nextContent;
-      const questionChanged =
-        (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
-      if (activityChanged || contentChanged || questionChanged) {
-        await ctx.db.patch(existing._id, {
-          currentActivity: args.currentActivity,
-          currentContent: nextContent,
-          pendingQuestion: args.pendingQuestion,
-          lastUpdatedAt: now,
-        });
-      } else {
-        await ctx.db.patch(existing._id, {
-          lastUpdatedAt: now,
-        });
-      }
-    } else {
-      await ctx.db.insert("streamingActivity", {
-        entityId: args.entityId,
-        currentActivity: args.currentActivity,
-        currentContent: nextContent,
-        pendingQuestion: args.pendingQuestion,
-        lastUpdatedAt: now,
-      });
-    }
+    await upsertStreamingActivity(ctx, args);
     return null;
   },
 });

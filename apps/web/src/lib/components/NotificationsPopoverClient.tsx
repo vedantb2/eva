@@ -3,7 +3,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link } from "@tanstack/react-router";
 import { useDisclosure } from "@/lib/hooks/use-disclosure";
 import {
   Popover,
@@ -17,9 +17,8 @@ import {
 } from "@conductor/ui";
 import { IconBell, IconChecks, IconBellOff } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { Link } from "@tanstack/react-router";
 import {
-  typeConfig,
+  getNotificationAppearance,
   NotificationIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
@@ -127,47 +126,50 @@ export function NotificationsPopoverClient() {
             </div>
           ) : (
             <div role="listbox">
-              {notifications.map((notification) => (
-                <button
-                  key={notification._id}
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${notification.read ? "opacity-60" : ""}`}
-                >
-                  <NotificationIcon type={notification.type} />
-                  <div className="mt-0.5 min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {notification.title}
-                    </p>
-                    {notification.contextLabel && (
-                      <p className="truncate text-xs font-medium text-muted-foreground">
-                        {notification.contextLabel}
+              {notifications.map((notification) => {
+                const appearance = getNotificationAppearance(notification);
+                return (
+                  <button
+                    key={notification._id}
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${notification.read ? "opacity-60" : ""}`}
+                  >
+                    <NotificationIcon notification={notification} />
+                    <div className="mt-0.5 min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {notification.title}
                       </p>
-                    )}
-                    {notification.message && (
-                      <p className="mt-1 break-words text-xs text-muted-foreground">
-                        {notification.message}
-                      </p>
-                    )}
-                    <div className="mt-1 flex items-center gap-2">
-                      <Badge
-                        variant={typeConfig[notification.type].badgeVariant}
-                        className="h-4 px-1.5 py-0 text-[10px]"
-                      >
-                        {typeConfig[notification.type].label}
-                      </Badge>
-                      <RelativeDateTime
-                        at={notification.createdAt}
-                        className="text-xs text-muted-foreground"
-                      />
+                      {notification.contextLabel && (
+                        <p className="truncate text-xs font-medium text-muted-foreground">
+                          {notification.contextLabel}
+                        </p>
+                      )}
+                      {notification.message && (
+                        <p className="mt-1 break-words text-xs text-muted-foreground">
+                          {notification.message}
+                        </p>
+                      )}
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge
+                          variant={appearance.badgeVariant}
+                          className="h-4 px-1.5 py-0 text-[10px]"
+                        >
+                          {appearance.label}
+                        </Badge>
+                        <RelativeDateTime
+                          at={notification.createdAt}
+                          className="text-xs text-muted-foreground"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  {!notification.read && (
-                    <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
-                  )}
-                </button>
-              ))}
+                    {!notification.read && (
+                      <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

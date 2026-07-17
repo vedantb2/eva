@@ -1,9 +1,9 @@
 import {
-  MutationCtx,
+  type MutationCtx,
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { v, Infer } from "convex/values";
+import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { notificationTypeValidator } from "./validators";
@@ -58,6 +58,7 @@ const DIGEST_SCAN_LIMIT = 200;
  */
 const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set([
   "run_completed",
+  "run_failed",
   // Change requests show in-app only — they re-run Eva, which is low-signal in
   // an email summary.
   "changes_requested",

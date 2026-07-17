@@ -2,21 +2,29 @@
 
 import { Spinner } from "@conductor/ui";
 import type { ReactNode } from "react";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 
 export type EntityResolveStatus = "loading" | "not-found" | "ready";
 
-export function EntityNumIdGate({
+export function EntityNumIdGate<TId extends string>({
   status,
   convexId,
+  entityLabel,
+  backTo,
+  backLabel,
   children,
 }: {
   status: EntityResolveStatus;
-  convexId: string | null;
-  children: (convexId: string) => ReactNode;
+  convexId: TId | null;
+  /** Singular label for not-found copy, e.g. "task", "session". */
+  entityLabel: string;
+  backTo?: string;
+  backLabel?: string;
+  children: (convexId: TId) => ReactNode;
 }) {
   if (status === "loading") {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
@@ -24,9 +32,11 @@ export function EntityNumIdGate({
 
   if (status === "not-found" || convexId === null) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        Not found
-      </div>
+      <EntityNotFound
+        entityLabel={entityLabel}
+        backTo={backTo}
+        backLabel={backLabel}
+      />
     );
   }
 

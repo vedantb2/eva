@@ -19,7 +19,6 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
-import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 import {
@@ -27,6 +26,10 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  SidebarListHoverCard,
+  sidebarTextPreview,
+} from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment } from "@/lib/numId";
 
 interface AutomationsSidebarProps {
@@ -130,33 +133,30 @@ export function AutomationsSidebar({
                   isActive={isSelected}
                   className="group"
                 >
-                  <Link
-                    to={href}
-                    onClick={onNavigate}
-                    className={sidebarNavLinkClass(isSelected)}
+                  <SidebarListHoverCard
+                    title={automation.title}
+                    preview={sidebarTextPreview(automation.description)}
+                    updatedAt={automation.updatedAt}
+                    userId={automation.createdBy}
                   >
-                    <span
-                      className={cn(
-                        "h-2 w-2 shrink-0 rounded-full",
-                        automation.enabled
-                          ? "bg-success"
-                          : "bg-muted-foreground/30",
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      {automation.title}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
-                        isSelected
-                          ? "max-w-[80px] pl-2 opacity-100"
-                          : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
-                      )}
+                    <Link
+                      to={href}
+                      onClick={onNavigate}
+                      className={sidebarNavLinkClass(isSelected)}
                     >
-                      {compactRelativeTime(automation._creationTime)}
-                    </span>
-                  </Link>
+                      <span
+                        className={cn(
+                          "h-2 w-2 shrink-0 rounded-full",
+                          automation.enabled
+                            ? "bg-success"
+                            : "bg-muted-foreground/30",
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {automation.title}
+                      </span>
+                    </Link>
+                  </SidebarListHoverCard>
                 </SharedLayoutNavSurface>
               );
             })}

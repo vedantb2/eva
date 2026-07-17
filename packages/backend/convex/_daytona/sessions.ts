@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { formatDurationMsShort } from "@conductor/shared/duration";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { DataModel, Id } from "../_generated/dataModel";
+import type { DataModel, Id, Doc } from "../_generated/dataModel";
 import {
   execHandle,
   resolveSandboxContext,
@@ -39,12 +39,11 @@ import {
   detectPackageManager,
   resetDevTerminalForResume,
   startSessionServices,
+  launchDevServerInBackground,
 } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
-import type { Doc } from "../_generated/dataModel";
 import { startDesktopWithChrome } from "./desktop";
-import { launchDevServerInBackground } from "./devServer";
 
 /** Per-app dev server overrides loaded from the githubRepos doc. */
 function devOverrides(
@@ -428,22 +427,26 @@ type TryReuseSandboxOptions = {
  * Only a missing/deleted sandbox should fall through to creating a replacement;
  * failed preparation on a found sandbox usually means the old filesystem is
  * still the user's source of truth and must not be silently abandoned.
+ *
+ * `label` prefixes the diagnostic logs so the Daytona and provider-neutral
+ * wrappers below stay distinguishable in the logs.
  */
-async function tryReuseSandbox(
-  daytona: Daytona,
+async function tryReuseSandboxWith<T>(
+  label: string,
+  get: (id: string) => Promise<T>,
   existingSandboxId: string | undefined,
-  prepareFn: (sandbox: Sandbox) => Promise<void>,
+  prepareFn: (sandbox: T) => Promise<void>,
   options?: TryReuseSandboxOptions,
-): Promise<Sandbox | null> {
+): Promise<T | null> {
   if (!existingSandboxId) return null;
-  let sandbox: Sandbox;
+  let sandbox: T;
   try {
-    sandbox = await daytona.get(existingSandboxId);
+    sandbox = await get(existingSandboxId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (isSandboxGoneMessage(message)) {
       logSession(
-        `tryReuseSandbox found missing sandbox ${existingSandboxId}; creating replacement`,
+        `${label} found missing sandbox ${existingSandboxId}; creating replacement`,
       );
       return null;
     }
@@ -458,7 +461,7 @@ async function tryReuseSandbox(
     }
     const message = error instanceof Error ? error.message : String(error);
     logSession(
-      `tryReuseSandbox preparation failed for ${existingSandboxId}; creating replacement: ${message}`,
+      `${label} preparation failed for ${existingSandboxId}; creating replacement: ${message}`,
     );
     return null;
   }
@@ -466,41 +469,36 @@ async function tryReuseSandbox(
   return sandbox;
 }
 
-async function tryReuseSandboxHandle(
+/** Reuse a raw Daytona sandbox by id (see {@link tryReuseSandboxWith}). */
+function tryReuseSandbox(
+  daytona: Daytona,
+  existingSandboxId: string | undefined,
+  prepareFn: (sandbox: Sandbox) => Promise<void>,
+  options?: TryReuseSandboxOptions,
+): Promise<Sandbox | null> {
+  return tryReuseSandboxWith(
+    "tryReuseSandbox",
+    (id) => daytona.get(id),
+    existingSandboxId,
+    prepareFn,
+    options,
+  );
+}
+
+/** Reuse a provider-neutral sandbox handle by id (see {@link tryReuseSandboxWith}). */
+function tryReuseSandboxHandle(
   client: SandboxClient,
   existingSandboxId: string | undefined,
   prepareFn: (sandbox: SandboxHandle) => Promise<void>,
   options?: TryReuseSandboxOptions,
 ): Promise<SandboxHandle | null> {
-  if (!existingSandboxId) return null;
-  let sandbox: SandboxHandle;
-  try {
-    sandbox = await client.get(existingSandboxId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (isSandboxGoneMessage(message)) {
-      logSession(
-        `tryReuseSandboxHandle found missing sandbox ${existingSandboxId}; creating replacement`,
-      );
-      return null;
-    }
-    throw error;
-  }
-
-  try {
-    await prepareFn(sandbox);
-  } catch (error) {
-    if (options?.fallbackOnPrepareError === false) {
-      throw error;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    logSession(
-      `tryReuseSandboxHandle preparation failed for ${existingSandboxId}; creating replacement: ${message}`,
-    );
-    return null;
-  }
-
-  return sandbox;
+  return tryReuseSandboxWith(
+    "tryReuseSandboxHandle",
+    (id) => client.get(id),
+    existingSandboxId,
+    prepareFn,
+    options,
+  );
 }
 
 /**
@@ -552,10 +550,10 @@ type PreparedSessionSandbox = {
 
 type ProgressStep = { type: string; label: string; status: string };
 
-/** Emits progress steps to streaming for UI updates. */
-async function emitSessionProgress(
+/** Emits progress steps to a streaming entity for UI updates. */
+async function emitProgress(
   ctx: GenericActionCtx<DataModel>,
-  sessionId: Id<"sessions">,
+  entityId: string,
   completedSteps: ProgressStep[],
   activeLabel: string,
 ): Promise<void> {
@@ -564,77 +562,89 @@ async function emitSessionProgress(
     { type: "tool", label: activeLabel, status: "active" },
   ];
   await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `session-startup-${sessionId}`,
+    entityId,
     currentActivity: JSON.stringify(steps),
   });
+}
+
+/** Clears the streaming activity for an entity when startup is done. */
+async function clearProgress(
+  ctx: GenericActionCtx<DataModel>,
+  entityId: string,
+): Promise<void> {
+  await ctx.runMutation(internal.streaming.internalSet, {
+    entityId,
+    currentActivity: JSON.stringify([]),
+  });
+}
+
+/** Emits session sandbox startup progress steps to streaming for UI updates. */
+function emitSessionProgress(
+  ctx: GenericActionCtx<DataModel>,
+  sessionId: Id<"sessions">,
+  completedSteps: ProgressStep[],
+  activeLabel: string,
+): Promise<void> {
+  return emitProgress(
+    ctx,
+    `session-startup-${sessionId}`,
+    completedSteps,
+    activeLabel,
+  );
 }
 
 /** Marks the final step complete and clears streaming. */
-async function completeSessionProgress(
+function completeSessionProgress(
   ctx: GenericActionCtx<DataModel>,
   sessionId: Id<"sessions">,
 ): Promise<void> {
-  // Clear the streaming activity when done
-  await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `session-startup-${sessionId}`,
-    currentActivity: JSON.stringify([]),
-  });
+  return clearProgress(ctx, `session-startup-${sessionId}`);
 }
 
 /** Emits task sandbox startup progress steps to streaming for UI updates. */
-async function emitTaskProgress(
+function emitTaskProgress(
   ctx: GenericActionCtx<DataModel>,
   taskId: Id<"agentTasks">,
   completedSteps: ProgressStep[],
   activeLabel: string,
 ): Promise<void> {
-  const steps = [
-    ...completedSteps,
-    { type: "tool", label: activeLabel, status: "active" },
-  ];
-  await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `task-sandbox-startup-${taskId}`,
-    currentActivity: JSON.stringify(steps),
-  });
+  return emitProgress(
+    ctx,
+    `task-sandbox-startup-${taskId}`,
+    completedSteps,
+    activeLabel,
+  );
 }
 
 /** Clears task sandbox startup streaming when done. */
-async function completeTaskProgress(
+function completeTaskProgress(
   ctx: GenericActionCtx<DataModel>,
   taskId: Id<"agentTasks">,
 ): Promise<void> {
-  await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `task-sandbox-startup-${taskId}`,
-    currentActivity: JSON.stringify([]),
-  });
+  return clearProgress(ctx, `task-sandbox-startup-${taskId}`);
 }
 
 /** Emits project sandbox startup progress steps to streaming for UI updates. */
-async function emitProjectProgress(
+function emitProjectProgress(
   ctx: GenericActionCtx<DataModel>,
   projectId: Id<"projects">,
   completedSteps: ProgressStep[],
   activeLabel: string,
 ): Promise<void> {
-  const steps = [
-    ...completedSteps,
-    { type: "tool", label: activeLabel, status: "active" },
-  ];
-  await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `project-sandbox-startup-${projectId}`,
-    currentActivity: JSON.stringify(steps),
-  });
+  return emitProgress(
+    ctx,
+    `project-sandbox-startup-${projectId}`,
+    completedSteps,
+    activeLabel,
+  );
 }
 
 /** Clears project sandbox startup streaming when done. */
-async function completeProjectProgress(
+function completeProjectProgress(
   ctx: GenericActionCtx<DataModel>,
   projectId: Id<"projects">,
 ): Promise<void> {
-  await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `project-sandbox-startup-${projectId}`,
-    currentActivity: JSON.stringify([]),
-  });
+  return clearProgress(ctx, `project-sandbox-startup-${projectId}`);
 }
 
 /** Core logic for preparing a session sandbox: reuses existing or creates new, syncs refs, and starts services. */

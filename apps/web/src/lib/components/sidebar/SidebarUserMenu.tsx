@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   Button,
   Dialog,
@@ -13,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  cn,
 } from "@conductor/ui";
 import { useClerk } from "@clerk/clerk-react";
 import { UserInitials } from "@conductor/shared";
@@ -23,7 +23,6 @@ import {
   IconSearch,
   IconSun,
   IconMoon,
-  IconSelector,
   IconLoader2,
 } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -31,7 +30,6 @@ import { useSearch } from "@/lib/contexts/SearchContext";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 interface SidebarUserMenuProps {
-  collapsed?: boolean;
   name: string;
   email?: string;
   /** Search only does anything on repo routes, so the item is gated. */
@@ -39,16 +37,13 @@ interface SidebarUserMenuProps {
 }
 
 /**
- * The footer identity card, doubling as the account menu trigger. Clicking it
- * opens a dropdown with the actions that used to sit beside it (manage account,
- * search, theme toggle) plus sign out.
+ * Avatar-only account menu for the left icon rail. Name/email live in the
+ * dropdown; the trigger stays a compact tile like the other rail icons.
  *
- * Sign out is destructive, so it confirms in a dialog (rendered as a sibling of
- * the dropdown, controlled by `confirmOpen`, so the menu can close cleanly
- * before the dialog traps focus).
+ * Sign out is destructive, so it confirms in a dialog (sibling of the
+ * dropdown) so the menu can close cleanly before the dialog traps focus.
  */
 export function SidebarUserMenu({
-  collapsed,
   name,
   email,
   showSearch,
@@ -64,7 +59,6 @@ export function SidebarUserMenu({
     try {
       await signOut();
     } catch {
-      // On failure, drop the pending state so the user can retry or cancel.
       setIsSigningOut(false);
     }
   };
@@ -73,67 +67,45 @@ export function SidebarUserMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          {collapsed ? (
-            <button
-              type="button"
-              title={name}
-              className="mx-auto flex items-center justify-center rounded-lg p-1 transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
-            >
-              <UserInitials
-                user={{ fullName: name }}
-                hideLastSeen
-                size="md"
-                disableProfileCard
-              />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2.5 rounded-surface border border-sidebar-border bg-sidebar-accent/40 p-2 text-left shadow-sm transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
-            >
-              <UserInitials
-                user={{ fullName: name }}
-                hideLastSeen
-                size="lg"
-                disableProfileCard
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium leading-tight text-sidebar-foreground">
-                  {name}
-                </p>
-                {email && (
-                  <p className="truncate text-xs leading-tight text-muted-foreground">
-                    {email}
-                  </p>
-                )}
-              </div>
-              <IconSelector
-                size={16}
-                className="shrink-0 text-muted-foreground"
-              />
-            </button>
-          )}
+          <button
+            type="button"
+            title={name}
+            aria-label={`Account menu for ${name}`}
+            className="relative flex size-11 items-center justify-center rounded-lg border border-transparent opacity-75 transition-colors hover:bg-sidebar-accent/50 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
+          >
+            <UserInitials
+              user={{ fullName: name }}
+              hideLastSeen
+              size="md"
+              disableProfileCard
+            />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align={collapsed ? "center" : "start"}
-          side={collapsed ? "right" : "top"}
-          sideOffset={collapsed ? 8 : 4}
-          className={cn(
-            collapsed
-              ? "w-52"
-              : "w-[var(--radix-dropdown-menu-trigger-width)] min-w-52",
-          )}
+          align="center"
+          side="right"
+          sideOffset={8}
+          className="w-56"
         >
+          <DropdownMenuLabel className="font-normal">
+            <p className="truncate text-sm font-medium text-foreground">
+              {name}
+            </p>
+            {email ? (
+              <p className="truncate text-xs text-muted-foreground">{email}</p>
+            ) : null}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void openUserProfile()}>
             <IconUserCog size={16} className="mr-2" />
             Manage account
           </DropdownMenuItem>
-          {showSearch && (
+          {showSearch ? (
             <DropdownMenuItem onSelect={() => openSearch()}>
               <IconSearch size={16} className="mr-2" />
               Search
             </DropdownMenuItem>
-          )}
+          ) : null}
           <DropdownMenuItem onSelect={() => toggleTheme()}>
             <CrossfadeIcon
               show={theme === "dark"}

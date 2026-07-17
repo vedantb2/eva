@@ -1,6 +1,5 @@
 import type { GenericDatabaseReader } from "convex/server";
-import type { DataModel } from "./_generated/dataModel";
-import type { Id } from "./_generated/dataModel";
+import type { DataModel, Id } from "./_generated/dataModel";
 
 type Ctx = { db: GenericDatabaseReader<DataModel> };
 

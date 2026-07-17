@@ -8,12 +8,18 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../ui/collapsible";
-import { ChevronDownIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  CircleIcon,
+  CircleCheckBigIcon,
+  LoaderIcon,
+} from "lucide-react";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
 import { Shimmer } from "./shimmer";
 import {
   type ActivityStep,
+  type TodoItem,
   useSpinnerVerb,
   useElapsedSeconds,
   formatElapsed,
@@ -38,6 +44,11 @@ export interface ActivityTasksProps extends ComponentProps<"div"> {
   startedAt?: number;
   duration?: string;
   finalText?: string;
+  /**
+   * When provided, file chips with a known full path become clickable and call
+   * this with the path. Pass a stable callback — {@link ActivityTasks} is memoised.
+   */
+  onOpenFile?: (path: string) => void;
 }
 
 const FILE_TYPES = new Set<ActivityStep["type"]>([
@@ -63,7 +74,87 @@ function getFileVerb(type: ActivityStep["type"], active: boolean): string {
   return active ? "Reading" : "Read";
 }
 
-function ActivityBlockRow({ block }: { block: ActivityBlock }) {
+/** Status glyph for one todo row. */
+function TodoStatusIcon({ status }: { status: TodoItem["status"] }) {
+  if (status === "completed") {
+    return (
+      <CircleCheckBigIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+    );
+  }
+  if (status === "in_progress") {
+    return (
+      <LoaderIcon className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
+    );
+  }
+  return (
+    <CircleIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+  );
+}
+
+/** Renders a todo checklist, or a plain fallback line for legacy/empty snapshots. */
+function TodoChecklist({
+  todos,
+  fallback,
+}: {
+  todos: TodoItem[];
+  fallback: string;
+}) {
+  if (todos.length === 0) {
+    return <TaskItem>{fallback}</TaskItem>;
+  }
+  return (
+    <ul className="space-y-1">
+      {todos.map((todo, i) => (
+        <li key={i} className="flex items-start gap-2 text-sm">
+          <TodoStatusIcon status={todo.status} />
+          <span
+            className={cn(
+              "leading-snug",
+              todo.status === "completed" &&
+                "text-muted-foreground line-through",
+              todo.status === "in_progress" && "font-medium text-foreground",
+              todo.status === "pending" && "text-muted-foreground",
+            )}
+          >
+            {todo.content}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** One subagent row: its description plus its own nested activity, indented. */
+function SubtaskItem({
+  item,
+  childBlocks,
+  onOpenFile,
+}: {
+  item: ActivityStep;
+  childBlocks?: ActivityBlock[];
+  onOpenFile?: (path: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <TaskItem>{item.detail ?? item.label}</TaskItem>
+      {childBlocks && childBlocks.length > 0 ? (
+        <div className="ml-1 space-y-1.5 border-l border-border pl-3">
+          {childBlocks.map((child, i) => (
+            <ActivityBlockRow key={i} block={child} onOpenFile={onOpenFile} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ActivityBlockRow({
+  block,
+  onOpenFile,
+}: {
+  block: ActivityBlock;
+  onOpenFile?: (path: string) => void;
+}) {
   const isActive = block.status === "active";
   const title = getBlockTitle(block);
   const isFileType = FILE_TYPES.has(block.type);
@@ -83,25 +174,59 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
         }
       />
       <TaskContent>
-        {block.items.map((item, i) =>
-          isFileType ? (
-            <TaskItem key={i}>
-              <span className="inline-flex max-w-full items-center gap-1">
-                {fileVerb}
-                <TaskItemFile>{item.detail ?? item.label}</TaskItemFile>
-              </span>
-            </TaskItem>
-          ) : block.type === "bash" ? (
-            <TaskItem
-              key={i}
-              className="line-clamp-2 break-all font-mono text-xs"
-            >
-              {item.detail ?? item.label}
-            </TaskItem>
-          ) : (
-            <TaskItem key={i}>{item.detail ?? item.label}</TaskItem>
-          ),
-        )}
+        {block.type === "todos"
+          ? block.items.map((item, i) => (
+              <TodoChecklist
+                key={i}
+                todos={item.todos ?? []}
+                fallback={item.detail ?? item.label}
+              />
+            ))
+          : block.type === "subtask"
+            ? block.items.map((item, i) => (
+                <SubtaskItem
+                  key={i}
+                  item={item}
+                  childBlocks={
+                    item.toolUseId
+                      ? block.subtaskChildren?.[item.toolUseId]
+                      : undefined
+                  }
+                  onOpenFile={onOpenFile}
+                />
+              ))
+            : block.items.map((item, i) =>
+                isFileType ? (
+                  <TaskItem key={i}>
+                    <span className="inline-flex max-w-full items-center gap-1">
+                      {fileVerb}
+                      {item.path && onOpenFile ? (
+                        <button
+                          type="button"
+                          title={item.path}
+                          onClick={() => onOpenFile(item.path ?? "")}
+                          className="inline-flex min-w-0 max-w-full cursor-pointer"
+                        >
+                          <TaskItemFile className="transition-colors hover:bg-muted">
+                            {item.detail ?? item.label}
+                          </TaskItemFile>
+                        </button>
+                      ) : (
+                        <TaskItemFile>{item.detail ?? item.label}</TaskItemFile>
+                      )}
+                    </span>
+                  </TaskItem>
+                ) : block.type === "bash" ? (
+                  <TaskItem
+                    key={i}
+                    className="line-clamp-2 break-all font-mono text-xs"
+                  >
+                    {item.detail ?? item.label}
+                  </TaskItem>
+                ) : (
+                  <TaskItem key={i}>{item.detail ?? item.label}</TaskItem>
+                ),
+              )}
       </TaskContent>
     </Task>
   );
@@ -116,9 +241,11 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
 function ActivityBlockList({
   blocks,
   isStreaming,
+  onOpenFile,
 }: {
   blocks: ActivityBlock[];
   isStreaming?: boolean;
+  onOpenFile?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const overflow = blocks.length - MAX_VISIBLE_BLOCKS;
@@ -144,7 +271,7 @@ function ActivityBlockList({
     <>
       {isStreaming && toggle}
       {visible.map((block, i) => (
-        <ActivityBlockRow key={i} block={block} />
+        <ActivityBlockRow key={i} block={block} onOpenFile={onOpenFile} />
       ))}
       {!isStreaming && toggle}
     </>
@@ -176,11 +303,12 @@ export const ActivityTasks = memo(
     steps,
     isStreaming,
     name,
-    icon,
+    icon: _icon,
     className,
     startedAt,
     duration,
     finalText,
+    onOpenFile,
     ...props
   }: ActivityTasksProps) => {
     const verb = useSpinnerVerb(Boolean(isStreaming));
@@ -220,27 +348,11 @@ export const ActivityTasks = memo(
             <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList blocks={blocks} isStreaming={false} />
-          </CollapsibleContent>
-        </Collapsible>
-      );
-    }
-
-    // Settled turn with a known per-turn duration (P1): collapse the whole
-    // turn's activity behind one "Worked for Ns" trigger, default closed.
-    if (!isStreaming && duration) {
-      return (
-        <Collapsible
-          className={cn("group text-sm", className)}
-          defaultOpen={false}
-          {...props}
-        >
-          <CollapsibleTrigger className="flex w-full items-center gap-2 border-b border-border pb-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground">
-            <span>Worked for {duration}</span>
-            <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList blocks={blocks} isStreaming={false} />
+            <ActivityBlockList
+              blocks={blocks}
+              isStreaming={false}
+              onOpenFile={onOpenFile}
+            />
           </CollapsibleContent>
         </Collapsible>
       );
@@ -256,7 +368,11 @@ export const ActivityTasks = memo(
             </Shimmer>
           </div>
         ) : null}
-        <ActivityBlockList blocks={blocks} isStreaming={isStreaming} />
+        <ActivityBlockList
+          blocks={blocks}
+          isStreaming={isStreaming}
+          onOpenFile={onOpenFile}
+        />
       </div>
     );
   },

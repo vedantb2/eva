@@ -2,12 +2,17 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
-import { aiModelValidator, sessionModeValidator } from "../validators";
+import {
+  aiModelValidator,
+  normalizeAIModel,
+  reasoningLevelValidator,
+  sessionModeValidator,
+} from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
-import { normalizeAIModel } from "../validators";
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
@@ -16,6 +21,11 @@ export const startExecute = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -59,8 +69,24 @@ export const startExecute = authMutation({
       mode: args.mode,
     });
 
+    // Carry the composer's image attachments on the staged turn. The daemon
+    // downloads them when it claims the turn. Passed explicitly (not read from
+    // the user message row) because the composer fires addMessage + startExecute
+    // in parallel, so the row may not be committed yet.
+    const normalizedModel = normalizeAIModel(args.model);
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
+      pendingTurn: {
+        prompt,
+        requestedAt: Date.now(),
+        turnKind,
+        attachmentStorageIds: args.attachmentStorageIds,
+        model: normalizedModel,
+      },
+      // Persist the session's chosen account so the page-open prewarm (which has
+      // no per-message context) injects the same credential. Undefined clears
+      // back to the team credential.
+      providerAccountId: args.providerAccountId,
+      lastModel: normalizedModel,
       updatedAt: Date.now(),
     });
 
@@ -70,7 +96,6 @@ export const startExecute = authMutation({
     // sandbox this thaws it; if there is no sandbox yet the action skips and the
     // workflow's cold path below creates one.
     if (session.sandboxId) {
-      const normalizedModel = normalizeAIModel(args.model);
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
       await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
@@ -79,7 +104,11 @@ export const startExecute = authMutation({
         repoId: session.repoId,
         userId: ctx.userId,
         model: normalizedModel,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
         allowedTools: MODE_TOOLS[effectiveMode],
+        providerAccountId: args.providerAccountId,
         sessionPersistenceId: args.sessionId,
       });
     }
@@ -92,6 +121,10 @@ export const startExecute = authMutation({
         message: args.message,
         mode: args.mode,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        providerAccountId: args.providerAccountId,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -115,13 +148,27 @@ export const prewarmDaemon = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.sandboxId) return null;
+    // Never prewarm a stopped/stopping session. prewarmSessionDaemon execs on
+    // the sandbox, and on Vercel any exec lazily resumes a stopped VM (SDK
+    // withResume) — resurrecting a sandbox the user stopped, invisibly (the
+    // session status stays "closed"). A closed session keeps its sandboxId, so
+    // without this guard merely opening its page (SessionDetailClient fires this
+    // on mount) wakes the VM behind the user's back.
+    if (session.status === "closed" || session.status === "stopping")
+      return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+    // Match edit-mode defaults so the first real message does not immediately
+    // optsmismatch-kill this daemon (which races with claimPendingTurn and
+    // leaves the chat stuck on Working).
     await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
       userId: session.userId,
+      model: normalizeAIModel(session.lastModel),
+      allowedTools: MODE_TOOLS.edit,
+      providerAccountId: session.providerAccountId,
       sessionPersistenceId: args.sessionId,
     });
     return null;
@@ -135,6 +182,11 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -150,9 +202,15 @@ export const enqueueMessage = authMutation({
       parentId: args.sessionId,
       content,
       createdAt: Date.now(),
+      order: Date.now(),
       userId: ctx.userId,
       mode: args.mode,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      providerAccountId: args.providerAccountId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;
@@ -171,7 +229,13 @@ export const cancelExecution = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    await cancelTrackedWorkflow(ctx, session.activeWorkflowId);
+    // Snapshot what this cancel owns. A concurrent startExecute may stage a
+    // newer pendingTurn / activeWorkflowId while we run — must not clear those
+    // or mark the newer assistant placeholder as cancelled.
+    const workflowIdToCancel = session.activeWorkflowId;
+    const pendingRequestedAt = session.pendingTurn?.requestedAt;
+
+    await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
@@ -185,37 +249,49 @@ export const cancelExecution = authMutation({
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
       .first();
 
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant") {
-      const patch: {
-        content?: string;
-        activityLog?: string;
-        finishedAt: number;
-      } = {
-        finishedAt: Date.now(),
-      };
-      if (!last.content) {
-        patch.content = "Execution cancelled by user.";
+    const latest = await ctx.db.get(args.sessionId);
+    if (!latest) return null;
+
+    const newerTurnStaged =
+      latest.pendingTurn !== undefined &&
+      latest.pendingTurn.requestedAt !== pendingRequestedAt;
+    const newerWorkflowTracked =
+      latest.activeWorkflowId !== undefined &&
+      latest.activeWorkflowId !== workflowIdToCancel;
+
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      const last = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+        .order("desc")
+        .first();
+      if (last && last.role === "assistant" && last.finishedAt === undefined) {
+        await finalizeCancelledAssistantMessage(ctx, last, streaming);
       }
-      if (streaming?.currentActivity) {
-        patch.activityLog = streaming.currentActivity;
-      }
-      await ctx.db.patch(last._id, patch);
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));
 
-    await ctx.db.patch(args.sessionId, {
-      activeWorkflowId: undefined,
-      // Clear any staged-but-unclaimed turn so a cancelled prompt is never
-      // later picked up by the daemon's claim poll and executed after the fact.
-      pendingTurn: undefined,
-      updatedAt: Date.now(),
-    });
+    const sessionPatch: {
+      activeWorkflowId?: undefined;
+      pendingTurn?: undefined;
+      updatedAt: number;
+    } = { updatedAt: Date.now() };
+
+    if (
+      workflowIdToCancel !== undefined &&
+      latest.activeWorkflowId === workflowIdToCancel
+    ) {
+      sessionPatch.activeWorkflowId = undefined;
+    }
+    if (
+      pendingRequestedAt !== undefined &&
+      latest.pendingTurn?.requestedAt === pendingRequestedAt
+    ) {
+      sessionPatch.pendingTurn = undefined;
+    }
+
+    await ctx.db.patch(args.sessionId, sessionPatch);
 
     await startNextQueuedSessionMessage(ctx, args.sessionId);
 

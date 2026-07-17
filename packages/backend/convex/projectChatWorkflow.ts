@@ -1,20 +1,24 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
+  reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
+  taskSandboxStatusValidator,
 } from "./validators";
 import {
   recordCompletionLog,
   sendCompletionEvent,
   clearStreamingActivity,
 } from "./_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedProjectChatMessage } from "./_queues/helpers";
 import {
   trackProjectChatWorkflow,
@@ -27,9 +31,15 @@ import {
 } from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 // Full read/write + Bash for local commits; Eva pushes after success.
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
+
+/** Streaming-activity entity id for a project chat. */
+function chatStreamEntityId(projectId: Id<"projects">): string {
+  return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
+}
 
 // --- Completion event ---
 
@@ -45,6 +55,8 @@ export const addMessage = authMutation({
   args: {
     projectId: v.id("projects"),
     content: v.string(),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -59,6 +71,12 @@ export const addMessage = authMutation({
       content: args.content,
       timestamp: Date.now(),
       userId: ctx.userId,
+      attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        args.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -71,6 +89,10 @@ export const startExecute = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -87,6 +109,10 @@ export const startExecute = authMutation({
         projectId: args.projectId,
         message: args.message,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        providerAccountId: args.providerAccountId,
         userId: ctx.userId,
       },
     );
@@ -103,6 +129,11 @@ export const enqueueMessage = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -119,8 +150,14 @@ export const enqueueMessage = authMutation({
       parentId: args.projectId,
       content,
       createdAt: Date.now(),
+      order: Date.now(),
       userId: ctx.userId,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      providerAccountId: args.providerAccountId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -149,7 +186,7 @@ export const cancelExecution = authMutation({
       });
     }
 
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
@@ -160,16 +197,8 @@ export const cancelExecution = authMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant") {
-      const patch: {
-        content?: string;
-        activityLog?: string;
-        finishedAt: number;
-      } = { finishedAt: Date.now() };
-      if (!last.content) patch.content = "Execution cancelled by user.";
-      if (streaming?.currentActivity)
-        patch.activityLog = streaming.currentActivity;
-      await ctx.db.patch(last._id, patch);
+    if (last && last.role === "assistant" && last.finishedAt === undefined) {
+      await finalizeCancelledAssistantMessage(ctx, last, streaming);
     }
 
     await clearStreamingActivity(ctx, streamingEntityId);
@@ -192,9 +221,22 @@ export const projectChatExecuteWorkflow = workflow.define({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
+    const saveFailure = (error: string) =>
+      step.runMutation(internal.projectChatWorkflow.saveResult, {
+        projectId: args.projectId,
+        success: false,
+        result: null,
+        error,
+        activityLog: null,
+      });
+
     await step.runMutation(
       internal.projectChatWorkflow.addAssistantPlaceholder,
       {
@@ -210,18 +252,13 @@ export const projectChatExecuteWorkflow = workflow.define({
     });
 
     if (!data.sandboxId && !data.vercelSandboxId) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "No active sandbox. Start the project sandbox before sending chat messages.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "No active sandbox. Start the project sandbox before sending chat messages.",
+      );
       return;
     }
 
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
 
     // Bring an archived/stopped sandbox back to "started" via durable polling
     // steps before validating, so a multi-minute cold-storage thaw doesn't blow
@@ -233,31 +270,22 @@ export const projectChatExecuteWorkflow = workflow.define({
         vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
+        sandboxRunning: data.sandboxStatus === "active",
       });
     } catch (error) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Project sandbox could not be restored from cold storage. Please retry.",
-        activityLog: null,
-      });
+      await saveFailure(
+        error instanceof Error
+          ? error.message
+          : "Project sandbox could not be restored from cold storage. Please retry.",
+      );
       return;
     }
 
     const activeSandboxId = started.thawId;
     if (!activeSandboxId) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "No active sandbox. Start the project sandbox before sending chat messages.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "No active sandbox. Start the project sandbox before sending chat messages.",
+      );
       return;
     }
 
@@ -268,14 +296,9 @@ export const projectChatExecuteWorkflow = workflow.define({
     );
 
     if (!validation.healthy) {
-      await step.runMutation(internal.projectChatWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: false,
-        result: null,
-        error:
-          "Project sandbox is no longer reachable. Restart it from the sandbox panel.",
-        activityLog: null,
-      });
+      await saveFailure(
+        "Project sandbox is no longer reachable. Restart it from the sandbox panel.",
+      );
       return;
     }
 
@@ -287,10 +310,15 @@ export const projectChatExecuteWorkflow = workflow.define({
       completionMutation: "projectChatWorkflow:handleCompletion",
       entityIdField: "projectId",
       model: data.model,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      providerAccountId: args.providerAccountId,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.projectId,
       streamingEntityId,
+      attachmentStorageIds: data.attachmentStorageIds,
     });
 
     const result = await step.awaitEvent(projectChatCompleteEvent);
@@ -361,6 +389,7 @@ export const getChatData = internalQuery({
   returns: v.object({
     sandboxId: v.optional(v.string()),
     vercelSandboxId: v.optional(v.string()),
+    sandboxStatus: v.optional(taskSandboxStatusValidator),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -368,6 +397,7 @@ export const getChatData = internalQuery({
     branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -375,6 +405,14 @@ export const getChatData = internalQuery({
 
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    // Input images the composer attached to the triggering user message.
+    const triggeringUserMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("role"), "user"))
+      .first();
 
     const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
     const user = await ctx.db.get(args.userId);
@@ -412,6 +450,7 @@ export const getChatData = internalQuery({
     return {
       sandboxId: project.sandboxId,
       vercelSandboxId: project.vercelSandboxId,
+      sandboxStatus: project.reviewProjectSandboxStatus,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,
@@ -419,6 +458,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
+      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
   },
 });
@@ -435,7 +475,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streamingEntityId = `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`;
+    const streamingEntityId = chatStreamEntityId(args.projectId);
     await clearStreamingActivity(ctx, streamingEntityId);
 
     const project = await ctx.db.get(args.projectId);

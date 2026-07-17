@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
+import { api, normalizeAIModel } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
@@ -12,9 +12,9 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
-  Spinner,
   cn,
   ModelSelect,
+  toast,
 } from "@conductor/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -160,7 +160,20 @@ function SettingsForm({
     repo.parentRepoId !== undefined || (siblingApps?.length ?? 0) > 0;
 
   const navigate = useNavigate();
-  const updateAutomation = useMutation(api.automations.update);
+  const updateAutomation = useMutation(
+    api.automations.update,
+  ).withOptimisticUpdate((localStore, args) => {
+    if (automation.numId === undefined) return;
+    const q = { repoId, numId: automation.numId };
+    const current = localStore.getQuery(api.automations.getByNumId, q);
+    if (current) {
+      const { id: _id, contextRepoId: _contextRepoId, ...fields } = args;
+      localStore.setQuery(api.automations.getByNumId, q, {
+        ...current,
+        ...fields,
+      });
+    }
+  });
   const removeAutomation = useMutation(
     api.automations.remove,
   ).withOptimisticUpdate((localStore, args) => {
@@ -173,21 +186,25 @@ function SettingsForm({
       );
     }
   });
-  const [title, setTitle] = useState(automation.title);
-  const [description, setDescription] = useState(automation.description);
-  const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
-  const savedModel = normalizeAIModel(automation.model ?? repo.defaultModel);
-  const [model, setModel] = useState<AIModel>(savedModel);
-  const [readOnly, setReadOnly] = useState(automation.readOnly === true);
-  const [actionsEnabled, setActionsEnabled] = useState(
-    automation.actionsEnabled === true,
-  );
-  const [shared, setShared] = useState(automation.shared === true);
-  const [sendEmail, setSendEmail] = useState(automation.sendEmail === true);
-  const [isSaving, setIsSaving] = useState(false);
+  // The cron input is a controlled field doing local↔UTC conversion with a
+  // live preview, so it needs an editing buffer to save on blur rather than on
+  // every keystroke. Every other field reads straight from the automation doc.
+  const [cronDraft, setCronDraft] = useState(automation.cronSchedule);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const model = normalizeAIModel(automation.model ?? repo.defaultModel);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
+
+  // Persist a single field change and confirm with one deduped toast.
+  const commit = (
+    fields: Omit<Parameters<typeof updateAutomation>[0], "id">,
+  ) => {
+    void updateAutomation({ id: automation._id, ...fields })
+      .then(() => toast.success("Saved", { id: "automation-saved" }))
+      .catch(() =>
+        toast.error("Couldn't save changes", { id: "automation-saved" }),
+      );
+  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -202,42 +219,15 @@ function SettingsForm({
     }
   };
 
-  const hasChanges =
-    title !== automation.title ||
-    description !== automation.description ||
-    cronSchedule !== automation.cronSchedule ||
-    model !== savedModel ||
-    readOnly !== (automation.readOnly === true) ||
-    actionsEnabled !== (automation.actionsEnabled === true) ||
-    shared !== (automation.shared === true) ||
-    sendEmail !== (automation.sendEmail === true);
-
-  const sharedChanged = shared !== (automation.shared === true);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await updateAutomation({
-        id: automation._id,
-        ...(isMonorepo && sharedChanged
-          ? { contextRepoId: repoId, shared }
-          : {}),
-        title,
-        description,
-        cronSchedule,
-        model,
-        readOnly,
-        actionsEnabled: readOnly ? actionsEnabled : false,
-        sendEmail,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
-      <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
+      <CronScheduleCard
+        value={cronDraft}
+        onChange={setCronDraft}
+        onBlurCommit={(v) => {
+          if (v !== automation.cronSchedule) commit({ cronSchedule: v });
+        }}
+      />
 
       <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
@@ -248,8 +238,11 @@ function SettingsForm({
           <Input
             className="h-8 text-xs"
             placeholder="Automation title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            defaultValue={automation.title}
+            onBlur={(e) => {
+              const val = e.target.value;
+              if (val !== automation.title) commit({ title: val });
+            }}
           />
         </div>
         <div>
@@ -259,8 +252,11 @@ function SettingsForm({
           <Textarea
             className="min-h-[120px] text-xs"
             placeholder="Describe what this automation should do..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            defaultValue={automation.description}
+            onBlur={(e) => {
+              const val = e.target.value;
+              if (val !== automation.description) commit({ description: val });
+            }}
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
             The prompt that will be executed on each run.
@@ -273,8 +269,8 @@ function SettingsForm({
           <SettingToggle
             title="Share across apps"
             description="Show and run this automation from every app in the monorepo"
-            checked={shared}
-            onChange={setShared}
+            checked={automation.shared === true}
+            onChange={(next) => commit({ contextRepoId: repoId, shared: next })}
           />
         </div>
       )}
@@ -283,18 +279,24 @@ function SettingsForm({
         <SettingToggle
           title="Report Only"
           description="Analyze and report without making code changes, branches, or PRs"
-          checked={readOnly}
-          onChange={setReadOnly}
+          checked={automation.readOnly === true}
+          onChange={(next) =>
+            commit(
+              next
+                ? { readOnly: true }
+                : { readOnly: false, actionsEnabled: false },
+            )
+          }
         />
       </div>
 
-      {readOnly && (
+      {automation.readOnly === true && (
         <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
           <SettingToggle
             title="Actions"
             description="Parse findings into actionable items you can convert to tasks"
-            checked={actionsEnabled}
-            onChange={setActionsEnabled}
+            checked={automation.actionsEnabled === true}
+            onChange={(next) => commit({ actionsEnabled: next })}
           />
         </div>
       )}
@@ -303,8 +305,8 @@ function SettingsForm({
         <SettingToggle
           title="Send email"
           description="Email this automation's run summary to all users when a run succeeds"
-          checked={sendEmail}
-          onChange={setSendEmail}
+          checked={automation.sendEmail === true}
+          onChange={(next) => commit({ sendEmail: next })}
         />
       </div>
 
@@ -317,16 +319,9 @@ function SettingsForm({
           <ModelSelect
             value={model}
             options={modelOptions}
-            onValueChange={setModel}
+            onValueChange={(m) => commit({ model: m })}
           />
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
-          {isSaving && <Spinner size="sm" />}
-          Save
-        </Button>
       </div>
 
       <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">

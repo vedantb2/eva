@@ -25,6 +25,21 @@ export const evalResultValidator = v.object({
   severity: v.optional(auditSeverityValidator),
 });
 
+/**
+ * A single issue flagged by a testing-arena run. Unlike evalResultValidator this
+ * is not tied to a fixed requirement list: the agent returns however many issues
+ * it finds, ranked by severity. `taskId` marks an issue already converted to a task.
+ */
+export const evalIssueValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  description: v.string(),
+  severity: auditSeverityValidator,
+  filePaths: v.optional(v.array(v.string())),
+  suggestedFix: v.optional(v.string()),
+  taskId: v.optional(v.id("agentTasks")),
+});
+
 export const auditSectionValidator = v.object({
   name: v.string(),
   results: v.array(evalResultValidator),

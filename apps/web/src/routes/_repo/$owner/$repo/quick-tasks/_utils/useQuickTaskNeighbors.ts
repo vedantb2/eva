@@ -8,14 +8,12 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
-import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
 interface UseQuickTaskNeighborsArgs {
   taskId: string;
   /** Whether the open surface is the detail tabs or the sandbox. */
   navSurface: "detail" | "sandbox";
-  detailTab: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
 }
 
@@ -28,7 +26,6 @@ interface UseQuickTaskNeighborsArgs {
 export function useQuickTaskNeighbors({
   taskId,
   navSurface,
-  detailTab,
   sandboxTab,
 }: UseQuickTaskNeighborsArgs) {
   const navigate = useNavigate();
@@ -71,7 +68,7 @@ export function useQuickTaskNeighbors({
       });
       return;
     }
-    navigate({ to: `${basePath}/quick-tasks/${segment}/${detailTab}` });
+    navigate({ to: `${basePath}/quick-tasks/${segment}` });
   };
 
   return {

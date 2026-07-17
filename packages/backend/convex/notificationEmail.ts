@@ -2,7 +2,6 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { sendEmail } from "./email";
 import { buildNotificationDigestHtml } from "./emailTemplates";
@@ -59,9 +58,7 @@ export const sendUnreadForUser = internalAction({
 
     await sendEmail({ to: data.email, subject, html });
     await ctx.runMutation(internal.notifications.markEmailed, {
-      notificationIds: data.notifications.map(
-        (n: { id: Id<"notifications"> }) => n.id,
-      ),
+      notificationIds: data.notifications.map((n) => n.id),
     });
     return null;
   },

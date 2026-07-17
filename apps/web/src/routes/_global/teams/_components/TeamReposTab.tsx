@@ -4,8 +4,6 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
-  Card,
-  CardContent,
   Button,
   Dialog,
   DialogContent,
@@ -19,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
-import { IconPlus, IconTrash, IconGitBranch } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
+import { TeamRepoCard } from "./TeamRepoCard";
 
 type Repo = FunctionReturnType<typeof api.githubRepos.listByTeam>[number];
 
@@ -211,32 +210,13 @@ export function TeamReposTab({
       </div>
       <div className="space-y-2">
         {repos.map((repo) => (
-          <Card key={repo._id}>
-            <CardContent className="flex items-center justify-between p-3 sm:p-4">
-              <div className="flex items-center gap-2">
-                <IconGitBranch size={20} className="text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">
-                    {repo.rootDirectory
-                      ? repo.rootDirectory.split("/").pop()
-                      : repo.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {repo.owner}/{repo.name}
-                  </p>
-                </div>
-              </div>
-              {isOwner && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => removeRepo({ teamId, repoId: repo._id })}
-                >
-                  <IconTrash size={14} />
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <TeamRepoCard
+            key={repo._id}
+            repo={repo}
+            teamId={teamId}
+            isOwner={isOwner}
+            onRemove={(repoId) => removeRepo({ teamId, repoId })}
+          />
         ))}
       </div>
     </>

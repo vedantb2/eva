@@ -7,6 +7,9 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  MAX_TOTAL_RUNTIME_MS,
+  MODEL,
+  NO_OUTPUT_TIMEOUT_MS,
   REPO_ID,
   RUN_ID,
 } from "../config.js";
@@ -25,8 +28,10 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { syncClaudeStateToPersist } from "../session/claudeSession.js";
-import { prepareClaudeSessionState } from "../session/claudeSession.js";
+import {
+  syncClaudeStateToPersist,
+  prepareClaudeSessionState,
+} from "../session/claudeSession.js";
 import {
   buildSdkOptions,
   buildConversationalSdkOptions,
@@ -65,11 +70,95 @@ const IDLE_EXIT_MS = 45 * 60 * 1000;
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
 const PROMPT_POLL_INTERVAL_MS = 50;
 
+// Per-turn watchdog. Without this a turn whose SDK query stalls or ends without
+// emitting a result would never send a completion event, so the workflow's
+// awaitEvent hangs until the 2h stale-session timeout (empty "Working…" bubble).
+// Mirrors the one-shot path (claudeSdk.ts): fail the turn if it produces no SDK
+// message for a while, or exceeds the hard runtime cap. On a fire we send a
+// failure completion (resolving awaitEvent) and exit so the next turn respawns a
+// clean daemon rather than reusing a wedged query.
+const NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+const WATCHDOG_TICK_MS = 5000;
+
+let turnActive = false;
+let turnStartedAtMs = 0;
+let lastMessageAtMs = 0;
+
+function beginWatchedTurn(): void {
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  lastMessageAtMs = turnStartedAtMs;
+}
+
+function noteWatchedMessage(): void {
+  lastMessageAtMs = Date.now();
+}
+
+// Called as soon as a turn's result is in hand (before finalize) and between
+// turns, so the watchdog only guards a turn that is genuinely in flight.
+function endWatchedTurn(): void {
+  turnActive = false;
+}
+
+/**
+ * Sends a failure completion for the current turn (resolving the workflow's
+ * awaitEvent so the UI stops spinning) and exits the process. Exiting abandons a
+ * potentially wedged SDK query; the next turn's prewarm boots a fresh daemon.
+ */
+async function failTurnAndExit(error: string): Promise<never> {
+  log("daemon: failing turn — " + error);
+  try {
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      success: false,
+      result: null,
+      error,
+      activityLog: JSON.stringify(S.accumulatedSteps),
+      ...(RUN_ID ? { runId: RUN_ID } : {}),
+    });
+  } catch {
+    /* best-effort: exit regardless so the daemon does not wedge */
+  }
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+    /* ignore */
+  }
+  await stopStreamingLoops();
+  process.exit(1);
+}
+
+/** Arms the per-turn watchdog interval for the daemon's lifetime. */
+function startTurnWatchdog(): void {
+  const timer = setInterval(() => {
+    if (!turnActive) return;
+    const now = Date.now();
+    // A turn paused on a blocking question emits no SDK messages by design —
+    // keep both timers fresh so the wait is never mistaken for a stalled turn.
+    if (S.awaitingQuestionAnswer) {
+      turnStartedAtMs = now;
+      lastMessageAtMs = now;
+      return;
+    }
+    if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+    } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
+      turnActive = false;
+      void failTurnAndExit(
+        "The assistant stopped responding. Please try again.",
+      );
+    }
+  }, WATCHDOG_TICK_MS);
+  timer.unref?.();
+}
+
 type TurnKind = "conversational" | "agent";
 
 type ClaimedTurn = {
   prompt: string;
   turnKind: TurnKind;
+  attachmentUrls: string[];
 };
 
 /**
@@ -177,6 +266,8 @@ function resetTurnState(): void {
   S.lastProcessed = 0;
   S.inFlightToolUses = 0;
   S.pendingQuestionData = "";
+  S.todoState.length = 0;
+  S.awaitingQuestionAnswer = false;
   S.lastStepType = "thinking";
 }
 
@@ -276,13 +367,23 @@ function readClaimedPrompt(result: JsonValue): string | null {
   return typeof prompt === "string" ? prompt : null;
 }
 
+function readClaimedAttachmentUrls(payload: {
+  [key: string]: JsonValue;
+}): string[] {
+  const field = payload.attachmentUrls;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((url): url is string => typeof url === "string");
+}
+
 function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent" };
+    return { prompt, turnKind: "agent", attachmentUrls: [] };
   }
   const inner = result.value;
   const payload =
@@ -292,7 +393,11 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const turnKindField = payload.turnKind;
   const turnKind: TurnKind =
     turnKindField === "conversational" ? "conversational" : "agent";
-  return { prompt, turnKind };
+  return {
+    prompt,
+    turnKind,
+    attachmentUrls: readClaimedAttachmentUrls(payload),
+  };
 }
 
 type DaemonMessage = Record<string, JsonValue>;
@@ -459,6 +564,7 @@ async function runConversationalWarmTurn(
   resetTurnState();
   const turnStartedAt = Date.now();
   S.activeAttemptStartedAt = turnStartedAt;
+  beginWatchedTurn();
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
@@ -468,9 +574,13 @@ async function runConversationalWarmTurn(
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
-      log("daemon: conversational query ended unexpectedly");
-      return;
+      // The warm Haiku query ended without a result — surface a failure so the
+      // workflow's awaitEvent resolves instead of hanging, then respawn.
+      return failTurnAndExit(
+        "The assistant could not generate a reply. Please try again.",
+      );
     }
+    noteWatchedMessage();
     const processed = processDaemonMessage(
       message,
       output,
@@ -482,6 +592,7 @@ async function runConversationalWarmTurn(
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt = Date.now();
         log(
@@ -501,6 +612,7 @@ async function runConversationalWarmTurn(
       }
       continue;
     }
+    endWatchedTurn();
     const resultAt = Date.now();
     log(
       "daemon[timing]: conversational result +" +
@@ -538,6 +650,62 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
+/** Mirrors attachmentExtensionForMimeType in convex/_daytona/attachments.ts. */
+function attachmentExtensionForMimeType(mimeType: string): string {
+  const type = mimeType.split(";")[0]?.trim() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return ".png";
+  }
+}
+
+/**
+ * Downloads this turn's input images into the sandbox filesystem and appends a
+ * note pointing the agent at them, so a claimed turn's prompt references files
+ * that already exist on disk (no race — the daemon owns ordering). Uses the same
+ * flat `/tmp/eva-attachment-<n>.<ext>` scheme + note text as the CLI launch path
+ * (convex/_daytona/attachments.ts). Failed downloads are skipped.
+ */
+async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths: string[] = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" });
+      if (!res.ok) {
+        log(`daemon: attachment download failed status=${res.status}`);
+        continue;
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const extension = attachmentExtensionForMimeType(
+        res.headers.get("content-type") ?? "",
+      );
+      const path = `/tmp/eva-attachment-${index}${extension}`;
+      writeFileSync(path, bytes);
+      paths.push(path);
+    } catch (error) {
+      log(
+        `daemon: attachment download error ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  if (paths.length === 0) return;
+  const list = paths.map((p) => `- ${p}`).join("\n");
+  turn.prompt += `\n\n---\nThe user attached the following image file(s). View them with your file-reading tool before responding:\n${list}`;
+}
+
 async function waitForNextTurn(): Promise<ClaimedTurn | null> {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
@@ -548,10 +716,11 @@ async function waitForNextTurn(): Promise<ClaimedTurn | null> {
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" },
+      { sessionId: ENTITY_ID ?? "", model: MODEL },
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {
+      await materializeTurnAttachments(turn);
       return turn;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
@@ -602,6 +771,7 @@ export async function runSdkDaemon(): Promise<void> {
   // API handshake) already happened above when query() was created, so here we
   // just wait for the first staged prompt to appear.
   log("daemon: warm query() live, waiting for first prompt (pull)");
+  startTurnWatchdog();
   let nextTurn = await waitForNextTurn();
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt — exiting");
@@ -625,6 +795,7 @@ export async function runSdkDaemon(): Promise<void> {
       let turnStartedAt = Date.now();
       const sawFirstMessageThisTurn = { value: false };
       const sawAssistantThisTurn = { value: false };
+      beginWatchedTurn();
       push(nextTurn.prompt);
       S.activeAttemptStartedAt = turnStartedAt;
 
@@ -637,6 +808,7 @@ export async function runSdkDaemon(): Promise<void> {
         ) {
           continue;
         }
+        noteWatchedMessage();
         const processed = processDaemonMessage(
           message,
           output,
@@ -649,6 +821,7 @@ export async function runSdkDaemon(): Promise<void> {
           continue;
         }
 
+        endWatchedTurn();
         const resultAt = Date.now();
         log(
           "daemon[timing]: result message +" +
@@ -676,7 +849,15 @@ export async function runSdkDaemon(): Promise<void> {
         sawFirstMessageThisTurn.value = false;
         sawAssistantThisTurn.value = false;
         S.activeAttemptStartedAt = turnStartedAt;
+        beginWatchedTurn();
         push(upcoming.prompt);
+      }
+      // The agent query stream closed. If a turn was still in flight (no result
+      // emitted), surface a failure so the workflow's awaitEvent resolves.
+      if (turnActive) {
+        return failTurnAndExit(
+          "The assistant ended without a reply. Please try again.",
+        );
       }
     }
   } catch (error) {

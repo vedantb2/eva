@@ -123,6 +123,7 @@ export const notificationTypeValidator = v.union(
   v.literal("comment_reply"),
   v.literal("mention"),
   v.literal("run_completed"),
+  v.literal("run_failed"),
   v.literal("rate_limit"),
   v.literal("system"),
 );
@@ -274,4 +275,11 @@ export const taskActivityFieldValidator = v.union(
   // GitHub PR merged/closed event. newValue is "merged" or "closed"; the
   // resulting task status (done/cancelled) is implied and rendered client-side.
   v.literal("pr"),
+);
+
+/** Lifecycle of an agent-spawned background Bash shell in a session sandbox. */
+export const backgroundProcessStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("exited"),
+  v.literal("killed"),
 );

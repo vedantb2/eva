@@ -122,7 +122,8 @@ export const upsertPrRecapComment = internalAction({
     repo: v.string(),
     prNumber: v.number(),
     body: v.optional(v.string()),
-    docId: v.optional(v.string()),
+    /** Per-repo numeric path id (routes are /docs/$numId/…). */
+    docNumId: v.optional(v.number()),
     headSha: v.optional(v.string()),
     status: v.optional(
       v.union(v.literal("ready"), v.literal("error"), v.literal("skipped")),
@@ -134,7 +135,11 @@ export const upsertPrRecapComment = internalAction({
   handler: async (_ctx, args) => {
     let body = args.body;
     if (!body) {
-      if (!args.docId || !args.headSha || !args.status) {
+      if (
+        args.docNumId === undefined ||
+        !args.headSha ||
+        args.status === undefined
+      ) {
         throw new Error(
           "upsertPrRecapComment requires body or doc recap fields",
         );
@@ -143,8 +148,8 @@ export const upsertPrRecapComment = internalAction({
         evaDocUrl: buildEvaDocUrl(
           args.owner,
           args.repo,
-          args.docId,
-          "content",
+          args.docNumId,
+          "html",
           args.rootDirectory,
         ),
         prNumber: args.prNumber,

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { aiModelValidator, runModeValidator } from "../validators";
 import {
@@ -42,6 +43,48 @@ function userDisplayName(user: Doc<"users"> | null): string {
   return user.email ?? "Reviewer";
 }
 
+/** Fetches a task's comments as PR change-request lines, oldest first. */
+async function getChangeRequestContents(
+  ctx: QueryCtx,
+  taskId: Id<"agentTasks">,
+): Promise<string[]> {
+  const comments = await ctx.db
+    .query("taskComments")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  return comments
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((c) => c.content);
+}
+
+/** Fetches a task's proof attachments with resolved storage URLs and content types. */
+async function getTaskProofSummaries(ctx: QueryCtx, taskId: Id<"agentTasks">) {
+  const taskProofs = await ctx.db
+    .query("taskProof")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+
+  return Promise.all(
+    taskProofs.map(async (p) => {
+      if (!p.storageId) {
+        return {
+          fileName: p.fileName ?? null,
+          message: p.message ?? null,
+          url: null,
+          contentType: null,
+        };
+      }
+      const meta = await ctx.db.system.get("_storage", p.storageId);
+      return {
+        fileName: p.fileName ?? null,
+        message: p.message ?? null,
+        url: (await ctx.storage.getUrl(p.storageId)) ?? null,
+        contentType: meta?.contentType ?? null,
+      };
+    }),
+  );
+}
+
 /** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
@@ -66,6 +109,7 @@ export const getTaskData = internalQuery({
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     screenshotsVideosEnabled: v.boolean(),
+    runAuditEnabled: v.boolean(),
     proofModel: v.optional(aiModelValidator),
     auditCategories: v.array(
       v.object({ name: v.string(), description: v.string() }),
@@ -207,9 +251,31 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    // Per-task override wins. `undefined` on the task means "inherit repo".
+    // Resolve proof/audit defaults from the task's project when set, even for a
+    // quick task assigned to a project (args.projectId is only passed for the
+    // project-build path, so fall back to task.projectId here). Sandbox-reuse
+    // logic above stays keyed off args.projectId only — no behavior change.
+    const defaultsProjectId = args.projectId ?? task.projectId;
+    const defaultsProject =
+      defaultsProjectId === args.projectId
+        ? project
+        : defaultsProjectId
+          ? await ctx.db.get(defaultsProjectId)
+          : null;
+
+    // Per-task override wins, then project default, then repo, then off.
     const screenshotsVideosEnabled =
-      task.screenshotsVideosEnabled ?? repo.screenshotsVideosEnabled ?? false;
+      task.screenshotsVideosEnabled ??
+      defaultsProject?.screenshotsVideosEnabled ??
+      repo.screenshotsVideosEnabled ??
+      false;
+
+    // Audit: task override -> project default -> current behavior (project
+    // tasks audit by default, quick tasks do not).
+    const runAuditEnabled =
+      task.runAuditEnabled ??
+      defaultsProject?.runAuditEnabled ??
+      args.projectId !== undefined;
 
     const prompt =
       args.mode === "resolve_conflicts"
@@ -230,7 +296,6 @@ export const getTaskData = internalQuery({
             branchName,
             !args.projectId,
             rootDirectory,
-            screenshotsVideosEnabled,
             repo.owner,
             repo.name,
             changeRequests.length > 0 ? changeRequests : undefined,
@@ -271,6 +336,7 @@ export const getTaskData = internalQuery({
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       screenshotsVideosEnabled,
+      runAuditEnabled,
       proofModel: repo.proofModel,
       auditCategories: enabledCategories,
     };
@@ -326,38 +392,8 @@ export const getTaskPrCreationData = internalQuery({
     const latestRun = sortedRuns[0] ?? null;
     const existingPrUrl = sortedRuns.find((r) => r.prUrl)?.prUrl ?? null;
 
-    const comments = await ctx.db
-      .query("taskComments")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    const changeRequests = comments
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((c) => c.content);
-
-    const taskProofs = await ctx.db
-      .query("taskProof")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-
-    const proofs = await Promise.all(
-      taskProofs.map(async (p) => {
-        if (!p.storageId) {
-          return {
-            fileName: p.fileName ?? null,
-            message: p.message ?? null,
-            url: null,
-            contentType: null,
-          };
-        }
-        const meta = await ctx.db.system.get("_storage", p.storageId);
-        return {
-          fileName: p.fileName ?? null,
-          message: p.message ?? null,
-          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
-          contentType: meta?.contentType ?? null,
-        };
-      }),
-    );
+    const changeRequests = await getChangeRequestContents(ctx, args.taskId);
+    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return {
       installationId: repo.installationId,
@@ -399,38 +435,8 @@ export const getPrEnrichmentData = internalQuery({
     ),
   }),
   handler: async (ctx, args) => {
-    const comments = await ctx.db
-      .query("taskComments")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    const changeRequests = comments
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((c) => c.content);
-
-    const taskProofs = await ctx.db
-      .query("taskProof")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-
-    const proofs = await Promise.all(
-      taskProofs.map(async (p) => {
-        if (!p.storageId) {
-          return {
-            fileName: p.fileName ?? null,
-            message: p.message ?? null,
-            url: null,
-            contentType: null,
-          };
-        }
-        const meta = await ctx.db.system.get("_storage", p.storageId);
-        return {
-          fileName: p.fileName ?? null,
-          message: p.message ?? null,
-          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
-          contentType: meta?.contentType ?? null,
-        };
-      }),
-    );
+    const changeRequests = await getChangeRequestContents(ctx, args.taskId);
+    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return { changeRequests, proofs };
   },

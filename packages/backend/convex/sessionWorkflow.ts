@@ -2,12 +2,16 @@ export {
   sessionSandboxStartupWorkflow,
   sessionExecuteWorkflow,
   scheduleSessionDeploymentTracking,
+  postSystemAlert,
+  clearStuckWorkingState,
   addAssistantPlaceholder,
   getSessionData,
   updateSandboxId,
   saveResult,
   handleCompletion,
   claimPendingTurn,
+  ensurePendingTurn,
+  restageOpenTurn,
 } from "./_sessions/workflow";
 
 export {

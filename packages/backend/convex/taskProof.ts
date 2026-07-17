@@ -16,6 +16,7 @@ export const save = authMutation({
     taskId: v.id("agentTasks"),
     storageId: v.id("_storage"),
     fileName: v.string(),
+    runId: v.optional(v.id("agentRuns")),
   },
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
@@ -26,6 +27,7 @@ export const save = authMutation({
       taskId: args.taskId,
       storageId: args.storageId,
       fileName: args.fileName,
+      runId: args.runId,
       createdAt: Date.now(),
     });
   },
@@ -36,6 +38,7 @@ export const saveMessage = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     message: v.string(),
+    runId: v.optional(v.id("agentRuns")),
   },
   returns: v.id("taskProof"),
   handler: async (ctx, args) => {
@@ -45,6 +48,7 @@ export const saveMessage = authMutation({
     return await ctx.db.insert("taskProof", {
       taskId: args.taskId,
       message: args.message,
+      runId: args.runId,
       createdAt: Date.now(),
     });
   },
@@ -61,6 +65,7 @@ export const listByTask = authQuery({
       storageId: v.optional(v.id("_storage")),
       fileName: v.optional(v.string()),
       message: v.optional(v.string()),
+      runId: v.optional(v.id("agentRuns")),
       createdAt: v.number(),
       url: v.union(v.string(), v.null()),
       contentType: v.union(v.string(), v.null()),
@@ -99,8 +104,9 @@ export const remove = authMutation({
       throw new Error("Proof not found");
     }
     const task = await ctx.db.get(proof.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
-      throw new Error("Proof not found");
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
     if (proof.storageId) {
       await ctx.storage.delete(proof.storageId);
     }

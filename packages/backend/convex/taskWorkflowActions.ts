@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getInstallationOctokit } from "./githubAuth";
+import { extractPrNumber } from "./_github/helpers";
 import {
   buildPrBody,
   buildTaskPrSections,
@@ -129,6 +130,14 @@ async function findOpenPullRequestForBranch(params: {
   return { url: pr.html_url, number: pr.number, body: pr.body };
 }
 
+function isPullRequestAlreadyExistsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /pull request already exists/i.test(message) ||
+    /A pull request already exists for/i.test(message)
+  );
+}
+
 async function createPullRequestWithGitHub(
   args: PullRequestCreateParams,
 ): Promise<string> {
@@ -155,32 +164,52 @@ async function createPullRequestWithGitHub(
     baseBranch,
   });
 
-  const pr = await octokit.rest.pulls.create({
-    owner: args.repoOwner,
-    repo: args.repoName,
-    title: `Eva: ${args.title}`,
-    body: args.body,
-    head: args.branchName,
-    base: baseBranch,
-    draft: args.draft ?? false,
-  });
+  let prNumber: number;
+  let prUrl: string;
+  try {
+    const pr = await octokit.rest.pulls.create({
+      owner: args.repoOwner,
+      repo: args.repoName,
+      title: `Eva: ${args.title}`,
+      body: args.body,
+      head: args.branchName,
+      base: baseBranch,
+      draft: args.draft ?? false,
+    });
+    prNumber = pr.data.number;
+    prUrl = pr.data.html_url;
+  } catch (error) {
+    // Concurrent create or list lag: adopt the existing PR instead of failing.
+    if (isPullRequestAlreadyExistsError(error)) {
+      for (const delayMs of [0, 1000, 2000]) {
+        if (delayMs > 0) {
+          await sleep(delayMs);
+        }
+        const raced = await findOpenPullRequestForBranch(args);
+        if (raced) {
+          return raced.url;
+        }
+      }
+    }
+    throw error;
+  }
 
   if (args.labels.length > 0) {
     try {
       await octokit.rest.issues.addLabels({
         owner: args.repoOwner,
         repo: args.repoName,
-        issue_number: pr.data.number,
+        issue_number: prNumber,
         labels: args.labels,
       });
     } catch (labelError) {
       console.error(
-        `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+        `Failed to add labels to PR ${prUrl}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
       );
     }
   }
 
-  return pr.data.html_url;
+  return prUrl;
 }
 
 async function refreshPullRequestBodyWithGitHub(
@@ -230,8 +259,16 @@ async function waitForPullRequestHead(params: {
       if (comparison.data.ahead_by > 0) {
         return;
       }
-      lastError = `${params.branchName} is not ahead of ${params.baseBranch}`;
+      // Compare succeeded: GitHub sees both tips and head is not ahead.
+      // Retrying won't create commits — fail immediately (plan-only turns).
+      throw new Error(
+        `${params.branchName} is not ahead of ${params.baseBranch}`,
+      );
     } catch (error) {
+      if (error instanceof Error && error.message.includes("is not ahead of")) {
+        throw error;
+      }
+      // Branch may not be visible yet right after push — keep retrying.
       lastError =
         error instanceof Error ? error.message : "GitHub compare failed";
     }
@@ -262,29 +299,21 @@ export const createTaskPr = action({
       return { url: data.existingPrUrl };
     }
 
-    const sections = buildTaskPrSections(
-      data.taskDescription,
-      data.changeRequests,
-      data.proofs,
-    );
-    const evaUrl = buildEvaTaskUrl(
-      data.repoOwner,
-      data.repoName,
-      args.taskId,
-      data.projectId,
-      data.rootDirectory || undefined,
-    );
-    const body = buildPrBody(sections, evaUrl);
+    const body = buildTaskPullRequestBody({
+      repoOwner: data.repoOwner,
+      repoName: data.repoName,
+      taskId: args.taskId,
+      projectId: data.projectId,
+      taskDescription: data.taskDescription,
+      rootDirectory: data.rootDirectory,
+      changeRequests: data.changeRequests,
+      proofs: data.proofs,
+    });
 
-    const labels = [
-      "eva",
-      data.isQuickTask ? "quick-task" : "project",
-      ...(data.rootDirectory
-        ? [data.rootDirectory.split("/").pop()].filter(
-            (l): l is string => l !== undefined && l !== "",
-          )
-        : []),
-    ];
+    const labels = buildTaskPullRequestLabels({
+      rootDirectory: data.rootDirectory,
+      isQuickTask: data.isQuickTask,
+    });
 
     const prUrl: string = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,
@@ -349,15 +378,10 @@ export const createProjectPr = action({
     );
     const body = buildPrBody(sections, evaUrl);
 
-    const labels = [
-      "eva",
-      "project",
-      ...(data.rootDirectory
-        ? [data.rootDirectory.split("/").pop()].filter(
-            (l): l is string => l !== undefined && l !== "",
-          )
-        : []),
-    ];
+    const labels = buildTaskPullRequestLabels({
+      rootDirectory: data.rootDirectory,
+      isQuickTask: false,
+    });
 
     const prUrl: string = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,
@@ -478,6 +502,45 @@ export const refreshTaskPullRequestBody = internalAction({
         proofs: args.proofs,
       }),
     });
+  },
+});
+
+/**
+ * Updates a linked GitHub PR title to `Eva: <title>` after a rename in Eva.
+ * Skips merged PRs. Best-effort — failures are logged and never thrown.
+ */
+export const updatePrTitle = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prUrl: v.string(),
+    title: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    const prNumber = extractPrNumber(args.prUrl);
+    if (prNumber === null) return null;
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pr = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: prNumber,
+      });
+      if (pr.data.merged) return null;
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: prNumber,
+        title: `Eva: ${args.title}`,
+      });
+    } catch (error) {
+      console.error(
+        `[github] Failed to update PR title for ${args.prUrl}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
   },
 });
 

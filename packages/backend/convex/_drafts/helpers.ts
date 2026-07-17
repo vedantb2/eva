@@ -5,7 +5,7 @@ import type {
 import { hasRepoAccess } from "../functions";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer } from "convex/values";
-import { draftTarget } from "../validators";
+import { type draftTarget } from "../validators";
 
 type DraftTarget = Infer<typeof draftTarget>;
 
@@ -14,6 +14,22 @@ type ResolvedTarget = {
   repoId: Id<"githubRepos">;
   findExisting: () => Promise<Doc<"drafts"> | null>;
 };
+
+/** Finds a user's draft row for a task comment, matched by taskId and parentCommentId. */
+async function findTaskCommentDraft(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  taskId: Id<"agentTasks">,
+  parentCommentId?: Id<"taskComments">,
+): Promise<Doc<"drafts"> | null> {
+  const rows = await db
+    .query("drafts")
+    .withIndex("by_user_and_task", (q) =>
+      q.eq("userId", userId).eq("taskId", taskId),
+    )
+    .collect();
+  return rows.find((d) => d.parentCommentId === parentCommentId) ?? null;
+}
 
 /**
  * Validates that the surface doc exists, the user has repo access, and returns
@@ -51,15 +67,8 @@ export async function resolveTarget(
 
     return {
       repoId,
-      findExisting: async () => {
-        const rows = await db
-          .query("drafts")
-          .withIndex("by_user_and_task", (q) =>
-            q.eq("userId", userId).eq("taskId", taskId),
-          )
-          .collect();
-        return rows.find((d) => d.parentCommentId === parentCommentId) ?? null;
-      },
+      findExisting: () =>
+        findTaskCommentDraft(db, userId, taskId, parentCommentId),
     };
   }
 
@@ -117,13 +126,7 @@ export async function deleteDraftForTarget(
   taskId: Id<"agentTasks">,
   parentCommentId?: Id<"taskComments">,
 ): Promise<void> {
-  const rows = await db
-    .query("drafts")
-    .withIndex("by_user_and_task", (q) =>
-      q.eq("userId", userId).eq("taskId", taskId),
-    )
-    .collect();
-  const row = rows.find((d) => d.parentCommentId === parentCommentId);
+  const row = await findTaskCommentDraft(db, userId, taskId, parentCommentId);
   if (row) {
     await db.delete(row._id);
   }

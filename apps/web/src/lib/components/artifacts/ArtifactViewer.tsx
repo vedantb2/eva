@@ -8,6 +8,7 @@ import { api } from "@conductor/backend";
 import { Spinner } from "@conductor/ui";
 import { IconArrowLeft, IconExternalLink } from "@tabler/icons-react";
 import { ArtifactFrame } from "./ArtifactFrame";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 
 /** Loads an artifact's stored HTML and renders it in the bridged sandbox iframe. */
 export function ArtifactViewer({ artifactId }: { artifactId: string }) {
@@ -44,11 +45,11 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
   }
   if (artifact === null) {
     return (
-      <Centered>
-        <p className="text-sm text-muted-foreground">
-          Artifact not found, or you do not have access.
-        </p>
-      </Centered>
+      <EntityNotFound
+        entityLabel="artifact"
+        description="It may have been deleted, the link could be wrong, or you may not have access."
+        backTo="/artifacts"
+      />
     );
   }
 

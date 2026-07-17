@@ -4,7 +4,9 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import { IconUsers } from "@tabler/icons-react";
 import { useFollow } from "@/lib/contexts/FollowContext";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 
 function getDisplayName(user: {
   firstName?: string | null;
@@ -83,6 +85,15 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="ui-surface mb-2 p-2.5">
       <div className="mb-2 flex items-center gap-1.5">
+        <RepoLogo
+          logoUrl={teamData.logoUrl}
+          size={18}
+          fallback={
+            <div className="flex size-[18px] shrink-0 items-center justify-center rounded border border-border bg-primary/10">
+              <IconUsers size={11} className="text-primary" />
+            </div>
+          }
+        />
         <span
           className="relative flex size-2 shrink-0 items-center justify-center"
           aria-hidden

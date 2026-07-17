@@ -118,7 +118,7 @@ function extractApiErrorDetail(e: unknown): string {
   if (e === null || typeof e !== "object") return String(e);
   try {
     return JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 1000);
-  } catch (_err) {
+  } catch {
     return e instanceof Error ? e.message : String(e);
   }
 }
@@ -672,8 +672,6 @@ class VercelSandboxHandle implements SandboxHandle {
         lastError = e instanceof Error ? e.message : String(e);
         // SDK may reject resume while stop finishes even if listSessions lagged.
         if (
-          lastError.includes("sandbox_stopping") ||
-          lastError.includes("sandbox_snapshotting") ||
           lastError.includes("stopping") ||
           lastError.includes("snapshotting")
         ) {

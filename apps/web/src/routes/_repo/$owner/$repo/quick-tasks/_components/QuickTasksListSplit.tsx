@@ -1,9 +1,8 @@
 "use client";
 
 import { IconChecklist } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
+import type { Id, api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
@@ -19,7 +18,7 @@ interface QuickTasksListSplitProps {
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (task: { numId?: number }) => void;
-  selectedTaskId?: string;
+  selectedTaskId?: Id<"agentTasks">;
   detailTab?: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
   navSurface: "detail" | "sandbox";

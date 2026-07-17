@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
@@ -22,16 +23,16 @@ import {
   getSnapshot,
   deleteSnapshotByName,
   waitForSnapshotRemoval,
-  triggerSandboxSnapshot,
 } from "./_daytona/snapshots";
 import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
 import { Sandbox } from "@vercel/sandbox";
 import type { Id } from "./_generated/dataModel";
+import { SANDBOX_TAG } from "./_sandbox/tags";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
-const SEED_PREP_LABEL_KEY = "eva.purpose";
+const SEED_PREP_LABEL_KEY = SANDBOX_TAG.purpose;
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 
 // Pinned Supabase CLI version installed on fresh Vercel sandboxes (no base
@@ -113,16 +114,14 @@ const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
 const EVA_ENTRYPOINT_B64 =
   "IyEvYmluL2Jhc2gKIyBFdmEgc2FuZGJveCBlbnRyeXBvaW50IOKAlCBzdGFydHMgZG9ja2VyZCwgdGhlbiBzbGVlcHMuIERheXRvbmEgcmUtcnVucyB0aGlzCiMgb24gZXZlcnkgcmVzdW1lIGZyb20gYXV0by1zdG9wLCBzbyBkb2NrZXJkIHN1cnZpdmVzIHRoZSByZXN1bWUgY3ljbGUgd2l0aG91dAojIG5lZWRpbmcgRXZhJ3MgYmFja2VuZCB0byBjYWxsIGVuc3VyZURvY2tlckRhZW1vbi4gZW5zdXJlRG9ja2VyRGFlbW9uIHN0YXlzIGFzCiMgYSBkZWZlbnNpdmUgZmFsbGJhY2sgZm9yIG9sZGVyIHNuYXBzaG90cyBhbmQgY29sZC1zdGFydCByYWNlcy4Kc3VkbyBiYXNoIC1jICcKICBybSAtZiAvdmFyL3J1bi9kb2NrZXIucGlkIC92YXIvcnVuL2RvY2tlci5zb2NrIC9ydW4vZG9ja2VyL2NvbnRhaW5lcmQvY29udGFpbmVyZC5waWQgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sudHRycGMgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLWRlYnVnLnNvY2sgMj4vZGV2L251bGwgfHwgdHJ1ZQogIHNldHNpZCBkb2NrZXJkIDwvZGV2L251bGwgPi92YXIvbG9nL2RvY2tlcmQubG9nIDI+JjEgJgonCmV4ZWMgc2xlZXAgaW5maW5pdHkK";
 
-/** Type guard for record-shaped objects. */
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v);
-}
+// Boundary schemas for the small Daytona/GitHub JSON responses this module reads.
+const urlResponseSchema = z.object({ url: z.string() });
+const shaResponseSchema = z.object({ sha: z.string() });
 
 /** Safely extracts a URL string from an unknown JSON response. */
 function extractUrl(data: unknown): string | null {
-  if (!isRecord(data)) return null;
-  if (typeof data["url"] === "string") return data["url"];
-  return null;
+  const parsed = urlResponseSchema.safeParse(data);
+  return parsed.success ? parsed.data.url : null;
 }
 
 /**
@@ -335,7 +334,7 @@ export const kickOffSnapshotBuild = internalAction({
       return null;
     }
 
-    const daytona = getDaytona(daytonaApiKey);
+    const _daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo
@@ -600,11 +599,7 @@ export const sweepSeedPrepSandboxes = internalAction({
     const referenced = new Set(
       await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
     );
-    const scopedRepoIds = args.scopedRepoIds ?? [];
-    const scopedRepoIdStrings: string[] = [];
-    for (const repoId of scopedRepoIds) {
-      scopedRepoIdStrings.push(repoId);
-    }
+    const scopedRepoIdStrings: string[] = args.scopedRepoIds ?? [];
 
     let scanned = 0;
     let matched = 0;
@@ -627,7 +622,7 @@ export const sweepSeedPrepSandboxes = internalAction({
         if (sandbox.labels[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) {
           continue;
         }
-        const sandboxRepoId = sandbox.labels["eva.repoId"];
+        const sandboxRepoId = sandbox.labels[SANDBOX_TAG.repoId];
         if (
           scopedRepoIdStrings.length > 0 &&
           (sandboxRepoId === undefined ||
@@ -804,9 +799,9 @@ export const getImageFingerprint = internalAction({
           },
         );
         if (resp.ok) {
-          const data: unknown = await resp.json();
-          if (isRecord(data) && typeof data["sha"] === "string") {
-            lockfileSha = data["sha"];
+          const parsed = shaResponseSchema.safeParse(await resp.json());
+          if (parsed.success) {
+            lockfileSha = parsed.data.sha;
             break;
           }
         }
@@ -1183,9 +1178,8 @@ export const createSeedPrepSandbox = internalAction({
     const seedPrepLifecycle = {
       ...SESSION_LIFECYCLE,
       labels: {
-        "eva.managed": "true",
         [SEED_PREP_LABEL_KEY]: SEED_PREP_LABEL_VALUE,
-        "eva.repoId": args.repoId,
+        [SANDBOX_TAG.repoId]: args.repoId,
       },
     };
     const { sandbox } = await createSandboxAndPrepareRepo(
@@ -1350,10 +1344,10 @@ export const stopAllRepoSandboxes = internalAction({
       }
       // Vercel: delete every seed-prep sandbox tagged for these repos so none
       // keep running/billing. Filtered STRICTLY by the seed-prep purpose tag +
-      // repoId — user session sandboxes use a label-less lifecycle and so are
-      // never matched. This is a safety net; the workflow already deletes the
-      // build's own prep sandbox explicitly on every exit path. It also reclaims
-      // orphans left by a crashed build.
+      // repoId — session/task sandboxes use eva.purpose=persistent|ephemeral
+      // and are never matched. This is a safety net; the workflow already
+      // deletes the build's own prep sandbox explicitly on every exit path.
+      // It also reclaims orphans left by a crashed build.
       const seedableSet = new Set<string>(args.seedableRepoIds);
       const list = await Sandbox.list({
         token: credentials.token,
@@ -1367,7 +1361,7 @@ export const stopAllRepoSandboxes = internalAction({
       for await (const meta of list) {
         const tags: Record<string, string> = meta.tags ?? {};
         if (tags[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) continue;
-        const sandboxRepoId = tags["eva.repoId"];
+        const sandboxRepoId = tags[SANDBOX_TAG.repoId];
         if (sandboxRepoId === undefined || !seedableSet.has(sandboxRepoId)) {
           continue;
         }

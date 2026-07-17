@@ -6,16 +6,16 @@ import type { Id } from "@conductor/backend";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseRouteNumId } from "@/lib/numId";
 
-type ResolveResult = {
+type ResolveResult<TId extends string> = {
   status: EntityResolveStatus;
-  convexId: string | null;
+  convexId: TId | null;
   numId: number | null;
 };
 
-function resolveEntity(
+function resolveEntity<TId extends string>(
   numIdParam: string | undefined,
-  entity: { _id: string } | null | undefined,
-): ResolveResult {
+  entity: { _id: TId } | null | undefined,
+): ResolveResult<TId> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
 
@@ -47,7 +47,7 @@ export function combineResolveStatuses(
 export function useSessionByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"sessions">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const session = useQuery(
@@ -60,7 +60,7 @@ export function useSessionByNumId(
 export function useDocByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"docs">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const doc = useQuery(
@@ -73,7 +73,7 @@ export function useDocByNumId(
 export function useProjectByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"projects">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const project = useQuery(
@@ -86,7 +86,7 @@ export function useProjectByNumId(
 export function useAgentTaskByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"agentTasks">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const task = useQuery(
@@ -99,7 +99,7 @@ export function useAgentTaskByNumId(
 export function useDesignSessionByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"designSessions">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const designSession = useQuery(
@@ -112,7 +112,7 @@ export function useDesignSessionByNumId(
 export function useAutomationByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
-): ResolveResult {
+): ResolveResult<Id<"automations">> {
   const parsedNumId =
     numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
   const automation = useQuery(

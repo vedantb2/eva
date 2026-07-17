@@ -12,15 +12,23 @@ import {
   opencodeExecBaseCmd,
   opencodePromptCmd,
 } from "../config.js";
-import { buildClaudeStartupStep } from "../session/claudeSession.js";
-import { prepareClaudeSessionState } from "../session/claudeSession.js";
-import { prepareCodexSessionState } from "../session/codexSession.js";
-import { prepareOpencodeSessionState } from "../session/opencodeSession.js";
-import { prepareCursorSessionState } from "../session/cursorSession.js";
-import { syncClaudeStateToPersist } from "../session/claudeSession.js";
-import { syncCodexStateToPersist } from "../session/codexSession.js";
-import { syncOpencodeStateToPersist } from "../session/opencodeSession.js";
-import { syncCursorStateToPersist } from "../session/cursorSession.js";
+import {
+  buildClaudeStartupStep,
+  prepareClaudeSessionState,
+  syncClaudeStateToPersist,
+} from "../session/claudeSession.js";
+import {
+  prepareCodexSessionState,
+  syncCodexStateToPersist,
+} from "../session/codexSession.js";
+import {
+  prepareOpencodeSessionState,
+  syncOpencodeStateToPersist,
+} from "../session/opencodeSession.js";
+import {
+  prepareCursorSessionState,
+  syncCursorStateToPersist,
+} from "../session/cursorSession.js";
 import { codexAdapter } from "./codex.js";
 import { runClaudeSdkAttempt } from "./claudeSdk.js";
 import { runCliAttempt } from "../runtime/cliAttempt.js";
@@ -133,6 +141,11 @@ export async function runOpencodeAttempt(sessionMode: SessionMode) {
 }
 
 export async function runCursorAttempt(sessionMode: SessionMode) {
+  if (!process.env.CURSOR_API_KEY?.trim()) {
+    throw new Error(
+      "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",
+    );
+  }
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId
       ? " --resume " + JSON.stringify(sessionMode.sessionId)

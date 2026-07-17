@@ -42,7 +42,10 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 
 const GHOST_TRIGGER_CLASS =
   "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";
@@ -69,6 +72,9 @@ export function ProjectDetailInline({
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -87,6 +93,9 @@ export function ProjectDetailInline({
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
           },
         );
       }
@@ -103,6 +112,8 @@ export function ProjectDetailInline({
     project?.repoId,
     currentModel,
   );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   if (!project) {
     return (
@@ -152,7 +163,10 @@ export function ProjectDetailInline({
               onValueChange={(val) =>
                 updateProject({
                   id: projectId,
-                  projectLead: val === "none" ? null : (val as Id<"users">),
+                  projectLead:
+                    val === "none"
+                      ? null
+                      : ((users ?? []).find((u) => u._id === val)?._id ?? null),
                 })
               }
             >
@@ -193,7 +207,10 @@ export function ProjectDetailInline({
               onValueChange={(val) =>
                 updateProject({
                   id: projectId,
-                  codeReviewer: val === "none" ? null : (val as Id<"users">),
+                  codeReviewer:
+                    val === "none"
+                      ? null
+                      : ((users ?? []).find((u) => u._id === val)?._id ?? null),
                 })
               }
             >
@@ -292,6 +309,14 @@ export function ProjectDetailInline({
                 options={modelOptions}
                 onValueChange={(nextModel) =>
                   updateProject({ id: projectId, model: nextModel })
+                }
+                accounts={accounts}
+                accountId={project.providerAccountId ?? null}
+                onAccountChange={(nextAccountId) =>
+                  updateProject({
+                    id: projectId,
+                    providerAccountId: resolveAccountId(nextAccountId) ?? null,
+                  })
                 }
                 className="px-0"
               />

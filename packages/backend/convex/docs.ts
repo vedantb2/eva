@@ -7,15 +7,13 @@ import {
   internalQuery,
   type MutationCtx,
 } from "./_generated/server";
-import { components } from "./_generated/api";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import {
-  evaluationStatusValidator,
   prRecapStatusValidator,
   roleValidator,
   docKindValidator,
+  docFields,
 } from "./validators";
-import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
 import { workflow } from "./workflowManager";
@@ -26,13 +24,6 @@ import {
   hasCodebaseRepoAccess,
   resolveCodebaseDocsRepoId,
 } from "./_githubRepos/helpers";
-
-const interviewMessageValidator = v.object({
-  role: roleValidator,
-  content: v.string(),
-  activityLog: v.optional(v.string()),
-  userId: v.optional(v.id("users")),
-});
 
 const docValidator = v.object({
   _id: v.id("docs"),
@@ -72,7 +63,27 @@ export const list = authQuery({
       }
     }
 
-    return docs;
+    // PR recaps: newest PRs first. Other docs: most recently created first.
+    return docs.toSorted((a, b) => {
+      if (a.kind === "pr-recap" && b.kind === "pr-recap") {
+        const byPr = (b.prNumber ?? 0) - (a.prNumber ?? 0);
+        if (byPr !== 0) return byPr;
+      }
+      return b._creationTime - a._creationTime;
+    });
+  },
+});
+
+/** Returns the per-repo numId used in Eva doc URLs (/docs/$numId/…). */
+export const getPathNumId = internalQuery({
+  args: { docId: v.id("docs") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc || doc.numId === undefined) {
+      throw new Error("Document numId not found");
+    }
+    return doc.numId;
   },
 });
 
@@ -119,7 +130,12 @@ export const get = authQuery({
   },
 });
 
-/** Resolves a doc by per-repo numeric id (URL segment). */
+/**
+ * Resolves a doc by per-repo numeric id (URL segment). PR-recap docs live on the
+ * codebase's root/docs sibling repo but appear in every sibling app's sidebar, so
+ * when the numId is not found on the current repo we look across siblings for a
+ * shared recap with that numId (mirroring the `list` sharing rule).
+ */
 export const getByNumId = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -128,17 +144,35 @@ export const getByNumId = authQuery({
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
-    const doc = await ctx.db
+
+    const own = await ctx.db
       .query("docs")
       .withIndex("by_repo_and_numId", (q) =>
         q.eq("repoId", args.repoId).eq("numId", args.numId),
       )
       .first();
-    return entityVisible(doc);
+    const visibleOwn = entityVisible(own);
+    if (visibleOwn) return visibleOwn;
+
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    for (const siblingId of siblingIds) {
+      if (siblingId === args.repoId) continue;
+      const doc = await ctx.db
+        .query("docs")
+        .withIndex("by_repo_and_numId", (q) =>
+          q.eq("repoId", siblingId).eq("numId", args.numId),
+        )
+        .first();
+      if (doc && doc.kind === "pr-recap") {
+        return entityVisible(doc);
+      }
+    }
+
+    return null;
   },
 });
 
-/** Creates a new doc in a repo. Requirements/userFlows are populated by extraction (docPrdWorkflow), not by this mutation. */
+/** Creates a new doc in a repo. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -156,6 +190,7 @@ export const create = authMutation({
       repoId: args.repoId,
       title: args.title,
       content: args.content,
+      createdBy: ctx.userId,
       createdAt: now,
       updatedAt: now,
       numId,
@@ -263,6 +298,7 @@ export const createFromSession = authMutation({
       title: session.title,
       content: session.planContent ?? "",
       contentUpdatedAt: now,
+      createdBy: ctx.userId,
       createdAt: now,
       updatedAt: now,
       numId: await allocateNumId(ctx.db, session.repoId, "docs"),
@@ -379,6 +415,7 @@ async function upsertPrRecapDocImpl(
     title: string;
     headSha: string;
     content: string;
+    html?: string;
     prRecapStatus: "pending" | "ready" | "error";
     prRecapError?: string;
     clearActiveWorkflowId?: boolean;
@@ -401,14 +438,15 @@ async function upsertPrRecapDocImpl(
       existing.content.trim().length > 0 &&
       existing.content !== args.content;
 
+    const snapshot = await ctx.runQuery(
+      components.prosemirrorSync.lib.getSnapshot,
+      { id: existing._id },
+    );
+
     if (shouldSnapshot) {
-      const priorSnapshot = await ctx.runQuery(
-        components.prosemirrorSync.lib.getSnapshot,
-        { id: existing._id },
-      );
       const pmContent =
-        priorSnapshot.content !== null
-          ? JSON.stringify(priorSnapshot.content)
+        snapshot.content !== null
+          ? JSON.stringify(snapshot.content)
           : JSON.stringify(markdownToDocJson(existing.content));
       await ctx.runMutation(internal.docVersions.saveRecapSnapshot, {
         docId: existing._id,
@@ -419,10 +457,6 @@ async function upsertPrRecapDocImpl(
       });
     }
 
-    const snapshot = await ctx.runQuery(
-      components.prosemirrorSync.lib.getSnapshot,
-      { id: existing._id },
-    );
     if (snapshot.content !== null) {
       await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
         id: existing._id,
@@ -441,6 +475,9 @@ async function upsertPrRecapDocImpl(
       prRecapStatus: args.prRecapStatus,
       prRecapError:
         args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+      // Only overwrite html when the agent produced one, so a failed regen does
+      // not wipe a previously generated walkthrough.
+      ...(args.html !== undefined ? { html: args.html } : {}),
       ...(args.clearActiveWorkflowId ? { activeWorkflowId: undefined } : {}),
     });
     return existing._id;
@@ -451,6 +488,7 @@ async function upsertPrRecapDocImpl(
     kind: "pr-recap",
     title: args.title,
     content: args.content,
+    html: args.html,
     prUrl: args.prUrl,
     prNumber: args.prNumber,
     headSha: args.headSha,
@@ -473,6 +511,7 @@ export const upsertPrRecapDoc = internalMutation({
     title: v.string(),
     headSha: v.string(),
     content: v.string(),
+    html: v.optional(v.string()),
     prRecapStatus: prRecapStatusValidator,
     prRecapError: v.optional(v.string()),
     clearActiveWorkflowId: v.optional(v.boolean()),

@@ -98,13 +98,14 @@ function SortableTaskWrapper({
           scheduledAt={task.scheduledAt}
           href={
             entityPathSegment(task)
-              ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+              ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
               : `${basePath}/quick-tasks`
           }
           isActive={selectedTaskId === task._id}
           onClick={() => onSelectTask(task._id)}
           assignedTo={task.assignedTo}
           model={task.model}
+          providerAccountId={task.providerAccountId}
           projectId={task.projectId}
           repoId={task.repoId}
         />
@@ -168,9 +169,9 @@ export function ProjectTaskListPanel({
       const bTime = b.lastRunStartedAt ?? b.createdAt;
       return bTime - aTime;
     };
-    for (const status of Object.keys(groups) as TaskStatus[]) {
+    for (const [status, group] of Object.entries(groups)) {
       if (status !== "todo") {
-        groups[status].sort(sortByLastRun);
+        group.sort(sortByLastRun);
       }
     }
     return groups;
@@ -349,13 +350,14 @@ export function ProjectTaskListPanel({
                             scheduledAt={task.scheduledAt}
                             href={
                               entityPathSegment(task)
-                                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                                ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                                 : `${basePath}/quick-tasks`
                             }
                             isActive={selectedTaskId === task._id}
                             onClick={() => onSelectTask(task._id)}
                             assignedTo={task.assignedTo}
                             model={task.model}
+                            providerAccountId={task.providerAccountId}
                             projectId={task.projectId}
                             repoId={task.repoId}
                           />

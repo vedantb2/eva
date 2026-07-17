@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { forwardRef, type ComponentProps, type ReactNode } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -12,11 +12,11 @@ import { cn } from "../utils/cn";
 
 export type QueueProps = ComponentProps<"div">;
 
-/** Root container for a collapsible queue of pending/completed items. */
+/** Root container for a collapsible queue of pending items (Cursor-style). */
 export const Queue = ({ className, ...props }: QueueProps) => (
   <div
     className={cn(
-      "flex flex-col gap-2 rounded-xl border border-border bg-background px-3 pt-2 pb-2 shadow-xs",
+      "flex flex-col rounded-xl border border-border bg-card/40 px-2.5 py-2 shadow-sm",
       className,
     )}
     {...props}
@@ -43,7 +43,7 @@ export const QueueSectionTrigger = ({
   <CollapsibleTrigger asChild>
     <button
       className={cn(
-        "group flex w-full items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-left font-medium text-muted-foreground text-sm transition-colors hover:bg-muted",
+        "group flex w-full items-center rounded-md px-1 py-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
         className,
       )}
       type="button"
@@ -67,8 +67,8 @@ export const QueueSectionLabel = ({
   className,
   ...props
 }: QueueSectionLabelProps) => (
-  <span className={cn("flex items-center gap-2", className)} {...props}>
-    <ChevronDownIcon className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />
+  <span className={cn("flex items-center gap-1.5", className)} {...props}>
+    <ChevronDownIcon className="size-3.5 opacity-70 transition-transform group-data-[state=closed]:-rotate-90" />
     {icon}
     <span>
       {count} {label}
@@ -95,24 +95,28 @@ export const QueueList = ({
   className,
   ...props
 }: QueueListProps) => (
-  <div className={cn("mt-2 -mb-1", className)} {...props}>
-    <div className="max-h-40 overflow-y-auto pr-1">
-      <ul>{children}</ul>
+  <div className={cn("mt-1", className)} {...props}>
+    <div className="max-h-48 overflow-y-auto">
+      <ul className="flex flex-col gap-1">{children}</ul>
     </div>
   </div>
 );
 
 export type QueueItemProps = ComponentProps<"li">;
 
-export const QueueItem = ({ className, ...props }: QueueItemProps) => (
-  <li
-    className={cn(
-      "group flex flex-col gap-1 rounded-md px-3 py-1 text-sm transition-colors hover:bg-muted",
-      className,
-    )}
-    {...props}
-  />
+export const QueueItem = forwardRef<HTMLLIElement, QueueItemProps>(
+  ({ className, ...props }, ref) => (
+    <li
+      ref={ref}
+      className={cn(
+        "group flex flex-col gap-1 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/50",
+        className,
+      )}
+      {...props}
+    />
+  ),
 );
+QueueItem.displayName = "QueueItem";
 
 export type QueueItemIndicatorProps = ComponentProps<"span"> & {
   completed?: boolean;
@@ -125,10 +129,10 @@ export const QueueItemIndicator = ({
 }: QueueItemIndicatorProps) => (
   <span
     className={cn(
-      "mt-0.5 inline-block size-2.5 shrink-0 rounded-full border",
+      "mt-1 inline-block size-2.5 shrink-0 rounded-full border",
       completed
         ? "border-muted-foreground/20 bg-muted-foreground/10"
-        : "border-muted-foreground/50",
+        : "border-muted-foreground/45",
       className,
     )}
     {...props}
@@ -146,10 +150,10 @@ export const QueueItemContent = ({
 }: QueueItemContentProps) => (
   <span
     className={cn(
-      "line-clamp-1 min-w-0 grow break-words",
+      "line-clamp-2 min-w-0 grow break-words leading-snug",
       completed
         ? "text-muted-foreground/50 line-through"
-        : "text-muted-foreground",
+        : "text-foreground/90",
       className,
     )}
     {...props}
@@ -162,7 +166,13 @@ export const QueueItemActions = ({
   className,
   ...props
 }: QueueItemActionsProps) => (
-  <div className={cn("flex shrink-0 gap-1", className)} {...props} />
+  <div
+    className={cn(
+      "flex shrink-0 items-start gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100",
+      className,
+    )}
+    {...props}
+  />
 );
 
 export type QueueItemActionProps = Omit<
@@ -176,7 +186,7 @@ export const QueueItemAction = ({
 }: QueueItemActionProps) => (
   <Button
     className={cn(
-      "size-auto rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted-foreground/10 hover:text-foreground group-hover:opacity-100",
+      "size-auto rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground",
       className,
     )}
     size="icon"

@@ -56,15 +56,22 @@ export function getComponentName(fiber: FiberNode): string {
   }
 
   if (typeof type === "object" && type !== null) {
-    const typeObj = type as {
-      displayName?: string;
-      render?: { displayName?: string; name?: string };
-    };
-    if (typeObj.displayName) {
-      return typeObj.displayName;
+    if ("displayName" in type && typeof type.displayName === "string") {
+      return type.displayName;
     }
-    if (typeObj.render) {
-      return typeObj.render.displayName || typeObj.render.name || "ForwardRef";
+    if (
+      "render" in type &&
+      typeof type.render === "object" &&
+      type.render !== null
+    ) {
+      const { render } = type;
+      if ("displayName" in render && typeof render.displayName === "string") {
+        return render.displayName;
+      }
+      if ("name" in render && typeof render.name === "string") {
+        return render.name;
+      }
+      return "ForwardRef";
     }
   }
 
@@ -129,7 +136,8 @@ function sanitizeValue(value: unknown, depth = 0, maxDepth = 3): unknown {
 
   if (typeof value === "object") {
     const result: Record<string, unknown> = {};
-    const keys = Object.keys(value);
+    const record: Record<string, unknown> = { ...value };
+    const keys = Object.keys(record);
 
     if (keys.length > 20) {
       return `[Object with ${keys.length} keys]`;
@@ -139,11 +147,7 @@ function sanitizeValue(value: unknown, depth = 0, maxDepth = 3): unknown {
       if (key.startsWith("__") || key.startsWith("$$")) {
         continue;
       }
-      result[key] = sanitizeValue(
-        (value as Record<string, unknown>)[key],
-        depth + 1,
-        maxDepth,
-      );
+      result[key] = sanitizeValue(record[key], depth + 1, maxDepth);
     }
     return result;
   }
@@ -177,19 +181,20 @@ function extractHooks(fiber: FiberNode): HookInfo[] {
     return hooks;
   }
 
-  let hookNode = fiber.memoizedState;
+  let hookNode: unknown = fiber.memoizedState;
   let hookIndex = 0;
 
   while (hookNode && typeof hookNode === "object" && "next" in hookNode) {
-    const hook = hookNode as { memoizedState: unknown; next: unknown };
-    const hookType = inferHookType(hook, hookIndex);
+    const memoizedState: unknown =
+      "memoizedState" in hookNode ? hookNode.memoizedState : undefined;
+    const hookType = inferHookType({ memoizedState }, hookIndex);
 
     hooks.push({
       type: hookType,
-      value: sanitizeValue(hook.memoizedState, 0, 2),
+      value: sanitizeValue(memoizedState, 0, 2),
     });
 
-    hookNode = hook.next;
+    hookNode = hookNode.next;
     hookIndex++;
   }
 
@@ -208,19 +213,11 @@ function inferHookType(
     }
   }
 
-  if (
-    typeof state === "object" &&
-    state !== null &&
-    "current" in (state as object)
-  ) {
+  if (typeof state === "object" && state !== null && "current" in state) {
     return "useRef";
   }
 
-  if (
-    typeof state === "object" &&
-    state !== null &&
-    "deps" in (state as object)
-  ) {
+  if (typeof state === "object" && state !== null && "deps" in state) {
     return "useEffect/useMemo/useCallback";
   }
 
@@ -228,10 +225,17 @@ function inferHookType(
 }
 
 function extractState(fiber: FiberNode): Record<string, unknown> | null {
-  if (fiber.tag === FIBER_TAGS.ClassComponent && fiber.stateNode) {
-    const instance = fiber.stateNode as { state?: unknown };
-    if (instance.state) {
-      return sanitizeValue(instance.state, 0, 3) as Record<string, unknown>;
+  const instance = fiber.stateNode;
+  if (
+    fiber.tag === FIBER_TAGS.ClassComponent &&
+    typeof instance === "object" &&
+    instance !== null &&
+    "state" in instance &&
+    instance.state
+  ) {
+    const sanitized = sanitizeValue(instance.state, 0, 3);
+    if (typeof sanitized === "object" && sanitized !== null) {
+      return { ...sanitized };
     }
   }
 
@@ -290,6 +294,10 @@ function traverseFiber(
   return node;
 }
 
+function isFiberNode(value: unknown): value is FiberNode {
+  return typeof value === "object" && value !== null && "tag" in value;
+}
+
 export function getFiber(element: HTMLElement): FiberNode | null {
   const fiberKey = Object.keys(element).find(
     (key) =>
@@ -297,16 +305,17 @@ export function getFiber(element: HTMLElement): FiberNode | null {
       key.startsWith("__reactInternalInstance$"),
   );
   if (!fiberKey) return null;
-  return (element as unknown as Record<string, FiberNode>)[fiberKey] || null;
+  const fiber: unknown = Reflect.get(element, fiberKey);
+  return isFiberNode(fiber) ? fiber : null;
 }
 
 export function countFiberHooks(fiber: FiberNode | null): number {
   if (!fiber) return 0;
   let count = 0;
-  let hook = fiber.memoizedState as { next?: unknown } | null;
+  let hook: unknown = fiber.memoizedState;
   while (hook && typeof hook === "object") {
     count++;
-    hook = hook.next as { next?: unknown } | null;
+    hook = "next" in hook ? hook.next : null;
   }
   return count;
 }
@@ -339,11 +348,12 @@ export function generateSelector(element: HTMLElement): string {
 
     const parent = current.parentElement;
     if (parent) {
+      const currentElement = current;
       const siblings = Array.from(parent.children).filter(
-        (el) => el.tagName === current!.tagName,
+        (el) => el.tagName === currentElement.tagName,
       );
       if (siblings.length > 1) {
-        const index = siblings.indexOf(current) + 1;
+        const index = siblings.indexOf(currentElement) + 1;
         selector += `:nth-of-type(${index})`;
       }
     }
@@ -370,9 +380,13 @@ export function detectReactVersion(): string {
   }
 
   for (const renderer of hook.renderers.values()) {
-    const r = renderer as { version?: string };
-    if (r.version) {
-      return r.version;
+    if (
+      typeof renderer === "object" &&
+      renderer !== null &&
+      "version" in renderer &&
+      typeof renderer.version === "string"
+    ) {
+      return renderer.version;
     }
   }
 

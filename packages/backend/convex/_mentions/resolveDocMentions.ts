@@ -49,10 +49,7 @@ export async function resolveDocMentions(
     resolved.set(rawId, { docId, title: doc.title, content: doc.content });
   }
 
-  const resolvedMessage = message.replace(
-    MENTION_TOKEN_REGEX,
-    (_full, title) => `@${title}`,
-  );
+  const resolvedMessage = stripMentionTokens(message);
 
   if (resolved.size === 0) {
     return { resolvedMessage, prefixBlock: "" };

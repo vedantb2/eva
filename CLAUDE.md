@@ -1,5 +1,7 @@
 FOLLOW ALL OF THESE RULES
 
+NEVER CREATE NEW BRANCH AND PUSH AND OPEN PR UNLESS USER ASKS TO. IF YOU ARE ALREADY ON MAIN AND THE USER ASKS TO SHIP, YOU DIRECTLY COMMIT AND PUSH TO MAIN.
+
 UI Design System — HeroUI (border-based):
 
 Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
@@ -46,6 +48,7 @@ Implementation:
 - Never use `unknown`
 - Never use `as` for type assertions
 - Never use the non-null assertion operator `!`.
+- NEVER use `isRecord(object: unknown)` type guards — an `unknown` reaching that point is the bug; parse at the boundary (Zod) instead.
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
 - Minimize surface area of change.
@@ -55,6 +58,7 @@ Implementation:
 - All decisions should optimize for long-term maintainability.
 - Do not run any dev / lint / build commands unless the user asks you to
 - If you are creating any plans, then make sure that running /ship skill is the final step (unless the user explicitly says not to)
+- Never create a new branch, push, or open a PR unless asked; if already on main and asked to ship, commit and push directly to main
 
 Convex:
 

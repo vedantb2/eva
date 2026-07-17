@@ -1,6 +1,11 @@
 "use node";
 
 import type { Octokit } from "octokit";
+import { z } from "zod";
+
+const packageJsonSchema = z.object({
+  scripts: z.object({ dev: z.string() }).partial().optional(),
+});
 
 /** Extracts the PR number from a GitHub PR URL. */
 export function extractPrNumber(prUrl: string): number | null {
@@ -37,12 +42,8 @@ export async function detectAppsForRepo(
         });
         if ("content" in appPkg) {
           const decoded = Buffer.from(appPkg.content, "base64").toString();
-          const pkg: Record<string, unknown> = JSON.parse(decoded);
-          const scripts =
-            pkg.scripts && typeof pkg.scripts === "object"
-              ? (pkg.scripts as Record<string, unknown>)
-              : {};
-          hasDevScript = typeof scripts.dev === "string";
+          const parsed = packageJsonSchema.safeParse(JSON.parse(decoded));
+          hasDevScript = typeof parsed.data?.scripts?.dev === "string";
         }
       } catch {
         // no package.json in this app dir

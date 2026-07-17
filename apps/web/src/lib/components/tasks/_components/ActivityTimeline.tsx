@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import {
   Button,
+  ConversationEmptyState,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -16,10 +17,9 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
-import { TaskSubscribers } from "./TaskSubscribers";
-import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
   buildRepliesByParentId,
@@ -36,13 +36,11 @@ type Audits = FunctionReturnType<typeof api.audits.listByTask>;
 type Comments = FunctionReturnType<typeof api.taskComments.listByTask>;
 type Comment = NonNullable<Comments>[number];
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
-type SandboxEvents = FunctionReturnType<
-  typeof api.taskSandboxEvents.listByTask
->;
-type SandboxEvent = NonNullable<SandboxEvents>[number];
 type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
+type Proofs = FunctionReturnType<typeof api.taskProof.listByTask>;
+type Proof = NonNullable<Proofs>[number];
 
 type ActivityItem =
   | {
@@ -56,9 +54,9 @@ type ActivityItem =
       run: NonNullable<Runs>[number];
     }
   | {
-      kind: "sandboxEvent";
+      kind: "proof";
       timestamp: number;
-      event: SandboxEvent;
+      proof: Proof;
     }
   | {
       kind: "taskActivity";
@@ -71,28 +69,13 @@ type ActivityItem =
       comment: Comment;
     };
 
-function sandboxEventLabel(event: SandboxEvent["event"]): string {
-  switch (event) {
-    case "started":
-      return "Sandbox started";
-    case "reconnected":
-      return "Sandbox reconnected";
-    case "stopped":
-      return "Sandbox stopped";
-    case "stop_failed":
-      return "Failed to stop sandbox";
-    case "failed":
-      return "Failed to start sandbox";
-  }
-}
-
 export function ActivityTimeline({
   taskId,
   runs,
   allAudits,
   comments,
-  sandboxEvents,
   taskActivity,
+  proofs,
   users,
   streaming,
   auditStreaming,
@@ -101,10 +84,10 @@ export function ActivityTimeline({
   fixElapsed,
   isStopping,
   onStopConfirm,
-  hasActiveRun,
+  hasActiveRun: _hasActiveRun,
   requestChangesBlockedReason,
-  hasRuns,
-  isOwner,
+  hasRuns: _hasRuns,
+  isOwner: _isOwner,
   requestingChanges,
   setRequestingChanges,
   executionError,
@@ -117,8 +100,8 @@ export function ActivityTimeline({
   runs: Runs | undefined;
   allAudits: Audits | undefined;
   comments: Comments | undefined;
-  sandboxEvents: SandboxEvents | undefined;
   taskActivity: TaskActivity | undefined;
+  proofs: Proofs | undefined;
   users: Users | undefined;
   streaming: Streaming | undefined;
   auditStreaming: Streaming | undefined;
@@ -195,13 +178,41 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
+  const runIds = new Set((runs ?? []).map((run) => run._id));
+  const proofsByRunId = new Map<string, Proof[]>();
+  const orphanProofs: Proof[] = [];
+  for (const proof of proofs ?? []) {
+    if (!proof.url && !proof.message) continue;
+    if (proof.runId && runIds.has(proof.runId)) {
+      const existing = proofsByRunId.get(proof.runId) ?? [];
+      existing.push(proof);
+      proofsByRunId.set(proof.runId, existing);
+    } else {
+      orphanProofs.push(proof);
+    }
+  }
+
+  // An audit's `runId` is the code-generation run it audited, so nest each
+  // audit under its run. Audits with no matching loaded run (session audits,
+  // legacy) fall back to a top-level timeline item so nothing disappears.
+  const latestAuditId = allAudits?.[0]?._id;
+  const auditsByRunId = new Map<string, NonNullable<Audits>[number]>();
+  const orphanAudits: NonNullable<Audits>[number][] = [];
+  for (const audit of allAudits ?? []) {
+    if (audit.runId && runIds.has(audit.runId)) {
+      auditsByRunId.set(audit.runId, audit);
+    } else {
+      orphanAudits.push(audit);
+    }
+  }
+
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
       (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
   );
 
   const activityTimeline: ActivityItem[] = [
-    ...(allAudits ?? []).map((audit) => ({
+    ...orphanAudits.map((audit) => ({
       kind: "audit" as const,
       timestamp: audit.createdAt,
       audit,
@@ -211,15 +222,15 @@ export function ActivityTimeline({
       timestamp: run.startedAt ?? run._creationTime,
       run,
     })),
-    ...(sandboxEvents ?? []).map((event) => ({
-      kind: "sandboxEvent" as const,
-      timestamp: event.createdAt,
-      event,
-    })),
     ...(taskActivity ?? []).map((activity) => ({
       kind: "taskActivity" as const,
       timestamp: activity.createdAt,
       activity,
+    })),
+    ...orphanProofs.map((proof) => ({
+      kind: "proof" as const,
+      timestamp: proof.createdAt,
+      proof,
     })),
     ...topLevelComments
       .filter((comment) => !commentsShownWithRuns.has(comment._id))
@@ -228,26 +239,15 @@ export function ActivityTimeline({
         timestamp: comment.createdAt,
         comment,
       })),
-  ].sort((a, b) => b.timestamp - a.timestamp);
+  ].sort((a, b) => a.timestamp - b.timestamp);
 
   return (
-    <div className="pt-4">
-      <TaskSubscribers taskId={taskId} users={users} />
-
-      <TaskActivityComposer
-        taskId={taskId}
-        isProjectTask={isProjectTask}
-        requestingChanges={requestingChanges}
-        setRequestingChanges={setRequestingChanges}
-        executionError={executionError}
-        setExecutionError={setExecutionError}
-        requestChangesBlockedReason={requestChangesBlockedReason}
-        onRequestChangesSubmitted={onRequestChangesSubmitted}
-      />
-
-      {activityTimeline.length > 0 && (
-        <div className="space-y-4">
-          {activityTimeline.map((item, index) => {
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
+        {activityTimeline.length === 0 ? (
+          <ConversationEmptyState title="No activity yet" />
+        ) : (
+          activityTimeline.map((item, index) => {
             if (item.kind === "audit") {
               const audit = item.audit;
               const auditIndex = (allAudits ?? []).indexOf(audit);
@@ -257,7 +257,7 @@ export function ActivityTimeline({
                   key={`audit-${audit._id}`}
                   audit={audit}
                   isLatest={isLatest}
-                  isFirst={index === 0}
+                  isFirst={index === activityTimeline.length - 1}
                   auditStreaming={auditStreaming}
                   auditElapsed={auditElapsed}
                   fixElapsed={fixElapsed}
@@ -273,14 +273,11 @@ export function ActivityTimeline({
                 />
               );
             }
-            if (item.kind === "sandboxEvent") {
-              const event = item.event;
+            if (item.kind === "proof") {
               return (
-                <SystemAlertMessage
-                  key={`sandbox-${event._id}`}
-                  content={sandboxEventLabel(event.event)}
-                  errorDetail={event.errorDetail}
-                  timestamp={event.createdAt}
+                <ProofTimelineItem
+                  key={`proof-${item.proof._id}`}
+                  proof={item.proof}
                 />
               );
             }
@@ -317,12 +314,33 @@ export function ActivityTimeline({
                       : []
                   }
                   users={users}
+                  proofs={proofsByRunId.get(run._id)}
+                  audit={auditsByRunId.get(run._id)}
+                  isLatestAudit={
+                    auditsByRunId.get(run._id)?._id === latestAuditId
+                  }
+                  auditStreaming={auditStreaming}
+                  auditElapsed={auditElapsed}
+                  fixElapsed={fixElapsed}
                 />
               </Suspense>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
+
+      <div className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-background/95 px-4 pb-4 pt-2 backdrop-blur-sm md:px-6">
+        <TaskActivityComposer
+          taskId={taskId}
+          isProjectTask={isProjectTask}
+          requestingChanges={requestingChanges}
+          setRequestingChanges={setRequestingChanges}
+          executionError={executionError}
+          setExecutionError={setExecutionError}
+          requestChangesBlockedReason={requestChangesBlockedReason}
+          onRequestChangesSubmitted={onRequestChangesSubmitted}
+        />
+      </div>
 
       <Dialog
         open={deletingCommentId !== null}

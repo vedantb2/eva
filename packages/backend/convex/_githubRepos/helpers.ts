@@ -99,3 +99,15 @@ export const githubRepoValidator = v.object({
   _creationTime: v.number(),
   ...githubRepoFields,
 });
+
+/**
+ * Repo document plus a resolved `logoUrl` (from `logoStorageId`) for the list
+ * views that render the logo. Only `list`/`listByTeam` pay the storage lookup;
+ * the plain `githubRepoValidator` stays cheap for every other query.
+ */
+export const githubRepoWithLogoValidator = v.object({
+  _id: v.id("githubRepos"),
+  _creationTime: v.number(),
+  ...githubRepoFields,
+  logoUrl: v.optional(v.union(v.string(), v.null())),
+});

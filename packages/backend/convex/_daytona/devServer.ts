@@ -1,10 +1,10 @@
 "use node";
 
+import { z } from "zod";
 import type { Sandbox } from "@daytonaio/sdk";
 import type { SandboxHandle } from "../_sandbox/provider";
 import {
   ensureDockerDaemon,
-  exec,
   execHandle,
   bootstrapVercelDocker,
   workspaceDirShell,
@@ -14,13 +14,19 @@ const SUPABASE_DUMP_PATH =
   "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
 const SUPABASE_RESTORE_MARKER = "/tmp/.eva-supabase-db-web-restored";
 
+/** Absolute shell path to the package root, defaulting to the workspace root. */
+function packageDirShell(rootDir: string): string {
+  const workspaceRoot = workspaceDirShell();
+  return rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+}
+
 /** Detects the package manager (pnpm, yarn, or npm) by checking lock files. */
 export async function detectPackageManager(
   sandbox: SandboxHandle,
   rootDir = "",
 ): Promise<string> {
   const workspaceRoot = workspaceDirShell();
-  const dir = rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+  const dir = packageDirShell(rootDir);
   // Prefer the package rootDir, then fall back to the workspace root — monorepos
   // often keep pnpm-lock.yaml at the repo root while rootDirectory points at an app.
   // Also treat packageManager / workspace: deps as pnpm so npm never hits workspace:*.
@@ -42,10 +48,16 @@ export async function detectPackageManager(
   return "npm";
 }
 
-/** Type guard that checks if a value is a non-array plain object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+// Boundary schema for the sandbox package.json. Only the fields dev-port
+// detection needs are modelled; anything malformed falls back to empty via
+// `.catch`, so detection degrades to framework defaults instead of throwing.
+const packageJsonSchema = z
+  .object({
+    scripts: z.record(z.string(), z.string()).catch({}),
+    dependencies: z.record(z.string(), z.string()).catch({}),
+    devDependencies: z.record(z.string(), z.string()).catch({}),
+  })
+  .catch({ scripts: {}, dependencies: {}, devDependencies: {} });
 
 const FRAMEWORK_DEFAULT_PORTS: Record<string, number> = {
   next: 3000,
@@ -59,29 +71,22 @@ export async function detectDevPort(
   sandbox: SandboxHandle,
   rootDir: string,
 ): Promise<number> {
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const dir = packageDirShell(rootDir);
   try {
     const raw = await execHandle(
       sandbox,
       `cat ${dir}/package.json 2>/dev/null || echo "{}"`,
       5,
     );
-    const pkg: unknown = JSON.parse(raw);
-    if (!isRecord(pkg)) return 3000;
+    const pkg = packageJsonSchema.parse(JSON.parse(raw));
 
-    const scripts = isRecord(pkg.scripts) ? pkg.scripts : {};
-    const devScript = typeof scripts.dev === "string" ? scripts.dev : "";
-
+    const devScript = pkg.scripts.dev ?? "";
     const portMatch = devScript.match(/(?:--port|--p|-p|PORT=)\s*(\d+)/);
     if (portMatch?.[1]) {
       return parseInt(portMatch[1], 10);
     }
 
-    const deps = isRecord(pkg.dependencies) ? pkg.dependencies : {};
-    const devDeps = isRecord(pkg.devDependencies) ? pkg.devDependencies : {};
-    const allDeps = { ...deps, ...devDeps };
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
     for (const [framework, port] of Object.entries(FRAMEWORK_DEFAULT_PORTS)) {
       if (framework in allDeps) return port;
     }
@@ -121,9 +126,7 @@ export async function startSessionServices(
   }
 
   const pm = await detectPackageManager(sandbox, rootDir);
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const dir = packageDirShell(rootDir);
   const devCommand = `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${port} ${pm} run dev`;
   return { port, devCommand };
 }

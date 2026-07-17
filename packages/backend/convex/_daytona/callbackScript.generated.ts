@@ -26,6 +26,7 @@ var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId" && (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -132,15 +133,49 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set(["low", "medium", "high", "xhigh", "max"]);
+var claudeEffort = PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT) ? REASONING_EFFORT : "";
+var CODEX_REASONING_EFFORT = {
+  off: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high"
+};
+var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
+function buildSettingsJson() {
+  const settings = {
+    attribution: { commit: "", pr: "" }
+  };
+  const thinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
+  if (thinkingDisabled) {
+    settings.alwaysThinkingEnabled = false;
+  }
+  return JSON.stringify(settings);
+}
 var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
-var settingsJson = '{"attribution":{"commit":"","pr":""}}';
+var settingsJson = buildSettingsJson();
 var settingsArg = "--settings " + JSON.stringify(settingsJson);
 var mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-var normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
+var CURSOR_CLI_MODEL_IDS = {
+  "grok-4.5-low": "cursor-grok-4.5-low",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
+  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
+  "cursor-grok-4.5-high": "cursor-grok-4.5-high"
+};
+var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
+var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 var claudeCommand = existsSync(CLAUDE_BIN_PATH) ? JSON.stringify(CLAUDE_BIN_PATH) : "claude";
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
@@ -151,7 +186,7 @@ var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto -
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
 var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
-var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + (claudeEffort ? " --effort " + claudeEffort : "") + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -164,7 +199,8 @@ var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "web_search",
   "notebook",
   "subtask",
-  "question"
+  "question",
+  "todos"
 ]);
 var CODEX_PRICING_PER_MILLION = {
   "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
@@ -193,6 +229,8 @@ var completedLabels = {
   "Creating file...": "Created file",
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
+  "Running in background...": "Started background process",
+  "Stopping background process...": "Stopped background process",
   "Using Skill...": "Used Skill",
   "Fetching URL...": "Fetched URL",
   "Searching web...": "Searched web",
@@ -403,10 +441,12 @@ function parsePriorStep(value) {
     return null;
   }
   const detail = value.detail;
+  const path = value.path;
   return {
     type,
     label,
     detail: typeof detail === "string" ? detail : void 0,
+    path: typeof path === "string" ? path : void 0,
     status: "complete"
   };
 }
@@ -444,6 +484,8 @@ var callbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: /* @__PURE__ */ new Set(),
+  todoState: [],
+  awaitingQuestionAnswer: false,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -657,13 +699,15 @@ function opencodeToolToStep(part) {
   const tool = typeof part.tool === "string" ? part.tool : "tool";
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
   const input = stateObj && "input" in stateObj && stateObj.input && typeof stateObj.input === "object" && !Array.isArray(stateObj.input) ? stateObj.input : {};
-  const path = typeof input.filePath === "string" ? shortenPath(input.filePath) : typeof input.file_path === "string" ? shortenPath(input.file_path) : typeof input.path === "string" ? shortenPath(input.path) : "";
+  const rawPath = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (tool) {
     case "read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "glob":
@@ -685,6 +729,7 @@ function opencodeToolToStep(part) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "edit":
@@ -692,6 +737,7 @@ function opencodeToolToStep(part) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "bash":
@@ -788,6 +834,7 @@ function cursorToolToStep(toolCall) {
       type: "read",
       label: "Reading file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -796,6 +843,7 @@ function cursorToolToStep(toolCall) {
       type: "write",
       label: "Creating file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -804,6 +852,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Editing file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -812,6 +861,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Deleting file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -880,13 +930,15 @@ function cursorToolToStep(toolCall) {
   };
 }
 function toolCallToStep(name, input) {
-  const path = typeof input.file_path === "string" ? shortenPath(String(input.file_path)) : "";
+  const rawPath = typeof input.file_path === "string" ? String(input.file_path) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (name) {
     case "Read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Glob":
@@ -908,6 +960,7 @@ function toolCallToStep(name, input) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Edit":
@@ -915,14 +968,22 @@ function toolCallToStep(name, input) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Bash":
     case "bash":
       return {
         type: "bash",
-        label: "Running command...",
+        label: input.run_in_background === true ? "Running in background..." : "Running command...",
         detail: typeof input.command === "string" ? String(input.command).slice(0, 300) : void 0,
+        status: "active"
+      };
+    case "KillShell":
+      return {
+        type: "bash",
+        label: "Stopping background process...",
+        detail: typeof input.shell_id === "string" ? String(input.shell_id) : typeof input.shellId === "string" ? String(input.shellId) : void 0,
         status: "active"
       };
     case "Skill":
@@ -951,13 +1012,18 @@ function toolCallToStep(name, input) {
         type: "notebook",
         label: "Editing notebook...",
         detail: typeof input.notebook_path === "string" ? shortenPath(String(input.notebook_path)) : void 0,
+        path: typeof input.notebook_path === "string" ? String(input.notebook_path) : void 0,
         status: "active"
       };
+    // Subagent spawn. Named \`Agent\` since claude-code v2.1.63; older CLIs emit
+    // \`Task\`. Match both so subagent runs are always recognised (a bare \`Task\`
+    // previously fell through to the generic "Using Task..." row).
     case "Agent":
+    case "Task":
       return {
         type: "subtask",
         label: "Running agent...",
-        detail: typeof input.description === "string" ? String(input.description) : void 0,
+        detail: typeof input.description === "string" ? String(input.description) : typeof input.subagent_type === "string" ? String(input.subagent_type) : void 0,
         status: "active"
       };
     case "TodoWrite":
@@ -1081,6 +1147,7 @@ function codexItemToStep(item) {
       type: "read",
       label: "Reading file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1105,6 +1172,7 @@ function codexItemToStep(item) {
       type: "write",
       label: "Creating file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1113,6 +1181,7 @@ function codexItemToStep(item) {
       type: "edit",
       label: "Editing file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1165,7 +1234,7 @@ function writeDoneFile(status, extras) {
       accumulatedStepCount: callbackState.accumulatedSteps.length,
       parsedStreamEventCount: callbackState.parsedStreamEventCount,
       rawLogBytesWritten: callbackState.rawLogBytesWritten,
-      ...extras || {}
+      ...extras
     };
     writeFileSync2(DONE_FILE, JSON.stringify(payload));
   } catch (err) {
@@ -1445,7 +1514,11 @@ function appendDiagnosticTail(message) {
   const stderrTail = callbackState.stderrOutput.slice(-1500).trim();
   if (stdoutTail) details.push("stdout tail:\\n" + stdoutTail);
   if (stderrTail) details.push("stderr tail:\\n" + stderrTail);
-  if (details.length === 0) return message;
+  if (details.length === 0) {
+    details.push(
+      "(stdout and stderr were empty \\u2014 CLI likely hung before emitting stream-json, e.g. bad --model)"
+    );
+  }
   return message + "\\n\\n" + details.join("\\n\\n");
 }
 async function uploadMediaFile(filePath, mimeType) {
@@ -1480,16 +1553,13 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   if (videoStorageId || imageStorageId) {
     if (ENTITY_ID_FIELD === "taskId") {
       const storageId = videoStorageId || imageStorageId;
-      await callConvexWithRetry(
-        "mutation",
-        "taskProof:save",
-        {
-          taskId: ENTITY_ID ?? "",
-          storageId: storageId ?? "",
-          fileName: lastFileName ?? ""
-        },
-        3
-      );
+      const saveArgs = {
+        taskId: ENTITY_ID ?? "",
+        storageId: storageId ?? "",
+        fileName: lastFileName ?? ""
+      };
+      if (RUN_ID) saveArgs.runId = RUN_ID;
+      await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
       return;
     }
     const mediaArgs = { parentId: ENTITY_ID ?? "" };
@@ -1505,10 +1575,15 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   }
   if (ENTITY_ID_FIELD === "taskId") {
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
+    const messageArgs = {
+      taskId: ENTITY_ID ?? "",
+      message: "No UI changes"
+    };
+    if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message: "No UI changes" },
+      messageArgs,
       3
     );
   }
@@ -1517,10 +1592,15 @@ async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
   try {
+    const failureArgs = {
+      taskId: ENTITY_ID ?? "",
+      message
+    };
+    if (RUN_ID) failureArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message },
+      failureArgs,
       2
     );
   } catch (error) {
@@ -1736,7 +1816,154 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
+// callback-src/runtime/backgroundShells.ts
+var PENDING_CAP = 200;
+var QUEUE_CAP = 20;
+var FLUSH_FAILURE_COOLDOWN_MS = 1e4;
+var BG_SHELL_ID_RE = /running in (?:the )?background.*?ID:?\\s*([\\w-]+)/i;
+var pendingBashToolUses = /* @__PURE__ */ new Map();
+var pendingKillShellUses = /* @__PURE__ */ new Map();
+var eventQueue = [];
+var flushInFlight = false;
+var flushCooldownUntil = 0;
+function trimMap(map, cap) {
+  while (map.size > cap) {
+    const first = map.keys().next();
+    if (first.done) break;
+    map.delete(first.value);
+  }
+}
+function enqueue(event) {
+  if (eventQueue.length >= QUEUE_CAP) {
+    eventQueue.shift();
+  }
+  eventQueue.push(event);
+}
+function trackClaudeToolUse(name, input, toolUseId) {
+  if (!toolUseId) return;
+  if (name === "Bash" || name === "bash") {
+    const command = typeof input.command === "string" ? input.command : "";
+    pendingBashToolUses.set(toolUseId, { command });
+    trimMap(pendingBashToolUses, PENDING_CAP);
+    return;
+  }
+  if (name === "KillShell") {
+    const shellId = typeof input.shell_id === "string" ? input.shell_id : typeof input.shellId === "string" ? input.shellId : "";
+    if (!shellId) return;
+    pendingKillShellUses.set(toolUseId, { shellId });
+    trimMap(pendingKillShellUses, PENDING_CAP);
+  }
+}
+function trackClaudeToolResult(toolUseId, resultText, isError) {
+  if (!toolUseId) return;
+  const killPending = pendingKillShellUses.get(toolUseId);
+  if (killPending) {
+    pendingKillShellUses.delete(toolUseId);
+    if (!isError) {
+      enqueue({ kind: "agent_killed", shellId: killPending.shellId });
+    }
+    return;
+  }
+  const bashPending = pendingBashToolUses.get(toolUseId);
+  if (!bashPending) return;
+  pendingBashToolUses.delete(toolUseId);
+  if (isError) return;
+  const match = BG_SHELL_ID_RE.exec(resultText);
+  if (!match) return;
+  const shellId = match[1];
+  enqueue({
+    kind: "register",
+    key: toolUseId,
+    command: bashPending.command,
+    ...shellId ? { shellId } : {}
+  });
+}
+function canFlushBackgroundShells() {
+  return PROVIDER === "claude" && ENTITY_ID_FIELD === "sessionId" && typeof ENTITY_ID === "string" && ENTITY_ID.length > 0;
+}
+async function flushBackgroundShellQueue() {
+  if (!canFlushBackgroundShells()) return;
+  if (flushInFlight) return;
+  if (Date.now() < flushCooldownUntil) return;
+  if (eventQueue.length === 0) return;
+  flushInFlight = true;
+  const sessionId = ENTITY_ID;
+  try {
+    while (eventQueue.length > 0) {
+      const event = eventQueue[0];
+      if (!event) break;
+      if (event.kind === "register") {
+        await callConvexWithRetry("mutation", "backgroundProcesses:register", {
+          sessionId,
+          key: event.key,
+          command: event.command,
+          ...event.shellId !== void 0 ? { shellId: event.shellId } : {}
+        });
+      } else {
+        await callConvexWithRetry(
+          "mutation",
+          "backgroundProcesses:markExitedByShellId",
+          { sessionId, shellId: event.shellId }
+        );
+      }
+      eventQueue.shift();
+    }
+  } catch (error) {
+    flushCooldownUntil = Date.now() + FLUSH_FAILURE_COOLDOWN_MS;
+    log(
+      "backgroundShells flush failed: " + (error instanceof Error ? error.message : String(error))
+    );
+  } finally {
+    flushInFlight = false;
+  }
+}
+
 // callback-src/providers/claude.ts
+function extractToolResultText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  const parts = [];
+  for (const item of content) {
+    if (typeof item === "string") {
+      parts.push(item);
+      continue;
+    }
+    if (item && typeof item === "object" && !Array.isArray(item) && item.type === "text" && typeof item.text === "string") {
+      parts.push(item.text);
+    }
+  }
+  return parts.join("");
+}
+function normalizeTodoStatus(value) {
+  return value === "in_progress" || value === "completed" ? value : "pending";
+}
+function reduceTodoState(name, input) {
+  if (name === "TodoWrite") {
+    const raw = Array.isArray(input.todos) ? input.todos : [];
+    callbackState.todoState.length = 0;
+    for (const item of raw) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const content = typeof item.content === "string" ? item.content : "";
+      if (!content) continue;
+      callbackState.todoState.push({ content, status: normalizeTodoStatus(item.status) });
+    }
+  } else if (name === "TaskCreate") {
+    const content = typeof input.subject === "string" ? input.subject : typeof input.description === "string" ? input.description : "";
+    if (content) {
+      callbackState.todoState.push({ content, status: normalizeTodoStatus(input.status) });
+    }
+  } else if (name === "TaskUpdate") {
+    const last = callbackState.todoState[callbackState.todoState.length - 1];
+    if (last) {
+      if (input.status !== void 0)
+        last.status = normalizeTodoStatus(input.status);
+      if (typeof input.subject === "string" && input.subject) {
+        last.content = input.subject;
+      }
+    }
+  }
+  return callbackState.todoState.map((t) => ({ ...t }));
+}
 function parseClaudeStreamEvent(event) {
   const events = [];
   const inner = event.event && typeof event.event === "object" && !Array.isArray(event.event) ? event.event : null;
@@ -1768,6 +1995,10 @@ function claudeParseLine(event) {
   }
   if (event.type === "tool_result") {
     const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
+    if (toolUseId) {
+      const resultText = event.content !== void 0 ? extractToolResultText(event.content) : "";
+      trackClaudeToolResult(toolUseId, resultText, event.is_error === true);
+    }
     events.push({ kind: "complete_tool", trackingId: toolUseId });
     return events;
   }
@@ -1777,9 +2008,12 @@ function claudeParseLine(event) {
     for (const block of content2) {
       if (!block || typeof block !== "object" || Array.isArray(block)) continue;
       if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
+        const toolUseId = block.tool_use_id.trim();
+        const resultText = block.content !== void 0 ? extractToolResultText(block.content) : "";
+        trackClaudeToolResult(toolUseId, resultText, block.is_error === true);
         events.push({
           kind: "complete_tool",
-          trackingId: block.tool_use_id.trim()
+          trackingId: toolUseId
         });
       }
     }
@@ -1793,16 +2027,32 @@ function claudeParseLine(event) {
   }
   const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
   const content = message && Array.isArray(message.content) ? message.content : [];
+  const parentToolUseId = typeof event.parent_tool_use_id === "string" && event.parent_tool_use_id.trim() ? event.parent_tool_use_id.trim() : void 0;
   for (const block of content) {
     if (!block || typeof block !== "object" || Array.isArray(block)) continue;
     if (block.type === "tool_use" && typeof block.name === "string") {
       const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
+      if (block.name === "TodoWrite" || block.name === "TaskCreate" || block.name === "TaskUpdate") {
+        events.push({
+          kind: "set_todos",
+          todos: reduceTodoState(block.name, input)
+        });
+        continue;
+      }
+      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList") {
+        continue;
+      }
       const step = toolCallToStep(block.name, input);
       const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
+      if (trackingId) {
+        step.toolUseId = trackingId;
+        trackClaudeToolUse(block.name, input, trackingId);
+      }
+      if (parentToolUseId) step.parentToolUseId = parentToolUseId;
       events.push(
         trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
       );
-      if (block.name === "AskUserQuestion" && block.input) {
+      if (!BLOCKING_QUESTIONS_ENABLED && block.name === "AskUserQuestion" && block.input) {
         events.push({
           kind: "set_pending_question",
           data: JSON.stringify(block.input)
@@ -1977,13 +2227,17 @@ function buildCodexRuntimeConfig(rawValue, encodedValue) {
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy");
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && // Drop any configured reasoning effort; the session lever wins when set.
+    !(codexReasoningEffort && trimmed.startsWith("model_reasoning_effort"));
   }) : [];
   const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
   const runtimeLines = [
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"'
   ];
+  if (codexReasoningEffort) {
+    runtimeLines.push(\`model_reasoning_effort = "\${codexReasoningEffort}"\`);
+  }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }
@@ -2393,15 +2647,50 @@ var opencodeAdapter = {
 };
 
 // callback-src/parse/canonical.ts
+function markStepComplete(step) {
+  step.status = "complete";
+  if (completedLabels[step.label]) {
+    step.label = completedLabels[step.label];
+  } else if (step.label.startsWith("Using ") && step.label.endsWith("...")) {
+    step.label = "Used " + step.label.slice(6, -3);
+  }
+}
 function markLastComplete() {
   if (callbackState.accumulatedSteps.length === 0) return;
-  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  last.status = "complete";
-  if (completedLabels[last.label]) {
-    last.label = completedLabels[last.label];
-  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
-    last.label = "Used " + last.label.slice(6, -3);
+  markStepComplete(callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1]);
+}
+function completeToolStep(trackingId) {
+  if (trackingId) {
+    for (let i = callbackState.accumulatedSteps.length - 1; i >= 0; i--) {
+      const step = callbackState.accumulatedSteps[i];
+      if (step.toolUseId === trackingId) {
+        markStepComplete(step);
+        return;
+      }
+    }
   }
+  markLastComplete();
+}
+function summarizeTodos(todos) {
+  const done = todos.filter((t) => t.status === "completed").length;
+  return \`\${done} of \${todos.length} done\`;
+}
+function applyTodosSnapshot(todos) {
+  const existing = callbackState.accumulatedSteps.find((step) => step.type === "todos");
+  if (existing) {
+    existing.todos = todos;
+    existing.detail = summarizeTodos(todos);
+    return;
+  }
+  markLastComplete();
+  callbackState.accumulatedSteps.push({
+    type: "todos",
+    label: "Updating tasks...",
+    detail: summarizeTodos(todos),
+    todos,
+    status: "active"
+  });
+  callbackState.lastStepType = "tool";
 }
 function updateThinkingStep(label, detail) {
   void label;
@@ -2416,7 +2705,11 @@ function pushProgressStep(step) {
     updateThinkingStep(step.label, step.detail);
     return;
   }
-  markLastComplete();
+  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  const isFirstChildUnderParent = step.parentToolUseId !== void 0 && last !== void 0 && last.toolUseId === step.parentToolUseId;
+  if (!isFirstChildUnderParent) {
+    markLastComplete();
+  }
   callbackState.accumulatedSteps.push(step);
   callbackState.lastStepType = "tool";
 }
@@ -2441,7 +2734,7 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "complete_tool":
-        markLastComplete();
+        completeToolStep(ev.trackingId);
         if (ev.trackingId !== void 0) {
           callbackState.codexToolItemIds.delete(ev.trackingId);
         }
@@ -2467,6 +2760,9 @@ function applyCanonicalEvents(events) {
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;
+        break;
+      case "set_todos":
+        applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         callbackState.activeCodexThreadId = ev.threadId;
@@ -2597,7 +2893,10 @@ async function sendStreamingHeartbeatUpdate(payload) {
 }
 async function flushStreaming() {
   if (callbackState.flushInProgress) return;
-  if (callbackState.rawOutput.length <= callbackState.lastProcessed) return;
+  if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
+    void flushBackgroundShellQueue();
+    return;
+  }
   callbackState.flushInProgress = true;
   try {
     const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
@@ -2629,6 +2928,7 @@ async function flushStreaming() {
     }
   } finally {
     callbackState.flushInProgress = false;
+    void flushBackgroundShellQueue();
   }
 }
 var PING_STUCK_MS = 45e3;
@@ -2973,6 +3273,80 @@ async function runCliAttempt(options) {
   });
 }
 
+// callback-src/runtime/pendingQuestion.ts
+var POLL_INTERVAL_MS = 300;
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function readClaimedAnswer(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const answer = payload.answer;
+  return typeof answer === "string" ? answer : null;
+}
+async function postQuestion(toolUseId, payload) {
+  await callConvexWithRetry("mutation", "pendingQuestions:post", {
+    entityId: ENTITY_ID ?? "",
+    toolUseId,
+    payload
+  });
+}
+async function pollForAnswer(toolUseId, signal) {
+  while (!signal.aborted) {
+    const result = await callConvexWithRetry(
+      "mutation",
+      "pendingQuestions:claimAnswer",
+      { entityId: ENTITY_ID ?? "", toolUseId }
+    );
+    const answer = readClaimedAnswer(result);
+    if (answer !== null) return answer;
+    await sleep(POLL_INTERVAL_MS);
+  }
+  return null;
+}
+function parseAnswers(answerJson) {
+  try {
+    const parsed = JSON.parse(answerJson);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+  }
+  return {};
+}
+function buildCanUseTool() {
+  return async (toolName, input, options) => {
+    if ((toolName === "Agent" || toolName === "Task") && input.run_in_background === true) {
+      return {
+        behavior: "allow",
+        updatedInput: { ...input, run_in_background: false }
+      };
+    }
+    if (toolName !== "AskUserQuestion") {
+      return { behavior: "allow", updatedInput: input };
+    }
+    const toolUseId = typeof options.toolUseID === "string" && options.toolUseID ? options.toolUseID : "";
+    callbackState.awaitingQuestionAnswer = true;
+    log("canUseTool: AskUserQuestion \\u2014 posting question, awaiting user answer");
+    try {
+      await postQuestion(toolUseId, JSON.stringify(input));
+      const answerJson = await pollForAnswer(toolUseId, options.signal);
+      if (answerJson === null) {
+        return { behavior: "deny", message: "The question was cancelled." };
+      }
+      return {
+        behavior: "allow",
+        updatedInput: { ...input, answers: parseAnswers(answerJson) }
+      };
+    } finally {
+      callbackState.awaitingQuestionAnswer = false;
+    }
+  };
+}
+
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
@@ -3041,6 +3415,25 @@ function buildConversationalSdkOptions() {
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
 function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
   const allowedToolsOption = tools === "agent" && ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : { allowedTools: [] };
+  const permissionOption = tools === "agent" && BLOCKING_QUESTIONS_ENABLED ? {
+    permissionMode: "default",
+    allowDangerouslySkipPermissions: false,
+    canUseTool: buildCanUseTool()
+  } : {
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true
+  };
+  const env = {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+    DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+    DISABLE_TELEMETRY: "1",
+    DISABLE_AUTOUPDATER: "1",
+    DISABLE_ERROR_REPORTING: "1"
+  };
+  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -3056,27 +3449,16 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
       preset: "claude_code",
       append: EVA_SDK_SYSTEM_APPEND
     },
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
+    ...permissionOption,
     // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
     ...allowedToolsOption,
-    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
-    // title / flavour-text side calls) — measured as a ~6s second API call
-    // that delays turn completion after the visible reply.
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      DISABLE_TELEMETRY: "1",
-      DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1"
-    },
+    env,
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
-    extraArgs
+    extraArgs,
+    ...effortOption
   };
 }
 async function runClaudeSdkAttempt(sessionMode) {
@@ -3108,6 +3490,11 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
   const healthTimer = setInterval(() => {
     const now = Date.now();
+    if (callbackState.awaitingQuestionAnswer) {
+      callbackState.activeAttemptStartedAt = now;
+      lastMessageAt = now;
+      return;
+    }
     if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
       timedOutForMaxRuntime = true;
       log("runClaudeSdkAttempt: max runtime exceeded \\u2014 interrupting");
@@ -3184,7 +3571,7 @@ async function runClaudeSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/claudeSdkDaemon.ts
-function sleep(ms) {
+function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
@@ -3193,6 +3580,63 @@ var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
+var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+var WATCHDOG_TICK_MS = 5e3;
+var turnActive = false;
+var turnStartedAtMs = 0;
+var lastMessageAtMs = 0;
+function beginWatchedTurn() {
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  lastMessageAtMs = turnStartedAtMs;
+}
+function noteWatchedMessage() {
+  lastMessageAtMs = Date.now();
+}
+function endWatchedTurn() {
+  turnActive = false;
+}
+async function failTurnAndExit(error) {
+  log("daemon: failing turn \\u2014 " + error);
+  try {
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      success: false,
+      result: null,
+      error,
+      activityLog: JSON.stringify(callbackState.accumulatedSteps),
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    });
+  } catch {
+  }
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+  }
+  await stopStreamingLoops();
+  process.exit(1);
+}
+function startTurnWatchdog() {
+  const timer = setInterval(() => {
+    if (!turnActive) return;
+    const now = Date.now();
+    if (callbackState.awaitingQuestionAnswer) {
+      turnStartedAtMs = now;
+      lastMessageAtMs = now;
+      return;
+    }
+    if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+    } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
+      turnActive = false;
+      void failTurnAndExit(
+        "The assistant stopped responding. Please try again."
+      );
+    }
+  }, WATCHDOG_TICK_MS);
+  timer.unref?.();
+}
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3271,6 +3715,8 @@ function resetTurnState() {
   callbackState.lastProcessed = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.pendingQuestionData = "";
+  callbackState.todoState.length = 0;
+  callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
 async function finalizeTurn(output, opts = {}) {
@@ -3320,19 +3766,30 @@ function readClaimedPrompt(result) {
   const prompt = payload.prompt;
   return typeof prompt === "string" ? prompt : null;
 }
+function readClaimedAttachmentUrls(payload) {
+  const field = payload.attachmentUrls;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((url) => typeof url === "string");
+}
 function readClaimedTurn(result) {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent" };
+    return { prompt, turnKind: "agent", attachmentUrls: [] };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   const turnKindField = payload.turnKind;
   const turnKind = turnKindField === "conversational" ? "conversational" : "agent";
-  return { prompt, turnKind };
+  return {
+    prompt,
+    turnKind,
+    attachmentUrls: readClaimedAttachmentUrls(payload)
+  };
 }
 function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn, sawAssistantThisTurn) {
   const messageType = typeof message.type === "string" ? message.type : "?";
@@ -3449,6 +3906,7 @@ async function runConversationalWarmTurn(runner, prompt) {
   resetTurnState();
   const turnStartedAt = Date.now();
   callbackState.activeAttemptStartedAt = turnStartedAt;
+  beginWatchedTurn();
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
@@ -3457,9 +3915,11 @@ async function runConversationalWarmTurn(runner, prompt) {
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
-      log("daemon: conversational query ended unexpectedly");
-      return;
+      return failTurnAndExit(
+        "The assistant could not generate a reply. Please try again."
+      );
     }
+    noteWatchedMessage();
     const processed = processDaemonMessage(
       message,
       output,
@@ -3471,6 +3931,7 @@ async function runConversationalWarmTurn(runner, prompt) {
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt2 = Date.now();
         log(
@@ -3486,6 +3947,7 @@ async function runConversationalWarmTurn(runner, prompt) {
       }
       continue;
     }
+    endWatchedTurn();
     const resultAt = Date.now();
     log(
       "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
@@ -3507,6 +3969,54 @@ function callbackScriptWentStaleOnDisk() {
     return false;
   }
 }
+function attachmentExtensionForMimeType(mimeType) {
+  const type = mimeType.split(";")[0]?.trim() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return ".png";
+  }
+}
+async function materializeTurnAttachments(turn) {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" });
+      if (!res.ok) {
+        log(\`daemon: attachment download failed status=\${res.status}\`);
+        continue;
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const extension = attachmentExtensionForMimeType(
+        res.headers.get("content-type") ?? ""
+      );
+      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
+      writeFileSync10(path, bytes);
+      paths.push(path);
+    } catch (error) {
+      log(
+        \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
+      );
+    }
+  }
+  if (paths.length === 0) return;
+  const list = paths.map((p) => \`- \${p}\`).join("\\n");
+  turn.prompt += \`
+
+---
+The user attached the following image file(s). View them with your file-reading tool before responding:
+\${list}\`;
+}
 async function waitForNextTurn() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
@@ -3517,13 +4027,14 @@ async function waitForNextTurn() {
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" }
+      { sessionId: ENTITY_ID ?? "", model: MODEL }
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {
+      await materializeTurnAttachments(turn);
       return turn;
     }
-    await sleep(PROMPT_POLL_INTERVAL_MS);
+    await sleep2(PROMPT_POLL_INTERVAL_MS);
   }
   return null;
 }
@@ -3548,6 +4059,7 @@ async function runSdkDaemon() {
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
   log("daemon: warm query() live, waiting for first prompt (pull)");
+  startTurnWatchdog();
   let nextTurn = await waitForNextTurn();
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
@@ -3569,6 +4081,7 @@ async function runSdkDaemon() {
       let turnStartedAt = Date.now();
       const sawFirstMessageThisTurn = { value: false };
       const sawAssistantThisTurn = { value: false };
+      beginWatchedTurn();
       push(nextTurn.prompt);
       callbackState.activeAttemptStartedAt = turnStartedAt;
       let output = "";
@@ -3576,6 +4089,7 @@ async function runSdkDaemon() {
         if (typeof message !== "object" || message === null || Array.isArray(message)) {
           continue;
         }
+        noteWatchedMessage();
         const processed = processDaemonMessage(
           message,
           output,
@@ -3587,6 +4101,7 @@ async function runSdkDaemon() {
         if (!processed.isResult) {
           continue;
         }
+        endWatchedTurn();
         const resultAt = Date.now();
         log(
           "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
@@ -3611,7 +4126,13 @@ async function runSdkDaemon() {
         sawFirstMessageThisTurn.value = false;
         sawAssistantThisTurn.value = false;
         callbackState.activeAttemptStartedAt = turnStartedAt;
+        beginWatchedTurn();
         push(upcoming.prompt);
+      }
+      if (turnActive) {
+        return failTurnAndExit(
+          "The assistant ended without a reply. Please try again."
+        );
       }
     }
   } catch (error) {
@@ -3712,6 +4233,11 @@ async function runOpencodeAttempt(sessionMode) {
   });
 }
 async function runCursorAttempt(sessionMode) {
+  if (!process.env.CURSOR_API_KEY?.trim()) {
+    throw new Error(
+      "CURSOR_API_KEY is missing in the sandbox environment \\u2014 Cursor CLI cannot authenticate"
+    );
+  }
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
   const cmd = cursorExecBaseCmd + sessionArg;
   return await runCliAttempt({
@@ -3902,48 +4428,18 @@ try {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   try {
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs
-    );
-    let videoStorageId = null;
-    let imageStorageId = null;
-    let lastFileName = null;
-    const recDir = WORK_DIR + "/recordings";
-    if (existsSync7(recDir)) {
-      for (const file of readdirSync2(recDir)) {
-        if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
-        const fp = recDir + "/" + file;
-        const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-        try {
-          videoStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {
-        }
-        try {
-          unlinkSync2(fp);
-        } catch {
-        }
-      }
-    }
-    if (!videoStorageId) {
-      const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync7(ssDir)) {
-        for (const file of readdirSync2(ssDir)) {
-          if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
-          const fp = ssDir + "/" + file;
-          const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-          const mimeMap = {
-            png: "image/png",
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            gif: "image/gif",
-            webp: "image/webp"
-          };
-          const mimeType = mimeMap[ext] || "image/png";
+    if (TASK_PROOF_CAPTURE_ENABLED) {
+      let videoStorageId = null;
+      let imageStorageId = null;
+      let lastFileName = null;
+      const recDir = WORK_DIR + "/recordings";
+      if (existsSync7(recDir)) {
+        for (const file of readdirSync2(recDir)) {
+          if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
+          const fp = recDir + "/" + file;
+          const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
           try {
-            imageStorageId = await uploadMediaFile(fp, mimeType);
+            videoStorageId = await uploadMediaFile(fp, mimeType);
             lastFileName = file;
           } catch {
           }
@@ -3953,20 +4449,52 @@ try {
           }
         }
       }
+      if (!videoStorageId) {
+        const ssDir = WORK_DIR + "/screenshots";
+        if (existsSync7(ssDir)) {
+          for (const file of readdirSync2(ssDir)) {
+            if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
+            const fp = ssDir + "/" + file;
+            const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+            const mimeMap = {
+              png: "image/png",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              gif: "image/gif",
+              webp: "image/webp"
+            };
+            const mimeType = mimeMap[ext] || "image/png";
+            try {
+              imageStorageId = await uploadMediaFile(fp, mimeType);
+              lastFileName = file;
+            } catch {
+            }
+            try {
+              unlinkSync2(fp);
+            } catch {
+            }
+          }
+        }
+      }
+      try {
+        await persistTaskProofIfNeeded(
+          videoStorageId,
+          imageStorageId,
+          lastFileName
+        );
+      } catch (e) {
+        console.error("Failed to persist task proof:", e);
+        const proofError = e instanceof Error ? e.message : String(e);
+        await saveProofFailureMessageIfNeeded(
+          "Proof capture failed after completion: " + proofError
+        );
+      }
     }
-    try {
-      await persistTaskProofIfNeeded(
-        videoStorageId,
-        imageStorageId,
-        lastFileName
-      );
-    } catch (e) {
-      console.error("Failed to persist task proof:", e);
-      const proofError = e instanceof Error ? e.message : String(e);
-      await saveProofFailureMessageIfNeeded(
-        "Proof capture failed after completion: " + proofError
-      );
-    }
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs
+    );
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

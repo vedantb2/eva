@@ -16,9 +16,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import type { Id, api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import {
   SANDBOX_STATUS_STYLES,
@@ -29,7 +28,6 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import {
@@ -74,6 +72,7 @@ interface QuickTaskCardProps {
   onToggleSelect?: () => void;
   assignedTo?: Id<"users">;
   model?: string;
+  providerAccountId?: Id<"userProviderAccounts">;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
   users?: User[];
@@ -93,7 +92,7 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
-  deploymentStatus,
+  deploymentStatus: _deploymentStatus,
   sandboxStatus,
   groupedCodebases,
   href,
@@ -104,6 +103,7 @@ export function QuickTaskCard({
   onToggleSelect,
   assignedTo,
   model,
+  providerAccountId,
   projectId,
   repoId,
   users,
@@ -140,6 +140,7 @@ export function QuickTaskCard({
     href,
     assignedTo,
     model,
+    providerAccountId,
     projectId,
     repoId,
     groupedCodebases,
@@ -207,7 +208,7 @@ export function QuickTaskCard({
               className="mt-0.5 flex-shrink-0"
             />
           )}
-          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground">
+          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {taskNumber !== undefined && (
               <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
                 #{taskNumber}

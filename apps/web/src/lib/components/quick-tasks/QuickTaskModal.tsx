@@ -30,15 +30,18 @@ import {
   DEFAULT_AI_MODEL,
   normalizeAIModel,
   type AIModel,
+  type Id,
 } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import {
   FALLBACK_GIT_BASE_BRANCH,
   UI_TASK_DESCRIPTION_HINT,
 } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconFileText,
@@ -61,6 +64,7 @@ import {
   ScreenshotsToggle,
   type ScreenshotsToggleValue,
 } from "./ScreenshotsToggle";
+import { AuditToggle, type AuditToggleValue } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
@@ -122,6 +126,8 @@ export function QuickTaskModal({
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
     useState<ScreenshotsToggleValue>(undefined);
+  const [runAuditEnabled, setRunAuditEnabled] =
+    useState<AuditToggleValue>(undefined);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
@@ -138,7 +144,7 @@ export function QuickTaskModal({
             skillMap: new Map<string, string>(),
           },
     // initialDraft is stable for the lifetime of this mount (key remount on change).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
     [],
   );
 
@@ -149,7 +155,12 @@ export function QuickTaskModal({
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
+  const [providerAccountId, setProviderAccountId] = useState<string | null>(
+    null,
+  );
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(
@@ -169,6 +180,7 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
+    setProviderAccountId(null);
     setActiveDraftId(null);
     setSelectedProjectId(projectId);
     setAssignedTo(undefined);
@@ -176,6 +188,7 @@ export function QuickTaskModal({
     setTagSearch("");
     setPriority(undefined);
     setScreenshotsVideosEnabled(undefined);
+    setRunAuditEnabled(undefined);
   }, [defaultBranch, defaultModel, projectId]);
 
   const handleClose = useCallback(async () => {
@@ -218,9 +231,11 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
+          providerAccountId: resolveAccountId(providerAccountId),
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           screenshotsVideosEnabled,
+          runAuditEnabled,
         });
       } else {
         await createQuickTask({
@@ -229,11 +244,13 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
+          providerAccountId: resolveAccountId(providerAccountId),
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           priority,
           screenshotsVideosEnabled,
+          runAuditEnabled,
         });
       }
       resetForm();
@@ -338,8 +355,21 @@ export function QuickTaskModal({
 
             <ScreenshotsToggle
               value={screenshotsVideosEnabled}
-              repoDefault={repo.screenshotsVideosEnabled ?? false}
+              repoDefault={
+                effectiveProject?.screenshotsVideosEnabled ??
+                repo.screenshotsVideosEnabled ??
+                false
+              }
               onChange={setScreenshotsVideosEnabled}
+            />
+
+            <AuditToggle
+              value={runAuditEnabled}
+              inheritedDefault={
+                effectiveProject?.runAuditEnabled ??
+                effectiveProjectId !== undefined
+              }
+              onChange={setRunAuditEnabled}
             />
 
             <ProjectPicker
@@ -397,6 +427,9 @@ export function QuickTaskModal({
                 value={model}
                 options={modelOptions}
                 onValueChange={setModel}
+                accounts={accounts}
+                accountId={providerAccountId}
+                onAccountChange={setProviderAccountId}
               />
             </div>
 

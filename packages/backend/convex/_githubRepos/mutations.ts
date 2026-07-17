@@ -1,9 +1,29 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { normalizePath } from "../repoUtils";
 import { aiModelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
+
+/** Throws unless the user connected the repo or shares its team. */
+async function assertRepoWriteAccess(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  repo: Doc<"githubRepos">,
+): Promise<void> {
+  if (repo.connectedBy === userId) return;
+  const teamId = repo.teamId;
+  if (!teamId) throw new Error("Not authorized");
+  const membership = await db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+  if (!membership) throw new Error("Not authorized");
+}
 
 /** Assigns a repository to a team (team owner only). */
 export const assignToTeam = authMutation({
@@ -182,20 +202,7 @@ export const updateConfig = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    if (repo.connectedBy !== ctx.userId) {
-      const teamId = repo.teamId;
-      if (teamId) {
-        const membership = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", (q) =>
-            q.eq("teamId", teamId).eq("userId", ctx.userId),
-          )
-          .first();
-        if (!membership) throw new Error("Not authorized");
-      } else {
-        throw new Error("Not authorized");
-      }
-    }
+    await assertRepoWriteAccess(ctx.db, ctx.userId, repo);
 
     const sharedPatch: Record<string, string | boolean> = {};
     if (args.defaultBaseBranch !== undefined)
@@ -287,11 +294,42 @@ export const updateConfig = authMutation({
   },
 });
 
-/** Toggles the hidden visibility flag on a repository. */
-export const toggleHidden = authMutation({
+/** Generates a short-lived upload URL for a repo logo image (auth-checked). */
+export const generateLogoUploadUrl = authMutation({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    if (repo.connectedBy !== ctx.userId) {
+      const teamId = repo.teamId;
+      if (teamId) {
+        const membership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", ctx.userId),
+          )
+          .first();
+        if (!membership) throw new Error("Not authorized");
+      } else {
+        throw new Error("Not authorized");
+      }
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Sets (or clears with null) a repo's logo. Per-app: patches only this repo,
+ * never siblings. Deletes the previously stored image so replacing or removing
+ * a logo does not leave orphaned storage objects.
+ */
+export const setLogo = authMutation({
   args: {
     repoId: v.id("githubRepos"),
-    hidden: v.boolean(),
+    storageId: v.union(v.id("_storage"), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -312,6 +350,31 @@ export const toggleHidden = authMutation({
         throw new Error("Not authorized");
       }
     }
+
+    const previousId = repo.logoStorageId;
+    if (previousId && previousId !== args.storageId) {
+      await ctx.storage.delete(previousId);
+    }
+
+    await ctx.db.patch(args.repoId, {
+      logoStorageId: args.storageId ?? undefined,
+    });
+    return null;
+  },
+});
+
+/** Toggles the hidden visibility flag on a repository. */
+export const toggleHidden = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    hidden: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    await assertRepoWriteAccess(ctx.db, ctx.userId, repo);
 
     await ctx.db.patch(args.repoId, {
       hidden: args.hidden || undefined,
@@ -331,20 +394,7 @@ export const updateMcpRootPrompt = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    if (repo.connectedBy !== ctx.userId) {
-      const teamId = repo.teamId;
-      if (teamId) {
-        const membership = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", (q) =>
-            q.eq("teamId", teamId).eq("userId", ctx.userId),
-          )
-          .first();
-        if (!membership) throw new Error("Not authorized");
-      } else {
-        throw new Error("Not authorized");
-      }
-    }
+    await assertRepoWriteAccess(ctx.db, ctx.userId, repo);
 
     const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
     for (const siblingId of siblingIds) {

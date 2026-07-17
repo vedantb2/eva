@@ -110,7 +110,7 @@ export function WebPreviewPanel({
   const iframeSrc = useMemo(() => {
     if (!previewInfo) return undefined;
     return buildUrlWithPath(previewInfo.url, previewPath);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [previewInfo, pathStorageKey, iframeKey]);
 
   const handlePathChange = useCallback(

@@ -74,15 +74,7 @@ export const getByEntityId = authQuery({
       .order("desc")
       .collect();
 
-    return logs.map((entry) => ({
-      _id: entry._id,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      entityTitle: entry.entityTitle,
-      rawResultEvent: entry.rawResultEvent,
-      projectId: entry.projectId,
-      createdAt: entry.createdAt,
-    }));
+    return logs.map((entry) => toLogDto(entry, entry.projectId));
   },
 });
 
@@ -241,21 +233,7 @@ export const listByProject = authQuery({
 
     const projectByTaskId = await buildTaskProjectIdLookup(ctx, all);
 
-    const projectIdSet = new Set<Id<"projects">>();
-    for (const entry of all) {
-      const projectId = resolveLogProjectId(ctx, entry, projectByTaskId);
-      if (projectId !== undefined) {
-        projectIdSet.add(projectId);
-      }
-    }
-
     const projectTitles = new Map<string, string>();
-    for (const pid of projectIdSet) {
-      const project = await ctx.db.get(pid);
-      if (project) {
-        projectTitles.set(String(pid), project.title);
-      }
-    }
 
     type LogEntry = {
       _id: Id<"logs">;

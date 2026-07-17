@@ -78,29 +78,24 @@ export const saveAuditResult = internalMutation({
         error: args.error ?? "Audit failed",
         completedAt: Date.now(),
       });
-      if (runId && args.activityLog) {
-        await upsertActivityLog(ctx, runId, args.activityLog, "audit");
+    } else {
+      try {
+        const jsonStr = extractJsonBlock(args.result);
+        const raw: unknown = JSON.parse(jsonStr);
+
+        await ctx.db.patch(args.auditId, {
+          status: "completed",
+          sections: parseSectionsFromJson(raw),
+          summary: extractSummaryFromJson(raw),
+          completedAt: Date.now(),
+        });
+      } catch {
+        await ctx.db.patch(args.auditId, {
+          status: "error",
+          error: "Failed to parse audit JSON",
+          completedAt: Date.now(),
+        });
       }
-      await clearAuditStreaming();
-      return null;
-    }
-
-    try {
-      const jsonStr = extractJsonBlock(args.result);
-      const raw: unknown = JSON.parse(jsonStr);
-
-      await ctx.db.patch(args.auditId, {
-        status: "completed",
-        sections: parseSectionsFromJson(raw),
-        summary: extractSummaryFromJson(raw),
-        completedAt: Date.now(),
-      });
-    } catch {
-      await ctx.db.patch(args.auditId, {
-        status: "error",
-        error: "Failed to parse audit JSON",
-        completedAt: Date.now(),
-      });
     }
 
     if (runId && args.activityLog) {

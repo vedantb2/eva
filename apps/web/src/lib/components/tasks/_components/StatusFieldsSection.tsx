@@ -35,6 +35,8 @@ import {
   IconChevronDown,
   IconCamera,
   IconCameraOff,
+  IconChecklist,
+  IconClipboardOff,
 } from "@tabler/icons-react";
 import { UserInitials, getUserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
@@ -58,14 +60,15 @@ import {
   NEW_PROJECT_VALUE,
   NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
-  SCREENSHOTS_INHERIT_VALUE,
-  SCREENSHOTS_ON_VALUE,
-  SCREENSHOTS_OFF_VALUE,
   canEditTaskModel,
 } from "./task-detail-constants";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
+import { TriStateOverrideSelect } from "./TriStateOverrideSelect";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -96,9 +99,9 @@ export function StatusFieldsSection({
   baseBranch,
   setBaseBranch,
   latestDeployment,
-  hasActiveRun,
+  hasActiveRun: _hasActiveRun,
   allTags,
-  requestingChanges,
+  requestingChanges: _requestingChanges,
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
     (localStore, args) => {
@@ -110,6 +113,8 @@ export function StatusFieldsSection({
         projectId,
         assignedTo,
         screenshotsVideosEnabled,
+        runAuditEnabled,
+        providerAccountId,
         ...safeFields
       } = args;
       const nullSafe = {
@@ -123,6 +128,12 @@ export function StatusFieldsSection({
           : {}),
         ...(screenshotsVideosEnabled !== undefined
           ? { screenshotsVideosEnabled: screenshotsVideosEnabled ?? undefined }
+          : {}),
+        ...(runAuditEnabled !== undefined
+          ? { runAuditEnabled: runAuditEnabled ?? undefined }
+          : {}),
+        ...(providerAccountId !== undefined
+          ? { providerAccountId: providerAccountId ?? undefined }
           : {}),
       };
       const list = localStore.getQuery(api.agentTasks.getAllTasks, {
@@ -212,6 +223,9 @@ export function StatusFieldsSection({
   };
 
   const projectOptions = projects ?? [];
+  const taskProject = task?.projectId
+    ? projectOptions.find((p) => p._id === task.projectId)
+    : undefined;
   const hasSelectedProject =
     task?.projectId !== undefined &&
     projectOptions.some((project) => project._id === task.projectId);
@@ -233,6 +247,8 @@ export function StatusFieldsSection({
     task?.repoId,
     currentModel,
   );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
   const canEditModel = canEditTaskModel(status);
 
   return (
@@ -332,74 +348,33 @@ export function StatusFieldsSection({
         </SelectContent>
       </Select>
 
-      <Select
-        value={
-          task?.screenshotsVideosEnabled === undefined
-            ? SCREENSHOTS_INHERIT_VALUE
-            : task.screenshotsVideosEnabled
-              ? SCREENSHOTS_ON_VALUE
-              : SCREENSHOTS_OFF_VALUE
+      <TriStateOverrideSelect
+        label="Proof"
+        groupLabel="Proof of completion"
+        value={task?.screenshotsVideosEnabled}
+        inheritedDefault={
+          taskProject?.screenshotsVideosEnabled ??
+          repo.screenshotsVideosEnabled ??
+          false
         }
-        onValueChange={(val) => {
-          if (val === SCREENSHOTS_INHERIT_VALUE) {
-            updateTask({ id: taskId, screenshotsVideosEnabled: null });
-          } else if (val === SCREENSHOTS_ON_VALUE) {
-            updateTask({ id: taskId, screenshotsVideosEnabled: true });
-          } else if (val === SCREENSHOTS_OFF_VALUE) {
-            updateTask({ id: taskId, screenshotsVideosEnabled: false });
-          }
-        }}
-      >
-        <SelectTrigger className={GHOST_TRIGGER_CLASS}>
-          <SelectValue>
-            {(() => {
-              const isOverride = task?.screenshotsVideosEnabled !== undefined;
-              const repoDefault = repo.screenshotsVideosEnabled ?? false;
-              const effective = task?.screenshotsVideosEnabled ?? repoDefault;
-              const Icon = effective ? IconCamera : IconCameraOff;
-              return (
-                <div
-                  className={`flex items-center gap-1.5 ${isOverride ? "" : "text-muted-foreground"}`}
-                >
-                  <Icon size={14} className="text-muted-foreground" />
-                  <span>
-                    {isOverride
-                      ? task?.screenshotsVideosEnabled
-                        ? "Proof: on"
-                        : "Proof: off"
-                      : `Proof: inherit (${repoDefault ? "on" : "off"})`}
-                  </span>
-                </div>
-              );
-            })()}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Proof of completion</SelectLabel>
-            <SelectItem value={SCREENSHOTS_INHERIT_VALUE}>
-              <div className="flex items-center gap-1.5">
-                <IconCamera size={14} className="text-muted-foreground" />
-                <span>
-                  Inherit ({repo.screenshotsVideosEnabled ? "on" : "off"})
-                </span>
-              </div>
-            </SelectItem>
-            <SelectItem value={SCREENSHOTS_ON_VALUE}>
-              <div className="flex items-center gap-1.5">
-                <IconCamera size={14} className="text-muted-foreground" />
-                <span>Force on</span>
-              </div>
-            </SelectItem>
-            <SelectItem value={SCREENSHOTS_OFF_VALUE}>
-              <div className="flex items-center gap-1.5">
-                <IconCameraOff size={14} className="text-muted-foreground" />
-                <span>Force off</span>
-              </div>
-            </SelectItem>
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+        onIcon={IconCamera}
+        offIcon={IconCameraOff}
+        onChange={(next) =>
+          updateTask({ id: taskId, screenshotsVideosEnabled: next })
+        }
+      />
+
+      <TriStateOverrideSelect
+        label="Audit"
+        groupLabel="Audit after run"
+        value={task?.runAuditEnabled}
+        inheritedDefault={
+          taskProject?.runAuditEnabled ?? task?.projectId !== undefined
+        }
+        onIcon={IconChecklist}
+        offIcon={IconClipboardOff}
+        onChange={(next) => updateTask({ id: taskId, runAuditEnabled: next })}
+      />
 
       <Select
         value={selectedProjectValue}
@@ -591,6 +566,14 @@ export function StatusFieldsSection({
           options={modelOptions}
           onValueChange={(nextModel) =>
             updateTask({ id: taskId, model: nextModel })
+          }
+          accounts={accounts}
+          accountId={task?.providerAccountId ?? null}
+          onAccountChange={(nextAccountId) =>
+            updateTask({
+              id: taskId,
+              providerAccountId: resolveAccountId(nextAccountId) ?? null,
+            })
           }
           disabled={!canEditModel}
           className="px-0"

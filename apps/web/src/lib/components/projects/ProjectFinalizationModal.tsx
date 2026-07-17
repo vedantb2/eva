@@ -11,7 +11,7 @@ import {
   Button,
   Spinner,
 } from "@conductor/ui";
-import { useMutation, useConvex } from "convex/react";
+import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -47,6 +47,9 @@ export function ProjectFinalizationModal({
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -65,6 +68,9 @@ export function ProjectFinalizationModal({
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
           },
         );
       }

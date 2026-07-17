@@ -5,7 +5,11 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { getAIModelProvider, normalizeAIModel } from "../validators";
+import {
+  getAIModelProvider,
+  normalizeAIModel,
+  reasoningLevelValidator,
+} from "../validators";
 import {
   execHandle,
   resolveSandboxContext,
@@ -21,10 +25,20 @@ import {
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import { uploadCallbackScriptBundle } from "./launch";
-import { resolveSandboxCredentials } from "../envVarResolver";
+import {
+  materializeAttachmentsToSandbox,
+  buildAttachmentPromptNote,
+} from "./attachments";
+import {
+  resolveSandboxCredentials,
+  resolveDaytonaApiKey,
+} from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
-import { resolveDaytonaApiKey } from "../envVarResolver";
-import { detectPackageManager, launchDevServerInBackground } from "./devServer";
+import {
+  detectPackageManager,
+  launchDevServerInBackground,
+  restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox,
+} from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 
 async function resolveDevCommandForPreview(
@@ -80,7 +94,6 @@ import {
 } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
-import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -462,26 +475,30 @@ export const getPreviewUrl = action({
     // Always front the service with the in-sandbox auth proxy so open-in-new-tab
     // is gated the same way for Preview, Computer, and Editor.
     //
-    // Vercel exposes a fixed 4-port set. Map:
-    //   app 3000  → proxy on 54321 (upstream 3000)
-    //   editor    → proxy on 8080  (upstream 18080)
-    //   desktop   → proxy on 6080  (upstream 16080)
+    // Vercel exposes a fixed 4-port set (VERCEL_DEFAULT_EXPOSED_PORTS). Map:
+    //   app/dev (3000, 5173, …) → proxy on 54321 (upstream = real listen port)
+    //   editor                  → proxy on 8080  (upstream 18080)
+    //   desktop                 → proxy on 6080  (upstream 16080)
+    // Calling sandbox.domain(5173) throws "No route for port 5173" because Vite
+    // is not in that fixed set — always resolve the public URL via the proxy
+    // port, even before the proxy process is up (route exists; upstream may 502).
     // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
-    let previewPort = args.port;
+    const isVercelDesktopOrEditor =
+      credentials.kind === "vercel" &&
+      (args.port === 6080 || args.port === 8080);
     const fixedVercelProxyPort =
-      credentials.kind === "vercel" && args.port === 3000
-        ? VERCEL_PREVIEW_PROXY_PORT
-        : credentials.kind === "vercel" &&
-            (args.port === 6080 || args.port === 8080)
+      credentials.kind !== "vercel"
+        ? undefined
+        : isVercelDesktopOrEditor
           ? args.port
-          : undefined;
-    const proxyTargetPort =
-      credentials.kind === "vercel" && args.port === 6080
-        ? VERCEL_DESKTOP_INTERNAL_PORT
-        : credentials.kind === "vercel" && args.port === 8080
-          ? VERCEL_EDITOR_INTERNAL_PORT
-          : args.port;
+          : VERCEL_PREVIEW_PROXY_PORT;
+    // Public route port: on Vercel app/dev previews this is always 54321, never
+    // the upstream listen port (e.g. Vite 5173).
+    let previewPort = fixedVercelProxyPort ?? args.port;
+    // Same upstream mapping used for the readiness probe above (Vercel desktop/
+    // editor listen on internal ports; everything else on args.port).
+    const proxyTargetPort = upstreamPort;
     const shouldStartPreviewProxy =
       credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
     if (ready && shouldStartPreviewProxy) {
@@ -1063,6 +1080,35 @@ export const pushSandboxBranch = internalAction({
   },
 });
 
+type TraitEnvInput = {
+  reasoningLevel?: string;
+  thinkingEnabled?: boolean;
+  use1mContext?: boolean;
+};
+
+function buildDaemonOptsSig(
+  normalizedModel: string,
+  allowedTools: string | undefined,
+  providerAccountId: string | undefined,
+  traits: TraitEnvInput,
+): string {
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${providerAccountId ?? ""}`;
+}
+
+function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (traits.reasoningLevel) {
+    env.AI_REASONING_EFFORT = traits.reasoningLevel;
+  }
+  if (traits.thinkingEnabled === false) {
+    env.AI_THINKING_ENABLED = "0";
+  }
+  if (traits.use1mContext === true) {
+    env.AI_CONTEXT_1M = "1";
+  }
+  return env;
+}
+
 /**
  * Pre-warm a session's Claude daemon so the user's FIRST message is warm.
  *
@@ -1083,7 +1129,11 @@ export const prewarmSessionDaemon = internalAction({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
     model: v.optional(v.string()),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
   },
   returns: v.object({ prewarmed: v.boolean() }),
@@ -1095,17 +1145,53 @@ export const prewarmSessionDaemon = internalAction({
     if (process.env.CLAUDE_ATTEMPT_MODE !== "sdk-daemon") {
       return { prewarmed: false };
     }
+    // Defense-in-depth: never touch the sandbox for a closed/stopping session.
+    // The exec below lazily resumes a stopped Vercel VM (SDK withResume), so a
+    // stray prewarm on a closed session would resurrect it. Callers already
+    // guard, but this is the last exec-on-sandbox boundary.
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (
+      !session ||
+      session.status === "closed" ||
+      session.status === "stopping"
+    ) {
+      return { prewarmed: false };
+    }
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       const sessionIdStr = String(args.sessionId);
       const fp = CALLBACK_SCRIPT_FINGERPRINT;
       const normalizedModel = normalizeAIModel(args.model);
+      // sdk-daemon is Claude-only. Launching this path for Cursor/Codex/Opencode
+      // falls through to the one-shot runner with an empty prompt and dies as
+      // "no parseable stream-json events". Non-Claude session turns are pushed
+      // via launchOnExistingSandbox from sessionExecuteWorkflow instead.
+      if (getAIModelProvider(normalizedModel) !== "claude") {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: skip non-claude provider sessionId=${args.sessionId} model=${normalizedModel}`,
+        );
+        return { prewarmed: false };
+      }
       // The daemon freezes its model + tool set when it boots, so a daemon
       // started for a different model/tools must be replaced — reusing it would
       // run the turn on the wrong model or without edit tools. The daemon writes
       // this exact signature to /tmp/eva-daemon.opts at boot (via EVA_DAEMON_OPTS
       // below), so the comparison is a literal string match with no drift.
-      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}`;
+      // Reasoning level and trait toggles are part of the signature: the daemon
+      // freezes its effort/thinking/context at boot, so changing them mid-session
+      // must respawn the daemon to take effect.
+      const optsSig = buildDaemonOptsSig(
+        normalizedModel,
+        args.allowedTools,
+        args.providerAccountId,
+        {
+          reasoningLevel: args.reasoningLevel,
+          thinkingEnabled: args.thinkingEnabled,
+          use1mContext: args.use1mContext,
+        },
+      );
       // Classify the sandbox daemon: alive (reuse), optsmismatch (model/tools
       // changed — kill + respawn), stale (new callback bundle — reupload without
       // killing; the daemon self-exits on the fp change), or cold (launch fresh).
@@ -1129,8 +1215,33 @@ export const prewarmSessionDaemon = internalAction({
         return { prewarmed: false };
       }
       if (aliveState === "optsmismatch") {
-        // Turns are serial per session, so a live daemon is idle here — safe to
-        // kill and respawn below with the requested model/tools.
+        // Re-read session: startExecute stages pendingTurn then schedules this
+        // prewarm. A wrong-model daemon cannot claim a model-tagged pendingTurn,
+        // but killing mid-execution (activeWorkflowId, no pendingTurn) would
+        // strand the workflow. Respawn when idle or when pendingTurn targets
+        // THIS model (wrong live daemon must be replaced).
+        const fresh = await ctx.runQuery(internal.sessions.getInternal, {
+          id: args.sessionId,
+        });
+        const pending = fresh?.pendingTurn;
+        const midTurnNoPending =
+          pending === undefined && fresh?.activeWorkflowId !== undefined;
+        if (midTurnNoPending) {
+          console.log(
+            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but mid-turn — deferring respawn sessionId=${args.sessionId}`,
+          );
+          return { prewarmed: false };
+        }
+        const pendingModel = pending?.model;
+        if (
+          pendingModel !== undefined &&
+          normalizeAIModel(pendingModel) !== normalizedModel
+        ) {
+          console.log(
+            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch, pendingTurn targets different model — deferring respawn sessionId=${args.sessionId} pending=${pendingModel} launch=${normalizedModel}`,
+          );
+          return { prewarmed: false };
+        }
         console.log(
           `[daytona][execution] prewarmSessionDaemon: model/tools changed — respawning daemon sessionId=${args.sessionId}`,
         );
@@ -1166,8 +1277,17 @@ export const prewarmSessionDaemon = internalAction({
         {
           model: normalizedModel,
           allowedTools: args.allowedTools,
-          extraEnvVars: { CLAUDE_PREWARM: "1", EVA_DAEMON_OPTS: optsSig },
+          extraEnvVars: {
+            CLAUDE_PREWARM: "1",
+            EVA_DAEMON_OPTS: optsSig,
+            ...buildTraitEnvVars({
+              reasoningLevel: args.reasoningLevel,
+              thinkingEnabled: args.thinkingEnabled,
+              use1mContext: args.use1mContext,
+            }),
+          },
           claudeSessionId,
+          providerAccountId: args.providerAccountId,
           enableMcp: true,
         },
       );
@@ -1194,6 +1314,9 @@ export const launchOnExistingSandbox = internalAction({
     completionMutation: v.string(),
     entityIdField: v.string(),
     model: v.optional(v.string()),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1202,6 +1325,8 @@ export const launchOnExistingSandbox = internalAction({
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1210,6 +1335,18 @@ export const launchOnExistingSandbox = internalAction({
       `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
     );
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+
+    // Download any user-attached input images into the sandbox and point the
+    // agent at them via a prompt note (the CLI providers read files by path).
+    let prompt = args.prompt;
+    if (args.attachmentStorageIds && args.attachmentStorageIds.length > 0) {
+      const paths = await materializeAttachmentsToSandbox(
+        ctx,
+        sandbox,
+        args.attachmentStorageIds,
+      );
+      prompt += buildAttachmentPromptNote(paths);
+    }
 
     await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     console.log(
@@ -1237,6 +1374,16 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
+    // Session-wide trait overrides. Only non-default values are sent from the UI;
+    // the runner maps effort to each provider's native control (see config.ts).
+    Object.assign(
+      extraEnvVars,
+      buildTraitEnvVars({
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+      }),
+    );
     extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 
     const normalizedModel = normalizeAIModel(args.model);
@@ -1250,7 +1397,7 @@ export const launchOnExistingSandbox = internalAction({
       ctx,
       sandbox,
       args.userId,
-      args.prompt,
+      prompt,
       args.completionMutation,
       args.entityIdField,
       args.entityId,
@@ -1262,6 +1409,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
+        providerAccountId: args.providerAccountId,
         enableMcp: true,
       },
     );

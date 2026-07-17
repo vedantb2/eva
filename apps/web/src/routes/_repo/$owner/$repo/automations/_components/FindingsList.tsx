@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
-import { Button, Badge, Checkbox, Spinner, cn } from "@conductor/ui";
+import type { Doc } from "@conductor/backend";
+import { Button, Checkbox, Spinner, cn } from "@conductor/ui";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -142,7 +142,7 @@ function FindingRow({
   const taskSegment = task ? entityPathSegment(task) : null;
   const taskUrl =
     taskSegment !== null
-      ? `/${repoOwner}/${repoName}/quick-tasks/${taskSegment}/activity`
+      ? `/${repoOwner}/${repoName}/quick-tasks/${taskSegment}`
       : null;
 
   return (

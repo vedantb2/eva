@@ -36,11 +36,12 @@ export function TaskDescription({
   description,
   canEditTaskText,
   taskId,
-  inline,
+  inline: _inline,
 }: {
   description: string | undefined;
   canEditTaskText: boolean;
   taskId: Id<"agentTasks">;
+  /** Kept for call-site compatibility; description no longer uses a nested max-height scroll. */
   inline: boolean;
 }) {
   const { basePath } = useRepo();
@@ -59,6 +60,8 @@ export function TaskDescription({
           projectId,
           assignedTo,
           screenshotsVideosEnabled,
+          runAuditEnabled,
+          providerAccountId,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -81,6 +84,12 @@ export function TaskDescription({
                   screenshotsVideosEnabled:
                     screenshotsVideosEnabled ?? undefined,
                 }
+              : {}),
+            ...(runAuditEnabled !== undefined
+              ? { runAuditEnabled: runAuditEnabled ?? undefined }
+              : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
               : {}),
           },
         );
@@ -123,7 +132,6 @@ export function TaskDescription({
         }
         className={cn(
           "min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
-          inline && !isEditing && "max-h-[40vh] overflow-y-auto scrollbar",
           !isEditing && canEditTaskText && "cursor-pointer hover:bg-muted/50",
         )}
       >

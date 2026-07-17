@@ -14,27 +14,11 @@ import {
 import { cn } from "../utils/cn";
 import { IconDots } from "@tabler/icons-react";
 import { ProviderIcon } from "./provider-icon";
-
-export interface ModelOption<TModel extends string = string> {
-  id: TModel;
-  provider: string;
-  label: string;
-}
-
-function getProviderLabel(provider: string): string {
-  switch (provider) {
-    case "claude":
-      return "Claude";
-    case "codex":
-      return "Codex";
-    case "opencode":
-      return "Opencode";
-    case "cursor":
-      return "Cursor";
-    default:
-      return provider;
-  }
-}
+import {
+  type ModelOption,
+  findModelOption,
+  getProviderLabel,
+} from "./model-picker";
 
 function getProviderOptions<TModel extends string>(
   options: ReadonlyArray<ModelOption<TModel>>,
@@ -50,14 +34,6 @@ function getProviderOptions<TModel extends string>(
     });
   }
   return providers;
-}
-
-function findModelOption<TModel extends string>(
-  value: TModel,
-  options: ReadonlyArray<ModelOption<TModel>>,
-): ModelOption<TModel> | null {
-  const option = options.find((entry) => entry.id === value);
-  return option ?? options[0] ?? null;
 }
 
 function getProviderModels<TModel extends string>(
@@ -117,9 +93,9 @@ export function PromptInputSettings<TModel extends string>({
                   <DropdownMenuRadioGroup
                     key={provider.id}
                     value={selectedModel?.id}
-                    onValueChange={(value) => {
+                    onValueChange={(nextValue) => {
                       const option = options.find(
-                        (entry) => entry.id === value,
+                        (entry) => entry.id === nextValue,
                       );
                       if (option) {
                         onModelChange(option.id);
@@ -143,9 +119,9 @@ export function PromptInputSettings<TModel extends string>({
                   <DropdownMenuSubContent>
                     <DropdownMenuRadioGroup
                       value={selectedModel?.id}
-                      onValueChange={(value) => {
+                      onValueChange={(nextValue) => {
                         const option = options.find(
-                          (entry) => entry.id === value,
+                          (entry) => entry.id === nextValue,
                         );
                         if (option) {
                           onModelChange(option.id);
@@ -167,99 +143,6 @@ export function PromptInputSettings<TModel extends string>({
             })}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-export interface ModelSelectProps<TModel extends string = string> {
-  value: TModel;
-  onValueChange: (model: TModel) => void;
-  options: ReadonlyArray<ModelOption<TModel>>;
-  disabled?: boolean;
-  className?: string;
-}
-
-export function ModelSelect<TModel extends string>({
-  value,
-  onValueChange,
-  options,
-  disabled,
-  className,
-}: ModelSelectProps<TModel>) {
-  const selectedModel = findModelOption(value, options);
-  const providerOptions = getProviderOptions(options);
-
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-1.5 rounded-md h-7 px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 transition-colors",
-            className,
-          )}
-          disabled={disabled}
-        >
-          <ProviderIcon
-            provider={selectedModel?.provider ?? "claude"}
-            size={14}
-          />
-          {selectedModel
-            ? `${getProviderLabel(selectedModel.provider)} / ${selectedModel.label}`
-            : "Select model"}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {providerOptions.map((provider) => {
-          const models = getProviderModels(options, provider.id);
-          if (providerOptions.length === 1) {
-            return (
-              <DropdownMenuRadioGroup
-                key={provider.id}
-                value={selectedModel?.id}
-                onValueChange={(modelId) => {
-                  const option = options.find((entry) => entry.id === modelId);
-                  if (option) {
-                    onValueChange(option.id);
-                  }
-                }}
-              >
-                {models.map((option) => (
-                  <DropdownMenuRadioItem key={option.id} value={option.id}>
-                    {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            );
-          }
-          return (
-            <DropdownMenuSub key={provider.id}>
-              <DropdownMenuSubTrigger>
-                <ProviderIcon provider={provider.id} size={14} />
-                {provider.label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={selectedModel?.id}
-                  onValueChange={(modelId) => {
-                    const option = options.find(
-                      (entry) => entry.id === modelId,
-                    );
-                    if (option) {
-                      onValueChange(option.id);
-                    }
-                  }}
-                >
-                  {models.map((option) => (
-                    <DropdownMenuRadioItem key={option.id} value={option.id}>
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          );
-        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

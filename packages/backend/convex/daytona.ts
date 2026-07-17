@@ -38,7 +38,13 @@ export {
   toggleCodeServer,
   toggleDesktopServer,
   launchChromeInDesktop,
+  readSandboxFile,
 } from "./_daytona/services";
+
+export {
+  reconcileBackgroundProcesses,
+  killBackgroundProcess,
+} from "./_daytona/backgroundProcesses";
 
 export {
   launchAudit,
@@ -46,6 +52,8 @@ export {
   launchSelectedAuditFixes,
   runSessionAudit,
 } from "./_daytona/audit";
+
+export { launchProof } from "./_daytona/proof";
 
 export {
   startSessionSandbox,

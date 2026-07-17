@@ -370,7 +370,7 @@ export const completeRun = internalMutation({
       for (const userId of notifyUsers) {
         await createNotification(ctx, {
           userId,
-          type: "run_completed",
+          type: args.success ? "run_completed" : "run_failed",
           title: `${scopeLabel} ${statusText}: ${task.title}`,
           repoId: task.repoId,
           projectId: task.projectId,

@@ -4,7 +4,12 @@ import { codexParseLine } from "../providers/codex.js";
 import { cursorParseLine } from "../providers/cursor.js";
 import { opencodeParseLine } from "../providers/opencode.js";
 import { callbackState as S } from "../runtime/state.js";
-import type { CanonicalEvent, JsonObject, ProgressStep } from "../types.js";
+import type {
+  CanonicalEvent,
+  JsonObject,
+  ProgressStep,
+  TodoItem,
+} from "../types.js";
 import { tryParseJson } from "../utils.js";
 
 export {
@@ -17,16 +22,68 @@ export {
   toolCallToStep,
 } from "./toolSteps.js";
 
+/** Flips one step to complete and swaps its in-progress label for the past-tense one. */
+function markStepComplete(step: ProgressStep): void {
+  step.status = "complete";
+  if (completedLabels[step.label]) {
+    step.label = completedLabels[step.label];
+  } else if (step.label.startsWith("Using ") && step.label.endsWith("...")) {
+    step.label = "Used " + step.label.slice(6, -3);
+  }
+}
+
 /** Marks the last accumulated step as complete and updates its label. */
 export function markLastComplete(): void {
   if (S.accumulatedSteps.length === 0) return;
-  const last = S.accumulatedSteps[S.accumulatedSteps.length - 1];
-  last.status = "complete";
-  if (completedLabels[last.label]) {
-    last.label = completedLabels[last.label];
-  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
-    last.label = "Used " + last.label.slice(6, -3);
+  markStepComplete(S.accumulatedSteps[S.accumulatedSteps.length - 1]);
+}
+
+/**
+ * Completes the step whose `toolUseId` matches this tool_result (Claude sets it
+ * on every tool_use). Falls back to the last step for providers/steps without an
+ * id. Matching by id is what lets a subagent's parent `Agent` step stay active
+ * until its own tool_result, rather than being closed by its first child.
+ */
+function completeToolStep(trackingId?: string): void {
+  if (trackingId) {
+    for (let i = S.accumulatedSteps.length - 1; i >= 0; i--) {
+      const step = S.accumulatedSteps[i];
+      if (step.toolUseId === trackingId) {
+        markStepComplete(step);
+        return;
+      }
+    }
   }
+  markLastComplete();
+}
+
+/** Short "N of M done" summary used as the todos step's fallback detail. */
+function summarizeTodos(todos: TodoItem[]): string {
+  const done = todos.filter((t) => t.status === "completed").length;
+  return `${done} of ${todos.length} done`;
+}
+
+/**
+ * Applies a todo checklist snapshot. TodoWrite/TaskCreate/TaskUpdate fire many
+ * times per turn; rather than one activity row per call, we keep ONE evolving
+ * "todos" step and update it in place so the UI shows a single live checklist.
+ */
+function applyTodosSnapshot(todos: TodoItem[]): void {
+  const existing = S.accumulatedSteps.find((step) => step.type === "todos");
+  if (existing) {
+    existing.todos = todos;
+    existing.detail = summarizeTodos(todos);
+    return;
+  }
+  markLastComplete();
+  S.accumulatedSteps.push({
+    type: "todos",
+    label: "Updating tasks...",
+    detail: summarizeTodos(todos),
+    todos,
+    status: "active",
+  });
+  S.lastStepType = "tool";
 }
 
 /** Thinking is a transient liveness signal, not a durable activity row. */
@@ -49,7 +106,17 @@ function pushProgressStep(step: ProgressStep): void {
     updateThinkingStep(step.label, step.detail);
     return;
   }
-  markLastComplete();
+  // When pushing the FIRST step inside a subagent, don't auto-complete its
+  // parent `Agent` step — the parent stays active until its own tool_result
+  // (completed by toolUseId). Sibling children still close each other normally.
+  const last = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+  const isFirstChildUnderParent =
+    step.parentToolUseId !== undefined &&
+    last !== undefined &&
+    last.toolUseId === step.parentToolUseId;
+  if (!isFirstChildUnderParent) {
+    markLastComplete();
+  }
   S.accumulatedSteps.push(step);
   S.lastStepType = "tool";
 }
@@ -81,7 +148,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         }
         break;
       case "complete_tool":
-        markLastComplete();
+        completeToolStep(ev.trackingId);
         if (ev.trackingId !== undefined) {
           S.codexToolItemIds.delete(ev.trackingId);
         }
@@ -112,6 +179,9 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         break;
       case "set_pending_question":
         S.pendingQuestionData = ev.data;
+        break;
+      case "set_todos":
+        applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         S.activeCodexThreadId = ev.threadId;

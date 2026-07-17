@@ -9,6 +9,7 @@ import {
   trackProjectChatWorkflow,
   trackSessionWorkflow,
 } from "../workflowWatchdog";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -24,7 +25,7 @@ export async function startNextQueuedSessionMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", sessionId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", sessionId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -64,6 +65,12 @@ export async function startNextQueuedSessionMessage(
     timestamp: now,
     userId: nextMessage.userId,
     mode: nextMessage.mode,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {
@@ -75,12 +82,21 @@ export async function startNextQueuedSessionMessage(
         message: nextMessage.content,
         mode: nextMessage.mode,
         model: nextMessage.model,
+        reasoningLevel: nextMessage.reasoningLevel,
+        thinkingEnabled: nextMessage.thinkingEnabled,
+        use1mContext: nextMessage.use1mContext,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
     );
 
-    await ctx.db.patch(sessionId, { updatedAt: now });
+    // Keep the session's persisted account in step with the dequeued message so
+    // a concurrent page-open prewarm injects the same credential.
+    await ctx.db.patch(sessionId, {
+      updatedAt: now,
+      providerAccountId: nextMessage.providerAccountId,
+    });
     await trackSessionWorkflow(
       ctx,
       sessionId,
@@ -117,9 +133,7 @@ export async function startNextQueuedDesignMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) =>
-      q.eq("parentId", designSessionId),
-    )
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", designSessionId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -136,6 +150,12 @@ export async function startNextQueuedDesignMessage(
     timestamp: now,
     userId: nextMessage.userId,
     personaId: nextMessage.personaId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   const assistantMessageId = await ctx.db.insert("messages", {
@@ -154,6 +174,10 @@ export async function startNextQueuedDesignMessage(
         designSessionId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        reasoningLevel: nextMessage.reasoningLevel,
+        thinkingEnabled: nextMessage.thinkingEnabled,
+        use1mContext: nextMessage.use1mContext,
+        providerAccountId: nextMessage.providerAccountId,
         personaId: nextMessage.personaId,
         userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,
@@ -192,7 +216,7 @@ export async function startNextQueuedProjectChatMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", projectId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", projectId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -208,6 +232,12 @@ export async function startNextQueuedProjectChatMessage(
     content: nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {
@@ -218,6 +248,10 @@ export async function startNextQueuedProjectChatMessage(
         projectId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        reasoningLevel: nextMessage.reasoningLevel,
+        thinkingEnabled: nextMessage.thinkingEnabled,
+        use1mContext: nextMessage.use1mContext,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
       },
     );
@@ -258,7 +292,7 @@ export async function startNextQueuedTaskChatMessage(
 
   const nextMessage = await ctx.db
     .query("queuedMessages")
-    .withIndex("by_parent_and_created", (q) => q.eq("parentId", taskId))
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", taskId))
     .order("asc")
     .first();
   if (!nextMessage) {
@@ -274,6 +308,12 @@ export async function startNextQueuedTaskChatMessage(
     content: nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {
@@ -284,6 +324,10 @@ export async function startNextQueuedTaskChatMessage(
         taskId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        reasoningLevel: nextMessage.reasoningLevel,
+        thinkingEnabled: nextMessage.thinkingEnabled,
+        use1mContext: nextMessage.use1mContext,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
       },
     );

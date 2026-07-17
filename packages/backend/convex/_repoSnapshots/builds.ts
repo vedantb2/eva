@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
@@ -30,6 +34,27 @@ async function resolveBuildKind(
 ): Promise<"base" | "seeded"> {
   const repo = await ctx.db.get(repoId);
   return (repo?.stopCommands?.length ?? 0) > 0 ? "seeded" : "base";
+}
+
+/**
+ * If a build is currently running for a snapshot, either expire it (when stale)
+ * or report it as blocking. Returns true only when a non-stale build is still
+ * running, in which case the caller must not start a new build.
+ */
+async function expireStaleBuild(
+  ctx: MutationCtx,
+  runningBuild: Doc<"snapshotBuilds"> | null,
+): Promise<boolean> {
+  if (!runningBuild || runningBuild.status !== "running") return false;
+  if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
+    await ctx.db.patch(runningBuild._id, {
+      status: "error",
+      error: "Build timed out (exceeded 20 minutes)",
+      completedAt: Date.now(),
+    });
+    return false;
+  }
+  return true;
 }
 
 type SeededAppReturn = {
@@ -218,17 +243,7 @@ export const triggerScheduledBuild = internalMutation({
       .order("desc")
       .first();
 
-    if (runningBuild && runningBuild.status === "running") {
-      if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
-        await ctx.db.patch(runningBuild._id, {
-          status: "error",
-          error: "Build timed out (exceeded 20 minutes)",
-          completedAt: Date.now(),
-        });
-      } else {
-        return null;
-      }
-    }
+    if (await expireStaleBuild(ctx, runningBuild)) return null;
 
     const now = Date.now();
     const kind = await resolveBuildKind(ctx, config.repoId);
@@ -300,34 +315,53 @@ export const startBuild = authMutation({
   },
   returns: v.id("snapshotBuilds"),
   handler: async (ctx, args) => {
-    const config = await ctx.db.get(args.repoSnapshotId);
-    if (!config) throw new Error("Snapshot config not found");
+    const sharedConfig = await ctx.db.get(args.repoSnapshotId);
+    if (!sharedConfig) throw new Error("Snapshot config not found");
 
-    const runningBuild = await ctx.db
-      .query("snapshotBuilds")
-      .withIndex("by_repo_snapshot", (q) =>
-        q.eq("repoSnapshotId", args.repoSnapshotId),
-      )
-      .order("desc")
-      .first();
-
-    if (runningBuild && runningBuild.status === "running") {
-      if (Date.now() - runningBuild.startedAt > STALE_BUILD_MS) {
-        await ctx.db.patch(runningBuild._id, {
-          status: "error",
-          error: "Build timed out (exceeded 20 minutes)",
-          completedAt: Date.now(),
-        });
+    // Lazy-migrate shared monorepo configs onto the triggering app so
+    // eprocurement builds don't share history / baseSnapshotId with apps/web.
+    let config = sharedConfig;
+    const effectiveAppRepoId = args.appRepoId ?? sharedConfig.repoId;
+    if (effectiveAppRepoId !== sharedConfig.repoId) {
+      const appSpecific = await ctx.db
+        .query("repoSnapshots")
+        .withIndex("by_repo", (q) => q.eq("repoId", effectiveAppRepoId))
+        .first();
+      if (appSpecific) {
+        config = appSpecific;
       } else {
-        throw new Error("A build is already running for this snapshot");
+        const now = Date.now();
+        const id = await ctx.db.insert("repoSnapshots", {
+          repoId: effectiveAppRepoId,
+          snapshotName: `snapshot-${effectiveAppRepoId}`,
+          schedule: sharedConfig.schedule,
+          enabled: sharedConfig.enabled ?? true,
+          workflowRef: sharedConfig.workflowRef,
+          buildCommands: sharedConfig.buildCommands,
+          // Do not copy baseSnapshotId — that may be another app's Vercel snap.
+          createdAt: now,
+          updatedAt: now,
+        });
+        const created = await ctx.db.get(id);
+        if (!created) throw new Error("Failed to create app snapshot config");
+        config = created;
       }
     }
 
-    const effectiveAppRepoId = args.appRepoId ?? config.repoId;
+    const runningBuild = await ctx.db
+      .query("snapshotBuilds")
+      .withIndex("by_repo_snapshot", (q) => q.eq("repoSnapshotId", config._id))
+      .order("desc")
+      .first();
+
+    if (await expireStaleBuild(ctx, runningBuild)) {
+      throw new Error("A build is already running for this snapshot");
+    }
+
     const now = Date.now();
     const kind = await resolveBuildKind(ctx, effectiveAppRepoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
-      repoSnapshotId: args.repoSnapshotId,
+      repoSnapshotId: config._id,
       status: "running",
       triggeredBy: "manual",
       kind,
@@ -337,8 +371,89 @@ export const startBuild = authMutation({
 
     await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
-      repoSnapshotId: args.repoSnapshotId,
-      appRepoId: args.appRepoId,
+      repoSnapshotId: config._id,
+      appRepoId: effectiveAppRepoId,
+    });
+
+    return buildId;
+  },
+});
+
+/**
+ * Internal entry for ops / agent loops: start a snapshot build for a specific
+ * app repo (creates a per-app config from a shared monorepo config if needed).
+ */
+export const startBuildForRepo = internalMutation({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.id("snapshotBuilds"),
+  handler: async (ctx, args) => {
+    const appSpecific = await ctx.db
+      .query("repoSnapshots")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+
+    let repoSnapshotId = appSpecific?._id;
+    if (!repoSnapshotId) {
+      const repo = await ctx.db.get(args.repoId);
+      if (!repo) throw new Error("Repo not found");
+      const siblings = await ctx.db
+        .query("githubRepos")
+        .withIndex("by_owner_and_name", (q) =>
+          q.eq("owner", repo.owner).eq("name", repo.name),
+        )
+        .collect();
+      let shared: Doc<"repoSnapshots"> | null = null;
+      for (const sibling of siblings) {
+        if (sibling._id === args.repoId) continue;
+        const siblingSnapshot = await ctx.db
+          .query("repoSnapshots")
+          .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+          .first();
+        if (siblingSnapshot) {
+          shared = siblingSnapshot;
+          break;
+        }
+      }
+      if (!shared) throw new Error("No snapshot config found for this repo");
+      const now = Date.now();
+      repoSnapshotId = await ctx.db.insert("repoSnapshots", {
+        repoId: args.repoId,
+        snapshotName: `snapshot-${args.repoId}`,
+        schedule: shared.schedule,
+        enabled: shared.enabled ?? true,
+        workflowRef: shared.workflowRef,
+        buildCommands: shared.buildCommands,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const runningBuild = await ctx.db
+      .query("snapshotBuilds")
+      .withIndex("by_repo_snapshot", (q) =>
+        q.eq("repoSnapshotId", repoSnapshotId),
+      )
+      .order("desc")
+      .first();
+    if (await expireStaleBuild(ctx, runningBuild)) {
+      throw new Error("A build is already running for this snapshot");
+    }
+
+    const now = Date.now();
+    const kind = await resolveBuildKind(ctx, args.repoId);
+    const buildId = await ctx.db.insert("snapshotBuilds", {
+      repoSnapshotId,
+      status: "running",
+      triggeredBy: "manual",
+      kind,
+      logs: "",
+      startedAt: now,
+    });
+
+    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
+      buildId,
+      repoSnapshotId,
+      appRepoId: args.repoId,
     });
 
     return buildId;

@@ -206,7 +206,7 @@ export function QuickTaskCard({
               className="mt-0.5 flex-shrink-0"
             />
           )}
-          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground">
+          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {taskNumber !== undefined && (
               <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
                 #{taskNumber}

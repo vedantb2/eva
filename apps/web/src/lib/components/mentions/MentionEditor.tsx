@@ -86,7 +86,6 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   renderMentionChipHoverCard?: (id: string) => ReactNode;
   /** Skill preview on /skill chips. */
   renderSkillChipHoverCard?: (id: string) => ReactNode;
-  maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
   onBlur?: () => void;
@@ -245,7 +244,6 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   mentionChipHoverCard = false,
   renderMentionChipHoverCard,
   renderSkillChipHoverCard,
-  maxItems = 8,
   dataSlot,
   ariaLabel,
   onBlur,
@@ -426,15 +424,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     [mentionMap, skillMap],
   );
 
+  // Full filtered lists — popup scrolls; do not cap (callers need every
+  // doc/skill/person available, not an alphabetical first-N subset).
   const activeSlashItems = slashItems
     .filter((item) => filterSlashItem(item, trigger.query))
-    .sort((a, b) => a.label.localeCompare(b.label))
-    .slice(0, maxItems);
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const activeMentionItems = items
     .filter((item) => filterItem(item, trigger.query))
-    .sort((a, b) => a.label.localeCompare(b.label))
-    .slice(0, maxItems);
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const popupItems =
     trigger.kind === "slash" ? activeSlashItems : activeMentionItems;

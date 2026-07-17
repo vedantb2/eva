@@ -82,6 +82,12 @@ export function SessionDetailClient({
     }
   };
 
+  // Must stay above loading/null early returns — Phase 3 review comments
+  // introduced this hook after them and tripped React #310 on session resolve.
+  const openDiffsTab = useCallback(() => {
+    onSandboxTabChange("diffs");
+  }, [onSandboxTabChange]);
+
   if (session === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -97,10 +103,6 @@ export function SessionDetailClient({
   }
 
   const isSandboxActive = session.status === "active";
-
-  const openDiffsTab = useCallback(() => {
-    onSandboxTabChange("diffs");
-  }, [onSandboxTabChange]);
 
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>

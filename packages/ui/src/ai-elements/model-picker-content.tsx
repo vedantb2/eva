@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { IconCheck, IconSearch } from "@tabler/icons-react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "../ui/command";
@@ -15,6 +15,7 @@ import { ProviderIcon } from "./provider-icon";
 import {
   type ModelAccount,
   type ModelOption,
+  formatModelDisplayLabel,
   getProviderLabel,
 } from "./model-picker-types";
 
@@ -161,17 +162,15 @@ export function ModelPickerContent<TModel extends string>({
   const [search, setSearch] = useState("");
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
+  const [indicatorTop, setIndicatorTop] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const railContentRef = useRef<HTMLDivElement>(null);
 
   const isSearching = search.trim().length > 0;
 
   const selectedInstance =
     instances.find((instance) => instance.key === selectedInstanceKey) ??
     instances[0];
-
-  const selectedRailIndex = selectedInstance
-    ? instances.findIndex((instance) => instance.key === selectedInstance.key)
-    : -1;
 
   const activeCompositeKey = useMemo(() => {
     const selected = options.find((option) => option.id === value);
@@ -200,7 +199,7 @@ export function ModelPickerContent<TModel extends string>({
         out.push({
           compositeKey: toCompositeKey(instance.key, option.id),
           modelId: option.id,
-          modelLabel: option.label,
+          modelLabel: formatModelDisplayLabel(option.provider, option.label),
           instance,
         });
       }
@@ -208,30 +207,59 @@ export function ModelPickerContent<TModel extends string>({
     return out;
   }, [instances, isSearching, options, selectedInstance]);
 
-  useEffect(() => {
-    searchInputRef.current?.focus({ preventScroll: true });
-  }, []);
-
   const focusSearch = () => {
     searchInputRef.current?.focus({ preventScroll: true });
   };
+
+  // Match t3code: focus survives popover open + any later focus steal.
+  useLayoutEffect(() => {
+    focusSearch();
+    const frame = window.requestAnimationFrame(() => {
+      focusSearch();
+    });
+    const timeout = window.setTimeout(() => {
+      focusSearch();
+    }, 0);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
+
+  // Measure the active rail button — hardcoded spacing drifts vs real layout.
+  useLayoutEffect(() => {
+    if (isSearching) {
+      setIndicatorTop(null);
+      return;
+    }
+    const content = railContentRef.current;
+    if (!content || !selectedInstance) {
+      setIndicatorTop(null);
+      return;
+    }
+    const selectedButton = content.querySelector(
+      `[data-model-picker-instance="${CSS.escape(selectedInstance.key)}"]`,
+    );
+    if (!(selectedButton instanceof HTMLElement)) {
+      setIndicatorTop(null);
+      return;
+    }
+    const contentRect = content.getBoundingClientRect();
+    const buttonRect = selectedButton.getBoundingClientRect();
+    setIndicatorTop(
+      buttonRect.top -
+        contentRect.top +
+        content.scrollTop +
+        buttonRect.height / 2 -
+        10,
+    );
+  }, [instances, isSearching, selectedInstance]);
 
   const updateScrollFades = (element: HTMLElement) => {
     const { scrollTop, scrollHeight, clientHeight } = element;
     setShowTopFade(scrollTop > 2);
     setShowBottomFade(scrollTop + clientHeight < scrollHeight - 2);
   };
-
-  // Rail button: w-12 gutter, px-1 → 40px square; gap-1 → 4px between.
-  const RAIL_BUTTON = 40;
-  const RAIL_GAP = 4;
-  const RAIL_PAD_TOP = 2;
-  const indicatorTop =
-    selectedRailIndex >= 0
-      ? RAIL_PAD_TOP +
-        selectedRailIndex * (RAIL_BUTTON + RAIL_GAP) +
-        (RAIL_BUTTON - 20) / 2
-      : null;
 
   const providerCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -249,7 +277,10 @@ export function ModelPickerContent<TModel extends string>({
       {!isSearching ? (
         <TooltipProvider delayDuration={300}>
           <div className="w-12 shrink-0 overflow-hidden border-r border-border bg-muted/30">
-            <div className="relative flex flex-col gap-1 px-1 pb-1 pt-0.5">
+            <div
+              ref={railContentRef}
+              className="relative flex flex-col gap-1 px-1 pb-1 pt-0.5"
+            >
               {indicatorTop !== null ? (
                 <div
                   className="pointer-events-none absolute right-0 z-10 h-5 w-[3px] rounded-l-full bg-primary transition-[top] duration-200 ease-out"
@@ -266,11 +297,14 @@ export function ModelPickerContent<TModel extends string>({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
+                        data-model-picker-instance={instance.key}
                         className="relative isolate flex aspect-square w-full cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted"
                         aria-label={instance.label}
                         onClick={() => {
                           setSelectedInstanceKey(instance.key);
-                          focusSearch();
+                          window.requestAnimationFrame(() => {
+                            focusSearch();
+                          });
                         }}
                       >
                         <InstanceIcon
@@ -292,8 +326,13 @@ export function ModelPickerContent<TModel extends string>({
         </TooltipProvider>
       ) : null}
 
+      {/*
+        Key only on the rail instance — NOT on isSearching. Remounting when the
+        first search character lands unmounts the input and drops focus (the
+        "click twice" bug). Row filtering already switches search vs rail views.
+      */}
       <Command
-        key={isSearching ? "all" : selectedInstanceKey}
+        key={selectedInstanceKey}
         className="flex min-w-0 flex-1 flex-col rounded-none border-0 bg-muted/40"
         defaultValue={activeCompositeKey || undefined}
       >
@@ -309,6 +348,8 @@ export function ModelPickerContent<TModel extends string>({
               onValueChange={setSearch}
               placeholder="Search models..."
               className="h-auto w-full bg-transparent py-0 text-sm outline-none placeholder:text-muted-foreground"
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
             />
           </div>
         </div>

@@ -27,6 +27,18 @@ export function getProviderLabel(provider: string): string {
   }
 }
 
+/** t3code-style list/trigger label: "Claude Opus", not bare "Opus". */
+export function formatModelDisplayLabel(
+  provider: string,
+  label: string,
+): string {
+  const providerLabel = getProviderLabel(provider);
+  if (label.toLowerCase().startsWith(providerLabel.toLowerCase())) {
+    return label;
+  }
+  return `${providerLabel} ${label}`;
+}
+
 export function findModelOption<TModel extends string>(
   value: TModel,
   options: ReadonlyArray<ModelOption<TModel>>,

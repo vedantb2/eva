@@ -15,11 +15,12 @@ import {
   type ModelAccount,
   type ModelOption,
   findModelOption,
+  formatModelDisplayLabel,
   getProviderLabel,
 } from "./model-picker-types";
 
 export type { ModelAccount, ModelOption };
-export { findModelOption, getProviderLabel };
+export { findModelOption, formatModelDisplayLabel, getProviderLabel };
 
 export interface ModelSelectProps<TModel extends string = string> {
   value: TModel;
@@ -117,7 +118,12 @@ export function ModelSelect<TModel extends string>({
             />
           )}
           <span className="min-w-0 flex-1 truncate text-left">
-            {selectedModel?.label ?? "Select model"}
+            {selectedModel
+              ? formatModelDisplayLabel(
+                  selectedModel.provider,
+                  selectedModel.label,
+                )
+              : "Select model"}
           </span>
           <IconChevronDown
             size={12}
@@ -129,6 +135,11 @@ export function ModelSelect<TModel extends string>({
       <PopoverContent
         align="start"
         className="w-[25rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none"
+        onOpenAutoFocus={(event) => {
+          // Let ModelPickerContent own focus (search input); Radix would
+          // otherwise park it on the first focusable and fight our layout effect.
+          event.preventDefault();
+        }}
       >
         <ModelPickerContent
           value={value}

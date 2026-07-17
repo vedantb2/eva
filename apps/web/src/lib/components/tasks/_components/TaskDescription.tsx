@@ -157,7 +157,7 @@ export function TaskDescription({
           <MarkdownMentionText
             text={desc}
             repoBasePath={basePath}
-            className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+            className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_img]:max-h-80 [&_img]:w-auto [&_img]:max-w-full [&_img]:object-contain [&_video]:max-h-80 [&_video]:w-auto [&_video]:max-w-full"
           />
         ) : (
           <p className="text-sm text-muted-foreground/60">

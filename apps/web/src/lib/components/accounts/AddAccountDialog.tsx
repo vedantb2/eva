@@ -217,7 +217,14 @@ export function AddAccountDialog({
                   />
                 ) : (
                   <Input
-                    type="password"
+                    // Plain text (not password): password managers / some
+                    // browsers block paste into type=password; these are API
+                    // tokens, not login passwords.
+                    type="text"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-form-type="other"
                     value={values[field.key] ?? ""}
                     onChange={(event) =>
                       setValues((prev) => ({

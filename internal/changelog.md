@@ -1,5 +1,12 @@
 # Changelog
 
+## Separate proof capture step after implementation - 2026-07-17
+
+- Task runs now code on the selected task model, then (when screenshots/videos are enabled) run a dedicated proof-capture agent on `proofModel` after push and before PR creation.
+- Proof soft-fails like audit (implementation success is preserved). The sandbox callback persists proof media before firing completion so PR enrichment sees the captures.
+- Restored the Proof Capture Model settings control with accurate copy. Conflict-resolution runs still skip proof.
+- Reason for change: using `proofModel` for the whole coding turn silently ignored Claude (etc.) task picks whenever proof was enabled.
+
 ## Coding-agent auth as paste-in provider slots in env settings - 2026-07-17
 
 - The environment-variables settings (team and repo) now show a "Coding agents" section above the free-form table with a dedicated slot per agent — Claude Code, Codex, OpenCode, Cursor — each with its brand logo. An unconfigured slot offers a single paste-in field; a configured one shows a "Configured" badge with reveal/copy/replace/remove.

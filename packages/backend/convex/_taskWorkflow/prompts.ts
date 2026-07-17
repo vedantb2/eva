@@ -66,7 +66,6 @@ export function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
-  screenshotsVideosEnabled: boolean,
   repoOwner: string,
   repoName: string,
   changeRequests?: ChangeRequestPromptInput[],
@@ -104,31 +103,6 @@ ${changeRequests.map((r, i) => `${i + 1}. ${r.promptText}`).join("\n")}
 
 IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.${previousRunSection}\n`
       : "";
-  const proofOfCompletionSection = screenshotsVideosEnabled
-    ? `
-## Proof of Completion (REQUIRED):
-After committing, capture visual proof of your changes using agent-browser.
-The platform handles the branch push after you finish successfully.
-Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).
-Do NOT mention proof capture in your response or commit message.
-
-### How to decide WHAT to capture:
-- Think about which page/route your changes affect. If you edited a settings form, navigate to /settings. If you changed a dashboard widget, go to /dashboard.
-- Look at the files you modified — map them to the routes/pages they render.
-- Always navigate to the SPECIFIC page that demonstrates your change, never just screenshot the homepage or a random page.
-${buildUiProofCaptureHint(uiTask)}
-
-### Steps (default: video):
-1. Run \`agent-browser set viewport 1920 1080\`
-2. Start dev server in background, wait for ready
-3. Navigate to the page that shows your change: \`agent-browser open http://localhost:3000/<relevant-route>\`
-4. Wait minimum 5 seconds after each navigation for the page to fully render before capturing or navigating further.
-5. Record a video walkthrough: \`agent-browser record start recordings/proof.webm\`, navigate through each affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
-6. Screenshot fallback only when video is impractical (e.g. a tiny copy tweak with no meaningful interaction to show): \`agent-browser screenshot\` and save to screenshots/ in repo root. If in doubt, record a video.
-7. **Verify proof quality**: Review the recording (or screenshot) output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
-8. Kill the dev server
-If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot\` anyway.`
-    : "";
 
   const projectSection = projectContext
     ? `## Project: ${projectContext.title}${projectContext.description ? `\n${projectContext.description}` : ""}
@@ -146,16 +120,64 @@ ${changeRequestSection}
 ${buildImplementationSteps(typecheckCommand, commitMessage, branchName, uiTask)}
 
 ${buildSummarySection(uiTask)}
-${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/test/dev commands (except typecheck in step 3, and the dev server for proof when proof capture is enabled)
+- Do NOT create .md plan files or run lint/test/dev commands (except typecheck in step 3)
 - Do NOT commit or push if typecheck fails. Fix the errors first.
 - Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
+- Do NOT capture screenshots or videos — a separate proof step runs after your commit.
 - Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - Do NOT pipe long-running validation commands through \`tail\`; redirect output to a log file, wait for the command to exit, then tail the log.
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
+}
+
+/** Builds a proof-only prompt: capture visual evidence after implementation (no code edits). */
+export function buildProofPrompt(
+  task: { title: string; description?: string },
+  rootDirectory: string,
+  implementationSummary?: string | null,
+  systemPrompt?: string,
+): string {
+  const uiTask = detectUiImplementationTask({
+    title: task.title,
+    description: task.description,
+  });
+  const summarySection = implementationSummary?.trim()
+    ? `\n## Implementation summary (from the coding agent):\n${implementationSummary.trim()}\n`
+    : "";
+
+  return `You are in PROOF CAPTURE MODE. Do NOT edit source code, commit, or push.
+
+The implementation is already committed on this branch. Your only job is to capture visual proof of the change using agent-browser.
+
+## Task: ${task.title}
+## Description: ${task.description || "No description provided"}
+${summarySection}
+## How to decide WHAT to capture:
+- Think about which page/route the changes affect. If a settings form was edited, navigate to /settings. If a dashboard widget changed, go to /dashboard.
+- Look at recently modified files — map them to the routes/pages they render.
+- Always navigate to the SPECIFIC page that demonstrates the change, never just screenshot the homepage or a random page.
+${buildUiProofCaptureHint(uiTask)}
+
+## Steps (default: video):
+1. Clear any leftover captures: \`rm -rf recordings screenshots && mkdir -p recordings screenshots\`
+2. Run \`agent-browser set viewport 1920 1080\`
+3. Start the dev server in the background, wait for ready
+4. Navigate to the page that shows the change: \`agent-browser open http://localhost:3000/<relevant-route>\`
+5. Wait minimum 5 seconds after each navigation for the page to fully render before capturing or navigating further.
+6. Record a video walkthrough: \`agent-browser record start recordings/proof.webm\`, navigate through each affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
+7. Screenshot fallback only when video is impractical (e.g. a tiny copy tweak with no meaningful interaction to show): \`agent-browser screenshot\` and save to screenshots/ in repo root. If in doubt, record a video.
+8. **Verify proof quality**: Review the recording (or screenshot) output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
+9. Kill the dev server
+If the dev server fails or the page errors, screenshot the error state with \`agent-browser screenshot\` anyway.
+If the change is EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit), do not invent UI proof — exit successfully without captures.
+
+## Rules:
+- Do NOT edit source files, run typecheck, commit, or push
+- Do NOT mention proof capture in any commit message (you must not commit)
+- Prefix shell commands with timeouts where appropriate
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
 }
 

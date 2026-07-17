@@ -5,6 +5,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 const TASK_SCOPED_ENTITY_TYPES = new Set([
   "quickTask",
   "taskAudit",
+  "taskProof",
   "task-chat",
 ]);
 

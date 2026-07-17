@@ -43,6 +43,7 @@ export {
 export {
   handleCompletion,
   handleAuditCompletion,
+  handleProofCompletion,
   handleAuditFixCompletion,
   cancelExecution,
   triggerExecution,

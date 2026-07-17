@@ -4077,48 +4077,18 @@ try {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   try {
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs
-    );
-    let videoStorageId = null;
-    let imageStorageId = null;
-    let lastFileName = null;
-    const recDir = WORK_DIR + "/recordings";
-    if (existsSync7(recDir)) {
-      for (const file of readdirSync2(recDir)) {
-        if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
-        const fp = recDir + "/" + file;
-        const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-        try {
-          videoStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {
-        }
-        try {
-          unlinkSync2(fp);
-        } catch {
-        }
-      }
-    }
-    if (!videoStorageId) {
-      const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync7(ssDir)) {
-        for (const file of readdirSync2(ssDir)) {
-          if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
-          const fp = ssDir + "/" + file;
-          const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-          const mimeMap = {
-            png: "image/png",
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            gif: "image/gif",
-            webp: "image/webp"
-          };
-          const mimeType = mimeMap[ext] || "image/png";
+    if (TASK_PROOF_CAPTURE_ENABLED) {
+      let videoStorageId = null;
+      let imageStorageId = null;
+      let lastFileName = null;
+      const recDir = WORK_DIR + "/recordings";
+      if (existsSync7(recDir)) {
+        for (const file of readdirSync2(recDir)) {
+          if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
+          const fp = recDir + "/" + file;
+          const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
           try {
-            imageStorageId = await uploadMediaFile(fp, mimeType);
+            videoStorageId = await uploadMediaFile(fp, mimeType);
             lastFileName = file;
           } catch {
           }
@@ -4128,20 +4098,52 @@ try {
           }
         }
       }
+      if (!videoStorageId) {
+        const ssDir = WORK_DIR + "/screenshots";
+        if (existsSync7(ssDir)) {
+          for (const file of readdirSync2(ssDir)) {
+            if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
+            const fp = ssDir + "/" + file;
+            const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+            const mimeMap = {
+              png: "image/png",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              gif: "image/gif",
+              webp: "image/webp"
+            };
+            const mimeType = mimeMap[ext] || "image/png";
+            try {
+              imageStorageId = await uploadMediaFile(fp, mimeType);
+              lastFileName = file;
+            } catch {
+            }
+            try {
+              unlinkSync2(fp);
+            } catch {
+            }
+          }
+        }
+      }
+      try {
+        await persistTaskProofIfNeeded(
+          videoStorageId,
+          imageStorageId,
+          lastFileName
+        );
+      } catch (e) {
+        console.error("Failed to persist task proof:", e);
+        const proofError = e instanceof Error ? e.message : String(e);
+        await saveProofFailureMessageIfNeeded(
+          "Proof capture failed after completion: " + proofError
+        );
+      }
     }
-    try {
-      await persistTaskProofIfNeeded(
-        videoStorageId,
-        imageStorageId,
-        lastFileName
-      );
-    } catch (e) {
-      console.error("Failed to persist task proof:", e);
-      const proofError = e instanceof Error ? e.message : String(e);
-      await saveProofFailureMessageIfNeeded(
-        "Proof capture failed after completion: " + proofError
-      );
-    }
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs
+    );
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

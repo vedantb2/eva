@@ -48,6 +48,8 @@ export {
   runSessionAudit,
 } from "./_daytona/audit";
 
+export { launchProof } from "./_daytona/proof";
+
 export {
   startSessionSandbox,
   prepareSessionSandbox,

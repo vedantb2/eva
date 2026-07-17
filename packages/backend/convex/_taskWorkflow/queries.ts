@@ -296,7 +296,6 @@ export const getTaskData = internalQuery({
             branchName,
             !args.projectId,
             rootDirectory,
-            screenshotsVideosEnabled,
             repo.owner,
             repo.name,
             changeRequests.length > 0 ? changeRequests : undefined,

@@ -129,7 +129,7 @@ export function RepositorySettingsSection({
 
         <ConfigModelField
           label="Proof Capture Model"
-          description="Used when proof capture is enabled. Defaults to the task model when unset."
+          description="Used for the post-implementation proof step when screenshots/videos are enabled. Defaults to the task model when unset."
           state={proofModels}
           onValueChange={(nextModel) => {
             updateConfig({

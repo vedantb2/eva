@@ -7,8 +7,12 @@ import {
   DEFAULT_AI_MODEL,
   runModeValidator,
 } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt } from "./prompts";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  proofCompleteEvent,
+} from "./events";
+import { buildAuditPrompt, buildProofPrompt } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -101,12 +105,8 @@ export const taskExecutionWorkflow = workflow.define({
         sessionPersistenceKind: args.projectId ? "projects" : undefined,
       }));
 
-      const proofCaptureInRun =
-        data.screenshotsVideosEnabled && args.mode !== "resolve_conflicts";
-      const runModel = proofCaptureInRun
-        ? (data.proofModel ?? args.model ?? DEFAULT_AI_MODEL)
-        : (args.model ?? DEFAULT_AI_MODEL);
-
+      // Always run implementation on the task's selected model. Proof capture
+      // is a separate post-push step that uses repo.proofModel.
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
@@ -114,12 +114,12 @@ export const taskExecutionWorkflow = workflow.define({
         userId: args.userId,
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
-        model: runModel,
+        model: args.model ?? DEFAULT_AI_MODEL,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         runId: String(args.runId),
-        taskProofCaptureEnabled: data.screenshotsVideosEnabled,
+        taskProofCaptureEnabled: false,
         requireTaskCommit: true,
       });
 
@@ -195,6 +195,44 @@ export const taskExecutionWorkflow = workflow.define({
         } catch (deploymentError) {
           console.error(
             `[task-workflow] run=${args.runId} deployment tracking scheduling failed: ${deploymentError instanceof Error ? deploymentError.message : String(deploymentError)}`,
+          );
+        }
+      }
+
+      // Proof capture runs after push so PR enrichment can include media, and
+      // uses proofModel (not the implementation model). Soft-fail like audit.
+      if (
+        finalSuccess &&
+        sandboxId &&
+        data.screenshotsVideosEnabled &&
+        args.mode !== "resolve_conflicts"
+      ) {
+        try {
+          await step.runAction(internal.daytona.launchProof, {
+            sandboxId,
+            prompt: buildProofPrompt(
+              {
+                title: data.taskTitle,
+                description: data.taskDescription,
+              },
+              data.rootDirectory,
+              completionResult,
+            ),
+            taskId: String(args.taskId),
+            runId: args.runId,
+            userId: args.userId,
+            repoId: args.repoId,
+            model: data.proofModel ?? args.model,
+          });
+          const proofResult = await step.awaitEvent(proofCompleteEvent);
+          if (!proofResult.success) {
+            console.error(
+              `[task-workflow] run=${args.runId} proof step failed: ${proofResult.error ?? "unknown"}`,
+            );
+          }
+        } catch (proofError) {
+          console.error(
+            `[task-workflow] run=${args.runId} proof step failed: ${proofError instanceof Error ? proofError.message : String(proofError)}`,
           );
         }
       }

@@ -63,7 +63,14 @@ export const list = authQuery({
       }
     }
 
-    return docs;
+    // PR recaps: newest PRs first. Other docs: most recently created first.
+    return docs.toSorted((a, b) => {
+      if (a.kind === "pr-recap" && b.kind === "pr-recap") {
+        const byPr = (b.prNumber ?? 0) - (a.prNumber ?? 0);
+        if (byPr !== 0) return byPr;
+      }
+      return b._creationTime - a._creationTime;
+    });
   },
 });
 

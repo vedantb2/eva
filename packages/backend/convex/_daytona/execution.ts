@@ -1205,19 +1205,30 @@ export const prewarmSessionDaemon = internalAction({
         return { prewarmed: false };
       }
       if (aliveState === "optsmismatch") {
-        // Re-read: startExecute stages pendingTurn then schedules this prewarm.
-        // A page-open daemon (different model/tools) may already have claimed
-        // that turn. Killing it mid-claim leaves the workflow waiting forever
-        // on sessionComplete with an empty pendingTurn. Only respawn when idle.
+        // Re-read session: startExecute stages pendingTurn then schedules this
+        // prewarm. A wrong-model daemon cannot claim a model-tagged pendingTurn,
+        // but killing mid-execution (activeWorkflowId, no pendingTurn) would
+        // strand the workflow. Respawn when idle or when pendingTurn targets
+        // THIS model (wrong live daemon must be replaced).
         const fresh = await ctx.runQuery(internal.sessions.getInternal, {
           id: args.sessionId,
         });
-        const turnInFlight =
-          fresh?.pendingTurn !== undefined ||
-          fresh?.activeWorkflowId !== undefined;
-        if (turnInFlight) {
+        const pending = fresh?.pendingTurn;
+        const midTurnNoPending =
+          pending === undefined && fresh?.activeWorkflowId !== undefined;
+        if (midTurnNoPending) {
           console.log(
-            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but turn in flight — deferring respawn sessionId=${args.sessionId}`,
+            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but mid-turn — deferring respawn sessionId=${args.sessionId}`,
+          );
+          return { prewarmed: false };
+        }
+        const pendingModel = pending?.model;
+        if (
+          pendingModel !== undefined &&
+          normalizeAIModel(pendingModel) !== normalizedModel
+        ) {
+          console.log(
+            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch, pendingTurn targets different model — deferring respawn sessionId=${args.sessionId} pending=${pendingModel} launch=${normalizedModel}`,
           );
           return { prewarmed: false };
         }

@@ -324,6 +324,7 @@ export const sessionExecuteWorkflow = workflow.define({
       prompt: data.prompt,
       turnKind: data.turnKind,
       attachmentStorageIds: data.attachmentStorageIds,
+      model: args.model,
     });
 
     const result = await step.awaitEvent(sessionCompleteEvent);
@@ -797,7 +798,10 @@ export const saveResult = internalMutation({
  * internal mutations are not reachable there.
  */
 export const claimPendingTurn = authMutation({
-  args: { sessionId: v.id("sessions") },
+  args: {
+    sessionId: v.id("sessions"),
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
@@ -817,6 +821,17 @@ export const claimPendingTurn = authMutation({
       throw new Error("Not authorized");
 
     if (!session.pendingTurn) return emptyClaim;
+
+    const pendingModel = session.pendingTurn.model;
+    if (pendingModel !== undefined) {
+      const claimModel = normalizeAIModel(args.model);
+      if (normalizeAIModel(pendingModel) !== claimModel) {
+        console.log(
+          `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
+        );
+        return emptyClaim;
+      }
+    }
 
     const prompt = session.pendingTurn.prompt;
     const turnKind: SessionTurnKind = session.pendingTurn.turnKind ?? "agent";
@@ -848,6 +863,7 @@ export const ensurePendingTurn = internalMutation({
     prompt: v.string(),
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    model: v.optional(aiModelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -870,6 +886,9 @@ export const ensurePendingTurn = internalMutation({
         requestedAt: Date.now(),
         turnKind: args.turnKind,
         attachmentStorageIds: args.attachmentStorageIds,
+        ...(args.model !== undefined
+          ? { model: normalizeAIModel(args.model) }
+          : {}),
       },
       updatedAt: Date.now(),
     });
@@ -950,6 +969,9 @@ export const restageOpenTurn = internalMutation({
         requestedAt: Date.now(),
         turnKind,
         attachmentStorageIds: lastUser.attachmentStorageIds,
+        ...(session.lastModel !== undefined
+          ? { model: session.lastModel }
+          : {}),
       },
       updatedAt: Date.now(),
     });

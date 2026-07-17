@@ -221,6 +221,9 @@ export const sessionFields = {
   // has no per-message context — still injects the right account. Absent = team
   // credential. Set by startExecute from the composer's picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  // Last model the user sent on this session. Page-open prewarm uses this so
+  // the warm daemon matches the composer's picker instead of defaulting to sonnet.
+  lastModel: v.optional(aiModelValidator),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
@@ -244,6 +247,9 @@ export const sessionFields = {
       // Input image attachments for this turn; the daemon downloads these and
       // hands the agent local file paths when it claims the turn.
       attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+      // Model this turn targets. When set, only a daemon booted for that model
+      // may claim it. Absent on in-flight turns staged before this field existed.
+      model: v.optional(aiModelValidator),
     }),
   ),
 };

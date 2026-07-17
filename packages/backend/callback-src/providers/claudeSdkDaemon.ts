@@ -8,6 +8,7 @@ import {
   ENTITY_ID,
   ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
+  MODEL,
   NO_OUTPUT_TIMEOUT_MS,
   REPO_ID,
   RUN_ID,
@@ -715,7 +716,7 @@ async function waitForNextTurn(): Promise<ClaimedTurn | null> {
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" },
+      { sessionId: ENTITY_ID ?? "", model: MODEL },
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {

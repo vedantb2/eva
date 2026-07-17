@@ -1,5 +1,11 @@
 # Changelog
 
+## Session turns no longer run on the wrong prewarmed model - 2026-07-18
+
+- Page-open daemon prewarm used to always boot Claude Sonnet, which could claim the next turn before a Cursor/Codex daemon respawned — so picking Grok still ran as Claude.
+- Pending turns now carry the target model; claim rejects mismatches; optsmismatch respawns when the staged turn needs a different daemon; `lastModel` steers the next page-open prewarm.
+- Reason for change: model picker only updated client state while the warm Sonnet daemon kept winning the claim race.
+
 ## Native per-model effort traits replace broken thinking budgets - 2026-07-17
 
 - Reasoning lever now maps to Claude `--effort` / SDK `effort` and Codex `model_reasoning_effort` with per-model levels/defaults (plus thinking toggle, 1M context, Ultrathink prompt prefix); deprecated `MAX_THINKING_TOKENS` budgets are gone so Low/Medium/High are no longer identical on Opus 4.6+/Fable 5.

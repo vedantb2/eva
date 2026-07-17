@@ -73,17 +73,20 @@ export const startExecute = authMutation({
     // downloads them when it claims the turn. Passed explicitly (not read from
     // the user message row) because the composer fires addMessage + startExecute
     // in parallel, so the row may not be committed yet.
+    const normalizedModel = normalizeAIModel(args.model);
     await ctx.db.patch(args.sessionId, {
       pendingTurn: {
         prompt,
         requestedAt: Date.now(),
         turnKind,
         attachmentStorageIds: args.attachmentStorageIds,
+        model: normalizedModel,
       },
       // Persist the session's chosen account so the page-open prewarm (which has
       // no per-message context) injects the same credential. Undefined clears
       // back to the team credential.
       providerAccountId: args.providerAccountId,
+      lastModel: normalizedModel,
       updatedAt: Date.now(),
     });
 
@@ -93,7 +96,6 @@ export const startExecute = authMutation({
     // sandbox this thaws it; if there is no sandbox yet the action skips and the
     // workflow's cold path below creates one.
     if (session.sandboxId) {
-      const normalizedModel = normalizeAIModel(args.model);
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
       await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
@@ -164,7 +166,7 @@ export const prewarmDaemon = authMutation({
       sessionId: args.sessionId,
       repoId: session.repoId,
       userId: session.userId,
-      model: "claude:sonnet",
+      model: normalizeAIModel(session.lastModel),
       allowedTools: MODE_TOOLS.edit,
       providerAccountId: session.providerAccountId,
       sessionPersistenceId: args.sessionId,

@@ -136,13 +136,7 @@ var REPO_ID = process.env.REPO_ID;
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
-var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set([
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max"
-]);
+var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set(["low", "medium", "high", "xhigh", "max"]);
 var claudeEffort = PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT) ? REASONING_EFFORT : "";
 var CODEX_REASONING_EFFORT = {
   off: "minimal",
@@ -4020,7 +4014,7 @@ async function waitForNextTurn() {
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" }
+      { sessionId: ENTITY_ID ?? "", model: MODEL }
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {

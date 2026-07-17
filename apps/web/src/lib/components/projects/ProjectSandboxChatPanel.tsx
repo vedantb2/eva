@@ -173,7 +173,7 @@ export function ProjectSandboxChatPanel({
         placeholder={
           !isSandboxActive
             ? "Sandbox must be running to chat..."
-            : "Ask Eva about the running project..."
+            : "Ask Eva anything... / for skills · @ for docs"
         }
         emptyStateTitle={
           isSandboxActive

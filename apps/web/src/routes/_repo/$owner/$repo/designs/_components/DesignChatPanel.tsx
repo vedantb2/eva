@@ -502,7 +502,7 @@ export function DesignChatPanel({
                     placeholder={
                       !isSandboxActive
                         ? "Start the sandbox to begin designing..."
-                        : "Describe the design you want..."
+                        : "Ask Eva anything... / for skills · @ for docs"
                     }
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}

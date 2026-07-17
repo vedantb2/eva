@@ -25,8 +25,8 @@ import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
-import { IconPlayerStop, IconX } from "@tabler/icons-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { IconPlayerStop } from "@tabler/icons-react";
+import { useCallback, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -120,8 +120,6 @@ export function ChatComposer({
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
 
-  const [hintDismissed, setHintDismissed] = useState(false);
-
   const handleSubmit = useCallback(
     async (text: string, files: PromptInputMessage["files"]) => {
       const visible = text.trim();
@@ -204,23 +202,6 @@ export function ChatComposer({
         }}
       />
       {preInputContent}
-      {!hintDismissed ? (
-        <div className="mb-2 flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-          <span className="min-w-0 flex-1">
-            <span className="font-medium text-foreground/80">@</span> to mention
-            a doc or PRD ·{" "}
-            <span className="font-medium text-foreground/80">/</span> for skills
-          </span>
-          <button
-            type="button"
-            className="hit-target motion-press shrink-0 rounded p-0.5 active:scale-[0.96] hover:bg-muted hover:text-foreground"
-            aria-label="Dismiss tip"
-            onClick={() => setHintDismissed(true)}
-          >
-            <IconX className="size-3" />
-          </button>
-        </div>
-      ) : null}
       <div className="relative">
         {isDraftLoading ? (
           // Placeholder that matches the input group's visual footprint.

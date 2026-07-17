@@ -175,7 +175,7 @@ export function TaskSandboxChatPanel({
         placeholder={
           !isSandboxActive
             ? "Sandbox must be running to chat..."
-            : "Ask Eva about this task's sandbox..."
+            : "Ask Eva anything... / for skills · @ for docs"
         }
         emptyStateTitle={
           isSandboxActive

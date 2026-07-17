@@ -1,12 +1,15 @@
-import { findAIModelOption, normalizeAIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import {
+  api,
+  findAIModelOption,
+  normalizeAIModel,
+  type Id,
+} from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import {
@@ -268,8 +271,8 @@ export function ChatPanel({
   const placeholder = !isSandboxActive
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
-      ? "Describe the product requirements to Eva..."
-      : "Ask questions or request changes to Eva...";
+      ? "Describe the product requirements... / for skills · @ for docs"
+      : "Ask Eva anything... / for skills · @ for docs";
 
   return (
     <ChatPageWrapper

@@ -32,6 +32,7 @@ import {
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
+import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import {
@@ -382,6 +383,16 @@ export function ChatBody({
     return -1;
   }, [messages]);
 
+  // One tick per user turn for the jump rail — assistant replies map 1:1 to
+  // the preceding user message, so they don't need their own tick.
+  const jumpRailMessages = useMemo(
+    () =>
+      messages
+        .filter((message) => message.role === "user" && !message.isSystemAlert)
+        .map((message) => ({ id: message._id, content: message.content })),
+    [messages],
+  );
+
   const renderMessage = (message: ChatBodyMessage) => {
     if (message.isSystemAlert) {
       return (
@@ -397,6 +408,7 @@ export function ChatBody({
     return (
       <motion.div
         key={message._id}
+        data-message-id={message._id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
@@ -557,6 +569,7 @@ export function ChatBody({
           )}
         </ConversationContent>
         <ConversationScrollButton />
+        <ChatJumpRail messages={jumpRailMessages} />
       </Conversation>
       {!isArchived && !activePendingQuestion && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">

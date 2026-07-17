@@ -1,5 +1,11 @@
 # Changelog
 
+## Coding-agent auth as paste-in provider slots in env settings - 2026-07-17
+
+- The environment-variables settings (team and repo) now show a "Coding agents" section above the free-form table with a dedicated slot per agent — Claude Code, Codex, OpenCode, Cursor — each with its brand logo. An unconfigured slot offers a single paste-in field; a configured one shows a "Configured" badge with reveal/copy/replace/remove.
+- Slots write to the same encrypted key/value store as before under the exact keys the backend keys agent availability off (`CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_AUTH_JSON`, `OPENCODE_AUTH_JSON`, `CURSOR_API_KEY`); a configured agent key is hidden from the free-form table so it appears only in its slot. The slot "configured" check reuses the backend's exported key lists, so it stays in sync with availability logic.
+- Reason for change: enabling an agent previously meant knowing the exact magic env-var name from a paragraph of help text and typing it correctly; surfacing the known keys as logo-labelled slots turns it into "find the logo, paste the token".
+
 ## Image attachments in the design chat - 2026-07-17
 
 - The design chat composer now takes pasted/dropped images too (same limits and preview as the other chats), and delivers them to the design agent as readable files at launch.

@@ -12,6 +12,8 @@ export {
   DEFAULT_AI_MODEL,
   CODEX_AUTH_ENV_KEYS,
   CODEX_CONFIG_ENV_KEYS,
+  OPENCODE_AUTH_ENV_KEYS,
+  CURSOR_AUTH_ENV_KEYS,
   findAIModelOption,
   getAIProviderAvailability,
   getAIModelProvider,

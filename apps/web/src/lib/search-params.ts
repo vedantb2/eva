@@ -108,6 +108,12 @@ export const diffViewParser = parseAsStringLiteral(diffViews)
   .withDefault("unified")
   .withOptions(tabOptions);
 
+// Path of the file selected in the Diffs tab file tree, persisted in the URL so
+// the highlighted/scrolled-to file survives reload and is shareable.
+export const diffFileParser = parseAsString
+  .withDefault("")
+  .withOptions(searchOptions);
+
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)
   .withOptions(tabOptions);

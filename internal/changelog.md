@@ -1,5 +1,12 @@
 # Changelog
 
+## Clickable file tree in sandbox Diffs tab - 2026-07-17
+
+- Added a Pierre `@pierre/trees` file tree to the left of the Diffs tab across quick-tasks, projects, and sessions, showing the changed files in nested folder hierarchy.
+- File tree displays git-status colours per file (added/modified/deleted/renamed); clicking a file scrolls its diff into view on the right and highlights the node.
+- Selected file path persists in the `?diffFile=` URL parameter so the highlighted file survives reload and is shareable; selection is remembered when reopening a sandbox.
+- Reason for change: large PRs with many files across folders are now easy to navigate — instead of scrolling through every diff, jump straight to the one you want via the tree.
+
 ## Model picker nests accounts as submenus - 2026-07-17
 
 - With personal provider accounts, the model dropdown is now Provider → Team/Account → models, instead of listing every account's models in one flat submenu.

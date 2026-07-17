@@ -358,30 +358,6 @@ export const ActivityTasks = memo(
       );
     }
 
-    // Settled turn with a known per-turn duration (P1): collapse the whole
-    // turn's activity behind one "Worked for Ns" trigger, default closed.
-    if (!isStreaming && duration) {
-      return (
-        <Collapsible
-          className={cn("group text-sm", className)}
-          defaultOpen={false}
-          {...props}
-        >
-          <CollapsibleTrigger className="flex w-full items-center gap-2 border-b border-border pb-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground">
-            <span>Worked for {duration}</span>
-            <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList
-              blocks={blocks}
-              isStreaming={false}
-              onOpenFile={onOpenFile}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-      );
-    }
-
     return (
       <div className={cn("space-y-1.5 text-sm", className)} {...props}>
         {isStreaming && headerText ? (

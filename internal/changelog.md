@@ -1,5 +1,11 @@
 # Changelog
 
+## Session chat refactored toward t3code layout - 2026-07-17
+
+- Split `ChatBody` into utils / queued-mutation hook / memoized `ChatMessage` / `ChatComposer`, and `ChatPanel` into header/modals/mode/summary/`useSessionSend` modules; removed a duplicate unreachable activity-tasks block.
+- External ChatBody props and type re-exports unchanged so projects/tasks keep compiling.
+- Reason for change: 800+ line orchestrators blocked t3code parity (changed-files card, diff review comments) and forced every stream tick through a giant `renderMessage` closure.
+
 ## Documented sandbox-driven agent architecture and harness evaluation - 2026-07-17
 
 - Added `packages/backend/docs/ARCHITECTURE.md` comprehensively documenting why eva runs agent loops inside sandboxes (Convex ~10-min action limit), the 7 custom capabilities the callback owns (blocking AskUserQuestion, tool-UI parser with subagent nesting, usage tracking, heartbeat/watchdog, MCP-config injection, background-task disabling, warm daemon), and the sandbox provider abstraction (Daytona vs Vercel implementations).

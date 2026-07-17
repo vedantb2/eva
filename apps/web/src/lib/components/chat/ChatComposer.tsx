@@ -1,0 +1,322 @@
+import {
+  Button,
+  PromptInput,
+  PromptInputProvider,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSpeech,
+  PromptInputSubmit,
+  ModelSelect,
+  ReasoningLever,
+  usePromptInputController,
+  toast,
+  type PromptInputMessage,
+  type ModelOption,
+  type ModelAccount,
+} from "@conductor/ui";
+import {
+  MAX_IMAGE_ATTACHMENTS,
+  MAX_IMAGE_ATTACHMENT_BYTES,
+  imageAttachmentErrorMessage,
+  useUploadImageAttachments,
+  ChatAttachmentPreview,
+} from "@/lib/components/chat/imageAttachments";
+import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
+import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
+import { IconPlayerStop, IconX } from "@tabler/icons-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import {
+  api,
+  getAIModelProvider,
+  providerSupportsReasoning,
+  type AIModel,
+  type ReasoningLevel,
+  type Id,
+} from "@conductor/backend";
+import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MentionTextarea,
+  type MentionTextareaHandle,
+} from "@/lib/components/chat/MentionTextarea";
+import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import { REASONING_LEVEL_OPTIONS } from "@/lib/components/chat/chatBodyUtils";
+import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
+import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
+
+interface ChatComposerProps {
+  repoId: Id<"githubRepos">;
+  repoBasePath: string;
+  conversationId: string;
+  queuedMessages: ChatBodyQueuedMessage[];
+  messageHistory: string[];
+  isExecuting: boolean;
+  isInputDisabled: boolean;
+  placeholder: string;
+  model: AIModel;
+  setModel: (model: AIModel) => void;
+  modelOptions: ReadonlyArray<ModelOption<AIModel>>;
+  accounts?: ReadonlyArray<ModelAccount>;
+  accountId?: string | null;
+  onAccountChange?: (accountId: string | null) => void;
+  reasoningLevel?: ReasoningLevel;
+  onReasoningLevelChange?: (level: ReasoningLevel) => void;
+  onSend: (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => Promise<void>;
+  onCancel: () => Promise<void>;
+  beforeQueuedContent?: React.ReactNode;
+  preInputContent?: React.ReactNode;
+  toolsBefore?: React.ReactNode;
+  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
+  draft?: ChatDraftSeed;
+  isDraftLoading?: boolean;
+}
+
+export function ChatComposer({
+  repoId,
+  repoBasePath,
+  conversationId,
+  queuedMessages,
+  messageHistory,
+  isExecuting,
+  isInputDisabled,
+  placeholder,
+  model,
+  setModel,
+  modelOptions,
+  accounts,
+  accountId,
+  onAccountChange,
+  reasoningLevel,
+  onReasoningLevelChange,
+  onSend,
+  onCancel,
+  beforeQueuedContent,
+  preInputContent,
+  toolsBefore,
+  formatQueuedInfo,
+  draft,
+  isDraftLoading,
+}: ChatComposerProps) {
+  const docs = useQuery(api.docs.list, { repoId }) ?? [];
+  const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const currentUserId = useQuery(api.auth.me);
+  const mentionRef = useRef<MentionTextareaHandle>(null);
+  const uploadImageAttachments = useUploadImageAttachments();
+  const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
+    useQueuedMessageMutations(queuedMessages);
+
+  const [hintDismissed, setHintDismissed] = useState(false);
+
+  const handleSubmit = useCallback(
+    async (text: string, files: PromptInputMessage["files"]) => {
+      const visible = text.trim();
+      const imageCount = files.filter((file) =>
+        file.mediaType?.startsWith("image/"),
+      ).length;
+      const attachmentStorageIds = await uploadImageAttachments(files);
+      if (attachmentStorageIds.length < imageCount) {
+        toast.error("Some images could not be uploaded.");
+      }
+      // Allow sending with images and no text, but not an empty message.
+      if (!visible && attachmentStorageIds.length === 0) return;
+      const content = mentionRef.current?.tokenize(visible) ?? visible;
+      await onSend(
+        content,
+        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
+      );
+    },
+    [onSend, uploadImageAttachments],
+  );
+
+  const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
+    if (isInputDisabled) return;
+    await handleSubmit(text, files);
+  };
+
+  const queuedMessageItems = useMemo(
+    () =>
+      queuedMessages.map((message) => ({
+        id: message._id,
+        content: message.content,
+        info: formatQueuedInfo?.(message),
+      })),
+    [queuedMessages, formatQueuedInfo],
+  );
+
+  return (
+    <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
+      <AnimatePresence initial={false}>
+        {beforeQueuedContent ? (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {beforeQueuedContent}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <QueuedMessagesPanel
+        items={queuedMessageItems}
+        renderContent={(content) => (
+          <MessageMentionText
+            as="span"
+            text={content}
+            repoBasePath={repoBasePath}
+            className="text-xs"
+          />
+        )}
+        onEdit={async (id, content) => {
+          await updateQueuedMessage({ id, content });
+        }}
+        onDelete={async (id) => {
+          await deleteQueuedMessage({ id });
+        }}
+        onReorder={async (orderedIds) => {
+          const parentId = queuedMessages[0]?.parentId;
+          if (!parentId) return;
+          await reorderQueuedMessages({ parentId, orderedIds });
+        }}
+      />
+      {preInputContent}
+      {!hintDismissed ? (
+        <div className="mb-2 flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <span className="min-w-0 flex-1">
+            <span className="font-medium text-foreground/80">@</span> to mention
+            a doc or PRD ·{" "}
+            <span className="font-medium text-foreground/80">/</span> for skills
+          </span>
+          <button
+            type="button"
+            className="hit-target motion-press shrink-0 rounded p-0.5 active:scale-[0.96] hover:bg-muted hover:text-foreground"
+            aria-label="Dismiss tip"
+            onClick={() => setHintDismissed(true)}
+          >
+            <IconX className="size-3" />
+          </button>
+        </div>
+      ) : null}
+      <div className="relative">
+        {isDraftLoading ? (
+          // Placeholder that matches the input group's visual footprint.
+          // Keeps the layout stable while the draft query resolves, and
+          // prevents the PromptInputProvider from mounting with an empty
+          // initialInput before the persisted draft is known.
+          <div
+            aria-busy="true"
+            aria-label="Loading draft..."
+            className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
+          />
+        ) : (
+          <PromptInputProvider initialInput={draft?.initialDisplay}>
+            <ChatTypingLayer
+              roomId={`typing:chat:${conversationId}`}
+              userId={currentUserId}
+            />
+            <ChatTypeToFocus
+              mentionRef={mentionRef}
+              disabled={isInputDisabled}
+            />
+            {draft && (
+              <ChatDraftSync
+                target={draft.target}
+                mentionRef={mentionRef}
+                initialDisplay={draft.initialDisplay}
+              />
+            )}
+            <PromptInput
+              onSubmit={handlePromptSubmit}
+              accept="image/*"
+              multiple
+              maxFiles={MAX_IMAGE_ATTACHMENTS}
+              maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+              onError={(err) => toast.error(imageAttachmentErrorMessage(err))}
+            >
+              <ChatAttachmentPreview />
+              <MentionTextarea
+                ref={mentionRef}
+                repoBasePath={repoBasePath}
+                docs={docs}
+                skills={skills}
+                skillsSettingsHref={`${repoBasePath}/settings/skills`}
+                placeholder={placeholder}
+                initialMentionMap={draft?.mentionMap}
+                initialSkillMap={draft?.skillMap}
+                history={messageHistory}
+                enableImagePaste
+              />
+              <PromptInputFooter>
+                <PromptInputTools>
+                  {toolsBefore}
+                  <ModelSelect
+                    value={model}
+                    options={modelOptions}
+                    onValueChange={setModel}
+                    accounts={accounts}
+                    accountId={accountId}
+                    onAccountChange={onAccountChange}
+                    className="max-w-48 truncate sm:max-w-none"
+                  />
+                  {onReasoningLevelChange &&
+                  reasoningLevel &&
+                  providerSupportsReasoning(getAIModelProvider(model)) ? (
+                    <ReasoningLever
+                      value={reasoningLevel}
+                      options={REASONING_LEVEL_OPTIONS}
+                      onValueChange={onReasoningLevelChange}
+                    />
+                  ) : null}
+                </PromptInputTools>
+                <div className="flex min-w-0 items-center gap-1">
+                  <PromptInputSpeech />
+                  {isExecuting ? (
+                    <Button
+                      size="icon-sm"
+                      type="button"
+                      variant="destructive"
+                      onClick={onCancel}
+                      title="Stop Eva"
+                    >
+                      <IconPlayerStop className="size-4" />
+                    </Button>
+                  ) : null}
+                  <ChatBodySubmit
+                    disabled={isInputDisabled}
+                    isExecuting={isExecuting}
+                  />
+                </div>
+              </PromptInputFooter>
+            </PromptInput>
+          </PromptInputProvider>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatBodySubmit({
+  disabled,
+  isExecuting,
+}: {
+  disabled: boolean;
+  isExecuting: boolean;
+}) {
+  const { textInput, attachments } = usePromptInputController();
+  // Sendable when there is text or at least one attached image.
+  const isEmpty =
+    textInput.value.trim().length === 0 && attachments.files.length === 0;
+
+  return (
+    <PromptInputSubmit
+      disabled={disabled || isEmpty}
+      title={isExecuting ? "Queue message" : "Send message"}
+    />
+  );
+}

@@ -36,6 +36,7 @@ import {
   modelHasTraits,
   type AIModel,
   type Id,
+  type ReasoningLevel,
   type StoredModelTraits,
 } from "@conductor/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -48,7 +49,6 @@ import {
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
-import type { resolveTraitsForDisplay } from "@conductor/backend";
 
 interface ChatComposerProps {
   repoId: Id<"githubRepos">;
@@ -65,7 +65,11 @@ interface ChatComposerProps {
   accounts?: ReadonlyArray<ModelAccount>;
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
-  displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
+  displayTraits?: {
+    effortLevel: ReasoningLevel | undefined;
+    thinkingEnabled: boolean;
+    use1mContext: boolean;
+  };
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
@@ -309,7 +313,6 @@ export function ChatComposer({
                           use1mContext: use1m ? true : undefined,
                         })
                       }
-                      disabled={isInputDisabled}
                     />
                   ) : null}
                 </PromptInputTools>

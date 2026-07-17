@@ -1,11 +1,11 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import {
+  api,
   getModelTraits,
   getReasoningLevelLabel,
   modelHasTraits,
+  type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -518,7 +518,6 @@ export function DesignChatPanel({
                         accounts={accounts}
                         accountId={providerAccountId}
                         onAccountChange={setProviderAccountId}
-                        disabled={!isSandboxActive}
                       />
                       {modelHasTraits(model) ? (
                         <TraitsMenu
@@ -551,7 +550,6 @@ export function DesignChatPanel({
                               use1mContext: use1m ? true : undefined,
                             })
                           }
-                          disabled={!isSandboxActive}
                         />
                       ) : null}
                       <PersonaDropdown

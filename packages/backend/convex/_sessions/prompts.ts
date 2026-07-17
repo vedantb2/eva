@@ -71,8 +71,7 @@ Do NOT commit the recordings/ or screenshots/ files.`
   return `${message}${planContext}${proofSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
-- Only work on "${branchName}" — never interact with main.
-- Do not git pull, git push, or run ship/PR skills — Eva publishes "${branchName}" after you finish. Commit only.
+- Do all work on "${branchName}". Never commit or push to main. Fetching/merging/rebasing/pulling from main into this branch is allowed when the user asks.
 - If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
 - Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;

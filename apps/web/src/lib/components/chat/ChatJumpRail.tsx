@@ -17,8 +17,8 @@ interface ChatJumpRailProps {
 }
 
 /**
- * Hover-reveal vertical rail beside the chat, one tick per user message —
- * click, Enter/Space, or arrow keys jump to that turn. Must render inside
+ * Vertical rail beside the chat, one tick per user message — click,
+ * Enter/Space, or arrow keys jump to that turn. Must render inside
  * `<Conversation>` (StickToBottom) so it can read the shared scroll viewport
  * and resolve `[data-message-id]` targets within it.
  */
@@ -83,7 +83,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
 
   return (
     <div
-      className="group/jump-rail pointer-events-none absolute inset-y-3 left-1 z-30 hidden w-8 lg:[@media(pointer:fine)]:block"
+      className="pointer-events-none absolute inset-y-3 left-1 z-30 hidden w-8 lg:[@media(pointer:fine)]:block"
       aria-label="Jump to message"
     >
       <div className="relative h-full w-full">
@@ -101,7 +101,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
                   type="button"
                   aria-label={`Jump to message: ${tick.preview || "message"}`}
                   className={cn(
-                    "pointer-events-auto absolute left-1/2 h-0.5 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/35 opacity-0 transition-[opacity,background-color,width] duration-150 focus-visible:opacity-100 focus-visible:outline-none group-hover/jump-rail:opacity-100",
+                    "pointer-events-auto absolute left-1/2 h-0.5 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isActive && "w-6 bg-foreground/80",
                   )}
                   style={{ top: `${top}%` }}

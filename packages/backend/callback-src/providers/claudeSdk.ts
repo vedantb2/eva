@@ -226,6 +226,24 @@ function buildSdkOptionsFromParts(
           allowDangerouslySkipPermissions: true,
         };
 
+  // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
+  // title / flavour-text side calls) — measured as a ~6s second API call
+  // that delays turn completion after the visible reply.
+  // Policy A: delete CLAUDE_CODE_DISABLE_BACKGROUND_TASKS so session SDK
+  // children can Bash-background (panel tracks/kills). Do not set the key to
+  // undefined — some spawn paths stringify it. launch.ts still sets =1 for
+  // tasks/projects/CLI; Agent/Task bg is stripped in buildCanUseTool.
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+    DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+    DISABLE_TELEMETRY: "1",
+    DISABLE_AUTOUPDATER: "1",
+    DISABLE_ERROR_REPORTING: "1",
+  };
+  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -246,23 +264,7 @@ function buildSdkOptionsFromParts(
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
     ...allowedToolsOption,
-    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
-    // title / flavour-text side calls) — measured as a ~6s second API call
-    // that delays turn completion after the visible reply.
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      DISABLE_TELEMETRY: "1",
-      DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1",
-      // Policy A: re-enable Bash backgrounding for Claude SDK session children
-      // only. launch.ts still sets CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 for
-      // tasks/projects/CLI; the session panel makes Bash-bg visible/killable.
-      // Task tool backgrounding is stripped in buildCanUseTool (Wayfinder).
-      CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: undefined,
-    },
+    env,
     ...(sessionMode.mode === "session" && sessionMode.sessionId
       ? { sessionId: sessionMode.sessionId }
       : {}),

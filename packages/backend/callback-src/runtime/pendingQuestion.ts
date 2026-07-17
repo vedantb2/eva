@@ -85,9 +85,14 @@ function parseAnswers(answerJson: string): Record<string, JsonLike> {
  */
 export function buildCanUseTool(): SdkCanUseTool {
   return async (toolName, input, options) => {
-    // Policy A: Bash may background (session panel tracks/kills it), but Task
-    // sub-agents must stay foreground so the SDK result still covers their work.
-    if (toolName === "Task" && input.run_in_background === true) {
+    // Policy A: Bash may background (session panel tracks/kills it), but
+    // Agent/Task sub-agents must stay foreground so the SDK result still
+    // covers their work. Named `Agent` since Claude Code v2.1.63; older CLIs
+    // still emit `Task`.
+    if (
+      (toolName === "Agent" || toolName === "Task") &&
+      input.run_in_background === true
+    ) {
       return {
         behavior: "allow",
         updatedInput: { ...input, run_in_background: false },

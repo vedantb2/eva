@@ -136,6 +136,7 @@ export const startExecution = authMutation({
           baseBranch,
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
+          providerAccountId: task.providerAccountId,
           userId: ctx.userId,
           mode: args.mode,
         },

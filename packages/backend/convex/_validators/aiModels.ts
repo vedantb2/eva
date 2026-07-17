@@ -272,6 +272,18 @@ export const OPENCODE_AUTH_ENV_KEYS: ReadonlyArray<string> = [
 ];
 export const CURSOR_AUTH_ENV_KEYS: ReadonlyArray<string> = ["CURSOR_API_KEY"];
 
+/**
+ * The canonical auth env-var key per provider. Used to mark a provider
+ * "available" when a user has their own account for it, and as the primary
+ * credential field in the Accounts UI.
+ */
+export const PROVIDER_PRIMARY_AUTH_KEY: Record<AIProvider, string> = {
+  claude: "CLAUDE_CODE_OAUTH_TOKEN",
+  codex: "CODEX_AUTH_JSON",
+  opencode: "OPENCODE_AUTH_JSON",
+  cursor: "CURSOR_API_KEY",
+};
+
 /** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
   envVarKeys: Iterable<string>,

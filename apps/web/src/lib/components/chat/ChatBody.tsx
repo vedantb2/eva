@@ -19,6 +19,7 @@ import {
   toast,
   type PromptInputMessage,
   type ModelOption,
+  type ModelAccount,
 } from "@conductor/ui";
 import {
   MAX_IMAGE_ATTACHMENTS,
@@ -144,6 +145,14 @@ interface ChatBodyProps {
   setModel: (model: AIModel) => void;
   modelOptions: ReadonlyArray<ModelOption<AIModel>>;
   /**
+   * The user's own provider accounts. When non-empty, the model picker shows
+   * each provider's models under "Team" and once per matching account, and the
+   * chosen account's credentials run the turn (see `accountId`/`onAccountChange`).
+   */
+  accounts?: ReadonlyArray<ModelAccount>;
+  accountId?: string | null;
+  onAccountChange?: (accountId: string | null) => void;
+  /**
    * Session-wide reasoning effort. When both the level and setter are provided
    * and the selected model's provider supports a runtime lever (Claude/Codex),
    * a reasoning lever is shown after the model selector in the input tools row.
@@ -212,6 +221,9 @@ export function ChatBody({
   model,
   setModel,
   modelOptions,
+  accounts,
+  accountId,
+  onAccountChange,
   reasoningLevel,
   onReasoningLevelChange,
   onSend,
@@ -654,6 +666,9 @@ export function ChatBody({
                         value={model}
                         options={modelOptions}
                         onValueChange={setModel}
+                        accounts={accounts}
+                        accountId={accountId}
+                        onAccountChange={onAccountChange}
                         className="max-w-48 truncate sm:max-w-none"
                       />
                       {onReasoningLevelChange &&

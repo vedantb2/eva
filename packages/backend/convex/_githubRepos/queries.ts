@@ -8,7 +8,10 @@ import {
   githubRepoWithLogoValidator,
   pickDefaultVisibleAppRepo,
 } from "./helpers";
-import { getAIProviderAvailability } from "../validators";
+import {
+  getAIProviderAvailability,
+  PROVIDER_PRIMARY_AUTH_KEY,
+} from "../validators";
 import { filterActiveEntities } from "../numId";
 
 /** True when the user connected the repo or shares its team. */
@@ -237,6 +240,17 @@ export const getProviderAvailability = authQuery({
     }
     for (const entry of repoEnvDoc?.vars ?? []) {
       keys.add(entry.key);
+    }
+
+    // A user's own provider account makes that provider available even when the
+    // team has no key for it — the account's credentials are injected at launch.
+    // Each account contributes its provider's canonical auth key.
+    const accounts = await ctx.db
+      .query("userProviderAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+    for (const account of accounts) {
+      keys.add(PROVIDER_PRIMARY_AUTH_KEY[account.provider]);
     }
 
     return getAIProviderAvailability(keys);

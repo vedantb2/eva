@@ -34,6 +34,7 @@ import {
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
+  userProviderAccountFields,
   docFields,
   docCommentFields,
   docSubscriberFields,
@@ -340,6 +341,9 @@ const schema = defineSchema(
       status: webhookEventStatusValidator,
       createdAt: v.number(),
     }).index("by_status", ["status"]),
+    userProviderAccounts: defineTable(userProviderAccountFields)
+      .index("by_user", ["userId"])
+      .index("by_user_and_provider", ["userId", "provider"]),
     teamEnvVars: defineTable({
       teamId: v.id("teams"),
       vars: v.array(

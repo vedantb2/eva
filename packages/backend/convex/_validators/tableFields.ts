@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { aiModelValidator, reasoningLevelValidator } from "./aiModels";
+import {
+  aiModelValidator,
+  aiProviderValidator,
+  reasoningLevelValidator,
+} from "./aiModels";
 import {
   deploymentStatusValidator,
   docKindValidator,
@@ -53,6 +57,23 @@ export const userFields = {
   emailNotificationsEnabled: v.optional(v.boolean()),
 };
 
+// A user's own coding-agent login ("bring your own account"). Each row is one
+// account for one provider (e.g. a personal Claude Code OAuth token, a Cursor
+// API key). `credentials` holds the provider's auth env vars with values
+// encrypted at rest (see `encryption.ts`); the plaintext is only decrypted at
+// sandbox-launch time to override the shared team credential, so the user's own
+// usage bills to their account. Selected per session/task in the model picker.
+export const userProviderAccountFields = {
+  userId: v.id("users"),
+  provider: aiProviderValidator,
+  label: v.string(),
+  // Optional hex accent (e.g. "#2563eb") for the account's dot in the picker.
+  accentColor: v.optional(v.string()),
+  credentials: v.array(v.object({ key: v.string(), value: v.string() })),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
 export const repoEntityTypeValidator = v.union(
   v.literal("sessions"),
   v.literal("docs"),
@@ -89,6 +110,10 @@ export const agentTaskFields = {
   createdBy: v.id("users"),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),
+  // The user provider account whose credentials run this task (overriding the
+  // team credential). Absent = use the shared team credential. Resolved at
+  // launch in `signAndLaunchScript`.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   baseBranch: v.optional(v.string()),
   // Per-task override for the repo-level `screenshotsVideosEnabled` setting.
   // undefined = inherit repo. true = force on. false = force off. Resolved at
@@ -186,6 +211,11 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  // The user provider account chosen for this session's runs (overriding the
+  // team credential). Session-scoped so the page-open daemon prewarm — which
+  // has no per-message context — still injects the right account. Absent = team
+  // credential. Set by startExecute from the composer's picker.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
@@ -445,6 +475,9 @@ export const queuedMessageFields = {
   userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
+  // Carried alongside `model` so a queued message runs on the same user account
+  // that was selected when it was enqueued.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   reasoningLevel: v.optional(reasoningLevelValidator),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),

@@ -37,6 +37,7 @@ export const taskExecutionWorkflow = workflow.define({
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
     mode: v.optional(runModeValidator),
   },
@@ -121,6 +122,7 @@ export const taskExecutionWorkflow = workflow.define({
         runId: String(args.runId),
         taskProofCaptureEnabled: false,
         requireTaskCommit: true,
+        providerAccountId: args.providerAccountId,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {

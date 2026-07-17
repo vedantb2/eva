@@ -77,12 +77,18 @@ export async function startNextQueuedSessionMessage(
         mode: nextMessage.mode,
         model: nextMessage.model,
         reasoningLevel: nextMessage.reasoningLevel,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
     );
 
-    await ctx.db.patch(sessionId, { updatedAt: now });
+    // Keep the session's persisted account in step with the dequeued message so
+    // a concurrent page-open prewarm injects the same credential.
+    await ctx.db.patch(sessionId, {
+      updatedAt: now,
+      providerAccountId: nextMessage.providerAccountId,
+    });
     await trackSessionWorkflow(
       ctx,
       sessionId,

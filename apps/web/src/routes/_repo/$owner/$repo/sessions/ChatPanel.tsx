@@ -54,7 +54,10 @@ import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 
@@ -150,11 +153,21 @@ export function ChatPanel({
   const [completedAudits, setCompletedAudits] = useState(0);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  const { mode, setMode, model, setModel, reasoningLevel, setReasoningLevel } =
-    useSessionSettings(sessionId, {
-      defaultModel,
-    });
+  const {
+    mode,
+    setMode,
+    model,
+    setModel,
+    reasoningLevel,
+    setReasoningLevel,
+    providerAccountId,
+    setProviderAccountId,
+  } = useSessionSettings(sessionId, {
+    defaultModel,
+  });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,
@@ -255,6 +268,7 @@ export function ChatPanel({
           mode,
           model,
           reasoningLevel,
+          providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         });
         return;
@@ -280,6 +294,7 @@ export function ChatPanel({
           mode,
           model,
           reasoningLevel,
+          providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         }),
       ]).catch(async (error) => {
@@ -302,6 +317,8 @@ export function ChatPanel({
       mode,
       model,
       reasoningLevel,
+      providerAccountId,
+      resolveAccountId,
     ],
   );
 
@@ -646,6 +663,9 @@ export function ChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        accounts={accounts}
+        accountId={providerAccountId}
+        onAccountChange={setProviderAccountId}
         reasoningLevel={reasoningLevel}
         onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}

@@ -10,6 +10,7 @@ import {
 } from "@conductor/ui";
 import {
   IconBell,
+  IconKey,
   IconPalette,
   IconServerBolt,
   IconSettings,
@@ -26,6 +27,11 @@ const SETTINGS_ITEMS = [
     name: "Personalisation",
     href: "/settings/personalisation",
     icon: IconUserCog,
+  },
+  {
+    name: "Accounts",
+    href: "/settings/accounts",
+    icon: IconKey,
   },
   {
     name: "Notifications",

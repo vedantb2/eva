@@ -14,6 +14,7 @@ export {
   CODEX_CONFIG_ENV_KEYS,
   OPENCODE_AUTH_ENV_KEYS,
   CURSOR_AUTH_ENV_KEYS,
+  PROVIDER_PRIMARY_AUTH_KEY,
   findAIModelOption,
   getAIProviderAvailability,
   getAIModelProvider,

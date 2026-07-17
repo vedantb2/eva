@@ -38,7 +38,10 @@ import {
 } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconFileText,
@@ -152,7 +155,12 @@ export function QuickTaskModal({
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
+  const [providerAccountId, setProviderAccountId] = useState<string | null>(
+    null,
+  );
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(
@@ -172,6 +180,7 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
+    setProviderAccountId(null);
     setActiveDraftId(null);
     setSelectedProjectId(projectId);
     setAssignedTo(undefined);
@@ -222,6 +231,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
+          providerAccountId: resolveAccountId(providerAccountId),
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           screenshotsVideosEnabled,
@@ -234,6 +244,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
+          providerAccountId: resolveAccountId(providerAccountId),
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
@@ -416,6 +427,9 @@ export function QuickTaskModal({
                 value={model}
                 options={modelOptions}
                 onValueChange={setModel}
+                accounts={accounts}
+                accountId={providerAccountId}
+                onAccountChange={setProviderAccountId}
               />
             </div>
 

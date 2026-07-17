@@ -1102,6 +1102,7 @@ export const prewarmSessionDaemon = internalAction({
     model: v.optional(v.string()),
     reasoningLevel: v.optional(reasoningLevelValidator),
     allowedTools: v.optional(v.string()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
   },
   returns: v.object({ prewarmed: v.boolean() }),
@@ -1140,7 +1141,10 @@ export const prewarmSessionDaemon = internalAction({
       // Reasoning level is part of the signature: the daemon freezes its thinking
       // budget at boot (MAX_THINKING_TOKENS env), so changing the lever mid-session
       // must respawn the daemon to take effect.
-      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}|${args.reasoningLevel ?? ""}`;
+      // The chosen user account is part of the signature: the daemon freezes
+      // its injected credentials at boot, so switching account mid-session must
+      // respawn the daemon to bill the new account.
+      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}|${args.reasoningLevel ?? ""}|${args.providerAccountId ?? ""}`;
       // Classify the sandbox daemon: alive (reuse), optsmismatch (model/tools
       // changed — kill + respawn), stale (new callback bundle — reupload without
       // killing; the daemon self-exits on the fp change), or cold (launch fresh).
@@ -1223,6 +1227,7 @@ export const prewarmSessionDaemon = internalAction({
               : {}),
           },
           claudeSessionId,
+          providerAccountId: args.providerAccountId,
           enableMcp: true,
         },
       );
@@ -1258,6 +1263,7 @@ export const launchOnExistingSandbox = internalAction({
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -1337,6 +1343,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
+        providerAccountId: args.providerAccountId,
         enableMcp: true,
       },
     );

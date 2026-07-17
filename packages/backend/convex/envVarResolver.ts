@@ -4,6 +4,7 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { decryptValue } from "./encryption";
+import { getAIModelProvider } from "./validators";
 import type {
   SandboxCredentials,
   SandboxProviderKind,
@@ -289,4 +290,44 @@ export async function resolveSandboxCredentials(
   throw new Error(
     "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
   );
+}
+
+/**
+ * Resolves the decrypted credential env vars for a user's selected provider
+ * account, used to override the shared team credential at launch so the user's
+ * own agent usage bills to their account.
+ *
+ * Returns an empty map (caller falls back to the team credential) when the
+ * account is missing, not owned by the requesting user, or does not match the
+ * selected model's provider. A mismatch must never break the run, so these
+ * cases log and degrade rather than throw.
+ */
+export async function resolveProviderAccountCredentials(
+  ctx: GenericActionCtx<DataModel>,
+  accountId: Id<"userProviderAccounts">,
+  userId: Id<"users">,
+  model: string | undefined,
+): Promise<Record<string, string>> {
+  const account = await ctx.runQuery(
+    internal.userProviderAccounts.getByIdInternal,
+    { accountId },
+  );
+  if (!account || account.userId !== userId) {
+    console.warn(
+      `[env] resolveProviderAccountCredentials: account ${accountId} missing or not owned by user ${userId} — falling back to team credential`,
+    );
+    return {};
+  }
+  const modelProvider = getAIModelProvider(model);
+  if (account.provider !== modelProvider) {
+    console.warn(
+      `[env] resolveProviderAccountCredentials: account provider ${account.provider} does not match model provider ${modelProvider} — falling back to team credential`,
+    );
+    return {};
+  }
+  const resolved: Record<string, string> = {};
+  for (const entry of account.credentials) {
+    resolved[entry.key] = decryptValue(entry.value);
+  }
+  return resolved;
 }

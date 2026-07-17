@@ -190,6 +190,7 @@ export const sessionExecuteWorkflow = workflow.define({
     mode: sessionModeArgValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -307,6 +308,7 @@ export const sessionExecuteWorkflow = workflow.define({
       model: data.model,
       reasoningLevel: args.reasoningLevel,
       allowedTools: data.allowedTools,
+      providerAccountId: args.providerAccountId,
       sessionPersistenceId: args.sessionId,
     });
 

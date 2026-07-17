@@ -21,6 +21,7 @@ export const startExecute = authMutation({
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -76,6 +77,10 @@ export const startExecute = authMutation({
         turnKind,
         attachmentStorageIds: args.attachmentStorageIds,
       },
+      // Persist the session's chosen account so the page-open prewarm (which has
+      // no per-message context) injects the same credential. Undefined clears
+      // back to the team credential.
+      providerAccountId: args.providerAccountId,
       updatedAt: Date.now(),
     });
 
@@ -96,6 +101,7 @@ export const startExecute = authMutation({
         model: normalizedModel,
         reasoningLevel: args.reasoningLevel,
         allowedTools: MODE_TOOLS[effectiveMode],
+        providerAccountId: args.providerAccountId,
         sessionPersistenceId: args.sessionId,
       });
     }
@@ -109,6 +115,7 @@ export const startExecute = authMutation({
         mode: args.mode,
         model: args.model,
         reasoningLevel: args.reasoningLevel,
+        providerAccountId: args.providerAccountId,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -152,6 +159,7 @@ export const prewarmDaemon = authMutation({
       userId: session.userId,
       model: "claude:sonnet",
       allowedTools: MODE_TOOLS.edit,
+      providerAccountId: session.providerAccountId,
       sessionPersistenceId: args.sessionId,
     });
     return null;
@@ -166,6 +174,7 @@ export const enqueueMessage = authMutation({
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -187,6 +196,7 @@ export const enqueueMessage = authMutation({
       mode: args.mode,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });

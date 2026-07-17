@@ -24,12 +24,17 @@ interface StoredSettings {
   model: AIModel;
   mode: SessionMode;
   reasoningLevel: ReasoningLevel;
+  // The user's own provider account whose credentials run this session's turns,
+  // or null for the shared team credential. Stored as a plain string id (the
+  // Convex Id<"userProviderAccounts">) so it round-trips through localStorage.
+  providerAccountId: string | null;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
   mode: "edit",
   reasoningLevel: DEFAULT_REASONING_LEVEL,
+  providerAccountId: null,
 };
 
 function storageKey(sessionId: string) {
@@ -70,12 +75,21 @@ export function useSessionSettings(
     [setSettings],
   );
 
+  const setProviderAccountId = useCallback(
+    (providerAccountId: string | null) => {
+      setSettings((prev) => ({ ...prev, providerAccountId }));
+    },
+    [setSettings],
+  );
+
   return {
     model: normalizeAIModel(settings.model),
     mode: normalizeMode(settings.mode),
     reasoningLevel: settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL,
+    providerAccountId: settings.providerAccountId ?? null,
     setModel,
     setMode,
     setReasoningLevel,
+    setProviderAccountId,
   };
 }

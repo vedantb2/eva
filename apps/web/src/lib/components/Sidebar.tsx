@@ -354,10 +354,19 @@ export function Sidebar() {
                       </Button>
                     )}
 
+                    {!collapsed && repoName ? (
+                      <span
+                        className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary"
+                        title={appName ? `${repoName} / ${appName}` : repoName}
+                      >
+                        {appName ? `${repoName} / ${appName}` : repoName}
+                      </span>
+                    ) : null}
+
                     <div
                       className={cn(
                         "flex items-center gap-1",
-                        collapsed ? "lg:mx-auto" : "ml-auto",
+                        collapsed ? "lg:mx-auto" : "shrink-0",
                       )}
                     >
                       <Button

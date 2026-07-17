@@ -62,7 +62,10 @@ import {
   UNASSIGNED_VALUE,
   canEditTaskModel,
 } from "./task-detail-constants";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { TriStateOverrideSelect } from "./TriStateOverrideSelect";
@@ -240,6 +243,8 @@ export function StatusFieldsSection({
     task?.repoId,
     currentModel,
   );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
   const canEditModel = canEditTaskModel(status);
 
   return (
@@ -557,6 +562,14 @@ export function StatusFieldsSection({
           options={modelOptions}
           onValueChange={(nextModel) =>
             updateTask({ id: taskId, model: nextModel })
+          }
+          accounts={accounts}
+          accountId={task?.providerAccountId ?? null}
+          onAccountChange={(nextAccountId) =>
+            updateTask({
+              id: taskId,
+              providerAccountId: resolveAccountId(nextAccountId) ?? null,
+            })
           }
           disabled={!canEditModel}
           className="px-0"

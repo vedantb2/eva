@@ -61,6 +61,10 @@ export const update = authMutation({
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.union(v.id("users"), v.null())),
     model: v.optional(aiModelValidator),
+    // null = clear to team credentials. undefined = no change.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     baseBranch: v.optional(v.string()),
     priority: v.optional(v.union(priorityValidator, v.null())),
     // null = clear the override (fall back to repo setting). undefined = no change.
@@ -96,6 +100,8 @@ export const update = authMutation({
     if (args.assignedTo !== undefined)
       updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
+    if (args.providerAccountId !== undefined)
+      updates.providerAccountId = args.providerAccountId ?? undefined;
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;

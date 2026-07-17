@@ -198,6 +198,10 @@ export async function launchScript(
     `CLAUDE_MODEL=${quote([normalizedModel])}`,
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
+    // Claude Code backgrounds Agent/Bash by default; Eva's turn ends on the
+    // SDK `result` event, so a backgrounded sub-agent can never report back.
+    // Force synchronous tools so sub-agent work stays inside the same turn.
+    `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`,
     `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
     `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,

@@ -44,7 +44,9 @@ export function QuickTasksClient() {
   const { basePath, repo, repoId } = useRepo();
   const taskResolve = useAgentTaskByNumId(numIdParam, repoId);
   const selectedTaskId =
-    taskResolve.status === "ready" ? taskResolve.convexId : undefined;
+    taskResolve.status === "ready"
+      ? (taskResolve.convexId ?? undefined)
+      : undefined;
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const { draft: draftParam } = useSearch({
     from: "/_repo/$owner/$repo/quick-tasks",

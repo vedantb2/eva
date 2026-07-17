@@ -25,6 +25,8 @@ export function ProjectDescription({
           projectLead,
           codeReviewer,
           model,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(

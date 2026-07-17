@@ -34,6 +34,10 @@ import {
   IconCalendarDue,
   IconGitBranch,
   IconInfoCircle,
+  IconCamera,
+  IconCameraOff,
+  IconChecklist,
+  IconClipboardOff,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import {
@@ -52,6 +56,10 @@ import {
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
+import {
+  TriStateOverrideToggle,
+  type TriStateValue,
+} from "@/lib/components/quick-tasks/TriStateOverrideToggle";
 
 const GHOST_TRIGGER_CLASS =
   "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
@@ -74,6 +82,8 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           projectLead,
           codeReviewer,
           model,
+          screenshotsVideosEnabled,
+          runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -92,6 +102,15 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(screenshotsVideosEnabled !== undefined
+              ? {
+                  screenshotsVideosEnabled:
+                    screenshotsVideosEnabled ?? undefined,
+                }
+              : {}),
+            ...(runAuditEnabled !== undefined
+              ? { runAuditEnabled: runAuditEnabled ?? undefined }
+              : {}),
           },
         );
       }
@@ -292,6 +311,35 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
             updateProject({ id: projectId, model: nextModel })
           }
           className="px-0"
+        />
+      </div>
+
+      <div className="flex items-center h-8 shrink-0">
+        <TriStateOverrideToggle
+          label="Proof"
+          value={project.screenshotsVideosEnabled}
+          inheritedDefault={repo.screenshotsVideosEnabled ?? false}
+          onIcon={IconCamera}
+          offIcon={IconCameraOff}
+          onChange={(next: TriStateValue) =>
+            updateProject({
+              id: projectId,
+              screenshotsVideosEnabled: next ?? null,
+            })
+          }
+        />
+      </div>
+
+      <div className="flex items-center h-8 shrink-0">
+        <TriStateOverrideToggle
+          label="Audit"
+          value={project.runAuditEnabled}
+          inheritedDefault={true}
+          onIcon={IconChecklist}
+          offIcon={IconClipboardOff}
+          onChange={(next: TriStateValue) =>
+            updateProject({ id: projectId, runAuditEnabled: next ?? null })
+          }
         />
       </div>
 

@@ -65,6 +65,8 @@ export const update = authMutation({
     priority: v.optional(v.union(priorityValidator, v.null())),
     // null = clear the override (fall back to repo setting). undefined = no change.
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // null = clear the override (inherit project/default). undefined = no change.
+    runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -100,6 +102,8 @@ export const update = authMutation({
     if (args.screenshotsVideosEnabled !== undefined)
       updates.screenshotsVideosEnabled =
         args.screenshotsVideosEnabled ?? undefined;
+    if (args.runAuditEnabled !== undefined)
+      updates.runAuditEnabled = args.runAuditEnabled ?? undefined;
     await ctx.db.patch(args.id, updates);
 
     if (args.title !== undefined && args.title !== task.title) {
@@ -404,6 +408,7 @@ export const createQuickTask = authMutation({
     assignedTo: v.optional(v.id("users")),
     priority: v.optional(priorityValidator),
     screenshotsVideosEnabled: v.optional(v.boolean()),
+    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -438,6 +443,7 @@ export const createQuickTask = authMutation({
       assignedTo: args.assignedTo,
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      runAuditEnabled: args.runAuditEnabled,
       numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);

@@ -61,6 +61,7 @@ import {
   ScreenshotsToggle,
   type ScreenshotsToggleValue,
 } from "./ScreenshotsToggle";
+import { AuditToggle, type AuditToggleValue } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
@@ -122,6 +123,8 @@ export function QuickTaskModal({
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
     useState<ScreenshotsToggleValue>(undefined);
+  const [runAuditEnabled, setRunAuditEnabled] =
+    useState<AuditToggleValue>(undefined);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
@@ -176,6 +179,7 @@ export function QuickTaskModal({
     setTagSearch("");
     setPriority(undefined);
     setScreenshotsVideosEnabled(undefined);
+    setRunAuditEnabled(undefined);
   }, [defaultBranch, defaultModel, projectId]);
 
   const handleClose = useCallback(async () => {
@@ -221,6 +225,7 @@ export function QuickTaskModal({
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           screenshotsVideosEnabled,
+          runAuditEnabled,
         });
       } else {
         await createQuickTask({
@@ -234,6 +239,7 @@ export function QuickTaskModal({
           assignedTo,
           priority,
           screenshotsVideosEnabled,
+          runAuditEnabled,
         });
       }
       resetForm();
@@ -338,8 +344,21 @@ export function QuickTaskModal({
 
             <ScreenshotsToggle
               value={screenshotsVideosEnabled}
-              repoDefault={repo.screenshotsVideosEnabled ?? false}
+              repoDefault={
+                effectiveProject?.screenshotsVideosEnabled ??
+                repo.screenshotsVideosEnabled ??
+                false
+              }
               onChange={setScreenshotsVideosEnabled}
+            />
+
+            <AuditToggle
+              value={runAuditEnabled}
+              inheritedDefault={
+                effectiveProject?.runAuditEnabled ??
+                effectiveProjectId !== undefined
+              }
+              onChange={setRunAuditEnabled}
             />
 
             <ProjectPicker

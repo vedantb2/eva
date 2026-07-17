@@ -98,6 +98,7 @@ export const activateDraft = authMutation({
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     screenshotsVideosEnabled: v.optional(v.boolean()),
+    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -118,6 +119,7 @@ export const activateDraft = authMutation({
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      runAuditEnabled: args.runAuditEnabled,
     });
     if (args.assignedTo) {
       await ensureSubscribed(ctx, args.id, args.assignedTo);

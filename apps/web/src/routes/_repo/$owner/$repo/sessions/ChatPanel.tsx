@@ -50,6 +50,7 @@ import {
 } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
@@ -569,34 +570,37 @@ export function ChatPanel({
     ) : null;
 
   const toolsBefore = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
-          <SelectedModeIcon className="size-3.5" />
-          {selectedModeOption.label}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup
-          value={mode}
-          onValueChange={(value) => {
-            if (value === "edit" || value === "plan") {
-              setMode(value);
-            }
-          }}
-        >
-          {SESSION_MODE_OPTIONS.map((option) => {
-            const ModeIcon = option.icon;
-            return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <ModeIcon size={14} />
-                {option.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
+            <SelectedModeIcon className="size-3.5" />
+            {selectedModeOption.label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup
+            value={mode}
+            onValueChange={(value) => {
+              if (value === "edit" || value === "plan") {
+                setMode(value);
+              }
+            }}
+          >
+            {SESSION_MODE_OPTIONS.map((option) => {
+              const ModeIcon = option.icon;
+              return (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  <ModeIcon size={14} />
+                  {option.label}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <SessionOptionsMenu sessionId={sessionId} />
+    </>
   );
 
   const emptyStateTitle = isSandboxActive

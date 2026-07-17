@@ -109,6 +109,7 @@ export const getTaskData = internalQuery({
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     screenshotsVideosEnabled: v.boolean(),
+    runAuditEnabled: v.boolean(),
     proofModel: v.optional(aiModelValidator),
     auditCategories: v.array(
       v.object({ name: v.string(), description: v.string() }),
@@ -250,9 +251,31 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    // Per-task override wins. `undefined` on the task means "inherit repo".
+    // Resolve proof/audit defaults from the task's project when set, even for a
+    // quick task assigned to a project (args.projectId is only passed for the
+    // project-build path, so fall back to task.projectId here). Sandbox-reuse
+    // logic above stays keyed off args.projectId only — no behavior change.
+    const defaultsProjectId = args.projectId ?? task.projectId;
+    const defaultsProject =
+      defaultsProjectId === args.projectId
+        ? project
+        : defaultsProjectId
+          ? await ctx.db.get(defaultsProjectId)
+          : null;
+
+    // Per-task override wins, then project default, then repo, then off.
     const screenshotsVideosEnabled =
-      task.screenshotsVideosEnabled ?? repo.screenshotsVideosEnabled ?? false;
+      task.screenshotsVideosEnabled ??
+      defaultsProject?.screenshotsVideosEnabled ??
+      repo.screenshotsVideosEnabled ??
+      false;
+
+    // Audit: task override -> project default -> current behavior (project
+    // tasks audit by default, quick tasks do not).
+    const runAuditEnabled =
+      task.runAuditEnabled ??
+      defaultsProject?.runAuditEnabled ??
+      args.projectId !== undefined;
 
     const prompt =
       args.mode === "resolve_conflicts"
@@ -314,6 +337,7 @@ export const getTaskData = internalQuery({
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       screenshotsVideosEnabled,
+      runAuditEnabled,
       proofModel: repo.proofModel,
       auditCategories: enabledCategories,
     };

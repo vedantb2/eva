@@ -95,6 +95,10 @@ export const agentTaskFields = {
   // run time in `_taskWorkflow/queries.ts` (`getTaskData`) where the agent
   // prompt and sandbox env var are computed.
   screenshotsVideosEnabled: v.optional(v.boolean()),
+  // Per-task override for whether an audit runs after a successful run.
+  // undefined = inherit project -> default ("project tasks audit"). true =
+  // force on. false = force off. Resolved in `getTaskData` (`runAuditEnabled`).
+  runAuditEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
@@ -187,6 +191,11 @@ export const sessionFields = {
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  // Per-session switches toggled from the chat composer options menu. Absent =
+  // off. captureProofEnabled adds a proof-capture section to the agent-turn
+  // prompt; runAuditEnabled fires an audit after each successful agent turn.
+  captureProofEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
   // Daemon-pull turn dispatch: startExecute writes the built prompt here and the
   // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
   // the workflow's durable step queue. Absent between turns.
@@ -320,6 +329,10 @@ export const projectFields = {
     v.union(v.literal("interview"), v.literal("tasks_only")),
   ),
   priority: v.optional(priorityValidator),
+  // Per-project tri-state defaults inherited by member tasks (task override
+  // wins). undefined = inherit repo/global default. Resolved in `getTaskData`.
+  screenshotsVideosEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),

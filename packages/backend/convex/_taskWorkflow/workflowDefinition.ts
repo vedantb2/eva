@@ -316,7 +316,7 @@ export const taskExecutionWorkflow = workflow.define({
         finalSuccess &&
         sandboxId &&
         auditCategories.length > 0 &&
-        args.projectId
+        data.runAuditEnabled
       ) {
         try {
           const auditId = await step.runMutation(

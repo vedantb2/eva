@@ -1,5 +1,13 @@
 # Changelog
 
+## Per-task, per-project, and per-session proof/audit toggles - 2026-07-17
+
+- Proof capture (screenshots/videos) and audit are no longer repo-only defaults: they can now be turned on or off per task, per project, and per session, so runs no longer inherit a single repo-wide setting they cannot override.
+- Task creation and the task detail sidebar gained an Audit control alongside the existing Proof control, both tri-state (inherit / force on / force off); resolution order for a run is task, then project, then repo/default.
+- Projects gained proof and audit defaults in the metadata bar that their tasks inherit; a task's audit toggle can now force an audit on a quick task too (previously audits ran only on project tasks), still requiring at least one enabled audit category.
+- The session chat composer gained an Options menu with "Capture proof" and "Run audit" checkboxes that persist on the session and apply to every subsequent turn until unchecked — proof adds a capture step to the turn, and audit runs after each successful agent turn.
+- Reason for change: teams needed to decide proof/audit per piece of work rather than flipping a repo-wide default, and to opt individual quick tasks and sessions in or out on the fly.
+
 ## Paste and attach images in sandbox chat - 2026-07-17
 
 - The chat composer (shared by session, project sandbox, and quick-task sandbox chats) now accepts images: paste with Ctrl+V, drag-and-drop, and see thumbnails before sending. Attached images render back in the sent user message.

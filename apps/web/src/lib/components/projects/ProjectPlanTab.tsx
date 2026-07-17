@@ -46,6 +46,8 @@ export function ProjectPlanTab({
           projectLead,
           codeReviewer,
           model,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(

@@ -1,5 +1,11 @@
 # Changelog
 
+## PR recaps no longer hang on monorepo root sandboxes - 2026-07-17
+
+- PR recap sandboxes now resolve credentials from a sibling app that has `VERCEL_PROJECT_ID` (preferring the default visible app) instead of the codebase root row, which typically has no project id.
+- Sandbox/prep failures now finalize the doc as `error` with a message instead of leaving status stuck on `pending` / “Generating…”.
+- Reason for change: carepulse-style monorepos with `SANDBOX_PROVIDER=vercel` were silently failing sandbox create on the root repo and never updating the doc.
+
 ## Credential source shown on runs and chat turns - 2026-07-17
 
 - Each task run and chat turn now snapshots whether it used Team credentials or a personal account label (e.g. “Personal”) at launch/send time.

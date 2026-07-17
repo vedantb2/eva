@@ -93,6 +93,10 @@ export const update = authMutation({
     codeReviewer: v.optional(v.union(v.id("users"), v.null())),
     tags: v.optional(v.array(v.string())),
     model: v.optional(v.union(aiModelValidator, v.null())),
+    // null = clear to team credentials. undefined = no change.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     // Tri-state proof/audit defaults for member tasks. null clears the override.
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
     runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
@@ -106,6 +110,7 @@ export const update = authMutation({
       priority,
       codeReviewer,
       model,
+      providerAccountId,
       phase,
       screenshotsVideosEnabled,
       runAuditEnabled,
@@ -124,6 +129,8 @@ export const update = authMutation({
     if (codeReviewer !== undefined)
       updates.codeReviewer = codeReviewer ?? undefined;
     if (model !== undefined) updates.model = model ?? undefined;
+    if (providerAccountId !== undefined)
+      updates.providerAccountId = providerAccountId ?? undefined;
     if (phase !== undefined) updates.phase = phase;
     // null -> undefined: these must not flow through the generic spread, which
     // would write null into the doc instead of clearing the field.

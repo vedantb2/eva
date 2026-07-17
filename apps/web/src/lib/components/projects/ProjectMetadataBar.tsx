@@ -54,7 +54,10 @@ import {
   type ProjectPhase,
 } from "./ProjectPhaseBadge";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
 import {
   TriStateOverrideToggle,
@@ -127,6 +130,8 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
     project?.repoId,
     currentModel,
   );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   if (!project) return null;
 
@@ -309,6 +314,14 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           options={modelOptions}
           onValueChange={(nextModel) =>
             updateProject({ id: projectId, model: nextModel })
+          }
+          accounts={accounts}
+          accountId={project.providerAccountId ?? null}
+          onAccountChange={(nextAccountId) =>
+            updateProject({
+              id: projectId,
+              providerAccountId: resolveAccountId(nextAccountId) ?? null,
+            })
           }
           className="px-0"
         />

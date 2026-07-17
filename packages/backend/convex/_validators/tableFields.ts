@@ -398,6 +398,9 @@ export const projectFields = {
   codeReviewer: v.optional(v.id("users")),
   tags: v.optional(v.array(v.string())),
   model: v.optional(aiModelValidator),
+  // Whose credential this project's model preference is tied to (null/absent =
+  // team). Mirrors agentTasks.providerAccountId for the project metadata picker.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
 };
 
 export const projectDetailsFields = {

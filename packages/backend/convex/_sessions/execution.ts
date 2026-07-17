@@ -10,6 +10,7 @@ import {
 } from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
 
@@ -253,20 +254,7 @@ export const cancelExecution = authMutation({
         .order("desc")
         .first();
       if (last && last.role === "assistant" && last.finishedAt === undefined) {
-        const patch: {
-          content?: string;
-          activityLog?: string;
-          finishedAt: number;
-        } = {
-          finishedAt: Date.now(),
-        };
-        if (!last.content) {
-          patch.content = "Execution cancelled by user.";
-        }
-        if (streaming?.currentActivity) {
-          patch.activityLog = streaming.currentActivity;
-        }
-        await ctx.db.patch(last._id, patch);
+        await finalizeCancelledAssistantMessage(ctx, last, streaming);
       }
     }
 

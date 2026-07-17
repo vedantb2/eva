@@ -467,7 +467,9 @@ export function ChatBody({
                 : "px-1 py-2"
             }
           >
-            {message.role === "assistant" && !message.content ? (
+            {message.role === "assistant" &&
+            !message.content &&
+            message.finishedAt === undefined ? (
               <>
                 <StreamingActivityDisplay
                   activity={streamingActivity}

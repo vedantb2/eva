@@ -18,6 +18,7 @@ import {
   clearStreamingActivity,
   resolveTaskBranchName,
 } from "./_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
 import {
   trackAgentTaskChatWorkflow,
@@ -189,16 +190,8 @@ export const cancelExecution = authMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant") {
-      const patch: {
-        content?: string;
-        activityLog?: string;
-        finishedAt: number;
-      } = { finishedAt: Date.now() };
-      if (!last.content) patch.content = "Execution cancelled by user.";
-      if (streaming?.currentActivity)
-        patch.activityLog = streaming.currentActivity;
-      await ctx.db.patch(last._id, patch);
+    if (last && last.role === "assistant" && last.finishedAt === undefined) {
+      await finalizeCancelledAssistantMessage(ctx, last, streaming);
     }
 
     await clearStreamingActivity(ctx, streamingEntityId);

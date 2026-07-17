@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -6,6 +7,56 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
+
+/** True when the activity JSON actually has tool steps (not missing / empty / `[]`). */
+function hasToolActivity(activity: string | undefined): boolean {
+  if (activity === undefined) return false;
+  const trimmed = activity.trim();
+  return trimmed.length > 0 && trimmed !== "[]";
+}
+
+/**
+ * Finalize an in-flight assistant message after the user hits stop.
+ * Keeps whatever streamed text / tool timeline exists; deletes the bubble when
+ * nothing was produced (avoids leaving "Execution cancelled by user.").
+ */
+export async function finalizeCancelledAssistantMessage(
+  ctx: MutationCtx,
+  message: Doc<"messages">,
+  streaming: Doc<"streamingActivity"> | null,
+): Promise<void> {
+  if (message.role !== "assistant" || message.finishedAt !== undefined) {
+    return;
+  }
+
+  const streamedContent = streaming?.currentContent?.trim() ?? "";
+  const streamedActivity = streaming?.currentActivity;
+  const hadStreamedActivity = hasToolActivity(streamedActivity);
+  const hadPersistedActivity = hasToolActivity(message.activityLog);
+
+  if (
+    !message.content &&
+    !streamedContent &&
+    !hadStreamedActivity &&
+    !hadPersistedActivity
+  ) {
+    await ctx.db.delete(message._id);
+    return;
+  }
+
+  const patch: {
+    content?: string;
+    activityLog?: string;
+    finishedAt: number;
+  } = { finishedAt: Date.now() };
+  if (!message.content && streamedContent) {
+    patch.content = streamedContent;
+  }
+  if (hadStreamedActivity && streamedActivity !== undefined) {
+    patch.activityLog = streamedActivity;
+  }
+  await ctx.db.patch(message._id, patch);
+}
 
 const activityStateValidator = v.union(
   v.object({

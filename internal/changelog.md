@@ -1,5 +1,11 @@
 # Changelog
 
+## Stop keeps the partial reply instead of "Execution cancelled" - 2026-07-17
+
+- Killing a session/task/project chat turn now saves whatever text and tool timeline had already streamed; the hardcoded "Execution cancelled by user." string is gone.
+- If nothing streamed and no tools ran, the empty assistant bubble is deleted instead of left as a cancelled stub.
+- Reason for change: users were watching a real partial answer stream in, then stop replaced it with boilerplate.
+
 ## Session sub-agents no longer vanish mid-turn - 2026-07-17
 
 - Sandboxes now set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` so Agent/Bash cannot background; sub-agent work finishes inside the same turn before Eva finalizes the reply.

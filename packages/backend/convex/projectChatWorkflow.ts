@@ -18,6 +18,7 @@ import {
   sendCompletionEvent,
   clearStreamingActivity,
 } from "./_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedProjectChatMessage } from "./_queues/helpers";
 import {
   trackProjectChatWorkflow,
@@ -188,16 +189,8 @@ export const cancelExecution = authMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant") {
-      const patch: {
-        content?: string;
-        activityLog?: string;
-        finishedAt: number;
-      } = { finishedAt: Date.now() };
-      if (!last.content) patch.content = "Execution cancelled by user.";
-      if (streaming?.currentActivity)
-        patch.activityLog = streaming.currentActivity;
-      await ctx.db.patch(last._id, patch);
+    if (last && last.role === "assistant" && last.finishedAt === undefined) {
+      await finalizeCancelledAssistantMessage(ctx, last, streaming);
     }
 
     await clearStreamingActivity(ctx, streamingEntityId);

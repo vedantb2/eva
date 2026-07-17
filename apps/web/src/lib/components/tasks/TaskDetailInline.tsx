@@ -100,7 +100,6 @@ export function TaskDetailInline({
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
-    handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
     handleRetryStartupCommands,

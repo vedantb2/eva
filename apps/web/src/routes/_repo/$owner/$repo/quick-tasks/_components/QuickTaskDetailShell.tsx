@@ -25,7 +25,6 @@ interface QuickTaskDetailShellProps {
 /** Shared page chrome for quick task detail and sandbox routes. */
 export function QuickTaskDetailShell({
   taskId,
-  detailTab,
   navSurface,
   sandboxTab,
   children,

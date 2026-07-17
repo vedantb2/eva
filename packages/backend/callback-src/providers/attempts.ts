@@ -141,6 +141,11 @@ export async function runOpencodeAttempt(sessionMode: SessionMode) {
 }
 
 export async function runCursorAttempt(sessionMode: SessionMode) {
+  if (!process.env.CURSOR_API_KEY?.trim()) {
+    throw new Error(
+      "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",
+    );
+  }
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId
       ? " --resume " + JSON.stringify(sessionMode.sessionId)

@@ -32,8 +32,10 @@ export const aiModelValidator = v.union(
   v.literal("cursor:grok-4.5-high"),
   v.literal("cursor:gpt-5.5-high"),
   v.literal("cursor:gemini-3.1-pro"),
-  v.literal("cursor:composer-2"),
   v.literal("cursor:composer-2.5"),
+  // Legacy — still accepted so existing sessions with this lastModel can load;
+  // normalizeAIModel maps it to composer-2.5.
+  v.literal("cursor:composer-2"),
 );
 
 /**
@@ -140,9 +142,11 @@ export type AIModel =
   | "cursor:grok-4.5-high"
   | "cursor:gpt-5.5-high"
   | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2"
   | "cursor:composer-2.5";
-export type PersistedAIModel = AIModel | LegacyClaudeModel;
+export type PersistedAIModel =
+  | AIModel
+  | LegacyClaudeModel
+  | "cursor:composer-2";
 
 export interface AIModelOption {
   id: AIModel;
@@ -305,12 +309,6 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:composer-2",
-    provider: "cursor",
-    label: "Composer 2",
-    requiresAuth: true,
-  },
-  {
     id: "cursor:composer-2.5",
     provider: "cursor",
     label: "Composer 2.5",
@@ -433,7 +431,6 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":
-      return "cursor:composer-2";
     case "cursor:composer-2.5":
       return "cursor:composer-2.5";
     case "sonnet":

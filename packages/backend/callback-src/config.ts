@@ -248,9 +248,23 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-export const normalizedCursorModel = MODEL.startsWith("cursor:")
+// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
+// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
+const CURSOR_CLI_MODEL_IDS: Record<string, string> = {
+  "grok-4.5-low": "cursor-grok-4.5-low",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
+  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
+  "cursor-grok-4.5-high": "cursor-grok-4.5-high",
+};
+
+const cursorModelRaw = MODEL.startsWith("cursor:")
   ? MODEL.slice("cursor:".length)
   : MODEL;
+
+export const normalizedCursorModel =
+  CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 export const claudeCommand = existsSync(CLAUDE_BIN_PATH)
   ? JSON.stringify(CLAUDE_BIN_PATH)
   : "claude";

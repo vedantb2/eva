@@ -1164,6 +1164,16 @@ export const prewarmSessionDaemon = internalAction({
       const sessionIdStr = String(args.sessionId);
       const fp = CALLBACK_SCRIPT_FINGERPRINT;
       const normalizedModel = normalizeAIModel(args.model);
+      // sdk-daemon is Claude-only. Launching this path for Cursor/Codex/Opencode
+      // falls through to the one-shot runner with an empty prompt and dies as
+      // "no parseable stream-json events". Non-Claude session turns are pushed
+      // via launchOnExistingSandbox from sessionExecuteWorkflow instead.
+      if (getAIModelProvider(normalizedModel) !== "claude") {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: skip non-claude provider sessionId=${args.sessionId} model=${normalizedModel}`,
+        );
+        return { prewarmed: false };
+      }
       // The daemon freezes its model + tool set when it boots, so a daemon
       // started for a different model/tools must be replaced — reusing it would
       // run the turn on the wrong model or without edit tools. The daemon writes

@@ -9,6 +9,7 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
+  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
 } from "../validators";
@@ -295,27 +296,6 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
-    // Ensure a daemon is alive to claim the staged prompt. Idempotent and
-    // prompt-less: a no-op if a daemon is already warm (the common warm-turn
-    // case, and it never pkills a live daemon), otherwise it respawns one in
-    // pull mode. `startExecute` already scheduled this same action; running it
-    // again here covers the cold/archived path where the sandbox was only just
-    // started by the steps above (so the earlier schedule found nothing to
-    // start) and guards against a daemon that died between turns.
-    await step.runAction(internal.daytona.prewarmSessionDaemon, {
-      sandboxId,
-      sessionId: args.sessionId,
-      repoId: data.repoId,
-      userId: args.userId,
-      model: data.model,
-      reasoningLevel: args.reasoningLevel,
-      thinkingEnabled: args.thinkingEnabled,
-      use1mContext: args.use1mContext,
-      allowedTools: data.allowedTools,
-      providerAccountId: args.providerAccountId,
-      sessionPersistenceId: args.sessionId,
-    });
-
     // Cancel can race with startExecute and wipe the newly staged pendingTurn
     // while this workflow keeps waiting. Re-stage from workflow args whenever
     // the turn is still open and nothing is pending for the daemon to claim.
@@ -326,6 +306,45 @@ export const sessionExecuteWorkflow = workflow.define({
       attachmentStorageIds: data.attachmentStorageIds,
       model: args.model,
     });
+
+    // Claude sessions use the sdk-daemon pull path (prewarm + claimPendingTurn).
+    // Cursor/Codex/Opencode have no pull daemon — push the prompt via one-shot
+    // launch, otherwise a Cursor prewarm would run with an empty prompt and die
+    // as "no parseable stream-json events within 90000ms".
+    if (getAIModelProvider(data.model) === "claude") {
+      await step.runAction(internal.daytona.prewarmSessionDaemon, {
+        sandboxId,
+        sessionId: args.sessionId,
+        repoId: data.repoId,
+        userId: args.userId,
+        model: data.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        allowedTools: data.allowedTools,
+        providerAccountId: args.providerAccountId,
+        sessionPersistenceId: args.sessionId,
+      });
+    } else {
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: String(args.sessionId),
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "sessionWorkflow:handleCompletion",
+        entityIdField: "sessionId",
+        model: data.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        allowedTools: data.allowedTools,
+        repoId: data.repoId,
+        streamingEntityId: String(args.sessionId),
+        sessionPersistenceId: args.sessionId,
+        providerAccountId: args.providerAccountId,
+        attachmentStorageIds: data.attachmentStorageIds,
+      });
+    }
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -1004,6 +1023,12 @@ export const handleCompletion = authMutation({
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
     );
+
+    // One-shot providers (Cursor/Codex/Opencode) never claimPendingTurn, so
+    // clear any leftover staged prompt here. Claude already cleared on claim.
+    if (session.pendingTurn !== undefined) {
+      await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+    }
 
     await sendCompletionEvent(
       ctx,

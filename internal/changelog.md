@@ -1,5 +1,10 @@
 # Changelog
 
+## Cursor session turns no longer launch with an empty prompt - 2026-07-18
+
+- Cursor/Codex/Opencode session turns are pushed via one-shot launch again; Claude keeps the sdk-daemon pull path. Also map Grok to Cursor’s `cursor-grok-4.5-*` CLI slugs and drop Composer 2 from the picker (keep 2.5).
+- Reason for change: with `sdk-daemon` on, picking Cursor still prewarmed the Claude-only daemon path, which fell through to a one-shot with an empty prompt and died as “no parseable stream-json events within 90000ms”.
+
 ## Chat queue UI matches Cursor-style follow-up cards - 2026-07-18
 
 - Queued prompts sit in a quieter collapsible card with two-line wrap, move-to-front, edit, and delete; while a turn is running the composer placeholder becomes “Add a follow-up…”.

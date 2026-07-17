@@ -166,7 +166,16 @@ var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
+var CURSOR_CLI_MODEL_IDS = {
+  "grok-4.5-low": "cursor-grok-4.5-low",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
+  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
+  "cursor-grok-4.5-high": "cursor-grok-4.5-high"
+};
+var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
+var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 var claudeCommand = existsSync(CLAUDE_BIN_PATH) ? JSON.stringify(CLAUDE_BIN_PATH) : "claude";
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
@@ -1505,7 +1514,11 @@ function appendDiagnosticTail(message) {
   const stderrTail = callbackState.stderrOutput.slice(-1500).trim();
   if (stdoutTail) details.push("stdout tail:\\n" + stdoutTail);
   if (stderrTail) details.push("stderr tail:\\n" + stderrTail);
-  if (details.length === 0) return message;
+  if (details.length === 0) {
+    details.push(
+      "(stdout and stderr were empty \\u2014 CLI likely hung before emitting stream-json, e.g. bad --model)"
+    );
+  }
   return message + "\\n\\n" + details.join("\\n\\n");
 }
 async function uploadMediaFile(filePath, mimeType) {
@@ -4220,6 +4233,11 @@ async function runOpencodeAttempt(sessionMode) {
   });
 }
 async function runCursorAttempt(sessionMode) {
+  if (!process.env.CURSOR_API_KEY?.trim()) {
+    throw new Error(
+      "CURSOR_API_KEY is missing in the sandbox environment \\u2014 Cursor CLI cannot authenticate"
+    );
+  }
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
   const cmd = cursorExecBaseCmd + sessionArg;
   return await runCliAttempt({

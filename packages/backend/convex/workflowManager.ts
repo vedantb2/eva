@@ -20,6 +20,17 @@ export const workflow = new WorkflowManager(components.workflow, {
   },
 });
 
+/**
+ * Brands a plain workflow-id string back into the library's opaque `WorkflowId`.
+ * Convex persists workflow ids with `v.string()`, so a stored id is read back as
+ * a plain string with no non-assertion way to recover the brand. This is the
+ * single, contained assertion for that third-party-type gap.
+ */
+export function toWorkflowId(workflowId: string): WorkflowId {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- WorkflowId is an opaque branded type from @convex-dev/workflow; Convex stores it as v.string() so there is no non-assertion way to recover the brand
+  return workflowId as WorkflowId;
+}
+
 /** Cancels a tracked workflow, swallowing errors when it has already completed or been cancelled. */
 export async function cancelTrackedWorkflow(
   ctx: MutationCtx,
@@ -27,7 +38,7 @@ export async function cancelTrackedWorkflow(
 ): Promise<void> {
   if (!workflowId) return;
   try {
-    await workflow.cancel(ctx, workflowId as WorkflowId);
+    await workflow.cancel(ctx, toWorkflowId(workflowId));
   } catch {
     // Workflow may have already completed or been cancelled
   }

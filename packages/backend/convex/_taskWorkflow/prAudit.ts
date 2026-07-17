@@ -1,23 +1,28 @@
+import { z } from "zod";
 import { extractJsonBlock } from "./helpers";
 
-type AuditRow = {
-  requirement: string;
-  passed: boolean;
-  detail: string;
-};
+const auditRowSchema = z.object({
+  requirement: z.string(),
+  passed: z.boolean(),
+  detail: z.string(),
+});
 
-type AuditSection = {
-  name: string;
-  results: AuditRow[];
-};
+const parsedAuditSchema = z.object({
+  sections: z
+    .array(
+      z.object({
+        name: z.string(),
+        results: z.array(auditRowSchema).optional(),
+      }),
+    )
+    .optional(),
+  accessibility: z.array(auditRowSchema).optional(),
+  testing: z.array(auditRowSchema).optional(),
+  codeReview: z.array(auditRowSchema).optional(),
+  summary: z.string().optional(),
+});
 
-type ParsedAudit = {
-  sections?: AuditSection[];
-  accessibility?: AuditRow[];
-  testing?: AuditRow[];
-  codeReview?: AuditRow[];
-  summary?: string;
-};
+type AuditRow = z.infer<typeof auditRowSchema>;
 
 export const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
@@ -51,7 +56,9 @@ export function buildAuditSection(
   }
 
   try {
-    const parsed = JSON.parse(extractJsonBlock(result)) as ParsedAudit;
+    const parsed = parsedAuditSchema.parse(
+      JSON.parse(extractJsonBlock(result)),
+    );
     const rows: Array<[string, AuditRow]> = [];
 
     if (parsed.sections && Array.isArray(parsed.sections)) {

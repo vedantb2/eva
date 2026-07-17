@@ -56,7 +56,7 @@ export type TaskDetailTab = "activity";
 export const TASK_DETAIL_TABS = ["activity"] as const;
 
 export function isTaskDetailTab(v: string): v is TaskDetailTab {
-  return (TASK_DETAIL_TABS as readonly string[]).includes(v);
+  return TASK_DETAIL_TABS.some((tab) => tab === v);
 }
 
 /**

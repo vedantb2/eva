@@ -31,11 +31,7 @@ export const startProjectSandbox = authMutation({
       ctx.userId,
     );
 
-    if (
-      !PREVIEW_ALLOWED_PHASES.includes(
-        project.phase as (typeof PREVIEW_ALLOWED_PHASES)[number],
-      )
-    ) {
+    if (!PREVIEW_ALLOWED_PHASES.some((phase) => phase === project.phase)) {
       throw new Error(
         `Project must be in in_progress, business_review, or code_review to start sandbox. Current phase: ${project.phase}`,
       );
@@ -112,11 +108,7 @@ export const retryProjectStartupCommands = authMutation({
       ctx.userId,
     );
 
-    if (
-      !PREVIEW_ALLOWED_PHASES.includes(
-        project.phase as (typeof PREVIEW_ALLOWED_PHASES)[number],
-      )
-    ) {
+    if (!PREVIEW_ALLOWED_PHASES.some((phase) => phase === project.phase)) {
       throw new Error(
         `Project must be in in_progress, business_review, or code_review to run startup commands. Current phase: ${project.phase}`,
       );

@@ -13,7 +13,11 @@
     "import/no-duplicates": "error",
     "eva/no-is-record": "error",
     "typescript/no-explicit-any": "error",
-    "typescript/no-non-null-assertion": "error"
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "never" }
+    ]
   },
   "ignorePatterns": [
     "**/node_modules/**",

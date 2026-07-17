@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
@@ -15,6 +16,15 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+
+/** Shape of the JSON the doc-generation LLM step is expected to return. */
+const generatedDocSchema = z.object({
+  description: z.string().optional(),
+  requirements: z.array(z.string()).optional(),
+  userFlows: z
+    .array(z.object({ name: z.string(), steps: z.array(z.string()) }))
+    .optional(),
+});
 
 const docInterviewCompleteEvent = defineEvent({
   name: "docInterviewComplete",
@@ -470,12 +480,10 @@ export const saveGenerateResult = internalMutation({
 
     if (args.success && args.result) {
       const { json } = llmJson.extract(args.result);
-      if (json.length > 0) {
-        const generated = json[0] as {
-          description?: string;
-          requirements?: string[];
-          userFlows?: Array<{ name: string; steps: string[] }>;
-        };
+      const parsed =
+        json.length > 0 ? generatedDocSchema.safeParse(json[0]) : null;
+      if (parsed?.success) {
+        const generated = parsed.data;
 
         // Update doc with generated content
         await ctx.db.patch(args.docId, {

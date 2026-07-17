@@ -186,7 +186,10 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         onValueChange={(val) =>
           updateProject({
             id: projectId,
-            projectLead: val === "none" ? null : (val as Id<"users">),
+            projectLead:
+              val === "none"
+                ? null
+                : ((users ?? []).find((u) => u._id === val)?._id ?? null),
           })
         }
       >
@@ -227,7 +230,10 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         onValueChange={(val) =>
           updateProject({
             id: projectId,
-            codeReviewer: val === "none" ? null : (val as Id<"users">),
+            codeReviewer:
+              val === "none"
+                ? null
+                : ((users ?? []).find((u) => u._id === val)?._id ?? null),
           })
         }
       >

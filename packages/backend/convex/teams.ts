@@ -149,16 +149,21 @@ export const list = authQuery({
 
 /** Fetches a single team by ID, returning null if not found or user isn't a member. */
 export const get = authQuery({
-  args: { id: v.id("teams") },
+  // Accepts a raw string so client route params need no `as Id` cast;
+  // normalizeId returns null for anything that is not a valid teams id.
+  args: { id: v.string() },
   returns: v.union(teamWithLogoValidator, v.null()),
   handler: async (ctx, args) => {
-    const team = await ctx.db.get(args.id);
+    const teamId = ctx.db.normalizeId("teams", args.id);
+    if (!teamId) return null;
+
+    const team = await ctx.db.get(teamId);
     if (!team) return null;
 
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.id).eq("userId", ctx.userId),
+        q.eq("teamId", teamId).eq("userId", ctx.userId),
       )
       .first();
 

@@ -13,6 +13,10 @@ import { IconCheck } from "@tabler/icons-react";
 import { SectionLabel } from "./SectionLabel";
 import { OptionButton } from "./OptionButton";
 
+function isFontFamily(value: string): value is FontFamily {
+  return value in FONT_FAMILIES;
+}
+
 const RADIUS_OPTIONS: { value: RadiusSize; label: string }[] = [
   { value: "none", label: "None" },
   { value: "sm", label: "Small" },
@@ -86,12 +90,8 @@ export function TypographySection({
       <section>
         <SectionLabel>Font</SectionLabel>
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          {(
-            Object.entries(FONT_FAMILIES) as [
-              FontFamily,
-              (typeof FONT_FAMILIES)[FontFamily],
-            ][]
-          ).map(([key, font]) => {
+          {Object.entries(FONT_FAMILIES).map(([key, font]) => {
+            if (!isFontFamily(key)) return null;
             const isActive = fontFamily === key;
             return (
               <OptionButton

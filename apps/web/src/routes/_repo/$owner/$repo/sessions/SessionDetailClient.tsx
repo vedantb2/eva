@@ -2,19 +2,21 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 
 export function SessionDetailClient({
   sessionId,
   activeSandboxTab,
   onSandboxTabChange,
   onOpenFile,
+  onViewDiff,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -22,6 +24,8 @@ export function SessionDetailClient({
   onSandboxTabChange: (tab: string) => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile: (path: string) => void;
+  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
+  onViewDiff?: (repoRelativePath?: string) => void;
 }) {
   const { basePath } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -94,58 +98,65 @@ export function SessionDetailClient({
 
   const isSandboxActive = session.status === "active";
 
+  const openDiffsTab = useCallback(() => {
+    onSandboxTabChange("diffs");
+  }, [onSandboxTabChange]);
+
   return (
-    <ResizablePanelLayout
-      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-        <ChatPanel
-          sessionId={sessionId}
-          title={session.title}
-          branchName={session.branchName}
-          prUrl={session.prUrl}
-          prState={session.prState}
-          summary={session.summary}
-          messages={messages ?? []}
-          queuedMessages={queuedMessages ?? []}
-          planContent={session.planContent}
-          streamingActivity={streaming?.currentActivity}
-          streamingContent={streaming?.currentContent}
-          streamingPendingQuestion={streaming?.pendingQuestion}
-          summaryStreamingActivity={summaryStreaming?.currentActivity}
-          startupStreamingActivity={startupStreaming?.currentActivity}
-          isSandboxActive={isSandboxActive}
-          isSandboxToggling={
-            isSandboxStarting || isSandboxStopping || isStopPending
-          }
-          isSandboxStopping={isSandboxStopping || isStopPending}
-          onSandboxToggle={handleSandboxToggle}
-          isArchived={session.archived === true}
-          deploymentStatus={session.deploymentStatus}
-          sandboxCollapsed={rightPanelCollapsed}
-          onToggleSandbox={onToggleRightPanel}
-          onOpenFile={onOpenFile}
-        />
-      )}
-      rightPanel={
-        <SandboxPanel
-          sessionId={sessionId}
-          sandboxId={session.sandboxId}
-          vercelSandboxId={session.vercelSandboxId}
-          isActive={isSandboxActive}
-          repoId={session.repoId}
-          prUrl={session.prUrl}
-          devPort={session.devPort}
-          devCommand={session.devCommand}
-          terminalPanes={session.terminalPanes}
-          planContent={session.planContent}
-          isArchived={session.archived === true}
-          activeTab={activeSandboxTab}
-          onTabChange={onSandboxTabChange}
-        />
-      }
-      leftDefaultSize="30%"
-      leftMinWidthPx={350}
-      rightMinWidthPx={300}
-      storageKey="sandbox-collapsed"
-    />
+    <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
+      <ResizablePanelLayout
+        leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+          <ChatPanel
+            sessionId={sessionId}
+            title={session.title}
+            branchName={session.branchName}
+            prUrl={session.prUrl}
+            prState={session.prState}
+            summary={session.summary}
+            messages={messages ?? []}
+            queuedMessages={queuedMessages ?? []}
+            planContent={session.planContent}
+            streamingActivity={streaming?.currentActivity}
+            streamingContent={streaming?.currentContent}
+            streamingPendingQuestion={streaming?.pendingQuestion}
+            summaryStreamingActivity={summaryStreaming?.currentActivity}
+            startupStreamingActivity={startupStreaming?.currentActivity}
+            isSandboxActive={isSandboxActive}
+            isSandboxToggling={
+              isSandboxStarting || isSandboxStopping || isStopPending
+            }
+            isSandboxStopping={isSandboxStopping || isStopPending}
+            onSandboxToggle={handleSandboxToggle}
+            isArchived={session.archived === true}
+            deploymentStatus={session.deploymentStatus}
+            sandboxCollapsed={rightPanelCollapsed}
+            onToggleSandbox={onToggleRightPanel}
+            onOpenFile={onOpenFile}
+            onViewDiff={onViewDiff}
+          />
+        )}
+        rightPanel={
+          <SandboxPanel
+            sessionId={sessionId}
+            sandboxId={session.sandboxId}
+            vercelSandboxId={session.vercelSandboxId}
+            isActive={isSandboxActive}
+            repoId={session.repoId}
+            prUrl={session.prUrl}
+            devPort={session.devPort}
+            devCommand={session.devCommand}
+            terminalPanes={session.terminalPanes}
+            planContent={session.planContent}
+            isArchived={session.archived === true}
+            activeTab={activeSandboxTab}
+            onTabChange={onSandboxTabChange}
+          />
+        }
+        leftDefaultSize="30%"
+        leftMinWidthPx={350}
+        rightMinWidthPx={300}
+        storageKey="sandbox-collapsed"
+      />
+    </PendingReviewCommentsProvider>
   );
 }

@@ -38,6 +38,8 @@ import {
   type Id,
 } from "@conductor/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { stripReviewCommentBlocks } from "@/lib/reviewComments";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -75,6 +77,7 @@ interface ChatComposerProps {
   formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
+  hasPendingContext?: boolean;
 }
 
 export function ChatComposer({
@@ -102,6 +105,7 @@ export function ChatComposer({
   formatQueuedInfo,
   draft,
   isDraftLoading,
+  hasPendingContext = false,
 }: ChatComposerProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
@@ -123,15 +127,16 @@ export function ChatComposer({
       if (attachmentStorageIds.length < imageCount) {
         toast.error("Some images could not be uploaded.");
       }
-      // Allow sending with images and no text, but not an empty message.
-      if (!visible && attachmentStorageIds.length === 0) return;
+      if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
+        return;
+      }
       const content = mentionRef.current?.tokenize(visible) ?? visible;
       await onSend(
         content,
         attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
       );
     },
-    [onSend, uploadImageAttachments],
+    [onSend, uploadImageAttachments, hasPendingContext],
   );
 
   const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
@@ -165,14 +170,22 @@ export function ChatComposer({
       </AnimatePresence>
       <QueuedMessagesPanel
         items={queuedMessageItems}
-        renderContent={(content) => (
-          <MessageMentionText
-            as="span"
-            text={content}
-            repoBasePath={repoBasePath}
-            className="text-xs"
-          />
-        )}
+        renderContent={(content) => {
+          const stripped = stripReviewCommentBlocks(content);
+          const display = tokenizedToEditable(stripped.text).displayText;
+          const suffix =
+            stripped.reviewCommentCount > 0
+              ? ` · ${stripped.reviewCommentCount} review comment${stripped.reviewCommentCount === 1 ? "" : "s"}`
+              : "";
+          return (
+            <MessageMentionText
+              as="span"
+              text={`${display}${suffix}`}
+              repoBasePath={repoBasePath}
+              className="text-xs"
+            />
+          );
+        }}
         onEdit={async (id, content) => {
           await updateQueuedMessage({ id, content });
         }}
@@ -290,6 +303,7 @@ export function ChatComposer({
                   <ChatBodySubmit
                     disabled={isInputDisabled}
                     isExecuting={isExecuting}
+                    hasPendingContext={hasPendingContext}
                   />
                 </div>
               </PromptInputFooter>
@@ -304,18 +318,19 @@ export function ChatComposer({
 function ChatBodySubmit({
   disabled,
   isExecuting,
+  hasPendingContext,
 }: {
   disabled: boolean;
   isExecuting: boolean;
+  hasPendingContext: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
-  // Sendable when there is text or at least one attached image.
   const isEmpty =
     textInput.value.trim().length === 0 && attachments.files.length === 0;
 
   return (
     <PromptInputSubmit
-      disabled={disabled || isEmpty}
+      disabled={disabled || (isEmpty && !hasPendingContext)}
       title={isExecuting ? "Queue message" : "Send message"}
     />
   );

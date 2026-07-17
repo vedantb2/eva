@@ -35,6 +35,8 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
+import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -66,6 +68,8 @@ interface ChatPanelProps {
   onToggleSandbox?: () => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
+  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
+  onViewDiff?: (repoRelativePath?: string) => void;
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -94,6 +98,7 @@ export function ChatPanel({
   sandboxCollapsed,
   onToggleSandbox,
   onOpenFile,
+  onViewDiff,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -128,6 +133,9 @@ export function ChatPanel({
         skillMap: draftSeed.skillMap,
       }
     : undefined;
+
+  const review = usePendingReviewComments();
+  const hasPendingReviewComments = (review?.comments.length ?? 0) > 0;
 
   useHotkey("Mod+Shift+Tab", (event) => {
     event.preventDefault();
@@ -219,6 +227,7 @@ export function ChatPanel({
   const preInputContent = (
     <>
       <BackgroundProcessesPanel sessionId={sessionId} />
+      <PendingReviewCommentChips />
       {mode === "plan" && planContent && sandboxCollapsed !== false ? (
         <AnimatePresence initial={false}>
           <motion.div
@@ -308,6 +317,8 @@ export function ChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        onViewDiff={prUrl ? onViewDiff : undefined}
+        hasPendingContext={hasPendingReviewComments}
       />
       <SessionSummaryModal
         sessionId={sessionId}

@@ -9,7 +9,7 @@ import { motion } from "motion/react";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   StreamingActivityDisplay,
@@ -18,10 +18,15 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { UserAttachmentImages } from "@/lib/components/chat/imageAttachments";
+import {
+  ChangedFilesCard,
+  collectChangedFiles,
+} from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import type { ParsedQuestion } from "@/lib/components/chat/chatBodyUtils";
 import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 const EVA_ICON = <EvaIcon />;
 
@@ -37,7 +42,7 @@ interface ChatMessageProps {
   onQuestionAnswer: (answer: string) => Promise<void>;
   onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
-  onViewDiff?: (path: string) => void;
+  onViewDiff?: (repoRelativePath?: string) => void;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -52,6 +57,7 @@ export const ChatMessage = memo(function ChatMessage({
   onQuestionAnswer,
   onBlockingAnswer,
   onOpenFile,
+  onViewDiff,
 }: ChatMessageProps) {
   if (message.isSystemAlert) {
     return (
@@ -69,6 +75,12 @@ export const ChatMessage = memo(function ChatMessage({
     !message.content &&
     message.finishedAt === undefined;
   const showQuestions = isStreamingPlaceholder || isLast;
+  const changedFiles =
+    !isStreamingPlaceholder &&
+    message.role === "assistant" &&
+    message.activityLog
+      ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
+      : [];
 
   return (
     <motion.div
@@ -136,6 +148,13 @@ export const ChatMessage = memo(function ChatMessage({
                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                     {message.content}
                   </MessageResponse>
+                  {changedFiles.length > 0 ? (
+                    <ChangedFilesCard
+                      files={changedFiles}
+                      onOpenFile={onOpenFile}
+                      onViewDiff={onViewDiff}
+                    />
+                  ) : null}
                   {message.imageUrl && (
                     <ScreenshotPreview url={message.imageUrl} />
                   )}
@@ -153,7 +172,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <>
                   <UserAttachmentImages urls={message.attachmentUrls} />
                   {message.content ? (
-                    <MessageMentionText
+                    <ReviewCommentMessage
                       text={message.content}
                       repoBasePath={repoBasePath}
                     />

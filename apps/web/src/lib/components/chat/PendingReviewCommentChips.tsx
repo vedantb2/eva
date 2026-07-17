@@ -1,0 +1,52 @@
+"use client";
+
+import { Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
+import { IconMessage, IconX } from "@tabler/icons-react";
+import { useQueryState } from "nuqs";
+import { diffFileParser } from "@/lib/search-params";
+import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+
+export function PendingReviewCommentChips() {
+  const review = usePendingReviewComments();
+  const [, setDiffFile] = useQueryState("diffFile", diffFileParser);
+
+  if (!review || review.comments.length === 0) return null;
+
+  return (
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      {review.comments.map((comment) => {
+        const label = `${comment.filePath} ${comment.rangeLabel}`;
+        return (
+          <Tooltip key={comment.id}>
+            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-2 pr-1 text-xs text-foreground">
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex min-w-0 flex-1 items-center gap-1 hover:text-foreground"
+                  onClick={() => {
+                    void setDiffFile(comment.filePath);
+                    review.openDiffsTab();
+                  }}
+                >
+                  <IconMessage className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{label}</span>
+                </button>
+              </TooltipTrigger>
+              <button
+                type="button"
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+                aria-label={`Remove comment on ${label}`}
+                onClick={() => review.remove(comment.id)}
+              >
+                <IconX className="size-3" />
+              </button>
+            </span>
+            <TooltipContent side="top" className="max-w-96 whitespace-pre-wrap">
+              {comment.text}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}

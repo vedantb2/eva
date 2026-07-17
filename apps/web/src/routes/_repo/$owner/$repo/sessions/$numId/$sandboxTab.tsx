@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
+import { useQueryState } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
+import { diffFileParser } from "@/lib/search-params";
 import { SessionDetailClient } from "../SessionDetailClient";
 
 export const Route = createFileRoute(
@@ -20,6 +22,7 @@ function SessionSandboxRoute() {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
+  const [, setDiffFile] = useQueryState("diffFile", diffFileParser);
 
   // Opening a file from a chat chip both switches to the Files tab and sets the
   // `?file=` param the File Viewer reads. Stable so the memoised activity
@@ -30,6 +33,23 @@ function SessionSandboxRoute() {
         to: `${basePath}/sessions/${numId}/files`,
         search: (prev) => ({ ...prev, file: path }),
       });
+    },
+    [navigate, basePath, numId],
+  );
+
+  const openDiffs = useCallback(
+    (repoRelativePath?: string) => {
+      if (repoRelativePath) {
+        void setDiffFile(repoRelativePath);
+      }
+      void navigate({ to: `${basePath}/sessions/${numId}/diffs` });
+    },
+    [navigate, basePath, numId, setDiffFile],
+  );
+
+  const onSandboxTabChange = useCallback(
+    (next: string) => {
+      void navigate({ to: `${basePath}/sessions/${numId}/${next}` });
     },
     [navigate, basePath, numId],
   );
@@ -45,12 +65,9 @@ function SessionSandboxRoute() {
         <SessionDetailClient
           sessionId={sessionId}
           activeSandboxTab={sandboxTab}
-          onSandboxTabChange={(next) => {
-            navigate({
-              to: `${basePath}/sessions/${numId}/${next}`,
-            });
-          }}
+          onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
+          onViewDiff={openDiffs}
         />
       )}
     </EntityNumIdGate>

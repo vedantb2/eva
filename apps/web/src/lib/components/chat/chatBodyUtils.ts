@@ -4,6 +4,7 @@ import {
   type ReasoningLevel,
 } from "@conductor/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
+import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { z } from "zod";
 
 export type ChatBodyMessage = Doc<"messages"> & {
@@ -61,7 +62,11 @@ export function parsePendingQuestion(
 export function buildMessageHistory(messages: ChatBodyMessage[]): string[] {
   return messages
     .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-    .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+    .map(
+      (m) =>
+        tokenizedToEditable(stripReviewCommentBlocks(m.content ?? "").text)
+          .displayText,
+    )
     .reverse();
 }
 

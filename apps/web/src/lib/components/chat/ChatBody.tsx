@@ -112,6 +112,10 @@ interface ChatBodyProps {
    * tab). Pass a stable callback — the activity renderer is memoised.
    */
   onOpenFile?: (path: string) => void;
+  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
+  onViewDiff?: (repoRelativePath?: string) => void;
+  /** True when ephemeral diff review comments are queued for the next send. */
+  hasPendingContext?: boolean;
 }
 
 export function ChatBody({
@@ -149,6 +153,8 @@ export function ChatBody({
   draft,
   isDraftLoading,
   onOpenFile,
+  onViewDiff,
+  hasPendingContext,
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
@@ -232,6 +238,7 @@ export function ChatBody({
         onQuestionAnswer={handleQuestionAnswer}
         onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}
+        onViewDiff={onViewDiff}
       />
     );
   };
@@ -285,6 +292,7 @@ export function ChatBody({
           formatQueuedInfo={formatQueuedInfo}
           draft={draft}
           isDraftLoading={isDraftLoading}
+          hasPendingContext={hasPendingContext}
         />
       )}
     </>

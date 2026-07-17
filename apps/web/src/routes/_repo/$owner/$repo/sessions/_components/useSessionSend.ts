@@ -6,6 +6,8 @@ import type { FunctionReturnType } from "convex/server";
 import { useCallback } from "react";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
+import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
+import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 export type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
@@ -40,6 +42,7 @@ export function useSessionSend({
   accounts,
   messages,
 }: UseSessionSendParams) {
+  const review = usePendingReviewComments();
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
     (localStore, args) => {
       if (args.role !== "user") return;
@@ -100,16 +103,21 @@ export function useSessionSend({
 
   const handleSend = useCallback(
     async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
+      const finalContent = appendReviewCommentsToPrompt(
+        content,
+        review?.comments ?? [],
+      );
       if (isExecuting) {
         await enqueueMessage({
           sessionId,
-          message: content,
+          message: finalContent,
           mode,
           model,
           reasoningLevel,
           providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         });
+        review?.clear();
         return;
       }
       const accountId = resolveAccountId(providerAccountId);
@@ -117,30 +125,34 @@ export function useSessionSend({
         addMessage({
           id: sessionId,
           role: "user",
-          content,
+          content: finalContent,
           mode,
           attachmentStorageIds,
           providerAccountId: accountId,
         }),
         startExecution({
           sessionId,
-          message: content,
+          message: finalContent,
           mode,
           model,
           reasoningLevel,
           providerAccountId: accountId,
           attachmentStorageIds,
         }),
-      ]).catch(async (error) => {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to send message";
-        await addMessage({
-          id: sessionId,
-          role: "assistant",
-          content: `Error: ${errorMessage}`,
-          mode,
+      ])
+        .catch(async (error) => {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to send message";
+          await addMessage({
+            id: sessionId,
+            role: "assistant",
+            content: `Error: ${errorMessage}`,
+            mode,
+          });
+        })
+        .finally(() => {
+          review?.clear();
         });
-      });
     },
     [
       isExecuting,
@@ -153,6 +165,7 @@ export function useSessionSend({
       reasoningLevel,
       providerAccountId,
       resolveAccountId,
+      review,
     ],
   );
 

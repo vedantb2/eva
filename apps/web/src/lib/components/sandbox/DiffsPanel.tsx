@@ -5,7 +5,6 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { GitStatus } from "@pierre/trees";
-import { PatchDiff } from "@pierre/diffs/react";
 import { Button, Spinner, cn } from "@conductor/ui";
 import {
   IconGitPullRequest,
@@ -16,6 +15,7 @@ import { useQueryState } from "nuqs";
 import { diffViewParser, diffFileParser } from "@/lib/search-params";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { DiffFileTree } from "./DiffFileTree";
+import { ReviewableFileDiff } from "./ReviewableFileDiff";
 import { splitDiffFiles, fileNameFromPatch, diffFileStatus } from "./diffFiles";
 
 interface DiffsPanelProps {
@@ -227,14 +227,11 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
               ) : null}
               {fileEntries.map(({ patch, path }) => (
                 <div key={path} ref={setFileRef(path)}>
-                  <PatchDiff
+                  <ReviewableFileDiff
                     patch={patch}
-                    disableWorkerPool
-                    options={{
-                      diffStyle: diffView,
-                      theme: { light: "github-light", dark: "github-dark" },
-                      themeType: resolvedTheme,
-                    }}
+                    path={path}
+                    diffView={diffView}
+                    resolvedTheme={resolvedTheme}
                   />
                 </div>
               ))}

@@ -1,5 +1,11 @@
 # Changelog
 
+## Session chat: changed-files card + ephemeral diff review comments - 2026-07-17
+
+- Per-turn changed-files card lists edit/write/notebook paths; View diff best-effort strips `/tmp/repo/` or `/workspace/repo/` then sets `diffFile` and opens the Diffs tab (PR sessions only).
+- Diffs tab line selection drafts ephemeral review comments (in-memory only): chips above the composer, serialized into the prompt on send, comments-only sends allowed; history/queue strip the XML blocks for display.
+- Reason for change: t3code parity so reviewers can jump to a file and attach line-anchored feedback without leaving session chat.
+
 ## Session chat refactored toward t3code layout - 2026-07-17
 
 - Split `ChatBody` into utils / queued-mutation hook / memoized `ChatMessage` / `ChatComposer`, and `ChatPanel` into header/modals/mode/summary/`useSessionSend` modules; removed a duplicate unreachable activity-tasks block.

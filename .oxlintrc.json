@@ -18,6 +18,10 @@
     "typescript/consistent-type-assertions": [
       "error",
       { "assertionStyle": "never" }
+    ],
+    "typescript/consistent-type-imports": [
+      "error",
+      { "fixStyle": "inline-type-imports" }
     ]
   },
   "ignorePatterns": [

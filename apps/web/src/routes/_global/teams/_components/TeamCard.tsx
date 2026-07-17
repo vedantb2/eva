@@ -1,8 +1,7 @@
 import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { api, Id } from "@conductor/backend";
 import {
   Card,
   CardHeader,

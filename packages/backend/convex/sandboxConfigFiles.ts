@@ -1,6 +1,10 @@
 import { v } from "convex/values";
-import { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
+import { type Doc, type Id } from "./_generated/dataModel";
+import {
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
 
 /** Regex for safe filenames: alphanumeric, dash, underscore, dot only. */

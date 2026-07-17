@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  IconBell,
+  type IconBell,
   IconRepeat,
   IconFileExport,
   IconCheck,

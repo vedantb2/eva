@@ -1,7 +1,7 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { type api } from "@conductor/backend";
 import { IconLayoutDashboard } from "@tabler/icons-react";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { ArtifactCard } from "./ArtifactCard";

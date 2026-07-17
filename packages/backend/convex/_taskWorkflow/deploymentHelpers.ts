@@ -2,7 +2,7 @@
 
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
-import { deploymentStatusValidator } from "../validators";
+import { type deploymentStatusValidator } from "../validators";
 import { resolveAllEnvVars } from "../envVarResolver";
 import { fetchStableBranchAlias } from "../_deployment/vercel";
 

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@conductor/ui";
 import {
-  DisplayTaskStatus,
+  type DisplayTaskStatus,
   statusConfig,
   TASK_STATUSES,
 } from "../tasks/TaskStatusBadge";

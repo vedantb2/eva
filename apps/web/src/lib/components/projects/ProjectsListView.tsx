@@ -1,7 +1,6 @@
 import { useCallback, useState, type RefCallback } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { Id } from "@conductor/backend";
-import { api } from "@conductor/backend";
+import type { Id, api } from "@conductor/backend";
 import { Virtuoso } from "react-virtuoso";
 import {
   Collapsible,

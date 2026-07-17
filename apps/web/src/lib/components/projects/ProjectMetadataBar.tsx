@@ -27,7 +27,7 @@ import {
 } from "@conductor/ui";
 import {
   IconUsers,
-  IconCalendar,
+  type IconCalendar,
   IconUser,
   IconUserPlus,
   IconCalendarEvent,

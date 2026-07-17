@@ -15,7 +15,7 @@ import {
   StatsIcon,
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
-import { api } from "@conductor/backend";
+import { type api } from "@conductor/backend";
 import {
   Button,
   Tooltip,

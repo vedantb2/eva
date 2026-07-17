@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@conductor/ui";
-import { Icon as TablerIcon } from "@tabler/icons-react";
+import { type Icon as TablerIcon } from "@tabler/icons-react";
 
 type StatusTone = "top" | "positive" | "warning" | "risk" | "neutral";
 

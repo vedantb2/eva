@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import {
   internalQuery,
   internalMutation,
-  DatabaseReader,
+  type DatabaseReader,
 } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { type Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 
 /** Loads the single env var document for a repo, or null if none exists. */

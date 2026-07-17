@@ -383,15 +383,33 @@ export function ChatBody({
     return -1;
   }, [messages]);
 
-  // One tick per user turn for the jump rail — assistant replies map 1:1 to
-  // the preceding user message, so they don't need their own tick.
-  const jumpRailMessages = useMemo(
-    () =>
-      messages
-        .filter((message) => message.role === "user" && !message.isSystemAlert)
-        .map((message) => ({ id: message._id, content: message.content })),
-    [messages],
-  );
+  // One tick per user turn for the jump rail — pair each with the following
+  // assistant reply so the tooltip can show both.
+  const jumpRailMessages = useMemo(() => {
+    const ticks: Array<{ id: string; content: string; reply?: string }> = [];
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+      if (!message || message.role !== "user" || message.isSystemAlert) {
+        continue;
+      }
+      let reply: string | undefined;
+      for (let j = i + 1; j < messages.length; j++) {
+        const next = messages[j];
+        if (!next || next.isSystemAlert) continue;
+        if (next.role === "user") break;
+        if (next.role === "assistant") {
+          reply = next.content;
+          break;
+        }
+      }
+      ticks.push({
+        id: message._id,
+        content: message.content,
+        ...(reply !== undefined && reply.length > 0 ? { reply } : {}),
+      });
+    }
+    return ticks;
+  }, [messages]);
 
   const renderMessage = (message: ChatBodyMessage) => {
     if (message.isSystemAlert) {

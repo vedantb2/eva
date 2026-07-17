@@ -10,15 +10,21 @@ const MIN_VISIBLE_TICKS = 2;
 export interface ChatJumpRailMessage {
   id: string;
   content: string;
+  /** Plain-text preview of the assistant reply that follows this user turn. */
+  reply?: string;
 }
 
 interface ChatJumpRailProps {
   messages: ChatJumpRailMessage[];
 }
 
+function toPreview(content: string): string {
+  return tokenizedToDisplayText(content).replace(/\s+/g, " ").trim();
+}
+
 /**
- * Vertical rail beside the chat, one tick per user message — click,
- * Enter/Space, or arrow keys jump to that turn. Must render inside
+ * Compact vertical rail centered beside the chat, one tick per user message —
+ * click, Enter/Space, or arrow keys jump to that turn. Must render inside
  * `<Conversation>` (StickToBottom) so it can read the shared scroll viewport
  * and resolve `[data-message-id]` targets within it.
  */
@@ -31,9 +37,8 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
     () =>
       messages.map((message) => ({
         id: message.id,
-        preview: tokenizedToDisplayText(message.content)
-          .replace(/\s+/g, " ")
-          .trim(),
+        preview: toPreview(message.content),
+        replyPreview: message.reply ? toPreview(message.reply) : "",
       })),
     [messages],
   );
@@ -83,13 +88,11 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-y-3 left-1 z-30 hidden w-8 lg:[@media(pointer:fine)]:block"
+      className="pointer-events-none absolute left-1 top-1/2 z-30 hidden w-8 -translate-y-1/2 lg:[@media(pointer:fine)]:block"
       aria-label="Jump to message"
     >
-      <div className="relative h-full w-full">
+      <div className="flex max-h-[min(20rem,60vh)] flex-col items-center gap-1.5 overflow-y-auto">
         {ticks.map((tick, index) => {
-          const top =
-            ticks.length <= 1 ? 0 : (index / (ticks.length - 1)) * 100;
           const isActive = tick.id === activeId;
           return (
             <Tooltip key={tick.id}>
@@ -101,10 +104,9 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
                   type="button"
                   aria-label={`Jump to message: ${tick.preview || "message"}`}
                   className={cn(
-                    "pointer-events-auto absolute left-1/2 h-0.5 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                    "pointer-events-auto h-0.5 w-4 shrink-0 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isActive && "w-6 bg-foreground/80",
                   )}
-                  style={{ top: `${top}%` }}
                   onClick={() => scrollToTick(tick.id)}
                   onKeyDown={(event) => {
                     if (event.key === "ArrowDown") {
@@ -125,8 +127,13 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
                   }}
                 />
               </TooltipTrigger>
-              <TooltipContent side="left">
-                <p className="max-w-64 truncate">{tick.preview || "Message"}</p>
+              <TooltipContent side="left" className="max-w-64 space-y-0.5">
+                <p className="truncate">{tick.preview || "Message"}</p>
+                {tick.replyPreview ? (
+                  <p className="truncate text-muted-foreground">
+                    {tick.replyPreview}
+                  </p>
+                ) : null}
               </TooltipContent>
             </Tooltip>
           );

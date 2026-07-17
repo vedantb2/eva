@@ -30,6 +30,7 @@ export function TaskHeader({
           assignedTo,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          providerAccountId,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -55,6 +56,9 @@ export function TaskHeader({
               : {}),
             ...(runAuditEnabled !== undefined
               ? { runAuditEnabled: runAuditEnabled ?? undefined }
+              : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
               : {}),
           },
         );

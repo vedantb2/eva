@@ -61,6 +61,7 @@ export function TaskDescription({
           assignedTo,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          providerAccountId,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -86,6 +87,9 @@ export function TaskDescription({
               : {}),
             ...(runAuditEnabled !== undefined
               ? { runAuditEnabled: runAuditEnabled ?? undefined }
+              : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
               : {}),
           },
         );

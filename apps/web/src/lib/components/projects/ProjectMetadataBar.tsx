@@ -85,6 +85,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
           screenshotsVideosEnabled,
           runAuditEnabled,
           ...safeFields
@@ -105,6 +106,9 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
             ...(screenshotsVideosEnabled !== undefined
               ? {
                   screenshotsVideosEnabled:

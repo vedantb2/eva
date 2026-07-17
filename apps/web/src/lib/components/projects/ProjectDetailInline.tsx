@@ -72,6 +72,7 @@ export function ProjectDetailInline({
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
           screenshotsVideosEnabled: _screenshotsVideosEnabled,
           runAuditEnabled: _runAuditEnabled,
           ...safeFields
@@ -92,6 +93,9 @@ export function ProjectDetailInline({
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
           },
         );
       }

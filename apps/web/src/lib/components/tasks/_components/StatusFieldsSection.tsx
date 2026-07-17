@@ -114,6 +114,7 @@ export function StatusFieldsSection({
         assignedTo,
         screenshotsVideosEnabled,
         runAuditEnabled,
+        providerAccountId,
         ...safeFields
       } = args;
       const nullSafe = {
@@ -130,6 +131,9 @@ export function StatusFieldsSection({
           : {}),
         ...(runAuditEnabled !== undefined
           ? { runAuditEnabled: runAuditEnabled ?? undefined }
+          : {}),
+        ...(providerAccountId !== undefined
+          ? { providerAccountId: providerAccountId ?? undefined }
           : {}),
       };
       const list = localStore.getQuery(api.agentTasks.getAllTasks, {

@@ -367,11 +367,26 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
     case "bash":
       return {
         type: "bash",
-        label: "Running command...",
+        label:
+          input.run_in_background === true
+            ? "Running in background..."
+            : "Running command...",
         detail:
           typeof input.command === "string"
             ? String(input.command).slice(0, 300)
             : undefined,
+        status: "active",
+      };
+    case "KillShell":
+      return {
+        type: "bash",
+        label: "Stopping background process...",
+        detail:
+          typeof input.shell_id === "string"
+            ? String(input.shell_id)
+            : typeof input.shellId === "string"
+              ? String(input.shellId)
+              : undefined,
         status: "active",
       };
     case "Skill":

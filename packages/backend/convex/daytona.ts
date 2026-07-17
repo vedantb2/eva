@@ -42,6 +42,11 @@ export {
 } from "./_daytona/services";
 
 export {
+  reconcileBackgroundProcesses,
+  killBackgroundProcess,
+} from "./_daytona/backgroundProcesses";
+
+export {
   launchAudit,
   launchAuditFix,
   launchSelectedAuditFixes,

@@ -214,6 +214,8 @@ var completedLabels = {
   "Creating file...": "Created file",
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
+  "Running in background...": "Started background process",
+  "Stopping background process...": "Stopped background process",
   "Using Skill...": "Used Skill",
   "Fetching URL...": "Fetched URL",
   "Searching web...": "Searched web",
@@ -958,8 +960,15 @@ function toolCallToStep(name, input) {
     case "bash":
       return {
         type: "bash",
-        label: "Running command...",
+        label: input.run_in_background === true ? "Running in background..." : "Running command...",
         detail: typeof input.command === "string" ? String(input.command).slice(0, 300) : void 0,
+        status: "active"
+      };
+    case "KillShell":
+      return {
+        type: "bash",
+        label: "Stopping background process...",
+        detail: typeof input.shell_id === "string" ? String(input.shell_id) : typeof input.shellId === "string" ? String(input.shellId) : void 0,
         status: "active"
       };
     case "Skill":
@@ -1788,7 +1797,124 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
+// callback-src/runtime/backgroundShells.ts
+var PENDING_CAP = 200;
+var QUEUE_CAP = 20;
+var FLUSH_FAILURE_COOLDOWN_MS = 1e4;
+var BG_SHELL_ID_RE = /running in (?:the )?background.*?ID:?\\s*([\\w-]+)/i;
+var pendingBashToolUses = /* @__PURE__ */ new Map();
+var pendingKillShellUses = /* @__PURE__ */ new Map();
+var eventQueue = [];
+var flushInFlight = false;
+var flushCooldownUntil = 0;
+function trimMap(map, cap) {
+  while (map.size > cap) {
+    const first = map.keys().next();
+    if (first.done) break;
+    map.delete(first.value);
+  }
+}
+function enqueue(event) {
+  if (eventQueue.length >= QUEUE_CAP) {
+    eventQueue.shift();
+  }
+  eventQueue.push(event);
+}
+function trackClaudeToolUse(name, input, toolUseId) {
+  if (!toolUseId) return;
+  if (name === "Bash" || name === "bash") {
+    const command = typeof input.command === "string" ? input.command : "";
+    pendingBashToolUses.set(toolUseId, { command });
+    trimMap(pendingBashToolUses, PENDING_CAP);
+    return;
+  }
+  if (name === "KillShell") {
+    const shellId = typeof input.shell_id === "string" ? input.shell_id : typeof input.shellId === "string" ? input.shellId : "";
+    if (!shellId) return;
+    pendingKillShellUses.set(toolUseId, { shellId });
+    trimMap(pendingKillShellUses, PENDING_CAP);
+  }
+}
+function trackClaudeToolResult(toolUseId, resultText, isError) {
+  if (!toolUseId) return;
+  const killPending = pendingKillShellUses.get(toolUseId);
+  if (killPending) {
+    pendingKillShellUses.delete(toolUseId);
+    if (!isError) {
+      enqueue({ kind: "agent_killed", shellId: killPending.shellId });
+    }
+    return;
+  }
+  const bashPending = pendingBashToolUses.get(toolUseId);
+  if (!bashPending) return;
+  pendingBashToolUses.delete(toolUseId);
+  if (isError) return;
+  const match = BG_SHELL_ID_RE.exec(resultText);
+  if (!match) return;
+  const shellId = match[1];
+  enqueue({
+    kind: "register",
+    key: toolUseId,
+    command: bashPending.command,
+    ...shellId ? { shellId } : {}
+  });
+}
+function canFlushBackgroundShells() {
+  return PROVIDER === "claude" && ENTITY_ID_FIELD === "sessionId" && typeof ENTITY_ID === "string" && ENTITY_ID.length > 0;
+}
+async function flushBackgroundShellQueue() {
+  if (!canFlushBackgroundShells()) return;
+  if (flushInFlight) return;
+  if (Date.now() < flushCooldownUntil) return;
+  if (eventQueue.length === 0) return;
+  flushInFlight = true;
+  const sessionId = ENTITY_ID;
+  try {
+    while (eventQueue.length > 0) {
+      const event = eventQueue[0];
+      if (!event) break;
+      if (event.kind === "register") {
+        await callConvexWithRetry("mutation", "backgroundProcesses:register", {
+          sessionId,
+          key: event.key,
+          command: event.command,
+          ...event.shellId !== void 0 ? { shellId: event.shellId } : {}
+        });
+      } else {
+        await callConvexWithRetry(
+          "mutation",
+          "backgroundProcesses:markExitedByShellId",
+          { sessionId, shellId: event.shellId }
+        );
+      }
+      eventQueue.shift();
+    }
+  } catch (error) {
+    flushCooldownUntil = Date.now() + FLUSH_FAILURE_COOLDOWN_MS;
+    log(
+      "backgroundShells flush failed: " + (error instanceof Error ? error.message : String(error))
+    );
+  } finally {
+    flushInFlight = false;
+  }
+}
+
 // callback-src/providers/claude.ts
+function extractToolResultText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  const parts = [];
+  for (const item of content) {
+    if (typeof item === "string") {
+      parts.push(item);
+      continue;
+    }
+    if (item && typeof item === "object" && !Array.isArray(item) && item.type === "text" && typeof item.text === "string") {
+      parts.push(item.text);
+    }
+  }
+  return parts.join("");
+}
 function normalizeTodoStatus(value) {
   return value === "in_progress" || value === "completed" ? value : "pending";
 }
@@ -1810,7 +1936,8 @@ function reduceTodoState(name, input) {
   } else if (name === "TaskUpdate") {
     const last = callbackState.todoState[callbackState.todoState.length - 1];
     if (last) {
-      if (input.status !== void 0) last.status = normalizeTodoStatus(input.status);
+      if (input.status !== void 0)
+        last.status = normalizeTodoStatus(input.status);
       if (typeof input.subject === "string" && input.subject) {
         last.content = input.subject;
       }
@@ -1849,6 +1976,10 @@ function claudeParseLine(event) {
   }
   if (event.type === "tool_result") {
     const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
+    if (toolUseId) {
+      const resultText = event.content !== void 0 ? extractToolResultText(event.content) : "";
+      trackClaudeToolResult(toolUseId, resultText, event.is_error === true);
+    }
     events.push({ kind: "complete_tool", trackingId: toolUseId });
     return events;
   }
@@ -1858,9 +1989,12 @@ function claudeParseLine(event) {
     for (const block of content2) {
       if (!block || typeof block !== "object" || Array.isArray(block)) continue;
       if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
+        const toolUseId = block.tool_use_id.trim();
+        const resultText = block.content !== void 0 ? extractToolResultText(block.content) : "";
+        trackClaudeToolResult(toolUseId, resultText, block.is_error === true);
         events.push({
           kind: "complete_tool",
-          trackingId: block.tool_use_id.trim()
+          trackingId: toolUseId
         });
       }
     }
@@ -1880,7 +2014,10 @@ function claudeParseLine(event) {
     if (block.type === "tool_use" && typeof block.name === "string") {
       const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
       if (block.name === "TodoWrite" || block.name === "TaskCreate" || block.name === "TaskUpdate") {
-        events.push({ kind: "set_todos", todos: reduceTodoState(block.name, input) });
+        events.push({
+          kind: "set_todos",
+          todos: reduceTodoState(block.name, input)
+        });
         continue;
       }
       if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList") {
@@ -1888,7 +2025,10 @@ function claudeParseLine(event) {
       }
       const step = toolCallToStep(block.name, input);
       const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
-      if (trackingId) step.toolUseId = trackingId;
+      if (trackingId) {
+        step.toolUseId = trackingId;
+        trackClaudeToolUse(block.name, input, trackingId);
+      }
       if (parentToolUseId) step.parentToolUseId = parentToolUseId;
       events.push(
         trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
@@ -2734,7 +2874,10 @@ async function sendStreamingHeartbeatUpdate(payload) {
 }
 async function flushStreaming() {
   if (callbackState.flushInProgress) return;
-  if (callbackState.rawOutput.length <= callbackState.lastProcessed) return;
+  if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
+    void flushBackgroundShellQueue();
+    return;
+  }
   callbackState.flushInProgress = true;
   try {
     const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
@@ -2766,6 +2909,7 @@ async function flushStreaming() {
     }
   } finally {
     callbackState.flushInProgress = false;
+    void flushBackgroundShellQueue();
   }
 }
 var PING_STUCK_MS = 45e3;
@@ -3156,6 +3300,12 @@ function parseAnswers(answerJson) {
 }
 function buildCanUseTool() {
   return async (toolName, input, options) => {
+    if (toolName === "Task" && input.run_in_background === true) {
+      return {
+        behavior: "allow",
+        updatedInput: { ...input, run_in_background: false }
+      };
+    }
     if (toolName !== "AskUserQuestion") {
       return { behavior: "allow", updatedInput: input };
     }
@@ -3284,7 +3434,12 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       DISABLE_TELEMETRY: "1",
       DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1"
+      DISABLE_ERROR_REPORTING: "1",
+      // Policy A: re-enable Bash backgrounding for Claude SDK session children
+      // only. launch.ts still sets CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 for
+      // tasks/projects/CLI; the session panel makes Bash-bg visible/killable.
+      // Task tool backgrounding is stripped in buildCanUseTool (Wayfinder).
+      CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: void 0
     },
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},

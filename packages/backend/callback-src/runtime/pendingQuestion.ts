@@ -85,6 +85,14 @@ function parseAnswers(answerJson: string): Record<string, JsonLike> {
  */
 export function buildCanUseTool(): SdkCanUseTool {
   return async (toolName, input, options) => {
+    // Policy A: Bash may background (session panel tracks/kills it), but Task
+    // sub-agents must stay foreground so the SDK result still covers their work.
+    if (toolName === "Task" && input.run_in_background === true) {
+      return {
+        behavior: "allow",
+        updatedInput: { ...input, run_in_background: false },
+      };
+    }
     if (toolName !== "AskUserQuestion") {
       return { behavior: "allow", updatedInput: input };
     }

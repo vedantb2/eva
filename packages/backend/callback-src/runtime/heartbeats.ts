@@ -21,6 +21,7 @@ import { log } from "../utils.js";
 import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { terminateAttemptProcess } from "./processControl.js";
+import { flushBackgroundShellQueue } from "./backgroundShells.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -116,7 +117,11 @@ export async function sendStreamingHeartbeatUpdate(
 
 export async function flushStreaming(): Promise<void> {
   if (S.flushInProgress) return;
-  if (S.rawOutput.length <= S.lastProcessed) return;
+  if (S.rawOutput.length <= S.lastProcessed) {
+    // Still drain bg-shell registrations even when there is no new stream text.
+    void flushBackgroundShellQueue();
+    return;
+  }
   S.flushInProgress = true;
   try {
     const pending = S.rawOutput.slice(S.lastProcessed);
@@ -151,6 +156,7 @@ export async function flushStreaming(): Promise<void> {
     }
   } finally {
     S.flushInProgress = false;
+    void flushBackgroundShellQueue();
   }
 }
 

@@ -51,6 +51,7 @@ import {
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
+import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
@@ -591,25 +592,29 @@ export function ChatPanel({
 
   const beforeQueuedContent = isStartupStreaming ? startupStreamingNode : null;
 
-  const preInputContent =
-    mode === "plan" && planContent && sandboxCollapsed !== false ? (
-      <AnimatePresence initial={false}>
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          transition={{ duration: 0.2 }}
-        >
-          <SessionPrdPlanView
-            sessionId={sessionId}
-            planContent={planContent}
-            onApprovePlan={() => setMode("edit")}
-            variant="compact"
-            isArchived={isArchived}
-          />
-        </motion.div>
-      </AnimatePresence>
-    ) : null;
+  const preInputContent = (
+    <>
+      <BackgroundProcessesPanel sessionId={sessionId} />
+      {mode === "plan" && planContent && sandboxCollapsed !== false ? (
+        <AnimatePresence initial={false}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <SessionPrdPlanView
+              sessionId={sessionId}
+              planContent={planContent}
+              onApprovePlan={() => setMode("edit")}
+              variant="compact"
+              isArchived={isArchived}
+            />
+          </motion.div>
+        </AnimatePresence>
+      ) : null}
+    </>
+  );
 
   const toolsBefore = (
     <>

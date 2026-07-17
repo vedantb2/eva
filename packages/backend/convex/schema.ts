@@ -47,6 +47,7 @@ import {
   designSessionFields,
   repoEntityCounterFields,
   appTabFields,
+  backgroundProcessFields,
 } from "./validators";
 
 const schema = defineSchema(
@@ -153,6 +154,9 @@ const schema = defineSchema(
       .index("by_repo_and_archived", ["repoId", "archived"])
       .index("by_pr_url", ["prUrl"])
       .index("by_repo_and_numId", ["repoId", "numId"]),
+    backgroundProcesses: defineTable(backgroundProcessFields)
+      .index("by_session_and_status", ["sessionId", "status"])
+      .index("by_session_and_key", ["sessionId", "key"]),
     streamingActivity: defineTable({
       entityId: v.string(),
       currentActivity: v.string(),

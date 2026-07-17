@@ -1,5 +1,11 @@
 # Changelog
 
+## Session chat shows killable agent background processes - 2026-07-17
+
+- Session Claude runs can background Bash again; a panel above the composer lists live shells and can stop them (ppid-tree TERM→KILL), while Task sub-agents stay forced foreground so Wayfinder-style “I’ll report back” holes stay closed.
+- Tasks/projects/CLI keep `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` from launch — only SDK session children unset it.
+- Reason for change: backgrounded Bash was invisible and survived Stop; without a panel, re-enabling it would recreate unkillable leaks.
+
 ## Renaming a session/project/task updates the linked GitHub PR title - 2026-07-17
 
 - Renaming in Eva now best-effort updates the open GitHub PR to `Eva: <new title>`; merged PRs are left alone so shipped work is not re-titled.

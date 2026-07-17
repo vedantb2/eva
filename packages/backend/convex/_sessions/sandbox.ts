@@ -9,6 +9,7 @@ import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
+import { markAllRunningExited } from "../backgroundProcesses";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -47,6 +48,7 @@ export const clearSandbox = authMutation({
     if (!session) {
       throw new Error("Session not found");
     }
+    await markAllRunningExited(ctx.db, args.id);
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
       vercelSandboxId: undefined,
@@ -265,6 +267,7 @@ export const markSandboxClosed = internalMutation({
       timestamp: Date.now(),
       isSystemAlert: true,
     });
+    await markAllRunningExited(ctx.db, args.sessionId);
     await ctx.db.patch(args.sessionId, {
       status: "closed",
       updatedAt: Date.now(),
@@ -304,6 +307,8 @@ export const sandboxReady = internalMutation({
     const alreadyActive =
       session.status === "active" && session.sandboxId === args.sandboxId;
     if (!alreadyActive) {
+      // Fresh boot / resume — prior VM processes are gone.
+      await markAllRunningExited(ctx.db, args.sessionId);
       const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
       await ctx.db.insert("messages", {
         parentId: args.sessionId,
@@ -338,6 +343,7 @@ export const sandboxError = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    await markAllRunningExited(ctx.db, args.sessionId);
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",

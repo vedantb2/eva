@@ -5,6 +5,7 @@ import {
   reasoningLevelValidator,
 } from "./aiModels";
 import {
+  backgroundProcessStatusValidator,
   deploymentStatusValidator,
   docKindValidator,
   docVersionSourceValidator,
@@ -757,4 +758,20 @@ export const appTabFields = {
   port: v.number(),
   enabled: v.boolean(),
   order: v.number(),
+};
+
+/**
+ * Agent-spawned background Bash process tracked for the session chat panel.
+ * `key` is the Bash tool_use id (idempotency for HTTP retries). `pid` is filled
+ * by the first successful reconcile match.
+ */
+export const backgroundProcessFields = {
+  sessionId: v.id("sessions"),
+  key: v.string(),
+  command: v.string(),
+  shellId: v.optional(v.string()),
+  pid: v.optional(v.number()),
+  status: backgroundProcessStatusValidator,
+  startedAt: v.number(),
+  exitedAt: v.optional(v.number()),
 };

@@ -6,6 +6,10 @@ import {
 import { updateThinkingStep } from "../parse/canonical.js";
 import { toolCallToStep } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
+import {
+  trackClaudeToolResult,
+  trackClaudeToolUse,
+} from "../runtime/backgroundShells.js";
 import type {
   CanonicalEvent,
   JsonObject,
@@ -15,6 +19,29 @@ import type {
 } from "../types.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
+
+/** Pull plain text out of a tool_result content field (string or text blocks). */
+function extractToolResultText(content: JsonValue): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  const parts: string[] = [];
+  for (const item of content) {
+    if (typeof item === "string") {
+      parts.push(item);
+      continue;
+    }
+    if (
+      item &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      item.type === "text" &&
+      typeof item.text === "string"
+    ) {
+      parts.push(item.text);
+    }
+  }
+  return parts.join("");
+}
 
 /** Coerces a raw todo status field to the checklist's fixed set. */
 function normalizeTodoStatus(value: JsonValue): TodoItem["status"] {
@@ -118,6 +145,11 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
       typeof event.tool_use_id === "string" && event.tool_use_id.trim()
         ? event.tool_use_id.trim()
         : undefined;
+    if (toolUseId) {
+      const resultText =
+        event.content !== undefined ? extractToolResultText(event.content) : "";
+      trackClaudeToolResult(toolUseId, resultText, event.is_error === true);
+    }
     events.push({ kind: "complete_tool", trackingId: toolUseId });
     return events;
   }
@@ -137,9 +169,15 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
         typeof block.tool_use_id === "string" &&
         block.tool_use_id.trim()
       ) {
+        const toolUseId = block.tool_use_id.trim();
+        const resultText =
+          block.content !== undefined
+            ? extractToolResultText(block.content)
+            : "";
+        trackClaudeToolResult(toolUseId, resultText, block.is_error === true);
         events.push({
           kind: "complete_tool",
-          trackingId: block.tool_use_id.trim(),
+          trackingId: toolUseId,
         });
       }
     }
@@ -201,7 +239,10 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
         typeof block.id === "string" && block.id.trim()
           ? block.id.trim()
           : undefined;
-      if (trackingId) step.toolUseId = trackingId;
+      if (trackingId) {
+        step.toolUseId = trackingId;
+        trackClaudeToolUse(block.name, input, trackingId);
+      }
       if (parentToolUseId) step.parentToolUseId = parentToolUseId;
       events.push(
         trackingId

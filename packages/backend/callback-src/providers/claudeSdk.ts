@@ -257,6 +257,11 @@ function buildSdkOptionsFromParts(
       DISABLE_TELEMETRY: "1",
       DISABLE_AUTOUPDATER: "1",
       DISABLE_ERROR_REPORTING: "1",
+      // Policy A: re-enable Bash backgrounding for Claude SDK session children
+      // only. launch.ts still sets CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 for
+      // tasks/projects/CLI; the session panel makes Bash-bg visible/killable.
+      // Task tool backgrounding is stripped in buildCanUseTool (Wayfinder).
+      CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: undefined,
     },
     ...(sessionMode.mode === "session" && sessionMode.sessionId
       ? { sessionId: sessionMode.sessionId }

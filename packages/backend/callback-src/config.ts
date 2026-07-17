@@ -340,6 +340,8 @@ export const completedLabels: Record<string, string> = {
   "Creating file...": "Created file",
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
+  "Running in background...": "Started background process",
+  "Stopping background process...": "Stopped background process",
   "Using Skill...": "Used Skill",
   "Fetching URL...": "Fetched URL",
   "Searching web...": "Searched web",

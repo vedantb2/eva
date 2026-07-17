@@ -276,3 +276,10 @@ export const taskActivityFieldValidator = v.union(
   // resulting task status (done/cancelled) is implied and rendered client-side.
   v.literal("pr"),
 );
+
+/** Lifecycle of an agent-spawned background Bash shell in a session sandbox. */
+export const backgroundProcessStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("exited"),
+  v.literal("killed"),
+);

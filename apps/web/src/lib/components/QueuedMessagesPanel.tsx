@@ -11,6 +11,7 @@ import {
   QueueItem,
   QueueItemAction,
   QueueItemActions,
+  QueueItemContent,
   QueueItemIndicator,
   QueueList,
   QueueSection,
@@ -23,7 +24,7 @@ import {
   TooltipTrigger,
 } from "@conductor/ui";
 import {
-  IconGripVertical,
+  IconArrowUp,
   IconInfoCircle,
   IconPencil,
   IconTrash,
@@ -45,7 +46,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 interface QueuedMessageItem {
   id: Id<"queuedMessages">;
@@ -59,24 +59,27 @@ interface QueuedMessagesPanelProps {
   renderContent?: (content: string) => React.ReactNode;
   onEdit?: (id: Id<"queuedMessages">, content: string) => Promise<void>;
   onDelete?: (id: Id<"queuedMessages">) => Promise<void>;
-  /** When provided, items become drag-reorderable; receives the new top-to-bottom id order. */
+  /** When provided, items become reorderable; receives the new top-to-bottom id order. */
   onReorder?: (orderedIds: Id<"queuedMessages">[]) => Promise<void>;
 }
 
-/** A single sortable queue row. Drag lives on the grip handle only so the
- *  edit/delete buttons stay clickable. */
+/** A single sortable queue row (Cursor-style card: indicator + 2-line text + actions). */
 function SortableQueuedItem({
   item,
+  index,
   draggable,
   renderContent,
   onEditClick,
   onDeleteClick,
+  onMoveToFront,
 }: {
   item: QueuedMessageItem;
+  index: number;
   draggable: boolean;
   renderContent?: (content: string) => React.ReactNode;
   onEditClick?: (item: QueuedMessageItem) => void;
   onDeleteClick?: (item: QueuedMessageItem) => void;
+  onMoveToFront?: (item: QueuedMessageItem) => void;
 }) {
   const {
     attributes,
@@ -98,23 +101,23 @@ function SortableQueuedItem({
       style={style}
       className={isDragging ? "opacity-50" : undefined}
     >
-      <div className="flex items-start gap-2">
-        {draggable ? (
-          <button
-            type="button"
-            aria-label="Reorder queued message"
-            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-            {...attributes}
-            {...listeners}
-          >
-            <IconGripVertical size={14} />
-          </button>
-        ) : (
+      <div className="flex items-start gap-2.5">
+        <button
+          type="button"
+          aria-label={draggable ? "Drag to reorder queued message" : undefined}
+          className={
+            draggable
+              ? "mt-0.5 shrink-0 cursor-grab touch-none rounded-full border-0 bg-transparent p-0"
+              : "mt-0.5 shrink-0"
+          }
+          disabled={!draggable}
+          {...(draggable ? { ...attributes, ...listeners } : {})}
+        >
           <QueueItemIndicator />
-        )}
-        <MarqueeOnHover className="min-w-0 grow text-xs text-muted-foreground">
+        </button>
+        <QueueItemContent className="text-xs">
           {renderContent ? renderContent(item.content) : item.content}
-        </MarqueeOnHover>
+        </QueueItemContent>
         <QueueItemActions>
           {item.info ? (
             <Tooltip>
@@ -134,6 +137,14 @@ function SortableQueuedItem({
               onClick={() => onEditClick(item)}
             >
               <IconPencil size={14} />
+            </QueueItemAction>
+          ) : null}
+          {onMoveToFront && index > 0 ? (
+            <QueueItemAction
+              aria-label="Move queued message to front"
+              onClick={() => onMoveToFront(item)}
+            >
+              <IconArrowUp size={14} />
             </QueueItemAction>
           ) : null}
           {onDeleteClick ? (
@@ -187,7 +198,6 @@ export function QueuedMessagesPanel({
     return null;
   }
 
-  // Reorder only makes sense with 2+ items and a handler wired.
   const draggable = Boolean(onReorder) && items.length > 1;
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -200,6 +210,12 @@ export function QueuedMessagesPanel({
       (item) => item.id,
     );
     void onReorder(orderedIds);
+  };
+
+  const handleMoveToFront = (item: QueuedMessageItem) => {
+    if (!onReorder) return;
+    const rest = items.filter((entry) => entry.id !== item.id);
+    void onReorder([item.id, ...rest.map((entry) => entry.id)]);
   };
 
   return (
@@ -220,14 +236,16 @@ export function QueuedMessagesPanel({
                   items={items.map((item) => item.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {items.map((item) => (
+                  {items.map((item, index) => (
                     <SortableQueuedItem
                       key={item.id}
                       item={item}
+                      index={index}
                       draggable={draggable}
                       renderContent={renderContent}
                       onEditClick={onEdit ? setEditingItem : undefined}
                       onDeleteClick={onDelete ? setDeletingItem : undefined}
+                      onMoveToFront={onReorder ? handleMoveToFront : undefined}
                     />
                   ))}
                 </SortableContext>

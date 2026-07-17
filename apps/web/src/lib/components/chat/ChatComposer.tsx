@@ -185,7 +185,7 @@ export function ChatComposer({
               as="span"
               text={`${display}${suffix}`}
               repoBasePath={repoBasePath}
-              className="text-xs"
+              className="text-xs leading-snug text-foreground/90"
             />
           );
         }}
@@ -245,7 +245,7 @@ export function ChatComposer({
                 docs={docs}
                 skills={skills}
                 skillsSettingsHref={`${repoBasePath}/settings/skills`}
-                placeholder={placeholder}
+                placeholder={isExecuting ? "Add a follow-up..." : placeholder}
                 initialMentionMap={draft?.mentionMap}
                 initialSkillMap={draft?.skillMap}
                 history={messageHistory}

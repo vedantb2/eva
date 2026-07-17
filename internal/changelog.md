@@ -1,5 +1,10 @@
 # Changelog
 
+## Chat queue UI matches Cursor-style follow-up cards - 2026-07-18
+
+- Queued prompts sit in a quieter collapsible card with two-line wrap, move-to-front, edit, and delete; while a turn is running the composer placeholder becomes “Add a follow-up…”.
+- Reason for change: the old marquee queue felt like a separate control strip rather than pending follow-ups above the input.
+
 ## Session turns no longer run on the wrong prewarmed model - 2026-07-18
 
 - Page-open daemon prewarm used to always boot Claude Sonnet, which could claim the next turn before a Cursor/Codex daemon respawned — so picking Grok still ran as Claude.

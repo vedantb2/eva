@@ -142,7 +142,7 @@ function FindingRow({
   const taskSegment = task ? entityPathSegment(task) : null;
   const taskUrl =
     taskSegment !== null
-      ? `/${repoOwner}/${repoName}/quick-tasks/${taskSegment}/activity`
+      ? `/${repoOwner}/${repoName}/quick-tasks/${taskSegment}`
       : null;
 
   return (

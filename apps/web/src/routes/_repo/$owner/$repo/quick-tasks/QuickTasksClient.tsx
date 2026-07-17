@@ -228,7 +228,7 @@ export function QuickTasksClient() {
   const handleOpenTask = (task: { numId?: number }) => {
     const segment = entityPathSegment(task);
     if (!segment) return;
-    navigate({ to: `${basePath}/quick-tasks/${segment}/activity` });
+    navigate({ to: `${basePath}/quick-tasks/${segment}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);

@@ -98,7 +98,7 @@ function SortableTaskWrapper({
           scheduledAt={task.scheduledAt}
           href={
             entityPathSegment(task)
-              ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+              ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
               : `${basePath}/quick-tasks`
           }
           isActive={selectedTaskId === task._id}
@@ -349,7 +349,7 @@ export function ProjectTaskListPanel({
                             scheduledAt={task.scheduledAt}
                             href={
                               entityPathSegment(task)
-                                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                                ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                                 : `${basePath}/quick-tasks`
                             }
                             isActive={selectedTaskId === task._id}

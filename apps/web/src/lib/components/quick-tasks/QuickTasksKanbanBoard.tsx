@@ -182,7 +182,7 @@ export function QuickTasksKanbanBoard({
             }
             href={
               entityPathSegment(task)
-                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                 : `${basePath}/quick-tasks`
             }
             groupedCodebases={groupedCodebases ?? undefined}

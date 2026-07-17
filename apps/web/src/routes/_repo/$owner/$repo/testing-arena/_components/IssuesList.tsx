@@ -146,9 +146,7 @@ function IssueRow({
   );
   const taskSegment = task ? entityPathSegment(task) : null;
   const taskUrl =
-    taskSegment !== null
-      ? `${basePath}/quick-tasks/${taskSegment}/activity`
-      : null;
+    taskSegment !== null ? `${basePath}/quick-tasks/${taskSegment}` : null;
 
   return (
     <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">

@@ -37,7 +37,7 @@ export function QuickTaskSplitDetailPane({
     nextTaskId,
     handleNavigatePrev,
     handleNavigateNext,
-  } = useQuickTaskNeighbors({ taskId, navSurface, detailTab, sandboxTab });
+  } = useQuickTaskNeighbors({ taskId, navSurface, sandboxTab });
 
   const routeState: QuickTaskRouteState =
     navSurface === "sandbox" && sandboxTab

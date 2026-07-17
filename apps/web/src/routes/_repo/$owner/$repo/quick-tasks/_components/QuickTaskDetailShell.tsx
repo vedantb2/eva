@@ -39,7 +39,7 @@ export function QuickTaskDetailShell({
     handleNavigatePrev,
     handleNavigateNext,
     handleBack,
-  } = useQuickTaskNeighbors({ taskId, navSurface, detailTab, sandboxTab });
+  } = useQuickTaskNeighbors({ taskId, navSurface, sandboxTab });
 
   if (tasks === undefined) {
     return (

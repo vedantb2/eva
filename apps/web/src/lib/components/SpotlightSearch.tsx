@@ -175,9 +175,7 @@ export function SpotlightSearch() {
                     onSelect={() => {
                       const segment = entityPathSegment(t);
                       if (segment) {
-                        handleSelect(
-                          `${basePath}/quick-tasks/${segment}/activity`,
-                        );
+                        handleSelect(`${basePath}/quick-tasks/${segment}`);
                       } else {
                         handleSelect(`${basePath}/quick-tasks`);
                       }

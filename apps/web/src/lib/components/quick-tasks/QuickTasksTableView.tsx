@@ -293,7 +293,7 @@ export function QuickTasksTableView({
                           e.stopPropagation();
                           if (segment) {
                             window.open(
-                              `${basePath}/quick-tasks/${segment}/activity`,
+                              `${basePath}/quick-tasks/${segment}`,
                               "_blank",
                             );
                           }

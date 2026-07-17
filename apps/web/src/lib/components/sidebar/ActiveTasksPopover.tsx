@@ -102,7 +102,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}/activity`}
+                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`}
                   />
                 ))}
               </Section>
@@ -119,7 +119,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}/activity`}
+                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`}
                   />
                 ))}
               </Section>

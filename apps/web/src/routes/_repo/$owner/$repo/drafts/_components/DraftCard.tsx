@@ -60,7 +60,7 @@ async function resolveTaskActivityPath(
     }
     return `${basePath}/projects/${projectSegment}/${taskSegment}/activity`;
   }
-  return `${basePath}/quick-tasks/${taskSegment}/activity`;
+  return `${basePath}/quick-tasks/${taskSegment}`;
 }
 
 export function DraftCard({ model, basePath }: DraftCardProps) {

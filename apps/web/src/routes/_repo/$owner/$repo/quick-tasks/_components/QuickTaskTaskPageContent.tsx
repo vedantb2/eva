@@ -56,7 +56,7 @@ export function QuickTaskTaskPageContent({
           },
           onExitSandboxView: () => {
             navigate({
-              to: `${basePath}/quick-tasks/${pathSegment}/activity`,
+              to: `${basePath}/quick-tasks/${pathSegment}`,
             });
           },
         },
@@ -68,9 +68,9 @@ export function QuickTaskTaskPageContent({
       mode: "quick-detail" as const,
       quick: {
         detailTab,
-        onDetailTabChange: (tab: TaskDetailTab) => {
+        onDetailTabChange: (_tab: TaskDetailTab) => {
           navigate({
-            to: `${basePath}/quick-tasks/${pathSegment}/${tab}`,
+            to: `${basePath}/quick-tasks/${pathSegment}`,
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {

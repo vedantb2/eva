@@ -1,5 +1,10 @@
 # Changelog
 
+## Quick-task URLs drop the unused `/activity` segment - 2026-07-17
+
+- Canonical quick-task detail is now `/quick-tasks/$numId`; old `/quick-tasks/$numId/activity` links redirect there.
+- Reason for change: the detail-tab segment was leftover from when quick tasks had multiple tabs, and cluttered every task URL.
+
 ## Shared “does not exist” empty state for missing entities - 2026-07-17
 
 - Loading a deleted or invalid task/session/project/doc/design/automation/team/artifact URL now shows a clear empty state (“This … does not exist”) with optional back link, instead of a blank pane, infinite spinner, or “Select a task…”.

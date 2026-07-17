@@ -308,7 +308,7 @@ export function QuickTasksListView({
                                       }
                                       href={
                                         entityPathSegment(task)
-                                          ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                                          ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                                           : `${basePath}/quick-tasks`
                                       }
                                       onClick={() => {

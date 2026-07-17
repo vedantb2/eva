@@ -52,12 +52,16 @@ export async function finalizePrRecapOutcome(
   const commentMessage =
     params.outcome.kind === "ready" ? undefined : params.outcome.message;
 
+  const docNumId = await step.runQuery(internal.docs.getPathNumId, {
+    docId: params.docId,
+  });
+
   await step.runAction(internal._github.prRecapService.upsertPrRecapComment, {
     installationId: params.installationId,
     owner: params.repoOwner,
     repo: params.repoName,
     prNumber: params.prNumber,
-    docId: String(params.docId),
+    docNumId,
     headSha: params.headSha,
     status: commentStatus,
     message: commentMessage,

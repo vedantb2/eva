@@ -74,6 +74,19 @@ export const list = authQuery({
   },
 });
 
+/** Returns the per-repo numId used in Eva doc URLs (/docs/$numId/…). */
+export const getPathNumId = internalQuery({
+  args: { docId: v.id("docs") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc || doc.numId === undefined) {
+      throw new Error("Document numId not found");
+    }
+    return doc.numId;
+  },
+});
+
 /** Fetches a PR recap doc by pull request URL. */
 export const getRecapByPrUrl = authQuery({
   args: {

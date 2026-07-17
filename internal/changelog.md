@@ -1,5 +1,10 @@
 # Changelog
 
+## PR recap GitHub comments link to the correct Eva doc URL - 2026-07-17
+
+- Sticky PR recap comments now use the per-repo numeric `/docs/N` path instead of the Convex document id, which Eva routes do not resolve.
+- Reason for change: “View recap in Eva” links were 404ing / failing to load the doc after a successful recap.
+
 ## PR recaps no longer hang on monorepo root sandboxes - 2026-07-17
 
 - PR recap sandboxes now resolve credentials from a sibling app that has `VERCEL_PROJECT_ID` (preferring the default visible app) instead of the codebase root row, which typically has no project id.

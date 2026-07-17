@@ -54,11 +54,17 @@ export const getPublishContext = internalQuery({
     repoName: v.string(),
     installationId: v.number(),
     prNumber: v.number(),
+    docNumId: v.number(),
     linkRootDirectory: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
-    if (!doc || doc.kind !== "pr-recap" || doc.prNumber === undefined) {
+    if (
+      !doc ||
+      doc.kind !== "pr-recap" ||
+      doc.prNumber === undefined ||
+      doc.numId === undefined
+    ) {
       throw new Error("PR recap doc not found");
     }
 
@@ -75,6 +81,7 @@ export const getPublishContext = internalQuery({
       repoName: workflowRepo.name,
       installationId: workflowRepo.installationId,
       prNumber: doc.prNumber,
+      docNumId: doc.numId,
       linkRootDirectory: linkRepo?.rootDirectory,
     };
   },

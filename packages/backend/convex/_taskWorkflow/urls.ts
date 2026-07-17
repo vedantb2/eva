@@ -49,14 +49,14 @@ export function buildEvaProjectUrl(
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/projects/${projectId}`;
 }
 
-/** Builds a link to view a doc in the Eva web app. */
+/** Builds a link to view a doc in the Eva web app (path uses per-repo numId). */
 export function buildEvaDocUrl(
   repoOwner: string,
   repoName: string,
-  docId: string,
+  docNumId: number,
   docTab: "content" | "description" | "requirements" | "user-flows" = "content",
   rootDirectory?: string,
 ): string {
   const segment = repoSegment(repoName, rootDirectory);
-  return `${getEvaBaseUrl()}/${repoOwner}/${segment}/docs/${docId}/${docTab}`;
+  return `${getEvaBaseUrl()}/${repoOwner}/${segment}/docs/${docNumId}/${docTab}`;
 }

@@ -1128,7 +1128,7 @@ export const publishPrRecap = internalAction({
       owner: publishContext.repoOwner,
       repo: publishContext.repoName,
       prNumber: publishContext.prNumber,
-      docId: args.docId,
+      docNumId: publishContext.docNumId,
       headSha: args.headSha,
       status: commentStatus,
       message: args.status === "error" ? args.errorMessage : undefined,

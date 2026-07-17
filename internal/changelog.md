@@ -1,5 +1,11 @@
 # Changelog
 
+## Shared “does not exist” empty state for missing entities - 2026-07-17
+
+- Loading a deleted or invalid task/session/project/doc/design/automation/team/artifact URL now shows a clear empty state (“This … does not exist”) with optional back link, instead of a blank pane, infinite spinner, or “Select a task…”.
+- Added shared `EntityNotFound` and upgraded `EntityNumIdGate`; quick tasks and `useTaskDetail` distinguish loading vs missing.
+- Reason for change: missing entities were easy to misread as an empty selection or a hung load.
+
 ## Separate proof capture step after implementation - 2026-07-17
 
 - Task runs now code on the selected task model, then (when screenshots/videos are enabled) run a dedicated proof-capture agent on `proofModel` after push and before PR creation.

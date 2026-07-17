@@ -9,6 +9,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import {
   QuickTaskModal,
   ImportLinearModal,
@@ -43,9 +44,7 @@ export function QuickTasksClient() {
   const { basePath, repo, repoId } = useRepo();
   const taskResolve = useAgentTaskByNumId(numIdParam, repoId);
   const selectedTaskId =
-    taskResolve.status === "ready" && taskResolve.convexId
-      ? taskResolve.convexId
-      : undefined;
+    taskResolve.status === "ready" ? taskResolve.convexId : undefined;
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const { draft: draftParam } = useSearch({
     from: "/_repo/$owner/$repo/quick-tasks",
@@ -273,6 +272,27 @@ export function QuickTasksClient() {
       <div className="flex h-full flex-1 items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+
+  // URL points at a task that is still resolving or no longer exists.
+  if (numIdParam !== undefined && taskResolve.status === "loading") {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (numIdParam !== undefined && taskResolve.status === "not-found") {
+    return (
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <EntityNotFound
+          entityLabel="task"
+          backTo={`${basePath}/quick-tasks`}
+          backLabel="Back to Quick Tasks"
+        />
+      </PageWrapper>
     );
   }
 

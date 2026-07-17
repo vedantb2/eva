@@ -2,17 +2,18 @@
 
 import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api, type Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useNavigate } from "@tanstack/react-router";
-import { entityPathSegment } from "@/lib/numId";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
 
 interface QuickTaskTaskPageContentProps {
-  taskId: string;
+  taskId: Id<"agentTasks">;
   routeState: QuickTaskRouteState;
 }
 
@@ -22,13 +23,11 @@ export function QuickTaskTaskPageContent({
 }: QuickTaskTaskPageContentProps) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
+  const params = useParams({ strict: false });
+  const pathSegment =
+    typeof params.numId === "string" ? params.numId : undefined;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
-  const currentTask = useMemo(
-    () => tasks?.find((t) => t._id === taskId),
-    [tasks, taskId],
-  );
-  const taskPathSegment = currentTask ? entityPathSegment(currentTask) : null;
 
   const allTags = useMemo(() => {
     if (!tasks) return [];
@@ -42,7 +41,7 @@ export function QuickTaskTaskPageContent({
   }, [tasks]);
 
   const routing = useMemo(() => {
-    if (!taskPathSegment) return undefined;
+    if (!pathSegment) return undefined;
 
     if (routeState.surface === "sandbox") {
       const sandboxTab = routeState.sandboxTab;
@@ -52,12 +51,12 @@ export function QuickTaskTaskPageContent({
           sandboxTab,
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
             navigate({
-              to: `${basePath}/quick-tasks/${taskPathSegment}/sandbox/${tab}`,
+              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
             });
           },
           onExitSandboxView: () => {
             navigate({
-              to: `${basePath}/quick-tasks/${taskPathSegment}/activity`,
+              to: `${basePath}/quick-tasks/${pathSegment}/activity`,
             });
           },
         },
@@ -71,27 +70,40 @@ export function QuickTaskTaskPageContent({
         detailTab,
         onDetailTabChange: (tab: TaskDetailTab) => {
           navigate({
-            to: `${basePath}/quick-tasks/${taskPathSegment}/${tab}`,
+            to: `${basePath}/quick-tasks/${pathSegment}/${tab}`,
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
           navigate({
-            to: `${basePath}/quick-tasks/${taskPathSegment}/sandbox/${sandboxTab}`,
+            to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
           });
         },
       },
     };
-  }, [basePath, navigate, routeState, taskPathSegment]);
+  }, [basePath, navigate, pathSegment, routeState]);
 
-  const typedTaskId = currentTask?._id;
-  if (!typedTaskId || !routing) {
-    return null;
+  if (!pathSegment || !routing) {
+    return (
+      <EntityNotFound
+        entityLabel="task"
+        backTo={`${basePath}/quick-tasks`}
+        backLabel="Back to Quick Tasks"
+      />
+    );
+  }
+
+  if (tasks === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
   }
 
   return (
     <TaskDetailInline
       onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
-      taskId={typedTaskId}
+      taskId={taskId}
       allTags={allTags}
       routing={routing}
     />

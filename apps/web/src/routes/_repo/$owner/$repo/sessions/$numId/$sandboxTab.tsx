@@ -35,7 +35,12 @@ function SessionSandboxRoute() {
   );
 
   return (
-    <EntityNumIdGate status={status} convexId={convexId}>
+    <EntityNumIdGate
+      status={status}
+      convexId={convexId}
+      entityLabel="session"
+      backTo={`${basePath}/sessions`}
+    >
       {(sessionId) => (
         <SessionDetailClient
           sessionId={sessionId}

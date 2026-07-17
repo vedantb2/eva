@@ -22,6 +22,7 @@ import {
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { IssuesList } from "../_components/IssuesList";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
@@ -319,7 +320,7 @@ function CodeTestingContent({
 
 function TestingArenaDetailRoute() {
   const { numId } = Route.useParams();
-  const { repo, repoId } = useRepo();
+  const { basePath, repo, repoId } = useRepo();
   const parsedNumId = parseRouteNumId(numId);
   const doc = useQuery(
     api.docs.getByNumId,
@@ -361,9 +362,10 @@ function TestingArenaDetailRoute() {
 
   if (parsedNumId === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Document not found</p>
-      </div>
+      <EntityNotFound
+        entityLabel="document"
+        backTo={`${basePath}/testing-arena`}
+      />
     );
   }
 
@@ -377,9 +379,10 @@ function TestingArenaDetailRoute() {
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Document not found</p>
-      </div>
+      <EntityNotFound
+        entityLabel="document"
+        backTo={`${basePath}/testing-arena`}
+      />
     );
   }
 

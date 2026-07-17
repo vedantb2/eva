@@ -43,7 +43,7 @@ export function useTaskDetail(
   routing?: UseTaskDetailRouting,
 ) {
   const taskResult = useQuery(api.agentTasks.get, { id: taskId });
-  const task = taskResult ?? undefined;
+  const task = taskResult === null ? null : (taskResult ?? undefined);
   const currentUserId = useQuery(api.auth.me);
   const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
@@ -369,7 +369,8 @@ export function useTaskDetail(
     : undefined;
 
   return {
-    isLoading: task === undefined,
+    isLoading: taskResult === undefined,
+    isNotFound: taskResult === null,
 
     task,
     status,

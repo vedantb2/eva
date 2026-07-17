@@ -1,5 +1,6 @@
 "use client";
 
+import type { Id } from "@conductor/backend";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityContextUsage } from "@/lib/components/context-usage";
@@ -11,7 +12,7 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
 interface QuickTaskSplitDetailPaneProps {
-  taskId: string;
+  taskId: Id<"agentTasks">;
   detailTab: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
   navSurface: "detail" | "sandbox";

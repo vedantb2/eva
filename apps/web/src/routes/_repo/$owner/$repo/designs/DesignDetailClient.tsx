@@ -7,6 +7,7 @@ import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
 import {
   DesignPreviewPanel,
@@ -22,7 +23,7 @@ export function DesignDetailClient({
   const messages = useQuery(api.messages.listByParent, {
     parentId: designSessionId,
   });
-  const { repo: _repo } = useRepo();
+  const { basePath, repo: _repo } = useRepo();
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
@@ -112,9 +113,10 @@ export function DesignDetailClient({
 
   if (session === null) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Design session not found</p>
-      </div>
+      <EntityNotFound
+        entityLabel="design session"
+        backTo={`${basePath}/designs`}
+      />
     );
   }
 

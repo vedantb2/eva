@@ -3,6 +3,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
@@ -37,7 +38,7 @@ export function TeamDetailClient({
   if (!team) {
     return (
       <PageWrapper title="Team">
-        <p className="text-sm text-muted-foreground">Team not found</p>
+        <EntityNotFound entityLabel="team" backTo="/teams" />
       </PageWrapper>
     );
   }

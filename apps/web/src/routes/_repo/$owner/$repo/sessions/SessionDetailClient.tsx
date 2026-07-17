@@ -7,6 +7,8 @@ import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 export function SessionDetailClient({
   sessionId,
@@ -14,27 +16,27 @@ export function SessionDetailClient({
   onSandboxTabChange,
   onOpenFile,
 }: {
-  sessionId: string;
+  sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeSandboxTab: string;
   onSandboxTabChange: (tab: string) => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile: (path: string) => void;
 }) {
-  const typedSessionId = sessionId as Id<"sessions">;
-  const session = useQuery(api.sessions.get, { id: typedSessionId });
+  const { basePath } = useRepo();
+  const session = useQuery(api.sessions.get, { id: sessionId });
   const messages = useQuery(api.messages.listByParent, {
-    parentId: typedSessionId,
+    parentId: sessionId,
   });
   const queuedMessages = useQuery(api.queuedMessages.listByParent, {
-    parentId: typedSessionId,
+    parentId: sessionId,
   });
-  const streaming = useQuery(api.streaming.get, { entityId: typedSessionId });
+  const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const summaryStreaming = useQuery(api.streaming.get, {
-    entityId: `summary:${typedSessionId}`,
+    entityId: `summary:${sessionId}`,
   });
   const startupStreaming = useQuery(api.streaming.get, {
-    entityId: `session-startup-${typedSessionId}`,
+    entityId: `session-startup-${sessionId}`,
   });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
@@ -52,8 +54,8 @@ export function SessionDetailClient({
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
-    void prewarmDaemon({ sessionId: typedSessionId });
-  }, [typedSessionId, sandboxId, sandboxStatus, prewarmDaemon]);
+    void prewarmDaemon({ sessionId });
+  }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once Daytona's stop call completes (~10s). Showing the spinner
@@ -64,12 +66,12 @@ export function SessionDetailClient({
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
       await startSandboxMutation({
-        sessionId: typedSessionId,
+        sessionId,
       });
     } else {
       setIsStopPending(true);
       try {
-        await stopSandboxMutation({ sessionId: typedSessionId });
+        await stopSandboxMutation({ sessionId });
       } finally {
         setIsStopPending(false);
       }
@@ -78,7 +80,7 @@ export function SessionDetailClient({
 
   if (session === undefined) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
@@ -86,13 +88,7 @@ export function SessionDetailClient({
 
   if (session === null) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-muted-foreground">
-            This session does not exist or has been deleted.
-          </p>
-        </div>
-      </div>
+      <EntityNotFound entityLabel="session" backTo={`${basePath}/sessions`} />
     );
   }
 
@@ -102,7 +98,7 @@ export function SessionDetailClient({
     <ResizablePanelLayout
       leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <ChatPanel
-          sessionId={typedSessionId}
+          sessionId={sessionId}
           title={session.title}
           branchName={session.branchName}
           prUrl={session.prUrl}
@@ -131,7 +127,7 @@ export function SessionDetailClient({
       )}
       rightPanel={
         <SandboxPanel
-          sessionId={typedSessionId}
+          sessionId={sessionId}
           sandboxId={session.sandboxId}
           vercelSandboxId={session.vercelSandboxId}
           isActive={isSandboxActive}

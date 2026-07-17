@@ -19,7 +19,7 @@ interface QuickTasksListSplitProps {
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (task: { numId?: number }) => void;
-  selectedTaskId?: string;
+  selectedTaskId?: Id<"agentTasks">;
   detailTab?: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
   navSurface: "detail" | "sandbox";

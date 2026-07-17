@@ -26,6 +26,7 @@ import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -45,6 +46,7 @@ export function TaskDetailInline({
 
   const {
     isLoading,
+    isNotFound,
     task,
     status,
     runs,
@@ -122,7 +124,11 @@ export function TaskDetailInline({
     );
   }
 
-  const isQuickTask = task?.projectId === undefined;
+  if (isNotFound || !task) {
+    return <EntityNotFound entityLabel="task" />;
+  }
+
+  const isQuickTask = task.projectId === undefined;
   const isSandboxViewActive = showSandbox;
 
   const routeSandboxTab: TaskRouteSandboxTab =

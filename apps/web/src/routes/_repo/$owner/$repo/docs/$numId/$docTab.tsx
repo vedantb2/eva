@@ -7,6 +7,7 @@ import {
   type DocViewerTab,
 } from "@/lib/search-params";
 import { DocViewer } from "@/lib/components/docs/DocViewer";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { parseRouteNumId } from "@/lib/numId";
 import { Spinner } from "@conductor/ui";
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/docs/$numId/$docTab")(
 
 function DocDetailTabPage() {
   const { numId, docTab } = Route.useParams();
-  const { repoId } = useRepo();
+  const { basePath, repoId } = useRepo();
   const parsedNumId = parseRouteNumId(numId);
   const doc = useQuery(
     api.docs.getByNumId,
@@ -45,9 +46,7 @@ function DocDetailTabPage() {
 
   if (parsedNumId === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Document not found</p>
-      </div>
+      <EntityNotFound entityLabel="document" backTo={`${basePath}/docs`} />
     );
   }
 
@@ -61,9 +60,7 @@ function DocDetailTabPage() {
 
   if (doc === null) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <p>Document not found</p>
-      </div>
+      <EntityNotFound entityLabel="document" backTo={`${basePath}/docs`} />
     );
   }
 

@@ -11,6 +11,7 @@ import {
 } from "../validators";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -77,10 +78,19 @@ export const addMessage = authMutation({
     activityLog: v.optional(v.string()),
     clientId: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await getSessionOrThrow(ctx.db, args.id);
+    const credentialSourceLabel =
+      args.role === "user"
+        ? await resolveCredentialSourceLabel(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          )
+        : undefined;
     await ctx.db.insert("messages", {
       parentId: args.id,
       role: args.role,
@@ -91,6 +101,7 @@ export const addMessage = authMutation({
       clientId: args.clientId,
       userId: ctx.userId,
       attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel,
     });
     await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;

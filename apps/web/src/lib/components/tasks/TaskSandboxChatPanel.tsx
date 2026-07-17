@@ -109,13 +109,19 @@ export function TaskSandboxChatPanel({
         });
         return;
       }
-      await addMessage({ taskId, content, attachmentStorageIds });
+      const accountId = resolveAccountId(providerAccountId);
+      await addMessage({
+        taskId,
+        content,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+      });
       await startExecute({
         taskId,
         message: content,
         model,
         reasoningLevel,
-        providerAccountId: resolveAccountId(providerAccountId),
+        providerAccountId: accountId,
       });
     },
     [

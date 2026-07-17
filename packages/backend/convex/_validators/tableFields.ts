@@ -183,6 +183,10 @@ export const agentRunFields = {
   // changes" runs. Lets the timeline link a run to its comment explicitly
   // rather than guessing by timestamp.
   triggeringCommentId: v.optional(v.id("taskComments")),
+  // Snapshot of which credential powered this run ("Team" or the account
+  // label). Stored at insert so history stays readable if the account is
+  // renamed or deleted later.
+  credentialSourceLabel: v.optional(v.string()),
 };
 
 export const sessionFields = {
@@ -468,6 +472,9 @@ export const messageFields = {
   // Convex file storage. Delivered to the agent as files it can read.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   pendingQuestion: v.optional(v.string()),
+  // Snapshot of which credential powered this chat turn ("Team" or the
+  // account label). Set on user messages at send/dequeue time.
+  credentialSourceLabel: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {

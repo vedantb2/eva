@@ -397,19 +397,26 @@ export function DesignChatPanel({
                                   />
                                 ) : null}
                                 <div className="flex items-center justify-between gap-3">
-                                  {message.personaId && (
-                                    <span className="text-[11px] text-muted-foreground/60">
-                                      {personaMap.get(message.personaId)
-                                        ?.name ?? "Persona"}
-                                    </span>
-                                  )}
-                                  {message.timestamp && (
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    {message.personaId ? (
+                                      <span className="text-[11px] text-muted-foreground/60">
+                                        {personaMap.get(message.personaId)
+                                          ?.name ?? "Persona"}
+                                      </span>
+                                    ) : null}
+                                    {message.credentialSourceLabel ? (
+                                      <span className="text-[11px] text-muted-foreground/60">
+                                        {message.credentialSourceLabel}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {message.timestamp ? (
                                     <span className="text-[11px] text-muted-foreground/60">
                                       {dayjs(message.timestamp).format(
                                         "h:mm A",
                                       )}
                                     </span>
-                                  )}
+                                  ) : null}
                                 </div>
                               </>
                             )}

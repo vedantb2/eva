@@ -107,13 +107,19 @@ export function ProjectSandboxChatPanel({
         });
         return;
       }
-      await addMessage({ projectId, content, attachmentStorageIds });
+      const accountId = resolveAccountId(providerAccountId);
+      await addMessage({
+        projectId,
+        content,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+      });
       await startExecute({
         projectId,
         message: content,
         model,
         reasoningLevel,
-        providerAccountId: resolveAccountId(providerAccountId),
+        providerAccountId: accountId,
       });
     },
     [

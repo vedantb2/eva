@@ -10,6 +10,7 @@ import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 const PREVIEW_ALLOWED_PHASES = [
   "in_progress",
@@ -256,6 +257,11 @@ export const resolveProjectConflicts = authMutation({
       logs: [],
       startedAt: Date.now(),
       mode: "resolve_conflicts",
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        carrier.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.patch(carrier._id, {
       status: "in_progress",

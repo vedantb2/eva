@@ -6,6 +6,7 @@ import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
 import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveTaskWorkflowBaseBranchForTask } from "./resolveBaseBranch";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Schedules an automatic retry for a failed quick task if the failure looks transient. */
 export const maybeScheduleQuickTaskRetry = internalMutation({
@@ -139,6 +140,11 @@ export const executeScheduledTask = internalMutation({
       // Carry through any parked change-request comment so a re-run started via
       // the scheduler is still labelled "made changes" on the timeline.
       triggeringCommentId: task.pendingChangeRequestCommentId,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        task.createdBy,
+      ),
     });
 
     await ctx.db.patch(args.taskId, {

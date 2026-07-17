@@ -168,6 +168,9 @@ export function RunTimelineItem({
                 >
                   {getRunStatusLabel(run, hasRunComment)}
                 </Badge>
+                {run.credentialSourceLabel ? (
+                  <Badge variant="secondary">{run.credentialSourceLabel}</Badge>
+                ) : null}
                 {runDuration}
               </div>
               <RelativeDateTime

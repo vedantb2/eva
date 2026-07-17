@@ -517,6 +517,11 @@ export function ChatBody({
                     )}
                   </div>
                 )}
+                {message.credentialSourceLabel ? (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {message.credentialSourceLabel}
+                  </span>
+                ) : null}
                 {message.timestamp && (
                   <span className="text-[11px] text-muted-foreground/60">
                     {dayjs(message.timestamp).format("h:mm A")}

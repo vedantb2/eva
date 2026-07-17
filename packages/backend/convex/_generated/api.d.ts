@@ -150,6 +150,7 @@ import type * as _taskWorkflow_uiImplementationPrompt from "../_taskWorkflow/uiI
 import type * as _taskWorkflow_urls from "../_taskWorkflow/urls.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
+import type * as _userProviderAccounts_credentialSource from "../_userProviderAccounts/credentialSource.js";
 import type * as _validators_aiModels from "../_validators/aiModels.js";
 import type * as _validators_enums from "../_validators/enums.js";
 import type * as _validators_personalisation from "../_validators/personalisation.js";
@@ -422,6 +423,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/urls": typeof _taskWorkflow_urls;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
+  "_userProviderAccounts/credentialSource": typeof _userProviderAccounts_credentialSource;
   "_validators/aiModels": typeof _validators_aiModels;
   "_validators/enums": typeof _validators_enums;
   "_validators/personalisation": typeof _validators_personalisation;

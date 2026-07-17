@@ -6,6 +6,7 @@ import { authMutation, hasRepoAccess } from "../functions";
 import { trackDesignSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "../_queues/helpers";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Sends a message to the AI for design generation, starting a workflow with timeout watchdog. */
 export const executeMessage = authMutation({
@@ -32,6 +33,11 @@ export const executeMessage = authMutation({
       userId: ctx.userId,
       personaId: args.personaId,
       attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        args.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.insert("messages", {
       parentId: args.id,

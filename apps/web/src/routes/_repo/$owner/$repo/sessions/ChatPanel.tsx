@@ -58,6 +58,7 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 
@@ -221,6 +222,10 @@ export function ChatPanel({
         videoUrl: undefined,
         attachmentStorageIds: args.attachmentStorageIds,
         attachmentUrls: undefined,
+        credentialSourceLabel: resolveCredentialSourceLabel(
+          args.providerAccountId,
+          accounts,
+        ),
       };
       const assistantPlaceholder: SessionMessage = {
         _id: optimisticMessageId(),
@@ -280,6 +285,7 @@ export function ChatPanel({
       // after onSend resolves), and the optimistic docs paint before any server
       // round-trip. Convex rolls the temp docs back automatically once the real
       // rows arrive (on success OR error).
+      const accountId = resolveAccountId(providerAccountId);
       void Promise.all([
         addMessage({
           id: sessionId,
@@ -287,6 +293,7 @@ export function ChatPanel({
           content,
           mode,
           attachmentStorageIds,
+          providerAccountId: accountId,
         }),
         startExecution({
           sessionId,
@@ -294,7 +301,7 @@ export function ChatPanel({
           mode,
           model,
           reasoningLevel,
-          providerAccountId: resolveAccountId(providerAccountId),
+          providerAccountId: accountId,
           attachmentStorageIds,
         }),
       ]).catch(async (error) => {

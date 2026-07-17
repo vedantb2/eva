@@ -11,6 +11,7 @@ import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 // --- Workflow ---
 
@@ -149,6 +150,11 @@ export const startTaskForBuild = internalMutation({
       logs: [],
       startedAt: Date.now(),
       triggeringCommentId: task.pendingChangeRequestCommentId,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        args.userId,
+      ),
     });
 
     await ctx.db.patch(args.taskId, {

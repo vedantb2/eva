@@ -1,5 +1,11 @@
 # Changelog
 
+## Credential source shown on runs and chat turns - 2026-07-17
+
+- Each task run and chat turn now snapshots whether it used Team credentials or a personal account label (e.g. “Personal”) at launch/send time.
+- That label shows as a badge on the run timeline and next to the user message metadata in session, task, project, and design chat.
+- Reason for change: after picking a personal account there was no durable way to tell which credential a past run had used once the picker moved on.
+
 ## Team icons on list, detail, and sidebar - 2026-07-17
 
 - Teams can now have an uploaded icon (same Convex storage pattern as app/repo logos); any team member can set, change, or remove it, including personal teams.

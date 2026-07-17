@@ -10,6 +10,7 @@ import {
 import { workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Starts task execution by creating a run and launching the workflow. */
 export const startExecution = authMutation({
@@ -115,6 +116,11 @@ export const startExecution = authMutation({
       // comment parked on the task by an earlier change request.
       triggeringCommentId:
         args.triggeringCommentId ?? task.pendingChangeRequestCommentId,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.patch(args.id, {
       status: "in_progress",

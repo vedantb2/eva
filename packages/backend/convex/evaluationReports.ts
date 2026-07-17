@@ -9,6 +9,7 @@ import { ensureSubscribed } from "./taskSubscribers";
 import { workflow } from "./workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "./_taskWorkflow/resolveBaseBranch";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
@@ -134,6 +135,11 @@ export const autoStartTask = internalMutation({
       status: "queued",
       logs: [],
       startedAt: Date.now(),
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        args.userId,
+      ),
     });
 
     await ctx.db.patch(args.taskId, {

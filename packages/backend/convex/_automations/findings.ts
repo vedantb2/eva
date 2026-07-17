@@ -8,6 +8,7 @@ import { workflow } from "../workflowManager";
 import type { Id } from "../_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Creates agent tasks from selected automation findings and optionally auto-starts them. */
 export const createTasksFromFindings = authMutation({
@@ -111,6 +112,11 @@ export const autoStartTask = internalMutation({
       status: "queued",
       logs: [],
       startedAt: Date.now(),
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        args.userId,
+      ),
     });
 
     await ctx.db.patch(args.taskId, {

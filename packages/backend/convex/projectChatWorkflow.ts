@@ -30,6 +30,7 @@ import {
 } from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 // Full read/write + Bash for local commits; Eva pushes after success.
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
@@ -54,6 +55,7 @@ export const addMessage = authMutation({
     projectId: v.id("projects"),
     content: v.string(),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -69,6 +71,11 @@ export const addMessage = authMutation({
       timestamp: Date.now(),
       userId: ctx.userId,
       attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        args.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;

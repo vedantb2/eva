@@ -9,6 +9,7 @@ import {
   trackProjectChatWorkflow,
   trackSessionWorkflow,
 } from "../workflowWatchdog";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -65,6 +66,11 @@ export async function startNextQueuedSessionMessage(
     userId: nextMessage.userId,
     mode: nextMessage.mode,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {
@@ -143,6 +149,11 @@ export async function startNextQueuedDesignMessage(
     userId: nextMessage.userId,
     personaId: nextMessage.personaId,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   const assistantMessageId = await ctx.db.insert("messages", {
@@ -217,6 +228,11 @@ export async function startNextQueuedProjectChatMessage(
     timestamp: now,
     userId: nextMessage.userId,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {
@@ -286,6 +302,11 @@ export async function startNextQueuedTaskChatMessage(
     timestamp: now,
     userId: nextMessage.userId,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
+    credentialSourceLabel: await resolveCredentialSourceLabel(
+      ctx.db,
+      nextMessage.providerAccountId,
+      nextMessage.userId,
+    ),
   });
 
   try {

@@ -21,8 +21,17 @@ import {
   PromptInputSubmit,
   PromptInputSpeech,
   ModelSelect,
+  toast,
   type PromptInputMessage,
 } from "@conductor/ui";
+import {
+  MAX_IMAGE_ATTACHMENTS,
+  MAX_IMAGE_ATTACHMENT_BYTES,
+  imageAttachmentErrorMessage,
+  useUploadImageAttachments,
+  ChatAttachmentPreview,
+  UserAttachmentImages,
+} from "@/lib/components/chat/imageAttachments";
 import {
   IconPlayerPlay,
   IconPlayerStop,
@@ -146,6 +155,7 @@ export function DesignChatPanel({
   const { basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
+  const uploadImageAttachments = useUploadImageAttachments();
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
@@ -188,10 +198,18 @@ export function DesignChatPanel({
 
   const isExecuting = isSending || parentIsExecuting;
 
-  const handleSend = async (text: string) => {
-    if (!text.trim() || !isSandboxActive) return;
+  const handleSend = async (
+    text: string,
+    attachmentStorageIds: Id<"_storage">[],
+  ) => {
     const visible = text.trim();
+    // Allow sending an image with no text, but not a fully empty message.
+    if ((!visible && attachmentStorageIds.length === 0) || !isSandboxActive) {
+      return;
+    }
     const message = mentionRef.current?.tokenize(visible) ?? visible;
+    const ids =
+      attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined;
     if (isExecuting) {
       await enqueueMessage({
         id: designSessionId,
@@ -199,6 +217,7 @@ export function DesignChatPanel({
         model,
         personaId: selectedPersonaId,
         numDesigns,
+        attachmentStorageIds: ids,
       });
       return;
     }
@@ -210,6 +229,7 @@ export function DesignChatPanel({
         model,
         personaId: selectedPersonaId,
         numDesigns,
+        attachmentStorageIds: ids,
       });
     } catch {
       setIsSending(false);
@@ -220,8 +240,16 @@ export function DesignChatPanel({
     await cancelExecution({ id: designSessionId });
   };
 
-  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
-    await handleSend(text);
+  const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
+    if (!isSandboxActive) return;
+    const imageCount = files.filter((file) =>
+      file.mediaType?.startsWith("image/"),
+    ).length;
+    const attachmentStorageIds = await uploadImageAttachments(files);
+    if (attachmentStorageIds.length < imageCount) {
+      toast.error("Some images could not be uploaded.");
+    }
+    await handleSend(text, attachmentStorageIds);
   };
 
   const queuedMessageItems = useMemo(
@@ -351,10 +379,15 @@ export function DesignChatPanel({
                               </>
                             ) : (
                               <>
-                                <MessageMentionText
-                                  text={message.content}
-                                  repoBasePath={basePath}
+                                <UserAttachmentImages
+                                  urls={message.attachmentUrls}
                                 />
+                                {message.content ? (
+                                  <MessageMentionText
+                                    text={message.content}
+                                    repoBasePath={basePath}
+                                  />
+                                ) : null}
                                 <div className="flex items-center justify-between gap-3">
                                   {message.personaId && (
                                     <span className="text-[11px] text-muted-foreground/60">
@@ -421,7 +454,17 @@ export function DesignChatPanel({
                   mentionRef={mentionRef}
                   initialDisplay={draftSeed.initialDisplay}
                 />
-                <PromptInput onSubmit={handlePromptSubmit}>
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  accept="image/*"
+                  multiple
+                  maxFiles={MAX_IMAGE_ATTACHMENTS}
+                  maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+                  onError={(err) =>
+                    toast.error(imageAttachmentErrorMessage(err))
+                  }
+                >
+                  <ChatAttachmentPreview />
                   <MentionTextarea
                     ref={mentionRef}
                     repoBasePath={basePath}
@@ -434,6 +477,7 @@ export function DesignChatPanel({
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}
                     history={messageHistory}
+                    enableImagePaste
                   />
                   <PromptInputFooter>
                     <PromptInputTools>

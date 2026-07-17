@@ -136,6 +136,7 @@ export async function startNextQueuedDesignMessage(
     timestamp: now,
     userId: nextMessage.userId,
     personaId: nextMessage.personaId,
+    attachmentStorageIds: nextMessage.attachmentStorageIds,
   });
 
   const assistantMessageId = await ctx.db.insert("messages", {

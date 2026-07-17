@@ -15,6 +15,7 @@ export const executeMessage = authMutation({
     model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -29,6 +30,7 @@ export const executeMessage = authMutation({
       timestamp: now,
       userId: ctx.userId,
       personaId: args.personaId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.insert("messages", {
       parentId: args.id,
@@ -66,6 +68,7 @@ export const enqueueMessage = authMutation({
     model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -86,6 +89,7 @@ export const enqueueMessage = authMutation({
       model: normalizeAIModel(args.model),
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;

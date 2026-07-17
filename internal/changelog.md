@@ -1,5 +1,11 @@
 # Changelog
 
+## Image attachments in the design chat - 2026-07-17
+
+- The design chat composer now takes pasted/dropped images too (same limits and preview as the other chats), and delivers them to the design agent as readable files at launch.
+- The shared composer image-attachment logic (upload, preview strip, message thumbnails) was extracted into one module now used by both the main chat and the design chat.
+- Reason for change: the earlier image-attachment work skipped the design chat because it uses a separate composer; users expect to paste a reference screenshot when describing a design too.
+
 ## Rail sandbox dots use indexed lookups - 2026-07-17
 
 - `listReposWithActiveSandboxes` now finds live project/task sandboxes via `by_repo_and_sandbox_status` indexes (bounded `.take`) instead of collecting every project/task per app.

@@ -145,9 +145,9 @@ interface ChatBodyProps {
   setModel: (model: AIModel) => void;
   modelOptions: ReadonlyArray<ModelOption<AIModel>>;
   /**
-   * The user's own provider accounts. When non-empty, the model picker shows
-   * each provider's models under "Team" and once per matching account, and the
-   * chosen account's credentials run the turn (see `accountId`/`onAccountChange`).
+   * The user's own provider accounts. When non-empty, the model picker nests
+   * Team + account submenus under each provider; the chosen account's
+   * credentials run the turn (see `accountId`/`onAccountChange`).
    */
   accounts?: ReadonlyArray<ModelAccount>;
   accountId?: string | null;

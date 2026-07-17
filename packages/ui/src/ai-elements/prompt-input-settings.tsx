@@ -10,8 +10,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import { cn } from "../utils/cn";
 import { IconDots } from "@tabler/icons-react";
@@ -189,9 +187,9 @@ export interface ModelSelectProps<TModel extends string = string> {
   disabled?: boolean;
   className?: string;
   /**
-   * The user's own provider accounts. When non-empty, each provider's models
-   * are shown once under "Team" (the shared credential) and once per matching
-   * account, so picking a model also picks whose credential runs it.
+   * The user's own provider accounts. When non-empty, each provider opens into
+   * Team + account submenus, each listing that provider's models so picking a
+   * model also picks whose credential runs it.
    */
   accounts?: ReadonlyArray<ModelAccount>;
   /** Currently selected account id, or null for the team credential. */
@@ -303,8 +301,7 @@ export function ModelSelect<TModel extends string>({
     );
   }
 
-  // Account-aware path: each provider submenu lists its models under "Team"
-  // and once per matching account.
+  // Account-aware path: provider → Team / account submenu → models.
   const selectedComposite = selectedModel
     ? toComposite(accountId, selectedModel.id)
     : undefined;
@@ -318,6 +315,23 @@ export function ModelSelect<TModel extends string>({
           const providerAccounts =
             accounts?.filter((account) => account.provider === provider.id) ??
             [];
+
+          const modelRadios = (accountKey: string | null) => (
+            <DropdownMenuRadioGroup
+              value={selectedComposite}
+              onValueChange={applyComposite}
+            >
+              {models.map((option) => (
+                <DropdownMenuRadioItem
+                  key={`${accountKey ?? TEAM_KEY}-${option.id}`}
+                  value={toComposite(accountKey, option.id)}
+                >
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          );
+
           return (
             <DropdownMenuSub key={provider.id}>
               <DropdownMenuSubTrigger>
@@ -325,45 +339,29 @@ export function ModelSelect<TModel extends string>({
                 {provider.label}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={selectedComposite}
-                  onValueChange={applyComposite}
-                >
-                  <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-                    Team
-                  </DropdownMenuLabel>
-                  {models.map((option) => (
-                    <DropdownMenuRadioItem
-                      key={`team-${option.id}`}
-                      value={toComposite(null, option.id)}
-                    >
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                  {providerAccounts.map((account) => (
-                    <div key={account.id}>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span
-                          className="size-2 rounded-full border border-border"
-                          style={{
-                            backgroundColor:
-                              account.accentColor ?? "currentColor",
-                          }}
-                        />
-                        {account.label}
-                      </DropdownMenuLabel>
-                      {models.map((option) => (
-                        <DropdownMenuRadioItem
-                          key={`${account.id}-${option.id}`}
-                          value={toComposite(account.id, option.id)}
-                        >
-                          {option.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </div>
-                  ))}
-                </DropdownMenuRadioGroup>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Team</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {modelRadios(null)}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                {providerAccounts.map((account) => (
+                  <DropdownMenuSub key={account.id}>
+                    <DropdownMenuSubTrigger>
+                      <span
+                        className="size-2 shrink-0 rounded-full border border-border"
+                        style={{
+                          backgroundColor:
+                            account.accentColor ?? "currentColor",
+                        }}
+                      />
+                      {account.label}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {modelRadios(account.id)}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           );

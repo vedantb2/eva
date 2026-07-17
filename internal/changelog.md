@@ -1,5 +1,10 @@
 # Changelog
 
+## Model picker nests accounts as submenus - 2026-07-17
+
+- With personal provider accounts, the model dropdown is now Provider → Team/Account → models, instead of listing every account's models in one flat submenu.
+- Reason for change: many accounts made the old flat list hard to scan; nesting by account matches how people choose whose credential to use.
+
 ## Failed run notifications use danger styling - 2026-07-17
 
 - Task/quick-task failures now emit `run_failed` (instead of reusing `run_completed`) and render with a red destructive badge and exclamation icon in inbox, bell, and toasts.

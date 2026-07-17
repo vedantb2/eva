@@ -191,6 +191,7 @@ export function QuickTasksKanbanBoard({
             onToggleSelect={() => onToggleSelect(task._id)}
             assignedTo={task.assignedTo}
             model={task.model}
+            providerAccountId={task.providerAccountId}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
             users={users ?? undefined}
@@ -220,6 +221,7 @@ export function QuickTasksKanbanBoard({
             isSelected={selectedIds.has(task._id)}
             assignedTo={task.assignedTo}
             model={task.model}
+            providerAccountId={task.providerAccountId}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
             users={users ?? undefined}

@@ -329,6 +329,7 @@ export function QuickTasksListView({
                                       }
                                       assignedTo={task.assignedTo}
                                       model={task.model}
+                                      providerAccountId={task.providerAccountId}
                                       projectId={task.projectId}
                                       repoId={task.repoId ?? repoId}
                                       users={users ?? undefined}

@@ -73,6 +73,7 @@ interface QuickTaskCardProps {
   onToggleSelect?: () => void;
   assignedTo?: Id<"users">;
   model?: string;
+  providerAccountId?: Id<"userProviderAccounts">;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
   users?: User[];
@@ -103,6 +104,7 @@ export function QuickTaskCard({
   onToggleSelect,
   assignedTo,
   model,
+  providerAccountId,
   projectId,
   repoId,
   users,
@@ -139,6 +141,7 @@ export function QuickTaskCard({
     href,
     assignedTo,
     model,
+    providerAccountId,
     projectId,
     repoId,
     groupedCodebases,

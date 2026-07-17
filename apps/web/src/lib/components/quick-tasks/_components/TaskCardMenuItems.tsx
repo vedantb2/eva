@@ -45,13 +45,37 @@ import {
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 
 type GroupedCodebase = FunctionReturnType<
   typeof api.githubRepos.listGroupedByCodebase
 >[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+
+const TEAM_KEY = "team";
+
+function toComposite(accountId: string | null, modelId: string): string {
+  return `${accountId ?? TEAM_KEY}::${modelId}`;
+}
+
+function providerLabel(provider: string): string {
+  switch (provider) {
+    case "codex":
+      return "Codex";
+    case "opencode":
+      return "Opencode";
+    case "cursor":
+      return "Cursor";
+    case "claude":
+      return "Claude";
+    default:
+      return provider;
+  }
+}
 
 export interface TaskCardMenuItemsProps {
   variant: "context" | "dropdown";
@@ -61,6 +85,7 @@ export interface TaskCardMenuItemsProps {
   href?: string;
   assignedTo?: Id<"users">;
   model?: string;
+  providerAccountId?: Id<"userProviderAccounts">;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
   groupedCodebases?: GroupedCodebase[];
@@ -79,6 +104,7 @@ export function TaskCardMenuItems({
   href,
   assignedTo,
   model,
+  providerAccountId,
   projectId,
   repoId,
   groupedCodebases,
@@ -120,6 +146,8 @@ export function TaskCardMenuItems({
             if (args.assignedTo !== undefined)
               updated.assignedTo = args.assignedTo ?? undefined;
             if (args.model !== undefined) updated.model = args.model;
+            if (args.providerAccountId !== undefined)
+              updated.providerAccountId = args.providerAccountId ?? undefined;
             if (args.projectId !== undefined)
               updated.projectId = args.projectId ?? undefined;
             return updated;
@@ -134,6 +162,38 @@ export function TaskCardMenuItems({
     repoId,
     normalizedModel,
   );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
+  const hasAccounts = accounts.length > 0;
+  const selectedComposite = toComposite(
+    providerAccountId ?? null,
+    normalizedModel,
+  );
+
+  const applyModelSelection = (compositeOrModelId: string) => {
+    if (compositeOrModelId.includes("::")) {
+      const separator = compositeOrModelId.indexOf("::");
+      const accountKey = compositeOrModelId.slice(0, separator);
+      const modelId = compositeOrModelId.slice(separator + 2);
+      const matched = (
+        modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
+      ).find((option) => option.id === modelId);
+      if (!matched) return;
+      updateTask({
+        id,
+        model: matched.id,
+        providerAccountId:
+          accountKey === TEAM_KEY
+            ? null
+            : (resolveAccountId(accountKey) ?? null),
+      });
+      return;
+    }
+    const matched = (
+      modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
+    ).find((option) => option.id === compositeOrModelId);
+    if (matched) updateTask({ id, model: matched.id });
+  };
 
   const canRun = status === "todo" || status === "in_progress";
   const StatusIcon = statusConfig[status].icon;
@@ -266,14 +326,82 @@ export function TaskCardMenuItems({
             const providers = [
               ...new Set(opts.map((o) => getAIModelProvider(o.id))),
             ];
+
+            // With personal accounts: Provider → Team / account → models.
+            if (hasAccounts) {
+              return providers.map((provider) => {
+                const providerModels = opts.filter(
+                  (option) => getAIModelProvider(option.id) === provider,
+                );
+                const providerAccounts = accounts.filter(
+                  (account) => account.provider === provider,
+                );
+
+                return (
+                  <Sub key={provider}>
+                    <SubTrigger>
+                      <ProviderIcon provider={provider} size={14} />
+                      {providerLabel(provider)}
+                    </SubTrigger>
+                    <SubContent>
+                      <Sub>
+                        <SubTrigger>Team</SubTrigger>
+                        <SubContent>
+                          <RadioGroup
+                            value={selectedComposite}
+                            onValueChange={applyModelSelection}
+                          >
+                            {providerModels.map((option) => (
+                              <RadioItem
+                                key={`${TEAM_KEY}-${option.id}`}
+                                value={toComposite(null, option.id)}
+                              >
+                                {option.label}
+                              </RadioItem>
+                            ))}
+                          </RadioGroup>
+                        </SubContent>
+                      </Sub>
+                      {providerAccounts.map((account) => (
+                        <Sub key={account.id}>
+                          <SubTrigger>
+                            <span
+                              className="size-2 shrink-0 rounded-full border border-border"
+                              style={{
+                                backgroundColor:
+                                  account.accentColor ?? "currentColor",
+                              }}
+                            />
+                            {account.label}
+                          </SubTrigger>
+                          <SubContent>
+                            <RadioGroup
+                              value={selectedComposite}
+                              onValueChange={applyModelSelection}
+                            >
+                              {providerModels.map((option) => (
+                                <RadioItem
+                                  key={`${account.id}-${option.id}`}
+                                  value={toComposite(account.id, option.id)}
+                                >
+                                  {option.label}
+                                </RadioItem>
+                              ))}
+                            </RadioGroup>
+                          </SubContent>
+                        </Sub>
+                      ))}
+                    </SubContent>
+                  </Sub>
+                );
+              });
+            }
+
             if (providers.length === 1) {
               return (
                 <RadioGroup
                   value={normalizedModel}
-                  onValueChange={(value) => {
-                    const matched = opts.find((o) => o.id === value);
-                    if (matched) updateTask({ id, model: matched.id });
-                  }}
+                  onValueChange={applyModelSelection}
                 >
                   {opts.map((option) => (
                     <RadioItem key={option.id} value={option.id}>
@@ -287,21 +415,12 @@ export function TaskCardMenuItems({
               <Sub key={provider}>
                 <SubTrigger>
                   <ProviderIcon provider={provider} size={14} />
-                  {provider === "codex"
-                    ? "Codex"
-                    : provider === "opencode"
-                      ? "Opencode"
-                      : provider === "cursor"
-                        ? "Cursor"
-                        : "Claude"}
+                  {providerLabel(provider)}
                 </SubTrigger>
                 <SubContent>
                   <RadioGroup
                     value={normalizedModel}
-                    onValueChange={(value) => {
-                      const matched = opts.find((o) => o.id === value);
-                      if (matched) updateTask({ id, model: matched.id });
-                    }}
+                    onValueChange={applyModelSelection}
                   >
                     {opts
                       .filter((o) => getAIModelProvider(o.id) === provider)

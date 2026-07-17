@@ -105,6 +105,7 @@ function SortableTaskWrapper({
           onClick={() => onSelectTask(task._id)}
           assignedTo={task.assignedTo}
           model={task.model}
+          providerAccountId={task.providerAccountId}
           projectId={task.projectId}
           repoId={task.repoId}
         />
@@ -356,6 +357,7 @@ export function ProjectTaskListPanel({
                             onClick={() => onSelectTask(task._id)}
                             assignedTo={task.assignedTo}
                             model={task.model}
+                            providerAccountId={task.providerAccountId}
                             projectId={task.projectId}
                             repoId={task.repoId}
                           />

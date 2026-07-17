@@ -1,5 +1,11 @@
 # Changelog
 
+## Documented sandbox-driven agent architecture and harness evaluation - 2026-07-17
+
+- Added `packages/backend/docs/ARCHITECTURE.md` comprehensively documenting why eva runs agent loops inside sandboxes (Convex ~10-min action limit), the 7 custom capabilities the callback owns (blocking AskUserQuestion, tool-UI parser with subagent nesting, usage tracking, heartbeat/watchdog, MCP-config injection, background-task disabling, warm daemon), and the sandbox provider abstraction (Daytona vs Vercel implementations).
+- Evaluated `@ai-sdk/harness-claude-code` (Vercel's new experimental host-driven bridge) and documented why we rejected adoption: architectural mismatch (would require new persistent host tier, conflicts with Convex action limits), feature regression (loses all 7 custom capabilities), no net gain (Vercel Sandbox support already built, multi-runtime support already multiplexed), and maturity risk (6 weeks old, breaking-changes warning).
+- Reason for change: future decisions about agent architecture, runtime upgrades, or sandbox changes need to understand the constraints and rationale behind the current design.
+
 ## Session chat shows killable agent background processes - 2026-07-17
 
 - Session Claude runs can background Bash again; a panel above the composer lists live shells and can stop them (ppid-tree TERM→KILL), while Task sub-agents stay forced foreground so Wayfinder-style “I’ll report back” holes stay closed.

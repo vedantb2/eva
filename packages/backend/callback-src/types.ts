@@ -13,6 +13,8 @@ export type ProgressStep = {
   type: string;
   label: string;
   detail?: string;
+  /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
+  path?: string;
   status: "active" | "complete";
 };
 

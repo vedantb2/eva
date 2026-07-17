@@ -1,14 +1,19 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { buildPrBody } from "../prBody";
 import { buildEvaSessionUrl } from "../_taskWorkflow/urls";
 import { extractPrNumber } from "./helpers";
 
-/** Creates a GitHub pull request for a session's branch and stores the PR URL.
- * Called when the user clicks "Send for Review" — no PR exists before this. */
+/**
+ * Promotes a session's draft PR to ready-for-review and archives the sandbox.
+ * Called when the user clicks "Send for Review". Draft PRs are opened
+ * automatically after the first successful agent push (`createDraftSessionPr`);
+ * this path only flips draft → open. If a draft is somehow missing (older
+ * sessions), it creates one first then promotes so the button still works.
+ */
 export const createSessionPr = action({
   args: { sessionId: v.id("sessions") },
   returns: v.object({ url: v.string() }),
@@ -30,49 +35,81 @@ export const createSessionPr = action({
     });
     if (!repo) throw new Error("Repository not found");
 
-    // If PR already exists (draft), mark it ready for review and archive sandbox
-    if (session.prUrl) {
-      const prNumber = extractPrNumber(session.prUrl);
-      if (prNumber) {
-        await ctx.runAction(internal.taskWorkflowActions.markPrReadyForReview, {
-          installationId: repo.installationId,
-          repoOwner: repo.owner,
-          repoName: repo.name,
-          prNumber,
-        });
-      }
-      await ctx.runMutation(internal.sessions.markReadyAndArchive, {
-        id: args.sessionId,
-      });
-      return { url: session.prUrl };
-    }
-
-    if (session.sandboxId) {
-      try {
-        await ctx.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId: session.sandboxId,
-          installationId: repo.installationId,
-          repoOwner: repo.owner,
-          repoName: repo.name,
-          repoId: session.repoId,
-          branchName: session.branchName,
-        });
-      } catch (error) {
+    let prUrl = session.prUrl;
+    if (prUrl === undefined) {
+      // Recovery for sessions that pushed commits before auto-draft existed.
+      const created = await ctx.runAction(
+        internal.github.createDraftSessionPr,
+        {
+          sessionId: args.sessionId,
+        },
+      );
+      if (created === null) {
         throw new Error(
-          `Failed to publish session branch before creating PR: ${error instanceof Error ? error.message : String(error)}`,
+          "No draft PR to send for review. Make an edit so Eva can open one, then try again.",
         );
       }
+      prUrl = created;
     }
 
-    // No PR exists yet - create a non-draft PR (fallback for older sessions)
-    const appLabel = repo.rootDirectory
+    const prNumber = extractPrNumber(prUrl);
+    if (prNumber) {
+      await ctx.runAction(internal.taskWorkflowActions.markPrReadyForReview, {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        prNumber,
+      });
+    }
+
+    await ctx.runMutation(internal.sessions.markReadyAndArchive, {
+      id: args.sessionId,
+    });
+    return { url: prUrl };
+  },
+});
+
+function isBranchNotAheadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("is not ahead of") ||
+    message.includes("No commits between") ||
+    /not ready for a pull request/i.test(message)
+  );
+}
+
+/**
+ * Opens a draft PR for a session branch after the first successful push.
+ * Idempotent: returns the existing prUrl when one is already stored.
+ * Returns null (no alert) when the branch has no commits ahead of base —
+ * plan-only turns push the branch tip but have nothing to review yet; later
+ * turns with commits retry and open the draft.
+ * Called from sessionExecuteWorkflow after pushSandboxBranch succeeds.
+ */
+export const createDraftSessionPr = internalAction({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args): Promise<string | null> => {
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session) return null;
+    if (!session.branchName) return null;
+    if (session.prUrl) return session.prUrl;
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: session.repoId,
+    });
+    if (!repo) return null;
+
+    const appLabel: string | undefined = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop()
       : undefined;
 
-    const summaryContent =
+    const summaryContent: string =
       session.summary && session.summary.length > 0
         ? session.summary.map((item: string) => `- ${item}`).join("\n")
-        : "No summary available";
+        : "_Summary will be generated before review_";
 
     const evaUrl = buildEvaSessionUrl(
       repo.owner,
@@ -81,37 +118,44 @@ export const createSessionPr = action({
       repo.rootDirectory,
     );
 
-    const prUrl = await ctx.runAction(
-      internal.taskWorkflowActions.createPullRequest,
-      {
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName: session.branchName,
-        title: session.title,
-        body: buildPrBody(
-          [{ heading: "Summary", content: summaryContent }],
-          evaUrl,
-        ),
-        labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
-      },
-    );
-
-    if (!prUrl) {
-      throw new Error("Failed to create PR");
+    let result: string;
+    try {
+      result = await ctx.runAction(
+        internal.taskWorkflowActions.createPullRequest,
+        {
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          branchName: session.branchName,
+          baseBranch: repo.defaultBaseBranch,
+          title: session.title,
+          body: buildPrBody(
+            [{ heading: "Summary", content: summaryContent }],
+            evaUrl,
+          ),
+          labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
+          draft: true,
+        },
+      );
+    } catch (error) {
+      if (isBranchNotAheadError(error)) {
+        console.log(
+          `[github] Skipping draft PR for session ${args.sessionId}: branch has no commits ahead of base`,
+        );
+        return null;
+      }
+      throw error;
     }
 
     await ctx.runMutation(internal.sessions.setPrUrl, {
       id: args.sessionId,
-      prUrl,
-      prState: "open",
+      prUrl: result,
+      prState: "draft",
     });
+    console.log(
+      `[github] Created draft PR for session ${args.sessionId}: ${result}`,
+    );
 
-    // Non-draft PR fallback path: also archive the sandbox.
-    await ctx.runMutation(internal.sessions.markReadyAndArchive, {
-      id: args.sessionId,
-    });
-
-    return { url: prUrl };
+    return result;
   },
 });

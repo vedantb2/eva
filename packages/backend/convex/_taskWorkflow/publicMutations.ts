@@ -4,7 +4,11 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { aiModelValidator } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  proofCompleteEvent,
+} from "./events";
 import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
@@ -210,6 +214,73 @@ export const handleAuditCompletion = authMutation({
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
+        repoId: task.repoId,
+        rawResultEvent: args.rawResultEvent,
+        projectId: task.projectId,
+      });
+    }
+
+    return null;
+  },
+});
+
+/** Receives the proof-capture completion callback and forwards the event to the workflow. */
+export const handleProofCompletion = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.optional(v.id("agentRuns")),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (!args.runId) {
+      return ignoreStaleCompletionCallback(
+        `proof completion for task ${String(args.taskId)} arrived without runId`,
+      );
+    }
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
+    if (!workflowId) {
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} has no active workflow for proof completion`,
+      );
+    }
+    const callbackRun = await ctx.db.get(args.runId);
+    if (!callbackRun || callbackRun.taskId !== args.taskId) {
+      return ignoreStaleCompletionCallback(
+        `proof run ${String(args.runId)} is missing or belongs to another task`,
+      );
+    }
+    if (callbackRun.status !== "running") {
+      return ignoreStaleCompletionCallback(
+        `proof run ${String(args.runId)} is already ${callbackRun.status}`,
+      );
+    }
+
+    try {
+      await sendCompletionEvent(ctx, proofCompleteEvent, workflowId, {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+        activityLog: args.activityLog,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[taskWorkflow] handleProofCompletion: workflow.sendEvent failed task=${String(args.taskId)} runId=${String(args.runId)}: ${detail}`,
+      );
+      throw new Error(`Failed to deliver proof completion event: ${detail}`);
+    }
+
+    const task = await ctx.db.get(args.taskId);
+    if (task?.repoId) {
+      await recordCompletionLog(ctx, {
+        entityType: "taskProof",
+        entityId: String(args.taskId),
+        entityTitle: `Proof: ${task.title}`,
         repoId: task.repoId,
         rawResultEvent: args.rawResultEvent,
         projectId: task.projectId,

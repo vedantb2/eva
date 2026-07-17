@@ -19,7 +19,6 @@ import {
   getProjectConversation,
   setProjectConversation,
   setProjectGeneratedSpec,
-  deleteProjectDetails,
   buildProjectBranchName,
 } from "./helpers";
 import { scheduleProjectPrSync } from "./prSync";
@@ -94,22 +93,33 @@ export const update = authMutation({
     codeReviewer: v.optional(v.union(v.id("users"), v.null())),
     tags: v.optional(v.array(v.string())),
     model: v.optional(v.union(aiModelValidator, v.null())),
+    // null = clear to team credentials. undefined = no change.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
+    // Tri-state proof/audit defaults for member tasks. null clears the override.
+    screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
+    runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const {
-      id,
       generatedSpec,
       projectLead,
       priority,
       codeReviewer,
       model,
+      providerAccountId,
       phase,
+      screenshotsVideosEnabled,
+      runAuditEnabled,
       ...fields
     } = args;
-    const updates: Record<string, string | number | Array<string> | undefined> =
-      {};
+    const updates: Record<
+      string,
+      string | number | boolean | Array<string> | undefined
+    > = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) updates[key] = value;
     }
@@ -119,7 +129,15 @@ export const update = authMutation({
     if (codeReviewer !== undefined)
       updates.codeReviewer = codeReviewer ?? undefined;
     if (model !== undefined) updates.model = model ?? undefined;
+    if (providerAccountId !== undefined)
+      updates.providerAccountId = providerAccountId ?? undefined;
     if (phase !== undefined) updates.phase = phase;
+    // null -> undefined: these must not flow through the generic spread, which
+    // would write null into the doc instead of clearing the field.
+    if (screenshotsVideosEnabled !== undefined)
+      updates.screenshotsVideosEnabled = screenshotsVideosEnabled ?? undefined;
+    if (runAuditEnabled !== undefined)
+      updates.runAuditEnabled = runAuditEnabled ?? undefined;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
     }

@@ -39,12 +39,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import {
-  api,
-  findAIModelOption,
-  normalizeAIModel,
-  type AIModel,
-} from "@conductor/backend";
+import { api, findAIModelOption, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { FunctionReturnType } from "convex/server";
@@ -55,10 +50,15 @@ import {
 } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
+import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 
@@ -114,6 +114,8 @@ interface ChatPanelProps {
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
+  /** Opens a file (by full sandbox path) in the File Viewer tab. */
+  onOpenFile?: (path: string) => void;
 }
 
 export function ChatPanel({
@@ -139,6 +141,7 @@ export function ChatPanel({
   deploymentStatus,
   sandboxCollapsed,
   onToggleSandbox,
+  onOpenFile,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -151,10 +154,21 @@ export function ChatPanel({
   const [completedAudits, setCompletedAudits] = useState(0);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  const { mode, setMode, model, setModel } = useSessionSettings(sessionId, {
+  const {
+    mode,
+    setMode,
+    model,
+    setModel,
+    reasoningLevel,
+    setReasoningLevel,
+    providerAccountId,
+    setProviderAccountId,
+  } = useSessionSettings(sessionId, {
     defaultModel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,
@@ -206,6 +220,12 @@ export function ChatPanel({
         activityLog: "",
         imageUrl: undefined,
         videoUrl: undefined,
+        attachmentStorageIds: args.attachmentStorageIds,
+        attachmentUrls: undefined,
+        credentialSourceLabel: resolveCredentialSourceLabel(
+          args.providerAccountId,
+          accounts,
+        ),
       };
       const assistantPlaceholder: SessionMessage = {
         _id: optimisticMessageId(),
@@ -218,6 +238,7 @@ export function ChatPanel({
         activityLog: "",
         imageUrl: undefined,
         videoUrl: undefined,
+        attachmentUrls: undefined,
       };
       localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
         ...existing,
@@ -244,13 +265,16 @@ export function ChatPanel({
   const isExecuting = lastAssistantHasNoContent;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
       if (isExecuting) {
         await enqueueMessage({
           sessionId,
           message: content,
           mode,
           model,
+          reasoningLevel,
+          providerAccountId: resolveAccountId(providerAccountId),
+          attachmentStorageIds,
         });
         return;
       }
@@ -261,9 +285,25 @@ export function ChatPanel({
       // after onSend resolves), and the optimistic docs paint before any server
       // round-trip. Convex rolls the temp docs back automatically once the real
       // rows arrive (on success OR error).
+      const accountId = resolveAccountId(providerAccountId);
       void Promise.all([
-        addMessage({ id: sessionId, role: "user", content, mode }),
-        startExecution({ sessionId, message: content, mode, model }),
+        addMessage({
+          id: sessionId,
+          role: "user",
+          content,
+          mode,
+          attachmentStorageIds,
+          providerAccountId: accountId,
+        }),
+        startExecution({
+          sessionId,
+          message: content,
+          mode,
+          model,
+          reasoningLevel,
+          providerAccountId: accountId,
+          attachmentStorageIds,
+        }),
       ]).catch(async (error) => {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";
@@ -283,6 +323,9 @@ export function ChatPanel({
       sessionId,
       mode,
       model,
+      reasoningLevel,
+      providerAccountId,
+      resolveAccountId,
     ],
   );
 
@@ -551,34 +594,37 @@ export function ChatPanel({
     ) : null;
 
   const toolsBefore = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
-          <SelectedModeIcon className="size-3.5" />
-          {selectedModeOption.label}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup
-          value={mode}
-          onValueChange={(value) => {
-            if (value === "edit" || value === "plan") {
-              setMode(value);
-            }
-          }}
-        >
-          {SESSION_MODE_OPTIONS.map((option) => {
-            const ModeIcon = option.icon;
-            return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <ModeIcon size={14} />
-                {option.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
+            <SelectedModeIcon className="size-3.5" />
+            {selectedModeOption.label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup
+            value={mode}
+            onValueChange={(value) => {
+              if (value === "edit" || value === "plan") {
+                setMode(value);
+              }
+            }}
+          >
+            {SESSION_MODE_OPTIONS.map((option) => {
+              const ModeIcon = option.icon;
+              return (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  <ModeIcon size={14} />
+                  {option.label}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <SessionOptionsMenu sessionId={sessionId} />
+    </>
   );
 
   const emptyStateTitle = isSandboxActive
@@ -624,11 +670,17 @@ export function ChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        accounts={accounts}
+        accountId={providerAccountId}
+        onAccountChange={setProviderAccountId}
+        reasoningLevel={reasoningLevel}
+        onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
+        onOpenFile={onOpenFile}
       />
       <Dialog
         open={showSummaryModal}

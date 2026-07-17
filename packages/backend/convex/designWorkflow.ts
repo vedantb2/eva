@@ -161,6 +161,7 @@ export const designSessionWorkflow = workflow.define({
     designSessionId: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     userId: v.id("users"),
     numDesigns: v.optional(v.number()),
@@ -197,9 +198,11 @@ export const designSessionWorkflow = workflow.define({
         completionMutation: "designWorkflow:handleCompletion",
         entityIdField: "designSessionId",
         model: args.model,
+        providerAccountId: args.providerAccountId,
         allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
         repoId: sessionData.repoId,
+        attachmentStorageIds: sessionData.attachmentStorageIds,
       },
       { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
     );
@@ -233,6 +236,7 @@ export const getSessionDataAndPrompt = internalQuery({
     repoName: v.string(),
     repoId: v.id("githubRepos"),
     prompt: v.string(),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
@@ -303,6 +307,12 @@ export const getSessionDataAndPrompt = internalQuery({
       prompt = `${prefixBlock}\n\n${prompt}`;
     }
 
+    // Input images attached to the triggering user message (already collected
+    // above), delivered to the agent as readable files at launch.
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "user");
+
     return {
       sandboxId: preferPersistedSandboxId({
         sandboxId: session.sandboxId,
@@ -313,6 +323,7 @@ export const getSessionDataAndPrompt = internalQuery({
       repoName: repo.name,
       repoId: session.repoId,
       prompt,
+      attachmentStorageIds: lastUserMessage?.attachmentStorageIds,
     };
   },
 });

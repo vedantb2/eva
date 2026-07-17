@@ -16,7 +16,6 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconCheck } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
 
 type AuditDoc = FunctionReturnType<typeof api.audits.listByTask>[number];
 type AuditSeverity = "critical" | "high" | "medium" | "low";
@@ -76,12 +75,12 @@ function sortedResults(
   });
 }
 
-interface AuditSectionProps {
-  latestAudit: AuditDoc | null;
-  pastAudits: FunctionReturnType<typeof api.audits.listByTask>;
-}
-
-function AuditResults({ auditData }: { auditData: AuditDoc }) {
+/**
+ * Renders a single audit's outcome: status/summary, per-section pass/fail
+ * accordions with severities, and the interactive "Run Fixes" flow. Shared by
+ * the nested audit row under a run in the activity timeline.
+ */
+export function AuditResults({ auditData }: { auditData: AuditDoc }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isRunning, setIsRunning] = useState(false);
   const runFixes = useMutation(api.audits.runSelectedFixes);
@@ -282,42 +281,5 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }) {
     >
       {severity}
     </span>
-  );
-}
-
-export function AuditSection({ latestAudit, pastAudits }: AuditSectionProps) {
-  const [showPastAudits, setShowPastAudits] = useState(false);
-
-  if (!latestAudit) {
-    return <p className="text-sm text-muted-foreground">No audit available</p>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <AuditResults auditData={latestAudit} />
-      {pastAudits.length > 0 && (
-        <div>
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setShowPastAudits((v) => !v)}
-          >
-            {showPastAudits ? "Hide" : "Show"} past audits ({pastAudits.length})
-          </button>
-          {showPastAudits && (
-            <div className="mt-6 space-y-4">
-              {pastAudits.map((pastAudit) => (
-                <div key={pastAudit._id} className="space-y-2">
-                  <span className="text-xs text-muted-foreground">
-                    {dayjs(pastAudit.createdAt).format("DD/MM/YYYY HH:mm")}
-                  </span>
-                  <AuditResults auditData={pastAudit} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
   );
 }

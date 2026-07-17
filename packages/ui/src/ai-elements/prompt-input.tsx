@@ -665,7 +665,7 @@ export const PromptInput = ({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
+    // eslint-disable-next-line react/exhaustive-deps -- cleanup only on unmount; filesRef always current
     [usingProvider],
   );
 

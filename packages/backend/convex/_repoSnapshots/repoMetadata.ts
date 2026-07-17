@@ -73,9 +73,10 @@ export const getRepoSandboxProvider = internalQuery({
 
     // Check team-level SANDBOX_PROVIDER
     if (repo.teamId) {
+      const teamId = repo.teamId;
       const teamVarsDocs = await ctx.db
         .query("teamEnvVars")
-        .withIndex("by_team", (q) => q.eq("teamId", repo.teamId!))
+        .withIndex("by_team", (q) => q.eq("teamId", teamId))
         .collect();
 
       const teamVar = teamVarsDocs

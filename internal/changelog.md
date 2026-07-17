@@ -1,5 +1,344 @@
 # Changelog
 
+## PR recap GitHub comments link to the correct Eva doc URL - 2026-07-17
+
+- Sticky PR recap comments now use the per-repo numeric `/docs/N` path instead of the Convex document id, which Eva routes do not resolve.
+- Reason for change: “View recap in Eva” links were 404ing / failing to load the doc after a successful recap.
+
+## PR recaps no longer hang on monorepo root sandboxes - 2026-07-17
+
+- PR recap sandboxes now resolve credentials from a sibling app that has `VERCEL_PROJECT_ID` (preferring the default visible app) instead of the codebase root row, which typically has no project id.
+- Sandbox/prep failures now finalize the doc as `error` with a message instead of leaving status stuck on `pending` / “Generating…”.
+- Reason for change: carepulse-style monorepos with `SANDBOX_PROVIDER=vercel` were silently failing sandbox create on the root repo and never updating the doc.
+
+## Credential source shown on runs and chat turns - 2026-07-17
+
+- Each task run and chat turn now snapshots whether it used Team credentials or a personal account label (e.g. “Personal”) at launch/send time.
+- That label shows as a badge on the run timeline and next to the user message metadata in session, task, project, and design chat.
+- Reason for change: after picking a personal account there was no durable way to tell which credential a past run had used once the picker moved on.
+
+## Team icons on list, detail, and sidebar - 2026-07-17
+
+- Teams can now have an uploaded icon (same Convex storage pattern as app/repo logos); any team member can set, change, or remove it, including personal teams.
+- The icon shows on the Teams list cards, the team detail header, and next to the team name in the sidebar “N online” block.
+- Reason for change: teams were only a name + generic users icon; custom icons make them recognizable the same way codebases already are.
+
+## Per-user accounts wired across all sandbox chats - 2026-07-17
+
+- Extended per-user provider accounts beyond session chat and quick-task runs to also cover design chat, project sandbox chat, and task sandbox chat.
+- Each of those pickers now offers the user's accounts, and the chosen account's credentials are injected at launch (overriding the team credential) for that run.
+- Reason for change: accounts appeared in some sandbox surfaces but silently fell back to team credentials in others; now every interactive run honours the selected account.
+
+## Clickable file tree in sandbox Diffs tab - 2026-07-17
+
+- Added a Pierre `@pierre/trees` file tree to the left of the Diffs tab across quick-tasks, projects, and sessions, showing the changed files in nested folder hierarchy.
+- File tree displays git-status colours per file (added/modified/deleted/renamed); clicking a file scrolls its diff into view on the right and highlights the node.
+- Selected file path persists in the `?diffFile=` URL parameter so the highlighted file survives reload and is shareable; selection is remembered when reopening a sandbox.
+- Reason for change: large PRs with many files across folders are now easy to navigate — instead of scrolling through every diff, jump straight to the one you want via the tree.
+
+## Model picker nests accounts as submenus - 2026-07-17
+
+- With personal provider accounts, the model dropdown is now Provider → Team/Account → models, instead of listing every account's models in one flat submenu.
+- Reason for change: many accounts made the old flat list hard to scan; nesting by account matches how people choose whose credential to use.
+
+## Failed run notifications use danger styling - 2026-07-17
+
+- Task/quick-task failures now emit `run_failed` (instead of reusing `run_completed`) and render with a red destructive badge and exclamation icon in inbox, bell, and toasts.
+- Legacy failure rows still stored as `run_completed` are detected from their title/message so existing inbox items look correct too.
+- Reason for change: a failed run showing a green checkmark made the inbox easy to misread.
+
+## Per-user provider accounts ("bring your own login") - 2026-07-17
+
+- Users can add their own coding-agent accounts (Claude Code OAuth token, Cursor API key, Codex/opencode auth) under Settings → Accounts; credentials are encrypted at rest and revealed only on demand.
+- The model picker now shows each provider's models under "Team" and once per user account; picking an account injects its credentials at sandbox launch, overriding the shared team credential so usage bills to that account.
+- Wired end-to-end for session chat and quick-task runs; a provider becomes available in the picker whenever the user has an account for it, even if the team has no key.
+- Reason for change: teammates wanted their own runs billed to their own accounts instead of the shared team credentials.
+
+## Quick-task URLs drop the unused `/activity` segment - 2026-07-17
+
+- Canonical quick-task detail is now `/quick-tasks/$numId`; old `/quick-tasks/$numId/activity` links redirect there.
+- Reason for change: the detail-tab segment was leftover from when quick tasks had multiple tabs, and cluttered every task URL.
+
+## Shared “does not exist” empty state for missing entities - 2026-07-17
+
+- Loading a deleted or invalid task/session/project/doc/design/automation/team/artifact URL now shows a clear empty state (“This … does not exist”) with optional back link, instead of a blank pane, infinite spinner, or “Select a task…”.
+- Added shared `EntityNotFound` and upgraded `EntityNumIdGate`; quick tasks and `useTaskDetail` distinguish loading vs missing.
+- Reason for change: missing entities were easy to misread as an empty selection or a hung load.
+
+## Separate proof capture step after implementation - 2026-07-17
+
+- Task runs now code on the selected task model, then (when screenshots/videos are enabled) run a dedicated proof-capture agent on `proofModel` after push and before PR creation.
+- Proof soft-fails like audit (implementation success is preserved). The sandbox callback persists proof media before firing completion so PR enrichment sees the captures.
+- Restored the Proof Capture Model settings control with accurate copy. Conflict-resolution runs still skip proof.
+- Reason for change: using `proofModel` for the whole coding turn silently ignored Claude (etc.) task picks whenever proof was enabled.
+
+## Coding-agent auth as paste-in provider slots in env settings - 2026-07-17
+
+- The environment-variables settings (team and repo) now show a "Coding agents" section above the free-form table with a dedicated slot per agent — Claude Code, Codex, OpenCode, Cursor — each with its brand logo. An unconfigured slot offers a single paste-in field; a configured one shows a "Configured" badge with reveal/copy/replace/remove.
+- Slots write to the same encrypted key/value store as before under the exact keys the backend keys agent availability off (`CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_AUTH_JSON`, `OPENCODE_AUTH_JSON`, `CURSOR_API_KEY`); a configured agent key is hidden from the free-form table so it appears only in its slot. The slot "configured" check reuses the backend's exported key lists, so it stays in sync with availability logic.
+- Reason for change: enabling an agent previously meant knowing the exact magic env-var name from a paragraph of help text and typing it correctly; surfacing the known keys as logo-labelled slots turns it into "find the logo, paste the token".
+
+## Image attachments in the design chat - 2026-07-17
+
+- The design chat composer now takes pasted/dropped images too (same limits and preview as the other chats), and delivers them to the design agent as readable files at launch.
+- The shared composer image-attachment logic (upload, preview strip, message thumbnails) was extracted into one module now used by both the main chat and the design chat.
+- Reason for change: the earlier image-attachment work skipped the design chat because it uses a separate composer; users expect to paste a reference screenshot when describing a design too.
+
+## Rail sandbox dots use indexed lookups - 2026-07-17
+
+- `listReposWithActiveSandboxes` now finds live project/task sandboxes via `by_repo_and_sandbox_status` indexes (bounded `.take`) instead of collecting every project/task per app.
+- Reason for change: the previous full collects scaled with historical task volume and made every sidebar load unnecessarily expensive.
+
+## Per-task, per-project, and per-session proof/audit toggles - 2026-07-17
+
+- Proof capture (screenshots/videos) and audit are no longer repo-only defaults: they can now be turned on or off per task, per project, and per session, so runs no longer inherit a single repo-wide setting they cannot override.
+- Task creation and the task detail sidebar gained an Audit control alongside the existing Proof control, both tri-state (inherit / force on / force off); resolution order for a run is task, then project, then repo/default.
+- Projects gained proof and audit defaults in the metadata bar that their tasks inherit; a task's audit toggle can now force an audit on a quick task too (previously audits ran only on project tasks), still requiring at least one enabled audit category.
+- The session chat composer gained an Options menu with "Capture proof" and "Run audit" checkboxes that persist on the session and apply to every subsequent turn until unchecked — proof adds a capture step to the turn, and audit runs after each successful agent turn.
+- Reason for change: teams needed to decide proof/audit per piece of work rather than flipping a repo-wide default, and to opt individual quick tasks and sessions in or out on the fly.
+
+## Paste and attach images in sandbox chat - 2026-07-17
+
+- The chat composer (shared by session, project sandbox, and quick-task sandbox chats) now accepts images: paste with Ctrl+V, drag-and-drop, and see thumbnails before sending. Attached images render back in the sent user message.
+- Images upload to Convex file storage on send and are delivered to the agent as files it reads. The two CLI-based chats (projects, quick tasks) write the images into the sandbox at launch and point the agent at their paths; sessions carry the images on the pulled turn so the warm daemon downloads them before running the model (no file-write race).
+- Limited to images, up to 5 per message and 10 MB each, with a toast on rejects or failed uploads. Attachments also survive being queued while the agent is busy.
+- Reason for change: users needed to show the model a screenshot or mockup directly in chat rather than describing it or committing it to the repo first.
+
+## PR recaps generate an interactive file-by-file walkthrough - 2026-07-17
+
+- PR recap generation now produces **two outputs** in a single agent run: the existing markdown recap (stored in the doc's Markdown tab and posted to GitHub) and a new interactive HTML walkthrough (stored in the doc's HTML field and shown as the Walkthrough tab). The agent emits them separated by a marker; older runs without the marker fall back to markdown-only.
+- The walkthrough is a self-contained file-by-file stepper: an overview screen with the PR summary, stats, schema/API changes, and risks, followed by one screen per changed file showing its diff hunks (added lines green, removed lines red) and a plain-English explanation. Prev/Next buttons and a clickable file list let reviewers jump around.
+- The HTML is rendered in a sandboxed iframe with `allow-scripts` but no same-origin access, so the page's inline JS runs (interactivity works) but it cannot reach eva's cookies, storage, or DOM. The prompt requires the page to be fully self-contained: no external resources, CDN scripts, or storage APIs.
+- Both Markdown and HTML tabs are available on all recap docs (regular docs also have an HTML tab for future use); the Walkthrough tab shows an empty state if the recap was generated before this change.
+- Reason for change: reviewers spent time hunting the diff; a guided walkthrough that threads the code changes through the recap's rationale is much faster to follow.
+
+## Task Activity reorganized: audits nested under runs, sandbox events removed from feed - 2026-07-16
+
+- Audit results now appear inline under each code-run in the Activity timeline (not a separate tab), with an always-visible "Eva completed audit" row showing the pass/fail badge; expanding it reveals the per-section results and Run Fixes button.
+- Sandbox lifecycle events (started/reconnected/stopped) are no longer shown in the Activity feed, since they already appear in the sandbox preview chat (the backend writes both a `taskSandboxEvents` row and an `isSystemAlert` chat message; the chat copy is sufficient).
+- The separate "Audit" tab and "Activity" / "Audit" tab bar are gone; the task detail view now shows a single Activity feed.
+- Reason for change: audits provide context when shown alongside the run that was audited (one timeline view instead of two tab-swaps); sandbox events in the feed were redundant noise because they're already in the chat.
+
+## Rail app icons show a live sandbox indicator - 2026-07-16
+
+- App tiles on the left rail show a glowing green dot (bottom-right) when that app has any active sandbox on a session, quick task, or project.
+- Reason for change: makes it obvious at a glance which apps currently have a running sandbox without opening each one.
+
+## File Viewer tab with clickable chat file chips - 2026-07-16
+
+- Clicking a file chip in a session's chat activity now opens that file's current contents, read live from the sandbox, in a new read-only Files tab.
+- The sandbox callback carries the full file path on read/write/edit/notebook steps so chips can resolve the file; older messages keep plain (non-clickable) chips.
+- Reading a stopped sandbox is refused rather than resumed, so clicking a file never silently wakes (and bills) a Vercel VM.
+- The viewer loads only when the selected file changes or on Refresh, and caches the last read, so the agent's 5-second heartbeat no longer re-fetches and flickers.
+- Reason for change: while following along in chat, jumping to a referenced file's live contents was previously only possible via the full code-server Editor tab.
+
+## Global pages are rail-only; Home/Teams/Artifacts live on the icon rail - 2026-07-16
+
+- Teams and Artifacts join Eva and Inbox on the left rail; the empty root sidebar panel is gone on global routes so content uses full width (`lg:pl-16`).
+- Dev-only Testing sits above the account avatar on the rail (`IconCode`). Online teammates stay in the repo sidebar footer only.
+- Reason for change: after moving settings into the rail menu, the second column on `/home`/`/teams`/etc. was empty chrome — folding remaining global nav into the rail finishes that cleanup.
+
+## Global settings live under the rail settings menu - 2026-07-16
+
+- A settings gear under the rail avatar opens Theme, Personalisation, Notifications, and Sandboxes as global `/settings/*` routes.
+- Those links are gone from the repo Settings sidebar PREFERENCES section and from the root sidebar (Theme / Notifications / Sandboxes); old `/$owner/$repo/settings/{theme,personalisation}` URLs redirect to the global pages.
+- Reason for change: user-level settings belong with the always-visible account rail, not scattered across root nav and repo settings.
+
+## Inbox moves onto the left icon rail - 2026-07-16
+
+- Inbox is now a top tile on the vertical repo rail (links to global `/inbox`), with an unread count badge on the bottom-right of the icon when there are notifications.
+- The Eva mark sits above Inbox on the same rail (links to `/home`) in a white rounded-full chip; the sidebar header wordmark is gone so brand + global actions live in one place.
+- The account menu is an avatar-only tile at the bottom of the rail (name/email in the dropdown); online teammates stay in the main sidebar footer.
+- Drafts stay in the main sidebar above the BUILD/SHIP nav because they are per-repo/app; only the global Inbox left the sidebar list.
+- On `/inbox`, the main sidebar no longer shows the global Home/Teams/Theme list — Eva and Inbox already live on the rail, so that panel stays empty aside from the header and footer.
+- Reason for change: Inbox, Eva home, and account access are cross-cutting and belong with always-visible rail actions, while keeping Drafts next to the active app's workflow.
+
+## Repo switching moved to a left icon rail - 2026-07-16
+
+- The RepoSwitcher popover is gone; a slim icon rail now sits to the left of the main sidebar showing one icon per repo/monorepo app, and clicking one switches to it in a single action while preserving the current sub-page (Sessions in repo A → click repo B → Sessions in repo B).
+- The main sidebar keeps its familiar single-repo layout (Drafts, then the BUILD/SHIP/TEST/MORE nav and the Sessions/Settings/etc. drill-downs) — the rail handles switching and global Inbox, so those concerns stay visually separate.
+- Each rail icon uses the repo's logo, falling back to a coloured letter tile, with a hover tooltip naming the owner/repo (and app for monorepos); the active icon carries the surface-fill chip.
+- Reason for change: an activity-bar-style rail makes switching a one-click, always-visible action while leaving the per-repo navigation untouched — clearer than nesting every repo in an accordion.
+
+## Docs slim to Markdown + HTML tabs; testing arena flags issues into tasks - 2026-07-16
+
+- Documents now have two tabs: **Markdown** (the content editor, renamed from Content) and **HTML** (renders a stored `html` field read-only in a sandboxed iframe). The Description, Requirements, and User Flows tabs and the "Re-extract" flow (`docPrdWorkflow`) are gone; PRD upload no longer auto-parses.
+- The Testing Arena no longer scores a fixed requirement checklist. A run reads the document itself as the specification and returns a severity-ranked list of issues found in the codebase (may differ between runs). Each run lists its issues with per-item checkboxes and **Create Tasks** / **Create & Run** buttons that turn selected issues into agent tasks, matching the automations "actions only" flow. The opt-in auto-fix PR button remains.
+- Runs now require the document to have content (not requirements) before testing. Report results move from `results` (per-requirement pass/fail) to a new optional `issues` array; the legacy `results` field is kept optional for old rows and cleared by the `clearEvaluationReports` migration.
+- Reason for change: the four-tab doc model and the rigid pass/fail scoring added maintenance and friction; a freeform issue list that converts straight into tasks is simpler and more actionable.
+
+## Custom sandbox tabs use name slugs in the URL - 2026-07-16
+
+- Session URLs for custom tabs now use a slug of the tab name (e.g. `/sessions/25/supabase`) instead of the Convex document id, so links stay readable and stable as long as the name stays the same.
+- Settings → Tabs enforces unique names per app (case-insensitive via the slug) and blocks names that collide with built-in tabs (`preview`, `editor`, `terminal`, `desktop`, `diffs`, `prd`).
+- Reason for change: opaque ids in the URL were hard to share and recognize; duplicate or reserved names would also break slug-based routing.
+
+## Nest Eva proofs under the related run in Activity - 2026-07-16
+
+- Proofs linked to a run now sit under that run's accordion header (visible when collapsed): media opens via "View capture" / "View captures (N)" gallery, message-only proofs stay truncated inline.
+- New captures store `runId` from the agent callback so they attach to the correct run; legacy proofs without `runId` remain standalone timeline rows.
+- Reason for change: proofs belong to a specific run but floated as separate events, making the Activity thread harder to scan.
+
+## Keep sandbox tabs visible when stopped on tasks and projects - 2026-07-16
+
+- Quick-task and project sandboxes now keep the tab bar mounted when the sandbox is stopped (same as sessions), so Diffs and other panes stay reachable without starting the sandbox first.
+- Individual panes still show their own inactive empty states; only tasks/projects that never had a sandbox get the full empty message.
+- Reason for change: the whole-panel "Start Sandbox" gate blocked tabs that do not need a running sandbox (especially Diffs).
+
+## Custom sandbox tabs per app - 2026-07-16
+
+- You can now define custom tabs per app under Settings → Tabs: give each a name, a Tabler icon name (e.g. `IconBolt`), and a sandbox port. Enabled tabs show in every session for that app, alongside Preview/Editor/Terminal/Diffs — for example a "Supabase" tab on port 53432 or a "Convex" dashboard tab.
+- Each custom tab opens the service running on that port inside the sandbox, resolved through the same authenticated preview proxy as the Preview tab. It auto-connects (polls until the port is reachable) — there is no start/stop, since the service is launched by the app's own dev/startup commands.
+- Tabs can be toggled on and off; disabling or deleting one removes it from sessions, and stale deep-links to a removed tab fall back to Preview.
+- Reason for change: developers run extra local services (Supabase Studio, the Convex dashboard, and so on) in the sandbox with no way to view them in-app.
+
+## Doc/automation hover cards show author - 2026-07-16
+
+- Docs and automations sidebar hover cards now show the author's avatar and name next to the updated time, matching the session hover pattern more closely.
+- New docs store optional `createdBy` going forward (no backfill); legacy docs omit the author until recreated.
+- Reason for change: title/preview alone made it hard to see who owns an item when scanning the sidebar.
+
+## Move Computer to the + menu and add a Diffs tab - 2026-07-16
+
+- The sandbox "Computer" (remote desktop) tab moves out of the tab row into the `+` menu, where it is rarely needed; picking it there still opens the desktop view. The tab row is now Preview, Editor, Terminal, Diffs.
+- New "Diffs" tab shows the pull request's diff in a GitHub-style viewer (powered by `@pierre/diffs`): syntax-highlighted, unified or split view (the choice persists in the URL), with a Refresh button and light/dark theming. Surfaces with no PR yet show an empty state.
+- The diff is the canonical pushed PR diff fetched from GitHub. Applies to all three sandbox surfaces: sessions, projects, and quick tasks.
+- Reason for change: the Computer tab held a permanent slot in the tab bar despite little use, and there was no in-app way to review a PR's changes without switching to GitHub.
+
+## Sidebar hover previews for docs and automations - 2026-07-16
+
+- Docs and automations sidebars now use the same whole-row hover card as sessions: title, a short preview (doc description or content / automation description), and updated time — so scanning stays title-first without losing context.
+- Session rows get the same vertical spacing as the docs list (`space-y-1`) so the sidebars feel consistent.
+- Reason for change: hover-revealed timestamps were easy to miss and inconsistent with the denser session hover pattern users preferred.
+
+## Compact session sidebar rows with hover details - 2026-07-16
+
+- Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.
+- List queries attach `firstMessagePreview` from the earliest user message so existing chats get previews without a schema migration.
+- Reason for change: the always-visible author/date row made the sidebar taller than needed for scanning titles.
+
+## Merge Proof into the Activity timeline - 2026-07-16
+
+- The separate "Proof" tab is gone. Each proof Eva attaches (screenshot, video, or note) now appears inline in the Activity thread at the moment it was captured, so proofs sit in chronological order alongside runs, audits, and comments.
+- Each proof is its own collapsible accordion showing the Eva logo and "Eva attached proof"; opening it reveals the image, video, or message. This replaces the old carousel, so multiple proofs no longer hide behind one another.
+- Old `.../proof` tab URLs redirect to Activity automatically.
+- Reason for change: proofs were siloed in a tab and stacked in a carousel, disconnected from when they happened; folding them into the timeline makes it obvious what Eva did and when.
+
+## Chat-style task Activity tab - 2026-07-16
+
+- The task Activity tab now reads like a Slack/Discord thread: activity (runs, audits, comments, sandbox events) is ordered oldest-first/newest-last, the list scrolls in its own bounded region, and the view auto-scrolls to the newest item with a "scroll to bottom" button that appears when you scroll up.
+- The comment composer is pinned at the bottom of the tab instead of sitting above the timeline; the task header, description, and tab bar stay fixed above the scrolling list.
+- Applies everywhere the task detail view is used (quick tasks, split list pane, project layout). Proof and Audit tabs keep their existing page-scroll behavior.
+- Reason for change: the old newest-first list with a top composer was the opposite of familiar chat UX, making it harder to follow a task's conversation and see the latest activity.
+
+## Per-repo logos for easier navigation - 2026-07-16
+
+- Repos can now have an uploaded logo image shown next to the repo name on the home page (`/home`), team repos page (`/teams/:id/repos`), and in the repo settings (App tab). Logos are per-app, not shared across monorepo siblings.
+- Upload/change/remove controls available via right-click context menu on repo cards (home + team pages) and a dedicated Logo section in the App settings page. Convex file storage stores the image; old logos are deleted when replaced or removed to avoid orphaned files.
+- Added `logoStorageId` optional field to the `githubRepos` table; `list` and `listByTeam` queries now resolve logo URLs via Convex storage.
+- Reason for change: generic icons made it hard to distinguish repos at a glance; branded logos improve visual scanning and recognition.
+
+## Merge Preview and Terminal tabs; Terminal shows user terminals only - 2026-07-16
+
+- The Preview and Terminal tabs are now merged: Preview stays top-level, and the default dev-server terminal is relocated to the bottom as a collapsible "Console" row (terminal icon + title left, chevron right). Collapsed by default; when expanded it splits the preview/console at an adjustable 60/40 ratio with a draggable divider (clamped 15–85%), and expanded state + ratio persist in localStorage.
+- The Terminal tab is now hidden until you create a user terminal (via the `+` dropdown → "New Terminal"); it shows only the user-created terminals (panes 1+), each with a close button, and hides again when the last one closes. Browsing to the Terminal tab URL with no user terminals auto-switches to Preview.
+- The Console pane (the shared dev-server terminal that auto-runs the dev command) is never closable and always mounted, so it preserves the PTY websocket, xterm buffer, and dev-server scrollback through preview tab switches, console collapse/expand, and divider drag. Same for preview iframes — no remounts.
+- Applies to all three surfaces sharing this sandbox stack: sessions, quick tasks, and projects.
+- Reason for change: the separate Terminal tab consumed vertical space in the tab bar and often sat unused when only checking the preview; the collapsible Console saves space while keeping dev-server logs accessible. User terminals are a separate, optional flow in the `+` menu.
+
+## Composer message-history recall and reorderable queue - 2026-07-16
+
+- The chat composer now recalls previously sent messages: ArrowUp on the first line steps back through your sent messages and ArrowDown moves forward to your live draft, terminal-style. Works across session, quick-task, project, and design chats.
+- Queued messages can be dragged to reorder how they run; the new order persists and dequeue follows it. Recalled messages that contained @/‍ mentions come back as plain text (a known limit of the editor's mount-time chip map).
+- Added an `order` field + index to `queuedMessages` with a `reorder` mutation and a backfill migration for legacy rows; run order no longer depends on creation time.
+- Reason for change: retyping past prompts and being stuck with fixed FIFO queue order were both friction points in day-to-day chat use.
+
+## Autosave automation settings and add a Sonner toast - 2026-07-16
+
+- The automation Settings tab no longer has a Save button: text fields (title, prompt, cron) autosave on blur and toggles/model select save immediately, so changes persist without an extra click.
+- Toggle and model changes use an optimistic update so they feel instant, and every save confirms with a "Saved" toast in the top-right.
+- Added Sonner as the app's first imperative toast API (`toast` from `@conductor/ui`), mounted globally and themed to match light/dark.
+- Reason for change: the explicit Save button was easy to forget and out of step with the rest of the settings screens, which already autosave.
+
+## Compact session sidebar rows with hover details - 2026-07-16
+
+- Session and design-session sidebars show only title + PR/status indicators; author, created time, and first-message preview move into a whole-row hover card so the list stays denser.
+- List queries attach `firstMessagePreview` from the earliest user message so existing chats get previews without a schema migration.
+- Reason for change: the always-visible author/date row made the sidebar taller than needed for scanning titles.
+
+## Tag sandboxes from Convex ENVIRONMENT when set - 2026-07-14
+
+- Sandbox creates stamp Eva tags (`eva.managed`, `eva.env`, `eva.purpose`, `eva.repoId`, `eva.deployment`) only when Convex `ENVIRONMENT` is set; otherwise labels behave as before (caller-only, e.g. seed-prep).
+- `eva.env` mirrors `ENVIRONMENT` (`development` / `production`). Set that var per Convex deployment for Vercel dashboard filtering across shared projects.
+- Reason for change: local and prod sandboxes shared one Vercel project with no filter key; a general `ENVIRONMENT` var is reusable beyond sandbox tags.
+
+## Ban the generic `isRecord` type guard; parse boundaries with Zod - 2026-07-11
+
+- Removed every `isRecord(value: unknown)` guard from the codebase (9 sites) and replaced each with a Zod boundary schema (`safeParse`), so external JSON — GitHub webhooks, Linear/Daytona API responses, LLM findings/audit/question output, sandbox package.json, Claude Code result events — is typed at entry instead of narrowed from `unknown` downstream.
+- Added a root ESLint flat config with a single custom rule `eva/no-is-record` that flags any `isRecord` identifier; its error message instructs the author (human or agent) that the leaked `unknown` is the real bug and to parse at the boundary. Wired into `pnpm lint` and lint-staged so a reintroduction blocks the commit.
+- Reason for change: the generic guard is a recognisable AI-generated pattern that masks an `unknown` leaking past where it should have been parsed; the ban plus the prompt-injecting lint message force the underlying fix rather than the symptom.
+
+## Remove project/quick-task sandbox chats from the sessions sidebar - 2026-07-10
+
+- The sessions sidebar no longer interleaves virtual project and quick-task sandbox chat entries; it lists real sessions only, as it did before. Backend `sessions.listChatEntries` and its `_sessions/chatEntries` query are gone.
+- Reason for change: the merged chat entries were reverted at the user's request; project and quick-task chats stay reachable from their own pages.
+
+## Stop prewarm from killing a mid-turn session daemon - 2026-07-10
+
+- `prewarmSessionDaemon` no longer kills an opts-mismatched daemon while a turn is in flight (`pendingTurn` or `activeWorkflowId`); that race claimed the prompt then wiped the daemon, leaving chat stuck on Working.
+- Page-open prewarm now boots with edit-mode tools + sonnet defaults so the first message is less likely to optsmismatch at all.
+- Reason for change: prod session 36 stuck ~2m+ on Working after first message — daemon claimed then was killed by startExecute's tool-aware prewarm.
+
+## Auto-open draft session PRs after first push - 2026-07-10
+
+- Sessions open a draft GitHub PR as soon as the first agent commit is pushed (and retry on later turns if that failed); "Send for Review" only promotes draft → ready and archives the sandbox.
+- Reason for change: sessions had commits on the branch but no PR until manual create, and Send for Review was creating open PRs from scratch instead of flipping an existing draft.
+
+## Stop viewing a closed session from waking its Vercel sandbox - 2026-07-10
+
+- `prewarmDaemon` now skips closed/stopping sessions; it previously fired whenever a `sandboxId` was set, and on Vercel the prewarm's sandbox exec lazily resumes a stopped VM (SDK `withResume`), silently resurrecting it.
+- The resurrection was invisible: the session stayed `closed` in the UI while the sandbox showed active on Vercel, because prewarm never writes session status.
+- Reason for change: prod session 40 was stopped at 11:50 but reappeared as active on Vercel hours later — traced to the session page's mount-time prewarm running against the still-set `sandboxId`.
+
+## Session agent commits actually publish to GitHub - 2026-07-10
+
+- Session workflow no longer gates `pushSandboxBranch` on a dirty working tree; after the agent commits the tree is clean, so that check skipped every publish and left commits stranded in the sandbox.
+- Sandboxes now set `pull.rebase true` (create + resume) so agent `git pull` no longer fatals on divergent branches, and session prompts tell the agent to commit only — Eva still owns pull/push/ship.
+- Reason for change: prod session "test2" committed locally but never pushed; agent also hit `git pull --tags origin main` divergent-branch fatal.
+
+## Suppress spurious "Resuming sandbox" step for active chats - 2026-07-10
+
+- Session, project, and agent-task chats no longer flash a "Resuming sandbox..." step on every message when the sandbox is already active; on Vercel the step now only shows for a genuine resume.
+- Each chat's data query now surfaces its sandbox status so the resume workflow can skip the cosmetic activity when the status is "active", with no extra query or latency.
+
+## Session-wide reasoning/thinking lever for sandbox chats - 2026-07-10
+
+- Added a reasoning-effort lever (Off/Low/Med/High/Max slider in a toolbar popover) to session, task, and project sandbox chats so users can tune how hard the agent thinks; the level persists per-chat and applies to every message.
+- The lever only shows for Claude and Codex, which expose a runtime control; it is hidden for Cursor (reasoning baked into the model id) and Opencode (no runtime lever).
+- One abstract level is threaded to the sandbox and mapped per provider — Claude via `MAX_THINKING_TOKENS`, Codex via `model_reasoning_effort` — and folded into the session daemon signature so changing it mid-session respawns the daemon.
+
+## Vercel session preview for non-3000 ports (Vite 5173) - 2026-07-10
+
+- Vercel app/dev preview now always fronts the real listen port through the reserved auth proxy on 54321, so Vite (and any non-3000) sessions no longer call `sandbox.domain(5173)` and hit "No route for port".
+- Reason for change: session 34 preview on prod threw Uncaught Error: No route for port 5173 — Vercel only exposes 3000/8080/6080/54321.
+
+## Unblock session Working UI before git publish - 2026-07-10
+
+- Session workflow now saves the assistant reply as soon as the daemon completes, then publishes the branch; a hung `git push` no longer leaves the chat stuck on Working after a successful answer.
+- Reason for change: session 34's daemon finished ("dev server is running") and wrote completion logs, but the UI stayed on Working because saveResult ran only after pushSandboxBranch.
+
+## Fix session stuck Working after cancel race with Agent SDK daemon - 2026-07-10
+
+- Cancel no longer clears a newer `pendingTurn` / `activeWorkflowId` staged by a concurrent `startExecute`, which left the daemon polling empty forever while the workflow waited on completion.
+- Workflow re-stages `pendingTurn` after daemon prewarm if the turn is still open, so a wiped prompt recovers automatically.
+- Reason for change: session 34 on prod stuck on Working after "hi" — Convex logs showed continuous empty `claimPendingTurn` polls with no completion callback.
+
+## Per-app Vercel project for monorepo snapshot builds - 2026-07-10
+
+- Vercel credential resolution no longer borrows a sibling app's `VERCEL_PROJECT_ID` when inheriting `SANDBOX_PROVIDER`; token/team can still come from team/siblings, but project id must be on the target app.
+- Rebuild Now from an app under a shared monorepo snapshot config lazily creates a per-app `repoSnapshots` row so eprocurement builds stay separate from apps/web.
+- Reason for change: triggering eprocurement snapshot rebuild created sandboxes under the apps/web Vercel project and shared build history with web.
+
 ## Agent SDK daemon review fixes - 2026-07-10
 
 - Prewarm now respawns the warm daemon when a turn's model or tools differ from the daemon's frozen options (model+tools signature written to `/tmp/eva-daemon.opts` at boot), so an edit-mode turn can no longer run on a stale read-only daemon.

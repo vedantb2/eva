@@ -241,11 +241,8 @@ export async function cleanUpStaleRun(
     );
   }
 
-  await snapshotStreamingActivityToLog(
-    ctx,
-    getTaskRunStreamingEntityId(params.runId),
-    params.runId,
-  );
-  await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(params.runId));
+  const runStreamingEntityId = getTaskRunStreamingEntityId(params.runId);
+  await snapshotStreamingActivityToLog(ctx, runStreamingEntityId, params.runId);
+  await clearStreamingActivity(ctx, runStreamingEntityId);
   await clearStreamingActivity(ctx, String(params.taskId));
 }

@@ -37,24 +37,19 @@ type PersistableSessionKind =
 type PersistableRepoId = Id<"githubRepos">;
 type PersistedProvider = "claude" | "codex" | "opencode" | "cursor";
 
-/** Generates a SHA-256 hash of a session ID for use in volume naming. */
-function sessionHash(sessionId: PersistableSessionId): string {
-  return createHash("sha256").update(String(sessionId)).digest("hex");
-}
-
-/** Generates a SHA-256 hash of a repo ID for use in volume naming. */
-function repoHash(repoId: PersistableRepoId): string {
-  return createHash("sha256").update(String(repoId)).digest("hex");
+/** Generates a SHA-256 hash of a session or repo ID for use in volume naming. */
+function idHash(id: PersistableSessionId | PersistableRepoId): string {
+  return createHash("sha256").update(String(id)).digest("hex");
 }
 
 /** Builds the current volume name for a repo (new naming convention). */
 function repoVolumeName(repoId: PersistableRepoId): string {
-  return `repo-${repoHash(repoId).slice(0, 24)}`;
+  return `repo-${idHash(repoId).slice(0, 24)}`;
 }
 
 /** Builds the legacy volume name for a repo (old naming convention). */
 function legacySessionVolumeName(repoId: PersistableRepoId): string {
-  return `sessions-${repoHash(repoId).slice(0, 24)}`;
+  return `sessions-${idHash(repoId).slice(0, 24)}`;
 }
 
 /** Builds a subpath within a volume for a specific provider, session kind, and session. */
@@ -63,12 +58,12 @@ function sessionVolumeSubpath(
   sessionKind: PersistableSessionKind,
   sessionId: PersistableSessionId,
 ): string {
-  return `${provider}-sessions/${sessionKind}/${sessionHash(sessionId)}`;
+  return `${provider}-sessions/${sessionKind}/${idHash(sessionId)}`;
 }
 
 /** Derives a deterministic UUID v4 from a session ID hash for Claude session identification. */
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
-  const hex = sessionHash(sessionId).slice(0, 32).split("");
+  const hex = idHash(sessionId).slice(0, 32).split("");
   hex[12] = "4";
   const variantNibble = (parseInt(hex[16], 16) & 0x3) | 0x8;
   hex[16] = variantNibble.toString(16);
@@ -132,16 +127,12 @@ async function ensureSessionProviderVolume(
   const newName = repoVolumeName(repoId);
   const legacyName = legacySessionVolumeName(repoId);
 
-  // Try new name first
-  const newVolume = await tryGetVolume(daytona, newName);
-  if (newVolume) {
-    return await waitForVolumeReady(daytona, newName, newVolume);
-  }
-
-  // Fall back to legacy name for existing repos
-  const legacyVolume = await tryGetVolume(daytona, legacyName);
-  if (legacyVolume) {
-    return await waitForVolumeReady(daytona, legacyName, legacyVolume);
+  // Try new name first, then fall back to legacy name for existing repos
+  for (const name of [newName, legacyName]) {
+    const existing = await tryGetVolume(daytona, name);
+    if (existing) {
+      return await waitForVolumeReady(daytona, name, existing);
+    }
   }
 
   // Neither exists — create with new name

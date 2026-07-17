@@ -339,11 +339,12 @@ export function generateSelector(element: HTMLElement): string {
 
     const parent = current.parentElement;
     if (parent) {
+      const currentElement = current;
       const siblings = Array.from(parent.children).filter(
-        (el) => el.tagName === current!.tagName,
+        (el) => el.tagName === currentElement.tagName,
       );
       if (siblings.length > 1) {
-        const index = siblings.indexOf(current) + 1;
+        const index = siblings.indexOf(currentElement) + 1;
         selector += `:nth-of-type(${index})`;
       }
     }

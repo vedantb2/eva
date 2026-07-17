@@ -1,8 +1,5 @@
 import {
-  CLAUDE_RUNTIME_CONFIG_DIR,
   CODEX_PRICING_PER_MILLION,
-  CODEX_RUNTIME_HOME_DIR,
-  CURSOR_RUNTIME_HOME_DIR,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   PROVIDER,
@@ -55,7 +52,7 @@ export function writeDoneFile(
       accumulatedStepCount: S.accumulatedSteps.length,
       parsedStreamEventCount: S.parsedStreamEventCount,
       rawLogBytesWritten: S.rawLogBytesWritten,
-      ...(extras || {}),
+      ...extras,
     };
     writeFileSync(DONE_FILE, JSON.stringify(payload));
   } catch (err) {
@@ -517,16 +514,13 @@ export async function persistTaskProofIfNeeded(
   if (videoStorageId || imageStorageId) {
     if (ENTITY_ID_FIELD === "taskId") {
       const storageId = videoStorageId || imageStorageId;
-      await callConvexWithRetry(
-        "mutation",
-        "taskProof:save",
-        {
-          taskId: ENTITY_ID ?? "",
-          storageId: storageId ?? "",
-          fileName: lastFileName ?? "",
-        },
-        3,
-      );
+      const saveArgs: JsonObject = {
+        taskId: ENTITY_ID ?? "",
+        storageId: storageId ?? "",
+        fileName: lastFileName ?? "",
+      };
+      if (RUN_ID) saveArgs.runId = RUN_ID;
+      await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
       return;
     }
     const mediaArgs: JsonObject = { parentId: ENTITY_ID ?? "" };
@@ -542,10 +536,15 @@ export async function persistTaskProofIfNeeded(
   }
   if (ENTITY_ID_FIELD === "taskId") {
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
+    const messageArgs: JsonObject = {
+      taskId: ENTITY_ID ?? "",
+      message: "No UI changes",
+    };
+    if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message: "No UI changes" },
+      messageArgs,
       3,
     );
   }
@@ -557,10 +556,15 @@ export async function saveProofFailureMessageIfNeeded(
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
   try {
+    const failureArgs: JsonObject = {
+      taskId: ENTITY_ID ?? "",
+      message,
+    };
+    if (RUN_ID) failureArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message },
+      failureArgs,
       2,
     );
   } catch (error) {

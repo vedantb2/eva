@@ -1,8 +1,5 @@
 import { useParams } from "@tanstack/react-router";
-import {
-  isTaskDetailTab,
-  type TaskDetailTab,
-} from "@/lib/components/tasks/_components/task-detail-constants";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import {
   isTaskRouteSandboxTab,
   type TaskRouteSandboxTab,
@@ -17,8 +14,11 @@ export type QuickTaskRouteState =
     };
 
 /**
- * Reads the active quick-task child segment (detail tab or sandbox tab) from the
+ * Reads the active quick-task child segment (detail or sandbox) from the
  * matched route params without remounting the parent layout.
+ *
+ * Detail lives at `/quick-tasks/$numId` (no tab segment). Sandbox stays at
+ * `/quick-tasks/$numId/sandbox/$sandboxTab`.
  */
 export function useQuickTaskRouteState(): QuickTaskRouteState | null {
   const params = useParams({ strict: false });
@@ -32,9 +32,10 @@ export function useQuickTaskRouteState(): QuickTaskRouteState | null {
     };
   }
 
-  const detailTab = params.detailTab;
-  if (typeof detailTab === "string" && isTaskDetailTab(detailTab)) {
-    return { surface: "detail", detailTab };
+  // Canonical detail URL has `$numId` and no sandbox/detailTab segment.
+  // Legacy `$detailTab` routes redirect away, so treat any open numId as detail.
+  if (typeof params.numId === "string") {
+    return { surface: "detail", detailTab: "activity" };
   }
 
   return null;

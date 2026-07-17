@@ -50,7 +50,7 @@ export function ActiveTasksAccordion({
       return `${basePath}/projects`;
     }
     if (taskSegment) {
-      return `${basePath}/quick-tasks/${taskSegment}/activity`;
+      return `${basePath}/quick-tasks/${taskSegment}`;
     }
     return `${basePath}/quick-tasks`;
   };

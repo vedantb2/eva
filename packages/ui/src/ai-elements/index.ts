@@ -8,6 +8,7 @@ export * from "./prompt-input";
 export * from "./provider-icon";
 export * from "./prompt-input-settings";
 export * from "./prompt-input-speech";
+export * from "./prompt-input-reasoning";
 export * from "./reasoning";
 export * from "./shimmer";
 export * from "./web-preview";

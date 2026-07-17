@@ -7,20 +7,27 @@ import { useLocalStorage } from "usehooks-ts";
 import {
   api,
   DEFAULT_AI_MODEL,
+  DEFAULT_REASONING_LEVEL,
   findAIModelOption,
   normalizeAIModel,
   type AIModel,
   type Id,
+  type ReasoningLevel,
 } from "@conductor/backend";
 import {
   ChatBody,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
   model: AIModel;
+  reasoningLevel: ReasoningLevel;
+  providerAccountId?: string | null;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -56,14 +63,30 @@ export function TaskSandboxChatPanel({
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
     chatSettingsKey(taskId),
-    { model: defaultModel },
+    { model: defaultModel, reasoningLevel: DEFAULT_REASONING_LEVEL },
   );
   const model = normalizeAIModel(settings.model);
+  const reasoningLevel = settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL;
+  const providerAccountId = settings.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const setModel = useCallback(
     (next: AIModel) =>
       setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) })),
+    [setSettings],
+  );
+
+  const setReasoningLevel = useCallback(
+    (next: ReasoningLevel) =>
+      setSettings((prev) => ({ ...prev, reasoningLevel: next })),
+    [setSettings],
+  );
+
+  const setProviderAccountId = useCallback(
+    (next: string | null) =>
+      setSettings((prev) => ({ ...prev, providerAccountId: next })),
     [setSettings],
   );
 
@@ -74,23 +97,44 @@ export function TaskSandboxChatPanel({
     Boolean(task?.activeChatWorkflowId) || lastAssistantHasNoContent;
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
       if (isExecuting) {
         await enqueueMessage({
           taskId,
           message: content,
           model,
+          reasoningLevel,
+          providerAccountId: resolveAccountId(providerAccountId),
+          attachmentStorageIds,
         });
         return;
       }
-      await addMessage({ taskId, content });
+      const accountId = resolveAccountId(providerAccountId);
+      await addMessage({
+        taskId,
+        content,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+      });
       await startExecute({
         taskId,
         message: content,
         model,
+        reasoningLevel,
+        providerAccountId: accountId,
       });
     },
-    [isExecuting, enqueueMessage, addMessage, startExecute, taskId, model],
+    [
+      isExecuting,
+      enqueueMessage,
+      addMessage,
+      startExecute,
+      taskId,
+      model,
+      reasoningLevel,
+      providerAccountId,
+      resolveAccountId,
+    ],
   );
 
   const handleCancel = useCallback(async () => {
@@ -130,6 +174,11 @@ export function TaskSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        accounts={accounts}
+        accountId={providerAccountId}
+        onAccountChange={setProviderAccountId}
+        reasoningLevel={reasoningLevel}
+        onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

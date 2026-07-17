@@ -132,6 +132,25 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+var CLAUDE_THINKING_BUDGET = {
+  off: "0",
+  low: "4000",
+  medium: "10000",
+  high: "24000",
+  max: "31999"
+};
+var CODEX_REASONING_EFFORT = {
+  off: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  max: "high"
+};
+if (PROVIDER === "claude" && CLAUDE_THINKING_BUDGET[REASONING_EFFORT]) {
+  process.env.MAX_THINKING_TOKENS = CLAUDE_THINKING_BUDGET[REASONING_EFFORT];
+}
+var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
 var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 var settingsJson = '{"attribution":{"commit":"","pr":""}}';
@@ -403,10 +422,12 @@ function parsePriorStep(value) {
     return null;
   }
   const detail = value.detail;
+  const path = value.path;
   return {
     type,
     label,
     detail: typeof detail === "string" ? detail : void 0,
+    path: typeof path === "string" ? path : void 0,
     status: "complete"
   };
 }
@@ -657,13 +678,15 @@ function opencodeToolToStep(part) {
   const tool = typeof part.tool === "string" ? part.tool : "tool";
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
   const input = stateObj && "input" in stateObj && stateObj.input && typeof stateObj.input === "object" && !Array.isArray(stateObj.input) ? stateObj.input : {};
-  const path = typeof input.filePath === "string" ? shortenPath(input.filePath) : typeof input.file_path === "string" ? shortenPath(input.file_path) : typeof input.path === "string" ? shortenPath(input.path) : "";
+  const rawPath = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (tool) {
     case "read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "glob":
@@ -685,6 +708,7 @@ function opencodeToolToStep(part) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "edit":
@@ -692,6 +716,7 @@ function opencodeToolToStep(part) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "bash":
@@ -788,6 +813,7 @@ function cursorToolToStep(toolCall) {
       type: "read",
       label: "Reading file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -796,6 +822,7 @@ function cursorToolToStep(toolCall) {
       type: "write",
       label: "Creating file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -804,6 +831,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Editing file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -812,6 +840,7 @@ function cursorToolToStep(toolCall) {
       type: "edit",
       label: "Deleting file...",
       detail: path || void 0,
+      path: rawPath || void 0,
       status: "active"
     };
   }
@@ -880,13 +909,15 @@ function cursorToolToStep(toolCall) {
   };
 }
 function toolCallToStep(name, input) {
-  const path = typeof input.file_path === "string" ? shortenPath(String(input.file_path)) : "";
+  const rawPath = typeof input.file_path === "string" ? String(input.file_path) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (name) {
     case "Read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Glob":
@@ -908,6 +939,7 @@ function toolCallToStep(name, input) {
         type: "write",
         label: "Creating file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Edit":
@@ -915,6 +947,7 @@ function toolCallToStep(name, input) {
         type: "edit",
         label: "Editing file...",
         detail: path || void 0,
+        path: rawPath || void 0,
         status: "active"
       };
     case "Bash":
@@ -951,6 +984,7 @@ function toolCallToStep(name, input) {
         type: "notebook",
         label: "Editing notebook...",
         detail: typeof input.notebook_path === "string" ? shortenPath(String(input.notebook_path)) : void 0,
+        path: typeof input.notebook_path === "string" ? String(input.notebook_path) : void 0,
         status: "active"
       };
     case "Agent":
@@ -1081,6 +1115,7 @@ function codexItemToStep(item) {
       type: "read",
       label: "Reading file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1105,6 +1140,7 @@ function codexItemToStep(item) {
       type: "write",
       label: "Creating file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1113,6 +1149,7 @@ function codexItemToStep(item) {
       type: "edit",
       label: "Editing file...",
       detail: pathDetail || void 0,
+      path: pathValue || void 0,
       status: "active"
     };
   }
@@ -1165,7 +1202,7 @@ function writeDoneFile(status, extras) {
       accumulatedStepCount: callbackState.accumulatedSteps.length,
       parsedStreamEventCount: callbackState.parsedStreamEventCount,
       rawLogBytesWritten: callbackState.rawLogBytesWritten,
-      ...extras || {}
+      ...extras
     };
     writeFileSync2(DONE_FILE, JSON.stringify(payload));
   } catch (err) {
@@ -1480,16 +1517,13 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   if (videoStorageId || imageStorageId) {
     if (ENTITY_ID_FIELD === "taskId") {
       const storageId = videoStorageId || imageStorageId;
-      await callConvexWithRetry(
-        "mutation",
-        "taskProof:save",
-        {
-          taskId: ENTITY_ID ?? "",
-          storageId: storageId ?? "",
-          fileName: lastFileName ?? ""
-        },
-        3
-      );
+      const saveArgs = {
+        taskId: ENTITY_ID ?? "",
+        storageId: storageId ?? "",
+        fileName: lastFileName ?? ""
+      };
+      if (RUN_ID) saveArgs.runId = RUN_ID;
+      await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
       return;
     }
     const mediaArgs = { parentId: ENTITY_ID ?? "" };
@@ -1505,10 +1539,15 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   }
   if (ENTITY_ID_FIELD === "taskId") {
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
+    const messageArgs = {
+      taskId: ENTITY_ID ?? "",
+      message: "No UI changes"
+    };
+    if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message: "No UI changes" },
+      messageArgs,
       3
     );
   }
@@ -1517,10 +1556,15 @@ async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
   try {
+    const failureArgs = {
+      taskId: ENTITY_ID ?? "",
+      message
+    };
+    if (RUN_ID) failureArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",
-      { taskId: ENTITY_ID ?? "", message },
+      failureArgs,
       2
     );
   } catch (error) {
@@ -1977,13 +2021,17 @@ function buildCodexRuntimeConfig(rawValue, encodedValue) {
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy");
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && // Drop any configured reasoning effort; the session lever wins when set.
+    !(codexReasoningEffort && trimmed.startsWith("model_reasoning_effort"));
   }) : [];
   const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
   const runtimeLines = [
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"'
   ];
+  if (codexReasoningEffort) {
+    runtimeLines.push(\`model_reasoning_effort = "\${codexReasoningEffort}"\`);
+  }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }
@@ -3193,6 +3241,58 @@ var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
+var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+var WATCHDOG_TICK_MS = 5e3;
+var turnActive = false;
+var turnStartedAtMs = 0;
+var lastMessageAtMs = 0;
+function beginWatchedTurn() {
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  lastMessageAtMs = turnStartedAtMs;
+}
+function noteWatchedMessage() {
+  lastMessageAtMs = Date.now();
+}
+function endWatchedTurn() {
+  turnActive = false;
+}
+async function failTurnAndExit(error) {
+  log("daemon: failing turn \\u2014 " + error);
+  try {
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      success: false,
+      result: null,
+      error,
+      activityLog: JSON.stringify(callbackState.accumulatedSteps),
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    });
+  } catch {
+  }
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+  }
+  await stopStreamingLoops();
+  process.exit(1);
+}
+function startTurnWatchdog() {
+  const timer = setInterval(() => {
+    if (!turnActive) return;
+    const now = Date.now();
+    if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+    } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
+      turnActive = false;
+      void failTurnAndExit(
+        "The assistant stopped responding. Please try again."
+      );
+    }
+  }, WATCHDOG_TICK_MS);
+  timer.unref?.();
+}
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3320,19 +3420,30 @@ function readClaimedPrompt(result) {
   const prompt = payload.prompt;
   return typeof prompt === "string" ? prompt : null;
 }
+function readClaimedAttachmentUrls(payload) {
+  const field = payload.attachmentUrls;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((url) => typeof url === "string");
+}
 function readClaimedTurn(result) {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent" };
+    return { prompt, turnKind: "agent", attachmentUrls: [] };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   const turnKindField = payload.turnKind;
   const turnKind = turnKindField === "conversational" ? "conversational" : "agent";
-  return { prompt, turnKind };
+  return {
+    prompt,
+    turnKind,
+    attachmentUrls: readClaimedAttachmentUrls(payload)
+  };
 }
 function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn, sawAssistantThisTurn) {
   const messageType = typeof message.type === "string" ? message.type : "?";
@@ -3449,6 +3560,7 @@ async function runConversationalWarmTurn(runner, prompt) {
   resetTurnState();
   const turnStartedAt = Date.now();
   callbackState.activeAttemptStartedAt = turnStartedAt;
+  beginWatchedTurn();
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
@@ -3457,9 +3569,11 @@ async function runConversationalWarmTurn(runner, prompt) {
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
-      log("daemon: conversational query ended unexpectedly");
-      return;
+      return failTurnAndExit(
+        "The assistant could not generate a reply. Please try again."
+      );
     }
+    noteWatchedMessage();
     const processed = processDaemonMessage(
       message,
       output,
@@ -3471,6 +3585,7 @@ async function runConversationalWarmTurn(runner, prompt) {
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt2 = Date.now();
         log(
@@ -3486,6 +3601,7 @@ async function runConversationalWarmTurn(runner, prompt) {
       }
       continue;
     }
+    endWatchedTurn();
     const resultAt = Date.now();
     log(
       "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
@@ -3507,6 +3623,54 @@ function callbackScriptWentStaleOnDisk() {
     return false;
   }
 }
+function attachmentExtensionForMimeType(mimeType) {
+  const type = mimeType.split(";")[0]?.trim() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return ".png";
+  }
+}
+async function materializeTurnAttachments(turn) {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" });
+      if (!res.ok) {
+        log(\`daemon: attachment download failed status=\${res.status}\`);
+        continue;
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const extension = attachmentExtensionForMimeType(
+        res.headers.get("content-type") ?? ""
+      );
+      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
+      writeFileSync10(path, bytes);
+      paths.push(path);
+    } catch (error) {
+      log(
+        \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
+      );
+    }
+  }
+  if (paths.length === 0) return;
+  const list = paths.map((p) => \`- \${p}\`).join("\\n");
+  turn.prompt += \`
+
+---
+The user attached the following image file(s). View them with your file-reading tool before responding:
+\${list}\`;
+}
 async function waitForNextTurn() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
@@ -3521,6 +3685,7 @@ async function waitForNextTurn() {
     );
     const turn = readClaimedTurn(claimed);
     if (turn !== null) {
+      await materializeTurnAttachments(turn);
       return turn;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
@@ -3548,6 +3713,7 @@ async function runSdkDaemon() {
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
   log("daemon: warm query() live, waiting for first prompt (pull)");
+  startTurnWatchdog();
   let nextTurn = await waitForNextTurn();
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
@@ -3569,6 +3735,7 @@ async function runSdkDaemon() {
       let turnStartedAt = Date.now();
       const sawFirstMessageThisTurn = { value: false };
       const sawAssistantThisTurn = { value: false };
+      beginWatchedTurn();
       push(nextTurn.prompt);
       callbackState.activeAttemptStartedAt = turnStartedAt;
       let output = "";
@@ -3576,6 +3743,7 @@ async function runSdkDaemon() {
         if (typeof message !== "object" || message === null || Array.isArray(message)) {
           continue;
         }
+        noteWatchedMessage();
         const processed = processDaemonMessage(
           message,
           output,
@@ -3587,6 +3755,7 @@ async function runSdkDaemon() {
         if (!processed.isResult) {
           continue;
         }
+        endWatchedTurn();
         const resultAt = Date.now();
         log(
           "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
@@ -3611,7 +3780,13 @@ async function runSdkDaemon() {
         sawFirstMessageThisTurn.value = false;
         sawAssistantThisTurn.value = false;
         callbackState.activeAttemptStartedAt = turnStartedAt;
+        beginWatchedTurn();
         push(upcoming.prompt);
+      }
+      if (turnActive) {
+        return failTurnAndExit(
+          "The assistant ended without a reply. Please try again."
+        );
       }
     }
   } catch (error) {
@@ -3902,48 +4077,18 @@ try {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   try {
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs
-    );
-    let videoStorageId = null;
-    let imageStorageId = null;
-    let lastFileName = null;
-    const recDir = WORK_DIR + "/recordings";
-    if (existsSync7(recDir)) {
-      for (const file of readdirSync2(recDir)) {
-        if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
-        const fp = recDir + "/" + file;
-        const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-        try {
-          videoStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {
-        }
-        try {
-          unlinkSync2(fp);
-        } catch {
-        }
-      }
-    }
-    if (!videoStorageId) {
-      const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync7(ssDir)) {
-        for (const file of readdirSync2(ssDir)) {
-          if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
-          const fp = ssDir + "/" + file;
-          const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-          const mimeMap = {
-            png: "image/png",
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            gif: "image/gif",
-            webp: "image/webp"
-          };
-          const mimeType = mimeMap[ext] || "image/png";
+    if (TASK_PROOF_CAPTURE_ENABLED) {
+      let videoStorageId = null;
+      let imageStorageId = null;
+      let lastFileName = null;
+      const recDir = WORK_DIR + "/recordings";
+      if (existsSync7(recDir)) {
+        for (const file of readdirSync2(recDir)) {
+          if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
+          const fp = recDir + "/" + file;
+          const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
           try {
-            imageStorageId = await uploadMediaFile(fp, mimeType);
+            videoStorageId = await uploadMediaFile(fp, mimeType);
             lastFileName = file;
           } catch {
           }
@@ -3953,20 +4098,52 @@ try {
           }
         }
       }
+      if (!videoStorageId) {
+        const ssDir = WORK_DIR + "/screenshots";
+        if (existsSync7(ssDir)) {
+          for (const file of readdirSync2(ssDir)) {
+            if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
+            const fp = ssDir + "/" + file;
+            const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+            const mimeMap = {
+              png: "image/png",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              gif: "image/gif",
+              webp: "image/webp"
+            };
+            const mimeType = mimeMap[ext] || "image/png";
+            try {
+              imageStorageId = await uploadMediaFile(fp, mimeType);
+              lastFileName = file;
+            } catch {
+            }
+            try {
+              unlinkSync2(fp);
+            } catch {
+            }
+          }
+        }
+      }
+      try {
+        await persistTaskProofIfNeeded(
+          videoStorageId,
+          imageStorageId,
+          lastFileName
+        );
+      } catch (e) {
+        console.error("Failed to persist task proof:", e);
+        const proofError = e instanceof Error ? e.message : String(e);
+        await saveProofFailureMessageIfNeeded(
+          "Proof capture failed after completion: " + proofError
+        );
+      }
     }
-    try {
-      await persistTaskProofIfNeeded(
-        videoStorageId,
-        imageStorageId,
-        lastFileName
-      );
-    } catch (e) {
-      console.error("Failed to persist task proof:", e);
-      const proofError = e instanceof Error ? e.message : String(e);
-      await saveProofFailureMessageIfNeeded(
-        "Proof capture failed after completion: " + proofError
-      );
-    }
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs
+    );
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

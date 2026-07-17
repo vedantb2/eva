@@ -33,6 +33,7 @@ interface SessionItem {
   sandboxId?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  firstMessagePreview?: string | null;
 }
 
 interface SidebarSessionRowProps<T extends SessionItem> {
@@ -78,19 +79,19 @@ export function SidebarSessionRow<T extends SessionItem>({
           <SharedLayoutNavSurface
             itemId={session._id}
             isActive={isSelected}
-            className="group mx-1 rounded-menu-item px-3 py-1.5"
+            className="group mx-1 rounded-menu-item"
           >
             <SidebarSessionItem
               href={href}
               title={session.title}
               userId={session.userId}
               createdAt={session._creationTime}
-              updatedAt={session.updatedAt}
               status={session.status}
               isSelected={isSelected}
               onNavigate={onNavigate}
               prUrl={session.prUrl}
               prState={session.prState}
+              firstMessagePreview={session.firstMessagePreview}
             />
           </SharedLayoutNavSurface>
         </motion.div>

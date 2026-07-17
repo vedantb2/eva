@@ -23,7 +23,7 @@ interface TaskActivityComposerProps {
 // mounts the inner form exactly once when the draft resolves.
 // ---------------------------------------------------------------------------
 
-/** Comment / request-changes input above the task activity timeline. */
+/** Comment / request-changes input pinned below the task activity timeline. */
 export function TaskActivityComposer({
   taskId,
   isProjectTask,
@@ -39,13 +39,13 @@ export function TaskActivityComposer({
   });
 
   const editorClassName =
-    "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+    "min-h-9 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   // While draft is undefined (query not yet resolved), show a disabled
   // placeholder using the same chrome so layout doesn't shift.
   if (draft === undefined) {
     return (
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3">
         <div className="overflow-hidden rounded-surface border border-input bg-card">
           <CommentMentionInput
             value=""

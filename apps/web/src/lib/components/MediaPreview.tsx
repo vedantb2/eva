@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
 import {
+  cn,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -21,9 +22,15 @@ import {
   VideoPlayerVolumeRange,
 } from "@conductor/ui";
 
-export function VideoPreview({ url }: { url: string }) {
+export function VideoPreview({
+  url,
+  className,
+}: {
+  url: string;
+  className?: string;
+}) {
   return (
-    <VideoPlayer className="max-w-full">
+    <VideoPlayer className={cn("max-w-full", className)}>
       <VideoPlayerContent
         src={url}
         playsInline
@@ -48,7 +55,15 @@ export function VideoPreview({ url }: { url: string }) {
   );
 }
 
-export function ScreenshotPreview({ url }: { url: string }) {
+export function ScreenshotPreview({
+  url,
+  alt = "Screenshot",
+  className,
+}: {
+  url: string;
+  alt?: string;
+  className?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -56,13 +71,16 @@ export function ScreenshotPreview({ url }: { url: string }) {
       <button type="button" onClick={() => setOpen(true)} className="block">
         <img
           src={url}
-          alt="Screenshot"
-          className="media-outline rounded-surface max-w-full cursor-pointer transition-opacity hover:opacity-90"
+          alt={alt}
+          className={cn(
+            "media-outline rounded-surface max-w-full cursor-pointer transition-opacity hover:opacity-90",
+            className,
+          )}
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-          <DialogTitle className="sr-only">Screenshot Preview</DialogTitle>
+          <DialogTitle className="sr-only">{alt}</DialogTitle>
           <DialogHeader className="absolute top-2 right-10 z-10">
             <a
               href={url}
@@ -76,7 +94,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
           </DialogHeader>
           <img
             src={url}
-            alt="Screenshot"
+            alt={alt}
             className="media-outline h-full w-full object-contain"
           />
         </DialogContent>

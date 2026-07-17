@@ -8,9 +8,9 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  cn,
 } from "@conductor/ui";
 import { IconSearch, IconX } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
 
 // "compact" is the small toolbar pill; "large" is the taller, wider,
 // rounded-and-shadowed bar used on the quick-tasks page.

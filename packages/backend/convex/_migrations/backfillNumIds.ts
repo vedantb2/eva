@@ -64,27 +64,21 @@ async function backfillEntityTypeForRepo(
   entityType: RepoEntityType,
 ): Promise<number> {
   const entities = await listEntitiesForRepo(db, entityType, repoId);
-  const needsNumId = entities.filter((entity) => entity.numId === undefined);
-  if (needsNumId.length === 0) {
-    const counter = await db
-      .query("repoEntityCounters")
-      .withIndex("by_repo_and_type", (q) =>
-        q.eq("repoId", repoId).eq("entityType", entityType),
-      )
-      .first();
-    return counter?.nextNumId ?? 1;
-  }
-
-  const sorted = [...needsNumId].sort(
-    (a, b) => a._creationTime - b._creationTime,
-  );
-
   const counter = await db
     .query("repoEntityCounters")
     .withIndex("by_repo_and_type", (q) =>
       q.eq("repoId", repoId).eq("entityType", entityType),
     )
     .first();
+
+  const needsNumId = entities.filter((entity) => entity.numId === undefined);
+  if (needsNumId.length === 0) {
+    return counter?.nextNumId ?? 1;
+  }
+
+  const sorted = [...needsNumId].sort(
+    (a, b) => a._creationTime - b._creationTime,
+  );
 
   let nextNumId = counter?.nextNumId ?? 1;
   for (const entity of sorted) {

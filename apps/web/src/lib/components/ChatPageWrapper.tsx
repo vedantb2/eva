@@ -11,7 +11,7 @@ interface ChatPageWrapperProps {
 }
 
 export function ChatPageWrapper({
-  title,
+  title: _title,
   headerLeft,
   headerRight,
   isArchived,

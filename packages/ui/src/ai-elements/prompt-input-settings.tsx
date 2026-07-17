@@ -172,12 +172,37 @@ export function PromptInputSettings<TModel extends string>({
   );
 }
 
+/** A user's own provider account, surfaced as a selectable group in the picker. */
+export interface ModelAccount {
+  id: string;
+  provider: string;
+  label: string;
+  accentColor?: string;
+}
+
 export interface ModelSelectProps<TModel extends string = string> {
   value: TModel;
   onValueChange: (model: TModel) => void;
   options: ReadonlyArray<ModelOption<TModel>>;
   disabled?: boolean;
   className?: string;
+  /**
+   * The user's own provider accounts. When non-empty, each provider opens into
+   * Team + account submenus, each listing that provider's models so picking a
+   * model also picks whose credential runs it.
+   */
+  accounts?: ReadonlyArray<ModelAccount>;
+  /** Currently selected account id, or null for the team credential. */
+  accountId?: string | null;
+  /** Fired alongside a model change with the chosen account (null = team). */
+  onAccountChange?: (accountId: string | null) => void;
+}
+
+const TEAM_KEY = "team";
+
+/** Encodes an (account, model) selection as a single radio value. */
+function toComposite(accountId: string | null, modelId: string): string {
+  return `${accountId ?? TEAM_KEY}::${modelId}`;
 }
 
 export function ModelSelect<TModel extends string>({
@@ -186,42 +211,69 @@ export function ModelSelect<TModel extends string>({
   options,
   disabled,
   className,
+  accounts,
+  accountId = null,
+  onAccountChange,
 }: ModelSelectProps<TModel>) {
   const selectedModel = findModelOption(value, options);
   const providerOptions = getProviderOptions(options);
+  const hasAccounts = accounts !== undefined && accounts.length > 0;
 
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-1.5 rounded-md h-7 px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 transition-colors",
-            className,
-          )}
-          disabled={disabled}
-        >
-          <ProviderIcon
-            provider={selectedModel?.provider ?? "claude"}
-            size={14}
-          />
-          {selectedModel
-            ? `${getProviderLabel(selectedModel.provider)} / ${selectedModel.label}`
-            : "Select model"}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {providerOptions.map((provider) => {
-          const models = getProviderModels(options, provider.id);
-          if (providerOptions.length === 1) {
-            return (
+  const selectedAccount = accountId
+    ? accounts?.find((account) => account.id === accountId)
+    : undefined;
+
+  const buttonLabel = selectedModel
+    ? `${getProviderLabel(selectedModel.provider)} / ${selectedModel.label}${
+        selectedAccount ? ` · ${selectedAccount.label}` : ""
+      }`
+    : "Select model";
+
+  // Account-aware selection: parse the composite value back into a model + the
+  // account whose credential should run it.
+  const applyComposite = (composite: string) => {
+    const separator = composite.indexOf("::");
+    if (separator === -1) return;
+    const account = composite.slice(0, separator);
+    const modelId = composite.slice(separator + 2);
+    const option = options.find((entry) => entry.id === modelId);
+    if (!option) return;
+    onValueChange(option.id);
+    onAccountChange?.(account === TEAM_KEY ? null : account);
+  };
+
+  const trigger = (
+    <DropdownMenuTrigger asChild>
+      <button
+        className={cn(
+          "flex items-center gap-1.5 rounded-md h-7 px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 transition-colors",
+          className,
+        )}
+        disabled={disabled}
+      >
+        <ProviderIcon
+          provider={selectedModel?.provider ?? "claude"}
+          size={14}
+        />
+        {buttonLabel}
+      </button>
+    </DropdownMenuTrigger>
+  );
+
+  // Simple path (no accounts): the original provider-grouped radio menu.
+  if (!hasAccounts) {
+    return (
+      <DropdownMenu modal={false}>
+        {trigger}
+        <DropdownMenuContent align="start">
+          {providerOptions.map((provider) => {
+            const models = getProviderModels(options, provider.id);
+            const radioGroup = (
               <DropdownMenuRadioGroup
-                key={provider.id}
                 value={selectedModel?.id}
                 onValueChange={(modelId) => {
                   const option = options.find((entry) => entry.id === modelId);
-                  if (option) {
-                    onValueChange(option.id);
-                  }
+                  if (option) onValueChange(option.id);
                 }}
               >
                 {models.map((option) => (
@@ -231,7 +283,55 @@ export function ModelSelect<TModel extends string>({
                 ))}
               </DropdownMenuRadioGroup>
             );
-          }
+            if (providerOptions.length === 1) {
+              return <div key={provider.id}>{radioGroup}</div>;
+            }
+            return (
+              <DropdownMenuSub key={provider.id}>
+                <DropdownMenuSubTrigger>
+                  <ProviderIcon provider={provider.id} size={14} />
+                  {provider.label}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>{radioGroup}</DropdownMenuSubContent>
+              </DropdownMenuSub>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  // Account-aware path: provider → Team / account submenu → models.
+  const selectedComposite = selectedModel
+    ? toComposite(accountId, selectedModel.id)
+    : undefined;
+
+  return (
+    <DropdownMenu modal={false}>
+      {trigger}
+      <DropdownMenuContent align="start">
+        {providerOptions.map((provider) => {
+          const models = getProviderModels(options, provider.id);
+          const providerAccounts =
+            accounts?.filter((account) => account.provider === provider.id) ??
+            [];
+
+          const modelRadios = (accountKey: string | null) => (
+            <DropdownMenuRadioGroup
+              value={selectedComposite}
+              onValueChange={applyComposite}
+            >
+              {models.map((option) => (
+                <DropdownMenuRadioItem
+                  key={`${accountKey ?? TEAM_KEY}-${option.id}`}
+                  value={toComposite(accountKey, option.id)}
+                >
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          );
+
           return (
             <DropdownMenuSub key={provider.id}>
               <DropdownMenuSubTrigger>
@@ -239,23 +339,29 @@ export function ModelSelect<TModel extends string>({
                 {provider.label}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={selectedModel?.id}
-                  onValueChange={(modelId) => {
-                    const option = options.find(
-                      (entry) => entry.id === modelId,
-                    );
-                    if (option) {
-                      onValueChange(option.id);
-                    }
-                  }}
-                >
-                  {models.map((option) => (
-                    <DropdownMenuRadioItem key={option.id} value={option.id}>
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Team</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {modelRadios(null)}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                {providerAccounts.map((account) => (
+                  <DropdownMenuSub key={account.id}>
+                    <DropdownMenuSubTrigger>
+                      <span
+                        className="size-2 shrink-0 rounded-full border border-border"
+                        style={{
+                          backgroundColor:
+                            account.accentColor ?? "currentColor",
+                        }}
+                      />
+                      {account.label}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {modelRadios(account.id)}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           );

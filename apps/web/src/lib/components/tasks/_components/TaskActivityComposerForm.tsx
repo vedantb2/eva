@@ -146,10 +146,10 @@ export function TaskActivityComposerForm({
   // wraps a borderless input with a footer row of controls, rather than
   // floating controls over the textarea.
   const editorClassName =
-    "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+    "min-h-9 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   return (
-    <div className="relative space-y-3 mb-6">
+    <div className="relative space-y-3">
       <TypingIndicator
         users={typingUsers}
         className="absolute bottom-full left-0 mb-1"

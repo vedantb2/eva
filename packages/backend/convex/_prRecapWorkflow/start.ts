@@ -1,9 +1,19 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import {
   findSiblingRepos,
   pickDefaultVisibleAppRepo,
 } from "../_githubRepos/helpers";
+
+/** Picks the workflow repo row for a codebase: the root row, else the first sibling. */
+function pickWorkflowRepo(
+  siblings: Array<Doc<"githubRepos">>,
+): Doc<"githubRepos"> | undefined {
+  return (
+    siblings.find((repo) => repo.rootDirectory === undefined) ?? siblings[0]
+  );
+}
 
 /** Checks whether PR recaps are enabled for a repo's codebase siblings. */
 export const getRecapSiblingsGate = internalQuery({
@@ -25,8 +35,7 @@ export const getRecapSiblingsGate = internalQuery({
     if (!siblings.some((repo) => repo.prRecapsEnabled === true)) {
       return null;
     }
-    const workflowRepo =
-      siblings.find((repo) => repo.rootDirectory === undefined) ?? siblings[0];
+    const workflowRepo = pickWorkflowRepo(siblings);
     if (!workflowRepo) return null;
     return {
       workflowRepoId: workflowRepo._id,
@@ -45,17 +54,22 @@ export const getPublishContext = internalQuery({
     repoName: v.string(),
     installationId: v.number(),
     prNumber: v.number(),
+    docNumId: v.number(),
     linkRootDirectory: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
-    if (!doc || doc.kind !== "pr-recap" || doc.prNumber === undefined) {
+    if (
+      !doc ||
+      doc.kind !== "pr-recap" ||
+      doc.prNumber === undefined ||
+      doc.numId === undefined
+    ) {
       throw new Error("PR recap doc not found");
     }
 
     const siblings = await findSiblingRepos(ctx.db, doc.repoId);
-    const workflowRepo =
-      siblings.find((repo) => repo.rootDirectory === undefined) ?? siblings[0];
+    const workflowRepo = pickWorkflowRepo(siblings);
     if (!workflowRepo) {
       throw new Error("Repository not found");
     }
@@ -67,6 +81,7 @@ export const getPublishContext = internalQuery({
       repoName: workflowRepo.name,
       installationId: workflowRepo.installationId,
       prNumber: doc.prNumber,
+      docNumId: doc.numId,
       linkRootDirectory: linkRepo?.rootDirectory,
     };
   },

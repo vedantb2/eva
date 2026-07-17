@@ -109,7 +109,11 @@ export default defineConfig({
       "@tiptap/react",
       "@tiptap/core",
       "@convex-dev/prosemirror-sync",
+      "@pierre/diffs",
+      "@pierre/trees",
+      "shiki",
       "frimousse",
+      "sonner",
     ],
   },
   build: {

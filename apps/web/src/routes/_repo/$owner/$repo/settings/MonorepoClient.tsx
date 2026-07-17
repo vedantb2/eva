@@ -82,7 +82,7 @@ export function MonorepoClient() {
 
   useEffect(() => {
     void runDetection();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [repo.owner, repo.name, repo.installationId]);
 
   const handleAdd = async (path: string) => {

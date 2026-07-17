@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { DatabaseReader } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { allocateNumId } from "../numId";
 import {
@@ -9,6 +11,19 @@ import {
 } from "../validators";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+
+/** Loads a session by id, throwing if it does not exist. */
+async function getSessionOrThrow(
+  db: DatabaseReader,
+  id: Id<"sessions">,
+): Promise<Doc<"sessions">> {
+  const session = await db.get(id);
+  if (!session) {
+    throw new Error("Session not found");
+  }
+  return session;
+}
 
 /** Creates a new session with a sandbox startup workflow. */
 export const create = authMutation({
@@ -62,13 +77,20 @@ export const addMessage = authMutation({
     mode: v.optional(sessionModeValidator),
     activityLog: v.optional(v.string()),
     clientId: v.optional(v.string()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    await getSessionOrThrow(ctx.db, args.id);
+    const credentialSourceLabel =
+      args.role === "user"
+        ? await resolveCredentialSourceLabel(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          )
+        : undefined;
     await ctx.db.insert("messages", {
       parentId: args.id,
       role: args.role,
@@ -78,6 +100,8 @@ export const addMessage = authMutation({
       activityLog: args.activityLog,
       clientId: args.clientId,
       userId: ctx.userId,
+      attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel,
     });
     await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;
@@ -92,10 +116,7 @@ export const updateStatus = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    await getSessionOrThrow(ctx.db, args.id);
     await ctx.db.patch(args.id, { status: args.status });
     return null;
   },
@@ -108,17 +129,26 @@ export const update = authMutation({
     title: v.optional(v.string()),
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
+    captureProofEnabled: v.optional(v.boolean()),
+    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
-    const updates: { title?: string; branchName?: string; prUrl?: string } = {};
+    await getSessionOrThrow(ctx.db, args.id);
+    const updates: {
+      title?: string;
+      branchName?: string;
+      prUrl?: string;
+      captureProofEnabled?: boolean;
+      runAuditEnabled?: boolean;
+    } = {};
     if (args.title !== undefined) updates.title = args.title;
     if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.prUrl !== undefined) updates.prUrl = args.prUrl;
+    if (args.captureProofEnabled !== undefined)
+      updates.captureProofEnabled = args.captureProofEnabled;
+    if (args.runAuditEnabled !== undefined)
+      updates.runAuditEnabled = args.runAuditEnabled;
     await ctx.db.patch(args.id, updates);
     return null;
   },
@@ -143,10 +173,7 @@ export const archive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    const session = await getSessionOrThrow(ctx.db, args.id);
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
@@ -172,10 +199,7 @@ export const unarchive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    const session = await getSessionOrThrow(ctx.db, args.id);
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
@@ -192,8 +216,7 @@ export const updatePlanContent = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) throw new Error("Session not found");
+    const session = await getSessionOrThrow(ctx.db, args.id);
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
@@ -214,8 +237,7 @@ export const updateLastMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) throw new Error("Session not found");
+    await getSessionOrThrow(ctx.db, args.id);
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.id))

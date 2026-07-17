@@ -16,21 +16,27 @@ const taskCommentValidator = v.object({
   ...taskCommentFields,
 });
 
+/** Trims and truncates comment content for a notification, or null if empty. */
+function summariseCommentContent(content: string): string | null {
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    return null;
+  }
+  return trimmedContent.length > 180
+    ? `${trimmedContent.slice(0, 177)}...`
+    : trimmedContent;
+}
+
 /** Builds a truncated notification message for a new task comment. */
 function buildCommentNotificationMessage(
   content: string,
   projectId: Id<"projects"> | undefined,
 ): string {
   const scopeLabel = projectId ? "project task" : "quick task";
-  const trimmedContent = content.trim();
-  if (!trimmedContent) {
-    return `New comment added on this ${scopeLabel}.`;
-  }
-  const summary =
-    trimmedContent.length > 180
-      ? `${trimmedContent.slice(0, 177)}...`
-      : trimmedContent;
-  return `New comment on this ${scopeLabel}: "${summary}"`;
+  const summary = summariseCommentContent(content);
+  return summary
+    ? `New comment on this ${scopeLabel}: "${summary}"`
+    : `New comment added on this ${scopeLabel}.`;
 }
 
 /** Builds the subscriber notification message for a "Make changes" request. */
@@ -39,15 +45,10 @@ function buildChangeRequestNotificationMessage(
   projectId: Id<"projects"> | undefined,
 ): string {
   const scopeLabel = projectId ? "project task" : "quick task";
-  const trimmedContent = content.trim();
-  if (!trimmedContent) {
-    return `Changes requested on this ${scopeLabel}.`;
-  }
-  const summary =
-    trimmedContent.length > 180
-      ? `${trimmedContent.slice(0, 177)}...`
-      : trimmedContent;
-  return `Changes requested on this ${scopeLabel}: "${summary}"`;
+  const summary = summariseCommentContent(content);
+  return summary
+    ? `Changes requested on this ${scopeLabel}: "${summary}"`
+    : `Changes requested on this ${scopeLabel}.`;
 }
 
 /** Lists all comments for a task, sorted oldest first. */
@@ -82,11 +83,9 @@ export const create = authMutation({
       throw new Error("Task not found");
     }
 
-    if (args.parentId) {
-      const parent = await ctx.db.get(args.parentId);
-      if (!parent || parent.taskId !== args.taskId) {
-        throw new Error("Parent comment not found");
-      }
+    const parent = args.parentId ? await ctx.db.get(args.parentId) : null;
+    if (args.parentId && (!parent || parent.taskId !== args.taskId)) {
+      throw new Error("Parent comment not found");
     }
 
     const commentId = await ctx.db.insert("taskComments", {
@@ -118,28 +117,22 @@ export const create = authMutation({
     // Commenting subscribes you to the task (sticky opt-out respected).
     await ensureSubscribed(ctx, args.taskId, ctx.userId);
 
-    if (args.parentId) {
-      const parent = await ctx.db.get(args.parentId);
-      if (
-        parent?.authorId &&
-        parent.authorId !== ctx.userId &&
-        !notifiedUserIds.has(parent.authorId)
-      ) {
-        await createNotification(ctx, {
-          userId: parent.authorId,
-          type: "comment_reply",
-          title: `${authorName} replied to your comment`,
-          repoId: task.repoId,
-          projectId: task.projectId,
-          taskId: args.taskId,
-          message: buildCommentNotificationMessage(
-            args.content,
-            task.projectId,
-          ),
-        });
-        notifiedUserIds.add(parent.authorId);
-        await ensureSubscribed(ctx, args.taskId, parent.authorId);
-      }
+    if (
+      parent?.authorId &&
+      parent.authorId !== ctx.userId &&
+      !notifiedUserIds.has(parent.authorId)
+    ) {
+      await createNotification(ctx, {
+        userId: parent.authorId,
+        type: "comment_reply",
+        title: `${authorName} replied to your comment`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+        taskId: args.taskId,
+        message: buildCommentNotificationMessage(args.content, task.projectId),
+      });
+      notifiedUserIds.add(parent.authorId);
+      await ensureSubscribed(ctx, args.taskId, parent.authorId);
     }
 
     const mentionedUserIds = extractMentionedUserIds(ctx, args.content);

@@ -66,9 +66,9 @@ export function TestingArenaSidebar({
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
   }, [docs, searchQuery]);
 
-  // Only docs with requirements can be evaluated; the rest are skipped.
+  // Only docs with content can be evaluated; the rest are skipped.
   const testableDocs = useMemo(
-    () => (docs ?? []).filter((d) => (d.requirements?.length ?? 0) > 0),
+    () => (docs ?? []).filter((d) => d.content.trim().length > 0),
     [docs],
   );
 
@@ -197,11 +197,11 @@ export function TestingArenaSidebar({
           </DialogHeader>
           <p className="text-muted-foreground">
             Run a code evaluation for each of the {testableDocs.length} document
-            {testableDocs.length === 1 ? "" : "s"} with requirements?
+            {testableDocs.length === 1 ? "" : "s"} with content?
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Each runs against your codebase sequentially. Documents without
-            requirements are skipped.
+            Each runs against your codebase sequentially. Empty documents are
+            skipped.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>

@@ -18,9 +18,6 @@ import {
 import {
   useGanttContext,
   getAddRange,
-  getDateByMousePosition,
-  getDifferenceIn,
-  getInnerDifferenceIn,
   getOffset,
   getWidth,
   type GanttFeature,
@@ -166,7 +163,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
     return gantt.range === "daily" ? colW : colW / 30;
   }, [gantt.columnWidth, gantt.zoom, gantt.range]);
 
-  const [previousMouseX, setPreviousMouseX] = useState(0);
+  const [, setPreviousMouseX] = useState(0);
   const [previousStartAt, setPreviousStartAt] = useState(startAt);
   const [previousEndAt, setPreviousEndAt] = useState(endAt);
 
@@ -175,7 +172,6 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
   });
 
   const handleItemDragStart = useCallback(() => {
-    const ganttRect = gantt.ref?.current?.getBoundingClientRect();
     const mouseX = gantt.scrollX;
     setPreviousMouseX(mouseX);
     setPreviousStartAt(startAt);

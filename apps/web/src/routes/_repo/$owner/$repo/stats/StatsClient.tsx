@@ -14,7 +14,6 @@ import { Leaderboard } from "@/lib/components/analytics/Leaderboard";
 import { ActivityHeatmap } from "@/lib/components/analytics/ActivityHeatmap";
 import {
   TimeRangeFilter,
-  TimeRange,
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";

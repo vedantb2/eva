@@ -43,7 +43,7 @@ export function useTaskDetail(
   routing?: UseTaskDetailRouting,
 ) {
   const taskResult = useQuery(api.agentTasks.get, { id: taskId });
-  const task = taskResult ?? undefined;
+  const task = taskResult === null ? null : (taskResult ?? undefined);
   const currentUserId = useQuery(api.auth.me);
   const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });
@@ -69,7 +69,6 @@ export function useTaskDetail(
       task?.repoId ? { repoId: task.repoId } : "skip",
     ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
-  const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
     api.streaming.get,
     (latestAudit?.status === "running" ||
@@ -100,7 +99,6 @@ export function useTaskDetail(
   const enabledAuditCount =
     auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
-  const sandboxEvents = useQuery(api.taskSandboxEvents.listByTask, { taskId });
   const taskActivity = useQuery(api.taskActivity.listByTask, { taskId });
   const repoForTask = useQuery(
     api.githubRepos.get,
@@ -353,7 +351,6 @@ export function useTaskDetail(
       : !hasRuns
         ? "Run Eva on this task before requesting changes"
         : undefined;
-  const showProofSection = status !== undefined && status !== "todo";
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestPrError = runs?.find((r) => r.prError)?.prError;
@@ -372,17 +369,15 @@ export function useTaskDetail(
     : undefined;
 
   return {
-    isLoading: task === undefined,
+    isLoading: taskResult === undefined,
+    isNotFound: taskResult === null,
 
     task,
     status,
     runs,
     allAudits,
-    latestAudit,
-    pastAudits,
     comments,
     proofs,
-    sandboxEvents,
     taskActivity,
     users,
     creatorUser,
@@ -397,16 +392,12 @@ export function useTaskDetail(
     requestChangesBlockedReason,
     hasRuns,
     canEditTaskText,
-    showProofSection,
     showTabsColumn,
     hasEnabledAuditCategories,
     isActivityBusy:
       Boolean(hasActiveRun) ||
       latestAudit?.status === "running" ||
       latestAudit?.fixStatus === "fixing",
-    isProofBusy: status === "in_progress",
-    isAuditBusy:
-      latestAudit?.status === "running" || latestAudit?.fixStatus === "fixing",
 
     activeRun,
     activeRunElapsed,

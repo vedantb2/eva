@@ -6,17 +6,22 @@ import type { MutationCtx } from "./_generated/server";
 /** Shared crons component client. */
 export const crons = new Crons(components.crons);
 
-/** Deletes the named cron if a tracked id is present, swallowing errors. */
+/**
+ * Deletes the named cron if one currently exists in the crons component.
+ *
+ * Existence is checked by name against the component, not against any id we
+ * track in our own tables. This keeps the operation idempotent and self-healing:
+ * even if our stored cronJobId has drifted out of sync (e.g. it was cleared on
+ * disable while the component row survived), we still remove whatever cron holds
+ * the name — which is what prevents a later re-register from colliding.
+ */
 export async function safeDeleteCron(
   ctx: MutationCtx,
   name: string,
-  existingCronJobId: string | undefined,
 ): Promise<void> {
-  if (!existingCronJobId) return;
-  try {
+  const existing = await crons.get(ctx, { name });
+  if (existing) {
     await crons.delete(ctx, { name });
-  } catch {
-    // Cron may already be deleted
   }
 }
 
@@ -25,13 +30,12 @@ export async function safeReplaceCron<F extends SchedulableFunctionReference>(
   ctx: MutationCtx,
   params: {
     name: string;
-    existingCronJobId: string | undefined;
     cronspec: string | null;
     handler: F;
     args: FunctionArgs<F>;
   },
 ): Promise<string | undefined> {
-  await safeDeleteCron(ctx, params.name, params.existingCronJobId);
+  await safeDeleteCron(ctx, params.name);
   if (!params.cronspec) return undefined;
   const id = await crons.register(
     ctx,

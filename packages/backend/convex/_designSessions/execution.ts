@@ -6,6 +6,7 @@ import { authMutation, hasRepoAccess } from "../functions";
 import { trackDesignSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "../_queues/helpers";
+import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 
 /** Sends a message to the AI for design generation, starting a workflow with timeout watchdog. */
 export const executeMessage = authMutation({
@@ -13,8 +14,10 @@ export const executeMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -29,6 +32,12 @@ export const executeMessage = authMutation({
       timestamp: now,
       userId: ctx.userId,
       personaId: args.personaId,
+      attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        args.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.insert("messages", {
       parentId: args.id,
@@ -46,6 +55,7 @@ export const executeMessage = authMutation({
         designSessionId: args.id,
         message: args.message,
         model: normalizeAIModel(args.model),
+        providerAccountId: args.providerAccountId,
         personaId: args.personaId,
         userId: ctx.userId,
         numDesigns: args.numDesigns ?? 3,
@@ -64,8 +74,10 @@ export const enqueueMessage = authMutation({
     id: v.id("designSessions"),
     message: v.string(),
     model: aiModelValidator,
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -81,10 +93,13 @@ export const enqueueMessage = authMutation({
       parentId: args.id,
       content,
       createdAt: Date.now(),
+      order: Date.now(),
       userId: ctx.userId,
       model: normalizeAIModel(args.model),
+      providerAccountId: args.providerAccountId,
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.id, { updatedAt: Date.now() });
     return null;

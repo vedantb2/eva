@@ -3,6 +3,7 @@ import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { authMutation } from "../functions";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
+import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
 import {
   extractJsonBlock,
   recordCompletionLog,
@@ -44,6 +45,67 @@ export const startSessionAudit = authMutation({
     );
 
     return auditId;
+  },
+});
+
+/**
+ * Fires a session audit after a completed agent turn when the session has
+ * "Run audit" enabled. Idempotent version of `startSessionAudit` (no auth):
+ * called from the session workflow. Skips silently — WITHOUT inserting an audit
+ * row — when the toggle is off, no sandbox is available, an audit is already
+ * running for the session, or the repo has no enabled audit categories.
+ */
+export const maybeStartTurnAudit = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (session.runAuditEnabled !== true) return null;
+    if (!session.sandboxId) return null;
+
+    // Do not pile up audits: skip if one is already running for this session.
+    const existing = await ctx.db
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.sessionId))
+      .collect();
+    if (existing.some((a) => a.status === "running")) return null;
+
+    // Pre-check categories so a session with none configured does not write an
+    // errored audit row on every turn (unlike runSessionAudit, which fails).
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, session.repoId);
+    const enabledCategory = await ctx.db
+      .query("auditCategories")
+      .withIndex("by_repo_and_enabled", (q) =>
+        q.eq("repoId", canonicalId).eq("enabled", true),
+      )
+      .first();
+    if (enabledCategory === null) return null;
+
+    const auditId = await ctx.db.insert("audits", {
+      entityId: args.sessionId,
+      status: "running",
+      sections: [],
+      createdAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.daytona.runSessionAudit, {
+      sessionId: args.sessionId,
+      sandboxId: session.sandboxId,
+      auditId,
+      userId: args.userId,
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleAudit,
+      { auditId },
+    );
+
+    return null;
   },
 });
 

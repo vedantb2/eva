@@ -1,4 +1,5 @@
 import {
+  createParser,
   parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
@@ -72,9 +73,17 @@ const sandboxTabs = [
   "editor",
   "terminal",
   "desktop",
+  "diffs",
+  "files",
   "prd",
 ] as const;
 export type SandboxTab = (typeof sandboxTabs)[number];
+
+// Full sandbox path of the file open in the session File Viewer tab, persisted
+// in the URL so a viewed file survives reload and is shareable.
+export const fileViewerPathParser = parseAsString
+  .withDefault("")
+  .withOptions(searchOptions);
 
 export function isSessionSandboxTab(s: string): s is SandboxTab {
   return (sandboxTabs as readonly string[]).includes(s);
@@ -85,12 +94,38 @@ const taskRouteSandboxTabs = [
   "editor",
   "terminal",
   "desktop",
+  "diffs",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
 export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return (taskRouteSandboxTabs as readonly string[]).includes(s);
 }
+
+// Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
+const diffViews = ["unified", "split"] as const;
+export type DiffView = (typeof diffViews)[number];
+export const diffViewParser = parseAsStringLiteral(diffViews)
+  .withDefault("unified")
+  .withOptions(tabOptions);
+
+// Path of the file selected in the Diffs tab file tree, persisted in the URL so
+// the highlighted/scrolled-to file survives reload and is shareable.
+// Percent-encode so "/" never appears raw in the query string — nuqs leaves
+// slashes unencoded, which breaks TanStack path matching on sandbox tabs
+// (e.g. .../diffs?diffFile=apps/foo → invalid $sandboxTab → redirect to preview).
+export const diffFileParser = createParser({
+  parse: (value) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  },
+  serialize: (value) => encodeURIComponent(value),
+})
+  .withDefault("")
+  .withOptions(searchOptions);
 
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)
@@ -105,13 +140,6 @@ export const viewModeParser = parseAsStringLiteral(viewModes)
   .withDefault("desktop")
   .withOptions(tabOptions);
 
-const testingTabs = ["code", "ui"] as const;
-export type TestingArenaTab = (typeof testingTabs)[number];
-
-export function isTestingArenaTab(s: string): s is TestingArenaTab {
-  return (testingTabs as readonly string[]).includes(s);
-}
-
 const snapshotSettingsTabs = [
   "configuration",
   "status",
@@ -124,19 +152,14 @@ export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
   return (snapshotSettingsTabs as readonly string[]).includes(s);
 }
 
-const docViewerTabs = [
-  "description",
-  "content",
-  "requirements",
-  "user-flows",
-] as const;
+const docViewerTabs = ["content", "html"] as const;
 export type DocViewerTab = (typeof docViewerTabs)[number];
 
 export function isDocViewerTab(s: string): s is DocViewerTab {
   return (docViewerTabs as readonly string[]).includes(s);
 }
 
-export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "description";
+export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
 
 const docModes = ["editing", "suggesting", "viewing"] as const;
 export type DocMode = (typeof docModes)[number];
@@ -164,13 +187,13 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
-const docListFilters = ["all", "documents", "pr-recaps"] as const;
+const docListFilters = ["documents", "pr-recaps"] as const;
 export type DocListFilter = (typeof docListFilters)[number];
 export const docListFilterParser = parseAsStringLiteral(docListFilters)
-  .withDefault("all")
+  .withDefault("documents")
   .withOptions(searchOptions);
 
-export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "content";
+export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "html";
 
 const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)

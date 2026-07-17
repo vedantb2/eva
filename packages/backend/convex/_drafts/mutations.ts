@@ -21,15 +21,15 @@ export const set = authMutation({
       args.target,
     );
 
+    const existing = await findExisting();
+
     if (args.content.trim() === "") {
-      const existing = await findExisting();
       if (existing) {
         await ctx.db.delete(existing._id);
       }
       return null;
     }
 
-    const existing = await findExisting();
     if (existing) {
       await ctx.db.patch(existing._id, {
         content: args.content,

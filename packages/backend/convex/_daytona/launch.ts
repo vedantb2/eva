@@ -3,6 +3,7 @@
 import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
+import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
@@ -89,6 +90,25 @@ async function ensureCursorCliAvailable(sandbox: SandboxHandle): Promise<void> {
   );
 }
 
+/** Installs the CLI for the selected provider, if any, before launch. */
+function ensureProviderCliAvailable(
+  sandbox: SandboxHandle,
+  provider: AIProvider,
+): Promise<void> {
+  switch (provider) {
+    case "claude":
+      return ensureClaudeCliAvailable(sandbox);
+    case "codex":
+      return ensureCodexCliAvailable(sandbox);
+    case "opencode":
+      return ensureOpencodeCliAvailable(sandbox);
+    case "cursor":
+      return ensureCursorCliAvailable(sandbox);
+    default:
+      return Promise.resolve();
+  }
+}
+
 /** Uploads the bundled callback runner + fingerprint without starting a process. */
 export async function uploadCallbackScriptBundle(
   sandbox: SandboxHandle,
@@ -123,34 +143,26 @@ export async function launchScript(
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
-  const providerPrep: Promise<void> =
-    provider === "claude"
-      ? ensureClaudeCliAvailable(sandbox)
-      : provider === "codex"
-        ? ensureCodexCliAvailable(sandbox)
-        : provider === "opencode"
-          ? ensureOpencodeCliAvailable(sandbox)
-          : provider === "cursor"
-            ? ensureCursorCliAvailable(sandbox)
-            : Promise.resolve();
+  const providerPrep = ensureProviderCliAvailable(sandbox, provider);
+  function uploadWithTiming(
+    path: string,
+    content: string,
+    label: string,
+  ): Promise<void> {
+    return sandbox.writeFile(path, content).then(() => {
+      console.log(
+        `[daytona][launchScript] ${label} uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+    });
+  }
   const uploadTasks: Array<Promise<void>> = [
-    sandbox.writeFile("/tmp/design-prompt.txt", prompt).then(() => {
-      console.log(
-        `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-      );
-    }),
-    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT).then(() => {
-      console.log(
-        `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-      );
-    }),
-    sandbox
-      .writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT)
-      .then(() => {
-        console.log(
-          `[daytona][launchScript] callback fingerprint uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
+    uploadWithTiming("/tmp/design-prompt.txt", prompt, "prompt"),
+    uploadWithTiming("/tmp/run-design.mjs", CALLBACK_SCRIPT, "callback script"),
+    uploadWithTiming(
+      "/tmp/eva-callback-fp",
+      CALLBACK_SCRIPT_FINGERPRINT,
+      "callback fingerprint",
+    ),
   ];
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
@@ -166,11 +178,7 @@ export async function launchScript(
       },
     });
     uploadTasks.push(
-      sandbox.writeFile("/tmp/eva-mcp.json", mcpConfig).then(() => {
-        console.log(
-          `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
+      uploadWithTiming("/tmp/eva-mcp.json", mcpConfig, "MCP config"),
     );
   }
 

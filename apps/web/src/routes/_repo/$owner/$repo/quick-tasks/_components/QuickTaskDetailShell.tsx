@@ -39,7 +39,7 @@ export function QuickTaskDetailShell({
     handleNavigatePrev,
     handleNavigateNext,
     handleBack,
-  } = useQuickTaskNeighbors({ taskId, navSurface, detailTab, sandboxTab });
+  } = useQuickTaskNeighbors({ taskId, navSurface, sandboxTab });
 
   if (tasks === undefined) {
     return (
@@ -66,14 +66,9 @@ export function QuickTaskDetailShell({
                 className="text-muted-foreground/50 shrink-0"
               />
             </div>
-            {selectedTask?.taskNumber !== undefined || selectedTask?.title ? (
-              <span className="min-w-0 truncate font-semibold">
-                {selectedTask?.taskNumber !== undefined ? (
-                  <span className="mr-1 font-mono tabular-nums text-muted-foreground">
-                    #{selectedTask.taskNumber}
-                  </span>
-                ) : null}
-                {selectedTask?.title}
+            {selectedTask?.numId !== undefined ? (
+              <span className="min-w-0 truncate font-semibold font-mono tabular-nums text-muted-foreground">
+                #{selectedTask.numId}
               </span>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">

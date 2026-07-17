@@ -16,20 +16,22 @@ export function opencodeToolToStep(part: JsonObject): ProgressStep {
     !Array.isArray(stateObj.input)
       ? stateObj.input
       : {};
-  const path =
+  const rawPath =
     typeof input.filePath === "string"
-      ? shortenPath(input.filePath)
+      ? input.filePath
       : typeof input.file_path === "string"
-        ? shortenPath(input.file_path)
+        ? input.file_path
         : typeof input.path === "string"
-          ? shortenPath(input.path)
+          ? input.path
           : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (tool) {
     case "read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "glob":
@@ -51,6 +53,7 @@ export function opencodeToolToStep(part: JsonObject): ProgressStep {
         type: "write",
         label: "Creating file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "edit":
@@ -58,6 +61,7 @@ export function opencodeToolToStep(part: JsonObject): ProgressStep {
         type: "edit",
         label: "Editing file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "bash":
@@ -201,6 +205,7 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       type: "read",
       label: "Reading file...",
       detail: path || undefined,
+      path: rawPath || undefined,
       status: "active",
     };
   }
@@ -209,6 +214,7 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       type: "write",
       label: "Creating file...",
       detail: path || undefined,
+      path: rawPath || undefined,
       status: "active",
     };
   }
@@ -223,6 +229,7 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       type: "edit",
       label: "Editing file...",
       detail: path || undefined,
+      path: rawPath || undefined,
       status: "active",
     };
   }
@@ -231,6 +238,7 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       type: "edit",
       label: "Deleting file...",
       detail: path || undefined,
+      path: rawPath || undefined,
       status: "active",
     };
   }
@@ -311,16 +319,16 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
 
 /** Converts a Claude tool call into a UI progress step object. */
 export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
-  const path =
-    typeof input.file_path === "string"
-      ? shortenPath(String(input.file_path))
-      : "";
+  const rawPath =
+    typeof input.file_path === "string" ? String(input.file_path) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   switch (name) {
     case "Read":
       return {
         type: "read",
         label: "Reading file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "Glob":
@@ -344,6 +352,7 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
         type: "write",
         label: "Creating file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "Edit":
@@ -351,6 +360,7 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
         type: "edit",
         label: "Editing file...",
         detail: path || undefined,
+        path: rawPath || undefined,
         status: "active",
       };
     case "Bash":
@@ -394,6 +404,10 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
         detail:
           typeof input.notebook_path === "string"
             ? shortenPath(String(input.notebook_path))
+            : undefined,
+        path:
+          typeof input.notebook_path === "string"
+            ? String(input.notebook_path)
             : undefined,
         status: "active",
       };
@@ -553,6 +567,7 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
       type: "read",
       label: "Reading file...",
       detail: pathDetail || undefined,
+      path: pathValue || undefined,
       status: "active",
     };
   }
@@ -579,6 +594,7 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
       type: "write",
       label: "Creating file...",
       detail: pathDetail || undefined,
+      path: pathValue || undefined,
       status: "active",
     };
   }
@@ -591,6 +607,7 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
       type: "edit",
       label: "Editing file...",
       detail: pathDetail || undefined,
+      path: pathValue || undefined,
       status: "active",
     };
   }

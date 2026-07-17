@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { aiModelValidator } from "./aiModels";
+import {
+  aiModelValidator,
+  aiProviderValidator,
+  reasoningLevelValidator,
+} from "./aiModels";
 import {
   deploymentStatusValidator,
   docKindValidator,
@@ -27,9 +31,10 @@ import {
   automationFindingValidator,
   conversationMessageValidator,
   customThemeValidator,
-  evalResultValidator,
+  evalIssueValidator,
   logEntryValidator,
   terminalPaneValidator,
+  userFlowValidator,
   variationValidator,
 } from "./shapes";
 
@@ -50,6 +55,23 @@ export const userFields = {
   lastChangelogDismissedAt: v.optional(v.number()),
   onboardingCompletedAt: v.optional(v.number()),
   emailNotificationsEnabled: v.optional(v.boolean()),
+};
+
+// A user's own coding-agent login ("bring your own account"). Each row is one
+// account for one provider (e.g. a personal Claude Code OAuth token, a Cursor
+// API key). `credentials` holds the provider's auth env vars with values
+// encrypted at rest (see `encryption.ts`); the plaintext is only decrypted at
+// sandbox-launch time to override the shared team credential, so the user's own
+// usage bills to their account. Selected per session/task in the model picker.
+export const userProviderAccountFields = {
+  userId: v.id("users"),
+  provider: aiProviderValidator,
+  label: v.string(),
+  // Optional hex accent (e.g. "#2563eb") for the account's dot in the picker.
+  accentColor: v.optional(v.string()),
+  credentials: v.array(v.object({ key: v.string(), value: v.string() })),
+  createdAt: v.number(),
+  updatedAt: v.number(),
 };
 
 export const repoEntityTypeValidator = v.union(
@@ -88,12 +110,20 @@ export const agentTaskFields = {
   createdBy: v.id("users"),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),
+  // The user provider account whose credentials run this task (overriding the
+  // team credential). Absent = use the shared team credential. Resolved at
+  // launch in `signAndLaunchScript`.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   baseBranch: v.optional(v.string()),
   // Per-task override for the repo-level `screenshotsVideosEnabled` setting.
   // undefined = inherit repo. true = force on. false = force off. Resolved at
   // run time in `_taskWorkflow/queries.ts` (`getTaskData`) where the agent
   // prompt and sandbox env var are computed.
   screenshotsVideosEnabled: v.optional(v.boolean()),
+  // Per-task override for whether an audit runs after a successful run.
+  // undefined = inherit project -> default ("project tasks audit"). true =
+  // force on. false = force off. Resolved in `getTaskData` (`runAuditEnabled`).
+  runAuditEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
@@ -153,6 +183,10 @@ export const agentRunFields = {
   // changes" runs. Lets the timeline link a run to its comment explicitly
   // rather than guessing by timestamp.
   triggeringCommentId: v.optional(v.id("taskComments")),
+  // Snapshot of which credential powered this run ("Team" or the account
+  // label). Stored at insert so history stays readable if the account is
+  // renamed or deleted later.
+  credentialSourceLabel: v.optional(v.string()),
 };
 
 export const sessionFields = {
@@ -181,11 +215,21 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  // The user provider account chosen for this session's runs (overriding the
+  // team credential). Session-scoped so the page-open daemon prewarm — which
+  // has no per-message context — still injects the right account. Absent = team
+  // credential. Set by startExecute from the composer's picker.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  // Per-session switches toggled from the chat composer options menu. Absent =
+  // off. captureProofEnabled adds a proof-capture section to the agent-turn
+  // prompt; runAuditEnabled fires an audit after each successful agent turn.
+  captureProofEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
   // Daemon-pull turn dispatch: startExecute writes the built prompt here and the
   // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
   // the workflow's durable step queue. Absent between turns.
@@ -196,6 +240,9 @@ export const sessionFields = {
       turnKind: v.optional(
         v.union(v.literal("conversational"), v.literal("agent")),
       ),
+      // Input image attachments for this turn; the daemon downloads these and
+      // hands the agent local file paths when it claims the turn.
+      attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     }),
   ),
 };
@@ -283,6 +330,21 @@ export const githubRepoFields = {
   systemPrompt: v.optional(v.string()),
   prRecapsEnabled: v.optional(v.boolean()),
   prRecapModel: v.optional(aiModelValidator),
+  // Convex storage id of an uploaded logo image shown next to the repo in repo
+  // lists. Per-app (not shared across monorepo siblings). Resolved to a URL by
+  // list/listByTeam via ctx.storage.getUrl.
+  logoStorageId: v.optional(v.id("_storage")),
+};
+
+/** Eva team (personal or shared). Logo is resolved to `logoUrl` in list/get. */
+export const teamFields = {
+  name: v.string(),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  isPersonal: v.optional(v.boolean()),
+  // Convex storage id of an uploaded team icon. Resolved to a URL by
+  // teams.list / teams.get / users.listTeamWithMembers via ctx.storage.getUrl.
+  logoStorageId: v.optional(v.id("_storage")),
 };
 
 export const projectFields = {
@@ -312,6 +374,10 @@ export const projectFields = {
     v.union(v.literal("interview"), v.literal("tasks_only")),
   ),
   priority: v.optional(priorityValidator),
+  // Per-project tri-state defaults inherited by member tasks (task override
+  // wins). undefined = inherit repo/global default. Resolved in `getTaskData`.
+  screenshotsVideosEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),
@@ -332,6 +398,9 @@ export const projectFields = {
   codeReviewer: v.optional(v.id("users")),
   tags: v.optional(v.array(v.string())),
   model: v.optional(aiModelValidator),
+  // Whose credential this project's model preference is tied to (null/absent =
+  // team). Mirrors agentTasks.providerAccountId for the project metadata picker.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
 };
 
 export const projectDetailsFields = {
@@ -402,7 +471,13 @@ export const messageFields = {
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  // User-attached input images (pasted/dropped in the composer), stored via
+  // Convex file storage. Delivered to the agent as files it can read.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   pendingQuestion: v.optional(v.string()),
+  // Snapshot of which credential powered this chat turn ("Team" or the
+  // account label). Set on user messages at send/dequeue time.
+  credentialSourceLabel: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {
@@ -414,12 +489,22 @@ export const queuedMessageFields = {
   ),
   content: v.string(),
   createdAt: v.number(),
+  // Sort key for queue run order. Enqueue sets Date.now() (appends to the end);
+  // the reorder mutation rewrites this to 0-based positions. Optional so the
+  // field deploys without a migration; legacy rows without it sort first.
+  order: v.optional(v.number()),
   userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
+  // Carried alongside `model` so a queued message runs on the same user account
+  // that was selected when it was enqueued.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  reasoningLevel: v.optional(reasoningLevelValidator),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),
+  // Carried from the composer through the queue to the started user message.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
 };
 
 export const taskSandboxEventFields = {
@@ -501,6 +586,8 @@ export const docFields = {
   sessionId: v.optional(v.id("sessions")),
   title: v.string(),
   content: v.string(),
+  // Stored HTML for the doc's HTML tab; rendered read-only in an iframe.
+  html: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   prNumber: v.optional(v.number()),
   headSha: v.optional(v.string()),
@@ -508,9 +595,7 @@ export const docFields = {
   prRecapError: v.optional(v.string()),
   pendingAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   description: v.optional(v.string()),
-  userFlows: v.optional(
-    v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
-  ),
+  userFlows: v.optional(v.array(userFlowValidator)),
   requirements: v.optional(v.array(v.string())),
   interviewHistory: v.optional(
     v.array(
@@ -530,6 +615,8 @@ export const docFields = {
   testPrUrl: v.optional(v.string()),
   contentUpdatedAt: v.optional(v.number()),
   lastParsedAt: v.optional(v.number()),
+  /** Set on create going forward; optional so legacy docs need no backfill. */
+  createdBy: v.optional(v.id("users")),
   createdAt: v.number(),
   updatedAt: v.number(),
 };
@@ -612,7 +699,8 @@ export const evaluationReportFields = {
   repoId: v.id("githubRepos"),
   docId: v.id("docs"),
   status: evaluationStatusValidator,
-  results: v.array(evalResultValidator),
+  // Severity-ranked issues flagged against the document.
+  issues: v.optional(v.array(evalIssueValidator)),
   summary: v.optional(v.string()),
   error: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
@@ -656,4 +744,17 @@ export const artifactFields = {
   htmlStorageId: v.id("_storage"),
   uploadedBy: v.id("users"),
   createdAt: v.number(),
+};
+
+// A user-defined sandbox tab for an app (a `githubRepos` row). Points at a port
+// inside the sandbox, resolved through the same auth proxy as the Preview tab.
+// `icon` is a free-text Tabler icon name (e.g. "IconBolt"); unknown names fall
+// back to a placeholder at render. `order` sorts tabs within the app's list.
+export const appTabFields = {
+  repoId: v.id("githubRepos"),
+  name: v.string(),
+  icon: v.string(),
+  port: v.number(),
+  enabled: v.boolean(),
+  order: v.number(),
 };

@@ -21,12 +21,8 @@ export const revealValue = action({
       internal.teamEnvVars.getAllInternal,
       { teamId: args.teamId },
     );
-    for (const entry of vars) {
-      if (entry.key === args.key) {
-        return decryptValue(entry.value);
-      }
-    }
-    return null;
+    const entry = vars.find((v) => v.key === args.key);
+    return entry ? decryptValue(entry.value) : null;
   },
 });
 

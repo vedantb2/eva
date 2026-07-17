@@ -53,12 +53,13 @@ function groupByDate(notifications: Notification[]) {
     else if (d.isSame(now, "week")) label = d.format("dddd");
     else label = d.format("MMMM D, YYYY");
 
-    if (!map.has(label)) {
-      const items: Notification[] = [];
+    let items = map.get(label);
+    if (!items) {
+      items = [];
       map.set(label, items);
       groups.push({ label, items });
     }
-    map.get(label)!.push(n);
+    items.push(n);
   }
   return groups;
 }
@@ -175,7 +176,7 @@ export function InboxClient() {
         <div className="flex items-center justify-center py-20">
           <Spinner />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : groups === undefined || groups.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <EmptyState
             icon={<IconInbox size={24} className="text-muted-foreground" />}
@@ -190,7 +191,7 @@ export function InboxClient() {
       ) : (
         <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
           <AnimatePresence initial={false}>
-            {groups!.map((group) => (
+            {groups.map((group) => (
               <motion.div
                 key={group.label}
                 initial={{ opacity: 0 }}
@@ -224,7 +225,7 @@ export function InboxClient() {
                             <span className="h-2 w-2 rounded-full bg-primary" />
                           )}
                         </div>
-                        <NotificationIcon type={n.type} size="sm" />
+                        <NotificationIcon notification={n} size="sm" />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-xs font-medium sm:text-sm">
                             {n.title}

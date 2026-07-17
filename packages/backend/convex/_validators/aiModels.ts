@@ -27,17 +27,41 @@ export const aiModelValidator = v.union(
   v.literal("opencode:openai/gpt-5.3-codex"),
   v.literal("opencode:openai/gpt-5.4"),
   v.literal("opencode:openai/gpt-5.4-mini"),
-  v.literal("cursor:claude-4.6-sonnet-medium-thinking"),
-  v.literal("cursor:claude-opus-4-7-thinking-high"),
-  v.literal("cursor:claude-4.6-opus-high-thinking"),
-  v.literal("cursor:claude-4.5-opus-high-thinking"),
+  v.literal("cursor:grok-4.5-low"),
+  v.literal("cursor:grok-4.5-medium"),
+  v.literal("cursor:grok-4.5-high"),
   v.literal("cursor:gpt-5.5-high"),
-  v.literal("cursor:gpt-5.4-high"),
-  v.literal("cursor:gpt-5.3-codex-high"),
   v.literal("cursor:gemini-3.1-pro"),
   v.literal("cursor:composer-2"),
   v.literal("cursor:composer-2.5"),
 );
+
+/**
+ * Abstract, provider-neutral reasoning effort levels shown on the chat input
+ * lever. A single level is threaded to the sandbox as the `AI_REASONING_EFFORT`
+ * env var and mapped to each provider's native control in the callback runner
+ * (`callback-src/config.ts`): Claude -> `MAX_THINKING_TOKENS`, Codex ->
+ * `model_reasoning_effort`. Only Claude and Codex expose a runtime lever, so the
+ * UI hides it for other providers (see `providerSupportsReasoning`).
+ */
+export const REASONING_LEVELS = [
+  "off",
+  "low",
+  "medium",
+  "high",
+  "max",
+] as const;
+export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+export const reasoningLevelValidator = v.union(
+  v.literal("off"),
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("max"),
+);
+
+export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
@@ -58,13 +82,10 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:claude-4.6-sonnet-medium-thinking"
-  | "cursor:claude-opus-4-7-thinking-high"
-  | "cursor:claude-4.6-opus-high-thinking"
-  | "cursor:claude-4.5-opus-high-thinking"
+  | "cursor:grok-4.5-low"
+  | "cursor:grok-4.5-medium"
+  | "cursor:grok-4.5-high"
   | "cursor:gpt-5.5-high"
-  | "cursor:gpt-5.4-high"
-  | "cursor:gpt-5.3-codex-high"
   | "cursor:gemini-3.1-pro"
   | "cursor:composer-2"
   | "cursor:composer-2.5";
@@ -179,45 +200,27 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-sonnet-medium-thinking",
+    id: "cursor:grok-4.5-low",
     provider: "cursor",
-    label: "Claude Sonnet 4.6 Thinking",
+    label: "Grok 4.5 Low",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-opus-4-7-thinking-high",
+    id: "cursor:grok-4.5-medium",
     provider: "cursor",
-    label: "Claude Opus 4.7 High Thinking",
+    label: "Grok 4.5 Medium",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-opus-high-thinking",
+    id: "cursor:grok-4.5-high",
     provider: "cursor",
-    label: "Claude Opus 4.6 High Thinking",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:claude-4.5-opus-high-thinking",
-    provider: "cursor",
-    label: "Claude Opus 4.5 High Thinking",
+    label: "Grok 4.5 High",
     requiresAuth: true,
   },
   {
     id: "cursor:gpt-5.5-high",
     provider: "cursor",
     label: "GPT-5.5 High",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:gpt-5.4-high",
-    provider: "cursor",
-    label: "GPT-5.4 High",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:gpt-5.3-codex-high",
-    provider: "cursor",
-    label: "GPT-5.3 Codex High",
     requiresAuth: true,
   },
   {
@@ -240,15 +243,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
   },
 ];
 
-export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
-  "claude:opus",
-  "claude:sonnet",
-  "claude:haiku",
-  "claude:opusplan",
-  "claude:claude-opus-4-5-20251101",
-  "claude:claude-opus-4-6",
-  "claude:claude-fable-5",
-];
+export const CLAUDE_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "claude",
+).map((option) => option.id);
 export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "codex",
 ).map((option) => option.id);
@@ -274,6 +271,18 @@ export const OPENCODE_AUTH_ENV_KEYS: ReadonlyArray<string> = [
   "OPENCODE_AUTH_JSON_BASE64",
 ];
 export const CURSOR_AUTH_ENV_KEYS: ReadonlyArray<string> = ["CURSOR_API_KEY"];
+
+/**
+ * The canonical auth env-var key per provider. Used to mark a provider
+ * "available" when a user has their own account for it, and as the primary
+ * credential field in the Accounts UI.
+ */
+export const PROVIDER_PRIMARY_AUTH_KEY: Record<AIProvider, string> = {
+  claude: "CLAUDE_CODE_OAUTH_TOKEN",
+  codex: "CODEX_AUTH_JSON",
+  opencode: "OPENCODE_AUTH_JSON",
+  cursor: "CURSOR_API_KEY",
+};
 
 /** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
@@ -330,19 +339,22 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "opencode:openai/gpt-5.4-mini":
       return "opencode:openai/gpt-5.4-mini";
     case "cursor:claude-4.6-sonnet-medium-thinking":
-      return "cursor:claude-4.6-sonnet-medium-thinking";
+      return "cursor:grok-4.5-medium";
     case "cursor:claude-opus-4-7-thinking-high":
-      return "cursor:claude-opus-4-7-thinking-high";
     case "cursor:claude-4.6-opus-high-thinking":
-      return "cursor:claude-4.6-opus-high-thinking";
     case "cursor:claude-4.5-opus-high-thinking":
-      return "cursor:claude-4.5-opus-high-thinking";
+    case "cursor:gpt-5.4-high":
+      return "cursor:grok-4.5-high";
+    case "cursor:gpt-5.3-codex-high":
+      return "cursor:composer-2.5";
+    case "cursor:grok-4.5-low":
+      return "cursor:grok-4.5-low";
+    case "cursor:grok-4.5-medium":
+      return "cursor:grok-4.5-medium";
+    case "cursor:grok-4.5-high":
+      return "cursor:grok-4.5-high";
     case "cursor:gpt-5.5-high":
       return "cursor:gpt-5.5-high";
-    case "cursor:gpt-5.4-high":
-      return "cursor:gpt-5.4-high";
-    case "cursor:gpt-5.3-codex-high":
-      return "cursor:gpt-5.3-codex-high";
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":
@@ -365,6 +377,15 @@ export function getAIModelProvider(
   if (normalized.startsWith("opencode:")) return "opencode";
   if (normalized.startsWith("cursor:")) return "cursor";
   return "claude";
+}
+
+/**
+ * Whether a provider exposes a runtime reasoning-effort lever. Cursor bakes
+ * reasoning into the model id (e.g. `cursor:...-high-thinking`) and Opencode has
+ * no runtime control, so the chat input hides the lever for them.
+ */
+export function providerSupportsReasoning(provider: AIProvider): boolean {
+  return provider === "claude" || provider === "codex";
 }
 
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */

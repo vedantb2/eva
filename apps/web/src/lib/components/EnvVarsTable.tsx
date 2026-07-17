@@ -33,9 +33,11 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
+import { EnvVarProviderSlots } from "@/lib/components/EnvVarProviderSlots";
 import { parseEnvVars } from "./_utils/parseEnvVars";
+import { KNOWN_ENV_VAR_KEYS } from "./_utils/knownEnvVars";
 
-interface EnvVar {
+export interface EnvVar {
   key: string;
   value: string;
   sandboxExclude: boolean;
@@ -200,13 +202,16 @@ export function EnvVarsTable({
   };
 
   const parsedPreview = parseEnvVars(bulkText);
-  const sandboxVars = (vars?.filter((v) => !v.sandboxExclude) ?? []).sort(
-    (a, b) => a.key.localeCompare(b.key),
-  );
-  const excludedVars = (vars?.filter((v) => v.sandboxExclude) ?? []).sort(
-    (a, b) => a.key.localeCompare(b.key),
-  );
-  const showTable = (vars && vars.length > 0) || adding;
+  // Known agent-auth keys are surfaced in the provider slots above, so keep
+  // them out of the free-form table to avoid showing them twice.
+  const freeformVars = vars?.filter((v) => !KNOWN_ENV_VAR_KEYS.has(v.key));
+  const sandboxVars = (
+    freeformVars?.filter((v) => !v.sandboxExclude) ?? []
+  ).sort((a, b) => a.key.localeCompare(b.key));
+  const excludedVars = (
+    freeformVars?.filter((v) => v.sandboxExclude) ?? []
+  ).sort((a, b) => a.key.localeCompare(b.key));
+  const showTable = (freeformVars && freeformVars.length > 0) || adding;
 
   const renderRow = (v: EnvVar) => (
     <TableRow key={v.key}>
@@ -423,6 +428,20 @@ export function EnvVarsTable({
           </div>
         )}
       </div>
+      {vars !== undefined && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Coding agents
+          </p>
+          <EnvVarProviderSlots
+            vars={vars}
+            onUpsert={onUpsert}
+            onReveal={onReveal}
+            onRemove={onRemove}
+            readOnly={readOnly}
+          />
+        </div>
+      )}
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
@@ -430,7 +449,7 @@ export function EnvVarsTable({
       ) : !showTable ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <IconKey size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">No environment variables configured</p>
+          <p className="text-sm">No other environment variables configured</p>
         </div>
       ) : (
         <div className="space-y-6">

@@ -7,13 +7,16 @@ import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
+  reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
+  taskSandboxStatusValidator,
 } from "./validators";
 import {
   recordCompletionLog,
   sendCompletionEvent,
   clearStreamingActivity,
+  resolveTaskBranchName,
 } from "./_taskWorkflow/helpers";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
 import {
@@ -21,9 +24,9 @@ import {
   TASK_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
-import { resolveTaskBranchName } from "./_taskWorkflow/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
@@ -41,6 +44,8 @@ export const addMessage = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     content: v.string(),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -58,6 +63,12 @@ export const addMessage = authMutation({
       content: args.content,
       timestamp: Date.now(),
       userId: ctx.userId,
+      attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        args.providerAccountId,
+        ctx.userId,
+      ),
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -70,6 +81,8 @@ export const startExecute = authMutation({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -89,6 +102,8 @@ export const startExecute = authMutation({
         taskId: args.taskId,
         message: args.message,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        providerAccountId: args.providerAccountId,
         userId: ctx.userId,
       },
     );
@@ -104,6 +119,9 @@ export const enqueueMessage = authMutation({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -123,8 +141,12 @@ export const enqueueMessage = authMutation({
       parentId: args.taskId,
       content,
       createdAt: Date.now(),
+      order: Date.now(),
       userId: ctx.userId,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
+      providerAccountId: args.providerAccountId,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -199,6 +221,8 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -241,6 +265,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
+        sandboxRunning: data.sandboxStatus === "active",
       });
     } catch (error) {
       await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
@@ -295,10 +320,13 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       entityIdField: "taskId",
       model: data.model,
+      reasoningLevel: args.reasoningLevel,
+      providerAccountId: args.providerAccountId,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,
       streamingEntityId,
+      attachmentStorageIds: data.attachmentStorageIds,
     });
 
     const result = await step.awaitEvent(agentTaskChatCompleteEvent);
@@ -369,6 +397,7 @@ export const getChatData = internalQuery({
   returns: v.object({
     sandboxId: v.optional(v.string()),
     vercelSandboxId: v.optional(v.string()),
+    sandboxStatus: v.optional(taskSandboxStatusValidator),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -376,6 +405,7 @@ export const getChatData = internalQuery({
     branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -384,6 +414,14 @@ export const getChatData = internalQuery({
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    // Input images the composer attached to the triggering user message.
+    const triggeringUserMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("role"), "user"))
+      .first();
 
     const user = await ctx.db.get(args.userId);
     const customInstructionsBlock = buildCustomInstructionsBlock(
@@ -420,6 +458,7 @@ export const getChatData = internalQuery({
     return {
       sandboxId: task.sandboxId,
       vercelSandboxId: task.vercelSandboxId,
+      sandboxStatus: task.reviewTaskSandboxStatus,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: task.repoId,
@@ -427,6 +466,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
+      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
   },
 });

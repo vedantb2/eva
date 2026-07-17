@@ -62,11 +62,13 @@ export async function clearStreamingActivity(
   ctx: MutationCtx,
   entityId: string,
 ): Promise<void> {
-  const streaming = await ctx.db
+  const streamingRows = await ctx.db
     .query("streamingActivity")
     .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-    .first();
-  if (streaming) await ctx.db.delete(streaming._id);
+    .collect();
+  for (const streaming of streamingRows) {
+    await ctx.db.delete(streaming._id);
+  }
 }
 
 /** Creates or updates the streaming activity record for a given entity. */
@@ -81,11 +83,7 @@ export async function upsertStreamingActivity(
     .first();
   const now = Date.now();
   if (existing) {
-    if (existing.currentActivity !== currentActivity) {
-      await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
-    } else {
-      await ctx.db.patch(existing._id, { lastUpdatedAt: now });
-    }
+    await ctx.db.patch(existing._id, { currentActivity, lastUpdatedAt: now });
   } else {
     await ctx.db.insert("streamingActivity", {
       entityId,

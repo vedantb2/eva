@@ -169,6 +169,41 @@ process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
 
+// --- Reasoning / thinking effort ---
+// `AI_REASONING_EFFORT` is the abstract, provider-neutral level set on the chat
+// input lever (off|low|medium|high|max). Each provider is configured from it:
+//   - Claude: MAX_THINKING_TOKENS env (read by the CLI and the Agent SDK alike).
+//   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
+// Providers without a runtime lever (Cursor, Opencode) ignore it entirely.
+export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+
+const CLAUDE_THINKING_BUDGET: Record<string, string> = {
+  off: "0",
+  low: "4000",
+  medium: "10000",
+  high: "24000",
+  max: "31999",
+};
+
+const CODEX_REASONING_EFFORT: Record<string, string> = {
+  off: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  max: "high",
+};
+
+// Set the Claude thinking budget at module load so the spawned CLI child (which
+// inherits process.env) and the Agent SDK (which spreads process.env into its
+// options) both pick it up. Unset level => leave the model's own default alone.
+if (PROVIDER === "claude" && CLAUDE_THINKING_BUDGET[REASONING_EFFORT]) {
+  process.env.MAX_THINKING_TOKENS = CLAUDE_THINKING_BUDGET[REASONING_EFFORT];
+}
+
+// Resolved Codex reasoning effort (empty when unset or not Codex).
+export const codexReasoningEffort =
+  PROVIDER === "codex" ? (CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "") : "";
+
 export const toolsArg = ALLOWED_TOOLS
   ? '--allowedTools "' + ALLOWED_TOOLS + '"'
   : "";

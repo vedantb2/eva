@@ -8,8 +8,8 @@ import {
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
-import type { JsonObject, SessionMode } from "../types.js";
-import { copyFileIfPresent, tryParseJson } from "../utils.js";
+import type { SessionMode } from "../types.js";
+import { tryParseJson } from "../utils.js";
 import { createSessionStore } from "./createSessionStore.js";
 
 const store = createSessionStore({

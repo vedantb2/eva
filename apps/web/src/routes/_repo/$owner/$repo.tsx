@@ -14,11 +14,11 @@ export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,
 });
 
-function MainContent({ children }: { children: React.ReactNode }) {
+function MainContent({ children: _children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   return (
     <div
-      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}
+      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-36" : "lg:pl-80"}`}
     >
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <div

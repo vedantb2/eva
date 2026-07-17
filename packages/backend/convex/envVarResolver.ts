@@ -4,6 +4,7 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { decryptValue } from "./encryption";
+import { getAIModelProvider } from "./validators";
 import type {
   SandboxCredentials,
   SandboxProviderKind,
@@ -87,18 +88,6 @@ export async function resolveDaytonaApiKey(
   return { daytonaApiKey, sandboxEnvVars: sandboxVars };
 }
 
-/**
- * Reads the active sandbox provider for a repo from the `SANDBOX_PROVIDER`
- * env var (team or repo scope). Defaults to `daytona` so nothing changes until
- * a repo/team explicitly opts into `vercel`. Any unrecognised value falls back
- * to daytona rather than throwing — the flag should never take a repo offline.
- */
-function readProviderKind(
-  allVars: Record<string, string>,
-): SandboxProviderKind {
-  return allVars.SANDBOX_PROVIDER === "vercel" ? "vercel" : "daytona";
-}
-
 /** All repos in the same codebase (owner/name), requested repo first. */
 async function listMonorepoRepoIds(
   ctx: GenericActionCtx<DataModel>,
@@ -174,31 +163,61 @@ export async function resolveSandboxProviderKind(
   return "daytona";
 }
 
-const CREDENTIAL_ENV_KEYS = [
-  "SANDBOX_PROVIDER",
-  "VERCEL_TOKEN",
-  "VERCEL_TEAM_ID",
-  "VERCEL_PROJECT_ID",
-  "DAYTONA_API_KEY",
-] as const;
-
 /**
- * Decrypts only provider credential keys from an encrypted env-var list.
- * Kickoff/thaw must not pay for decrypting the full team+repo env map.
+ * Collects Vercel token/team from the target repo and monorepo siblings, but
+ * VERCEL_PROJECT_ID only from the target repo. Sibling apps often share token +
+ * team via team env vars, while each app has its own Vercel project — borrowing
+ * a sibling's project id creates sandboxes under the wrong app.
  */
-function decryptCredentialKeys(
-  vars: Array<{ key: string; value: string }>,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const entry of vars) {
-    for (const key of CREDENTIAL_ENV_KEYS) {
-      if (entry.key === key) {
-        out[key] = decryptValue(entry.value);
-        break;
-      }
+async function resolveVercelCredentialsForRepo(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<Extract<SandboxCredentials, { kind: "vercel" }>> {
+  const targetVars = await resolveAllEnvVars(ctx, repoId);
+  const projectId = targetVars.VERCEL_PROJECT_ID;
+  let token = targetVars.VERCEL_TOKEN;
+  let teamId = targetVars.VERCEL_TEAM_ID;
+
+  if (!token || !teamId) {
+    const repoIds = await listMonorepoRepoIds(ctx, repoId);
+    for (const siblingId of repoIds) {
+      if (siblingId === repoId) continue;
+      const siblingVars = await resolveAllEnvVars(ctx, siblingId);
+      token = token ?? siblingVars.VERCEL_TOKEN;
+      teamId = teamId ?? siblingVars.VERCEL_TEAM_ID;
+      if (token && teamId) break;
     }
   }
-  return out;
+
+  if (!token || !teamId || !projectId) {
+    const missing: string[] = [];
+    if (!token) missing.push("VERCEL_TOKEN");
+    if (!teamId) missing.push("VERCEL_TEAM_ID");
+    if (!projectId) missing.push("VERCEL_PROJECT_ID");
+    throw new Error(
+      `SANDBOX_PROVIDER=vercel requires ${missing.join(", ")}. ` +
+        `VERCEL_PROJECT_ID must be set on this app repo (not borrowed from a sibling).`,
+    );
+  }
+  return { kind: "vercel", token, teamId, projectId };
+}
+
+/**
+ * Finds a DAYTONA_API_KEY across the target repo and its monorepo siblings
+ * (target first). Returns the key and the repo it came from, or null if none
+ * of the repos define it. Callers own their own logging/throwing.
+ */
+async function findDaytonaApiKey(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<{ apiKey: string; credentialRepoId: Id<"githubRepos"> } | null> {
+  const repoIds = await listMonorepoRepoIds(ctx, repoId);
+  for (const credentialRepoId of repoIds) {
+    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
+    const apiKey = allVars.DAYTONA_API_KEY;
+    if (apiKey) return { apiKey, credentialRepoId };
+  }
+  return null;
 }
 
 /**
@@ -210,59 +229,22 @@ export async function resolveSandboxCredentialsOnly(
   repoId: Id<"githubRepos">,
 ): Promise<SandboxCredentials> {
   const startedAt = Date.now();
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  let sawVercelFlag = false;
+  const kind = await resolveSandboxProviderKind(ctx, repoId);
 
-  for (const credentialRepoId of repoIds) {
-    const [teamId, repoVarsRaw] = await Promise.all([
-      ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
-        repoId: credentialRepoId,
-      }),
-      ctx.runQuery(internal.repoEnvVars.getAllInternal, {
-        repoId: credentialRepoId,
-      }),
-    ]);
-    const teamVars: Record<string, string> = {};
-    if (teamId) {
-      const vars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
-        teamId,
-      });
-      Object.assign(teamVars, decryptCredentialKeys(vars));
-    }
-    const allVars = {
-      ...teamVars,
-      ...decryptCredentialKeys(repoVarsRaw),
-    };
-    if (readProviderKind(allVars) === "vercel") {
-      sawVercelFlag = true;
-      const token = allVars.VERCEL_TOKEN;
-      const vercelTeamId = allVars.VERCEL_TEAM_ID;
-      const projectId = allVars.VERCEL_PROJECT_ID;
-      if (!token || !vercelTeamId || !projectId) {
-        continue;
-      }
-      console.log(
-        `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=vercel credentialRepoId=${credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
-      );
-      return { kind: "vercel", token, teamId: vercelTeamId, projectId };
-    }
-  }
-
-  if (sawVercelFlag) {
-    throw new Error(
-      "SANDBOX_PROVIDER=vercel is set on this monorepo but VERCEL_TOKEN, VERCEL_TEAM_ID, and VERCEL_PROJECT_ID are not all configured on the same repo or team.",
+  if (kind === "vercel") {
+    const credentials = await resolveVercelCredentialsForRepo(ctx, repoId);
+    console.log(
+      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=vercel projectId=${credentials.projectId} elapsed=${Date.now() - startedAt}ms`,
     );
+    return credentials;
   }
 
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    const apiKey = allVars.DAYTONA_API_KEY;
-    if (apiKey) {
-      console.log(
-        `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona credentialRepoId=${credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
-      );
-      return { kind: "daytona", apiKey };
-    }
+  const daytona = await findDaytonaApiKey(ctx, repoId);
+  if (daytona) {
+    console.log(
+      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona credentialRepoId=${daytona.credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
+    );
+    return { kind: "daytona", apiKey: daytona.apiKey };
   }
 
   throw new Error(
@@ -276,9 +258,9 @@ export async function resolveSandboxCredentialsOnly(
  * the provider factory uses to pick Daytona vs Vercel; existing callers that
  * only need Daytona keep using {@link resolveDaytonaApiKey}.
  *
- * Throws only when the SELECTED provider's credentials are missing — e.g. a
- * repo flagged `vercel` without `VERCEL_TOKEN` — so a misconfigured flag fails
- * loudly at that repo rather than silently using the wrong backend.
+ * Provider kind may inherit from monorepo siblings (`SANDBOX_PROVIDER`), but
+ * `VERCEL_PROJECT_ID` always comes from the target app repo so eprocurement
+ * never creates sandboxes under apps/web's Vercel project.
  */
 export async function resolveSandboxCredentials(
   ctx: GenericActionCtx<DataModel>,
@@ -288,44 +270,64 @@ export async function resolveSandboxCredentials(
   sandboxEnvVars: Record<string, string>;
 }> {
   const sandboxEnvVars = await resolveEnvVars(ctx, repoId);
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  let sawVercelFlag = false;
+  const kind = await resolveSandboxProviderKind(ctx, repoId);
 
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    if (readProviderKind(allVars) === "vercel") {
-      sawVercelFlag = true;
-      const token = allVars.VERCEL_TOKEN;
-      const teamId = allVars.VERCEL_TEAM_ID;
-      const projectId = allVars.VERCEL_PROJECT_ID;
-      if (!token || !teamId || !projectId) {
-        continue;
-      }
-      return {
-        credentials: { kind: "vercel", token, teamId, projectId },
-        sandboxEnvVars,
-      };
-    }
+  if (kind === "vercel") {
+    return {
+      credentials: await resolveVercelCredentialsForRepo(ctx, repoId),
+      sandboxEnvVars,
+    };
   }
 
-  if (sawVercelFlag) {
-    throw new Error(
-      "SANDBOX_PROVIDER=vercel is set on this monorepo but VERCEL_TOKEN, VERCEL_TEAM_ID, and VERCEL_PROJECT_ID are not all configured on the same repo or team.",
-    );
-  }
-
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    const apiKey = allVars.DAYTONA_API_KEY;
-    if (apiKey) {
-      return {
-        credentials: { kind: "daytona", apiKey },
-        sandboxEnvVars,
-      };
-    }
+  const daytona = await findDaytonaApiKey(ctx, repoId);
+  if (daytona) {
+    return {
+      credentials: { kind: "daytona", apiKey: daytona.apiKey },
+      sandboxEnvVars,
+    };
   }
 
   throw new Error(
     "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
   );
+}
+
+/**
+ * Resolves the decrypted credential env vars for a user's selected provider
+ * account, used to override the shared team credential at launch so the user's
+ * own agent usage bills to their account.
+ *
+ * Returns an empty map (caller falls back to the team credential) when the
+ * account is missing, not owned by the requesting user, or does not match the
+ * selected model's provider. A mismatch must never break the run, so these
+ * cases log and degrade rather than throw.
+ */
+export async function resolveProviderAccountCredentials(
+  ctx: GenericActionCtx<DataModel>,
+  accountId: Id<"userProviderAccounts">,
+  userId: Id<"users">,
+  model: string | undefined,
+): Promise<Record<string, string>> {
+  const account = await ctx.runQuery(
+    internal.userProviderAccounts.getByIdInternal,
+    { accountId },
+  );
+  if (!account || account.userId !== userId) {
+    console.warn(
+      `[env] resolveProviderAccountCredentials: account ${accountId} missing or not owned by user ${userId} — falling back to team credential`,
+    );
+    return {};
+  }
+  const modelProvider = getAIModelProvider(model);
+  if (account.provider !== modelProvider) {
+    console.warn(
+      `[env] resolveProviderAccountCredentials: account provider ${account.provider} does not match model provider ${modelProvider} — falling back to team credential`,
+    );
+    return {};
+  }
+  const resolved: Record<string, string> = {};
+  for (const entry of account.credentials) {
+    resolved[entry.key] = decryptValue(entry.value);
+  }
+  return resolved;
 }

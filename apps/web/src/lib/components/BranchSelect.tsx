@@ -12,6 +12,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  cn,
 } from "@conductor/ui";
 import {
   IconGitBranch,
@@ -21,7 +22,6 @@ import {
 } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useBranches } from "@/lib/hooks/useBranches";
-import { cn } from "@conductor/ui";
 
 interface BranchSelectProps {
   value: string;

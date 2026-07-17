@@ -1,9 +1,12 @@
+import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { motion } from "motion/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { repoHref } from "@/lib/utils/repoUrl";
+import { RepoLogo } from "@/lib/components/RepoLogo";
+import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import {
   Card,
   CardContent,
@@ -17,6 +20,8 @@ import {
   IconPlugConnectedX,
   IconFolders,
   IconEyeOff,
+  IconPhoto,
+  IconPhotoOff,
 } from "@tabler/icons-react";
 
 export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -42,6 +47,14 @@ export function RepoCard({
       );
     }
   });
+  const { uploadLogo, removeLogo } = useRepoLogoUpload();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) uploadLogo(repo._id, file);
+  };
   return (
     <motion.div
       key={repo._id}
@@ -62,12 +75,18 @@ export function RepoCard({
             >
               <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
                 <CardContent className="flex items-center gap-3 p-3">
-                  <IconBrandGithub
-                    size={20}
-                    className={
-                      repo.connected === false
-                        ? "text-destructive/60"
-                        : "text-muted-foreground"
+                  <RepoLogo
+                    logoUrl={repo.logoUrl}
+                    size={28}
+                    fallback={
+                      <IconBrandGithub
+                        size={28}
+                        className={
+                          repo.connected === false
+                            ? "text-destructive/60"
+                            : "text-muted-foreground"
+                        }
+                      />
                     }
                   />
                   <div className="min-w-0 flex-1">
@@ -98,6 +117,16 @@ export function RepoCard({
             <IconFolders size={16} />
             Manage apps
           </ContextMenuItem>
+          <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
+            <IconPhoto size={16} />
+            {repo.logoUrl ? "Change logo" : "Set logo"}
+          </ContextMenuItem>
+          {repo.logoUrl && (
+            <ContextMenuItem onClick={() => removeLogo(repo._id)}>
+              <IconPhotoOff size={16} />
+              Remove logo
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             onClick={() => toggleHidden({ repoId: repo._id, hidden: true })}
           >
@@ -106,6 +135,13 @@ export function RepoCard({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleLogoSelected}
+      />
     </motion.div>
   );
 }

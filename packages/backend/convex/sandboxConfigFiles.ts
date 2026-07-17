@@ -1,9 +1,56 @@
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
+import { Doc, Id } from "./_generated/dataModel";
+import { internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
 
 /** Regex for safe filenames: alphanumeric, dash, underscore, dot only. */
 const SAFE_FILENAME_REGEX = /^[a-zA-Z0-9._-]+$/;
+
+/** Storage ids for a file: new chunks[], or legacy single storageId, else []. */
+function fileChunkIds(file: Doc<"sandboxConfigFiles">): Array<Id<"_storage">> {
+  return file.chunks ?? (file.storageId ? [file.storageId] : []);
+}
+
+/** Deletes every storage blob for a file (legacy single-blob and/or chunks). */
+async function deleteFileBlobs(
+  ctx: MutationCtx,
+  file: Doc<"sandboxConfigFiles">,
+): Promise<void> {
+  if (file.storageId) {
+    await ctx.storage.delete(file.storageId);
+  }
+  for (const chunkId of file.chunks ?? []) {
+    await ctx.storage.delete(chunkId);
+  }
+}
+
+/**
+ * All config files across sibling repos sharing the anchor repo's owner/name.
+ * Returns [] when the anchor repo is missing. Preserves sibling-then-file order
+ * so callers can rely on last-write-wins on filename collision.
+ */
+async function collectSiblingConfigFiles(
+  ctx: QueryCtx,
+  repoId: Id<"githubRepos">,
+): Promise<Array<Doc<"sandboxConfigFiles">>> {
+  const anchorRepo = await ctx.db.get(repoId);
+  if (!anchorRepo) return [];
+  const siblings = await ctx.db
+    .query("githubRepos")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", anchorRepo.owner).eq("name", anchorRepo.name),
+    )
+    .collect();
+  const files: Array<Doc<"sandboxConfigFiles">> = [];
+  for (const sibling of siblings) {
+    const siblingFiles = await ctx.db
+      .query("sandboxConfigFiles")
+      .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+      .collect();
+    files.push(...siblingFiles);
+  }
+  return files;
+}
 
 /** Generates an upload URL for a sandbox config file (or one chunk of one). */
 export const generateUploadUrl = authMutation({
@@ -55,14 +102,7 @@ export const save = authMutation({
 
     if (existing) {
       // Delete all old storage blobs (legacy single-blob and/or chunks)
-      if (existing.storageId) {
-        await ctx.storage.delete(existing.storageId);
-      }
-      if (existing.chunks) {
-        for (const chunkId of existing.chunks) {
-          await ctx.storage.delete(chunkId);
-        }
-      }
+      await deleteFileBlobs(ctx, existing);
       // Update the record (clear legacy storageId, set chunks)
       await ctx.db.patch(existing._id, {
         storageId: undefined,
@@ -126,14 +166,7 @@ export const remove = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (file.storageId) {
-      await ctx.storage.delete(file.storageId);
-    }
-    if (file.chunks) {
-      for (const chunkId of file.chunks) {
-        await ctx.storage.delete(chunkId);
-      }
-    }
+    await deleteFileBlobs(ctx, file);
     await ctx.db.delete(args.id);
     return null;
   },
@@ -158,36 +191,18 @@ export const getConfigFilesForSnapshot = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const anchorRepo = await ctx.db.get(args.repoId);
-    if (!anchorRepo) return [];
-
-    const siblings = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", anchorRepo.owner).eq("name", anchorRepo.name),
-      )
-      .collect();
+    const files = await collectSiblingConfigFiles(ctx, args.repoId);
 
     const filesByName = new Map<
       string,
       { fileName: string; chunkUrls: Array<string | null> }
     >();
-    for (const sibling of siblings) {
-      const files = await ctx.db
-        .query("sandboxConfigFiles")
-        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
-        .collect();
-
-      for (const file of files) {
-        // Prefer chunks (new format); fall back to legacy single storageId
-        const chunkIds =
-          file.chunks ?? (file.storageId ? [file.storageId] : []);
-        const chunkUrls: Array<string | null> = [];
-        for (const chunkId of chunkIds) {
-          chunkUrls.push(await ctx.storage.getUrl(chunkId));
-        }
-        filesByName.set(file.fileName, { fileName: file.fileName, chunkUrls });
+    for (const file of files) {
+      const chunkUrls: Array<string | null> = [];
+      for (const chunkId of fileChunkIds(file)) {
+        chunkUrls.push(await ctx.storage.getUrl(chunkId));
       }
+      filesByName.set(file.fileName, { fileName: file.fileName, chunkUrls });
     }
     return Array.from(filesByName.values());
   },
@@ -203,28 +218,13 @@ export const getConfigFileKeys = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
-    const anchorRepo = await ctx.db.get(args.repoId);
-    if (!anchorRepo) return [];
-    const siblings = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", anchorRepo.owner).eq("name", anchorRepo.name),
-      )
-      .collect();
+    const files = await collectSiblingConfigFiles(ctx, args.repoId);
     const keysByName = new Map<string, string>();
-    for (const sibling of siblings) {
-      const files = await ctx.db
-        .query("sandboxConfigFiles")
-        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
-        .collect();
-      for (const file of files) {
-        const chunkIds =
-          file.chunks ?? (file.storageId ? [file.storageId] : []);
-        keysByName.set(
-          file.fileName,
-          `${file.fileName}:${file.fileSize}:${chunkIds.join(",")}`,
-        );
-      }
+    for (const file of files) {
+      keysByName.set(
+        file.fileName,
+        `${file.fileName}:${file.fileSize}:${fileChunkIds(file).join(",")}`,
+      );
     }
     return Array.from(keysByName.values()).sort();
   },

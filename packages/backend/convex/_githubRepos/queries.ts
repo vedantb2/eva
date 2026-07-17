@@ -1,44 +1,172 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader, StorageReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
-import { githubRepoValidator, pickDefaultVisibleAppRepo } from "./helpers";
-import { getAIProviderAvailability } from "../validators";
+import {
+  githubRepoValidator,
+  githubRepoWithLogoValidator,
+  pickDefaultVisibleAppRepo,
+} from "./helpers";
+import {
+  getAIProviderAvailability,
+  PROVIDER_PRIMARY_AUTH_KEY,
+} from "../validators";
+import { filterActiveEntities } from "../numId";
+
+/** True when the user connected the repo or shares its team. */
+async function userCanAccessRepo(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  repo: Doc<"githubRepos">,
+): Promise<boolean> {
+  if (repo.connectedBy === userId) return true;
+  const teamId = repo.teamId;
+  if (!teamId) return false;
+  const membership = await db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+  return membership !== null;
+}
+
+/** All repos the user can access (connected + team), de-duplicated. */
+async function gatherAccessibleRepos(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  includeHidden: boolean,
+): Promise<Array<Doc<"githubRepos">>> {
+  const userTeamMemberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const teamRepoResults = await Promise.all(
+    userTeamMemberships.map((m) =>
+      db
+        .query("githubRepos")
+        .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+        .collect(),
+    ),
+  );
+
+  const connectedRepos = await db
+    .query("githubRepos")
+    .withIndex("by_connected_by", (q) => q.eq("connectedBy", userId))
+    .collect();
+
+  const seen = new Set<string>();
+  const repos: Array<Doc<"githubRepos">> = [];
+  for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+    if (seen.has(String(repo._id))) continue;
+    seen.add(String(repo._id));
+    if (!includeHidden && repo.hidden === true) continue;
+    repos.push(repo);
+  }
+  return repos;
+}
+
+/** True when this app has a live sandbox on a session, quick task, or project. */
+async function repoHasActiveSandbox(
+  db: GenericDatabaseReader<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<boolean> {
+  // Active sessions per repo are few — indexed status lookup, then skip archived /
+  // sandboxes-without-id. Early exit avoids project/task reads when a session is live.
+  const activeSession = filterActiveEntities(
+    await db
+      .query("sessions")
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", repoId).eq("status", "active"),
+      )
+      .take(16),
+  ).find((s) => s.archived !== true && s.sandboxId !== undefined);
+  if (activeSession) return true;
+
+  // Indexed existence checks (not full table scans): at most a handful of docs.
+  const activeProject = filterActiveEntities(
+    await db
+      .query("projects")
+      .withIndex("by_repo_and_sandbox_status", (q) =>
+        q.eq("repoId", repoId).eq("reviewProjectSandboxStatus", "active"),
+      )
+      .take(8),
+  ).find((p) => p.sandboxId !== undefined);
+  if (activeProject) return true;
+
+  const activeTask = filterActiveEntities(
+    await db
+      .query("agentTasks")
+      .withIndex("by_repo_and_sandbox_status", (q) =>
+        q.eq("repoId", repoId).eq("reviewTaskSandboxStatus", "active"),
+      )
+      .take(8),
+  ).find((t) => t.sandboxId !== undefined);
+  return activeTask !== undefined;
+}
+
+/** Attaches a resolved `logoUrl` (from `logoStorageId`) to each repo. */
+async function attachLogoUrls(
+  storage: StorageReader,
+  repos: Array<Doc<"githubRepos">>,
+): Promise<Array<Doc<"githubRepos"> & { logoUrl?: string | null }>> {
+  return await Promise.all(
+    repos.map(async (repo) => ({
+      ...repo,
+      logoUrl: repo.logoStorageId
+        ? await storage.getUrl(repo.logoStorageId)
+        : undefined,
+    })),
+  );
+}
 
 /** Lists all GitHub repos accessible to the current user across their teams. */
 export const list = authQuery({
   args: {
     includeHidden: v.optional(v.boolean()),
   },
-  returns: v.array(githubRepoValidator),
+  returns: v.array(githubRepoWithLogoValidator),
   handler: async (ctx, args) => {
-    const userTeamMemberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-
-    const teamRepoResults = await Promise.all(
-      userTeamMemberships.map((m) =>
-        ctx.db
-          .query("githubRepos")
-          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
-          .collect(),
-      ),
+    const repos = await gatherAccessibleRepos(
+      ctx.db,
+      ctx.userId,
+      args.includeHidden === true,
     );
+    return await attachLogoUrls(ctx.storage, repos);
+  },
+});
 
-    const connectedRepos = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
-      .collect();
+/**
+ * Repo/app ids that currently have an active sandbox on a session, quick task,
+ * or project. Used by the left rail to show a live indicator on app icons.
+ */
+export const listReposWithActiveSandboxes = authQuery({
+  args: {},
+  returns: v.array(v.id("githubRepos")),
+  handler: async (ctx) => {
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
+    const flags = await Promise.all(
+      repos.map(async (repo) => ({
+        id: repo._id,
+        active: await repoHasActiveSandbox(ctx.db, repo._id),
+      })),
+    );
+    return flags.filter((f) => f.active).map((f) => f.id);
+  },
+});
 
-    const seen = new Set<string>();
-    const repos = [];
-    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-      if (seen.has(String(repo._id))) continue;
-      seen.add(String(repo._id));
-      if (!args.includeHidden && repo.hidden === true) continue;
-      repos.push(repo);
-    }
-    return repos;
+/** Resolves the current logo image URL for a repo (null when none set). */
+export const getLogoUrl = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return null;
+    if (!(await userCanAccessRepo(ctx.db, ctx.userId, repo))) return null;
+    if (!repo.logoStorageId) return null;
+    return await ctx.storage.getUrl(repo.logoStorageId);
   },
 });
 
@@ -50,21 +178,7 @@ export const get = authQuery({
     const repo = await ctx.db.get(args.id);
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -79,21 +193,7 @@ export const getByIdString = authQuery({
     const repo = await ctx.db.get(id);
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -118,21 +218,8 @@ export const getProviderAvailability = authQuery({
       return unavailable;
     }
 
-    if (repo.connectedBy !== ctx.userId) {
-      const teamId = repo.teamId;
-      if (teamId) {
-        const membership = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", (q) =>
-            q.eq("teamId", teamId).eq("userId", ctx.userId),
-          )
-          .first();
-        if (!membership) {
-          return unavailable;
-        }
-      } else {
-        return unavailable;
-      }
+    if (!(await userCanAccessRepo(ctx.db, ctx.userId, repo))) {
+      return unavailable;
     }
 
     const repoEnvDoc = await ctx.db
@@ -153,6 +240,17 @@ export const getProviderAvailability = authQuery({
     }
     for (const entry of repoEnvDoc?.vars ?? []) {
       keys.add(entry.key);
+    }
+
+    // A user's own provider account makes that provider available even when the
+    // team has no key for it — the account's credentials are injected at launch.
+    // Each account contributes its provider's canonical auth key.
+    const accounts = await ctx.db
+      .query("userProviderAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+    for (const account of accounts) {
+      keys.add(PROVIDER_PRIMARY_AUTH_KEY[account.provider]);
     }
 
     return getAIProviderAvailability(keys);
@@ -187,21 +285,7 @@ export const getByOwnerAndName = authQuery({
 
     if (!repo) return null;
     if (repo.hidden === true) return null;
-
-    if (repo.connectedBy === ctx.userId) return repo;
-
-    const teamId = repo.teamId;
-    if (teamId) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", ctx.userId),
-        )
-        .first();
-      if (membership) return repo;
-    }
-
-    return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
   },
 });
 
@@ -223,7 +307,7 @@ export const getTeamIdForRepo = internalQuery({
 /** Lists all non-hidden repos belonging to a specific team. */
 export const listByTeam = authQuery({
   args: { teamId: v.id("teams") },
-  returns: v.array(githubRepoValidator),
+  returns: v.array(githubRepoWithLogoValidator),
   handler: async (ctx, args) => {
     const membership = await ctx.db
       .query("teamMembers")
@@ -239,7 +323,10 @@ export const listByTeam = authQuery({
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    return repos.filter((r) => r.hidden !== true);
+    return await attachLogoUrls(
+      ctx.storage,
+      repos.filter((r) => r.hidden !== true),
+    );
   },
 });
 
@@ -352,33 +439,7 @@ export const listGroupedByCodebase = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    const userTeamMemberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-
-    const teamRepoResults = await Promise.all(
-      userTeamMemberships.map((m) =>
-        ctx.db
-          .query("githubRepos")
-          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
-          .collect(),
-      ),
-    );
-
-    const connectedRepos = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
-      .collect();
-
-    const seen = new Set<string>();
-    const repos = [];
-    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-      if (seen.has(String(repo._id))) continue;
-      seen.add(String(repo._id));
-      if (repo.hidden === true) continue;
-      repos.push(repo);
-    }
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
 
     // Group by owner/name
     const codebaseMap = new Map<

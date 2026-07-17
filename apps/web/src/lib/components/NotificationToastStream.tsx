@@ -10,8 +10,8 @@ import { IconX } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   NotificationIcon,
+  getNotificationAppearance,
   type Notification,
-  typeConfig,
 } from "@/lib/components/notifications/notification-config";
 
 const TOAST_LIMIT = 4;
@@ -129,7 +129,7 @@ export function NotificationToastStream() {
     <div className="pointer-events-none fixed right-4 top-20 z-40 flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-2">
       {toasts.map((entry) => {
         const notification = entry.notification;
-        const config = typeConfig[notification.type];
+        const config = getNotificationAppearance(notification);
         return (
           <Card
             key={notification._id}
@@ -137,7 +137,7 @@ export function NotificationToastStream() {
           >
             <CardContent className="p-3">
               <div className="flex items-start gap-3">
-                <NotificationIcon type={notification.type} />
+                <NotificationIcon notification={notification} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">

@@ -2,7 +2,6 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   activityLogTypeValidator,
-  sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
   auditSectionValidator,
@@ -22,6 +21,7 @@ import {
   agentRunFields,
   sessionFields,
   githubRepoFields,
+  teamFields,
   syncSettingFields,
   projectFields,
   projectDetailsFields,
@@ -35,6 +35,7 @@ import {
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
+  userProviderAccountFields,
   docFields,
   docCommentFields,
   docSubscriberFields,
@@ -45,6 +46,7 @@ import {
   artifactFields,
   designSessionFields,
   repoEntityCounterFields,
+  appTabFields,
 } from "./validators";
 
 const schema = defineSchema(
@@ -62,7 +64,11 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_repo_and_phase", ["repoId", "phase"])
       .index("by_pr_url", ["prUrl"])
-      .index("by_repo_and_numId", ["repoId", "numId"]),
+      .index("by_repo_and_numId", ["repoId", "numId"])
+      .index("by_repo_and_sandbox_status", [
+        "repoId",
+        "reviewProjectSandboxStatus",
+      ]),
 
     projectDetails: defineTable(projectDetailsFields).index("by_project", [
       "projectId",
@@ -74,7 +80,11 @@ const schema = defineSchema(
       .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
       .index("by_project", ["projectId"])
       .index("by_project_and_status", ["projectId", "status"])
-      .index("by_repo_and_numId", ["repoId", "numId"]),
+      .index("by_repo_and_numId", ["repoId", "numId"])
+      .index("by_repo_and_sandbox_status", [
+        "repoId",
+        "reviewTaskSandboxStatus",
+      ]),
 
     agentRuns: defineTable(agentRunFields)
       .index("by_task", ["taskId"])
@@ -133,10 +143,9 @@ const schema = defineSchema(
     ]),
     taskActivity: defineTable(taskActivityFields).index("by_task", ["taskId"]),
     messages: defineTable(messageFields).index("by_parent", ["parentId"]),
-    queuedMessages: defineTable(queuedMessageFields).index(
-      "by_parent_and_created",
-      ["parentId", "createdAt"],
-    ),
+    queuedMessages: defineTable(queuedMessageFields)
+      .index("by_parent_and_created", ["parentId", "createdAt"])
+      .index("by_parent_and_order", ["parentId", "order"]),
     sessions: defineTable(sessionFields)
       .index("by_repo", ["repoId"])
       .index("by_user", ["userId"])
@@ -184,6 +193,7 @@ const schema = defineSchema(
       name: v.string(),
       prompt: v.string(),
     }).index("by_repo", ["repoId"]),
+    appTabs: defineTable(appTabFields).index("by_repo", ["repoId"]),
     designSessions: defineTable(designSessionFields)
       .index("by_repo", ["repoId"])
       .index("by_user", ["userId"])
@@ -307,12 +317,7 @@ const schema = defineSchema(
       uploadedBy: v.id("users"),
       createdAt: v.number(),
     }).index("by_repo", ["repoId"]),
-    teams: defineTable({
-      name: v.string(),
-      createdBy: v.id("users"),
-      createdAt: v.number(),
-      isPersonal: v.optional(v.boolean()),
-    }).index("by_created_by", ["createdBy"]),
+    teams: defineTable(teamFields).index("by_created_by", ["createdBy"]),
     teamMembers: defineTable({
       teamId: v.id("teams"),
       userId: v.id("users"),
@@ -332,6 +337,9 @@ const schema = defineSchema(
       status: webhookEventStatusValidator,
       createdAt: v.number(),
     }).index("by_status", ["status"]),
+    userProviderAccounts: defineTable(userProviderAccountFields)
+      .index("by_user", ["userId"])
+      .index("by_user_and_provider", ["userId", "provider"]),
     teamEnvVars: defineTable({
       teamId: v.id("teams"),
       vars: v.array(

@@ -11,6 +11,7 @@ import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { ProjectDescription } from "./ProjectDescription";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
@@ -31,7 +32,7 @@ interface ProjectActiveLayoutProps {
   projectId: Id<"projects">;
   project: Project;
   basePath: string;
-  selectedTaskId?: string;
+  selectedTaskId?: Id<"agentTasks">;
   detailTab?: TaskDetailTab;
 }
 
@@ -148,7 +149,19 @@ export function ProjectActiveLayout({
         <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {selectedTaskId ? (
+        {selectedTaskIdParam &&
+        tasks !== undefined &&
+        selectedTaskId === null ? (
+          <EntityNotFound
+            entityLabel="task"
+            backTo={
+              projectPathSegment
+                ? `${basePath}/projects/${projectPathSegment}`
+                : `${basePath}/projects`
+            }
+            backLabel="Back to project"
+          />
+        ) : selectedTaskId ? (
           <TaskDetailInline
             key={selectedTaskId}
             taskId={selectedTaskId}

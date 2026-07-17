@@ -1,0 +1,46 @@
+import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
+import { parseStorageId } from "@/lib/components/artifacts/_meta";
+
+/**
+ * Shared team logo upload/remove logic for team cards and the team detail page.
+ * Mirrors useRepoLogoUpload: single-request Convex storage upload + setLogo.
+ */
+export function useTeamLogoUpload() {
+  const generateUploadUrl = useMutation(api.teams.generateLogoUploadUrl);
+  const setLogo = useMutation(api.teams.setLogo);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadLogo = async (teamId: Id<"teams">, file: File) => {
+    setUploading(true);
+    try {
+      const uploadUrl = await generateUploadUrl({ teamId });
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      const responseText = await result.text();
+      if (!result.ok) {
+        throw new Error(
+          `Logo upload failed (status ${result.status}): ${responseText}`,
+        );
+      }
+      const storageId = parseStorageId(responseText);
+      if (!storageId) {
+        throw new Error("Invalid response from storage");
+      }
+      await setLogo({ teamId, storageId });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeLogo = async (teamId: Id<"teams">) => {
+    await setLogo({ teamId, storageId: null });
+  };
+
+  return { uploadLogo, removeLogo, uploading };
+}

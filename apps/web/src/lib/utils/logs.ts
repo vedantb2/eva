@@ -1,4 +1,4 @@
-import { isRecord } from "@conductor/shared/typeGuards";
+import { z } from "zod";
 
 export const USD_TO_GBP = 0.74;
 export const GBP_TO_USD = 1.34;
@@ -25,21 +25,55 @@ const EMPTY_PARSED: ParsedResultEvent = {
   cacheCreationTokens: 0,
 };
 
+// Boundary schema for the Claude Code result-event JSON. Every field carries a
+// `.catch` default matching EMPTY_PARSED, so a missing or mistyped value falls
+// back rather than failing the whole parse — the same tolerance the previous
+// typeof-guarded reads provided.
+const usageSchema = z
+  .object({
+    input_tokens: z.number().catch(0),
+    output_tokens: z.number().catch(0),
+    cache_read_input_tokens: z.number().catch(0),
+    cache_creation_input_tokens: z.number().catch(0),
+  })
+  .catch({
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+  });
+
+const modelUsageSchema = z
+  .record(
+    z.string(),
+    z.object({ costUSD: z.number().optional().catch(undefined) }).catch({}),
+  )
+  .catch({});
+
+const resultEventSchema = z.object({
+  total_cost_usd: z.number().catch(0),
+  provider: z.string().catch(""),
+  duration_ms: z.number().catch(0),
+  usage: usageSchema,
+  modelUsage: modelUsageSchema,
+});
+
+type ModelUsage = z.infer<typeof modelUsageSchema>;
+
 /** Finds the model with the highest cost from modelUsage object. */
-function getPrimaryModel(modelUsage: Record<string, unknown>): string {
+function getPrimaryModel(modelUsage: ModelUsage): string {
   let primaryModel = "-";
   let highestCost = -1;
   for (const [model, usage] of Object.entries(modelUsage)) {
-    if (isRecord(usage) && typeof usage.costUSD === "number") {
-      if (usage.costUSD > highestCost) {
-        highestCost = usage.costUSD;
-        primaryModel = model;
-      }
+    if (typeof usage.costUSD === "number" && usage.costUSD > highestCost) {
+      highestCost = usage.costUSD;
+      primaryModel = model;
     }
   }
   // Fallback to first key if no cost data
-  if (primaryModel === "-" && Object.keys(modelUsage).length > 0) {
-    primaryModel = Object.keys(modelUsage)[0];
+  const keys = Object.keys(modelUsage);
+  if (primaryModel === "-" && keys.length > 0) {
+    primaryModel = keys[0];
   }
   return primaryModel;
 }
@@ -47,31 +81,20 @@ function getPrimaryModel(modelUsage: Record<string, unknown>): string {
 export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
   if (!raw) return EMPTY_PARSED;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return EMPTY_PARSED;
-    const usage = isRecord(parsed.usage) ? parsed.usage : {};
-    const modelUsage = isRecord(parsed.modelUsage) ? parsed.modelUsage : {};
+    const parsed = resultEventSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return EMPTY_PARSED;
+    const data = parsed.data;
     // Keep the four token categories semantically distinct. Pure input (non-cached)
     // must not be conflated with cache reads/creations; their pricing differs by ~10-25x.
     return {
-      costUsd:
-        typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
-      model: getPrimaryModel(modelUsage),
-      provider: typeof parsed.provider === "string" ? parsed.provider : "",
-      inputTokens:
-        typeof usage.input_tokens === "number" ? usage.input_tokens : 0,
-      outputTokens:
-        typeof usage.output_tokens === "number" ? usage.output_tokens : 0,
-      durationMs:
-        typeof parsed.duration_ms === "number" ? parsed.duration_ms : 0,
-      cacheReadTokens:
-        typeof usage.cache_read_input_tokens === "number"
-          ? usage.cache_read_input_tokens
-          : 0,
-      cacheCreationTokens:
-        typeof usage.cache_creation_input_tokens === "number"
-          ? usage.cache_creation_input_tokens
-          : 0,
+      costUsd: data.total_cost_usd,
+      model: getPrimaryModel(data.modelUsage),
+      provider: data.provider,
+      inputTokens: data.usage.input_tokens,
+      outputTokens: data.usage.output_tokens,
+      durationMs: data.duration_ms,
+      cacheReadTokens: data.usage.cache_read_input_tokens,
+      cacheCreationTokens: data.usage.cache_creation_input_tokens,
     };
   } catch {
     return EMPTY_PARSED;

@@ -2,7 +2,10 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { resolveSandboxCredentials } from "./envVarResolver";
+import {
+  resolveSandboxCredentials,
+  resolveDaytonaApiKey,
+} from "./envVarResolver";
 import { getSandboxHandle } from "./_daytona/helpers";
 import { unwrapVercelSandbox } from "./_sandbox/vercelProvider";
 import { unwrapDaytonaSandbox } from "./_sandbox/daytonaProvider";
@@ -16,7 +19,13 @@ import {
   connectVercelInteractive,
   ensureVercelSharedTerminal,
 } from "./_pty/vercel";
-import { resolveDaytonaApiKey } from "./envVarResolver";
+
+/** Returns the explicit PTY instance id when provided and non-empty, else null. */
+function toExplicitPtyId(ptyInstanceId: string | undefined): string | null {
+  return ptyInstanceId !== undefined && ptyInstanceId.length > 0
+    ? ptyInstanceId
+    : null;
+}
 
 /** Connects to or creates a PTY for a session or task, returning the WebSocket URL. */
 export const connectPty = action({
@@ -95,10 +104,7 @@ export const connectPty = action({
       await getSandboxHandle(ctx, resolved.repoId, resolved.sandboxId),
     );
 
-    const explicitId =
-      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
-        ? args.ptyInstanceId
-        : null;
+    const explicitId = toExplicitPtyId(args.ptyInstanceId);
 
     let ptyId: string;
     let isNewPty: boolean;
@@ -200,10 +206,7 @@ export const resizePty = action({
       return null;
     }
 
-    const explicitId =
-      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
-        ? args.ptyInstanceId
-        : null;
+    const explicitId = toExplicitPtyId(args.ptyInstanceId);
     const ptyId = explicitId
       ? explicitId
       : resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
@@ -252,10 +255,7 @@ export const disconnectPty = action({
       return null;
     }
 
-    const explicitId =
-      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
-        ? args.ptyInstanceId
-        : null;
+    const explicitId = toExplicitPtyId(args.ptyInstanceId);
 
     const ptyId = explicitId
       ? explicitId

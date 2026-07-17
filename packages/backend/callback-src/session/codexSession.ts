@@ -10,6 +10,7 @@ import {
   CODEX_PERSIST_STATE_FILE,
   CODEX_PERSIST_DIR,
   CODEX_RUNTIME_HOME_DIR,
+  codexReasoningEffort,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
@@ -64,7 +65,11 @@ function buildCodexRuntimeConfig(
         const trimmed = line.trim().toLowerCase();
         return (
           !trimmed.startsWith("sandbox_mode") &&
-          !trimmed.startsWith("approval_policy")
+          !trimmed.startsWith("approval_policy") &&
+          // Drop any configured reasoning effort; the session lever wins when set.
+          !(
+            codexReasoningEffort && trimmed.startsWith("model_reasoning_effort")
+          )
         );
       })
     : [];
@@ -73,6 +78,9 @@ function buildCodexRuntimeConfig(
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"',
   ];
+  if (codexReasoningEffort) {
+    runtimeLines.push(`model_reasoning_effort = "${codexReasoningEffort}"`);
+  }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }

@@ -1,14 +1,20 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   IconWorld,
   IconDeviceDesktop,
   IconCode,
   IconTerminal2,
   IconClipboardList,
+  IconGitCompare,
+  IconFileText,
   IconPlus,
 } from "@tabler/icons-react";
+import type { Doc } from "@conductor/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
+import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import {
   Tabs,
   TabsList,
@@ -19,41 +25,46 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 
-type SandboxTab = "preview" | "desktop" | "editor" | "terminal" | "prd";
+type SandboxTab =
+  | "preview"
+  | "desktop"
+  | "editor"
+  | "terminal"
+  | "diffs"
+  | "files"
+  | "prd";
 
-const SANDBOX_TABS: Set<string> = new Set([
-  "preview",
-  "desktop",
-  "editor",
-  "terminal",
-  "prd",
-]);
+const TAB_TRIGGER_CLASS =
+  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
+// Desktop ("Computer") is intentionally absent — it lives in the `+` menu, not
+// the tab row, since it is rarely used.
 const allTabs: Array<{
   value: SandboxTab;
   label: string;
   icon: typeof IconWorld;
 }> = [
   { value: "preview", label: "Preview", icon: IconWorld },
-  { value: "desktop", label: "Computer", icon: IconDeviceDesktop },
   { value: "editor", label: "Editor", icon: IconCode },
   { value: "terminal", label: "Terminal", icon: IconTerminal2 },
+  { value: "diffs", label: "Diffs", icon: IconGitCompare },
 ];
 
 interface SandboxTabBarProps {
-  activeTab: SandboxTab;
-  onTabChange: (tab: SandboxTab) => void;
+  /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
+  activeTab: string;
+  onTabChange: (tab: string) => void;
   onNewPreview: () => void;
   onNewTerminal: () => void;
   newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
+  /** Shows the File Viewer tab (sessions only). */
+  showFilesTab?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
   enabledTabs?: ReadonlyArray<SandboxTab>;
-}
-
-function isSandboxTab(value: string): value is SandboxTab {
-  return SANDBOX_TABS.has(value);
+  /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
+  customTabs?: ReadonlyArray<Doc<"appTabs">>;
 }
 
 export function SandboxTabBar({
@@ -64,18 +75,28 @@ export function SandboxTabBar({
   newPreviewDisabled = false,
   newTerminalDisabled = false,
   showPrdTab = false,
+  showFilesTab = false,
   enabledTabs,
+  customTabs,
 }: SandboxTabBarProps) {
-  const newTabDisabled = newPreviewDisabled && newTerminalDisabled;
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs;
+  // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
+  const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
+
+  const customTabSlugs = useMemo(
+    () => (customTabs ?? []).map((tab) => slugifyAppTabName(tab.name)),
+    [customTabs],
+  );
 
   useCycleSandboxTabHotkey({
     activeTab,
     onTabChange,
     enabledTabs,
     showPrdTab,
+    showFilesTab,
+    customTabSlugs,
   });
 
   return (
@@ -83,11 +104,7 @@ export function SandboxTabBar({
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
-        onValueChange={(v) => {
-          if (isSandboxTab(v)) {
-            onTabChange(v);
-          }
-        }}
+        onValueChange={onTabChange}
       >
         <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
           {tabs.map((tab) => {
@@ -96,27 +113,43 @@ export function SandboxTabBar({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
+                className={TAB_TRIGGER_CLASS}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
               </TabsTrigger>
             );
           })}
+          {showFilesTab ? (
+            <TabsTrigger value="files" className={TAB_TRIGGER_CLASS}>
+              <IconFileText className="w-3.5 h-3.5" />
+              Files
+            </TabsTrigger>
+          ) : null}
           {showPrdTab ? (
-            <TabsTrigger
-              value="prd"
-              className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
-            >
+            <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
               <IconClipboardList className="w-3.5 h-3.5" />
               PRD
             </TabsTrigger>
           ) : null}
+          {customTabs?.map((tab) => {
+            const Icon = resolveTablerIcon(tab.icon);
+            const slug = slugifyAppTabName(tab.name);
+            return (
+              <TabsTrigger
+                key={tab._id}
+                value={slug}
+                className={TAB_TRIGGER_CLASS}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.name}
+              </TabsTrigger>
+            );
+          })}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                disabled={newTabDisabled}
                 className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Open tab menu"
               >
@@ -124,6 +157,12 @@ export function SandboxTabBar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[10rem]">
+              {showDesktopItem ? (
+                <DropdownMenuItem onClick={() => onTabChange("desktop")}>
+                  <IconDeviceDesktop size={14} />
+                  Computer
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onClick={onNewPreview}
                 disabled={newPreviewDisabled}

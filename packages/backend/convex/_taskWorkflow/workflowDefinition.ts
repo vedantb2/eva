@@ -7,8 +7,12 @@ import {
   DEFAULT_AI_MODEL,
   runModeValidator,
 } from "../validators";
-import { taskCompleteEvent, auditCompleteEvent } from "./events";
-import { buildAuditPrompt } from "./prompts";
+import {
+  taskCompleteEvent,
+  auditCompleteEvent,
+  proofCompleteEvent,
+} from "./events";
+import { buildAuditPrompt, buildProofPrompt } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -33,6 +37,7 @@ export const taskExecutionWorkflow = workflow.define({
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
     mode: v.optional(runModeValidator),
   },
@@ -101,12 +106,8 @@ export const taskExecutionWorkflow = workflow.define({
         sessionPersistenceKind: args.projectId ? "projects" : undefined,
       }));
 
-      const proofCaptureInRun =
-        data.screenshotsVideosEnabled && args.mode !== "resolve_conflicts";
-      const runModel = proofCaptureInRun
-        ? (data.proofModel ?? args.model ?? DEFAULT_AI_MODEL)
-        : (args.model ?? DEFAULT_AI_MODEL);
-
+      // Always run implementation on the task's selected model. Proof capture
+      // is a separate post-push step that uses repo.proofModel.
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
@@ -114,13 +115,14 @@ export const taskExecutionWorkflow = workflow.define({
         userId: args.userId,
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
-        model: runModel,
+        model: args.model ?? DEFAULT_AI_MODEL,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         runId: String(args.runId),
-        taskProofCaptureEnabled: data.screenshotsVideosEnabled,
+        taskProofCaptureEnabled: false,
         requireTaskCommit: true,
+        providerAccountId: args.providerAccountId,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
@@ -199,6 +201,44 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
+      // Proof capture runs after push so PR enrichment can include media, and
+      // uses proofModel (not the implementation model). Soft-fail like audit.
+      if (
+        finalSuccess &&
+        sandboxId &&
+        data.screenshotsVideosEnabled &&
+        args.mode !== "resolve_conflicts"
+      ) {
+        try {
+          await step.runAction(internal.daytona.launchProof, {
+            sandboxId,
+            prompt: buildProofPrompt(
+              {
+                title: data.taskTitle,
+                description: data.taskDescription,
+              },
+              data.rootDirectory,
+              completionResult,
+            ),
+            taskId: String(args.taskId),
+            runId: args.runId,
+            userId: args.userId,
+            repoId: args.repoId,
+            model: data.proofModel ?? args.model,
+          });
+          const proofResult = await step.awaitEvent(proofCompleteEvent);
+          if (!proofResult.success) {
+            console.error(
+              `[task-workflow] run=${args.runId} proof step failed: ${proofResult.error ?? "unknown"}`,
+            );
+          }
+        } catch (proofError) {
+          console.error(
+            `[task-workflow] run=${args.runId} proof step failed: ${proofError instanceof Error ? proofError.message : String(proofError)}`,
+          );
+        }
+      }
+
       if (finalSuccess) {
         const createPrAsDraft = true;
         try {
@@ -226,27 +266,28 @@ export const taskExecutionWorkflow = workflow.define({
           console.log(
             `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
           );
+          const createPrArgs = {
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
+            baseBranch: args.baseBranch,
+            title: data.taskTitle,
+            taskId: args.taskId,
+            projectId: args.projectId,
+            taskDescription: data.taskDescription,
+            rootDirectory: data.rootDirectory,
+            changeRequests,
+            proofs,
+            draft: createPrAsDraft,
+          };
           if (args.isFirstTaskOnBranch) {
             // Quick tasks land in business_review on completion; the PR should
             // mirror that by opening as draft. The user promotes it to ready
             // when they move the task to code_review.
             completionPrUrl = await step.runAction(
               internal.taskWorkflowActions.createTaskPullRequest,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                baseBranch: args.baseBranch,
-                title: data.taskTitle,
-                taskId: args.taskId,
-                projectId: args.projectId,
-                taskDescription: data.taskDescription,
-                rootDirectory: data.rootDirectory,
-                changeRequests,
-                proofs,
-                draft: createPrAsDraft,
-              },
+              createPrArgs,
               PR_STEP_RETRY,
             );
           } else {
@@ -276,21 +317,7 @@ export const taskExecutionWorkflow = workflow.define({
               );
               completionPrUrl = await step.runAction(
                 internal.taskWorkflowActions.createTaskPullRequest,
-                {
-                  installationId: args.installationId,
-                  repoOwner: data.repoOwner,
-                  repoName: data.repoName,
-                  branchName: data.branchName,
-                  baseBranch: args.baseBranch,
-                  title: data.taskTitle,
-                  taskId: args.taskId,
-                  projectId: args.projectId,
-                  taskDescription: data.taskDescription,
-                  rootDirectory: data.rootDirectory,
-                  changeRequests,
-                  proofs,
-                  draft: createPrAsDraft,
-                },
+                createPrArgs,
                 PR_STEP_RETRY,
               );
             }
@@ -329,7 +356,7 @@ export const taskExecutionWorkflow = workflow.define({
         finalSuccess &&
         sandboxId &&
         auditCategories.length > 0 &&
-        args.projectId
+        data.runAuditEnabled
       ) {
         try {
           const auditId = await step.runMutation(

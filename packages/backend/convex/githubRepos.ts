@@ -1,10 +1,12 @@
 export {
   list,
+  listReposWithActiveSandboxes,
   get,
   getByIdString,
   getProviderAvailability,
   getByOwnerAndName,
   getTeamIdForRepo,
+  getLogoUrl,
   listByTeam,
   listSiblingApps,
   getInternal,
@@ -21,6 +23,8 @@ export {
   updateConfig,
   updateMcpRootPrompt,
   toggleHidden,
+  generateLogoUploadUrl,
+  setLogo,
   setRepoCommandsInternal,
   deleteInternal,
 } from "./_githubRepos/mutations";

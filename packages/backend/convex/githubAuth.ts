@@ -61,13 +61,8 @@ export async function getInstallationToken(
 export async function getInstallationOctokit(
   installationId: number,
 ): Promise<Octokit> {
-  const creds = getGitHubCredentials();
-  const auth = createAppAuth(creds);
-  const installationAuth = await auth({
-    type: "installation",
-    installationId,
-  });
-  return new Octokit({ auth: installationAuth.token });
+  const token = await getInstallationToken(installationId);
+  return new Octokit({ auth: token });
 }
 
 /** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */

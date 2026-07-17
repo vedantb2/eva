@@ -88,7 +88,7 @@ export const listOnlineTeammates = authQuery({
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
 
-    const teammateIds = new Map<string, Id<"users">>();
+    const teammateIds = new Set<Id<"users">>();
     for (const membership of memberships) {
       const teamMembers = await ctx.db
         .query("teamMembers")
@@ -96,7 +96,7 @@ export const listOnlineTeammates = authQuery({
         .collect();
       for (const tm of teamMembers) {
         if (tm.userId !== ctx.userId) {
-          teammateIds.set(tm.userId, tm.userId);
+          teammateIds.add(tm.userId);
         }
       }
     }
@@ -104,7 +104,7 @@ export const listOnlineTeammates = authQuery({
     const now = Date.now();
     const twoMinutes = 2 * 60 * 1000;
     const online = [];
-    for (const id of teammateIds.values()) {
+    for (const id of teammateIds) {
       const user = await ctx.db.get(id);
       if (user && user.lastSeenAt && now - user.lastSeenAt < twoMinutes) {
         online.push({
@@ -127,6 +127,7 @@ export const listTeamWithMembers = authQuery({
   returns: v.union(
     v.object({
       teamName: v.string(),
+      logoUrl: v.optional(v.union(v.string(), v.null())),
       members: v.array(
         v.object({
           _id: v.id("users"),
@@ -194,7 +195,11 @@ export const listTeamWithMembers = authQuery({
       return 0;
     });
 
-    return { teamName: displayName, members };
+    const logoUrl = team.logoStorageId
+      ? await ctx.storage.getUrl(team.logoStorageId)
+      : null;
+
+    return { teamName: displayName, logoUrl, members };
   },
 });
 

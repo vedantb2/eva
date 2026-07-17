@@ -5,6 +5,7 @@ import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import {
   resolveDaytonaApiKey,
+  resolveProviderAccountCredentials,
   resolveSandboxCredentials,
   resolveSandboxCredentialsOnly,
 } from "../envVarResolver";
@@ -518,12 +519,37 @@ export async function signAndLaunchScript(
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
     enableMcp?: boolean;
+    // When set, the user's own provider account credentials are decrypted and
+    // layered over `extraEnvVars`, overriding the shared team credential so the
+    // run bills to the user's account. Resolved here — the single launch choke
+    // point — so every caller only threads the id.
+    providerAccountId?: Id<"userProviderAccounts">;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
   console.log(
     `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
+
+  // Layer the selected user account's credentials last so they win over the
+  // team credential baked into the sandbox env. resolveProviderAccountCredentials
+  // returns {} (no override) if the account is missing, not owned by this user,
+  // or the wrong provider for the model.
+  let extraEnvVars = opts.extraEnvVars;
+  if (opts.providerAccountId) {
+    const accountEnv = await resolveProviderAccountCredentials(
+      ctx,
+      opts.providerAccountId,
+      userId,
+      opts.model,
+    );
+    if (Object.keys(accountEnv).length > 0) {
+      extraEnvVars = { ...extraEnvVars, ...accountEnv };
+      console.log(
+        `[daytona][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
+      );
+    }
+  }
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
@@ -546,7 +572,7 @@ export async function signAndLaunchScript(
     entityId,
     {
       ...opts,
-      extraEnvVars: opts.extraEnvVars,
+      extraEnvVars,
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
     },

@@ -7,16 +7,34 @@ import {
   taskProgressValidator,
   taskProgressFields,
 } from "../_validators/shapes";
-import type { Doc } from "../_generated/dataModel";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc } from "../_generated/dataModel";
 import {
   projectWithDetailsValidator,
   projectListItemValidator,
   resolveProjectPlanningMode,
-  getProjectConversation,
-  getProjectGeneratedSpec,
+  getProjectDetails,
   buildProjectBranchName,
 } from "./helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+
+/** Builds a project's detail payload (conversation history + optional generated
+ *  spec) from a single projectDetails read, matching projectWithDetailsValidator.
+ *  Shared by `get` and `getByNumId` so both stay in sync and avoid reading the
+ *  projectDetails row twice. */
+async function buildProjectWithDetails(
+  db: GenericDatabaseReader<DataModel>,
+  project: Doc<"projects">,
+) {
+  const details = await getProjectDetails(db, project._id);
+  return {
+    ...project,
+    conversationHistory: details?.conversationHistory ?? [],
+    ...(details?.generatedSpec !== undefined
+      ? { generatedSpec: details.generatedSpec }
+      : {}),
+  };
+}
 
 /** Lists all projects for a repo. */
 export const list = authQuery({
@@ -51,13 +69,7 @@ export const get = authQuery({
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) return null;
     const visible = entityVisible(project);
     if (!visible) return null;
-    const conversationHistory = await getProjectConversation(ctx.db, args.id);
-    const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.id);
-    return {
-      ...visible,
-      conversationHistory,
-      ...(generatedSpec !== undefined ? { generatedSpec } : {}),
-    };
+    return await buildProjectWithDetails(ctx.db, visible);
   },
 });
 
@@ -78,16 +90,7 @@ export const getByNumId = authQuery({
       .first();
     const visible = entityVisible(project);
     if (!visible) return null;
-    const conversationHistory = await getProjectConversation(
-      ctx.db,
-      visible._id,
-    );
-    const generatedSpec = await getProjectGeneratedSpec(ctx.db, visible._id);
-    return {
-      ...visible,
-      conversationHistory,
-      ...(generatedSpec !== undefined ? { generatedSpec } : {}),
-    };
+    return await buildProjectWithDetails(ctx.db, visible);
   },
 });
 

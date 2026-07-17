@@ -53,7 +53,7 @@ export function ProjectChatTab({
   rawInput,
   onSpecGenerated,
   onClear,
-  repoId,
+  repoId: _repoId,
 }: ProjectChatTabProps) {
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);

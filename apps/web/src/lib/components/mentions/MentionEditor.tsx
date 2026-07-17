@@ -16,6 +16,8 @@ import {
   buildMentionPattern,
   buildSkillPattern,
   extractEditableText,
+  isCaretOnFirstLine,
+  isCaretOnLastLine,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
@@ -58,6 +60,18 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   chipClassName?: string;
   skillChipClassName?: string;
   onEnterSubmit?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  /**
+   * Called when image files are pasted into the editor. When provided, pasted
+   * images are handed off here (as attachments) instead of being inserted as
+   * text; non-image clipboard content still pastes as plain text.
+   */
+  onImageFiles?: (files: File[]) => void;
+  /**
+   * Called when ArrowUp is pressed on the first line, or ArrowDown on the last
+   * line, while the mention popup is closed. Return true if the navigation was
+   * handled (e.g. a history entry was applied) to suppress caret movement.
+   */
+  onHistoryNavigate?: (direction: "up" | "down") => boolean;
   renderItem?: (item: TItem, isSelected: boolean) => ReactNode;
   renderSlashItem?: (item: SlashItem, isSelected: boolean) => ReactNode;
   filterSlashItem?: (item: SlashItem, query: string) => boolean;
@@ -72,7 +86,6 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   renderMentionChipHoverCard?: (id: string) => ReactNode;
   /** Skill preview on /skill chips. */
   renderSkillChipHoverCard?: (id: string) => ReactNode;
-  maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
   onBlur?: () => void;
@@ -119,28 +132,26 @@ function renderMenuItemRow(
   detail: string | null,
 ): ReactNode {
   return (
-    <span className="flex min-w-0 w-full items-center gap-1.5">
-      <span className="shrink-0 text-muted-foreground">{prefix}</span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
+      <span className="flex min-w-0 items-center gap-0.5">
+        <span className="shrink-0 text-muted-foreground">{prefix}</span>
         <span className="truncate">{label}</span>
-        {detail ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {detail}
-          </span>
-        ) : null}
       </span>
+      {detail ? (
+        <span className="truncate text-xs text-muted-foreground">{detail}</span>
+      ) : null}
     </span>
   );
 }
 
-function defaultRenderItem(item: MentionItem, isSelected: boolean): ReactNode {
+function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("@", item.label, detail);
 }
 
 function defaultRenderSlashItem(
   item: SlashItem,
-  isSelected: boolean,
+  _isSelected: boolean,
 ): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("/", item.label, detail);
@@ -220,6 +231,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   chipClassName = MENTION_CHIP_CLASS,
   skillChipClassName = SKILL_CHIP_CLASS,
   onEnterSubmit,
+  onHistoryNavigate,
+  onImageFiles,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
@@ -231,7 +244,6 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   mentionChipHoverCard = false,
   renderMentionChipHoverCard,
   renderSkillChipHoverCard,
-  maxItems = 8,
   dataSlot,
   ariaLabel,
   onBlur,
@@ -412,15 +424,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     [mentionMap, skillMap],
   );
 
+  // Full filtered lists — popup scrolls; do not cap (callers need every
+  // doc/skill/person available, not an alphabetical first-N subset).
   const activeSlashItems = slashItems
     .filter((item) => filterSlashItem(item, trigger.query))
-    .sort((a, b) => a.label.localeCompare(b.label))
-    .slice(0, maxItems);
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const activeMentionItems = items
     .filter((item) => filterItem(item, trigger.query))
-    .sort((a, b) => a.label.localeCompare(b.label))
-    .slice(0, maxItems);
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const popupItems =
     trigger.kind === "slash" ? activeSlashItems : activeMentionItems;
@@ -584,6 +596,31 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         }
       }
 
+      // Message-history recall: only when the popup is closed and no modifier
+      // is held, so it never competes with the mention picker or shortcuts.
+      if (
+        onHistoryNavigate &&
+        !trigger.isOpen &&
+        !e.shiftKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        const el = editorRef.current;
+        if (e.key === "ArrowUp" && el && isCaretOnFirstLine(el)) {
+          if (onHistoryNavigate("up")) {
+            e.preventDefault();
+            return;
+          }
+        }
+        if (e.key === "ArrowDown" && el && isCaretOnLastLine(el)) {
+          if (onHistoryNavigate("down")) {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+
       if (e.key === "Enter" && onEnterSubmit) {
         if (isComposing || e.nativeEvent.isComposing) return;
         if (e.shiftKey) return;
@@ -600,6 +637,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       closeTrigger,
       isComposing,
       onEnterSubmit,
+      onHistoryNavigate,
     ],
   );
 
@@ -729,6 +767,22 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLDivElement>) => {
+      // Hand pasted image files to the attachment handler instead of inserting
+      // them as text. Only images are intercepted; other files fall through.
+      if (onImageFiles) {
+        const imageFiles: File[] = [];
+        for (const item of e.clipboardData.items) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+        if (imageFiles.length > 0) {
+          e.preventDefault();
+          onImageFiles(imageFiles);
+          return;
+        }
+      }
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       const sel = window.getSelection();
@@ -741,7 +795,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       sel.addRange(range);
       handleInput();
     },
-    [handleInput],
+    [handleInput, onImageFiles],
   );
 
   const isEmpty = value === "" || value === "\n";

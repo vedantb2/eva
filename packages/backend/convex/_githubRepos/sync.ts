@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import { hasRepoReferences, normalizePath } from "../repoUtils";
 
@@ -21,6 +20,9 @@ export const upsert = internalMutation({
       ? normalizePath(args.rootDirectory)
       : undefined;
 
+    const matchesRoot = (r: Doc<"githubRepos">) =>
+      r.rootDirectory === normalizedRoot;
+
     let existing: Doc<"githubRepos"> | undefined;
 
     if (args.githubId !== undefined) {
@@ -28,9 +30,7 @@ export const upsert = internalMutation({
         .query("githubRepos")
         .withIndex("by_github_id", (q) => q.eq("githubId", args.githubId))
         .collect();
-      existing = byGithubId.find(
-        (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
-      );
+      existing = byGithubId.find(matchesRoot);
     }
 
     if (!existing) {
@@ -40,9 +40,7 @@ export const upsert = internalMutation({
           q.eq("owner", args.owner).eq("name", args.name),
         )
         .collect();
-      existing = byOwnerName.find(
-        (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
-      );
+      existing = byOwnerName.find(matchesRoot);
     }
 
     if (existing) {

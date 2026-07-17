@@ -20,9 +20,10 @@ import { getUserDisplayName } from "./task-detail-constants";
 type Users = FunctionReturnType<typeof api.users.listAll>;
 
 /**
- * Activity-tab header showing who follows the task. Subscribers are notified of
- * comments, meaningful status changes, and PR events. The self toggle manages
- * the current user's subscription; the picker adds or removes teammates.
+ * Sits on the task detail tabs row and shows who follows the task. Subscribers
+ * are notified of comments, meaningful status changes, and PR events. The self
+ * toggle manages the current user's subscription; the picker adds or removes
+ * teammates.
  */
 export function TaskSubscribers({
   taskId,
@@ -50,7 +51,7 @@ export function TaskSubscribers({
   const manageableUsers = users ?? [];
 
   return (
-    <div className="flex items-center justify-end gap-2 pb-4">
+    <div className="flex items-center gap-2">
       <Button
         variant={isSubscribed ? "secondary" : "outline"}
         size="sm"

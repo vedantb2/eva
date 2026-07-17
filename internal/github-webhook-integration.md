@@ -185,7 +185,7 @@ async function verifyWebhookSignature(
 }
 ```
 
-Type-safe payload parsing using `isRecord` + `getString`/`getNumber` helpers (no `any`/`unknown`/`as`).
+Type-safe payload parsing using a Zod boundary schema (`prWebhookSchema` in `http.ts`) via `safeParse` — `action` and `pull_request.html_url` are required, every other field is `.nullable().catch(null)`, and a parse failure returns `200` so malformed payloads are ignored (no `any`/`unknown`/`as`).
 
 ## Edge cases to handle
 

@@ -30,7 +30,6 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import {
   searchParser,
@@ -43,6 +42,10 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  SidebarListHoverCard,
+  sidebarTextPreview,
+} from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 
 interface DocsSidebarProps {
@@ -76,8 +79,6 @@ export function DocsSidebar({
       }
     },
   );
-  const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
-
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [docListFilter, setDocListFilter] = useQueryState(
     "docFilter",
@@ -106,11 +107,11 @@ export function DocsSidebar({
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
-    const byKind = docs.filter((doc) => {
-      if (docListFilter === "documents") return doc.kind !== "pr-recap";
-      if (docListFilter === "pr-recaps") return doc.kind === "pr-recap";
-      return true;
-    });
+    const byKind = docs.filter((doc) =>
+      docListFilter === "pr-recaps"
+        ? doc.kind === "pr-recap"
+        : doc.kind !== "pr-recap",
+    );
     const q = searchQuery.toLowerCase().trim();
     return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
   }, [docs, searchQuery, docListFilter]);
@@ -190,7 +191,6 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       onNavigate?.();
-      await startPrdParse({ docId: id });
     } catch (error) {
       console.error("PRD upload failed", error);
     } finally {
@@ -282,7 +282,6 @@ export function DocsSidebar({
       <div className="flex gap-1 px-2 pb-2">
         {(
           [
-            ["all", "All"],
             ["documents", "Documents"],
             ["pr-recaps", "PR recaps"],
           ] as const
@@ -333,39 +332,38 @@ export function DocsSidebar({
                       isActive={isSelected}
                       className="group"
                     >
-                      <Link
-                        to={href}
-                        search={(prev) => prev}
-                        onClick={onNavigate}
-                        className={sidebarNavLinkClass(isSelected)}
+                      <SidebarListHoverCard
+                        title={doc.title}
+                        preview={sidebarTextPreview(
+                          doc.description?.trim()
+                            ? doc.description
+                            : doc.content,
+                        )}
+                        updatedAt={doc.updatedAt ?? doc._creationTime}
+                        userId={doc.createdBy}
                       >
-                        {doc.kind === "pr-recap" ? (
-                          <IconGitMerge
-                            size={16}
-                            className={cn(
-                              "shrink-0",
-                              isSelected
-                                ? "text-sidebar-primary"
-                                : "text-muted-foreground",
-                            )}
-                          />
-                        ) : null}
-                        <span className="min-w-0 flex-1 truncate">
-                          {doc.title}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
-                            isSelected
-                              ? "max-w-[80px] pl-2 opacity-100"
-                              : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
-                          )}
+                        <Link
+                          to={href}
+                          search={(prev) => prev}
+                          onClick={onNavigate}
+                          className={sidebarNavLinkClass(isSelected)}
                         >
-                          {compactRelativeTime(
-                            doc.updatedAt ?? doc._creationTime,
-                          )}
-                        </span>
-                      </Link>
+                          {doc.kind === "pr-recap" ? (
+                            <IconGitMerge
+                              size={16}
+                              className={cn(
+                                "shrink-0",
+                                isSelected
+                                  ? "text-sidebar-primary"
+                                  : "text-muted-foreground",
+                              )}
+                            />
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">
+                            {doc.title}
+                          </span>
+                        </Link>
+                      </SidebarListHoverCard>
                     </SharedLayoutNavSurface>
                   </ContextMenuTrigger>
                   <ContextMenuContent onClick={(e) => e.stopPropagation()}>

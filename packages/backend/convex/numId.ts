@@ -1,7 +1,4 @@
-import type {
-  GenericDatabaseReader,
-  GenericDatabaseWriter,
-} from "convex/server";
+import type { GenericDatabaseWriter } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
 
 export type RepoEntityType =

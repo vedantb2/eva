@@ -46,6 +46,9 @@ export function ProjectPlanTab({
           projectLead,
           codeReviewer,
           model,
+          providerAccountId,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(
@@ -64,6 +67,9 @@ export function ProjectPlanTab({
               ? { codeReviewer: codeReviewer ?? undefined }
               : {}),
             ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
           },
         );
       }

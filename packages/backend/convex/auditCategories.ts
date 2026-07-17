@@ -75,11 +75,7 @@ export const listEnabledForContext = internalQuery({
       .collect();
 
     return enabledCategories
-      .filter((c) => {
-        const isRepoLevel = c.appId === undefined;
-        const isForThisApp = c.appId !== undefined && c.appId === args.appId;
-        return isRepoLevel || isForThisApp;
-      })
+      .filter((c) => c.appId === undefined || c.appId === args.appId)
       .map((c) => ({ name: c.name, description: c.description }));
   },
 });

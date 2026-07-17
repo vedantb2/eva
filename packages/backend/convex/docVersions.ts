@@ -7,6 +7,20 @@ import { docVersionSourceValidator } from "./validators";
 
 const VERSION_CAP = 100;
 
+/** True when the latest saved version already holds this exact pmContent. */
+async function isSameAsLatestVersion(
+  ctx: MutationCtx,
+  docId: Id<"docs">,
+  pmContent: string,
+): Promise<boolean> {
+  const latest = await ctx.db
+    .query("docVersions")
+    .withIndex("by_doc", (q) => q.eq("docId", docId))
+    .order("desc")
+    .first();
+  return latest !== null && latest.pmContent === pmContent;
+}
+
 /** Prunes oldest versions when a doc exceeds the cap. */
 async function pruneOldVersions(
   ctx: MutationCtx,
@@ -88,12 +102,8 @@ export const saveVersion = authMutation({
     if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
       throw new Error("Document not found");
 
-    const existing = await ctx.db
-      .query("docVersions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
-      .order("desc")
-      .first();
-    if (existing && existing.pmContent === args.pmContent) return null;
+    if (await isSameAsLatestVersion(ctx, args.docId, args.pmContent))
+      return null;
 
     const draft = await ctx.db
       .query("docVersionDrafts")
@@ -136,12 +146,8 @@ export const saveRecapSnapshot = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("docVersions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
-      .order("desc")
-      .first();
-    if (existing && existing.pmContent === args.pmContent) return null;
+    if (await isSameAsLatestVersion(ctx, args.docId, args.pmContent))
+      return null;
 
     await ctx.db.insert("docVersions", {
       docId: args.docId,

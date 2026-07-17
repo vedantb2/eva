@@ -182,7 +182,7 @@ export function QuickTasksKanbanBoard({
             }
             href={
               entityPathSegment(task)
-                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                 : `${basePath}/quick-tasks`
             }
             groupedCodebases={groupedCodebases ?? undefined}
@@ -191,6 +191,7 @@ export function QuickTasksKanbanBoard({
             onToggleSelect={() => onToggleSelect(task._id)}
             assignedTo={task.assignedTo}
             model={task.model}
+            providerAccountId={task.providerAccountId}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
             users={users ?? undefined}
@@ -220,6 +221,7 @@ export function QuickTasksKanbanBoard({
             isSelected={selectedIds.has(task._id)}
             assignedTo={task.assignedTo}
             model={task.model}
+            providerAccountId={task.providerAccountId}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
             users={users ?? undefined}

@@ -47,16 +47,32 @@ export function buildEditPrompt(
   rootDirectory: string,
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
+  captureProof: boolean,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
-  return `${message}${planContext}
+  // When the session has "Capture proof" enabled, ask the agent to record
+  // visual proof after committing. The sandbox callback runtime scans
+  // recordings/ and screenshots/ after the run and attaches the media to the
+  // assistant message automatically — so this is prompt-only.
+  const proofSection = captureProof
+    ? `
+
+## Proof of Completion:
+After committing, capture visual proof with agent-browser:
+1. Start the dev server in the background and wait until it is ready.
+2. Navigate to the affected route: \`agent-browser open http://localhost:3000/<relevant-route>\` and wait 5s for it to render.
+3. Record a walkthrough: \`agent-browser record start recordings/proof.webm\`, step through each affected page (wait 5s per page, scroll to show the change), then \`agent-browser record stop\`. Use \`agent-browser screenshot\` into screenshots/ only for a trivial change with nothing to demonstrate.
+4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
+Do NOT commit the recordings/ or screenshots/ files.`
+    : "";
+  return `${message}${planContext}${proofSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Only work on "${branchName}" — never interact with main.
-- Do not git push — Eva publishes "${branchName}" after you finish.
+- Do not git pull, git push, or run ship/PR skills — Eva publishes "${branchName}" after you finish. Commit only.
 - If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
 - Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;

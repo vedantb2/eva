@@ -9,6 +9,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import {
   QuickTaskModal,
   ImportLinearModal,
@@ -43,8 +44,8 @@ export function QuickTasksClient() {
   const { basePath, repo, repoId } = useRepo();
   const taskResolve = useAgentTaskByNumId(numIdParam, repoId);
   const selectedTaskId =
-    taskResolve.status === "ready" && taskResolve.convexId
-      ? taskResolve.convexId
+    taskResolve.status === "ready"
+      ? (taskResolve.convexId ?? undefined)
       : undefined;
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const { draft: draftParam } = useSearch({
@@ -229,7 +230,7 @@ export function QuickTasksClient() {
   const handleOpenTask = (task: { numId?: number }) => {
     const segment = entityPathSegment(task);
     if (!segment) return;
-    navigate({ to: `${basePath}/quick-tasks/${segment}/activity` });
+    navigate({ to: `${basePath}/quick-tasks/${segment}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
@@ -265,7 +266,7 @@ export function QuickTasksClient() {
       clearDraftParam();
     }
     // clearDraftParam is defined inline each render — only run when these values change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [drafts, draftParam, initialDraft]);
 
   if (tasks === undefined) {
@@ -273,6 +274,27 @@ export function QuickTasksClient() {
       <div className="flex h-full flex-1 items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+
+  // URL points at a task that is still resolving or no longer exists.
+  if (numIdParam !== undefined && taskResolve.status === "loading") {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (numIdParam !== undefined && taskResolve.status === "not-found") {
+    return (
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <EntityNotFound
+          entityLabel="task"
+          backTo={`${basePath}/quick-tasks`}
+          backLabel="Back to Quick Tasks"
+        />
+      </PageWrapper>
     );
   }
 

@@ -75,23 +75,18 @@ export const syncRepos = action({
         );
 
         const appPaths: string[] = [];
-        if (apps.length > 0) {
-          for (const app of apps) {
-            const subAppId = await ctx.runMutation(
-              internal.githubRepos.upsert,
-              {
-                owner: repo.owner.login,
-                name: repo.name,
-                installationId: installation.id,
-                githubId: repo.id,
-                teamId: personalTeamId,
-                rootDirectory: app.path,
-                parentRepoId: id,
-              },
-            );
-            connectedIds.push(subAppId);
-            appPaths.push(app.path);
-          }
+        for (const app of apps) {
+          const subAppId = await ctx.runMutation(internal.githubRepos.upsert, {
+            owner: repo.owner.login,
+            name: repo.name,
+            installationId: installation.id,
+            githubId: repo.id,
+            teamId: personalTeamId,
+            rootDirectory: app.path,
+            parentRepoId: id,
+          });
+          connectedIds.push(subAppId);
+          appPaths.push(app.path);
         }
         detectedApps.push({
           owner: repo.owner.login,

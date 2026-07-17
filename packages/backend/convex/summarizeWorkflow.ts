@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
@@ -132,12 +133,11 @@ export const saveResult = internalMutation({
     let summary: string[] = ["No summary available"];
 
     if (args.success && args.result) {
-      const parsed = extractFirstJsonValue(args.result);
-      if (
-        Array.isArray(parsed) &&
-        parsed.every((item): item is string => typeof item === "string")
-      ) {
-        summary = parsed;
+      const parsed = z
+        .array(z.string())
+        .safeParse(extractFirstJsonValue(args.result));
+      if (parsed.success) {
+        summary = parsed.data;
       }
     }
 

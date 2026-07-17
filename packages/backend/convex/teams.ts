@@ -1,6 +1,63 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import type { GenericDatabaseReader } from "convex/server";
+import {
+  internalMutation,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
+import { teamFields } from "./_validators/tableFields";
+
+/** Team doc fields plus resolved logo URL and membership role for list/get. */
+const teamWithLogoValidator = v.object({
+  _id: v.id("teams"),
+  _creationTime: v.number(),
+  ...teamFields,
+  logoUrl: v.optional(v.union(v.string(), v.null())),
+  displayName: v.string(),
+  userRole: v.union(v.literal("owner"), v.literal("member")),
+});
+
+/** Computes a team's display name, deriving personal-team labels from the current user or owner. */
+async function resolveDisplayName(
+  ctx: QueryCtx,
+  team: Doc<"teams">,
+  currentUserId: Id<"users">,
+): Promise<string> {
+  if (!team.isPersonal) return team.name;
+  if (team.createdBy === currentUserId) return "My Team";
+  const owner = await ctx.db.get(team.createdBy);
+  const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
+  return `${ownerName}'s Team`;
+}
+
+/** Resolves `logoStorageId` to a public URL for UI rendering. */
+async function attachLogoUrl(
+  ctx: QueryCtx | MutationCtx,
+  team: Doc<"teams">,
+): Promise<{ logoUrl: string | null }> {
+  return {
+    logoUrl: team.logoStorageId
+      ? await ctx.storage.getUrl(team.logoStorageId)
+      : null,
+  };
+}
+
+/** Throws unless the user is a member of the team (any role). */
+async function assertTeamMember(
+  db: GenericDatabaseReader<DataModel>,
+  teamId: Id<"teams">,
+  userId: Id<"users">,
+): Promise<void> {
+  const membership = await db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+  if (!membership) throw new Error("Not authorized");
+}
 
 /** Gets the user's personal team, creating one (with owner membership) if it doesn't exist. */
 export const getOrCreatePersonal = internalMutation({
@@ -63,21 +120,10 @@ export const create = authMutation({
   },
 });
 
-/** Lists all teams the current user belongs to, with display names and user role. */
+/** Lists all teams the current user belongs to, with display names, logos, and user role. */
 export const list = authQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("teams"),
-      _creationTime: v.number(),
-      name: v.string(),
-      displayName: v.string(),
-      createdBy: v.id("users"),
-      createdAt: v.number(),
-      isPersonal: v.optional(v.boolean()),
-      userRole: v.union(v.literal("owner"), v.literal("member")),
-    }),
-  ),
+  returns: v.array(teamWithLogoValidator),
   handler: async (ctx) => {
     const memberships = await ctx.db
       .query("teamMembers")
@@ -88,19 +134,10 @@ export const list = authQuery({
     for (const membership of memberships) {
       const team = await ctx.db.get(membership.teamId);
       if (team) {
-        let displayName = team.name;
-        if (team.isPersonal) {
-          if (team.createdBy === ctx.userId) {
-            displayName = "My Team";
-          } else {
-            const owner = await ctx.db.get(team.createdBy);
-            const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
-            displayName = `${ownerName}'s Team`;
-          }
-        }
         teams.push({
           ...team,
-          displayName,
+          ...(await attachLogoUrl(ctx, team)),
+          displayName: await resolveDisplayName(ctx, team, ctx.userId),
           userRole: membership.role,
         });
       }
@@ -113,19 +150,7 @@ export const list = authQuery({
 /** Fetches a single team by ID, returning null if not found or user isn't a member. */
 export const get = authQuery({
   args: { id: v.id("teams") },
-  returns: v.union(
-    v.object({
-      _id: v.id("teams"),
-      _creationTime: v.number(),
-      name: v.string(),
-      displayName: v.string(),
-      createdBy: v.id("users"),
-      createdAt: v.number(),
-      isPersonal: v.optional(v.boolean()),
-      userRole: v.union(v.literal("owner"), v.literal("member")),
-    }),
-    v.null(),
-  ),
+  returns: v.union(teamWithLogoValidator, v.null()),
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.id);
     if (!team) return null;
@@ -139,20 +164,10 @@ export const get = authQuery({
 
     if (!membership) return null;
 
-    let displayName = team.name;
-    if (team.isPersonal) {
-      if (team.createdBy === ctx.userId) {
-        displayName = "My Team";
-      } else {
-        const owner = await ctx.db.get(team.createdBy);
-        const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
-        displayName = `${ownerName}'s Team`;
-      }
-    }
-
     return {
       ...team,
-      displayName,
+      ...(await attachLogoUrl(ctx, team)),
+      displayName: await resolveDisplayName(ctx, team, ctx.userId),
       userRole: membership.role,
     };
   },
@@ -181,6 +196,45 @@ export const update = authMutation({
     if (args.name !== undefined) updates.name = args.name;
 
     await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
+/** Generates a short-lived upload URL for a team logo (any team member). */
+export const generateLogoUploadUrl = authMutation({
+  args: { teamId: v.id("teams") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new Error("Team not found");
+    await assertTeamMember(ctx.db, args.teamId, ctx.userId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Sets (or clears with null) a team's logo. Any team member can change it.
+ * Deletes the previously stored image so replace/remove does not leave orphans.
+ */
+export const setLogo = authMutation({
+  args: {
+    teamId: v.id("teams"),
+    storageId: v.union(v.id("_storage"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new Error("Team not found");
+    await assertTeamMember(ctx.db, args.teamId, ctx.userId);
+
+    const previousId = team.logoStorageId;
+    if (previousId && previousId !== args.storageId) {
+      await ctx.storage.delete(previousId);
+    }
+
+    await ctx.db.patch(args.teamId, {
+      logoStorageId: args.storageId ?? undefined,
+    });
     return null;
   },
 });
@@ -230,6 +284,10 @@ export const remove = authMutation({
       .first();
     if (teamEnvVars) {
       await ctx.db.delete(teamEnvVars._id);
+    }
+
+    if (team.logoStorageId) {
+      await ctx.storage.delete(team.logoStorageId);
     }
 
     await ctx.db.delete(args.id);

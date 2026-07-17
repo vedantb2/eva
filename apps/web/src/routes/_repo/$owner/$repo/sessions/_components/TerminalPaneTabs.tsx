@@ -9,7 +9,7 @@ interface TerminalPaneTabsProps {
 }
 
 function paneLabel(index: number) {
-  return index === 0 ? "Terminal" : `Terminal ${index + 1}`;
+  return `Terminal ${index + 1}`;
 }
 
 export function TerminalPaneTabs({
@@ -18,7 +18,9 @@ export function TerminalPaneTabs({
   onSelect,
   onClose,
 }: TerminalPaneTabsProps) {
-  if (termIds.length <= 1) {
+  // These are the user-created terminals only; every one is closable, and a
+  // single terminal still needs its tab (and close button) shown.
+  if (termIds.length === 0) {
     return null;
   }
 
@@ -52,19 +54,17 @@ export function TerminalPaneTabs({
               <IconTerminal2 className="size-3.5 shrink-0" />
               {paneLabel(index)}
             </button>
-            {index > 0 ? (
-              <button
-                type="button"
-                className="hit-target motion-press mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 transition-[transform,background-color,opacity] hover:bg-muted hover:text-foreground hover:opacity-100 active:scale-[0.96] group-hover:opacity-100"
-                aria-label={`Close ${paneLabel(index)}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose(id);
-                }}
-              >
-                <IconX className="size-3.5" />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="hit-target motion-press mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 transition-[transform,background-color,opacity] hover:bg-muted hover:text-foreground hover:opacity-100 active:scale-[0.96] group-hover:opacity-100"
+              aria-label={`Close ${paneLabel(index)}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(id);
+              }}
+            >
+              <IconX className="size-3.5" />
+            </button>
           </div>
         );
       })}

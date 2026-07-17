@@ -44,6 +44,13 @@ const jsonSchemaPropertySchema = z
   })
   .passthrough();
 
+const toolResultContentSchema = z.object({ content: z.array(z.unknown()) });
+const textContentItemSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+});
+const toolResultErrorSchema = z.object({ isError: z.literal(true) });
+
 function toZodType(raw: unknown): ZodTypeAny {
   const parsed = jsonSchemaPropertySchema.safeParse(raw);
   if (!parsed.success) return z.string();
@@ -238,7 +245,8 @@ export async function registerSupabaseTools(
               `Supabase tool ${tool.name}`,
             );
 
-            if (!("content" in result) || !Array.isArray(result.content)) {
+            const parsedResult = toolResultContentSchema.safeParse(result);
+            if (!parsedResult.success) {
               return {
                 content: [
                   {
@@ -249,19 +257,10 @@ export async function registerSupabaseTools(
               };
             }
 
-            const textContent: Array<{ type: "text"; text: string }> = [];
-            for (const item of result.content) {
-              if (
-                typeof item === "object" &&
-                item !== null &&
-                "type" in item &&
-                item.type === "text" &&
-                "text" in item &&
-                typeof item.text === "string"
-              ) {
-                textContent.push({ type: "text" as const, text: item.text });
-              }
-            }
+            const textContent = parsedResult.data.content.flatMap((item) => {
+              const parsedItem = textContentItemSchema.safeParse(item);
+              return parsedItem.success ? [parsedItem.data] : [];
+            });
 
             return {
               content:
@@ -270,13 +269,12 @@ export async function registerSupabaseTools(
                   : [
                       {
                         type: "text" as const,
-                        text: JSON.stringify(result.content),
+                        text: JSON.stringify(parsedResult.data.content),
                       },
                     ],
-              isError:
-                "isError" in result && result.isError === true
-                  ? true
-                  : undefined,
+              isError: toolResultErrorSchema.safeParse(result).success
+                ? true
+                : undefined,
             };
           } finally {
             await client.close();

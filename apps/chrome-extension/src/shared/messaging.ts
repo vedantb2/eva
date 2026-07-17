@@ -175,16 +175,21 @@ export function requestBackground<K extends BgRequestType>(
 
 /* --------------------------- runtime guards --------------------------- */
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export function isStoredPinRecord(
   value: unknown,
 ): value is Record<string, StoredPin> {
-  if (!isRecord(value)) return false;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
   for (const v of Object.values(value)) {
-    if (!isRecord(v) || typeof v.x !== "number" || typeof v.y !== "number") {
+    if (
+      typeof v !== "object" ||
+      v === null ||
+      !("x" in v) ||
+      typeof v.x !== "number" ||
+      !("y" in v) ||
+      typeof v.y !== "number"
+    ) {
       return false;
     }
   }

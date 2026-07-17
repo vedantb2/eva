@@ -57,7 +57,7 @@ export const WebPreview = ({
   ...props
 }: WebPreviewProps) => {
   const [url, setUrl] = useState(defaultUrl);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [, setReloadKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const handleUrlChange = useCallback(

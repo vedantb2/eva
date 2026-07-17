@@ -32,6 +32,7 @@ import {
   renderEvaEnvFile,
   VERCEL_DEFAULT_EXPOSED_PORTS,
 } from "../_sandbox/vercelProvider";
+import { buildSandboxLabels } from "../_sandbox/tags";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -349,7 +350,14 @@ export async function createSandbox(
         autoArchiveMinutes: lifecycle.autoArchiveInterval,
         autoDeleteMinutes: lifecycle.autoDeleteInterval,
         ephemeral: lifecycle.ephemeral,
-        labels: lifecycle.labels,
+        // Stamp Eva tags when ENVIRONMENT is set (Vercel dashboard/CLI filter).
+        // Max 5 on Vercel — buildSandboxLabels caps + merges caller overrides.
+        // Without ENVIRONMENT, labels pass through unchanged (seed-prep only).
+        labels: buildSandboxLabels({
+          ephemeral: lifecycle.ephemeral,
+          labels: lifecycle.labels,
+          repoId: sandboxEnvVars.REPO_ID,
+        }),
       },
       volumes: volumes?.map((v) => ({
         volumeId: v.volumeId,
@@ -415,6 +423,10 @@ export async function createSandbox(
         "git config --global --add safe.directory '*'",
         10,
       );
+      // Agents (esp. Cursor ship skills) often run `git pull` without
+      // --rebase/--no-rebase; modern git fatals on divergent branches unless
+      // a default is set. Rebase keeps session history linear when they do.
+      await execHandle(sandbox, "git config --global pull.rebase true", 10);
     });
 
     // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
@@ -590,21 +602,28 @@ export async function syncRepo(
   });
 }
 
+/** Checks whether the remote tracking ref origin/<branch> exists (SDK branches() only lists local). */
+async function remoteTrackingBranchExists(
+  sandbox: SandboxHandle,
+  branch: string,
+): Promise<boolean> {
+  const workspaceDir = workspaceDirShell();
+  const result = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([branch])} >/dev/null 2>&1 && printf yes || printf no`,
+      10,
+    )
+  ).trim();
+  return result === "yes";
+}
+
 /** Resolves the best available base ref: prefers origin/<base>, falls back to local, then HEAD. */
 export async function resolveBaseTarget(
   sandbox: SandboxHandle,
   baseBranch: string,
 ): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
-  // Check remote tracking branch via shell (SDK branches() only lists local)
-  const workspaceDir = workspaceDirShell();
-  const remoteCheck = (
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([baseBranch])} >/dev/null 2>&1 && printf yes || printf no`,
-      10,
-    )
-  ).trim();
-  if (remoteCheck === "yes") {
+  if (await remoteTrackingBranchExists(sandbox, baseBranch)) {
     return { ref: `origin/${baseBranch}`, source: "remote" };
   }
   // Check local branches via SDK
@@ -629,16 +648,7 @@ async function resolveBranchStartTarget(
   ref: string;
   source: "localBranch" | "remoteBranch" | "base";
 }> {
-  // Check remote tracking branch via shell (SDK branches() only lists local)
-  const workspaceDir = workspaceDirShell();
-  const remoteCheck = (
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([branchName])} >/dev/null 2>&1 && printf yes || printf no`,
-      10,
-    )
-  ).trim();
-  if (remoteCheck === "yes") {
+  if (await remoteTrackingBranchExists(sandbox, branchName)) {
     return { ref: `origin/${branchName}`, source: "remoteBranch" };
   }
   // Check local branches via SDK

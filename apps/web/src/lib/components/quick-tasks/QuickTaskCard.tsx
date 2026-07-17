@@ -16,9 +16,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import type { Id, api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import {
   SANDBOX_STATUS_STYLES,

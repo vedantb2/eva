@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { api } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
+import type { api, Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,

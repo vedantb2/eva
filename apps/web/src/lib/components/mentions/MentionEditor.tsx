@@ -809,25 +809,26 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const pickerPopup =
     showPopup && popupPlacement ? (
-      <MentionPickerPopup
-        title={popupTitle}
-        placement={popupPlacement}
-        items={popupItems}
-        selectedIndex={selectedIndex}
-        renderItem={(item, isSelected) =>
-          trigger.kind === "slash"
-            ? renderSlashItem(item, isSelected)
-            : renderItem(item as TItem, isSelected)
-        }
-        onSelectItem={(item) => {
-          if (trigger.kind === "slash") {
-            insertSlashItem(item);
-          } else {
-            insertMentionItem(item as TItem);
-          }
-        }}
-        emptyContent={emptySlashContent}
-      />
+      trigger.kind === "slash" ? (
+        <MentionPickerPopup
+          title={popupTitle}
+          placement={popupPlacement}
+          items={activeSlashItems}
+          selectedIndex={selectedIndex}
+          renderItem={renderSlashItem}
+          onSelectItem={insertSlashItem}
+          emptyContent={emptySlashContent}
+        />
+      ) : (
+        <MentionPickerPopup
+          title={popupTitle}
+          placement={popupPlacement}
+          items={activeMentionItems}
+          selectedIndex={selectedIndex}
+          renderItem={renderItem}
+          onSelectItem={insertMentionItem}
+        />
+      )
     ) : null;
 
   const chipHoverCardContent =

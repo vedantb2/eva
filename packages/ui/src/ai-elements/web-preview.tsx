@@ -183,8 +183,7 @@ export const WebPreviewUrl = ({
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === "Enter") {
-        const target = event.target as HTMLInputElement;
-        setUrl(target.value);
+        setUrl(event.currentTarget.value);
       }
       onKeyDown?.(event);
     },
@@ -267,7 +266,9 @@ export const WebPreviewConsole = ({
     <div className={cn("border-t bg-muted/50 text-sm", className)} {...props}>
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "console" | "terminal")}
+        onValueChange={(v) => {
+          if (v === "console" || v === "terminal") setActiveTab(v);
+        }}
         className="h-full flex flex-col"
       >
         <TabsList className="w-full justify-start rounded-none bg-transparent px-2 h-9">

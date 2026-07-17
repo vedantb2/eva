@@ -8,7 +8,10 @@ export const checkRepoAccessForUser = internalQuery({
   args: { repoId: v.string(), userId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const repo = await ctx.db.get(args.repoId as Id<"githubRepos">);
+    const repoId = ctx.db.normalizeId("githubRepos", args.repoId);
+    const userId = ctx.db.normalizeId("users", args.userId);
+    if (!repoId || !userId) return false;
+    const repo = await ctx.db.get(repoId);
     if (!repo) return false;
     if (repo.connectedBy === args.userId) return true;
     const teamId = repo.teamId;
@@ -16,7 +19,7 @@ export const checkRepoAccessForUser = internalQuery({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", teamId).eq("userId", args.userId as Id<"users">),
+        q.eq("teamId", teamId).eq("userId", userId),
       )
       .first();
     return membership !== null;
@@ -162,12 +165,14 @@ export const queryTable = internalQuery({
         .withIndex("by_repo", (q) => q.eq("repoId", repoId))
         .collect();
       const projectIds = new Set(
-        tasks.filter((t) => t.projectId).map((t) => t.projectId),
+        tasks
+          .map((t) => t.projectId)
+          .filter((id): id is Id<"projects"> => id !== undefined),
       );
       const projects = await Promise.all(
         Array.from(projectIds)
           .slice(0, limit)
-          .map((id) => ctx.db.get(id as Id<"projects">)),
+          .map((id) => ctx.db.get(id)),
       );
       return projects.filter(Boolean);
     }
@@ -223,11 +228,11 @@ export const getDocument = internalQuery({
     userId: v.id("users"),
   },
   handler: async (ctx, { id, userId }) => {
-    // Try to get the document - Convex IDs are strings
-    // We need to try different table types
-    try {
-      // Try agentTasks
-      const task = await ctx.db.get(id as Id<"agentTasks">);
+    // Convex IDs are opaque strings; normalizeId turns the caller's string back
+    // into a typed Id (or null) for each candidate table without an `as` cast.
+    const taskId = ctx.db.normalizeId("agentTasks", id);
+    if (taskId) {
+      const task = await ctx.db.get(taskId);
       if (task && task.repoId) {
         // Verify access via repo
         const hasAccess = await ctx.db
@@ -239,31 +244,25 @@ export const getDocument = internalQuery({
           return task;
         }
       }
-    } catch {
-      // Not a valid ID for this table
     }
 
-    try {
-      // Try sessions
-      const session = await ctx.db.get(id as Id<"sessions">);
+    const sessionId = ctx.db.normalizeId("sessions", id);
+    if (sessionId) {
+      const session = await ctx.db.get(sessionId);
       if (session) {
         const repo = await ctx.db.get(session.repoId);
         if (repo && repo.connectedBy === userId) {
           return session;
         }
       }
-    } catch {
-      // Not a valid ID for this table
     }
 
-    try {
-      // Try githubRepos
-      const repo = await ctx.db.get(id as Id<"githubRepos">);
+    const repoId = ctx.db.normalizeId("githubRepos", id);
+    if (repoId) {
+      const repo = await ctx.db.get(repoId);
       if (repo && repo.connectedBy === userId) {
         return repo;
       }
-    } catch {
-      // Not a valid ID for this table
     }
 
     return null;

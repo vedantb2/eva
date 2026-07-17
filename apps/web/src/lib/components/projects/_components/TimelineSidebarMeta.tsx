@@ -1,8 +1,7 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { api, Id } from "@conductor/backend";
 import {
   AvatarStack,
   Tooltip,

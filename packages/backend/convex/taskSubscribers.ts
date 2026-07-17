@@ -1,9 +1,12 @@
-import { v, Infer } from "convex/values";
+import { v, type Infer } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
-import { taskSubscriberFields, notificationTypeValidator } from "./validators";
+import {
+  taskSubscriberFields,
+  type notificationTypeValidator,
+} from "./validators";
 
 const taskSubscriberDocValidator = v.object({
   _id: v.id("taskSubscribers"),

@@ -31,7 +31,6 @@ import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar
 import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPanel";
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
-import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -40,7 +39,6 @@ import {
   IconGitPullRequest,
   IconHammer,
   IconPlayerStop,
-  IconPlayerPlay,
   IconTerminal2,
   IconLoader2,
   IconChevronRight,
@@ -116,7 +114,6 @@ export function ProjectDetailClient({
     isSandboxStopping,
     sandboxStartupActivity,
     sandboxId: projectSandboxId,
-    handleStartSandbox,
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,

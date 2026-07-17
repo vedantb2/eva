@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import type { TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -29,8 +28,7 @@ export function TeamDetailClient({
   tab: TeamDetailTab;
 }) {
   const navigate = useNavigate();
-  const typedTeamId = teamId as Id<"teams">;
-  const team = useQuery(api.teams.get, { id: typedTeamId });
+  const team = useQuery(api.teams.get, { id: teamId });
   const members =
     useQuery(api.teamMembers.list, team ? { teamId: team._id } : "skip") ?? [];
   const repos =

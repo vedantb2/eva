@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { type api } from "@conductor/backend";
 
 export type CommentDraft = FunctionReturnType<
   typeof api.drafts.listForRepo

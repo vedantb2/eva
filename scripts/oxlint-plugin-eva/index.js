@@ -33,6 +33,32 @@ const noIsRecord = {
   },
 };
 
+/**
+ * `no-explicit-unknown` flags every explicit `unknown` type annotation
+ * (`TSUnknownKeyword`) so boundary data is narrowed/parsed (e.g. a Zod
+ * `schema.safeParse`) instead of propagated as `unknown` through the
+ * codebase. This is informational (warn) — see `.oxlintrc.json`.
+ */
+const noExplicitUnknown = {
+  meta: {
+    docs: {
+      description:
+        "Disallow explicit `unknown` type usage; narrow/parse at the boundary instead.",
+    },
+    messages: {
+      noExplicitUnknown:
+        "Explicit `unknown` should be narrowed/parsed at the boundary (e.g. Zod safeParse) rather than propagated. See CLAUDE.md.",
+    },
+  },
+  create(context) {
+    return {
+      TSUnknownKeyword(node) {
+        context.report({ messageId: "noExplicitUnknown", node });
+      },
+    };
+  },
+};
+
 /** @type {{ meta: { name: string }, rules: Record<string, unknown> }} */
 const plugin = {
   meta: {
@@ -40,6 +66,7 @@ const plugin = {
   },
   rules: {
     "no-is-record": noIsRecord,
+    "no-explicit-unknown": noExplicitUnknown,
   },
 };
 

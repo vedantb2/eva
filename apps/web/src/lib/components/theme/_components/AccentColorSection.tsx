@@ -7,6 +7,10 @@ import { IconCheck } from "@tabler/icons-react";
 import { SectionLabel } from "./SectionLabel";
 import { OptionButton } from "./OptionButton";
 
+function isAccentColor(value: string): value is AccentColor {
+  return value in ACCENT_COLORS;
+}
+
 export function AccentColorSection({
   accentColor,
   onAccentChange,
@@ -18,12 +22,8 @@ export function AccentColorSection({
     <section>
       <SectionLabel>Accent Color</SectionLabel>
       <div className="flex flex-wrap gap-2 sm:gap-3">
-        {(
-          Object.entries(ACCENT_COLORS) as [
-            AccentColor,
-            (typeof ACCENT_COLORS)[AccentColor],
-          ][]
-        ).map(([key, color]) => {
+        {Object.entries(ACCENT_COLORS).map(([key, color]) => {
+          if (!isAccentColor(key)) return null;
           const isActive = accentColor === key;
           return (
             <OptionButton

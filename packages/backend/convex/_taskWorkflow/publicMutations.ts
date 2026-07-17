@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { WorkflowId } from "@convex-dev/workflow";
-import { workflow, cancelTrackedWorkflow } from "../workflowManager";
+import {
+  workflow,
+  cancelTrackedWorkflow,
+  toWorkflowId,
+} from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { aiModelValidator } from "../validators";
 import {
@@ -26,7 +30,7 @@ async function getActiveWorkflowId(
 ): Promise<WorkflowId | null> {
   const task = await ctx.db.get(taskId);
   if (!task?.activeWorkflowId) return null;
-  return task.activeWorkflowId as WorkflowId;
+  return toWorkflowId(task.activeWorkflowId);
 }
 
 /** Returns the most recently started running task run for a task, or null if none remain. */

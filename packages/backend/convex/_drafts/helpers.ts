@@ -5,7 +5,7 @@ import type {
 import { hasRepoAccess } from "../functions";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer } from "convex/values";
-import { draftTarget } from "../validators";
+import { type draftTarget } from "../validators";
 
 type DraftTarget = Infer<typeof draftTarget>;
 

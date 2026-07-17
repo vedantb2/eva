@@ -86,7 +86,7 @@ export const fileViewerPathParser = parseAsString
   .withOptions(searchOptions);
 
 export function isSessionSandboxTab(s: string): s is SandboxTab {
-  return (sandboxTabs as readonly string[]).includes(s);
+  return sandboxTabs.some((tab) => tab === s);
 }
 
 const taskRouteSandboxTabs = [
@@ -99,7 +99,7 @@ const taskRouteSandboxTabs = [
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
 export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
-  return (taskRouteSandboxTabs as readonly string[]).includes(s);
+  return taskRouteSandboxTabs.some((tab) => tab === s);
 }
 
 // Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
@@ -149,14 +149,14 @@ const snapshotSettingsTabs = [
 export type SnapshotSettingsTab = (typeof snapshotSettingsTabs)[number];
 
 export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
-  return (snapshotSettingsTabs as readonly string[]).includes(s);
+  return snapshotSettingsTabs.some((tab) => tab === s);
 }
 
 const docViewerTabs = ["content", "html"] as const;
 export type DocViewerTab = (typeof docViewerTabs)[number];
 
 export function isDocViewerTab(s: string): s is DocViewerTab {
-  return (docViewerTabs as readonly string[]).includes(s);
+  return docViewerTabs.some((tab) => tab === s);
 }
 
 export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
@@ -177,7 +177,7 @@ const automationTabs = ["latest", "run-history", "settings"] as const;
 export type AutomationTab = (typeof automationTabs)[number];
 
 export function isAutomationTab(s: string): s is AutomationTab {
-  return (automationTabs as readonly string[]).includes(s);
+  return automationTabs.some((tab) => tab === s);
 }
 
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
@@ -210,14 +210,14 @@ const envVarScopes = ["repo", "team"] as const;
 export type EnvVarScope = (typeof envVarScopes)[number];
 
 export function isEnvVarScope(s: string): s is EnvVarScope {
-  return (envVarScopes as readonly string[]).includes(s);
+  return envVarScopes.some((scope) => scope === s);
 }
 
 const teamDetailTabs = ["members", "repos", "env", "artifacts"] as const;
 export type TeamDetailTab = (typeof teamDetailTabs)[number];
 
 export function isTeamDetailTab(s: string): s is TeamDetailTab {
-  return (teamDetailTabs as readonly string[]).includes(s);
+  return teamDetailTabs.some((tab) => tab === s);
 }
 
 export const logEntityTypesParser = parseAsArrayOf(parseAsString)

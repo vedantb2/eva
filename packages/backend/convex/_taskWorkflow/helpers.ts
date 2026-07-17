@@ -2,9 +2,8 @@ import type { MutationCtx } from "../_generated/server";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer, Validator } from "convex/values";
-import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
-import { workflow } from "../workflowManager";
+import { toWorkflowId, workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
@@ -225,10 +224,9 @@ export async function sendCompletionEvent<
   workflowId: string,
   value: Infer<V>,
 ): Promise<void> {
-  const branded: WorkflowId = workflowId as WorkflowId;
   await workflow.sendEvent(ctx, {
     ...event,
-    workflowId: branded,
+    workflowId: toWorkflowId(workflowId),
     value,
   });
 }

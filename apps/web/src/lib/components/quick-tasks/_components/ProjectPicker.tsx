@@ -13,8 +13,7 @@ import {
 } from "@conductor/ui";
 import { IconFolder, IconFolderPlus, IconCheck } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { api, Id } from "@conductor/backend";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 

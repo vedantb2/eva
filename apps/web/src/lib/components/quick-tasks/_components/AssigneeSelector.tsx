@@ -15,8 +15,7 @@ import { IconUserPlus, IconCheck } from "@tabler/icons-react";
 import { getUserInitials, UserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { api, Id } from "@conductor/backend";
 import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];

@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -713,10 +713,12 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         },
       );
 
-      // Result is typed as 'any' from Convex, safely convert to object for spreading
+      // Result is typed as 'any' from Convex; launder to unknown, then narrow to
+      // an object before spreading so no assertion is needed.
+      const rawResult: unknown = result;
       const batchResult =
-        typeof result === "object" && result !== null
-          ? (result as Record<string, unknown>)
+        typeof rawResult === "object" && rawResult !== null
+          ? { ...rawResult }
           : {};
 
       return textResult({

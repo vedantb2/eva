@@ -23,11 +23,7 @@ function assertPreviewSandboxAllowed(task: {
   if (task.sandboxId) {
     return;
   }
-  if (
-    !PREVIEW_ALLOWED_STATUSES.includes(
-      task.status as (typeof PREVIEW_ALLOWED_STATUSES)[number],
-    )
-  ) {
+  if (!PREVIEW_ALLOWED_STATUSES.some((status) => status === task.status)) {
     throw new Error(
       `Task must be in code_review, business_review or done status to start sandbox. Current status: ${task.status}`,
     );
@@ -196,11 +192,7 @@ export const runDevServer = authMutation({
       throw new Error("Start the sandbox before running the dev server");
     }
 
-    if (
-      !PREVIEW_ALLOWED_STATUSES.includes(
-        task.status as (typeof PREVIEW_ALLOWED_STATUSES)[number],
-      )
-    ) {
+    if (!PREVIEW_ALLOWED_STATUSES.some((status) => status === task.status)) {
       throw new Error(
         `Task must be in code_review, business_review or done status. Current status: ${task.status}`,
       );

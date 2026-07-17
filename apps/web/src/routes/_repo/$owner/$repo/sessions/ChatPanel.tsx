@@ -69,9 +69,10 @@ type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
 >[number];
 
-// Convex has no non-cast way to mint an Id<T> before the server assigns one;
-// this is the single, contained `as` for optimistic-insert temp ids.
+// Convex has no non-assertion way to mint an Id<T> before the server assigns
+// one; this is the single, contained assertion for optimistic-insert temp ids.
 function optimisticMessageId(): Id<"messages"> {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- Convex Id<T> is an opaque branded string; there is no non-assertion way to mint a client-side optimistic temp id
   return crypto.randomUUID() as Id<"messages">;
 }
 

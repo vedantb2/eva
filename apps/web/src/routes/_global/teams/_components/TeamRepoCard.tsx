@@ -1,6 +1,5 @@
 import { useRef } from "react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { api, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Card, CardContent, Button } from "@conductor/ui";
 import {

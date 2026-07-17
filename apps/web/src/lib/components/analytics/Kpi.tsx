@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, cn } from "@conductor/ui";
 import {
-  Icon as TablerIcon,
+  type Icon as TablerIcon,
   IconTrendingUp,
   IconTrendingDown,
   IconMinus,

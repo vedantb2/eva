@@ -1,9 +1,9 @@
 import {
-  MutationCtx,
+  type MutationCtx,
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { v, Infer } from "convex/values";
+import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { notificationTypeValidator } from "./validators";

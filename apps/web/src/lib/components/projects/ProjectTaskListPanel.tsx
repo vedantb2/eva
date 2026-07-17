@@ -169,9 +169,9 @@ export function ProjectTaskListPanel({
       const bTime = b.lastRunStartedAt ?? b.createdAt;
       return bTime - aTime;
     };
-    for (const status of Object.keys(groups) as TaskStatus[]) {
+    for (const [status, group] of Object.entries(groups)) {
       if (status !== "todo") {
-        groups[status].sort(sortByLastRun);
+        group.sort(sortByLastRun);
       }
     }
     return groups;

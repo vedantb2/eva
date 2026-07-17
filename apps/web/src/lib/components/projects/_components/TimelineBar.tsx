@@ -1,7 +1,7 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { type api } from "@conductor/backend";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import {
   phaseConfig,

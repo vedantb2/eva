@@ -62,7 +62,11 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_repo_and_phase", ["repoId", "phase"])
       .index("by_pr_url", ["prUrl"])
-      .index("by_repo_and_numId", ["repoId", "numId"]),
+      .index("by_repo_and_numId", ["repoId", "numId"])
+      .index("by_repo_and_sandbox_status", [
+        "repoId",
+        "reviewProjectSandboxStatus",
+      ]),
 
     projectDetails: defineTable(projectDetailsFields).index("by_project", [
       "projectId",
@@ -74,7 +78,11 @@ const schema = defineSchema(
       .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
       .index("by_project", ["projectId"])
       .index("by_project_and_status", ["projectId", "status"])
-      .index("by_repo_and_numId", ["repoId", "numId"]),
+      .index("by_repo_and_numId", ["repoId", "numId"])
+      .index("by_repo_and_sandbox_status", [
+        "repoId",
+        "reviewTaskSandboxStatus",
+      ]),
 
     agentRuns: defineTable(agentRunFields)
       .index("by_task", ["taskId"])

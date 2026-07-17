@@ -70,35 +70,37 @@ async function repoHasActiveSandbox(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<boolean> {
+  // Active sessions per repo are few — indexed status lookup, then skip archived /
+  // sandboxes-without-id. Early exit avoids project/task reads when a session is live.
   const activeSession = filterActiveEntities(
     await db
       .query("sessions")
       .withIndex("by_repo_and_status", (q) =>
         q.eq("repoId", repoId).eq("status", "active"),
       )
-      .collect(),
+      .take(16),
   ).find((s) => s.archived !== true && s.sandboxId !== undefined);
   if (activeSession) return true;
 
+  // Indexed existence checks (not full table scans): at most a handful of docs.
   const activeProject = filterActiveEntities(
     await db
       .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .collect(),
-  ).find(
-    (p) =>
-      p.reviewProjectSandboxStatus === "active" && p.sandboxId !== undefined,
-  );
+      .withIndex("by_repo_and_sandbox_status", (q) =>
+        q.eq("repoId", repoId).eq("reviewProjectSandboxStatus", "active"),
+      )
+      .take(8),
+  ).find((p) => p.sandboxId !== undefined);
   if (activeProject) return true;
 
   const activeTask = filterActiveEntities(
     await db
       .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .collect(),
-  ).find(
-    (t) => t.reviewTaskSandboxStatus === "active" && t.sandboxId !== undefined,
-  );
+      .withIndex("by_repo_and_sandbox_status", (q) =>
+        q.eq("repoId", repoId).eq("reviewTaskSandboxStatus", "active"),
+      )
+      .take(8),
+  ).find((t) => t.sandboxId !== undefined);
   return activeTask !== undefined;
 }
 

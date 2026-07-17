@@ -1,5 +1,10 @@
 # Changelog
 
+## Rail sandbox dots use indexed lookups - 2026-07-17
+
+- `listReposWithActiveSandboxes` now finds live project/task sandboxes via `by_repo_and_sandbox_status` indexes (bounded `.take`) instead of collecting every project/task per app.
+- Reason for change: the previous full collects scaled with historical task volume and made every sidebar load unnecessarily expensive.
+
 ## Per-task, per-project, and per-session proof/audit toggles - 2026-07-17
 
 - Proof capture (screenshots/videos) and audit are no longer repo-only defaults: they can now be turned on or off per task, per project, and per session, so runs no longer inherit a single repo-wide setting they cannot override.

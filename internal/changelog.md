@@ -1,5 +1,10 @@
 # Changelog
 
+## Chat jump rail matches t3code timeline minimap - 2026-07-17
+
+- The chat jump rail is now a short, vertically-centered scrubber (8px per tick) with fisheye hover and a floating preview of the user turn plus muted assistant reply, instead of a full-height tick strip.
+- Reason for change: the first implementation was hard to discover and didn’t match the t3code minimap interaction people expected.
+
 ## PR recap GitHub comments link to the correct Eva doc URL - 2026-07-17
 
 - Sticky PR recap comments now use the per-repo numeric `/docs/N` path instead of the Convex document id, which Eva routes do not resolve.

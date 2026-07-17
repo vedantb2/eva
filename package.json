@@ -15,7 +15,10 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",
-    "*.{ts,tsx}": "eslint"
+    "*.{ts,tsx}": [
+      "eslint",
+      "oxlint -c .oxlintrc.json"
+    ]
   },
   "pnpm": {
     "overrides": {

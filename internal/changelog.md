@@ -1,6 +1,12 @@
 # Changelog
 
-## PR recap GitHub comments link to the correct Eva doc URL - 2026-07-17
+## Richer agent-SDK tool UIs: subagent drill-in, todo checklists, blocking questions - 2026-07-17
+
+- Subagent activity now nests: a subagent row expands to show the reads, edits, and commands it ran, instead of a single opaque "Ran agent" line.
+- Fixed subagent runs going unrecognised — the Agent SDK renamed the tool from `Task` to `Agent`, and both names are now mapped.
+- TodoWrite/TaskCreate/TaskUpdate now render as a single live checklist with per-item status instead of a generic "Updating tasks" row.
+- AskUserQuestion can now block the turn: in SDK sessions the agent pauses via `canUseTool` until the user answers, and the answer resumes the same turn as a real tool result (no timeout while waiting).
+- Reason for change: the Agent SDK integration surfaced these tools generically; this makes subagent work, task tracking, and clarifying questions first-class in the chat.
 
 - Sticky PR recap comments now use the per-repo numeric `/docs/N` path instead of the Convex document id, which Eva routes do not resolve.
 - Reason for change: “View recap in Eva” links were 404ing / failing to load the doc after a successful recap.

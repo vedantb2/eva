@@ -136,6 +136,17 @@ interface ChatBodyProps {
   streamingActivity?: string;
   streamingContent?: string;
   streamingPendingQuestion?: string;
+  /**
+   * A blocking AskUserQuestion awaiting the user (Agent SDK `canUseTool`). When
+   * set, its interactive card replaces the fire-and-forget `streamingPendingQuestion`
+   * path and the turn stays executing until {@link onAnswerBlockingQuestion} runs.
+   */
+  blockingQuestion?: { toolUseId: string; payload: string };
+  /** Submits a structured answer for {@link blockingQuestion}, resuming the turn. */
+  onAnswerBlockingQuestion?: (
+    toolUseId: string,
+    answers: Record<string, string | string[]>,
+  ) => Promise<void>;
   isExecuting: boolean;
   isInputDisabled: boolean;
   isArchived?: boolean;
@@ -213,6 +224,8 @@ export function ChatBody({
   streamingActivity,
   streamingContent,
   streamingPendingQuestion,
+  blockingQuestion,
+  onAnswerBlockingQuestion,
   isExecuting,
   isInputDisabled,
   isArchived,
@@ -307,6 +320,13 @@ export function ChatBody({
     () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
     [questionDismissed, pendingQuestionRaw],
   );
+  // A blocking AskUserQuestion (Agent SDK) takes precedence over the
+  // fire-and-forget path: it keeps the turn paused until the user answers.
+  const blockingQuestions = useMemo(
+    () =>
+      blockingQuestion ? parsePendingQuestion(blockingQuestion.payload) : null,
+    [blockingQuestion],
+  );
 
   useEffect(() => {
     if (pendingQuestionRaw) {
@@ -346,6 +366,14 @@ export function ChatBody({
       await onSend(answer);
     },
     [onSend],
+  );
+
+  const handleBlockingAnswer = useCallback(
+    async (answers: Record<string, string | string[]>) => {
+      if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+      await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+    },
+    [blockingQuestion, onAnswerBlockingQuestion],
   );
 
   const queuedMessageItems = useMemo(
@@ -422,7 +450,15 @@ export function ChatBody({
                     {streamingContent}
                   </MessageResponse>
                 ) : null}
-                {activePendingQuestion && (
+                {blockingQuestions ? (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={blockingQuestions}
+                      onAnswer={handleQuestionAnswer}
+                      onAnswerStructured={handleBlockingAnswer}
+                    />
+                  </div>
+                ) : activePendingQuestion ? (
                   <div className="mt-3">
                     <MultipleChoiceQuestion
                       questions={activePendingQuestion}
@@ -430,7 +466,7 @@ export function ChatBody({
                       isLoading={isExecuting}
                     />
                   </div>
-                )}
+                ) : null}
               </>
             ) : (
               <>
@@ -558,7 +594,7 @@ export function ChatBody({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      {!isArchived && !activePendingQuestion && (
+      {!isArchived && !activePendingQuestion && !blockingQuestions && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
           <AnimatePresence initial={false}>
             {beforeQueuedContent ? (

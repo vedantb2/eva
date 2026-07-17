@@ -26,6 +26,7 @@ var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId" && (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -183,7 +184,8 @@ var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "web_search",
   "notebook",
   "subtask",
-  "question"
+  "question",
+  "todos"
 ]);
 var CODEX_PRICING_PER_MILLION = {
   "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
@@ -465,6 +467,8 @@ var callbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: /* @__PURE__ */ new Set(),
+  todoState: [],
+  awaitingQuestionAnswer: false,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -987,11 +991,15 @@ function toolCallToStep(name, input) {
         path: typeof input.notebook_path === "string" ? String(input.notebook_path) : void 0,
         status: "active"
       };
+    // Subagent spawn. Named \`Agent\` since claude-code v2.1.63; older CLIs emit
+    // \`Task\`. Match both so subagent runs are always recognised (a bare \`Task\`
+    // previously fell through to the generic "Using Task..." row).
     case "Agent":
+    case "Task":
       return {
         type: "subtask",
         label: "Running agent...",
-        detail: typeof input.description === "string" ? String(input.description) : void 0,
+        detail: typeof input.description === "string" ? String(input.description) : typeof input.subagent_type === "string" ? String(input.subagent_type) : void 0,
         status: "active"
       };
     case "TodoWrite":
@@ -1781,6 +1789,35 @@ function prepareClaudeSessionState() {
 }
 
 // callback-src/providers/claude.ts
+function normalizeTodoStatus(value) {
+  return value === "in_progress" || value === "completed" ? value : "pending";
+}
+function reduceTodoState(name, input) {
+  if (name === "TodoWrite") {
+    const raw = Array.isArray(input.todos) ? input.todos : [];
+    callbackState.todoState.length = 0;
+    for (const item of raw) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const content = typeof item.content === "string" ? item.content : "";
+      if (!content) continue;
+      callbackState.todoState.push({ content, status: normalizeTodoStatus(item.status) });
+    }
+  } else if (name === "TaskCreate") {
+    const content = typeof input.subject === "string" ? input.subject : typeof input.description === "string" ? input.description : "";
+    if (content) {
+      callbackState.todoState.push({ content, status: normalizeTodoStatus(input.status) });
+    }
+  } else if (name === "TaskUpdate") {
+    const last = callbackState.todoState[callbackState.todoState.length - 1];
+    if (last) {
+      if (input.status !== void 0) last.status = normalizeTodoStatus(input.status);
+      if (typeof input.subject === "string" && input.subject) {
+        last.content = input.subject;
+      }
+    }
+  }
+  return callbackState.todoState.map((t) => ({ ...t }));
+}
 function parseClaudeStreamEvent(event) {
   const events = [];
   const inner = event.event && typeof event.event === "object" && !Array.isArray(event.event) ? event.event : null;
@@ -1837,16 +1874,26 @@ function claudeParseLine(event) {
   }
   const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
   const content = message && Array.isArray(message.content) ? message.content : [];
+  const parentToolUseId = typeof event.parent_tool_use_id === "string" && event.parent_tool_use_id.trim() ? event.parent_tool_use_id.trim() : void 0;
   for (const block of content) {
     if (!block || typeof block !== "object" || Array.isArray(block)) continue;
     if (block.type === "tool_use" && typeof block.name === "string") {
       const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
+      if (block.name === "TodoWrite" || block.name === "TaskCreate" || block.name === "TaskUpdate") {
+        events.push({ kind: "set_todos", todos: reduceTodoState(block.name, input) });
+        continue;
+      }
+      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList") {
+        continue;
+      }
       const step = toolCallToStep(block.name, input);
       const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
+      if (trackingId) step.toolUseId = trackingId;
+      if (parentToolUseId) step.parentToolUseId = parentToolUseId;
       events.push(
         trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
       );
-      if (block.name === "AskUserQuestion" && block.input) {
+      if (!BLOCKING_QUESTIONS_ENABLED && block.name === "AskUserQuestion" && block.input) {
         events.push({
           kind: "set_pending_question",
           data: JSON.stringify(block.input)
@@ -2441,15 +2488,50 @@ var opencodeAdapter = {
 };
 
 // callback-src/parse/canonical.ts
+function markStepComplete(step) {
+  step.status = "complete";
+  if (completedLabels[step.label]) {
+    step.label = completedLabels[step.label];
+  } else if (step.label.startsWith("Using ") && step.label.endsWith("...")) {
+    step.label = "Used " + step.label.slice(6, -3);
+  }
+}
 function markLastComplete() {
   if (callbackState.accumulatedSteps.length === 0) return;
-  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  last.status = "complete";
-  if (completedLabels[last.label]) {
-    last.label = completedLabels[last.label];
-  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
-    last.label = "Used " + last.label.slice(6, -3);
+  markStepComplete(callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1]);
+}
+function completeToolStep(trackingId) {
+  if (trackingId) {
+    for (let i = callbackState.accumulatedSteps.length - 1; i >= 0; i--) {
+      const step = callbackState.accumulatedSteps[i];
+      if (step.toolUseId === trackingId) {
+        markStepComplete(step);
+        return;
+      }
+    }
   }
+  markLastComplete();
+}
+function summarizeTodos(todos) {
+  const done = todos.filter((t) => t.status === "completed").length;
+  return \`\${done} of \${todos.length} done\`;
+}
+function applyTodosSnapshot(todos) {
+  const existing = callbackState.accumulatedSteps.find((step) => step.type === "todos");
+  if (existing) {
+    existing.todos = todos;
+    existing.detail = summarizeTodos(todos);
+    return;
+  }
+  markLastComplete();
+  callbackState.accumulatedSteps.push({
+    type: "todos",
+    label: "Updating tasks...",
+    detail: summarizeTodos(todos),
+    todos,
+    status: "active"
+  });
+  callbackState.lastStepType = "tool";
 }
 function updateThinkingStep(label, detail) {
   void label;
@@ -2464,7 +2546,11 @@ function pushProgressStep(step) {
     updateThinkingStep(step.label, step.detail);
     return;
   }
-  markLastComplete();
+  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  const isFirstChildUnderParent = step.parentToolUseId !== void 0 && last !== void 0 && last.toolUseId === step.parentToolUseId;
+  if (!isFirstChildUnderParent) {
+    markLastComplete();
+  }
   callbackState.accumulatedSteps.push(step);
   callbackState.lastStepType = "tool";
 }
@@ -2489,7 +2575,7 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "complete_tool":
-        markLastComplete();
+        completeToolStep(ev.trackingId);
         if (ev.trackingId !== void 0) {
           callbackState.codexToolItemIds.delete(ev.trackingId);
         }
@@ -2515,6 +2601,9 @@ function applyCanonicalEvents(events) {
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;
+        break;
+      case "set_todos":
+        applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         callbackState.activeCodexThreadId = ev.threadId;
@@ -3021,6 +3110,74 @@ async function runCliAttempt(options) {
   });
 }
 
+// callback-src/runtime/pendingQuestion.ts
+var POLL_INTERVAL_MS = 300;
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function readClaimedAnswer(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const answer = payload.answer;
+  return typeof answer === "string" ? answer : null;
+}
+async function postQuestion(toolUseId, payload) {
+  await callConvexWithRetry("mutation", "pendingQuestions:post", {
+    entityId: ENTITY_ID ?? "",
+    toolUseId,
+    payload
+  });
+}
+async function pollForAnswer(toolUseId, signal) {
+  while (!signal.aborted) {
+    const result = await callConvexWithRetry(
+      "mutation",
+      "pendingQuestions:claimAnswer",
+      { entityId: ENTITY_ID ?? "", toolUseId }
+    );
+    const answer = readClaimedAnswer(result);
+    if (answer !== null) return answer;
+    await sleep(POLL_INTERVAL_MS);
+  }
+  return null;
+}
+function parseAnswers(answerJson) {
+  try {
+    const parsed = JSON.parse(answerJson);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+  }
+  return {};
+}
+function buildCanUseTool() {
+  return async (toolName, input, options) => {
+    if (toolName !== "AskUserQuestion") {
+      return { behavior: "allow", updatedInput: input };
+    }
+    const toolUseId = typeof options.toolUseID === "string" && options.toolUseID ? options.toolUseID : "";
+    callbackState.awaitingQuestionAnswer = true;
+    log("canUseTool: AskUserQuestion \\u2014 posting question, awaiting user answer");
+    try {
+      await postQuestion(toolUseId, JSON.stringify(input));
+      const answerJson = await pollForAnswer(toolUseId, options.signal);
+      if (answerJson === null) {
+        return { behavior: "deny", message: "The question was cancelled." };
+      }
+      return {
+        behavior: "allow",
+        updatedInput: { ...input, answers: parseAnswers(answerJson) }
+      };
+    } finally {
+      callbackState.awaitingQuestionAnswer = false;
+    }
+  };
+}
+
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
@@ -3089,6 +3246,14 @@ function buildConversationalSdkOptions() {
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
 function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
   const allowedToolsOption = tools === "agent" && ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : { allowedTools: [] };
+  const permissionOption = tools === "agent" && BLOCKING_QUESTIONS_ENABLED ? {
+    permissionMode: "default",
+    allowDangerouslySkipPermissions: false,
+    canUseTool: buildCanUseTool()
+  } : {
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true
+  };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -3104,8 +3269,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
       preset: "claude_code",
       append: EVA_SDK_SYSTEM_APPEND
     },
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
+    ...permissionOption,
     // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
@@ -3156,6 +3320,11 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
   const healthTimer = setInterval(() => {
     const now = Date.now();
+    if (callbackState.awaitingQuestionAnswer) {
+      callbackState.activeAttemptStartedAt = now;
+      lastMessageAt = now;
+      return;
+    }
     if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
       timedOutForMaxRuntime = true;
       log("runClaudeSdkAttempt: max runtime exceeded \\u2014 interrupting");
@@ -3232,7 +3401,7 @@ async function runClaudeSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/claudeSdkDaemon.ts
-function sleep(ms) {
+function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
@@ -3281,6 +3450,11 @@ function startTurnWatchdog() {
   const timer = setInterval(() => {
     if (!turnActive) return;
     const now = Date.now();
+    if (callbackState.awaitingQuestionAnswer) {
+      turnStartedAtMs = now;
+      lastMessageAtMs = now;
+      return;
+    }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
       void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
@@ -3371,6 +3545,8 @@ function resetTurnState() {
   callbackState.lastProcessed = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.pendingQuestionData = "";
+  callbackState.todoState.length = 0;
+  callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
 async function finalizeTurn(output, opts = {}) {
@@ -3688,7 +3864,7 @@ async function waitForNextTurn() {
       await materializeTurnAttachments(turn);
       return turn;
     }
-    await sleep(PROMPT_POLL_INTERVAL_MS);
+    await sleep2(PROMPT_POLL_INTERVAL_MS);
   }
   return null;
 }

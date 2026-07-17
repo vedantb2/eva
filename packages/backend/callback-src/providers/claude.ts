@@ -1,3 +1,4 @@
+import { BLOCKING_QUESTIONS_ENABLED } from "../config.js";
 import {
   buildClaudeStartupStep,
   syncClaudeStateToPersist,
@@ -5,9 +6,60 @@ import {
 import { updateThinkingStep } from "../parse/canonical.js";
 import { toolCallToStep } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
-import type { CanonicalEvent, JsonObject, StreamLineResult } from "../types.js";
+import type {
+  CanonicalEvent,
+  JsonObject,
+  JsonValue,
+  StreamLineResult,
+  TodoItem,
+} from "../types.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
+
+/** Coerces a raw todo status field to the checklist's fixed set. */
+function normalizeTodoStatus(value: JsonValue): TodoItem["status"] {
+  return value === "in_progress" || value === "completed" ? value : "pending";
+}
+
+/**
+ * Folds one todo tool call into `S.todoState` and returns the current snapshot.
+ * `TodoWrite` (the tool the sandbox CLI emits) sends the full list every call,
+ * so it is a straight replace. `TaskCreate`/`TaskUpdate` (newer CLI Task tools)
+ * are handled best-effort — create appends, update patches the last item — so a
+ * CLI upgrade degrades gracefully rather than losing the checklist entirely.
+ */
+function reduceTodoState(name: string, input: JsonObject): TodoItem[] {
+  if (name === "TodoWrite") {
+    const raw = Array.isArray(input.todos) ? input.todos : [];
+    S.todoState.length = 0;
+    for (const item of raw) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const content = typeof item.content === "string" ? item.content : "";
+      if (!content) continue;
+      S.todoState.push({ content, status: normalizeTodoStatus(item.status) });
+    }
+  } else if (name === "TaskCreate") {
+    const content =
+      typeof input.subject === "string"
+        ? input.subject
+        : typeof input.description === "string"
+          ? input.description
+          : "";
+    if (content) {
+      S.todoState.push({ content, status: normalizeTodoStatus(input.status) });
+    }
+  } else if (name === "TaskUpdate") {
+    const last = S.todoState[S.todoState.length - 1];
+    if (last) {
+      if (input.status !== undefined)
+        last.status = normalizeTodoStatus(input.status);
+      if (typeof input.subject === "string" && input.subject) {
+        last.content = input.subject;
+      }
+    }
+  }
+  return S.todoState.map((t) => ({ ...t }));
+}
 
 /**
  * Handles Anthropic partial (`stream_event`) messages emitted when the SDK is
@@ -108,6 +160,13 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
       : null;
   const content =
     message && Array.isArray(message.content) ? message.content : [];
+  // Set on messages produced INSIDE a subagent — the parent `Agent` tool_use id.
+  // The UI nests these steps under the matching `subtask` row.
+  const parentToolUseId =
+    typeof event.parent_tool_use_id === "string" &&
+    event.parent_tool_use_id.trim()
+      ? event.parent_tool_use_id.trim()
+      : undefined;
   for (const block of content) {
     if (!block || typeof block !== "object" || Array.isArray(block)) continue;
     if (block.type === "tool_use" && typeof block.name === "string") {
@@ -117,17 +176,46 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
         !Array.isArray(block.input)
           ? block.input
           : {};
+      // Todo tools drive a single evolving checklist, not one activity row per
+      // call. Read-only variants add nothing to the timeline.
+      if (
+        block.name === "TodoWrite" ||
+        block.name === "TaskCreate" ||
+        block.name === "TaskUpdate"
+      ) {
+        events.push({
+          kind: "set_todos",
+          todos: reduceTodoState(block.name, input),
+        });
+        continue;
+      }
+      if (
+        block.name === "TodoRead" ||
+        block.name === "TaskGet" ||
+        block.name === "TaskList"
+      ) {
+        continue;
+      }
       const step = toolCallToStep(block.name, input);
       const trackingId =
         typeof block.id === "string" && block.id.trim()
           ? block.id.trim()
           : undefined;
+      if (trackingId) step.toolUseId = trackingId;
+      if (parentToolUseId) step.parentToolUseId = parentToolUseId;
       events.push(
         trackingId
           ? { kind: "push_step", step, trackingId }
           : { kind: "push_step", step },
       );
-      if (block.name === "AskUserQuestion" && block.input) {
+      // Fire-and-forget question metadata (surfaced after the turn). Skipped in
+      // blocking mode, where canUseTool owns the question round-trip and driving
+      // this too would double-render the question in the UI.
+      if (
+        !BLOCKING_QUESTIONS_ENABLED &&
+        block.name === "AskUserQuestion" &&
+        block.input
+      ) {
         events.push({
           kind: "set_pending_question",
           data: JSON.stringify(block.input),

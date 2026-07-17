@@ -4,6 +4,12 @@ export interface ActivityBlock {
   type: ActivityStep["type"];
   status: "active" | "complete";
   items: ActivityStep[];
+  /**
+   * For `subtask` blocks only: the nested activity of each subagent, keyed by
+   * that subagent's `Agent` tool_use id. Lets the UI expand a subagent row to
+   * show the reads/edits/commands it ran.
+   */
+  subtaskChildren?: Record<string, ActivityBlock[]>;
 }
 
 /**
@@ -53,9 +59,9 @@ function normalizeStep(step: ActivityStep): ActivityStep | null {
   return step;
 }
 
-export function groupSteps(steps: ActivityStep[]): ActivityBlock[] {
+/** Groups consecutive same-type steps into blocks (no subagent partitioning). */
+function groupConsecutive(steps: ActivityStep[]): ActivityBlock[] {
   const blocks: ActivityBlock[] = [];
-
   for (const rawStep of steps) {
     const step = normalizeStep(rawStep);
     if (!step) continue;
@@ -66,9 +72,54 @@ export function groupSteps(steps: ActivityStep[]): ActivityBlock[] {
       blocks.push({ type: step.type, status: step.status, items: [step] });
     }
   }
-
   for (const block of blocks) {
     block.status = block.items[block.items.length - 1].status;
+  }
+  return blocks;
+}
+
+/**
+ * Groups steps into activity blocks. Steps that ran inside a subagent (those
+ * with `parentToolUseId`) are pulled out of the main flow and nested under the
+ * matching `subtask` block instead, so a subagent renders as one expandable row
+ * showing its own reads/edits/commands rather than flattening into the timeline.
+ */
+export function groupSteps(steps: ActivityStep[]): ActivityBlock[] {
+  const childrenByParent = new Map<string, ActivityStep[]>();
+  const topLevel: ActivityStep[] = [];
+  for (const step of steps) {
+    const parentId = step.parentToolUseId;
+    if (parentId) {
+      const existing = childrenByParent.get(parentId);
+      if (existing) existing.push(step);
+      else childrenByParent.set(parentId, [step]);
+    } else {
+      topLevel.push(step);
+    }
+  }
+
+  const blocks = groupConsecutive(topLevel);
+  const attached = new Set<string>();
+  for (const block of blocks) {
+    if (block.type !== "subtask") continue;
+    const children: Record<string, ActivityBlock[]> = {};
+    for (const item of block.items) {
+      const toolUseId = item.toolUseId;
+      if (!toolUseId) continue;
+      const kids = childrenByParent.get(toolUseId);
+      if (kids && kids.length > 0) {
+        children[toolUseId] = groupConsecutive(kids);
+        attached.add(toolUseId);
+      }
+    }
+    if (Object.keys(children).length > 0) block.subtaskChildren = children;
+  }
+
+  // Fallback: never drop activity. Any children whose parent subtask wasn't
+  // found (e.g. deep nesting) are appended at the top level rather than lost.
+  for (const [parentId, kids] of childrenByParent) {
+    if (attached.has(parentId)) continue;
+    blocks.push(...groupConsecutive(kids));
   }
 
   return blocks;
@@ -122,6 +173,7 @@ const titleBuilders: Record<
   reasoning: (_n, active) => (active ? "Thinking..." : "Thought"),
   response: () => "",
   question: () => "",
+  todos: (_n, active) => (active ? "Updating tasks" : "Task list"),
 };
 
 export function getBlockTitle(block: ActivityBlock): string {

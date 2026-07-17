@@ -16,6 +16,19 @@ export type ProgressStep = {
   /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
   path?: string;
   status: "active" | "complete";
+  /** The tool_use id that produced this step (Claude only). Lets a tool_result
+   * complete the exact step, and anchors nested subagent children. */
+  toolUseId?: string;
+  /** Set when this step ran inside a subagent — the parent `Agent` tool_use id.
+   * The UI nests these under the matching `subtask` step. */
+  parentToolUseId?: string;
+  /** Todo checklist snapshot (type "todos" only), JSON-serialised for transport. */
+  todos?: TodoItem[];
+};
+
+export type TodoItem = {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
 };
 
 export type SessionMode = {
@@ -38,6 +51,7 @@ export type CanonicalEvent =
   | { kind: "mark_message_start" }
   | { kind: "update_reasoning"; text: string }
   | { kind: "set_pending_question"; data: string }
+  | { kind: "set_todos"; todos: TodoItem[] }
   | { kind: "set_codex_thread"; threadId: string }
   | { kind: "mark_first_assistant" };
 

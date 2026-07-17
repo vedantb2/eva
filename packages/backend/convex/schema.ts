@@ -160,6 +160,20 @@ const schema = defineSchema(
       pendingQuestion: v.optional(v.string()),
       lastUpdatedAt: v.optional(v.number()),
     }).index("by_entity", ["entityId"]),
+    // Blocking AskUserQuestion round-trip. The paused sandbox turn posts a row
+    // here (via canUseTool), the UI reads the unanswered one and writes the
+    // answer, and the sandbox claims the answer to resume the turn. `entityId`
+    // is the generic session/project/task id (matches streamingActivity).
+    pendingQuestions: defineTable({
+      entityId: v.string(),
+      toolUseId: v.string(),
+      payload: v.string(),
+      answer: v.optional(v.string()),
+      answeredAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_entity", ["entityId"])
+      .index("by_entity_tool", ["entityId", "toolUseId"]),
     docs: defineTable(docFields)
       .index("by_repo", ["repoId"])
       .index("by_session", ["sessionId"])

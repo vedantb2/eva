@@ -12,6 +12,7 @@ import {
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { schedulePrTitleSync } from "../_github/prTitleSync";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -134,7 +135,7 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionOrThrow(ctx.db, args.id);
     const updates: {
       title?: string;
       branchName?: string;
@@ -150,6 +151,18 @@ export const update = authMutation({
     if (args.runAuditEnabled !== undefined)
       updates.runAuditEnabled = args.runAuditEnabled;
     await ctx.db.patch(args.id, updates);
+
+    if (
+      args.title !== undefined &&
+      args.title !== session.title &&
+      session.prUrl
+    ) {
+      await schedulePrTitleSync(ctx, {
+        repoId: session.repoId,
+        prUrl: session.prUrl,
+        title: args.title,
+      });
+    }
     return null;
   },
 });

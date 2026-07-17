@@ -22,6 +22,7 @@ import {
   buildProjectBranchName,
 } from "./helpers";
 import { scheduleProjectPrSync } from "./prSync";
+import { schedulePrTitleSync } from "../_github/prTitleSync";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
@@ -140,6 +141,17 @@ export const update = authMutation({
       updates.runAuditEnabled = runAuditEnabled ?? undefined;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
+    }
+    if (
+      args.title !== undefined &&
+      args.title !== project.title &&
+      project.prUrl
+    ) {
+      await schedulePrTitleSync(ctx, {
+        repoId: project.repoId,
+        prUrl: project.prUrl,
+        title: args.title,
+      });
     }
     if (phase !== undefined && phase !== project.phase) {
       const updated = await ctx.db.get(args.id);

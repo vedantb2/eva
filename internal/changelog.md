@@ -1,5 +1,10 @@
 # Changelog
 
+## Renaming a session/project/task updates the linked GitHub PR title - 2026-07-17
+
+- Renaming in Eva now best-effort updates the open GitHub PR to `Eva: <new title>`; merged PRs are left alone so shipped work is not re-titled.
+- Reason for change: PR titles were only set at creation, so renames left GitHub out of sync with the Eva UI.
+
 ## Model picker matches t3code's searchable popover - 2026-07-17
 
 - Replaced the nested provider → account → model dropdowns with a t3code-style popover: left provider/account rail, search across all models, and a flat two-line list with account accent badges.

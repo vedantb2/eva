@@ -21,6 +21,7 @@ import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { logTaskActivity } from "../taskActivity";
+import { schedulePrTitleSync } from "../_github/prTitleSync";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -121,6 +122,26 @@ export const update = authMutation({
         task.title,
         args.title,
       );
+      if (task.repoId) {
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", args.id))
+          .collect();
+        const prUrl = runs
+          .sort(
+            (a, b) =>
+              (b.startedAt ?? b._creationTime) -
+              (a.startedAt ?? a._creationTime),
+          )
+          .find((run) => run.prUrl)?.prUrl;
+        if (prUrl) {
+          await schedulePrTitleSync(ctx, {
+            repoId: task.repoId,
+            prUrl,
+            title: args.title,
+          });
+        }
+      }
     }
     if (
       args.description !== undefined &&

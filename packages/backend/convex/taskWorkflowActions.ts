@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getInstallationOctokit } from "./githubAuth";
+import { extractPrNumber } from "./_github/helpers";
 import {
   buildPrBody,
   buildTaskPrSections,
@@ -501,6 +502,45 @@ export const refreshTaskPullRequestBody = internalAction({
         proofs: args.proofs,
       }),
     });
+  },
+});
+
+/**
+ * Updates a linked GitHub PR title to `Eva: <title>` after a rename in Eva.
+ * Skips merged PRs. Best-effort — failures are logged and never thrown.
+ */
+export const updatePrTitle = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prUrl: v.string(),
+    title: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    const prNumber = extractPrNumber(args.prUrl);
+    if (prNumber === null) return null;
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pr = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: prNumber,
+      });
+      if (pr.data.merged) return null;
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: prNumber,
+        title: `Eva: ${args.title}`,
+      });
+    } catch (error) {
+      console.error(
+        `[github] Failed to update PR title for ${args.prUrl}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
   },
 });
 

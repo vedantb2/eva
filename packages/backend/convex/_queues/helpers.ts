@@ -161,6 +161,7 @@ export async function startNextQueuedDesignMessage(
         designSessionId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        providerAccountId: nextMessage.providerAccountId,
         personaId: nextMessage.personaId,
         userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,
@@ -227,6 +228,7 @@ export async function startNextQueuedProjectChatMessage(
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
         reasoningLevel: nextMessage.reasoningLevel,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
       },
     );
@@ -295,6 +297,7 @@ export async function startNextQueuedTaskChatMessage(
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
         reasoningLevel: nextMessage.reasoningLevel,
+        providerAccountId: nextMessage.providerAccountId,
         userId: nextMessage.userId,
       },
     );

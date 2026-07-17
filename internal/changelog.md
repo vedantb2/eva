@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-user accounts wired across all sandbox chats - 2026-07-17
+
+- Extended per-user provider accounts beyond session chat and quick-task runs to also cover design chat, project sandbox chat, and task sandbox chat.
+- Each of those pickers now offers the user's accounts, and the chosen account's credentials are injected at launch (overriding the team credential) for that run.
+- Reason for change: accounts appeared in some sandbox surfaces but silently fell back to team credentials in others; now every interactive run honours the selected account.
+
 ## Clickable file tree in sandbox Diffs tab - 2026-07-17
 
 - Added a Pierre `@pierre/trees` file tree to the left of the Diffs tab across quick-tasks, projects, and sessions, showing the changed files in nested folder hierarchy.

@@ -51,7 +51,10 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -161,8 +164,11 @@ export function DesignChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
-  const { model, setModel } = useSessionSettings(designSessionId);
+  const { model, setModel, providerAccountId, setProviderAccountId } =
+    useSessionSettings(designSessionId);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "designChat" as const,
@@ -215,6 +221,7 @@ export function DesignChatPanel({
         id: designSessionId,
         message,
         model,
+        providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
         attachmentStorageIds: ids,
@@ -227,6 +234,7 @@ export function DesignChatPanel({
         id: designSessionId,
         message,
         model,
+        providerAccountId: resolveAccountId(providerAccountId),
         personaId: selectedPersonaId,
         numDesigns,
         attachmentStorageIds: ids,
@@ -485,6 +493,9 @@ export function DesignChatPanel({
                         value={model}
                         options={modelOptions}
                         onValueChange={setModel}
+                        accounts={accounts}
+                        accountId={providerAccountId}
+                        onAccountChange={setProviderAccountId}
                         disabled={!isSandboxActive}
                       />
                       <PersonaDropdown

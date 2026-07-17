@@ -19,11 +19,15 @@ import {
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import {
+  useAvailableAiModels,
+  useProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
   model: AIModel;
   reasoningLevel: ReasoningLevel;
+  providerAccountId?: string | null;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -63,7 +67,10 @@ export function TaskSandboxChatPanel({
   );
   const model = normalizeAIModel(settings.model);
   const reasoningLevel = settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL;
+  const providerAccountId = settings.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
 
   const setModel = useCallback(
     (next: AIModel) =>
@@ -74,6 +81,12 @@ export function TaskSandboxChatPanel({
   const setReasoningLevel = useCallback(
     (next: ReasoningLevel) =>
       setSettings((prev) => ({ ...prev, reasoningLevel: next })),
+    [setSettings],
+  );
+
+  const setProviderAccountId = useCallback(
+    (next: string | null) =>
+      setSettings((prev) => ({ ...prev, providerAccountId: next })),
     [setSettings],
   );
 
@@ -91,6 +104,7 @@ export function TaskSandboxChatPanel({
           message: content,
           model,
           reasoningLevel,
+          providerAccountId: resolveAccountId(providerAccountId),
           attachmentStorageIds,
         });
         return;
@@ -101,6 +115,7 @@ export function TaskSandboxChatPanel({
         message: content,
         model,
         reasoningLevel,
+        providerAccountId: resolveAccountId(providerAccountId),
       });
     },
     [
@@ -111,6 +126,8 @@ export function TaskSandboxChatPanel({
       taskId,
       model,
       reasoningLevel,
+      providerAccountId,
+      resolveAccountId,
     ],
   );
 
@@ -151,6 +168,9 @@ export function TaskSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        accounts={accounts}
+        accountId={providerAccountId}
+        onAccountChange={setProviderAccountId}
         reasoningLevel={reasoningLevel}
         onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}

@@ -75,6 +75,7 @@ export const startExecute = authMutation({
     message: v.string(),
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -95,6 +96,7 @@ export const startExecute = authMutation({
         message: args.message,
         model: args.model,
         reasoningLevel: args.reasoningLevel,
+        providerAccountId: args.providerAccountId,
         userId: ctx.userId,
       },
     );
@@ -111,6 +113,7 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -135,6 +138,7 @@ export const enqueueMessage = authMutation({
       userId: ctx.userId,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
@@ -211,6 +215,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     message: v.string(),
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -309,6 +314,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       entityIdField: "taskId",
       model: data.model,
       reasoningLevel: args.reasoningLevel,
+      providerAccountId: args.providerAccountId,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,

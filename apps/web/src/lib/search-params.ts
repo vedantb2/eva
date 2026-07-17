@@ -1,4 +1,5 @@
 import {
+  createParser,
   parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
@@ -110,7 +111,19 @@ export const diffViewParser = parseAsStringLiteral(diffViews)
 
 // Path of the file selected in the Diffs tab file tree, persisted in the URL so
 // the highlighted/scrolled-to file survives reload and is shareable.
-export const diffFileParser = parseAsString
+// Percent-encode so "/" never appears raw in the query string — nuqs leaves
+// slashes unencoded, which breaks TanStack path matching on sandbox tabs
+// (e.g. .../diffs?diffFile=apps/foo → invalid $sandboxTab → redirect to preview).
+export const diffFileParser = createParser({
+  parse: (value) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  },
+  serialize: (value) => encodeURIComponent(value),
+})
   .withDefault("")
   .withOptions(searchOptions);
 

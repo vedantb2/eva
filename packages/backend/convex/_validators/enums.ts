@@ -123,6 +123,7 @@ export const notificationTypeValidator = v.union(
   v.literal("comment_reply"),
   v.literal("mention"),
   v.literal("run_completed"),
+  v.literal("run_failed"),
   v.literal("rate_limit"),
   v.literal("system"),
 );

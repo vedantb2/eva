@@ -1,5 +1,18 @@
 # Changelog
 
+## Failed run notifications use danger styling - 2026-07-17
+
+- Task/quick-task failures now emit `run_failed` (instead of reusing `run_completed`) and render with a red destructive badge and exclamation icon in inbox, bell, and toasts.
+- Legacy failure rows still stored as `run_completed` are detected from their title/message so existing inbox items look correct too.
+- Reason for change: a failed run showing a green checkmark made the inbox easy to misread.
+
+## Per-user provider accounts ("bring your own login") - 2026-07-17
+
+- Users can add their own coding-agent accounts (Claude Code OAuth token, Cursor API key, Codex/opencode auth) under Settings → Accounts; credentials are encrypted at rest and revealed only on demand.
+- The model picker now shows each provider's models under "Team" and once per user account; picking an account injects its credentials at sandbox launch, overriding the shared team credential so usage bills to that account.
+- Wired end-to-end for session chat and quick-task runs; a provider becomes available in the picker whenever the user has an account for it, even if the team has no key.
+- Reason for change: teammates wanted their own runs billed to their own accounts instead of the shared team credentials.
+
 ## Quick-task URLs drop the unused `/activity` segment - 2026-07-17
 
 - Canonical quick-task detail is now `/quick-tasks/$numId`; old `/quick-tasks/$numId/activity` links redirect there.

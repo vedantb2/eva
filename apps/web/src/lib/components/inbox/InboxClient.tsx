@@ -225,7 +225,7 @@ export function InboxClient() {
                             <span className="h-2 w-2 rounded-full bg-primary" />
                           )}
                         </div>
-                        <NotificationIcon type={n.type} size="sm" />
+                        <NotificationIcon notification={n} size="sm" />
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-xs font-medium sm:text-sm">
                             {n.title}

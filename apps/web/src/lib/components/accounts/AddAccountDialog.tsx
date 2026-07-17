@@ -18,6 +18,7 @@ import {
 import {
   PROVIDER_CREDENTIAL_FIELDS,
   PROVIDER_LABELS,
+  PROVIDER_LOGOS,
   ACCOUNT_ACCENT_SWATCHES,
 } from "./_credentialSpec";
 
@@ -133,23 +134,27 @@ export function AddAccountDialog({
               Provider
             </p>
             <div className="flex flex-wrap gap-2">
-              {PROVIDERS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  disabled={editing !== null}
-                  onClick={() => setProvider(option)}
-                  className={cn(
-                    "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                    provider === option
-                      ? "border-border bg-muted text-foreground"
-                      : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
-                    editing !== null && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  {PROVIDER_LABELS[option]}
-                </button>
-              ))}
+              {PROVIDERS.map((option) => {
+                const Logo = PROVIDER_LOGOS[option];
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={editing !== null}
+                    onClick={() => setProvider(option)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                      provider === option
+                        ? "border-border bg-muted text-foreground"
+                        : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
+                      editing !== null && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <Logo size={14} />
+                    {PROVIDER_LABELS[option]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

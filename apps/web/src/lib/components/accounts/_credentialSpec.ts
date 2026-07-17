@@ -1,4 +1,11 @@
+import type { ComponentType } from "react";
 import type { AIProvider } from "@conductor/backend";
+import {
+  ClaudeLogo,
+  CursorLogo,
+  OpenAILogo,
+  OpenCodeLogo,
+} from "@/lib/components/ui/providerLogos";
 
 /** A single credential field a provider account collects. */
 export interface CredentialFieldSpec {
@@ -16,6 +23,17 @@ export const PROVIDER_LABELS: Record<AIProvider, string> = {
   codex: "Codex",
   opencode: "opencode",
   cursor: "Cursor",
+};
+
+/** Brand mark for each provider (same SVGs as the env-var coding-agent slots). */
+export const PROVIDER_LOGOS: Record<
+  AIProvider,
+  ComponentType<{ size?: number; className?: string }>
+> = {
+  claude: ClaudeLogo,
+  codex: OpenAILogo,
+  opencode: OpenCodeLogo,
+  cursor: CursorLogo,
 };
 
 /**

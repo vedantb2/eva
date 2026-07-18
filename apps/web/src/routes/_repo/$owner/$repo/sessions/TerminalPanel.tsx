@@ -328,10 +328,7 @@ export function TerminalPanel({
 
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
-        detachWheelScroll = attachNormalBufferWheelScroll(
-          terminal,
-          containerEl,
-        );
+        detachWheelScroll = attachNormalBufferWheelScroll(terminal);
 
         terminal.onData((data) => {
           const currentWs = wsRef.current;

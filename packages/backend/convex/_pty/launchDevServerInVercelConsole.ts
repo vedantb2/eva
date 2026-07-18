@@ -76,9 +76,10 @@ export async function launchDevServerInVercelConsole(
       timeoutSeconds: 15,
     });
   }
-  // Keep wheel scrolling the viewport — tmux mouse mode turns it into Up/Down.
+  // mouse on: tmux (alt buffer) gets wheel via mouse tracking and scrolls pane
+  // history. mouse off lets xterm inject Up/Down → bash history instead.
   await handle.exec(
-    `tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} history-limit 50000`,
+    `tmux set-option -t ${sessionName} mouse on; tmux set-option -t ${sessionName} history-limit 50000`,
     { cwd: "/", timeoutSeconds: 5 },
   );
 

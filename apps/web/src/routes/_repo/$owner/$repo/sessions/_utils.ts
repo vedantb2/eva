@@ -119,9 +119,11 @@ export function startVercelPty(
 ): void {
   const cwd = opts.cwd ?? VERCEL_PTY_CWD;
   const sessionName = safeVercelSessionName(opts.sessionName);
-  // Newlines (not ";") so `if/then/fi` is valid bash. mouse off avoids wheel→
-  // Up/Down; history-limit keeps Console backlog. Prefer attach to an existing
-  // session so reconnects don't thrash create/destroy.
+  // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
+  // existing session so reconnects don't thrash create/destroy.
+  // mouse on: tmux lives in the alt buffer; with mouse off, xterm treats
+  // !hasScrollback wheels as Up/Down (bash history). Mouse on enables tracking
+  // so wheel scrolls tmux pane history instead.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
@@ -131,7 +133,7 @@ export function startVercelPty(
         `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
         `if command -v tmux >/dev/null 2>&1; then`,
         `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
-        `  tmux set-option -t ${sessionName} mouse off`,
+        `  tmux set-option -t ${sessionName} mouse on`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,
@@ -146,31 +148,29 @@ export function startVercelPty(
 }
 
 /**
- * Wheel on the normal buffer scrolls xterm scrollback. Without this, tmux/mouse
- * modes often translate wheel into Up/Down and surface shell command history.
- * Alt-buffer apps (vim/less) keep the default wheel handling.
+ * Blocks xterm's "no scrollback → send Up/Down" path on the normal buffer so
+ * wheel scrolls local scrollback instead of shell history. Uses the official
+ * customWheel hook (runs inside xterm before arrow injection). Alt-buffer
+ * (tmux with mouse tracking, vim, less) keeps default handling.
  */
-export function attachNormalBufferWheelScroll(
-  terminal: Pick<Terminal, "buffer" | "rows" | "scrollLines">,
-  element: HTMLElement,
-): () => void {
-  const onWheel = (event: WheelEvent) => {
+export function attachNormalBufferWheelScroll(terminal: Terminal): () => void {
+  terminal.attachCustomWheelEventHandler((event) => {
     if (terminal.buffer.active.type === "alternate") {
-      return;
+      return true;
     }
+    const host = terminal.element;
     const lineHeight =
-      terminal.rows > 0 ? element.clientHeight / terminal.rows : 16;
+      terminal.rows > 0 && host ? host.clientHeight / terminal.rows : 16;
     const lines = Math.max(
       1,
       Math.round(Math.abs(event.deltaY) / Math.max(lineHeight, 1)),
     );
     terminal.scrollLines(event.deltaY < 0 ? -lines : lines);
     event.preventDefault();
-    event.stopImmediatePropagation();
-  };
-  element.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return false;
+  });
   return () => {
-    element.removeEventListener("wheel", onWheel, { capture: true });
+    terminal.attachCustomWheelEventHandler(() => true);
   };
 }
 

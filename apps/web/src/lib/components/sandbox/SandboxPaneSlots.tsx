@@ -34,6 +34,9 @@ interface SandboxPaneSlotsProps {
   prUrl?: string;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
+  /** Sessions only — enables agent-browsing takeover overlay on the desktop surface. */
+  sessionId?: Id<"sessions">;
+  agentBrowsingAt?: number;
 }
 
 /**
@@ -54,6 +57,8 @@ export function SandboxPaneSlots({
   devCommand,
   prUrl,
   customTabs,
+  sessionId,
+  agentBrowsingAt,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -186,13 +191,21 @@ export function SandboxPaneSlots({
           ))}
         </div>
       </div>
-      <div className={activeTab === "desktop" ? "h-full" : "hidden"}>
+      <div
+        className={
+          activeTab === "browser" || activeTab === "desktop"
+            ? "h-full"
+            : "hidden"
+        }
+      >
         <DesktopPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
           vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
+          sessionId={sessionId}
+          agentBrowsingAt={agentBrowsingAt}
         />
       </div>
       <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

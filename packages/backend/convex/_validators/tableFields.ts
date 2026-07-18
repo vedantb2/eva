@@ -252,6 +252,10 @@ export const sessionFields = {
       model: v.optional(aiModelValidator),
     }),
   ),
+  // Soft UX lock while the agent drives the shared desktop Chrome via
+  // agent-browser CDP. Set/cleared by MCP browser_lock / browser_unlock;
+  // cleared on turn end. Drives Browser-tab auto-switch + takeover overlay.
+  agentBrowsingAt: v.optional(v.number()),
 };
 
 export const syncSettingFields = {

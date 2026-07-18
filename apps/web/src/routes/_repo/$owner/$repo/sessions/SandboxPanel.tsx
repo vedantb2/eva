@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { isSessionSandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
@@ -16,6 +16,18 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
+
+/** Inserts the sessions-only Browser tab after Preview in the enabled set. */
+function withBrowserTab(
+  tabs: ReadonlyArray<SandboxTab>,
+): ReadonlyArray<SandboxTab> {
+  const out: SandboxTab[] = [];
+  for (const tab of tabs) {
+    out.push(tab);
+    if (tab === "preview") out.push("browser");
+  }
+  return out;
+}
 
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
@@ -32,6 +44,7 @@ interface SandboxPanelProps {
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
   onTabChange: (tab: string) => void;
+  agentBrowsingAt?: number;
 }
 
 export function SandboxPanel({
@@ -48,6 +61,7 @@ export function SandboxPanel({
   isArchived,
   activeTab,
   onTabChange,
+  agentBrowsingAt,
 }: SandboxPanelProps) {
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
@@ -96,6 +110,11 @@ export function SandboxPanel({
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);
 
+  const enabledTabs = useMemo(
+    () => withBrowserTab(panes.enabledTabs),
+    [panes.enabledTabs],
+  );
+
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
@@ -105,10 +124,11 @@ export function SandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={panes.enabledTabs}
+        enabledTabs={enabledTabs}
         showPrdTab
         showFilesTab
         customTabs={customTabs}
+        agentBrowsingAt={agentBrowsingAt}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div
@@ -163,6 +183,8 @@ export function SandboxPanel({
           devCommand={devCommand}
           prUrl={prUrl}
           customTabs={customTabs}
+          sessionId={sessionId}
+          agentBrowsingAt={agentBrowsingAt}
         />
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import {
   IconWorld,
+  IconBrowser,
   IconDeviceDesktop,
   IconCode,
   IconTerminal2,
@@ -15,6 +16,7 @@ import type { Doc } from "@conductor/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
+import type { SandboxTab } from "@/lib/search-params";
 import {
   Tabs,
   TabsList,
@@ -25,26 +27,18 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 
-type SandboxTab =
-  | "preview"
-  | "desktop"
-  | "editor"
-  | "terminal"
-  | "diffs"
-  | "files"
-  | "prd";
-
 const TAB_TRIGGER_CLASS =
   "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
-// Desktop ("Computer") is intentionally absent — it lives in the `+` menu, not
-// the tab row, since it is rarely used.
+// Desktop ("Computer") stays in the `+` menu. Browser is first-class (sessions)
+// for watching the agent drive shared Chrome.
 const allTabs: Array<{
   value: SandboxTab;
   label: string;
   icon: typeof IconWorld;
 }> = [
   { value: "preview", label: "Preview", icon: IconWorld },
+  { value: "browser", label: "Browser", icon: IconBrowser },
   { value: "editor", label: "Editor", icon: IconCode },
   { value: "terminal", label: "Terminal", icon: IconTerminal2 },
   { value: "diffs", label: "Diffs", icon: IconGitCompare },
@@ -65,6 +59,15 @@ interface SandboxTabBarProps {
   enabledTabs?: ReadonlyArray<SandboxTab>;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
+  /** When set (and fresh), shows a pulse on the Browser tab. */
+  agentBrowsingAt?: number;
+}
+
+const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
+
+function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
+  if (agentBrowsingAt === undefined) return false;
+  return Date.now() - agentBrowsingAt < AGENT_BROWSING_LOCK_TTL_MS;
 }
 
 export function SandboxTabBar({
@@ -78,12 +81,14 @@ export function SandboxTabBar({
   showFilesTab = false,
   enabledTabs,
   customTabs,
+  agentBrowsingAt,
 }: SandboxTabBarProps) {
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
-    : allTabs;
+    : allTabs.filter((tab) => tab.value !== "browser");
   // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
   const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
+  const showBrowserPulse = isAgentBrowsingActive(agentBrowsingAt);
 
   const customTabSlugs = useMemo(
     () => (customTabs ?? []).map((tab) => slugifyAppTabName(tab.name)),
@@ -117,6 +122,12 @@ export function SandboxTabBar({
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
+                {tab.value === "browser" && showBrowserPulse ? (
+                  <span
+                    className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary animate-pulse"
+                    aria-label="Agent is browsing"
+                  />
+                ) : null}
               </TabsTrigger>
             );
           })}

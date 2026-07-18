@@ -70,6 +70,7 @@ export const repoStatsRangeParser = parseAsStringLiteral(repoStatsRanges)
 
 const sandboxTabs = [
   "preview",
+  "browser",
   "editor",
   "terminal",
   "desktop",

@@ -2,7 +2,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
@@ -88,6 +88,22 @@ export function SessionDetailClient({
     onSandboxTabChange("diffs");
   }, [onSandboxTabChange]);
 
+  // Auto-switch to Browser + expand sandbox panel on lock transition only
+  // (undefined → set). Don't fight the user if they switch away mid-lock.
+  const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
+  const [expandRightSignal, setExpandRightSignal] = useState(0);
+  const agentBrowsingAt =
+    session === null || session === undefined
+      ? undefined
+      : session.agentBrowsingAt;
+  useEffect(() => {
+    const prev = prevAgentBrowsingAt.current;
+    prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (agentBrowsingAt === undefined || prev !== undefined) return;
+    onSandboxTabChange("browser");
+    setExpandRightSignal((n) => n + 1);
+  }, [agentBrowsingAt, onSandboxTabChange]);
+
   if (session === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -152,12 +168,14 @@ export function SessionDetailClient({
             isArchived={session.archived === true}
             activeTab={activeSandboxTab}
             onTabChange={onSandboxTabChange}
+            agentBrowsingAt={session.agentBrowsingAt}
           />
         }
         leftDefaultSize="30%"
         leftMinWidthPx={350}
         rightMinWidthPx={300}
         storageKey="sandbox-collapsed"
+        expandRightSignal={expandRightSignal}
       />
     </PendingReviewCommentsProvider>
   );

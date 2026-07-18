@@ -794,9 +794,12 @@ export const saveResult = internalMutation({
       activeWorkflowId?: string;
       updatedAt: number;
       planContent?: string;
+      agentBrowsingAt?: undefined;
     } = {
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
+      // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
+      agentBrowsingAt: undefined,
     };
     if (args.planContent) {
       sessionPatch.planContent = args.planContent;

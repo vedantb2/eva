@@ -38,6 +38,7 @@ export {
   toggleCodeServer,
   toggleDesktopServer,
   launchChromeInDesktop,
+  startDesktopForBrowserSession,
   readSandboxFile,
 } from "./_daytona/services";
 

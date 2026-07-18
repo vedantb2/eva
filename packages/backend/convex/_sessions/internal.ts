@@ -13,10 +13,12 @@ const prStateValidator = v.union(
 
 /** Retrieves a session by ID for internal use (no auth check). */
 export const getInternal = internalQuery({
-  args: { id: v.id("sessions") },
+  args: { id: v.string() },
   returns: v.union(sessionValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const id = ctx.db.normalizeId("sessions", args.id);
+    if (!id) return null;
+    return await ctx.db.get(id);
   },
 });
 
@@ -94,6 +96,29 @@ export const markReadyAndArchive = internalMutation({
       prState: "open",
       archived: true,
       status: "closed",
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Soft UX lock for agent-driven browsing. MCP browser_lock / browser_unlock
+ * call this; the session UI reacts to `agentBrowsingAt` for auto-switch + overlay.
+ */
+export const setAgentBrowsingAt = internalMutation({
+  args: {
+    sessionId: v.string(),
+    locked: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sessionId = ctx.db.normalizeId("sessions", args.sessionId);
+    if (!sessionId) return null;
+    const session = await ctx.db.get(sessionId);
+    if (!session) return null;
+    await ctx.db.patch(sessionId, {
+      agentBrowsingAt: args.locked ? Date.now() : undefined,
       updatedAt: Date.now(),
     });
     return null;

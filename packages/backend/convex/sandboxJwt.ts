@@ -23,6 +23,11 @@ export const mintSandboxSessionTokens = internalAction({
     userId: v.id("users"),
     repoId: v.id("githubRepos"),
     enableMcp: v.boolean(),
+    // Optional launch-entity identity embedded in the MCP-internal token so
+    // session-scoped tools (browser_start/lock/unlock) can resolve the session
+    // without the agent passing an id.
+    entityId: v.optional(v.string()),
+    entityKind: v.optional(v.literal("session")),
   },
   returns: v.object({
     sandboxToken: v.string(),
@@ -74,6 +79,10 @@ export const mintSandboxSessionTokens = internalAction({
             iss: "eva",
             aud: "mcp-internal",
             repoId: String(args.repoId),
+            ...(args.entityId !== undefined ? { entityId: args.entityId } : {}),
+            ...(args.entityKind !== undefined
+              ? { entityKind: args.entityKind }
+              : {}),
           })
             .setProtectedHeader({ alg: "HS256" })
             .setExpirationTime(`${expiresIn}s`)

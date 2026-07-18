@@ -1,5 +1,11 @@
 # Changelog
 
+## Agent-driven Browser tab for sessions - 2026-07-18
+
+- New first-class Browser tab (Preview stays; Computer stays in `+`) watches the shared desktop Chrome while the agent drives it via `agent-browser connect 9222`.
+- MCP `browser_start` / `browser_lock` / `browser_unlock` (session tokens only), edit-prompt rule, soft-lock auto-switch + takeover overlay, lock cleared on turn end.
+- Reason for change: Cursor-browser parity — user watches live agent browsing without replacing Preview or Computer.
+
 ## Cursor session turns no longer launch with an empty prompt - 2026-07-18
 
 - Cursor/Codex/Opencode session turns are pushed via one-shot launch again; Claude keeps the sdk-daemon pull path. Also map Grok to Cursor’s `cursor-grok-4.5-*` CLI slugs and drop Composer 2 from the picker (keep 2.5).

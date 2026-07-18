@@ -5,12 +5,13 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**
- * Tab order matches `SandboxTabBar`'s visible tab row (preview → editor →
- * terminal → diffs → optional PRD → custom tabs). Desktop is excluded — it
- * lives in the `+` menu.
+ * Tab order matches `SandboxTabBar`'s visible tab row (preview → browser →
+ * editor → terminal → diffs → optional PRD → custom tabs). Desktop is
+ * excluded — it lives in the `+` menu.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
+  "browser",
   "editor",
   "terminal",
   "diffs",

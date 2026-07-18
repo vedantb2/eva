@@ -16,6 +16,7 @@ export {
   unarchive,
   updatePlanContent,
   updateLastMessage,
+  releaseBrowserLock,
 } from "./_sessions/mutations";
 
 export {
@@ -35,4 +36,5 @@ export {
   setPrState,
   markReadyAndArchive,
   updateDeploymentStatus,
+  setAgentBrowsingAt,
 } from "./_sessions/internal";

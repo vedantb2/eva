@@ -555,7 +555,15 @@ export async function signAndLaunchScript(
   // cold-started Node twice and dominated launch latency (~3s).
   const { sandboxToken, mcpToken } = await ctx.runAction(
     internal.sandboxJwt.mintSandboxSessionTokens,
-    { userId, repoId, enableMcp: opts.enableMcp !== false },
+    {
+      userId,
+      repoId,
+      enableMcp: opts.enableMcp !== false,
+      entityId,
+      ...(entityIdField === "sessionId"
+        ? { entityKind: "session" as const }
+        : {}),
+    },
   );
   console.log(
     `[daytona][launch] sandbox + MCP tokens minted in ${Date.now() - launchStartedAt}ms entityId=${entityId} (mcp=${mcpToken ? "yes" : "no"})`,

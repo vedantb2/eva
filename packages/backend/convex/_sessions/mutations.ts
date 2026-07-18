@@ -265,3 +265,20 @@ export const updateLastMessage = authMutation({
     return null;
   },
 });
+
+/** Clears the agent-browsing soft lock so the user can take over the shared browser. */
+export const releaseBrowserLock = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.sessionId);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.sessionId, {
+      agentBrowsingAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});

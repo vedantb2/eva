@@ -340,6 +340,8 @@ export const mcpHandler = httpAction(async (ctx, request) => {
     {
       clerkUserId: credentials.clerkUserId,
       scopedRepoId: credentials.scopedRepoId,
+      entityId: credentials.entityId,
+      entityKind: credentials.entityKind,
       body: JSON.stringify(body),
     },
   );

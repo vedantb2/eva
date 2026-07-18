@@ -19,6 +19,8 @@ export function textResult(data: Record<string, unknown> | Array<unknown>) {
 interface McpCredentials {
   clerkUserId: string;
   scopedRepoId?: string;
+  entityId?: string;
+  entityKind?: "session";
 }
 
 interface RepoInfo {
@@ -39,7 +41,7 @@ export function registerTools(
   credentials: McpCredentials,
   ctx: ActionCtx,
 ): void {
-  const { clerkUserId, scopedRepoId } = credentials;
+  const { clerkUserId, scopedRepoId, entityId, entityKind } = credentials;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Helper functions
@@ -1105,6 +1107,75 @@ Provide a self-contained HTML document (inline CSS/JS, or CDN links). Eva stores
         { clerkUserId },
       );
       return textResult({ artifacts });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Session browser tools (shared desktop Chrome via CDP — sessions only)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function requireSessionEntity():
+    | { sessionId: string }
+    | ReturnType<typeof errorResult> {
+    if (entityKind !== "session" || entityId === undefined) {
+      return errorResult(
+        "browser_* tools are only available inside a session sandbox (token has no session entity).",
+      );
+    }
+    return { sessionId: entityId };
+  }
+
+  server.tool(
+    "browser_start",
+    "Start the session's shared desktop Chrome (CDP on port 9222) so the user can watch live in the Browser tab. Then run `agent-browser connect 9222` once and use agent-browser commands against that browser. Session sandboxes only.",
+    {},
+    async () => {
+      const session = requireSessionEntity();
+      if ("isError" in session) return session;
+
+      const result = await ctx.runAction(
+        internal.daytona.startDesktopForBrowserSession,
+        {
+          sessionId: session.sessionId,
+          clerkUserId,
+        },
+      );
+      if (!result.ok) return errorResult(result.message);
+      return {
+        content: [{ type: "text" as const, text: result.message }],
+      };
+    },
+  );
+
+  server.tool(
+    "browser_lock",
+    "Signal that you are actively driving the shared browser. Switches the user's session UI to the Browser tab and shows a takeover overlay. Call before interacting; pair with browser_unlock when done.",
+    {},
+    async () => {
+      const session = requireSessionEntity();
+      if ("isError" in session) return session;
+
+      await ctx.runMutation(internal.sessions.setAgentBrowsingAt, {
+        sessionId: session.sessionId,
+        locked: true,
+      });
+      return textResult({ locked: true });
+    },
+  );
+
+  server.tool(
+    "browser_unlock",
+    "Clear the agent-browsing soft lock so the user can interact freely in the Browser/Computer tab again.",
+    {},
+    async () => {
+      const session = requireSessionEntity();
+      if ("isError" in session) return session;
+
+      await ctx.runMutation(internal.sessions.setAgentBrowsingAt, {
+        sessionId: session.sessionId,
+        locked: false,
+      });
+      return textResult({ locked: false });
     },
   );
 }

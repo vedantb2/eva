@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Group,
   Panel,
@@ -26,6 +32,11 @@ interface ResizablePanelLayoutProps {
   storageKey: string;
   /** Initial collapsed state of the right panel when there is no stored value. Defaults to true. */
   defaultRightCollapsed?: boolean;
+  /**
+   * Bump this value to force-expand the right panel (e.g. agent browser lock).
+   * Only expands; never collapses.
+   */
+  expandRightSignal?: number;
 }
 
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
@@ -38,6 +49,7 @@ export function ResizablePanelLayout({
   rightMinWidthPx,
   storageKey,
   defaultRightCollapsed = true,
+  expandRightSignal,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
   const [savedCollapsed, setSavedCollapsed] = useLocalStorage(
@@ -57,6 +69,16 @@ export function ResizablePanelLayout({
       rightPanelRef.current?.collapse();
     }
   };
+
+  useEffect(() => {
+    if (expandRightSignal === undefined || expandRightSignal === 0) return;
+    if (isMobile) {
+      setRightCollapsed(false);
+      setSavedCollapsed(false);
+      return;
+    }
+    rightPanelRef.current?.resize(lastExpandedSize.current);
+  }, [expandRightSignal, isMobile, rightPanelRef, setSavedCollapsed]);
 
   const handleResize = useCallback(
     (size: PanelSize) => {

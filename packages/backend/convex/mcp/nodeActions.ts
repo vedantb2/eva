@@ -44,6 +44,8 @@ const internalTokenClaims = z.object({
   iss: z.literal("eva"),
   aud: z.literal("mcp-internal"),
   repoId: z.string(),
+  entityId: z.string().optional(),
+  entityKind: z.literal("session").optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,6 +157,8 @@ export const verifyAccessToken = internalAction({
     v.object({
       clerkUserId: v.string(),
       scopedRepoId: v.optional(v.string()),
+      entityId: v.optional(v.string()),
+      entityKind: v.optional(v.literal("session")),
     }),
     v.null(),
   ),
@@ -177,7 +181,14 @@ export const verifyAccessToken = internalAction({
             err instanceof Error ? err.message : err,
           );
         }
-        return { clerkUserId: claims.data.sub };
+        // Same shape as internal tokens so callers can read optional fields
+        // without narrowing (OAuth tokens just leave them unset).
+        return {
+          clerkUserId: claims.data.sub,
+          scopedRepoId: undefined,
+          entityId: undefined,
+          entityKind: undefined,
+        };
       }
       // OAuth payload missing sub — fall through to internal token
     } catch {
@@ -207,6 +218,12 @@ export const verifyAccessToken = internalAction({
       return {
         clerkUserId: claims.data.sub,
         scopedRepoId: claims.data.repoId,
+        ...(claims.data.entityId !== undefined
+          ? { entityId: claims.data.entityId }
+          : {}),
+        ...(claims.data.entityKind !== undefined
+          ? { entityKind: claims.data.entityKind }
+          : {}),
       };
     } catch (err) {
       console.error(
@@ -1353,13 +1370,18 @@ export const handleMcpRequest = internalAction({
   args: {
     clerkUserId: v.string(),
     scopedRepoId: v.optional(v.string()),
+    entityId: v.optional(v.string()),
+    entityKind: v.optional(v.literal("session")),
     body: v.string(),
   },
   returns: v.object({
     status: v.number(),
     body: v.string(),
   }),
-  handler: async (ctx, { clerkUserId, scopedRepoId, body }) => {
+  handler: async (
+    ctx,
+    { clerkUserId, scopedRepoId, entityId, entityKind, body },
+  ) => {
     try {
       const parsedBody = JSON.parse(body);
 
@@ -1369,8 +1391,9 @@ export const handleMcpRequest = internalAction({
         version: "1.0.0",
       });
 
-      // Register tools with credentials (including optional scoped repo)
-      const credentials = { clerkUserId, scopedRepoId };
+      // Register tools with credentials (including optional scoped repo /
+      // session entity for browser tools).
+      const credentials = { clerkUserId, scopedRepoId, entityId, entityKind };
       registerTools(server, credentials, ctx);
       try {
         await registerSupabaseTools(server, credentials, ctx);

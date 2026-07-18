@@ -2,11 +2,11 @@
 
 import { v } from "convex/values";
 import { quote } from "shell-quote";
-import { action } from "../_generated/server";
-import { api } from "../_generated/api";
+import { action, internalAction } from "../_generated/server";
+import { api, internal } from "../_generated/api";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
-import { launchChrome } from "./desktop";
+import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
 
 /** Starts or stops a code-server instance inside a sandbox. */
@@ -159,6 +159,71 @@ export const launchChromeInDesktop = action({
     await launchChrome(handle);
 
     return null;
+  },
+});
+
+/**
+ * On-demand desktop + Chrome for session browser MCP. Idempotent — safe to call
+ * when VNC/Chrome are already up. Resolves the session from the MCP token claim.
+ */
+export const startDesktopForBrowserSession = internalAction({
+  args: {
+    sessionId: v.string(),
+    clerkUserId: v.string(),
+  },
+  returns: v.object({
+    ok: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session) {
+      return { ok: false, message: "Session not found." };
+    }
+
+    const user = await ctx.runQuery(internal.mcp.queries.getUserByClerkId, {
+      clerkUserId: args.clerkUserId,
+    });
+    if (!user) {
+      return { ok: false, message: "User not found." };
+    }
+
+    const hasAccess = await ctx.runQuery(
+      internal.mcp.queries.checkRepoAccessForUser,
+      { repoId: session.repoId, userId: user._id },
+    );
+    if (!hasAccess) {
+      return { ok: false, message: "Access denied for this session's repo." };
+    }
+
+    const sandboxId = session.sandboxId;
+    if (!sandboxId) {
+      return {
+        ok: false,
+        message:
+          "No sandbox on this session. Start the sandbox before using the shared browser.",
+      };
+    }
+
+    try {
+      const handle = await getSandboxHandle(ctx, session.repoId, sandboxId);
+      await startDesktopWithChrome(handle);
+      return {
+        ok: true,
+        message:
+          "Chrome ready. Run `agent-browser connect 9222`. User watches in Browser tab. App: http://localhost:3000",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to start shared desktop Chrome.",
+      };
+    }
   },
 });
 

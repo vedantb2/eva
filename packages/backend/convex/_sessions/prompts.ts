@@ -68,7 +68,16 @@ After committing, capture visual proof with agent-browser:
 4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
 Do NOT commit the recordings/ or screenshots/ files.`
     : "";
-  return `${message}${planContext}${proofSection}
+  const browserSection = `
+
+## Shared Browser (user-visible):
+For browser verification or browsing the running app so the user can watch live:
+1. Call eva MCP \`browser_start\` (starts the shared desktop Chrome with CDP on 9222).
+2. Run \`agent-browser connect 9222\` once; all further agent-browser commands drive that Chrome.
+3. Call \`browser_lock\` before interacting, \`browser_unlock\` when done.
+4. Skip \`set viewport\` in this mode (Chrome is already 1920×1080).
+If \`browser_start\` fails or is unavailable, fall back to plain headless agent-browser (current behavior).`;
+  return `${message}${planContext}${proofSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Never commit or push to main. Fetching/merging/rebasing/pulling from main into this branch is allowed when the user asks.

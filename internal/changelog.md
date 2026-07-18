@@ -1,5 +1,11 @@
 # Changelog
 
+## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
+
+- Edit-turn prompts now require agent-browser captures under `recordings/` / `screenshots/` and forbid `create_artifact` for walkthrough media.
+- MCP `create_artifact` description says the same; recording-related messages always take the full agent turn.
+- Reason for change: agents were hosting WebMs as HTML artifacts, so chat never got Convex storage + VideoPreview speed controls.
+
 ## Claude daemon turns upload recordings/screenshots into chat - 2026-07-18
 
 - sdk-daemon finalize now uploads sandbox `recordings/` / `screenshots/` and attaches them to the last assistant message (same path as one-shot callbacks).

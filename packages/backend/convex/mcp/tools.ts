@@ -1031,7 +1031,9 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
     "create_artifact",
     `Save an HTML artifact to Eva and get back a hosted link to view it.
 
-Provide a self-contained HTML document (inline CSS/JS, or CDN links). Eva stores it and hosts it in a sandboxed iframe at the returned viewUrl. The link is viewable by members of the bound team while signed in to Eva.`,
+Provide a self-contained HTML document (inline CSS/JS, or CDN links). Eva stores it and hosts it in a sandboxed iframe at the returned viewUrl. The link is viewable by members of the bound team while signed in to Eva.
+
+Do NOT use this for session walkthrough recordings, screen captures, or screenshots. For those, save the file under repo-root recordings/ or screenshots/ with agent-browser and leave it on disk — Eva attaches it to the chat message with the built-in video/image player.`,
     {
       name: z.string().describe("Artifact name/title"),
       html: z

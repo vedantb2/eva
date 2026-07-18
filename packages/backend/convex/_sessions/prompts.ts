@@ -66,7 +66,7 @@ After committing, capture visual proof with agent-browser:
 2. Navigate to the affected route: \`agent-browser open http://localhost:3000/<relevant-route>\` and wait 5s for it to render.
 3. Record a walkthrough: \`agent-browser record start recordings/proof.webm\`, step through each affected page (wait 5s per page, scroll to show the change), then \`agent-browser record stop\`. Use \`agent-browser screenshot\` into screenshots/ only for a trivial change with nothing to demonstrate.
 4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
-Do NOT commit the recordings/ or screenshots/ files.`
+Do NOT commit the recordings/ or screenshots/ files. Do NOT use create_artifact — Eva attaches the file to chat automatically.`
     : "";
   const browserSection = `
 
@@ -76,7 +76,13 @@ For browser verification or browsing the running app so the user can watch live:
 2. Run \`agent-browser connect 9222\` once; all further agent-browser commands drive that Chrome.
 3. Call \`browser_lock\` before interacting, \`browser_unlock\` when done.
 4. Skip \`set viewport\` in this mode (Chrome is already 1920×1080).
-If \`browser_start\` fails or is unavailable, fall back to plain headless agent-browser (current behavior).`;
+If \`browser_start\` fails or is unavailable, fall back to plain headless agent-browser (current behavior).
+
+## Recordings / screenshots in chat (required):
+When the user asks for a recording, walkthrough video, or screenshot:
+1. Write the file under the repo-root \`recordings/\` (video: \`agent-browser record start recordings/<name>.webm\` … \`record stop\`) or \`screenshots/\` (stills).
+2. Leave the file on disk when you finish the turn. Eva uploads it to Convex storage and renders it in chat with the video player (speed controls). Do not paste a URL instead.
+3. Never use \`create_artifact\` (or any /artifacts/… link) for these captures — artifacts are for HTML docs, not session walkthrough media.`;
   return `${message}${planContext}${proofSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):

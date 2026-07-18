@@ -121,9 +121,8 @@ export function startVercelPty(
   const sessionName = safeVercelSessionName(opts.sessionName);
   // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
   // existing session so reconnects don't thrash create/destroy.
-  // alternate-screen off: keep output in xterm's normal buffer so the Console
-  // gets real scrollback + scrollbar. mouse off + customWheel: wheel scrolls
-  // that scrollbar instead of injecting Up/Down (bash history).
+  // alternate-screen off: keep output in xterm scrollback (Console scrollbar).
+  // mouse off (global + session): never let tmux capture the wheel.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
@@ -133,8 +132,9 @@ export function startVercelPty(
         `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
         `if command -v tmux >/dev/null 2>&1; then`,
         `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
-        `  tmux set-option -t ${sessionName} alternate-screen off`,
+        `  tmux set-option -g mouse off`,
         `  tmux set-option -t ${sessionName} mouse off`,
+        `  tmux set-option -t ${sessionName} alternate-screen off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,
@@ -149,15 +149,11 @@ export function startVercelPty(
 }
 
 /**
- * Wheel scrolls xterm scrollback on the normal buffer (Console scrollbar) and
- * blocks xterm's "!hasScrollback → Up/Down" path that cycles shell history.
- * Alt-buffer apps (vim/less) keep default wheel handling.
+ * Always consume wheel in the client: scroll xterm scrollback, never forward
+ * to the PTY (no bash history, no tmux mouse tracking).
  */
 export function attachNormalBufferWheelScroll(terminal: Terminal): () => void {
   terminal.attachCustomWheelEventHandler((event) => {
-    if (terminal.buffer.active.type === "alternate") {
-      return true;
-    }
     const host = terminal.element;
     const lineHeight =
       terminal.rows > 0 && host ? host.clientHeight / terminal.rows : 16;

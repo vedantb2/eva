@@ -76,10 +76,10 @@ export async function launchDevServerInVercelConsole(
       timeoutSeconds: 15,
     });
   }
-  // alternate-screen off → output stays in xterm normal buffer (visible
-  // Console scrollbar). mouse off + client customWheel scrolls that buffer.
+  // mouse off always — tmux mouse mode breaks Console into history/copy-mode.
+  // alternate-screen off keeps output in xterm scrollback (visible scrollbar).
   await handle.exec(
-    `tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} history-limit 50000`,
+    `tmux set-option -g mouse off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} history-limit 50000`,
     { cwd: "/", timeoutSeconds: 5 },
   );
 

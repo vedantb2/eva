@@ -204,6 +204,7 @@ export function SandboxPaneSlots({
           vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
+          surface={activeTab === "browser" ? "browser" : "desktop"}
           sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
         />

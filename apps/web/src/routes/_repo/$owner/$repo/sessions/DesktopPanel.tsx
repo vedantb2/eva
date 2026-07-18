@@ -16,10 +16,33 @@ interface DesktopPanelProps {
   vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
+  /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
+  surface?: "browser" | "desktop";
   /** When set with a fresh agentBrowsingAt, shows the takeover overlay. */
   sessionId?: Id<"sessions">;
   agentBrowsingAt?: number;
 }
+
+const SURFACE_COPY = {
+  browser: {
+    inactiveLabel: "Start the sandbox to use the browser",
+    idleLabel: "Browser is not running",
+    startLabel: "Start Browser",
+    startingLabel: "Starting browser environment...",
+    pollFailedError: "Browser failed to start. Check sandbox logs.",
+    startFailedError: "Failed to start browser",
+    loadFailedError: "Failed to load browser",
+  },
+  desktop: {
+    inactiveLabel: "Start the sandbox to use the desktop",
+    idleLabel: "Desktop is not running",
+    startLabel: "Start Desktop",
+    startingLabel: "Starting desktop environment...",
+    pollFailedError: "Desktop environment failed to start. Check sandbox logs.",
+    startFailedError: "Failed to start desktop",
+    loadFailedError: "Failed to load desktop",
+  },
+} as const;
 
 /**
  * NoVNC remote-desktop panel. Thin wrapper around `SandboxIframeService` —
@@ -61,9 +84,11 @@ export function DesktopPanel({
   vercelSandboxId,
   isActive,
   repoId,
+  surface = "desktop",
   sessionId,
   agentBrowsingAt,
 }: DesktopPanelProps) {
+  const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
   const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
   const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
@@ -109,13 +134,13 @@ export function DesktopPanel({
         ensureStartedBeforeReady
         maxAttempts={40}
         icon={IconDeviceDesktop}
-        inactiveLabel="Start the sandbox to use the desktop"
-        idleLabel="Desktop is not running"
-        startLabel="Start Desktop"
-        startingLabel="Starting desktop environment..."
-        pollFailedError="Desktop environment failed to start. Check sandbox logs."
-        startFailedError="Failed to start desktop"
-        loadFailedError="Failed to load desktop"
+        inactiveLabel={copy.inactiveLabel}
+        idleLabel={copy.idleLabel}
+        startLabel={copy.startLabel}
+        startingLabel={copy.startingLabel}
+        pollFailedError={copy.pollFailedError}
+        startFailedError={copy.startFailedError}
+        loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
       />
       {showLockOverlay ? (

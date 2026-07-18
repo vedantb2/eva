@@ -296,16 +296,17 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
-    // Cancel can race with startExecute and wipe the newly staged pendingTurn
-    // while this workflow keeps waiting. Re-stage from workflow args whenever
-    // the turn is still open and nothing is pending for the daemon to claim.
-    await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
-      sessionId: args.sessionId,
-      prompt: data.prompt,
-      turnKind: data.turnKind,
-      attachmentStorageIds: data.attachmentStorageIds,
-      model: args.model,
-    });
+    // Claude only: cancel can race with startExecute and wipe pendingTurn while
+    // this workflow waits. One-shot providers never use claimPendingTurn.
+    if (getAIModelProvider(data.model) === "claude") {
+      await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
+        sessionId: args.sessionId,
+        prompt: data.prompt,
+        turnKind: data.turnKind,
+        attachmentStorageIds: data.attachmentStorageIds,
+        model: args.model,
+      });
+    }
 
     // Claude sessions use the sdk-daemon pull path (prewarm + claimPendingTurn).
     // Cursor/Codex/Opencode have no pull daemon — push the prompt via one-shot
@@ -892,6 +893,14 @@ export const ensurePendingTurn = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     if (session.pendingTurn) return null;
+    // One-shot providers push the prompt; restaging would only spam a leftover
+    // Claude daemon with claimPendingTurn model-mismatch logs.
+    if (
+      args.model !== undefined &&
+      getAIModelProvider(normalizeAIModel(args.model)) !== "claude"
+    ) {
+      return null;
+    }
 
     const last = await ctx.db
       .query("messages")
@@ -968,6 +977,13 @@ export const restageOpenTurn = internalMutation({
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) return { restaged: false as const, reason: "repo not found" };
+    // Daemon-pull recovery only — Cursor/Codex/Opencode push via launch.
+    if (getAIModelProvider(normalizeAIModel(session.lastModel)) !== "claude") {
+      return {
+        restaged: false as const,
+        reason: "not a Claude daemon-pull session",
+      };
+    }
     const user = await ctx.db.get(session.userId);
     const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
     const mode: "edit" | "ask" | "execute" | "plan" =

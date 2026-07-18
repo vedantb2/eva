@@ -4,6 +4,7 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
   sessionModeValidator,
@@ -69,19 +70,23 @@ export const startExecute = authMutation({
       mode: args.mode,
     });
 
-    // Carry the composer's image attachments on the staged turn. The daemon
-    // downloads them when it claims the turn. Passed explicitly (not read from
-    // the user message row) because the composer fires addMessage + startExecute
-    // in parallel, so the row may not be committed yet.
+    // Claude uses daemon-pull (`pendingTurn` + claimPendingTurn). Cursor/Codex/
+    // Opencode are one-shot launch — staging pendingTurn for them only feeds a
+    // leftover Claude daemon mismatch-spam while launchOnExistingSandbox runs.
     const normalizedModel = normalizeAIModel(args.model);
+    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: {
-        prompt,
-        requestedAt: Date.now(),
-        turnKind,
-        attachmentStorageIds: args.attachmentStorageIds,
-        model: normalizedModel,
-      },
+      ...(usesDaemonPull
+        ? {
+            pendingTurn: {
+              prompt,
+              requestedAt: Date.now(),
+              turnKind,
+              attachmentStorageIds: args.attachmentStorageIds,
+              model: normalizedModel,
+            },
+          }
+        : { pendingTurn: undefined }),
       // Persist the session's chosen account so the page-open prewarm (which has
       // no per-message context) injects the same credential. Undefined clears
       // back to the team credential.
@@ -90,12 +95,10 @@ export const startExecute = authMutation({
       updatedAt: Date.now(),
     });
 
-    // Ensure a daemon exists to claim the staged prompt. Idempotent: a no-op if
-    // one is already warm, and it never pkills a live daemon — it only respawns
-    // (in pull mode, WITHOUT a prompt) when none is alive. On a cold/archived
-    // sandbox this thaws it; if there is no sandbox yet the action skips and the
-    // workflow's cold path below creates one.
-    if (session.sandboxId) {
+    // Ensure a Claude daemon exists to claim the staged prompt. Skip for
+    // one-shot providers (prewarmSessionDaemon already no-ops, but scheduling
+    // still races a warm Sonnet daemon against Cursor launches).
+    if (usesDaemonPull && session.sandboxId) {
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
       await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {

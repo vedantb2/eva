@@ -1,5 +1,10 @@
 # Changelog
 
+## Cursor session turns no longer stage Claude pendingTurn - 2026-07-18
+
+- Only Claude daemon-pull stages `pendingTurn` / schedules prewarm; Cursor/Codex/Opencode clear it and one-shot launch.
+- Reason for change: a leftover Sonnet daemon was spam-claiming Cursor-tagged turns (`claimPendingTurn model mismatch`) while launch ran.
+
 ## Don't delete session sandboxes after early-ready - 2026-07-18
 
 - Late startup failures (e.g. startup-commands 300s timeout) used to `delete()` the new VM and `sandboxError`-close the session — even after early-ready had already unlocked chat.

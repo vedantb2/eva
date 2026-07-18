@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useState } from "react";
-import type { ComponentProps, ReactNode } from "react";
+import { memo, useCallback, useRef, useState } from "react";
+import type { ComponentProps, ReactNode, Ref } from "react";
+import { flushSync } from "react-dom";
 
 import {
   Collapsible,
@@ -33,6 +34,43 @@ import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 
 /** Max activity blocks shown before the overflow toggle appears (P2). */
 const MAX_VISIBLE_BLOCKS = 5;
+
+/** Nearest ancestor that actually scrolls — used to keep the overflow toggle pinned. */
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let current = el.parentElement;
+  while (current) {
+    const { overflowY } = getComputedStyle(current);
+    if (
+      (overflowY === "auto" ||
+        overflowY === "scroll" ||
+        overflowY === "overlay") &&
+      current.scrollHeight > current.clientHeight
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Expand/collapse while keeping `anchor` visually fixed (t3code work-group
+ * toggle pattern). Content inserted above the control would otherwise shove it
+ * down the viewport.
+ */
+function toggleWithScrollCompensation(
+  anchor: HTMLElement,
+  toggle: () => void,
+): void {
+  const scrollParent = findScrollParent(anchor);
+  const bottomBefore = anchor.getBoundingClientRect().bottom;
+  flushSync(toggle);
+  const delta = anchor.getBoundingClientRect().bottom - bottomBefore;
+  if (!scrollParent || Math.abs(delta) < 0.5) {
+    return;
+  }
+  scrollParent.scrollTop += delta;
+}
 
 export type { ActivityStep };
 
@@ -248,6 +286,7 @@ function ActivityBlockList({
   onOpenFile?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const overflow = blocks.length - MAX_VISIBLE_BLOCKS;
   const isCapped = overflow > 0 && !expanded;
   const visible = isCapped
@@ -256,14 +295,26 @@ function ActivityBlockList({
       : blocks.slice(0, MAX_VISIBLE_BLOCKS)
     : blocks;
 
+  const handleToggle = useCallback(() => {
+    const anchor = toggleRef.current;
+    if (!anchor) {
+      setExpanded((value) => !value);
+      return;
+    }
+    toggleWithScrollCompensation(anchor, () => {
+      setExpanded((value) => !value);
+    });
+  }, []);
+
   // Streaming turns show the toggle above the list (newest kept at the
   // bottom); settled turns show it below. Same element either way.
   const toggle =
     overflow > 0 ? (
       <OverflowToggle
+        ref={toggleRef}
         expanded={expanded}
         overflow={overflow}
-        onToggle={() => setExpanded((v) => !v)}
+        onToggle={handleToggle}
       />
     ) : null;
 
@@ -279,16 +330,19 @@ function ActivityBlockList({
 }
 
 function OverflowToggle({
+  ref,
   expanded,
   overflow,
   onToggle,
 }: {
+  ref?: Ref<HTMLButtonElement>;
   expanded: boolean;
   overflow: number;
   onToggle: () => void;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onToggle}
       className="w-fit text-muted-foreground text-sm transition-colors hover:text-foreground"

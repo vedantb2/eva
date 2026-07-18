@@ -127,7 +127,9 @@ export function ConsoleDock({
 
       <div
         className={cn(
-          expanded ? "flex min-h-0 flex-1 flex-col" : "hidden",
+          // overflow-hidden + min-h-0 so xterm gets a bounded viewport and can
+          // scroll scrollback — without this the terminal grows and is clipped.
+          expanded ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden",
           dragging && "pointer-events-none",
         )}
       >

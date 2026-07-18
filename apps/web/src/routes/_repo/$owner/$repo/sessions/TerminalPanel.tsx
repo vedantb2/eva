@@ -279,6 +279,7 @@ export function TerminalPanel({
           cursorBlink: true,
           fontSize: 13,
           fontFamily: "Menlo, Monaco, 'Courier New', monospace",
+          scrollback: 5000,
           theme: {
             background: getCssRgb(rootStyles, "--card", "17 24 39"),
             foreground: getCssRgb(rootStyles, "--foreground", "226 232 240"),
@@ -462,13 +463,13 @@ export function TerminalPanel({
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-card">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-card">
           <Spinner size="lg" />
         </div>
       )}
-      <div ref={terminalRef} className="min-h-0 flex-1" />
+      <div ref={terminalRef} className="min-h-0 flex-1 overflow-hidden" />
     </div>
   );
 }

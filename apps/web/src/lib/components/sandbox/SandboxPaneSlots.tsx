@@ -126,22 +126,28 @@ export function SandboxPaneSlots({
   return (
     <>
       <div
-        className={activeTab === "preview" ? "h-full flex flex-col" : "hidden"}
+        className={
+          activeTab === "preview"
+            ? "flex h-full min-h-0 flex-col overflow-hidden"
+            : "hidden"
+        }
       >
         <ConsoleDock
           storageKey={`conductor:${owner.kind}:${cacheKey}:console`}
           preview={previewRegion}
           renderConsole={(visible) =>
             consolePane ? (
-              <TerminalPanel
-                owner={owner}
-                sandboxId={sandboxId}
-                isActive={isActive}
-                ptyInstanceId={consolePane.id}
-                isForeground={activeTab === "preview" && visible}
-                runDevCommandOnConnect
-                devCommand={devCommand}
-              />
+              <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                <TerminalPanel
+                  owner={owner}
+                  sandboxId={sandboxId}
+                  isActive={isActive}
+                  ptyInstanceId={consolePane.id}
+                  isForeground={activeTab === "preview" && visible}
+                  runDevCommandOnConnect
+                  devCommand={devCommand}
+                />
+              </div>
             ) : null
           }
         />

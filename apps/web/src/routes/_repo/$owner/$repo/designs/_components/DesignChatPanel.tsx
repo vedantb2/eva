@@ -449,7 +449,7 @@ export function DesignChatPanel({
               )
             )}
           </ConversationContent>
-          <ConversationScrollButton />
+          <ConversationScrollButton resetKey={designSessionId} />
         </Conversation>
         {!isArchived && (
           <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">

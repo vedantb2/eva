@@ -1,5 +1,10 @@
 # Changelog
 
+## Debounced "Scroll to end" chat pill - 2026-07-18
+
+- Scroll-to-bottom control now shows after 150ms away from the live edge (hide stays immediate), resets on conversation switch, and uses a labeled pill like t3code.
+- Reason for change: the old icon flashed during stick-to-bottom settle and thread switches.
+
 ## Collapse long user chat messages behind "Show full message" - 2026-07-18
 
 - Session/task chat user prompts longer than 8 lines or 600 chars collapse with a fade and expand toggle (same idea as t3code).

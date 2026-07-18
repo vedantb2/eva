@@ -267,7 +267,7 @@ export function ChatBody({
             </>
           )}
         </ConversationContent>
-        <ConversationScrollButton />
+        <ConversationScrollButton resetKey={conversationId} />
         <ChatJumpRail messages={jumpRailMessages} />
       </Conversation>
       {!isArchived && !activePendingQuestion && !blockingQuestions && (

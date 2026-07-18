@@ -4,9 +4,12 @@ import type { ComponentProps } from "react";
 
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
-import { ArrowDownIcon, DownloadIcon } from "lucide-react";
-import { useCallback } from "react";
+import { ChevronDownIcon, DownloadIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
+
+/** Delay before showing the scroll pill so brief layout settles don't flash it. */
+const SHOW_SCROLL_TO_END_DEBOUNCE_MS = 150;
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
@@ -71,34 +74,83 @@ export const ConversationEmptyState = ({
   </div>
 );
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+export type ConversationScrollButtonProps = ComponentProps<typeof Button> & {
+  /**
+   * When this changes (e.g. conversation/thread id), hide the pill immediately
+   * and cancel any pending show — same idea as t3code's thread-switch debounce.
+   */
+  resetKey?: string;
+};
 
+/**
+ * Floating "Scroll to end" pill. Showing is debounced (hide is immediate) so
+ * stick-to-bottom settle / conversation switches don't flash the control.
+ */
 export const ConversationScrollButton = ({
   className,
+  resetKey,
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const [showScrollToEnd, setShowScrollToEnd] = useState(false);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleScrollToBottom = useCallback(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
+  const clearShowTimer = useCallback(() => {
+    if (showTimerRef.current !== null) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    clearShowTimer();
+    setShowScrollToEnd(false);
+  }, [resetKey, clearShowTimer]);
+
+  useEffect(() => {
+    if (isAtBottom) {
+      clearShowTimer();
+      setShowScrollToEnd(false);
+      return;
+    }
+
+    showTimerRef.current = setTimeout(() => {
+      setShowScrollToEnd(true);
+      showTimerRef.current = null;
+    }, SHOW_SCROLL_TO_END_DEBOUNCE_MS);
+
+    return clearShowTimer;
+  }, [isAtBottom, clearShowTimer]);
+
+  const handleScrollToEnd = useCallback(() => {
+    clearShowTimer();
+    setShowScrollToEnd(false);
+    void scrollToBottom();
+  }, [clearShowTimer, scrollToBottom]);
+
+  if (!showScrollToEnd) {
+    return null;
+  }
 
   return (
-    !isAtBottom && (
+    <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 justify-center">
       <Button
         className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full bg-background hover:bg-muted",
+          "pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground shadow-sm hover:border-border hover:bg-card hover:text-foreground",
           className,
         )}
-        onClick={handleScrollToBottom}
-        size="icon"
+        onClick={handleScrollToEnd}
+        size="sm"
         type="button"
         variant="outline"
+        aria-label="Scroll to end"
+        title="Scroll to end"
         {...props}
       >
-        <ArrowDownIcon className="size-4" />
+        <ChevronDownIcon className="size-3.5" />
+        Scroll to end
       </Button>
-    )
+    </div>
   );
 };
 

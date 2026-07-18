@@ -85,7 +85,7 @@ export function ProjectChatArea({
           )}
           <div ref={messagesEndRef} />
         </ConversationContent>
-        <ConversationScrollButton />
+        <ConversationScrollButton resetKey={projectId} />
       </Conversation>
       <div className="relative p-3">
         <TypingIndicator

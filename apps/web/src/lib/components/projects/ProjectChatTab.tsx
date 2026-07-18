@@ -250,7 +250,7 @@ export function ProjectChatTab({
           )}
           <div ref={messagesEndRef} />
         </ConversationContent>
-        <ConversationScrollButton />
+        <ConversationScrollButton resetKey={projectId} />
       </Conversation>
       <div className="p-3 sm:p-4 space-y-3 max-w-5xl mx-auto w-full">
         {showQuestion && (

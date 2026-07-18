@@ -9,35 +9,7 @@ import {
   STREAMING_HEARTBEAT_MAX_RETRIES,
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
-
-function narrowJsonValue(
-  value: string | number | boolean | null | object,
-): JsonValue | null {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    const items: JsonValue[] = [];
-    for (const item of value) {
-      const n = narrowJsonValue(item);
-      if (n === null && item !== null) return null;
-      items.push(n);
-    }
-    return items;
-  }
-  const obj: { [key: string]: JsonValue } = {};
-  for (const [k, v] of Object.entries(value)) {
-    const n = narrowJsonValue(v);
-    if (n === null && v !== null) return null;
-    obj[k] = n;
-  }
-  return obj;
-}
+import { readResponseJson } from "../utils.js";
 
 /** Wraps fetch with an AbortController timeout. */
 export async function fetchWithTimeout(
@@ -83,8 +55,7 @@ export async function callConvex(
       "Convex " + type + " " + path + " failed: " + res.status + " " + text,
     );
   }
-  const json = await res.json();
-  return narrowJsonValue(json) ?? null;
+  return (await readResponseJson(res)) ?? null;
 }
 
 /** Calls Convex with automatic retry on failure. */

@@ -46,7 +46,12 @@ import {
   runProviderAttempt,
   syncProviderStateToPersist,
 } from "./providers/attempts.js";
-import { hasNewTaskCommitSince, log, readGitHeadSha } from "./utils.js";
+import {
+  hasNewTaskCommitSince,
+  log,
+  readGitHeadSha,
+  readResponseJson,
+} from "./utils.js";
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -132,7 +137,7 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
       }),
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = await readResponseJson(res);
       if (
         data &&
         typeof data === "object" &&

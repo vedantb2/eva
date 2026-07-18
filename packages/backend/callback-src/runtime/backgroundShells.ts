@@ -133,18 +133,31 @@ export async function flushBackgroundShellQueue(): Promise<void> {
   if (eventQueue.length === 0) return;
 
   flushInFlight = true;
+  // canFlushBackgroundShells already checked, but ENTITY_ID is module-level
+  // `string | undefined` so narrow again for JsonObject assignment.
   const sessionId = ENTITY_ID;
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    flushInFlight = false;
+    return;
+  }
   try {
     while (eventQueue.length > 0) {
       const event = eventQueue[0];
       if (!event) break;
       if (event.kind === "register") {
-        await callConvexWithRetry("mutation", "backgroundProcesses:register", {
+        const registerArgs: JsonObject = {
           sessionId,
           key: event.key,
           command: event.command,
-          ...(event.shellId !== undefined ? { shellId: event.shellId } : {}),
-        });
+        };
+        if (event.shellId !== undefined) {
+          registerArgs.shellId = event.shellId;
+        }
+        await callConvexWithRetry(
+          "mutation",
+          "backgroundProcesses:register",
+          registerArgs,
+        );
       } else {
         await callConvexWithRetry(
           "mutation",

@@ -36,7 +36,8 @@ export function opencodeParseLine(event: JsonObject): CanonicalEvent[] {
   if (
     event.type === "tool_use" &&
     event.part &&
-    typeof event.part === "object"
+    typeof event.part === "object" &&
+    !Array.isArray(event.part)
   ) {
     const state =
       "state" in event.part &&

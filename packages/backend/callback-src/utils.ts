@@ -19,7 +19,8 @@ import {
 import { callbackState as S } from "./runtime/state.js";
 import type { JsonValue } from "./types.js";
 
-function narrowJsonValue(
+/** Narrow JSON.parse / Response.json() payloads into JsonValue (null if invalid). */
+export function narrowJsonValue(
   value: string | number | boolean | null | object,
 ): JsonValue | null {
   if (
@@ -81,10 +82,36 @@ export function log(msg: string): void {
 export function tryParseJson(text: string): JsonValue | null {
   try {
     const parsed = JSON.parse(text);
-    return narrowJsonValue(parsed);
+    if (
+      parsed === null ||
+      typeof parsed === "string" ||
+      typeof parsed === "number" ||
+      typeof parsed === "boolean" ||
+      typeof parsed === "object"
+    ) {
+      return narrowJsonValue(parsed);
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+/** Narrow a fetch Response.json() body; rejects non-JSON types without assertions. */
+export async function readResponseJson(
+  res: Response,
+): Promise<JsonValue | null> {
+  const parsed = await res.json();
+  if (
+    parsed === null ||
+    typeof parsed === "string" ||
+    typeof parsed === "number" ||
+    typeof parsed === "boolean" ||
+    typeof parsed === "object"
+  ) {
+    return narrowJsonValue(parsed);
+  }
+  return null;
 }
 
 /** Shortens a file path to show only the last 3 segments for display. */

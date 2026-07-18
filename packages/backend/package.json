@@ -10,11 +10,12 @@
     "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 convex dev",
     "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
+    "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
     "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts callback-src/tests/backgroundShells.test.ts",
     "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
     "test:ui-task-prompt": "node --import tsx --test tests/uiTaskPrompt.test.ts",
-    "predeploy": "node scripts/build-callback-script.mjs",
+    "predeploy": "pnpm run build:callback",
     "deploy": "convex deploy"
   },
   "author": "",

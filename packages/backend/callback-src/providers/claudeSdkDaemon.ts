@@ -42,8 +42,8 @@ import {
   type SdkUserMessage,
 } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
-import { log } from "../utils.js";
-import type { JsonValue } from "../types.js";
+import { log, readResponseJson } from "../utils.js";
+import type { JsonObject, JsonValue } from "../types.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -225,8 +225,8 @@ async function ensureGithubToken(): Promise<void> {
       }),
     });
     if (!res.ok) return;
-    const data: unknownJson = await res.json();
-    const token = readToken(data);
+    const data = await readResponseJson(res);
+    const token = readGithubToken(data);
     if (token) {
       process.env.GITHUB_TOKEN = token;
       process.env.GH_TOKEN = token;
@@ -236,15 +236,7 @@ async function ensureGithubToken(): Promise<void> {
   }
 }
 
-type unknownJson =
-  | string
-  | number
-  | boolean
-  | null
-  | unknownJson[]
-  | { [key: string]: unknownJson };
-
-function readToken(data: unknownJson): string | null {
+function readGithubToken(data: JsonValue | null): string | null {
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return null;
   }
@@ -252,7 +244,8 @@ function readToken(data: unknownJson): string | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  return typeof value.token === "string" ? value.token : null;
+  const payload: JsonObject = value;
+  return typeof payload.token === "string" ? payload.token : null;
 }
 
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */

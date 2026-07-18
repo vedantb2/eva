@@ -244,177 +244,6 @@ var completedLabels = {
 // callback-src/providers/claudeSdkDaemon.ts
 import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
 
-// callback-src/http/convexClient.ts
-function narrowJsonValue(value) {
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    const items = [];
-    for (const item of value) {
-      const n = narrowJsonValue(item);
-      if (n === null && item !== null) return null;
-      items.push(n);
-    }
-    return items;
-  }
-  const obj = {};
-  for (const [k, v] of Object.entries(value)) {
-    const n = narrowJsonValue(v);
-    if (n === null && v !== null) return null;
-    obj[k] = n;
-  }
-  return obj;
-}
-async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-function buildRetryDelayMs(attempt) {
-  const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
-  const jitter = Math.floor(Math.random() * 500);
-  return exponential + jitter;
-}
-async function callConvex(type, path, args) {
-  const endpoint = type === "mutation" ? "/api/mutation" : "/api/action";
-  const headers = {
-    "Content-Type": "application/json"
-  };
-  if (CONVEX_TOKEN) headers["Authorization"] = "Bearer " + CONVEX_TOKEN;
-  const res = await fetchWithTimeout(CONVEX_URL + endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ path, args, format: "json" })
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      "Convex " + type + " " + path + " failed: " + res.status + " " + text
-    );
-  }
-  const json = await res.json();
-  return narrowJsonValue(json) ?? null;
-}
-async function callConvexWithRetry(type, path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callConvex(type, path, args);
-    } catch (e) {
-      attempt++;
-      if (attempt > maxRetries) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "callConvex(" + type + ") attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-}
-async function callStreamingHeartbeatTouchOnce(entityId) {
-  if (CONVEX_SITE_URL && STREAMING_HMAC) {
-    const body = new URLSearchParams();
-    body.set("entityId", entityId);
-    body.set("hmac", STREAMING_HMAC);
-    body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text
-      );
-    }
-    return res.text();
-  }
-  return await callConvex("mutation", "streaming:touch", { entityId });
-}
-async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
-  if (CONVEX_SITE_URL && STREAMING_HMAC) {
-    const body = new URLSearchParams();
-    body.set("entityId", entityId);
-    body.set("hmac", STREAMING_HMAC);
-    body.set("currentActivity", currentActivity);
-    body.set("currentContent", currentContent || "");
-    if (pendingQuestion) {
-      body.set("pendingQuestion", pendingQuestion);
-    }
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
-  }
-  const args = {
-    entityId,
-    currentActivity,
-    currentContent
-  };
-  if (pendingQuestion) {
-    args.pendingQuestion = pendingQuestion;
-  }
-  return await callConvex("mutation", "streaming:set", args);
-}
-async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatOnce(
-        entityId,
-        currentActivity,
-        currentContent,
-        pendingQuestion
-      );
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-}
-async function callStreamingHeartbeatTouch(entityId) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatTouchOnce(entityId);
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat touch attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-}
-
 // callback-src/utils.ts
 import { spawnSync } from "child_process";
 import {
@@ -534,7 +363,7 @@ function assignRawLogStream(stream) {
 var accumulatedSteps = callbackState.accumulatedSteps;
 
 // callback-src/utils.ts
-function narrowJsonValue2(value) {
+function narrowJsonValue(value) {
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
   }
@@ -544,7 +373,7 @@ function narrowJsonValue2(value) {
       if (typeof item !== "object" && typeof item !== "string" && typeof item !== "number" && typeof item !== "boolean" && item !== null) {
         return null;
       }
-      const narrowed = narrowJsonValue2(item);
+      const narrowed = narrowJsonValue(item);
       if (narrowed === null && item !== null) return null;
       items.push(narrowed);
     }
@@ -555,7 +384,7 @@ function narrowJsonValue2(value) {
     if (typeof entry !== "object" && typeof entry !== "string" && typeof entry !== "number" && typeof entry !== "boolean" && entry !== null) {
       return null;
     }
-    const narrowed = narrowJsonValue2(entry);
+    const narrowed = narrowJsonValue(entry);
     if (narrowed === null && entry !== null) return null;
     obj[key] = narrowed;
   }
@@ -572,10 +401,20 @@ function log(msg) {
 function tryParseJson(text) {
   try {
     const parsed = JSON.parse(text);
-    return narrowJsonValue2(parsed);
+    if (parsed === null || typeof parsed === "string" || typeof parsed === "number" || typeof parsed === "boolean" || typeof parsed === "object") {
+      return narrowJsonValue(parsed);
+    }
+    return null;
   } catch {
     return null;
   }
+}
+async function readResponseJson(res) {
+  const parsed = await res.json();
+  if (parsed === null || typeof parsed === "string" || typeof parsed === "number" || typeof parsed === "boolean" || typeof parsed === "object") {
+    return narrowJsonValue(parsed);
+  }
+  return null;
 }
 function shortenPath(p) {
   const parts = p.replace(/\\\\/g, "/").split("/");
@@ -692,6 +531,155 @@ function attemptElapsedMs() {
 }
 function elapsedAttemptMs() {
   return attemptElapsedMs();
+}
+
+// callback-src/http/convexClient.ts
+async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+function buildRetryDelayMs(attempt) {
+  const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
+  const jitter = Math.floor(Math.random() * 500);
+  return exponential + jitter;
+}
+async function callConvex(type, path, args) {
+  const endpoint = type === "mutation" ? "/api/mutation" : "/api/action";
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  if (CONVEX_TOKEN) headers["Authorization"] = "Bearer " + CONVEX_TOKEN;
+  const res = await fetchWithTimeout(CONVEX_URL + endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ path, args, format: "json" })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      "Convex " + type + " " + path + " failed: " + res.status + " " + text
+    );
+  }
+  return await readResponseJson(res) ?? null;
+}
+async function callConvexWithRetry(type, path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callConvex(type, path, args);
+    } catch (e) {
+      attempt++;
+      if (attempt > maxRetries) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "callConvex(" + type + ") attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+async function callStreamingHeartbeatTouchOnce(entityId) {
+  if (CONVEX_SITE_URL && STREAMING_HMAC) {
+    const body = new URLSearchParams();
+    body.set("entityId", entityId);
+    body.set("hmac", STREAMING_HMAC);
+    body.set("touchOnly", "1");
+    const res = await fetchWithTimeout(
+      CONVEX_SITE_URL + "/api/streaming/heartbeat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        "Streaming heartbeat touch failed: " + res.status + " " + text
+      );
+    }
+    return res.text();
+  }
+  return await callConvex("mutation", "streaming:touch", { entityId });
+}
+async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
+  if (CONVEX_SITE_URL && STREAMING_HMAC) {
+    const body = new URLSearchParams();
+    body.set("entityId", entityId);
+    body.set("hmac", STREAMING_HMAC);
+    body.set("currentActivity", currentActivity);
+    body.set("currentContent", currentContent || "");
+    if (pendingQuestion) {
+      body.set("pendingQuestion", pendingQuestion);
+    }
+    const res = await fetchWithTimeout(
+      CONVEX_SITE_URL + "/api/streaming/heartbeat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+    }
+    return res.text();
+  }
+  const args = {
+    entityId,
+    currentActivity,
+    currentContent
+  };
+  if (pendingQuestion) {
+    args.pendingQuestion = pendingQuestion;
+  }
+  return await callConvex("mutation", "streaming:set", args);
+}
+async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callStreamingHeartbeatOnce(
+        entityId,
+        currentActivity,
+        currentContent,
+        pendingQuestion
+      );
+    } catch (e) {
+      attempt++;
+      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "streaming heartbeat attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+async function callStreamingHeartbeatTouch(entityId) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callStreamingHeartbeatTouchOnce(entityId);
+    } catch (e) {
+      attempt++;
+      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "streaming heartbeat touch attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
 }
 
 // callback-src/parse/toolSteps.ts
@@ -1549,7 +1537,7 @@ async function uploadMediaFile(filePath, mimeType) {
   if (!uploadRes.ok) {
     throw new Error("Upload failed: " + uploadRes.status);
   }
-  const uploadJson = await uploadRes.json();
+  const uploadJson = await readResponseJson(uploadRes);
   if (uploadJson && typeof uploadJson === "object" && !Array.isArray(uploadJson) && typeof uploadJson.storageId === "string") {
     return uploadJson.storageId;
   }
@@ -1957,17 +1945,28 @@ async function flushBackgroundShellQueue() {
   if (eventQueue.length === 0) return;
   flushInFlight = true;
   const sessionId = ENTITY_ID;
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    flushInFlight = false;
+    return;
+  }
   try {
     while (eventQueue.length > 0) {
       const event = eventQueue[0];
       if (!event) break;
       if (event.kind === "register") {
-        await callConvexWithRetry("mutation", "backgroundProcesses:register", {
+        const registerArgs = {
           sessionId,
           key: event.key,
-          command: event.command,
-          ...event.shellId !== void 0 ? { shellId: event.shellId } : {}
-        });
+          command: event.command
+        };
+        if (event.shellId !== void 0) {
+          registerArgs.shellId = event.shellId;
+        }
+        await callConvexWithRetry(
+          "mutation",
+          "backgroundProcesses:register",
+          registerArgs
+        );
       } else {
         await callConvexWithRetry(
           "mutation",
@@ -2659,7 +2658,7 @@ function opencodeParseLine(event) {
     events.push({ kind: "append_text", text: event.part.text });
     return events;
   }
-  if (event.type === "tool_use" && event.part && typeof event.part === "object") {
+  if (event.type === "tool_use" && event.part && typeof event.part === "object" && !Array.isArray(event.part)) {
     const state = "state" in event.part && event.part.state && typeof event.part.state === "object" && !Array.isArray(event.part.state) ? event.part.state : {};
     const status = typeof state.status === "string" ? state.status : "";
     if (status === "running") {
@@ -3756,8 +3755,8 @@ async function ensureGithubToken() {
       })
     });
     if (!res.ok) return;
-    const data = await res.json();
-    const token = readToken(data);
+    const data = await readResponseJson(res);
+    const token = readGithubToken(data);
     if (token) {
       process.env.GITHUB_TOKEN = token;
       process.env.GH_TOKEN = token;
@@ -3765,7 +3764,7 @@ async function ensureGithubToken() {
   } catch {
   }
 }
-function readToken(data) {
+function readGithubToken(data) {
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return null;
   }
@@ -3773,7 +3772,8 @@ function readToken(data) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  return typeof value.token === "string" ? value.token : null;
+  const payload = value;
+  return typeof payload.token === "string" ? payload.token : null;
 }
 function resetTurnState() {
   callbackState.accumulatedSteps.length = 0;
@@ -4392,7 +4392,7 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
       })
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = await readResponseJson(res);
       if (data && typeof data === "object" && !Array.isArray(data) && data.value && typeof data.value === "object" && !Array.isArray(data.value) && typeof data.value.token === "string") {
         process.env.GITHUB_TOKEN = data.value.token;
         process.env.GH_TOKEN = data.value.token;

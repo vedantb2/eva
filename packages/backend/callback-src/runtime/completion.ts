@@ -22,7 +22,7 @@ import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { JsonObject, ResultEvent } from "../types.js";
-import { attemptElapsedMs, tryParseJson } from "../utils.js";
+import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
   existsSync,
   readFileSync,
@@ -505,7 +505,7 @@ export async function uploadMediaFile(
   if (!uploadRes.ok) {
     throw new Error("Upload failed: " + uploadRes.status);
   }
-  const uploadJson = await uploadRes.json();
+  const uploadJson = await readResponseJson(uploadRes);
   if (
     uploadJson &&
     typeof uploadJson === "object" &&

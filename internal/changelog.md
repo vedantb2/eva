@@ -1,5 +1,11 @@
 # Changelog
 
+## Session Preview Console shows Vercel dev-server logs - 2026-07-18
+
+- New/resumed Vercel session sandboxes start the app in the Preview Console tmux session instead of a detached `/tmp/devserver.log` process.
+- Preview readiness no longer background-restarts the app on Vercel (that was stealing the process away from Console).
+- Reason for change: Console was empty while the real server ran invisibly in the background.
+
 ## Session preview respects app settings port before services finish - 2026-07-18
 
 - Preview used `session.devPort ?? 3000`, so early-ready sessions (before services wrote the port) always hit 3000 even when App settings had 3001.

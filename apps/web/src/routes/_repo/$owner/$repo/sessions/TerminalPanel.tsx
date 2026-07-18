@@ -151,21 +151,26 @@ export function TerminalPanel({
         terminalInstanceRef.current.writeln(
           "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
         );
+        // Vercel Console attaches via tmux; sessions usually start the server
+        // from the backend into that tmux session. Tasks/projects still auto-
+        // start here when isNewPty (no prior tmux session).
         if (
           isNewPty &&
           runDevCommandOnConnect &&
           devCommand &&
-          ptyProtocol !== "vercel" &&
           ws.readyState === WebSocket.OPEN
         ) {
           terminalInstanceRef.current.writeln(
             "\x1b[33m* Starting dev server...\x1b[0m\r\n",
           );
-          setTimeout(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(devCommand + "\r");
-            }
-          }, 300);
+          setTimeout(
+            () => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(devCommand + "\r");
+              }
+            },
+            ptyProtocol === "vercel" ? 500 : 300,
+          );
         }
       };
 
@@ -177,7 +182,8 @@ export function TerminalPanel({
             rows: terminal.rows,
             sessionName: sharedPtySessionName,
           });
-          markConnected();
+          // Wait for the interactive "connected" frame before auto-start so
+          // tmux/bash is ready to receive the command.
         }
       };
 

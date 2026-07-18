@@ -453,8 +453,12 @@ export const getPreviewUrl = action({
       // Desktop (6080) and editor (8080) are started by their own toggle
       // actions — launching `pnpm run dev` onto those ports would clobber
       // noVNC/websockify or code-server and surface as SANDBOX_NOT_LISTENING.
+      //
+      // Vercel: never background-restart — sessions start the app in the
+      // Preview Console tmux session so logs stay visible there. Polling
+      // waits until that process is listening.
       const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
-      if (!ready && !isDesktopOrEditorPort) {
+      if (!ready && !isDesktopOrEditorPort && credentials.kind !== "vercel") {
         try {
           const devCommand = await resolveDevCommandForPreview(
             handle,

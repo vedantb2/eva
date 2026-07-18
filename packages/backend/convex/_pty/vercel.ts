@@ -10,7 +10,8 @@ function buildVercelInteractiveWsUrl(url: string, token: string): string {
   return parsed.toString();
 }
 
-function tmuxSessionName(ptyInstanceId: string | undefined): string {
+/** Stable tmux session name for a Console/terminal pane id. */
+export function tmuxSessionName(ptyInstanceId: string | undefined): string {
   const source =
     ptyInstanceId !== undefined && ptyInstanceId.length > 0
       ? ptyInstanceId

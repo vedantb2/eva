@@ -185,6 +185,8 @@ export function SandboxPanel({
           customTabs={customTabs}
           sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
+          // Backend starts the app in the Console tmux session after startup.
+          runConsoleDevCommandOnConnect={false}
         />
       </div>
     </div>

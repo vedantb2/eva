@@ -37,6 +37,12 @@ interface SandboxPaneSlotsProps {
   /** Sessions only — enables agent-browsing takeover overlay on the desktop surface. */
   sessionId?: Id<"sessions">;
   agentBrowsingAt?: number;
+  /**
+   * When false, the Preview Console does not auto-type the start command
+   * (session sandboxes start it in tmux from the backend after startup).
+   * Defaults to true for tasks/projects.
+   */
+  runConsoleDevCommandOnConnect?: boolean;
 }
 
 /**
@@ -59,6 +65,7 @@ export function SandboxPaneSlots({
   customTabs,
   sessionId,
   agentBrowsingAt,
+  runConsoleDevCommandOnConnect = true,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -144,7 +151,7 @@ export function SandboxPaneSlots({
                   isActive={isActive}
                   ptyInstanceId={consolePane.id}
                   isForeground={activeTab === "preview" && visible}
-                  runDevCommandOnConnect
+                  runDevCommandOnConnect={runConsoleDevCommandOnConnect}
                   devCommand={devCommand}
                 />
               </div>

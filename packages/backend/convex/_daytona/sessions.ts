@@ -41,9 +41,30 @@ import {
   startSessionServices,
   launchDevServerInBackground,
 } from "./devServer";
+import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { startDesktopWithChrome } from "./desktop";
+
+/** Starts the session app server where Console can show logs (Vercel tmux; else background). */
+async function launchSessionDevServer(
+  clientKind: "daytona" | "vercel",
+  handle: SandboxHandle,
+  sessionId: Id<"sessions">,
+  devCommand: string,
+  devPort: number,
+): Promise<void> {
+  if (clientKind === "vercel") {
+    await launchDevServerInVercelConsole(
+      handle,
+      `session-${sessionId}`,
+      devCommand,
+      devPort,
+    );
+    return;
+  }
+  await launchDevServerInBackground(handle, devCommand, devPort);
+}
 
 /** Per-app dev server overrides loaded from the githubRepos doc. */
 function devOverrides(
@@ -827,6 +848,18 @@ async function prepareSessionSandboxInternal(
                 }
               },
             );
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.launchDevServer",
+              sandboxDetails,
+              () =>
+                launchSessionDevServer(
+                  "vercel",
+                  handle,
+                  args.sessionId,
+                  devCommand,
+                  devPort,
+                ),
+            );
             reusedResult = {
               sandbox: handle,
               isNew: false,
@@ -1314,7 +1347,14 @@ async function prepareSessionSandboxInternal(
     await runLoggedSessionStep(
       "newSessionSandbox.launchDevServer",
       sandboxDetails,
-      () => launchDevServerInBackground(handle, devCommand, devPort),
+      () =>
+        launchSessionDevServer(
+          client.kind,
+          handle,
+          args.sessionId,
+          devCommand,
+          devPort,
+        ),
     );
 
     await completeSessionProgress(ctx, args.sessionId);
@@ -1343,6 +1383,26 @@ async function prepareSessionSandboxInternal(
         sessionId: args.sessionId,
         error: setupMessage,
       });
+      // Best-effort: still put the app server in Console if we got that far.
+      if (
+        resolvedDevCommand !== undefined &&
+        resolvedDevPort !== undefined &&
+        client.kind === "vercel"
+      ) {
+        try {
+          await launchSessionDevServer(
+            "vercel",
+            handle,
+            args.sessionId,
+            resolvedDevCommand,
+            resolvedDevPort,
+          );
+        } catch (launchError) {
+          console.warn(
+            `[daytona][sessions] soft-keep console launch failed for ${handle.id}: ${errorMessage(launchError, "launch failed")}`,
+          );
+        }
+      }
       try {
         await completeSessionProgress(ctx, args.sessionId);
       } catch {}

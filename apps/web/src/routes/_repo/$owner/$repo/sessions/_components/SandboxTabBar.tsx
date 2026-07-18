@@ -57,6 +57,8 @@ interface SandboxTabBarProps {
   newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
+  /** When true, shows a content indicator on the PRD tab. */
+  hasPrdContent?: boolean;
   /** Shows the File Viewer tab (sessions only). */
   showFilesTab?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
@@ -88,6 +90,7 @@ export function SandboxTabBar({
   newPreviewDisabled = false,
   newTerminalDisabled = false,
   showPrdTab = false,
+  hasPrdContent = false,
   showFilesTab = false,
   enabledTabs,
   customTabs,
@@ -200,6 +203,12 @@ export function SandboxTabBar({
             <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
               <IconClipboardList className="w-3.5 h-3.5" />
               PRD
+              {hasPrdContent ? (
+                <span
+                  className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
+                  aria-label="PRD available"
+                />
+              ) : null}
             </TabsTrigger>
           ) : null}
           {customTabs?.map((tab) => {

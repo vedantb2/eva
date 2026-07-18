@@ -135,6 +135,9 @@ export function SandboxPanel({
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showPrdTab
+        hasPrdContent={
+          typeof planContent === "string" && planContent.trim().length > 0
+        }
         showFilesTab
         customTabs={customTabs}
         agentBrowsingAt={agentBrowsingAt}

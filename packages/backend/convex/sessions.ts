@@ -26,6 +26,7 @@ export {
   stopSandbox,
   sandboxReady,
   sandboxError,
+  sandboxStartupWarning,
 } from "./_sessions/sandbox";
 
 export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";

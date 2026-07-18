@@ -1,5 +1,11 @@
 # Changelog
 
+## Don't delete session sandboxes after early-ready - 2026-07-18
+
+- Late startup failures (e.g. startup-commands 300s timeout) used to `delete()` the new VM and `sandboxError`-close the session — even after early-ready had already unlocked chat.
+- Now keep the sandbox running, leave status active, and post a non-fatal warning instead.
+- Reason for change: users mid-session lost their Vercel sandbox when background setup timed out after the UI already said "Sandbox started".
+
 ## Agent-driven Browser tab for sessions - 2026-07-18
 
 - New first-class Browser tab (Preview stays; Computer stays in `+`) watches the shared desktop Chrome while the agent drives it via `agent-browser connect 9222`.

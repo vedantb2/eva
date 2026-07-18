@@ -542,8 +542,9 @@ type PreparedSessionSandbox = {
   usedSnapshot: boolean;
   sandboxDetails: string;
   branchName: string;
-  devPort: number;
-  devCommand: string;
+  /** Present when startSessionServices completed; absent on early-ready soft keep. */
+  devPort?: number;
+  devCommand?: string;
   /** Set to the sandbox id when the provider is Vercel; undefined for Daytona. */
   vercelSandboxId: string | undefined;
 };
@@ -1095,9 +1096,12 @@ async function prepareSessionSandboxInternal(
   const handle = prepared.sandbox;
   const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
   // Any setup step below (ref sync, branch checkout, config restore, seeded-
-  // runtime restore, dev server) can throw. This is the new-session path — the
-  // sandbox was just created here — so delete it on failure before rethrowing,
-  // else it leaks server-side (Daytona keeps it running, nothing references it).
+  // runtime restore, dev server) can throw. If early-ready already marked the
+  // session active, the user may already be chatting — never delete that VM.
+  // Only delete on failure when the UI never unlocked (no early-ready), else
+  // Daytona/Vercel leaks an unreferenced sandbox.
+  let resolvedDevPort: number | undefined;
+  let resolvedDevCommand: string | undefined;
   try {
     completedSteps.push({
       type: "tool",
@@ -1206,6 +1210,8 @@ async function prepareSessionSandboxInternal(
       sandboxDetails,
       () => startSessionServices(handle, rootDir, devOverrides(repo)),
     );
+    resolvedDevPort = devPort;
+    resolvedDevCommand = devCommand;
     completedSteps.push({
       type: "tool",
       label: "Starting dev server...",
@@ -1317,8 +1323,36 @@ async function prepareSessionSandboxInternal(
       vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
     };
   } catch (setupError) {
+    const setupMessage = errorMessage(setupError, "setup failed");
+    // Early-ready already unlocked chat on this VM. Deleting/closing here is
+    // what nuked tomato-* mid-conversation when startup commands timed out.
+    if (earlyReadyEmitted) {
+      console.warn(
+        `[daytona][sessions] post-ready setup failed for ${handle.id}; keeping sandbox (session already active): ${setupMessage}`,
+      );
+      await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
+        sessionId: args.sessionId,
+        error: setupMessage,
+      });
+      try {
+        await completeSessionProgress(ctx, args.sessionId);
+      } catch {}
+      logSession(
+        `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=new-soft-keep, isNew=true, usedSnapshot=${prepared.usedSnapshot} (${sandboxDetails})`,
+      );
+      return {
+        sandbox: handle,
+        isNew: true,
+        usedSnapshot: prepared.usedSnapshot,
+        sandboxDetails,
+        branchName: args.branchName,
+        devPort: resolvedDevPort,
+        devCommand: resolvedDevCommand,
+        vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+      };
+    }
     console.warn(
-      `[daytona][sessions] deleting failed new session sandbox ${handle.id}: ${errorMessage(setupError, "setup failed")}`,
+      `[daytona][sessions] deleting failed new session sandbox ${handle.id}: ${setupMessage}`,
     );
     try {
       await handle.delete();
@@ -1424,12 +1458,30 @@ export const startSessionSandbox = internalAction({
         }
         return null;
       }
+      const failMessage = errorMessage(e, "Unknown error");
       console.error(
-        `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${failMessage}`,
       );
-      // Early-ready may have already marked the session active while the VM is
-      // still running. Stop the provider sandbox so UI "closed" matches reality
-      // and a later Start can resume cleanly instead of fighting a live orphan.
+      // Safety net: early-ready already flipped the session active with a live
+      // sandbox. Never stop/close that — the user may already be mid-chat.
+      const sessionAfter = await ctx.runQuery(internal.sessions.getInternal, {
+        id: args.sessionId,
+      });
+      if (
+        sessionAfter &&
+        sessionAfter.status === "active" &&
+        sessionAfter.sandboxId
+      ) {
+        console.warn(
+          `[daytona][sessions] startSessionSandbox failed after early-ready; keeping active sessionId=${args.sessionId} sandboxId=${sessionAfter.sandboxId}: ${failMessage}`,
+        );
+        await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
+          sessionId: args.sessionId,
+          error: failMessage,
+        });
+        return null;
+      }
+      // No early-ready — stop any id we were asked to reuse and mark closed.
       if (args.repoId && stopId) {
         try {
           await ctx.runAction(internal.daytona.stopSandbox, {
@@ -1447,7 +1499,7 @@ export const startSessionSandbox = internalAction({
       }
       await ctx.runMutation(internal.sessions.sandboxError, {
         sessionId: args.sessionId,
-        error: errorMessage(e, "Unknown error"),
+        error: failMessage,
       });
     }
     return null;

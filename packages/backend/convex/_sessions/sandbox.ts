@@ -359,3 +359,29 @@ export const sandboxError = internalMutation({
     return null;
   },
 });
+
+/**
+ * Non-fatal: a late startup step failed after early-ready already unlocked the
+ * session. Keep status active — do not stop/delete the sandbox the user is on.
+ */
+export const sandboxStartupWarning = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content:
+        "Sandbox startup unfinished — session left running. Some services may still be starting.",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
+    return null;
+  },
+});

@@ -89,6 +89,8 @@ export function TerminalPanel({
   const wsRef = useRef<WebSocket | null>(null);
   const ptyProtocolRef = useRef<PtyProtocol>("daytona");
   const intentionalCloseRef = useRef(false);
+  /** Set when the Vercel interactive shell sends an exit frame — do not reconnect. */
+  const shellExitedRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
   const terminalHistoryKey = buildTerminalHistoryKey(
     owner,
@@ -149,6 +151,9 @@ export function TerminalPanel({
         if (ptyProtocol === "vercel") {
           vercelHandshakeComplete = true;
         }
+        // Only clear reconnect budget after a real handshake — not on bare
+        // ws.onopen (shell can exit immediately and was resetting the counter).
+        reconnectAttemptsRef.current = 0;
         terminalInstanceRef.current.writeln(
           "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
         );
@@ -176,15 +181,16 @@ export function TerminalPanel({
       };
 
       ws.onopen = () => {
-        reconnectAttemptsRef.current = 0;
         if (ptyProtocol === "vercel") {
           startVercelPty(ws, {
             cols: terminal.cols,
             rows: terminal.rows,
             sessionName: sharedPtySessionName,
           });
-          // Wait for the interactive "connected" frame before auto-start so
-          // tmux/bash is ready to receive the command.
+          // Wait for the interactive "connected" frame before clearing
+          // reconnect budget — open alone can precede an immediate shell exit.
+        } else {
+          reconnectAttemptsRef.current = 0;
         }
       };
 
@@ -208,6 +214,7 @@ export function TerminalPanel({
           }
           const exitFrame = parseVercelExitMessage(event.data);
           if (exitFrame) {
+            shellExitedRef.current = true;
             terminalInstanceRef.current.writeln(
               `\r\n\x1b[33m* Shell exited (${exitFrame.code ?? 0})\x1b[0m\r\n`,
             );
@@ -230,6 +237,7 @@ export function TerminalPanel({
         if (
           !mounted.current ||
           intentionalCloseRef.current ||
+          shellExitedRef.current ||
           reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
         ) {
           return;
@@ -243,7 +251,12 @@ export function TerminalPanel({
         }
 
         setTimeout(() => {
-          if (mounted.current && terminalInstanceRef.current) {
+          if (
+            mounted.current &&
+            terminalInstanceRef.current &&
+            !shellExitedRef.current &&
+            !intentionalCloseRef.current
+          ) {
             connectWebSocket(
               terminalInstanceRef.current,
               mounted,
@@ -270,6 +283,7 @@ export function TerminalPanel({
       setIsLoading(true);
       setError(null);
       intentionalCloseRef.current = false;
+      shellExitedRef.current = false;
       reconnectAttemptsRef.current = 0;
 
       try {

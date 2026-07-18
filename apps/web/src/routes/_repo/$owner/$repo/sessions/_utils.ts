@@ -119,23 +119,24 @@ export function startVercelPty(
 ): void {
   const cwd = opts.cwd ?? VERCEL_PTY_CWD;
   const sessionName = safeVercelSessionName(opts.sessionName);
-  // mouse off: with mouse on, wheel becomes Up/Down (shell history) instead of
-  // scrolling the xterm/tmux viewport. history-limit keeps Console log backlog.
+  // Newlines (not ";") so `if/then/fi` is valid bash. mouse off avoids wheel→
+  // Up/Down; history-limit keeps Console backlog. Prefer attach to an existing
+  // session so reconnects don't thrash create/destroy.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
     args: [
       "-lc",
       [
-        `cd ${cwd} 2>/dev/null || cd /vercel/sandbox`,
-        "if command -v tmux >/dev/null 2>&1; then",
-        `tmux new-session -d -s ${sessionName} 2>/dev/null || true`,
-        `tmux set-option -t ${sessionName} mouse off`,
-        `tmux set-option -t ${sessionName} history-limit 50000`,
-        `exec tmux attach-session -t ${sessionName}`,
-        "fi",
-        "exec bash -l",
-      ].join("; "),
+        `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
+        `if command -v tmux >/dev/null 2>&1; then`,
+        `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
+        `  tmux set-option -t ${sessionName} mouse off`,
+        `  tmux set-option -t ${sessionName} history-limit 50000`,
+        `  exec tmux attach-session -t ${sessionName}`,
+        `fi`,
+        `exec bash -l`,
+      ].join("\n"),
     ],
     env: ["TERM=xterm-256color"],
     cwd,

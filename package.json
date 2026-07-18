@@ -10,6 +10,7 @@
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
     "lint": "oxlint -c .oxlintrc.json .",
+    "deadcode": "knip",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -39,6 +40,7 @@
   "devDependencies": {
     "babel-plugin-react-compiler": "^1.0.0",
     "husky": "^9.1.7",
+    "knip": "6.27.0",
     "lint-staged": "^16.2.7",
     "oxlint": "1.74.0",
     "prettier": "^3.8.1",

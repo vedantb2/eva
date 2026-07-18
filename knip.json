@@ -1,0 +1,36 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "apps/web": {
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/chrome-extension": {
+      "entry": ["src/background/index.ts", "src/content/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/backend": {
+      "entry": [
+        "convex/**/*.ts",
+        "callback-src/**/*.ts",
+        "scripts/**/*.{ts,mjs}",
+        "tests/**/*.ts"
+      ],
+      "project": ["convex/**/*.ts", "callback-src/**/*.ts", "tests/**/*.ts"],
+      "includeEntryExports": true
+    },
+    "packages/shared": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ui": {
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  },
+  "rules": {
+    "files": "warn",
+    "dependencies": "warn",
+    "unlisted": "warn",
+    "exports": "warn",
+    "types": "warn",
+    "duplicates": "warn"
+  }
+}

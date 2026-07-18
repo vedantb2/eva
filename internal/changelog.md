@@ -1,5 +1,10 @@
 # Changelog
 
+## Collapse long user chat messages behind "Show full message" - 2026-07-18
+
+- Session/task chat user prompts longer than 8 lines or 600 chars collapse with a fade and expand toggle (same idea as t3code).
+- Reason for change: long pasted prompts were dominating the timeline and burying agent replies.
+
 ## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
 
 - Edit-turn prompts now require agent-browser captures under `recordings/` / `screenshots/` and forbid `create_artifact` for walkthrough media.

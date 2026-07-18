@@ -10,6 +10,7 @@ import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
+import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   StreamingActivityDisplay,
@@ -24,8 +25,10 @@ import {
 } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
-import type { ParsedQuestion } from "@/lib/components/chat/chatBodyUtils";
-import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
+import type {
+  ParsedQuestion,
+  ChatBodyMessage,
+} from "@/lib/components/chat/chatBodyUtils";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 const EVA_ICON = <EvaIcon />;
@@ -172,10 +175,12 @@ export const ChatMessage = memo(function ChatMessage({
                 <>
                   <UserAttachmentImages urls={message.attachmentUrls} />
                   {message.content ? (
-                    <ReviewCommentMessage
-                      text={message.content}
-                      repoBasePath={repoBasePath}
-                    />
+                    <CollapsibleUserMessageBody text={message.content}>
+                      <ReviewCommentMessage
+                        text={message.content}
+                        repoBasePath={repoBasePath}
+                      />
+                    </CollapsibleUserMessageBody>
                   ) : null}
                 </>
               )}

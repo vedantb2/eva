@@ -1,5 +1,11 @@
 # Changelog
 
+## Computer tab pins open with gated close - 2026-07-18
+
+- Opening Computer from `+` keeps the tab in the bar (with an X) until you close it; close is disabled with a tooltip while Computer is running/starting.
+- Idle/start copy for that surface now says Computer (not Desktop).
+- Reason for change: Computer disappeared when switching tabs, and closing while it was running left a dangling desktop process with no UI.
+
 ## Session Preview Console shows Vercel dev-server logs - 2026-07-18
 
 - New/resumed Vercel session sandboxes start the app in the Preview Console tmux session instead of a detached `/tmp/devserver.log` process.

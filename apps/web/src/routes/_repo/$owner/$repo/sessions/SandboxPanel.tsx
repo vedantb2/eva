@@ -14,6 +14,7 @@ import {
   type SharedTerminalPane,
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
+import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -93,6 +94,14 @@ export function SandboxPanel({
     terminalPanes,
   });
 
+  const {
+    computerTabOpen,
+    computerRunning,
+    setComputerRunning,
+    openComputer,
+    closeComputer,
+  } = useComputerTab(`session:${sessionIdStr}`, activeTab, onTabChange);
+
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
   const customTabs = useMemo(
@@ -129,6 +138,10 @@ export function SandboxPanel({
         showFilesTab
         customTabs={customTabs}
         agentBrowsingAt={agentBrowsingAt}
+        computerTabOpen={computerTabOpen}
+        computerRunning={computerRunning}
+        onOpenComputer={openComputer}
+        onCloseComputer={closeComputer}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div
@@ -187,6 +200,7 @@ export function SandboxPanel({
           agentBrowsingAt={agentBrowsingAt}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
+          onComputerRunningChange={setComputerRunning}
         />
       </div>
     </div>

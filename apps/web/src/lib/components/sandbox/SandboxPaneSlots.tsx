@@ -43,6 +43,8 @@ interface SandboxPaneSlotsProps {
    * Defaults to true for tasks/projects.
    */
   runConsoleDevCommandOnConnect?: boolean;
+  /** Computer/Browser desktop starting or running — gates Computer tab close. */
+  onComputerRunningChange?: (running: boolean) => void;
 }
 
 /**
@@ -66,6 +68,7 @@ export function SandboxPaneSlots({
   sessionId,
   agentBrowsingAt,
   runConsoleDevCommandOnConnect = true,
+  onComputerRunningChange,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -220,6 +223,7 @@ export function SandboxPaneSlots({
           surface={activeTab === "browser" ? "browser" : "desktop"}
           sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
+          onRunningChange={onComputerRunningChange}
         />
       </div>
       <div className={activeTab === "diffs" ? "h-full" : "hidden"}>

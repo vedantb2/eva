@@ -24,7 +24,11 @@ import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
-type ServiceState = "idle" | "starting" | "running" | "error";
+export type SandboxIframeServiceState =
+  | "idle"
+  | "starting"
+  | "running"
+  | "error";
 
 /**
  * Result shape the start callback must return. Mirrors `toggleCodeServer` —
@@ -79,6 +83,8 @@ interface SandboxIframeServiceProps {
   loadFailedError: string;
   /** Optional `allow` attribute on the iframe (e.g. clipboard). */
   iframeAllow?: string;
+  /** Fires whenever the service state machine changes. */
+  onStateChange?: (state: SandboxIframeServiceState) => void;
 }
 
 /**
@@ -110,6 +116,7 @@ export function SandboxIframeService({
   startFailedError,
   loadFailedError,
   iframeAllow,
+  onStateChange,
 }: SandboxIframeServiceProps) {
   // Scope the cache key by sandboxId — Daytona signed URLs embed the sandbox
   // ID in the subdomain, so a URL cached against a destroyed sandbox would
@@ -122,7 +129,7 @@ export function SandboxIframeService({
   );
 
   const [url, setUrl] = useState<string | null>(null);
-  const [state, setState] = useState<ServiceState>("idle");
+  const [state, setState] = useState<SandboxIframeServiceState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
@@ -130,6 +137,12 @@ export function SandboxIframeService({
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
+
+  useEffect(() => {
+    onStateChangeRef.current?.(state);
+  }, [state]);
 
   const refreshIframe = useCallback(() => {
     setIframeKey((k) => k + 1);

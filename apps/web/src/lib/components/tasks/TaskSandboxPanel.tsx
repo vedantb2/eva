@@ -10,6 +10,7 @@ import {
   type SharedTerminalPane,
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
+import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -94,6 +95,14 @@ export function TaskSandboxPanel({
     [onTabChange],
   );
 
+  const {
+    computerTabOpen,
+    computerRunning,
+    setComputerRunning,
+    openComputer,
+    closeComputer,
+  } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
+
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
@@ -104,6 +113,10 @@ export function TaskSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={panes.enabledTabs}
+        computerTabOpen={computerTabOpen}
+        computerRunning={computerRunning}
+        onOpenComputer={openComputer}
+        onCloseComputer={closeComputer}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots
@@ -118,6 +131,7 @@ export function TaskSandboxPanel({
           cacheKey={taskIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
+          onComputerRunningChange={setComputerRunning}
         />
       </div>
     </div>

@@ -6,8 +6,8 @@ import type { SandboxTab } from "@/lib/search-params";
 
 /**
  * Tab order matches `SandboxTabBar`'s visible tab row (preview → browser →
- * editor → terminal → diffs → optional PRD → custom tabs). Desktop is
- * excluded — it lives in the `+` menu.
+ * editor → terminal → diffs → optional Computer → Files → PRD → custom).
+ * Computer is only cyclable when pinned open from `+`.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
@@ -18,19 +18,21 @@ const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
 ];
 
 /**
- * Returns the Shift+Tab cycle order: enabled builtins, then the File Viewer and
- * PRD if shown, then custom tab slugs in display order.
+ * Returns the Shift+Tab cycle order: enabled builtins, then Computer when
+ * open, then File Viewer / PRD if shown, then custom tab slugs.
  */
 export function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
   showPrdTab?: boolean,
   customTabSlugs?: ReadonlyArray<string>,
   showFilesTab?: boolean,
+  showComputerTab?: boolean,
 ): string[] {
   const tabs = enabledTabs
     ? SANDBOX_TAB_BAR_ORDER.filter((tab) => enabledTabs.includes(tab))
     : [...SANDBOX_TAB_BAR_ORDER];
-  const withFiles = showFilesTab ? [...tabs, "files"] : tabs;
+  const withComputer = showComputerTab ? [...tabs, "computer"] : tabs;
+  const withFiles = showFilesTab ? [...withComputer, "files"] : withComputer;
   const withPrd = showPrdTab ? [...withFiles, "prd"] : withFiles;
   if (!customTabSlugs || customTabSlugs.length === 0) return withPrd;
   return [...withPrd, ...customTabSlugs];
@@ -44,6 +46,7 @@ export function useCycleSandboxTabHotkey({
   showPrdTab,
   showFilesTab,
   customTabSlugs,
+  showComputerTab,
   enabled = true,
 }: {
   activeTab: string;
@@ -52,6 +55,7 @@ export function useCycleSandboxTabHotkey({
   showPrdTab?: boolean;
   showFilesTab?: boolean;
   customTabSlugs?: ReadonlyArray<string>;
+  showComputerTab?: boolean;
   enabled?: boolean;
 }) {
   const cyclableTabs = useMemo(
@@ -61,8 +65,9 @@ export function useCycleSandboxTabHotkey({
         showPrdTab,
         customTabSlugs,
         showFilesTab,
+        showComputerTab,
       ),
-    [enabledTabs, showPrdTab, customTabSlugs, showFilesTab],
+    [enabledTabs, showPrdTab, customTabSlugs, showFilesTab, showComputerTab],
   );
 
   useHotkey(

@@ -5,6 +5,7 @@ import type { Id } from "@conductor/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
 import {
   SandboxIframeService,
+  type SandboxIframeServiceState,
   type StartResult,
 } from "@/lib/components/sandbox/SandboxIframeService";
 
@@ -21,6 +22,8 @@ interface DesktopPanelProps {
   /** When set with a fresh agentBrowsingAt, shows the takeover overlay. */
   sessionId?: Id<"sessions">;
   agentBrowsingAt?: number;
+  /** True while Computer/Browser desktop is starting or running. */
+  onRunningChange?: (running: boolean) => void;
 }
 
 const SURFACE_COPY = {
@@ -34,13 +37,13 @@ const SURFACE_COPY = {
     loadFailedError: "Failed to load browser",
   },
   desktop: {
-    inactiveLabel: "Start the sandbox to use the desktop",
-    idleLabel: "Desktop is not running",
-    startLabel: "Start Desktop",
-    startingLabel: "Starting desktop environment...",
-    pollFailedError: "Desktop environment failed to start. Check sandbox logs.",
-    startFailedError: "Failed to start desktop",
-    loadFailedError: "Failed to load desktop",
+    inactiveLabel: "Start the sandbox to use Computer",
+    idleLabel: "Computer is not running",
+    startLabel: "Start Computer",
+    startingLabel: "Starting Computer...",
+    pollFailedError: "Computer failed to start. Check sandbox logs.",
+    startFailedError: "Failed to start Computer",
+    loadFailedError: "Failed to load Computer",
   },
 } as const;
 
@@ -87,6 +90,7 @@ export function DesktopPanel({
   surface = "desktop",
   sessionId,
   agentBrowsingAt,
+  onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
@@ -108,6 +112,13 @@ export function DesktopPanel({
     if (!sandboxId) return;
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
   }, [sandboxId, repoId, launchChromeInDesktop]);
+
+  const handleStateChange = useCallback(
+    (state: SandboxIframeServiceState) => {
+      onRunningChange?.(state === "starting" || state === "running");
+    },
+    [onRunningChange],
+  );
 
   const showLockOverlay =
     sessionId !== undefined && isAgentBrowsingActive(agentBrowsingAt);
@@ -142,6 +153,7 @@ export function DesktopPanel({
         startFailedError={copy.startFailedError}
         loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
+        onStateChange={handleStateChange}
       />
       {showLockOverlay ? (
         <button

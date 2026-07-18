@@ -104,6 +104,10 @@ export function SandboxTabBar({
     customTabSlugs,
   });
 
+  // Computer lives in `+`, but Radix Tabs resets a controlled value with no
+  // matching TabsTrigger (→ Preview). Show the Computer trigger while active.
+  const showComputerTab = showDesktopItem && activeTab === "computer";
+
   return (
     <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">
       <Tabs
@@ -131,6 +135,12 @@ export function SandboxTabBar({
               </TabsTrigger>
             );
           })}
+          {showComputerTab ? (
+            <TabsTrigger value="computer" className={TAB_TRIGGER_CLASS}>
+              <IconDeviceDesktop className="w-3.5 h-3.5" />
+              Computer
+            </TabsTrigger>
+          ) : null}
           {showFilesTab ? (
             <TabsTrigger value="files" className={TAB_TRIGGER_CLASS}>
               <IconFileText className="w-3.5 h-3.5" />
@@ -157,41 +167,42 @@ export function SandboxTabBar({
               </TabsTrigger>
             );
           })}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
-                aria-label="Open tab menu"
-              >
-                <IconPlus className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[10rem]">
-              {showDesktopItem ? (
-                <DropdownMenuItem onClick={() => onTabChange("computer")}>
-                  <IconDeviceDesktop size={14} />
-                  Computer
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                onClick={onNewPreview}
-                disabled={newPreviewDisabled}
-              >
-                <IconWorld size={14} />
-                New Preview
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onNewTerminal}
-                disabled={newTerminalDisabled}
-              >
-                <IconTerminal2 size={14} />
-                New Terminal
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </TabsList>
       </Tabs>
+      {/* Outside Tabs so the menu isn't part of Radix tab focus/value sync. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="mb-px flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
+            aria-label="Open tab menu"
+          >
+            <IconPlus className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[10rem]">
+          {showDesktopItem ? (
+            <DropdownMenuItem onClick={() => onTabChange("computer")}>
+              <IconDeviceDesktop size={14} />
+              Computer
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem
+            onClick={onNewPreview}
+            disabled={newPreviewDisabled}
+          >
+            <IconWorld size={14} />
+            New Preview
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onNewTerminal}
+            disabled={newTerminalDisabled}
+          >
+            <IconTerminal2 size={14} />
+            New Terminal
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
     </div>
   );

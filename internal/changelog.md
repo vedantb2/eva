@@ -1,5 +1,11 @@
 # Changelog
 
+## Claude daemon turns upload recordings/screenshots into chat - 2026-07-18
+
+- sdk-daemon finalize now uploads sandbox `recordings/` / `screenshots/` and attaches them to the last assistant message (same path as one-shot callbacks).
+- Chat already had VideoPreview with 1×/3×/5×/8× speed controls; media was simply never attached on daemon turns after the Claude SDK migration.
+- Reason for change: agent recordings worked before daemon migration but disappeared from session chat.
+
 ## Computer tab pins open with gated close - 2026-07-18
 
 - Opening Computer from `+` keeps the tab in the bar (with an X) until you close it; close is disabled with a tooltip while Computer is running/starting.

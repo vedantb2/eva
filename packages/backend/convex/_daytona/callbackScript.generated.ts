@@ -1,13 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import {
-  existsSync as existsSync7,
-  mkdirSync as mkdirSync7,
-  readdirSync as readdirSync2,
-  unlinkSync as unlinkSync2,
-  writeFileSync as writeFileSync11
-} from "fs";
+import { existsSync as existsSync8, mkdirSync as mkdirSync7, writeFileSync as writeFileSync11 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -242,7 +236,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync as unlinkSync3, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/http/convexClient.ts
 function narrowJsonValue(value) {
@@ -421,7 +415,7 @@ import {
   cpSync,
   existsSync as existsSync2,
   mkdirSync,
-  readdirSync,
+  readdirSync as readdirSync2,
   readFileSync,
   statSync,
   writeFileSync
@@ -642,7 +636,7 @@ function copyBaseClaudeConfig() {
     return;
   }
   mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
-  for (const entry of readdirSync(CLAUDE_BASE_CONFIG_DIR, {
+  for (const entry of readdirSync2(CLAUDE_BASE_CONFIG_DIR, {
     withFileTypes: true
   })) {
     if (entry.name === "projects") {
@@ -1210,7 +1204,13 @@ function codexItemToStep(item) {
 }
 
 // callback-src/runtime/completion.ts
-import { readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
+import {
+  existsSync as existsSync3,
+  readFileSync as readFileSync2,
+  readdirSync as readdirSync3,
+  unlinkSync as unlinkSync2,
+  writeFileSync as writeFileSync2
+} from "fs";
 function parseJsonObject(line) {
   const parsed = tryParseJson(line);
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -1588,6 +1588,69 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
     );
   }
 }
+async function uploadAndAttachSandboxMedia() {
+  if (!TASK_PROOF_CAPTURE_ENABLED) return;
+  let videoStorageId = null;
+  let imageStorageId = null;
+  let lastFileName = null;
+  const recDir = WORK_DIR + "/recordings";
+  if (existsSync3(recDir)) {
+    for (const file of readdirSync3(recDir)) {
+      if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
+      const fp = recDir + "/" + file;
+      const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
+      try {
+        videoStorageId = await uploadMediaFile(fp, mimeType);
+        lastFileName = file;
+      } catch {
+      }
+      try {
+        unlinkSync2(fp);
+      } catch {
+      }
+    }
+  }
+  if (!videoStorageId) {
+    const ssDir = WORK_DIR + "/screenshots";
+    if (existsSync3(ssDir)) {
+      for (const file of readdirSync3(ssDir)) {
+        if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
+        const fp = ssDir + "/" + file;
+        const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+        const mimeMap = {
+          png: "image/png",
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          gif: "image/gif",
+          webp: "image/webp"
+        };
+        const mimeType = mimeMap[ext] || "image/png";
+        try {
+          imageStorageId = await uploadMediaFile(fp, mimeType);
+          lastFileName = file;
+        } catch {
+        }
+        try {
+          unlinkSync2(fp);
+        } catch {
+        }
+      }
+    }
+  }
+  try {
+    await persistTaskProofIfNeeded(
+      videoStorageId,
+      imageStorageId,
+      lastFileName
+    );
+  } catch (e) {
+    console.error("Failed to persist task proof:", e);
+    const proofError = e instanceof Error ? e.message : String(e);
+    await saveProofFailureMessageIfNeeded(
+      "Proof capture failed after completion: " + proofError
+    );
+  }
+}
 async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
@@ -1612,7 +1675,7 @@ function hasToolActivity() {
 }
 
 // callback-src/session/claudeSession.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
 function buildClaudeStartupStep() {
   if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
@@ -1636,7 +1699,7 @@ function buildClaudeStartupStep() {
   };
 }
 function readClaudeSessionState() {
-  if (!existsSync3(CLAUDE_LOCAL_STATE_FILE)) {
+  if (!existsSync4(CLAUDE_LOCAL_STATE_FILE)) {
     return null;
   }
   const parsed = tryParseJson(readFileSync3(CLAUDE_LOCAL_STATE_FILE, "utf8"));
@@ -1720,7 +1783,7 @@ function hydratePersistedClaudeState() {
 function ensureClaudeWorkspaceTrust() {
   const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
   mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
-  const parsed = existsSync3(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
+  const parsed = existsSync4(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
   const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
   const rawProjects = config.projects;
   const projects = rawProjects && typeof rawProjects === "object" && !Array.isArray(rawProjects) ? { ...rawProjects } : {};
@@ -1738,7 +1801,7 @@ function resolveClaudeSessionMode() {
   }
   const persistedState = readClaudeSessionState();
   if (persistedState) {
-    if (existsSync3(
+    if (existsSync4(
       buildClaudeTranscriptPath(
         CLAUDE_LOCAL_PROJECT_DIR,
         persistedState.resumeSessionId
@@ -1751,7 +1814,7 @@ function resolveClaudeSessionMode() {
     );
     return { mode: "session", sessionId: configuredSessionId };
   }
-  if (existsSync3(
+  if (existsSync4(
     buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId)
   )) {
     return { mode: "resume", sessionId: configuredSessionId };
@@ -2120,10 +2183,10 @@ var claudeAdapter = {
 import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
 
 // callback-src/session/createSessionStore.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 function createSessionStore(config) {
   const readSessionState = () => {
-    const statePath = existsSync4(config.localStateFile) ? config.localStateFile : existsSync4(config.persistStateFile) ? config.persistStateFile : "";
+    const statePath = existsSync5(config.localStateFile) ? config.localStateFile : existsSync5(config.persistStateFile) ? config.persistStateFile : "";
     if (!statePath) {
       return null;
     }
@@ -2368,7 +2431,7 @@ var codexAdapter = {
 };
 
 // callback-src/session/cursorSession.ts
-import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync6 } from "fs";
+import { existsSync as existsSync6, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync6 } from "fs";
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
   persistDir: CURSOR_PERSIST_DIR,
@@ -2387,7 +2450,7 @@ function syncCursorStateToPersist() {
 }
 function hydratePersistedCursorState() {
   store2.hydratePersistedState("hydratePersistedCursorState");
-  if (existsSync5("/tmp/eva-mcp.json")) {
+  if (existsSync6("/tmp/eva-mcp.json")) {
     try {
       const raw = readFileSync5("/tmp/eva-mcp.json", "utf8");
       const evaMcp = tryParseJson(raw);
@@ -3104,7 +3167,7 @@ function appendToRawLogFile(text) {
 
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync6, readFileSync as readFileSync6 } from "fs";
+import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
@@ -3358,11 +3421,11 @@ var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 async function loadSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
   const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
-  if (existsSync6(globalEntry)) {
+  if (existsSync7(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync6(localEntry)) {
+  if (!existsSync7(localEntry)) {
     log(
       "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
     );
@@ -3386,7 +3449,7 @@ function readPromptText() {
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
-  if (existsSync6(MCP_CONFIG_PATH)) {
+  if (existsSync7(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
@@ -3610,7 +3673,7 @@ async function failTurnAndExit(error) {
   } catch {
   }
   try {
-    unlinkSync(DAEMON_PID_FILE);
+    unlinkSync3(DAEMON_PID_FILE);
   } catch {
   }
   await stopStreamingLoops();
@@ -3748,6 +3811,13 @@ async function finalizeTurn(output, opts = {}) {
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
+  try {
+    await uploadAndAttachSandboxMedia();
+  } catch (e) {
+    log(
+      "daemon: media upload failed: " + (e instanceof Error ? e.message : String(e))
+    );
+  }
   if (!opts.skipBookkeeping) {
     const bookkeepingAt = Date.now();
     syncClaudeStateToPersist("daemon-turn");
@@ -4064,7 +4134,7 @@ async function runSdkDaemon() {
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
     try {
-      unlinkSync(DAEMON_PID_FILE);
+      unlinkSync3(DAEMON_PID_FILE);
     } catch {
     }
     await stopStreamingLoops();
@@ -4150,7 +4220,7 @@ async function runSdkDaemon() {
     }
   } finally {
     try {
-      unlinkSync(DAEMON_PID_FILE);
+      unlinkSync3(DAEMON_PID_FILE);
     } catch {
     }
     await stopStreamingLoops();
@@ -4269,7 +4339,7 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync2(READY_FILE);
+  unlinkSync(READY_FILE);
 } catch {
 }
 try {
@@ -4287,10 +4357,10 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync7(d)) {
-    for (const f of readdirSync2(d)) {
+  if (existsSync8(d)) {
+    for (const f of readdirSync(d)) {
       try {
-        unlinkSync2(d + "/" + f);
+        unlinkSync(d + "/" + f);
       } catch {
       }
     }
@@ -4428,73 +4498,12 @@ try {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   try {
-    if (TASK_PROOF_CAPTURE_ENABLED) {
-      let videoStorageId = null;
-      let imageStorageId = null;
-      let lastFileName = null;
-      const recDir = WORK_DIR + "/recordings";
-      if (existsSync7(recDir)) {
-        for (const file of readdirSync2(recDir)) {
-          if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
-          const fp = recDir + "/" + file;
-          const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-          try {
-            videoStorageId = await uploadMediaFile(fp, mimeType);
-            lastFileName = file;
-          } catch {
-          }
-          try {
-            unlinkSync2(fp);
-          } catch {
-          }
-        }
-      }
-      if (!videoStorageId) {
-        const ssDir = WORK_DIR + "/screenshots";
-        if (existsSync7(ssDir)) {
-          for (const file of readdirSync2(ssDir)) {
-            if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
-            const fp = ssDir + "/" + file;
-            const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-            const mimeMap = {
-              png: "image/png",
-              jpg: "image/jpeg",
-              jpeg: "image/jpeg",
-              gif: "image/gif",
-              webp: "image/webp"
-            };
-            const mimeType = mimeMap[ext] || "image/png";
-            try {
-              imageStorageId = await uploadMediaFile(fp, mimeType);
-              lastFileName = file;
-            } catch {
-            }
-            try {
-              unlinkSync2(fp);
-            } catch {
-            }
-          }
-        }
-      }
-      try {
-        await persistTaskProofIfNeeded(
-          videoStorageId,
-          imageStorageId,
-          lastFileName
-        );
-      } catch (e) {
-        console.error("Failed to persist task proof:", e);
-        const proofError = e instanceof Error ? e.message : String(e);
-        await saveProofFailureMessageIfNeeded(
-          "Proof capture failed after completion: " + proofError
-        );
-      }
-    }
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
       completionArgs
     );
+    await uploadAndAttachSandboxMedia();
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

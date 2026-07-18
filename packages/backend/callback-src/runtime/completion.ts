@@ -13,6 +13,7 @@ import {
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_TIMEOUT_MS,
   POST_TEXT_STALL_TIMEOUT_MS,
+  WORK_DIR,
   normalizedCodexModel,
   normalizedCursorModel,
   normalizedOpencodeModel,
@@ -22,7 +23,13 @@ import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, tryParseJson } from "../utils.js";
-import { readFileSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
 
 function parseJsonObject(line: string): JsonObject | null {
   const parsed = tryParseJson(line);
@@ -550,6 +557,87 @@ export async function persistTaskProofIfNeeded(
       "taskProof:saveMessage",
       messageArgs,
       3,
+    );
+  }
+}
+
+/**
+ * Scans sandbox `recordings/` then `screenshots/`, uploads the newest media,
+ * and attaches it to the last session message (or task proof). Shared by the
+ * one-shot callback and the Claude sdk-daemon finalize path — daemon turns
+ * previously skipped this, so chat never showed agent recordings.
+ *
+ * Prefer calling after the completion mutation so `screenshots:attachMedia`
+ * patches the assistant message that was just written.
+ */
+export async function uploadAndAttachSandboxMedia(): Promise<void> {
+  if (!TASK_PROOF_CAPTURE_ENABLED) return;
+
+  let videoStorageId: string | null = null;
+  let imageStorageId: string | null = null;
+  let lastFileName: string | null = null;
+
+  const recDir = WORK_DIR + "/recordings";
+  if (existsSync(recDir)) {
+    for (const file of readdirSync(recDir)) {
+      if (!/\.(webm|mp4|mov|avi)$/i.test(file)) continue;
+      const fp = recDir + "/" + file;
+      const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
+      try {
+        videoStorageId = await uploadMediaFile(fp, mimeType);
+        lastFileName = file;
+      } catch {
+        /* ignore upload errors */
+      }
+      try {
+        unlinkSync(fp);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (!videoStorageId) {
+    const ssDir = WORK_DIR + "/screenshots";
+    if (existsSync(ssDir)) {
+      for (const file of readdirSync(ssDir)) {
+        if (!/\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+        const fp = ssDir + "/" + file;
+        const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+        const mimeMap: Record<string, string> = {
+          png: "image/png",
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          gif: "image/gif",
+          webp: "image/webp",
+        };
+        const mimeType = mimeMap[ext] || "image/png";
+        try {
+          imageStorageId = await uploadMediaFile(fp, mimeType);
+          lastFileName = file;
+        } catch {
+          /* ignore upload errors */
+        }
+        try {
+          unlinkSync(fp);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  try {
+    await persistTaskProofIfNeeded(
+      videoStorageId,
+      imageStorageId,
+      lastFileName,
+    );
+  } catch (e) {
+    console.error("Failed to persist task proof:", e);
+    const proofError = e instanceof Error ? e.message : String(e);
+    await saveProofFailureMessageIfNeeded(
+      "Proof capture failed after completion: " + proofError,
     );
   }
 }

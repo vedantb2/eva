@@ -14,7 +14,10 @@ import {
   RUN_ID,
 } from "../config.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
-import { extractResultEvent } from "../runtime/completion.js";
+import {
+  extractResultEvent,
+  uploadAndAttachSandboxMedia,
+} from "../runtime/completion.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -326,6 +329,17 @@ async function finalizeTurn(
       (Date.now() - completionSentAt) +
       "ms)",
   );
+  // Upload agent recordings/screenshots after completion so attachMedia patches
+  // the assistant message that was just written. One-shot path already did this;
+  // sdk-daemon turns previously skipped it, so chat never showed the media.
+  try {
+    await uploadAndAttachSandboxMedia();
+  } catch (e) {
+    log(
+      "daemon: media upload failed: " +
+        (e instanceof Error ? e.message : String(e)),
+    );
+  }
   // Persist the Claude transcript to the volume for restart recovery, and send a
   // final streaming reconcile. Both run AFTER completion so the ~5s synchronous
   // transcript copy never delays the reply the user is waiting on. The sandbox

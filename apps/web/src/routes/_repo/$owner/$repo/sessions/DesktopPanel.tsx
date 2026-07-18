@@ -36,7 +36,10 @@ function appendNoVncParams(baseUrl: string): string {
   const url = new URL(baseUrl);
   url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
   url.searchParams.set("autoconnect", "true");
-  url.searchParams.set("resize", "scale");
+  // vnc_lite.html reads `scale` (→ rfb.scaleViewport), not the full client's
+  // `resize=scale`. Without this the 1920×1080 desktop renders 1:1 and looks
+  // zoomed/cropped inside the panel; with it, aspect ratio is preserved.
+  url.searchParams.set("scale", "true");
   url.searchParams.set("quality", "6");
   url.searchParams.set("compression", "2");
   const grant = url.searchParams.get("__eva_grant");
@@ -92,7 +95,7 @@ export function DesktopPanel({
   return (
     <div className="relative h-full min-h-0">
       <SandboxIframeService
-        cacheNamespace="desktop"
+        cacheNamespace="desktop-scale"
         cacheKey={cacheKey}
         sandboxId={sandboxId}
         vercelSandboxId={vercelSandboxId}

@@ -193,7 +193,7 @@ export function SandboxPaneSlots({
       </div>
       <div
         className={
-          activeTab === "browser" || activeTab === "desktop"
+          activeTab === "browser" || activeTab === "computer"
             ? "h-full"
             : "hidden"
         }

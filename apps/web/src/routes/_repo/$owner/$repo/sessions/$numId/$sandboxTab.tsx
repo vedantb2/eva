@@ -1,15 +1,29 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { useQueryState } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
-import { diffFileParser } from "@/lib/search-params";
+import { diffFileParser, isLegacyDesktopSandboxTab } from "@/lib/search-params";
 import { SessionDetailClient } from "../SessionDetailClient";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/$sandboxTab",
 )({
+  beforeLoad: ({ params }) => {
+    if (isLegacyDesktopSandboxTab(params.sandboxTab)) {
+      throw redirect({
+        to: "/$owner/$repo/sessions/$numId/$sandboxTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          sandboxTab: "computer",
+        },
+        replace: true,
+      });
+    }
+  },
   component: SessionSandboxRoute,
 });
 

@@ -15,14 +15,14 @@ export const MAX_PREVIEW_PANES = 8;
 // the Shift+Tab hotkey memo and tab bar filter don't recompute every render.
 const ALL_SANDBOX_TABS: ReadonlyArray<SandboxTab> = [
   "preview",
-  "desktop",
+  "computer",
   "editor",
   "terminal",
   "diffs",
 ];
 const SANDBOX_TABS_WITHOUT_TERMINAL: ReadonlyArray<SandboxTab> = [
   "preview",
-  "desktop",
+  "computer",
   "editor",
   "diffs",
 ];

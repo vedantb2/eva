@@ -87,7 +87,7 @@ export function SandboxTabBar({
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");
   // Desktop is offered from the `+` menu wherever it would otherwise be enabled.
-  const showDesktopItem = !enabledTabs || enabledTabs.includes("desktop");
+  const showDesktopItem = !enabledTabs || enabledTabs.includes("computer");
   const showBrowserPulse = isAgentBrowsingActive(agentBrowsingAt);
 
   const customTabSlugs = useMemo(
@@ -169,7 +169,7 @@ export function SandboxTabBar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[10rem]">
               {showDesktopItem ? (
-                <DropdownMenuItem onClick={() => onTabChange("desktop")}>
+                <DropdownMenuItem onClick={() => onTabChange("computer")}>
                   <IconDeviceDesktop size={14} />
                   Computer
                 </DropdownMenuItem>

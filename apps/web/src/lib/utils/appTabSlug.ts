@@ -1,10 +1,14 @@
 /** Builtin sandbox URL segments that custom tab slugs must not collide with. */
 export const RESERVED_APP_TAB_SLUGS = new Set([
   "preview",
+  "browser",
   "editor",
   "terminal",
+  "computer",
+  // Legacy Computer-tab URL segment — keep reserved so custom tabs can't collide.
   "desktop",
   "diffs",
+  "files",
   "prd",
 ]);
 

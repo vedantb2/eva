@@ -73,7 +73,7 @@ const sandboxTabs = [
   "browser",
   "editor",
   "terminal",
-  "desktop",
+  "computer",
   "diffs",
   "files",
   "prd",
@@ -90,11 +90,16 @@ export function isSessionSandboxTab(s: string): s is SandboxTab {
   return sandboxTabs.some((tab) => tab === s);
 }
 
+/** Old Computer-tab URL segment; redirect to `computer`. */
+export function isLegacyDesktopSandboxTab(s: string): boolean {
+  return s === "desktop";
+}
+
 const taskRouteSandboxTabs = [
   "preview",
   "editor",
   "terminal",
-  "desktop",
+  "computer",
   "diffs",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];

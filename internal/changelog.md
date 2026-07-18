@@ -1,5 +1,11 @@
 # Changelog
 
+## Session preview respects app settings port before services finish - 2026-07-18
+
+- Preview used `session.devPort ?? 3000`, so early-ready sessions (before services wrote the port) always hit 3000 even when App settings had 3001.
+- Early-ready now seeds repo `devPort`/`devCommand`; the UI also falls back to repo settings.
+- Reason for change: eProcurement (and similar apps) listen on non-3000 ports configured in settings.
+
 ## Cursor session turns no longer stage Claude pendingTurn - 2026-07-18
 
 - Only Claude daemon-pull stages `pendingTurn` / schedules prewarm; Cursor/Codex/Opencode clear it and one-shot launch.

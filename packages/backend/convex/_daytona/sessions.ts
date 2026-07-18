@@ -1080,6 +1080,9 @@ async function prepareSessionSandboxInternal(
         async (sandbox) => {
           if (earlyReadyEmitted) return;
           earlyReadyEmitted = true;
+          // Seed configured app port/command immediately so Preview doesn't
+          // fall back to 3000 while startSessionServices is still running.
+          const configured = repo ? devOverrides(repo) : undefined;
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: sandbox.id,
@@ -1087,6 +1090,12 @@ async function prepareSessionSandboxInternal(
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
+            ...(configured?.devPort !== undefined
+              ? { devPort: configured.devPort }
+              : {}),
+            ...(configured?.devCommand !== undefined
+              ? { devCommand: configured.devCommand }
+              : {}),
           });
         },
         undefined,

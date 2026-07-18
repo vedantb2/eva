@@ -27,7 +27,7 @@ export function SessionDetailClient({
   /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
 }) {
-  const { basePath } = useRepo();
+  const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,
@@ -161,8 +161,10 @@ export function SessionDetailClient({
             isActive={isSandboxActive}
             repoId={session.repoId}
             prUrl={session.prUrl}
-            devPort={session.devPort}
-            devCommand={session.devCommand}
+            // Prefer session (set after services start); fall back to app
+            // settings so preview doesn't default to 3000 before that lands.
+            devPort={session.devPort ?? repo.devPort}
+            devCommand={session.devCommand ?? repo.devCommand}
             terminalPanes={session.terminalPanes}
             planContent={session.planContent}
             isArchived={session.archived === true}

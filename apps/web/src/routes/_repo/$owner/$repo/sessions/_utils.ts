@@ -121,9 +121,9 @@ export function startVercelPty(
   const sessionName = safeVercelSessionName(opts.sessionName);
   // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
   // existing session so reconnects don't thrash create/destroy.
-  // mouse on: tmux lives in the alt buffer; with mouse off, xterm treats
-  // !hasScrollback wheels as Up/Down (bash history). Mouse on enables tracking
-  // so wheel scrolls tmux pane history instead.
+  // alternate-screen off: keep output in xterm's normal buffer so the Console
+  // gets real scrollback + scrollbar. mouse off + customWheel: wheel scrolls
+  // that scrollbar instead of injecting Up/Down (bash history).
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
@@ -133,7 +133,8 @@ export function startVercelPty(
         `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
         `if command -v tmux >/dev/null 2>&1; then`,
         `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
-        `  tmux set-option -t ${sessionName} mouse on`,
+        `  tmux set-option -t ${sessionName} alternate-screen off`,
+        `  tmux set-option -t ${sessionName} mouse off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,
@@ -148,10 +149,9 @@ export function startVercelPty(
 }
 
 /**
- * Blocks xterm's "no scrollback → send Up/Down" path on the normal buffer so
- * wheel scrolls local scrollback instead of shell history. Uses the official
- * customWheel hook (runs inside xterm before arrow injection). Alt-buffer
- * (tmux with mouse tracking, vim, less) keeps default handling.
+ * Wheel scrolls xterm scrollback on the normal buffer (Console scrollbar) and
+ * blocks xterm's "!hasScrollback → Up/Down" path that cycles shell history.
+ * Alt-buffer apps (vim/less) keep default wheel handling.
  */
 export function attachNormalBufferWheelScroll(terminal: Terminal): () => void {
   terminal.attachCustomWheelEventHandler((event) => {

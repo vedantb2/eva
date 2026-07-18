@@ -76,10 +76,10 @@ export async function launchDevServerInVercelConsole(
       timeoutSeconds: 15,
     });
   }
-  // mouse on: tmux (alt buffer) gets wheel via mouse tracking and scrolls pane
-  // history. mouse off lets xterm inject Up/Down → bash history instead.
+  // alternate-screen off → output stays in xterm normal buffer (visible
+  // Console scrollbar). mouse off + client customWheel scrolls that buffer.
   await handle.exec(
-    `tmux set-option -t ${sessionName} mouse on; tmux set-option -t ${sessionName} history-limit 50000`,
+    `tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} history-limit 50000`,
     { cwd: "/", timeoutSeconds: 5 },
   );
 

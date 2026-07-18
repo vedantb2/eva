@@ -23,6 +23,7 @@ import {
   IconCheck,
   IconCode,
   IconCopy,
+  IconDownload,
   IconFileExport,
   IconPencil,
   IconX,
@@ -33,6 +34,12 @@ import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import {
+  buildProposedPlanMarkdownFilename,
+  downloadPlanAsMarkdownFile,
+  normalizePlanMarkdownForExport,
+  proposedPlanTitle,
+} from "./planExport";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -67,10 +74,20 @@ export function SessionPrdPlanView({
   const showEdit = !isArchived && editingSnapshot === null;
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(planContent);
+    await navigator.clipboard.writeText(
+      normalizePlanMarkdownForExport(planContent),
+    );
     setCopied(true);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+  }, [planContent]);
+
+  const handleDownload = useCallback(() => {
+    if (!planContent.trim()) return;
+    downloadPlanAsMarkdownFile(
+      buildProposedPlanMarkdownFilename(planContent),
+      normalizePlanMarkdownForExport(planContent),
+    );
   }, [planContent]);
 
   useEffect(() => {
@@ -132,6 +149,7 @@ export function SessionPrdPlanView({
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";
+  const planTitle = proposedPlanTitle(planContent) ?? "Product Requirements";
 
   return (
     <Plan
@@ -142,13 +160,14 @@ export function SessionPrdPlanView({
       )}
     >
       <PlanHeader className={cn("p-4", isPanel && "shrink-0")}>
-        <PlanTitle>Product Requirements</PlanTitle>
+        <PlanTitle>{planTitle}</PlanTitle>
         <PlanAction>
           <Button
             size="icon"
             variant="ghost"
             className="size-8"
             onClick={handleCopy}
+            disabled={!hasContent}
             aria-label={copied ? "Copied" : "Copy PRD"}
           >
             {copied ? (
@@ -156,6 +175,16 @@ export function SessionPrdPlanView({
             ) : (
               <IconCopy className="size-4" />
             )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={handleDownload}
+            disabled={!hasContent}
+            aria-label="Download PRD as markdown"
+          >
+            <IconDownload className="size-4" />
           </Button>
           <PlanTrigger />
         </PlanAction>

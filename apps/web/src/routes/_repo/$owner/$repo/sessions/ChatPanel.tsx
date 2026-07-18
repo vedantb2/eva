@@ -18,6 +18,7 @@ import {
 } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
@@ -73,6 +74,8 @@ interface ChatPanelProps {
   onOpenFile?: (path: string) => void;
   /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
+  /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
+  onOpenPrdTab?: () => void;
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -102,6 +105,7 @@ export function ChatPanel({
   onToggleSandbox,
   onOpenFile,
   onViewDiff,
+  onOpenPrdTab,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -228,11 +232,30 @@ export function ChatPanel({
 
   const beforeQueuedContent = isStartupStreaming ? startupStreamingNode : null;
 
+  const hasPlanContent =
+    typeof planContent === "string" && planContent.trim().length > 0;
+  // Compact card above composer only in plan mode with the sandbox collapsed.
+  const showCompactPlanCard =
+    mode === "plan" && hasPlanContent && sandboxCollapsed !== false;
+  // When the card is hidden but a plan exists, show a slim Plan Ready strip.
+  const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
+
+  const handleApprovePlan = useCallback(() => {
+    setMode("edit");
+  }, [setMode]);
+
+  const handleViewPlan = useCallback(() => {
+    setMode("plan");
+    if (sandboxCollapsed === false) {
+      onOpenPrdTab?.();
+    }
+  }, [onOpenPrdTab, sandboxCollapsed, setMode]);
+
   const preInputContent = (
     <>
       <BackgroundProcessesPanel sessionId={sessionId} />
       <PendingReviewCommentChips />
-      {mode === "plan" && planContent && sandboxCollapsed !== false ? (
+      {showCompactPlanCard && planContent ? (
         <AnimatePresence initial={false}>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -243,12 +266,20 @@ export function ChatPanel({
             <SessionPrdPlanView
               sessionId={sessionId}
               planContent={planContent}
-              onApprovePlan={() => setMode("edit")}
+              onApprovePlan={handleApprovePlan}
               variant="compact"
               isArchived={isArchived}
             />
           </motion.div>
         </AnimatePresence>
+      ) : null}
+      {showPlanReadyBanner && planContent ? (
+        <ComposerPlanReadyBanner
+          planContent={planContent}
+          onViewPlan={handleViewPlan}
+          onApprovePlan={handleApprovePlan}
+          isArchived={isArchived}
+        />
       ) : null}
     </>
   );

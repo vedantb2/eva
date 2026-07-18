@@ -1,5 +1,11 @@
 # Changelog
 
+## Richer session PRD artifact + Plan Ready composer banner - 2026-07-18
+
+- PRD card gains Download .md, uses the first markdown heading as title, and keeps Copy / Save as Document / Approve.
+- When a plan exists but the compact card is hidden (Edit mode or PRD tab open), a Plan Ready strip above the composer offers View + Approve.
+- Reason for change: plans felt like a mode panel, not a portable artifact with a clear "ready to implement" cue (t3code-style).
+
 ## Debounced "Scroll to end" chat pill - 2026-07-18
 
 - Scroll-to-bottom control now shows after 150ms away from the live edge (hide stays immediate), resets on conversation switch, and uses a labeled pill like t3code.

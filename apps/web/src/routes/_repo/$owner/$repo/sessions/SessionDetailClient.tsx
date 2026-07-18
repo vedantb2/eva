@@ -151,6 +151,10 @@ export function SessionDetailClient({
             onToggleSandbox={onToggleRightPanel}
             onOpenFile={onOpenFile}
             onViewDiff={onViewDiff}
+            onOpenPrdTab={() => {
+              onSandboxTabChange("prd");
+              setExpandRightSignal((n) => n + 1);
+            }}
           />
         )}
         rightPanel={

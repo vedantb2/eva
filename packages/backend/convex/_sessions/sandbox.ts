@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalAction, internalMutation } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+} from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
@@ -10,6 +15,9 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { markAllRunningExited } from "../backgroundProcesses";
+
+/** How long to wait before re-issuing stop if finalize died with a Convex transient error. */
+const STUCK_STOPPING_RECOVER_MS = 20_000;
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -141,15 +149,11 @@ export const stopSandbox = authMutation({
       // idempotent finalize so clicking Stop again recovers a stuck `stopping`
       // row instead of being a no-op that leaves it wedged forever.
       if (session.sandboxId) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal._sessions.sandbox.finalizeStopSandbox,
-          {
-            sessionId: args.sessionId,
-            sandboxId: session.sandboxId,
-            repoId: session.repoId,
-          },
-        );
+        await scheduleFinalizeStop(ctx, {
+          sessionId: args.sessionId,
+          sandboxId: session.sandboxId,
+          repoId: session.repoId,
+        });
       } else {
         await ctx.db.patch(args.sessionId, {
           status: "closed",
@@ -160,15 +164,11 @@ export const stopSandbox = authMutation({
     }
 
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal._sessions.sandbox.finalizeStopSandbox,
-        {
-          sessionId: args.sessionId,
-          sandboxId: session.sandboxId,
-          repoId: session.repoId,
-        },
-      );
+      await scheduleFinalizeStop(ctx, {
+        sessionId: args.sessionId,
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      });
     } else {
       // No sandbox to stop — close immediately.
       await ctx.db.patch(args.sessionId, {
@@ -199,6 +199,28 @@ export const stopSandbox = authMutation({
   },
 });
 
+async function scheduleFinalizeStop(
+  ctx: MutationCtx,
+  args: {
+    sessionId: Id<"sessions">;
+    sandboxId: string;
+    repoId: Id<"githubRepos">;
+  },
+): Promise<void> {
+  await ctx.scheduler.runAfter(
+    0,
+    internal._sessions.sandbox.finalizeStopSandbox,
+    args,
+  );
+  // Actions are not auto-retried. A Convex "Transient error while executing
+  // action" (0ms) leaves status stuck on "stopping" forever — re-issue once.
+  await ctx.scheduler.runAfter(
+    STUCK_STOPPING_RECOVER_MS,
+    internal._sessions.sandbox.recoverStuckStopping,
+    { sessionId: args.sessionId },
+  );
+}
+
 /**
  * Awaits provider stop and finalizes session status. Only marks `"closed"`
  * after a successful stop — on failure reverts to `"active"` so the UI matches
@@ -225,6 +247,32 @@ export const finalizeStopSandbox = internalAction({
       sessionId: args.sessionId,
       error: stopError,
     });
+    return null;
+  },
+});
+
+/**
+ * Re-issues finalizeStopSandbox if the session is still `"stopping"`.
+ * Scheduled after Stop so a platform transient on the first action doesn't
+ * leave the UI wedged; no-ops if stop already finished.
+ */
+export const recoverStuckStopping = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.status !== "stopping" || !session.sandboxId) {
+      return null;
+    }
+    await ctx.scheduler.runAfter(
+      0,
+      internal._sessions.sandbox.finalizeStopSandbox,
+      {
+        sessionId: args.sessionId,
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      },
+    );
     return null;
   },
 });

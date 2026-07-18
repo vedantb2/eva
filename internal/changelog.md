@@ -1,5 +1,10 @@
 # Changelog
 
+## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-18
+
+- Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
+- Reason for change: Convex platform "Transient error while executing action" (0ms) is not retried for actions, so sessions could wedge on Stop forever until a manual re-click.
+
 ## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
 
 - Edit-turn prompts now require agent-browser captures under `recordings/` / `screenshots/` and forbid `create_artifact` for walkthrough media.

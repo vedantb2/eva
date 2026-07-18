@@ -16,6 +16,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import {
+  attachNormalBufferWheelScroll,
   buildTerminalHistoryKey,
   createTerminalHistoryWriter,
   startVercelPty,
@@ -263,6 +264,7 @@ export function TerminalPanel({
     const mounted = { current: true };
     const containerEl = terminalRef.current;
     const historyWriter = createTerminalHistoryWriter(setTerminalHistory);
+    let detachWheelScroll = () => {};
 
     const initTerminal = async () => {
       setIsLoading(true);
@@ -279,6 +281,8 @@ export function TerminalPanel({
         if (terminalInstanceRef.current) {
           terminalInstanceRef.current.dispose();
         }
+        detachWheelScroll();
+        detachWheelScroll = () => {};
 
         const rootStyles = getComputedStyle(document.documentElement);
         const terminal = new Terminal({
@@ -310,6 +314,10 @@ export function TerminalPanel({
 
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
+        detachWheelScroll = attachNormalBufferWheelScroll(
+          terminal,
+          containerEl,
+        );
 
         terminal.onData((data) => {
           const currentWs = wsRef.current;
@@ -357,11 +365,12 @@ export function TerminalPanel({
       }
     };
 
-    initTerminal();
+    void initTerminal();
 
     return () => {
       mounted.current = false;
       intentionalCloseRef.current = true;
+      detachWheelScroll();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

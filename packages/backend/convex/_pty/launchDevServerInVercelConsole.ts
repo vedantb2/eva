@@ -76,6 +76,11 @@ export async function launchDevServerInVercelConsole(
       timeoutSeconds: 15,
     });
   }
+  // Keep wheel scrolling the viewport — tmux mouse mode turns it into Up/Down.
+  await handle.exec(
+    `tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} history-limit 50000`,
+    { cwd: "/", timeoutSeconds: 5 },
+  );
 
   // Run via script path so send-keys needs no shell-escaping of the command.
   await handle.exec(

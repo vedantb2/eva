@@ -1,3 +1,5 @@
+import type { Terminal } from "@xterm/xterm";
+
 const MAX_TERMINAL_HISTORY_CHARS = 500_000;
 const FLUSH_DELAY_MS = 250;
 const IMMEDIATE_FLUSH_CHARS = 4096;
@@ -117,18 +119,58 @@ export function startVercelPty(
 ): void {
   const cwd = opts.cwd ?? VERCEL_PTY_CWD;
   const sessionName = safeVercelSessionName(opts.sessionName);
+  // mouse off: with mouse on, wheel becomes Up/Down (shell history) instead of
+  // scrolling the xterm/tmux viewport. history-limit keeps Console log backlog.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
     args: [
       "-lc",
-      `cd ${cwd} 2>/dev/null || cd /vercel/sandbox; if command -v tmux >/dev/null 2>&1; then exec tmux new-session -A -s ${sessionName}; fi; exec bash -l`,
+      [
+        `cd ${cwd} 2>/dev/null || cd /vercel/sandbox`,
+        "if command -v tmux >/dev/null 2>&1; then",
+        `tmux new-session -d -s ${sessionName} 2>/dev/null || true`,
+        `tmux set-option -t ${sessionName} mouse off`,
+        `tmux set-option -t ${sessionName} history-limit 50000`,
+        `exec tmux attach-session -t ${sessionName}`,
+        "fi",
+        "exec bash -l",
+      ].join("; "),
     ],
     env: ["TERM=xterm-256color"],
     cwd,
     cols: opts.cols,
     rows: opts.rows,
   });
+}
+
+/**
+ * Wheel on the normal buffer scrolls xterm scrollback. Without this, tmux/mouse
+ * modes often translate wheel into Up/Down and surface shell command history.
+ * Alt-buffer apps (vim/less) keep the default wheel handling.
+ */
+export function attachNormalBufferWheelScroll(
+  terminal: Pick<Terminal, "buffer" | "rows" | "scrollLines">,
+  element: HTMLElement,
+): () => void {
+  const onWheel = (event: WheelEvent) => {
+    if (terminal.buffer.active.type === "alternate") {
+      return;
+    }
+    const lineHeight =
+      terminal.rows > 0 ? element.clientHeight / terminal.rows : 16;
+    const lines = Math.max(
+      1,
+      Math.round(Math.abs(event.deltaY) / Math.max(lineHeight, 1)),
+    );
+    terminal.scrollLines(event.deltaY < 0 ? -lines : lines);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  element.addEventListener("wheel", onWheel, { passive: false, capture: true });
+  return () => {
+    element.removeEventListener("wheel", onWheel, { capture: true });
+  };
 }
 
 function boundedTerminalHistory(value: string): string {

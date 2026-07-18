@@ -3,9 +3,7 @@
  * deliberately written as an instruction to whoever (human or agent) is editing
  * the code: the generic `unknown`-narrowing guard is a symptom, not the fix.
  *
- * Kept verbatim in sync with the ESLint version of this rule in
- * `eslint.config.mjs` (`NO_IS_RECORD_MESSAGE`). ESLint still runs this rule
- * too until the eslint config is removed.
+ * ESLint has been removed from this repo; oxlint is now the sole linter.
  */
 const NO_IS_RECORD_MESSAGE =
   "BANNED: `isRecord`. If you are writing or using `isRecord`, an `unknown` has " +

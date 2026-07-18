@@ -22,8 +22,35 @@
     "typescript/consistent-type-imports": [
       "error",
       { "fixStyle": "inline-type-imports" }
-    ]
+    ],
+    "no-alert": "error",
+    "no-unneeded-ternary": "error",
+    "no-useless-concat": "error",
+    "unicorn/no-abusive-eslint-disable": "error",
+    "no-restricted-imports": [
+      "warn",
+      {
+        "paths": [
+          {
+            "name": "react",
+            "importNames": ["useEffect"],
+            "message": "Avoid useEffect: derive state inline, use event handlers, or rely on Convex live queries. Justify unavoidable effects with a comment. See CLAUDE.md."
+          }
+        ]
+      }
+    ],
+    "no-console": ["warn", { "allow": ["warn", "error"] }]
   },
+  "overrides": [
+    {
+      "files": ["packages/backend/**"],
+      "rules": {
+        "no-console": "off",
+        "no-restricted-imports": "off",
+        "no-alert": "off"
+      }
+    }
+  ],
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",

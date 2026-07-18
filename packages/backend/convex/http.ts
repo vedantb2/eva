@@ -546,6 +546,7 @@ http.route({
 
     const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId,
+      now: Date.now(),
     });
 
     if (!client) {

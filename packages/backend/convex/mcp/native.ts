@@ -106,6 +106,7 @@ export const authorizeGet = httpAction(async (ctx, request) => {
 
     const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId: params.client_id,
+      now: Date.now(),
     });
 
     if (!client) {

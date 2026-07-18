@@ -1,7 +1,13 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import { existsSync as existsSync8, mkdirSync as mkdirSync7, writeFileSync as writeFileSync11 } from "fs";
+import {
+  existsSync as existsSync8,
+  mkdirSync as mkdirSync7,
+  readdirSync as readdirSync3,
+  unlinkSync as unlinkSync3,
+  writeFileSync as writeFileSync11
+} from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -236,7 +242,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync3, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/http/convexClient.ts
 function narrowJsonValue(value) {
@@ -415,7 +421,7 @@ import {
   cpSync,
   existsSync as existsSync2,
   mkdirSync,
-  readdirSync as readdirSync2,
+  readdirSync,
   readFileSync,
   statSync,
   writeFileSync
@@ -636,7 +642,7 @@ function copyBaseClaudeConfig() {
     return;
   }
   mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
-  for (const entry of readdirSync2(CLAUDE_BASE_CONFIG_DIR, {
+  for (const entry of readdirSync(CLAUDE_BASE_CONFIG_DIR, {
     withFileTypes: true
   })) {
     if (entry.name === "projects") {
@@ -1207,8 +1213,8 @@ function codexItemToStep(item) {
 import {
   existsSync as existsSync3,
   readFileSync as readFileSync2,
-  readdirSync as readdirSync3,
-  unlinkSync as unlinkSync2,
+  readdirSync as readdirSync2,
+  unlinkSync,
   writeFileSync as writeFileSync2
 } from "fs";
 function parseJsonObject(line) {
@@ -1595,7 +1601,7 @@ async function uploadAndAttachSandboxMedia() {
   let lastFileName = null;
   const recDir = WORK_DIR + "/recordings";
   if (existsSync3(recDir)) {
-    for (const file of readdirSync3(recDir)) {
+    for (const file of readdirSync2(recDir)) {
       if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
       const fp = recDir + "/" + file;
       const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
@@ -1605,7 +1611,7 @@ async function uploadAndAttachSandboxMedia() {
       } catch {
       }
       try {
-        unlinkSync2(fp);
+        unlinkSync(fp);
       } catch {
       }
     }
@@ -1613,7 +1619,7 @@ async function uploadAndAttachSandboxMedia() {
   if (!videoStorageId) {
     const ssDir = WORK_DIR + "/screenshots";
     if (existsSync3(ssDir)) {
-      for (const file of readdirSync3(ssDir)) {
+      for (const file of readdirSync2(ssDir)) {
         if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
         const fp = ssDir + "/" + file;
         const ext = file.split(".").pop()?.toLowerCase() ?? "png";
@@ -1631,7 +1637,7 @@ async function uploadAndAttachSandboxMedia() {
         } catch {
         }
         try {
-          unlinkSync2(fp);
+          unlinkSync(fp);
         } catch {
         }
       }
@@ -3673,7 +3679,7 @@ async function failTurnAndExit(error) {
   } catch {
   }
   try {
-    unlinkSync3(DAEMON_PID_FILE);
+    unlinkSync2(DAEMON_PID_FILE);
   } catch {
   }
   await stopStreamingLoops();
@@ -4134,7 +4140,7 @@ async function runSdkDaemon() {
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
     try {
-      unlinkSync3(DAEMON_PID_FILE);
+      unlinkSync2(DAEMON_PID_FILE);
     } catch {
     }
     await stopStreamingLoops();
@@ -4220,7 +4226,7 @@ async function runSdkDaemon() {
     }
   } finally {
     try {
-      unlinkSync3(DAEMON_PID_FILE);
+      unlinkSync2(DAEMON_PID_FILE);
     } catch {
     }
     await stopStreamingLoops();
@@ -4339,7 +4345,7 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync(READY_FILE);
+  unlinkSync3(READY_FILE);
 } catch {
 }
 try {
@@ -4358,9 +4364,9 @@ if (!preflightOk) {
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   if (existsSync8(d)) {
-    for (const f of readdirSync(d)) {
+    for (const f of readdirSync3(d)) {
       try {
-        unlinkSync(d + "/" + f);
+        unlinkSync3(d + "/" + f);
       } catch {
       }
     }

@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
 import {
   ALLOWED_TOOLS,
   CLAUDE_ATTEMPT_MODE,

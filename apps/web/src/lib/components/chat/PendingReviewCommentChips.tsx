@@ -2,13 +2,12 @@
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
 import { IconMessage, IconX } from "@tabler/icons-react";
-import { useQueryState } from "nuqs";
-import { diffFileParser } from "@/lib/search-params";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { useDiffSearchParams } from "@/lib/components/sandbox/useDiffSearchParams";
 
 export function PendingReviewCommentChips() {
   const review = usePendingReviewComments();
-  const [, setDiffFile] = useQueryState("diffFile", diffFileParser);
+  const { setDiffFile } = useDiffSearchParams();
 
   if (!review || review.comments.length === 0) return null;
 
@@ -24,7 +23,7 @@ export function PendingReviewCommentChips() {
                   type="button"
                   className="inline-flex min-w-0 flex-1 items-center gap-1 hover:text-foreground"
                   onClick={() => {
-                    void setDiffFile(comment.filePath);
+                    setDiffFile(comment.filePath);
                     review.openDiffsTab();
                   }}
                 >

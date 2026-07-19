@@ -52,6 +52,8 @@ export function QuickTaskTaskPageContent({
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
             navigate({
               to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
+              // Keep diffFile/diffView across sandbox tabs.
+              search: true,
             });
           },
           onExitSandboxView: () => {

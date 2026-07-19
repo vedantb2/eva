@@ -70,6 +70,8 @@ export function ProjectSandboxPanel({
       if (tab === "prd" || !projectPathSegment) return;
       navigate({
         to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
+        // Keep diffFile/diffView across sandbox tabs.
+        search: true,
       });
     },
     [basePath, navigate, projectPathSegment],

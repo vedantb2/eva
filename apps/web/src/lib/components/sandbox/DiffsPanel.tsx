@@ -11,12 +11,11 @@ import {
   IconRefresh,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { useQueryState } from "nuqs";
-import { diffViewParser, diffFileParser } from "@/lib/search-params";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { DiffFileTree } from "./DiffFileTree";
 import { ReviewableFileDiff } from "./ReviewableFileDiff";
 import { splitDiffFiles, fileNameFromPatch, diffFileStatus } from "./diffFiles";
+import { useDiffSearchParams } from "./useDiffSearchParams";
 
 interface DiffsPanelProps {
   /** PR URL for the current surface; absent when no PR exists yet. */
@@ -39,8 +38,8 @@ type DiffState =
 export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const getPrDiff = useAction(api.github.getPrDiff);
   const { resolvedTheme } = useThemeMode();
-  const [diffView, setDiffView] = useQueryState("diffView", diffViewParser);
-  const [diffFile, setDiffFile] = useQueryState("diffFile", diffFileParser);
+  const { diffView, setDiffView, diffFile, setDiffFile } =
+    useDiffSearchParams();
 
   const [state, setState] = useState<DiffState>({ status: "loading" });
   // Bumped by Refresh to force the load effect to re-run.
@@ -113,7 +112,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   // Selecting a file in the tree records it in the URL and scrolls its diff up.
   const handleSelect = useCallback(
     (path: string) => {
-      void setDiffFile(path);
+      setDiffFile(path);
       fileRefs.current
         .get(path)
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -161,7 +160,9 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
             <button
               key={view}
               type="button"
-              onClick={() => void setDiffView(view)}
+              onClick={() => {
+                setDiffView(view);
+              }}
               className={cn(
                 "rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors",
                 diffView === view

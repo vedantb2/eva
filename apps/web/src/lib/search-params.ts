@@ -1,5 +1,4 @@
 import {
-  createParser,
   parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
@@ -115,23 +114,56 @@ export const diffViewParser = parseAsStringLiteral(diffViews)
   .withDefault("unified")
   .withOptions(tabOptions);
 
-// Path of the file selected in the Diffs tab file tree, persisted in the URL so
-// the highlighted/scrolled-to file survives reload and is shareable.
-// Percent-encode so "/" never appears raw in the query string — nuqs leaves
-// slashes unencoded, which breaks TanStack path matching on sandbox tabs
-// (e.g. .../diffs?diffFile=apps/foo → invalid $sandboxTab → redirect to preview).
-export const diffFileParser = createParser({
-  parse: (value) => {
+/**
+ * Nuqs's TanStack adapter used to do `to: pathname + '?diffFile=…'`. TanStack
+ * resolvePath keeps the `?…` inside `$sandboxTab`, so beforeLoad must peel it
+ * off and redirect to a clean tab + real search params.
+ */
+export function splitCorruptedSandboxTabParam(raw: string): {
+  tab: string;
+  diffFile?: string;
+  diffView?: DiffView;
+} | null {
+  const q = raw.indexOf("?");
+  if (q === -1) return null;
+  const tab = raw.slice(0, q);
+  const params = new URLSearchParams(raw.slice(q + 1));
+  const diffFileRaw = params.get("diffFile");
+  let diffFile: string | undefined;
+  if (diffFileRaw !== null) {
     try {
-      return decodeURIComponent(value);
+      // Old nuqs serialize double-encoded; decode until stable or one pass.
+      diffFile = diffFileRaw.includes("%")
+        ? decodeURIComponent(diffFileRaw)
+        : diffFileRaw;
     } catch {
-      return value;
+      diffFile = diffFileRaw;
     }
-  },
-  serialize: (value) => encodeURIComponent(value),
-})
-  .withDefault("")
-  .withOptions(searchOptions);
+  }
+  const diffViewRaw = params.get("diffView");
+  const diffView: DiffView | undefined =
+    diffViewRaw === "unified" || diffViewRaw === "split"
+      ? diffViewRaw
+      : undefined;
+  return { tab, diffFile, diffView };
+}
+
+/** Search fields used by the Diffs tab (quick-tasks validateSearch must allow these). */
+export function parseDiffSearchFields(search: {
+  diffFile?: string;
+  diffView?: string;
+}): {
+  diffFile: string | undefined;
+  diffView: DiffView | undefined;
+} {
+  return {
+    diffFile: typeof search.diffFile === "string" ? search.diffFile : undefined,
+    diffView:
+      search.diffView === "unified" || search.diffView === "split"
+        ? search.diffView
+        : undefined,
+  };
+}
 
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)

@@ -1,16 +1,38 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
-import { useQueryState } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
-import { diffFileParser, isLegacyDesktopSandboxTab } from "@/lib/search-params";
+import {
+  isLegacyDesktopSandboxTab,
+  splitCorruptedSandboxTabParam,
+} from "@/lib/search-params";
 import { SessionDetailClient } from "../SessionDetailClient";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/$sandboxTab",
 )({
   beforeLoad: ({ params }) => {
+    const corrupted = splitCorruptedSandboxTabParam(params.sandboxTab);
+    if (corrupted) {
+      const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
+        ? "computer"
+        : corrupted.tab;
+      throw redirect({
+        to: "/$owner/$repo/sessions/$numId/$sandboxTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          sandboxTab,
+        },
+        search: {
+          diffFile: corrupted.diffFile,
+          diffView: corrupted.diffView,
+        },
+        replace: true,
+      });
+    }
     if (isLegacyDesktopSandboxTab(params.sandboxTab)) {
       throw redirect({
         to: "/$owner/$repo/sessions/$numId/$sandboxTab",
@@ -36,7 +58,6 @@ function SessionSandboxRoute() {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
-  const [, setDiffFile] = useQueryState("diffFile", diffFileParser);
 
   // Opening a file from a chat chip both switches to the Files tab and sets the
   // `?file=` param the File Viewer reads. Stable so the memoised activity
@@ -53,17 +74,24 @@ function SessionSandboxRoute() {
 
   const openDiffs = useCallback(
     (repoRelativePath?: string) => {
-      if (repoRelativePath) {
-        void setDiffFile(repoRelativePath);
-      }
-      void navigate({ to: `${basePath}/sessions/${numId}/diffs` });
+      void navigate({
+        to: `${basePath}/sessions/${numId}/diffs`,
+        search: (prev) =>
+          repoRelativePath
+            ? { ...prev, diffFile: repoRelativePath }
+            : { ...prev },
+      });
     },
-    [navigate, basePath, numId, setDiffFile],
+    [navigate, basePath, numId],
   );
 
   const onSandboxTabChange = useCallback(
     (next: string) => {
-      void navigate({ to: `${basePath}/sessions/${numId}/${next}` });
+      void navigate({
+        to: `${basePath}/sessions/${numId}/${next}`,
+        // Keep diffFile/diffView (and other search) across sandbox tabs.
+        search: true,
+      });
     },
     [navigate, basePath, numId],
   );

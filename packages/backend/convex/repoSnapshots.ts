@@ -13,6 +13,7 @@ export {
   getSeedFingerprint,
   setImageFingerprint,
   setBaseSnapshotId,
+  listProtectedSnapshotIds,
   getPrimarySeedAppRepo,
 } from "./_repoSnapshots/config";
 

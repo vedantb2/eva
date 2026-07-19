@@ -197,7 +197,14 @@ export interface SandboxHandle {
   start(timeoutSeconds: number): Promise<void>;
   stop(): Promise<void>;
   archive(): Promise<void>;
-  delete(): Promise<void>;
+  /**
+   * Permanently remove the sandbox. On Vercel, also deletes snap_* objects for
+   * this sandbox name (SDK delete does not reliably cascade). Pass
+   * `preserveSnapshotIds` when a seed capture must survive prep-sandbox teardown.
+   */
+  delete(options?: {
+    preserveSnapshotIds?: ReadonlyArray<string>;
+  }): Promise<void>;
   /** Re-read live state/errorReason from the provider. */
   refresh(): Promise<void>;
 

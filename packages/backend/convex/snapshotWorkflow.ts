@@ -251,6 +251,8 @@ export const snapshotBuildWorkflow = workflow.define({
           await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
             sandboxId: prepSandboxId,
             repoId: appRepoId,
+            // Keep the new base snap_* — Vercel delete does not cascade reliably.
+            preserveSnapshotId: effectiveBaseId,
           });
           prepSandboxId = null;
 
@@ -520,6 +522,8 @@ export const snapshotBuildWorkflow = workflow.define({
       await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
         sandboxId: prepSandboxId,
         repoId: appRepoId,
+        // Keep the new seeded snap_* — Vercel delete does not cascade reliably.
+        preserveSnapshotId: effectiveSeededName,
       });
       prepSandboxId = null;
 

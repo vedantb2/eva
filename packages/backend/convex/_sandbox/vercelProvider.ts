@@ -36,15 +36,25 @@ import type {
   SandboxState,
 } from "./provider";
 
+/** Default TTL for auto-snapshots on persistent sandboxes (30 days). */
+const SNAPSHOT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * Safety-net TTL if an ephemeral sandbox ever produces a snap_* (should not —
+ * persistent:false skips auto-snapshot). Short so leaked storage self-heals.
+ */
+const EPHEMERAL_SNAPSHOT_TTL_MS = 60 * 60 * 1000;
+
 /**
  * Cap auto-snapshots (on stop) and explicit `snapshot()` calls to one per
  * sandbox lineage, deleting older ones immediately. Without this, persistent
  * sandboxes accumulate snap_* objects on every stop/resume cycle.
+ * Explicit `expiration` prevents inheriting never-expire TTLs from seed snaps.
  * @see https://vercel.com/docs/sandbox/sdk-reference#keeplastsnapshots
  */
 const KEEP_LAST_SNAPSHOTS = {
   count: 1,
   deleteEvicted: true,
+  expiration: SNAPSHOT_TTL_MS,
 } as const;
 
 /** Vercel API credentials, passed on every SDK call. */
@@ -778,8 +788,62 @@ class VercelSandboxHandle implements SandboxHandle {
     // No separate cold-storage archive on Vercel — stop() auto-snapshots.
     await this.stop();
   }
-  async delete(): Promise<void> {
-    await this.sandbox.delete();
+
+  /**
+   * Delete every snap_* listed for this sandbox name, optionally keeping seed
+   * captures. Vercel's sandbox.delete() is documented to cascade, but in
+   * practice snap_* objects (especially expiration:0 seed captures) remain and
+   * continue to bill Snapshot Storage — see project Snapshots dashboard.
+   */
+  private async deleteSnapshotsForSandbox(
+    sandboxName: string,
+    preserveSnapshotIds: ReadonlySet<string>,
+  ): Promise<number> {
+    const { Snapshot } = await import("@vercel/sandbox");
+    const listed = await Snapshot.list({
+      ...this.creds,
+      name: sandboxName,
+    });
+    let deleted = 0;
+    for await (const snap of listed) {
+      if (preserveSnapshotIds.has(snap.snapshotId)) continue;
+      if (String(snap.status) === "deleted") continue;
+      try {
+        await snap.delete();
+        deleted += 1;
+      } catch (error) {
+        console.warn(
+          `[vercel] snapshot.delete failed sandbox=${sandboxName} snapshotId=${snap.snapshotId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    return deleted;
+  }
+
+  async delete(options?: {
+    preserveSnapshotIds?: ReadonlyArray<string>;
+  }): Promise<void> {
+    const sandboxName = this.sandbox.name;
+    const preserve = new Set(options?.preserveSnapshotIds ?? []);
+    const before = await this.deleteSnapshotsForSandbox(sandboxName, preserve);
+    try {
+      await this.sandbox.delete();
+    } catch (error) {
+      console.warn(
+        `[vercel] sandbox.delete failed name=${sandboxName}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    // Cascade is unreliable — sweep again for anything left after sandbox gone.
+    const after = await this.deleteSnapshotsForSandbox(sandboxName, preserve);
+    if (before + after > 0) {
+      console.log(
+        `[vercel] delete sandbox=${sandboxName} purgedSnapshots=${before + after} preserved=${preserve.size}`,
+      );
+    }
   }
   async refresh(): Promise<void> {
     // Re-fetch the sandbox to pick up current status. resume:false is CRITICAL:
@@ -847,6 +911,11 @@ class VercelSandboxClient implements SandboxClient {
       // and Vercel bills only active CPU + provisioned memory while running.
       timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
       persistent,
+      // Always set an explicit TTL. Creating from a seed snap with expiration:0
+      // otherwise inherits never-expire, so any auto-snap (or leak) bills forever.
+      snapshotExpiration: persistent
+        ? SNAPSHOT_TTL_MS
+        : EPHEMERAL_SNAPSHOT_TTL_MS,
       resources: { vcpus: DEFAULT_VCPUS },
       ports: (params.ports ?? VERCEL_DEFAULT_EXPOSED_PORTS).slice(0, MAX_PORTS),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
@@ -860,6 +929,9 @@ class VercelSandboxClient implements SandboxClient {
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
         : await Sandbox.create({ ...base, runtime: "node24" });
+      console.log(
+        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"}`,
+      );
       // Env is NOT written here. writeFiles is the first sandbox I/O and absorbs
       // Vercel's first-command boot penalty (seconds–tens of seconds). Callers
       // (createSandbox) fire onSandboxAcquired first, then write EVA_ENV_FILE.

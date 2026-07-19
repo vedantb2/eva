@@ -413,6 +413,45 @@ export const getRepoSnapshotInternal = internalQuery({
   },
 });
 
+/**
+ * snap_* / seeded ids that must survive orphan cleanup for this monorepo
+ * (current base Image + per-app seeded captures).
+ */
+export const listProtectedSnapshotIds = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return [];
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", repo.owner).eq("name", repo.name),
+      )
+      .collect();
+    const protectedIds = new Set<string>();
+    for (const sibling of siblings) {
+      if (sibling.seededSnapshotName !== undefined) {
+        protectedIds.add(sibling.seededSnapshotName);
+      }
+      const snapConfig = await ctx.db
+        .query("repoSnapshots")
+        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+        .first();
+      if (snapConfig?.baseSnapshotId !== undefined) {
+        protectedIds.add(snapConfig.baseSnapshotId);
+      }
+      if (
+        snapConfig?.snapshotName !== undefined &&
+        snapConfig.snapshotName.startsWith("snap_")
+      ) {
+        protectedIds.add(snapConfig.snapshotName);
+      }
+    }
+    return [...protectedIds];
+  },
+});
+
 /** Stores the Vercel base Image snapshot id (`snap_*`) after a successful capture. */
 export const setBaseSnapshotId = internalMutation({
   args: {

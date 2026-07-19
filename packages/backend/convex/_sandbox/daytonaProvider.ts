@@ -233,7 +233,9 @@ class DaytonaSandboxHandle implements SandboxHandle {
   async archive(): Promise<void> {
     await this.sandbox.archive();
   }
-  async delete(): Promise<void> {
+  async delete(_options?: {
+    preserveSnapshotIds?: ReadonlyArray<string>;
+  }): Promise<void> {
     await this.sandbox.delete();
   }
   async refresh(): Promise<void> {

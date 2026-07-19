@@ -27,7 +27,7 @@ import {
 import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
-import { Sandbox } from "@vercel/sandbox";
+import { Sandbox, Snapshot } from "@vercel/sandbox";
 import type { Id } from "./_generated/dataModel";
 import { SANDBOX_TAG } from "./_sandbox/tags";
 
@@ -1213,14 +1213,24 @@ export const createSeedPrepSandbox = internalAction({
  * not linger. Works for both Daytona and Vercel providers.
  */
 export const deleteSeedPrepSandbox = internalAction({
-  args: { repoId: v.id("githubRepos"), sandboxId: v.string() },
+  args: {
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+    /** Keep this snap_* when tearing down the prep sandbox (successful seed). */
+    preserveSnapshotId: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const client = getSandboxClient(credentials);
     try {
       const handle = await client.get(args.sandboxId);
-      await handle.delete();
+      await handle.delete({
+        preserveSnapshotIds:
+          args.preserveSnapshotId !== undefined
+            ? [args.preserveSnapshotId]
+            : undefined,
+      });
     } catch (e) {
       // Best-effort: log but do not fail the build if delete fails.
       console.error(
@@ -1420,5 +1430,73 @@ export const deleteSeededSnapshot = internalAction({
       );
     }
     return null;
+  },
+});
+
+/**
+ * One-shot / ops cleanup: delete every Vercel snap_* in the project that is not
+ * the current base Image or a per-app seeded capture. Use after ephemeral
+ * automation sandboxes left never-expiring snapshots behind (delete did not
+ * cascade). Safe for Daytona repos (no-ops).
+ */
+export const purgeUnreferencedVercelSnapshots = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.object({
+    protectedCount: v.number(),
+    deletedCount: v.number(),
+    skippedCount: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    protectedCount: number;
+    deletedCount: number;
+    skippedCount: number;
+  }> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    if (credentials.kind !== "vercel") {
+      return { protectedCount: 0, deletedCount: 0, skippedCount: 0 };
+    }
+    const protectedIds = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listProtectedSnapshotIds, {
+        repoId: args.repoId,
+      }),
+    );
+    const listed = await Snapshot.list({
+      token: credentials.token,
+      teamId: credentials.teamId,
+      projectId: credentials.projectId,
+    });
+    let deletedCount = 0;
+    let skippedCount = 0;
+    for await (const snap of listed) {
+      if (protectedIds.has(snap.snapshotId)) {
+        skippedCount += 1;
+        continue;
+      }
+      if (String(snap.status) === "deleted") {
+        skippedCount += 1;
+        continue;
+      }
+      try {
+        await snap.delete();
+        deletedCount += 1;
+      } catch (error) {
+        console.warn(
+          `[snapshot] purgeUnreferencedVercelSnapshots: failed ${snap.snapshotId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    console.log(
+      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} deleted=${deletedCount} skipped=${skippedCount}`,
+    );
+    return {
+      protectedCount: protectedIds.size,
+      deletedCount,
+      skippedCount,
+    };
   },
 });

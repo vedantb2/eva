@@ -41,7 +41,11 @@ export const Route = createFileRoute(
           numId: params.numId,
           sandboxTab: "computer",
         },
-        search: { draft: undefined },
+        search: {
+          draft: undefined,
+          diffFile: undefined,
+          diffView: undefined,
+        },
         replace: true,
       });
     }
@@ -54,7 +58,11 @@ export const Route = createFileRoute(
           numId: params.numId,
           sandboxTab: "preview",
         },
-        search: { draft: undefined },
+        search: {
+          draft: undefined,
+          diffFile: undefined,
+          diffView: undefined,
+        },
       });
     }
   },

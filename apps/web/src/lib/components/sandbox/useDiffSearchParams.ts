@@ -27,7 +27,10 @@ export function useDiffSearchParams() {
 
   const setDiffFile = useCallback(
     (path: string) => {
+      // `to: "."` keeps current path and loosens search typing for a hook used
+      // across quick-tasks / projects / sessions (see TanStack search-params guide).
       void navigate({
+        to: ".",
         search: (prev) => ({ ...prev, diffFile: path }),
         replace: true,
       });
@@ -38,6 +41,7 @@ export function useDiffSearchParams() {
   const setDiffView = useCallback(
     (view: DiffView) => {
       void navigate({
+        to: ".",
         search: (prev) => ({ ...prev, diffView: view }),
       });
     },

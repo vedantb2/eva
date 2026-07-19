@@ -13,7 +13,11 @@ export const Route = createFileRoute(
         repo: params.repo,
         numId: params.numId,
       },
-      search: { draft: undefined },
+      search: {
+        draft: undefined,
+        diffFile: undefined,
+        diffView: undefined,
+      },
       replace: true,
     });
   },

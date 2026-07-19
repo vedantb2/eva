@@ -1,61 +1,67 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
+import { describe, expect, it } from "vitest";
 import {
   isTaskRouteSandboxTab,
   parseDiffSearchFields,
   splitCorruptedSandboxTabParam,
 } from "./search-params";
 
-test("isTaskRouteSandboxTab rejects nuqs-corrupted tab segments", () => {
-  assert.equal(isTaskRouteSandboxTab("diffs"), true);
-  assert.equal(
-    isTaskRouteSandboxTab(
-      "diffs?diffFile=apps%2Fweb%2Fapp%2F(commissioner)%2Flist%2FCHCard.tsx",
-    ),
-    false,
-  );
-  assert.equal(isTaskRouteSandboxTab("diffs?diffView=split"), false);
-});
+describe("isTaskRouteSandboxTab", () => {
+  it("accepts real task sandbox tabs", () => {
+    expect(isTaskRouteSandboxTab("diffs")).toBe(true);
+  });
 
-test("splitCorruptedSandboxTabParam returns null for clean tabs", () => {
-  assert.equal(splitCorruptedSandboxTabParam("diffs"), null);
-  assert.equal(splitCorruptedSandboxTabParam("preview"), null);
-});
-
-test("splitCorruptedSandboxTabParam peels tab and diff search from corrupted segment", () => {
-  const path = "apps/web/app/(commissioner)/care_homes/list/CHCard.tsx";
-  const encoded = encodeURIComponent(path);
-  const result = splitCorruptedSandboxTabParam(
-    `diffs?diffFile=${encoded}&diffView=split`,
-  );
-
-  assert.deepEqual(result, {
-    tab: "diffs",
-    diffFile: path,
-    diffView: "split",
+  it("rejects nuqs-corrupted tab segments that embed query strings", () => {
+    expect(
+      isTaskRouteSandboxTab(
+        "diffs?diffFile=apps%2Fweb%2Fapp%2F(commissioner)%2Flist%2FCHCard.tsx",
+      ),
+    ).toBe(false);
+    expect(isTaskRouteSandboxTab("diffs?diffView=split")).toBe(false);
   });
 });
 
-test("splitCorruptedSandboxTabParam decodes once-encoded slash paths from URLSearchParams", () => {
-  // How TanStack/qss typically serializes paths (slashes as %2F).
-  const result = splitCorruptedSandboxTabParam(
-    "diffs?diffFile=apps%2Fweb%2Ffoo.tsx",
-  );
+describe("splitCorruptedSandboxTabParam", () => {
+  it("returns null for clean tabs", () => {
+    expect(splitCorruptedSandboxTabParam("diffs")).toBeNull();
+    expect(splitCorruptedSandboxTabParam("preview")).toBeNull();
+  });
 
-  assert.equal(result?.tab, "diffs");
-  assert.equal(result?.diffFile, "apps/web/foo.tsx");
+  it("peels tab and diff search from a corrupted segment", () => {
+    const path = "apps/web/app/(commissioner)/care_homes/list/CHCard.tsx";
+    const encoded = encodeURIComponent(path);
+    expect(
+      splitCorruptedSandboxTabParam(`diffs?diffFile=${encoded}&diffView=split`),
+    ).toEqual({
+      tab: "diffs",
+      diffFile: path,
+      diffView: "split",
+    });
+  });
+
+  it("decodes once-encoded slash paths from URLSearchParams", () => {
+    // How TanStack/qss typically serializes paths (slashes as %2F).
+    expect(
+      splitCorruptedSandboxTabParam("diffs?diffFile=apps%2Fweb%2Ffoo.tsx"),
+    ).toEqual({
+      tab: "diffs",
+      diffFile: "apps/web/foo.tsx",
+      diffView: undefined,
+    });
+  });
 });
 
-test("parseDiffSearchFields keeps only valid Diffs search keys", () => {
-  assert.deepEqual(
-    parseDiffSearchFields({
-      diffFile: "apps/web/foo.tsx",
-      diffView: "split",
-    }),
-    { diffFile: "apps/web/foo.tsx", diffView: "split" },
-  );
-  assert.deepEqual(parseDiffSearchFields({ diffView: "nope" }), {
-    diffFile: undefined,
-    diffView: undefined,
+describe("parseDiffSearchFields", () => {
+  it("keeps only valid Diffs search keys", () => {
+    expect(
+      parseDiffSearchFields({
+        diffFile: "apps/web/foo.tsx",
+        diffView: "split",
+      }),
+    ).toEqual({ diffFile: "apps/web/foo.tsx", diffView: "split" });
+
+    expect(parseDiffSearchFields({ diffView: "nope" })).toEqual({
+      diffFile: undefined,
+      diffView: undefined,
+    });
   });
 });

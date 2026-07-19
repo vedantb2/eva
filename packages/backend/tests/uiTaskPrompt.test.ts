@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import {
   isUiImplementationTask,
   UI_TASK_DESCRIPTION_TEMPLATE,
@@ -13,33 +12,30 @@ import {
 
 describe("isUiImplementationTask", () => {
   it("detects UI keywords in title", () => {
-    assert.equal(
+    expect(
       isUiImplementationTask({
         title:
           "on users may page, dropdown scrollbar always visible for user type",
       }),
-      true,
-    );
+    ).toBe(true);
   });
 
   it("detects structured UI description sections", () => {
-    assert.equal(
+    expect(
       isUiImplementationTask({
         title: "Fix thing",
         description: "## Route\n/domcare/users-may",
       }),
-      true,
-    );
+    ).toBe(true);
   });
 
   it("returns false for backend-only tasks", () => {
-    assert.equal(
+    expect(
       isUiImplementationTask({
         title: "Add cron job to purge stale sessions",
         description: "Run nightly in convex/crons.ts",
       }),
-      false,
-    );
+    ).toBe(false);
   });
 });
 
@@ -50,33 +46,33 @@ describe("ui implementation prompt sections", () => {
 
   it("includes locate-the-UI step for UI tasks", () => {
     const steps = buildImplementationSteps(typecheck, commit, branch, true);
-    assert.match(steps, /Locate the UI \(required before editing\)/);
-    assert.match(steps, /Do NOT change unrelated Selects\/dropdowns/);
+    expect(steps).toMatch(/Locate the UI \(required before editing\)/);
+    expect(steps).toMatch(/Do NOT change unrelated Selects\/dropdowns/);
   });
 
   it("omits UI locate step for backend tasks", () => {
     const steps = buildImplementationSteps(typecheck, commit, branch, false);
-    assert.doesNotMatch(steps, /Locate the UI \(required before editing\)/);
+    expect(steps).not.toMatch(/Locate the UI \(required before editing\)/);
   });
 
   it("uses UI summary rules when task looks like UI work", () => {
     const uiTask = detectUiImplementationTask({
       title: "Profile type filter scrollbar on users-may list",
     });
-    assert.equal(uiTask, true);
+    expect(uiTask).toBe(true);
     const summary = buildSummarySection(uiTask);
-    assert.match(summary, /route and the specific control you changed/);
-    assert.match(summary, /Do NOT claim "No user-facing routes changed"/);
+    expect(summary).toMatch(/route and the specific control you changed/);
+    expect(summary).toMatch(/Do NOT claim "No user-facing routes changed"/);
   });
 
   it("uses default summary rules for backend tasks", () => {
     const uiTask = detectUiImplementationTask({
       title: "Migrate webhook handler to new schema",
     });
-    assert.equal(uiTask, false);
+    expect(uiTask).toBe(false);
     const summary = buildSummarySection(uiTask);
-    assert.match(summary, /No user-facing routes changed/);
-    assert.doesNotMatch(summary, /specific control you changed/);
+    expect(summary).toMatch(/No user-facing routes changed/);
+    expect(summary).not.toMatch(/specific control you changed/);
   });
 
   it("adds UI proof hint when description uses the template", () => {
@@ -84,7 +80,7 @@ describe("ui implementation prompt sections", () => {
       title: "Minor tweak",
       description: UI_TASK_DESCRIPTION_TEMPLATE,
     });
-    assert.equal(uiTask, true);
-    assert.match(buildUiProofCaptureHint(uiTask), /exact control/);
+    expect(uiTask).toBe(true);
+    expect(buildUiProofCaptureHint(uiTask)).toMatch(/exact control/);
   });
 });

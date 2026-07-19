@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test, expect } from "vitest";
 import { createSessionStore } from "../session/createSessionStore.js";
 
 test("createSessionStore reads and writes resume id", () => {
@@ -20,12 +19,14 @@ test("createSessionStore reads and writes resume id", () => {
     },
   });
 
-  assert.equal(store.readSessionState(), null);
+  expect(store.readSessionState()).toBe(null);
   activeId = "sess-123";
   store.writeSessionState();
   const read = store.readSessionState();
-  assert.ok(read);
-  assert.equal(read.resumeSessionId, "sess-123");
+  expect(read).toBeTruthy();
+  if (read) {
+    expect(read.resumeSessionId).toBe("sess-123");
+  }
 });
 
 test("createSessionStore resolveResumeId prefers local state", () => {
@@ -45,5 +46,5 @@ test("createSessionStore resolveResumeId prefers local state", () => {
     getActiveId: () => "",
     setActiveId: () => {},
   });
-  assert.equal(store.resolveResumeId(), "thread-abc");
+  expect(store.resolveResumeId()).toBe("thread-abc");
 });

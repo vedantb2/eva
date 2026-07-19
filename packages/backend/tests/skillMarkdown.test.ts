@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { parseSkillMarkdown } from "../convex/_repoSkills/skillMarkdown";
 
 const carepulseDescription = `---
@@ -35,33 +34,35 @@ description: >
 describe("parseSkillMarkdown", () => {
   it("parses YAML-indented multiline description", () => {
     const result = parseSkillMarkdown(carepulseDescription, "fallback");
-    assert.equal(result.ok, true);
+    expect(result.ok).toBe(true);
     if (!result.ok) return;
-    assert.equal(result.skill.title, "carepulse-data-tables");
-    assert.match(result.skill.description, /CarePulse data table conventions/);
+    expect(result.skill.title).toBe("carepulse-data-tables");
+    expect(result.skill.description).toMatch(
+      /CarePulse data table conventions/,
+    );
   });
 
   it("parses single-line description", () => {
     const result = parseSkillMarkdown(singleLineDescription, "fallback");
-    assert.equal(result.ok, true);
+    expect(result.ok).toBe(true);
     if (!result.ok) return;
-    assert.equal(result.skill.title, "vercel-react-best-practices");
-    assert.match(result.skill.description, /React and Next\.js/);
+    expect(result.skill.title).toBe("vercel-react-best-practices");
+    expect(result.skill.description).toMatch(/React and Next\.js/);
   });
 
   it("parses folded description block", () => {
     const result = parseSkillMarkdown(foldedDescription, "fallback");
-    assert.equal(result.ok, true);
+    expect(result.ok).toBe(true);
     if (!result.ok) return;
-    assert.equal(result.skill.title, "example-skill");
-    assert.match(result.skill.description, /folded description/);
+    expect(result.skill.title).toBe("example-skill");
+    expect(result.skill.description).toMatch(/folded description/);
   });
 
   it("rejects missing frontmatter", () => {
     const result = parseSkillMarkdown("# No frontmatter", "fallback");
-    assert.equal(result.ok, false);
+    expect(result.ok).toBe(false);
     if (result.ok) return;
-    assert.equal(result.reason, "no_frontmatter");
+    expect(result.reason).toBe("no_frontmatter");
   });
 
   it("rejects empty description", () => {
@@ -74,8 +75,8 @@ license: MIT
 `,
       "fallback",
     );
-    assert.equal(result.ok, false);
+    expect(result.ok).toBe(false);
     if (result.ok) return;
-    assert.equal(result.reason, "missing_description");
+    expect(result.reason).toBe("missing_description");
   });
 });

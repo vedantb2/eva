@@ -12,9 +12,8 @@
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
     "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
-    "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts callback-src/tests/backgroundShells.test.ts",
-    "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
-    "test:ui-task-prompt": "node --import tsx --test tests/uiTaskPrompt.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "predeploy": "pnpm run build:callback",
     "deploy": "convex deploy"
   },
@@ -54,7 +53,7 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
-    "tsx": "^4.19.4",
-    "typescript": "7.0.1-rc"
+    "typescript": "7.0.1-rc",
+    "vitest": "^3.2.4"
   }
 }

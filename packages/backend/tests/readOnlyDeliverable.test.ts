@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import {
   READ_ONLY_DELIVERABLE_MARKER,
   extractReadOnlyDeliverable,
@@ -15,8 +14,7 @@ ${READ_ONLY_DELIVERABLE_MARKER}
 ✨ **New Features**
 - Something users can do now.`;
 
-    assert.equal(
-      extractReadOnlyDeliverable(input),
+    expect(extractReadOnlyDeliverable(input)).toBe(
       "✨ **New Features**\n- Something users can do now.",
     );
   });
@@ -28,27 +26,26 @@ ${READ_ONLY_DELIVERABLE_MARKER}
 ## Summary
 - One change`;
 
-    assert.equal(extractReadOnlyDeliverable(input), "## Summary\n- One change");
+    expect(extractReadOnlyDeliverable(input)).toBe("## Summary\n- One change");
   });
 
   it("falls back to full text when the marker is missing", () => {
     const input = "No marker — legacy output.";
-    assert.equal(extractReadOnlyDeliverable(input), input);
+    expect(extractReadOnlyDeliverable(input)).toBe(input);
   });
 
   it("returns empty string for empty input", () => {
-    assert.equal(extractReadOnlyDeliverable(""), "");
-    assert.equal(extractReadOnlyDeliverable("   \n  "), "");
+    expect(extractReadOnlyDeliverable("")).toBe("");
+    expect(extractReadOnlyDeliverable("   \n  ")).toBe("");
   });
 });
 
 describe("buildReadOnlyPrompt", () => {
   it("includes the deliverable marker and no-preamble rules", () => {
     const prompt = buildReadOnlyPrompt("Weekly report", "List open bugs.", "");
-    assert.match(prompt, new RegExp(READ_ONLY_DELIVERABLE_MARKER));
-    assert.match(prompt, /No preamble/);
-    assert.doesNotMatch(
-      prompt,
+    expect(prompt).toMatch(new RegExp(READ_ONLY_DELIVERABLE_MARKER));
+    expect(prompt).toMatch(/No preamble/);
+    expect(prompt).not.toMatch(
       /detailed report\/analysis as your final output/,
     );
   });

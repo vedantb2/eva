@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, expect } from "vitest";
 import { parseToCanonical, applyCanonicalEvents } from "../parse/canonical.js";
 import {
   callbackState as S,
@@ -25,10 +24,10 @@ test("parseToCanonical maps Claude tool_use to push_step", () => {
     },
     "claude",
   );
-  assert.equal(events.length, 1);
-  assert.equal(events[0].kind, "push_step");
+  expect(events.length).toBe(1);
+  expect(events[0].kind).toBe("push_step");
   if (events[0].kind === "push_step") {
-    assert.equal(events[0].step.type, "read");
+    expect(events[0].step.type).toBe("read");
   }
 });
 
@@ -37,8 +36,8 @@ test("applyCanonicalEvents sets pending question", () => {
   const changed = applyCanonicalEvents([
     { kind: "set_pending_question", data: '{"questions":[]}' },
   ]);
-  assert.equal(changed, true);
-  assert.equal(getPendingQuestionForTest(), '{"questions":[]}');
+  expect(changed).toBe(true);
+  expect(getPendingQuestionForTest()).toBe('{"questions":[]}');
 });
 
 test("parseToCanonical cursor assistant text appends", () => {
@@ -49,7 +48,7 @@ test("parseToCanonical cursor assistant text appends", () => {
     },
     "cursor",
   );
-  assert.ok(events.some((e) => e.kind === "append_text"));
+  expect(events.some((e) => e.kind === "append_text")).toBeTruthy();
 });
 
 test("tool_result clears in-flight tool by tool_use_id", () => {
@@ -65,9 +64,9 @@ test("tool_result clears in-flight tool by tool_use_id", () => {
       },
     },
   ]);
-  assert.equal(S.inFlightToolUses, 1);
+  expect(S.inFlightToolUses).toBe(1);
   applyCanonicalEvents([{ kind: "complete_tool", trackingId: "toolu_abc" }]);
-  assert.equal(S.inFlightToolUses, 0);
+  expect(S.inFlightToolUses).toBe(0);
   resetStateForTests();
 });
 
@@ -75,8 +74,8 @@ test("append_text updates streamed content without adding activity steps", () =>
   resetStateForTests();
   applyCanonicalEvents([{ kind: "append_text", text: "Hello" }]);
   applyCanonicalEvents([{ kind: "append_text", text: " world" }]);
-  assert.equal(S.accumulatedSteps.length, 0);
-  assert.equal(S.currentStreamedContent, "Hello world");
+  expect(S.accumulatedSteps.length).toBe(0);
+  expect(S.currentStreamedContent).toBe("Hello world");
   resetStateForTests();
 });
 
@@ -84,16 +83,16 @@ test("append_text replaces streamed content on cumulative snapshots", () => {
   resetStateForTests();
   applyCanonicalEvents([{ kind: "append_text", text: "Hello" }]);
   applyCanonicalEvents([{ kind: "append_text", text: "Hello world" }]);
-  assert.equal(S.accumulatedSteps.length, 0);
-  assert.equal(S.currentStreamedContent, "Hello world");
+  expect(S.accumulatedSteps.length).toBe(0);
+  expect(S.currentStreamedContent).toBe("Hello world");
   resetStateForTests();
 });
 
 test("update_reasoning is transient and does not add activity steps", () => {
   resetStateForTests();
   applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering" }]);
-  assert.equal(S.accumulatedSteps.length, 0);
-  assert.equal(S.lastStepType, "thinking");
+  expect(S.accumulatedSteps.length).toBe(0);
+  expect(S.lastStepType).toBe("thinking");
   resetStateForTests();
 });
 
@@ -109,36 +108,33 @@ test("thinking push_step is transient and does not add activity steps", () => {
       },
     },
   ]);
-  assert.equal(S.accumulatedSteps.length, 0);
-  assert.equal(S.lastStepType, "thinking");
+  expect(S.accumulatedSteps.length).toBe(0);
+  expect(S.lastStepType).toBe("thinking");
   resetStateForTests();
 });
 
 test("parsePriorStepForTest ignores transient activity rows", () => {
-  assert.equal(
+  expect(
     parsePriorStepForTest({
       type: "thinking",
       label: "Preparing Codex session...",
       status: "active",
     }),
-    null,
-  );
-  assert.equal(
+  ).toBe(null);
+  expect(
     parsePriorStepForTest({
       type: "reasoning",
       label: "Thinking...",
       status: "active",
     }),
-    null,
-  );
-  assert.equal(
+  ).toBe(null);
+  expect(
     parsePriorStepForTest({
       type: "response",
       label: "Streaming response...",
       status: "active",
     }),
-    null,
-  );
+  ).toBe(null);
 });
 
 test("parseToCanonical codex reasoning item routes to update_reasoning", () => {
@@ -150,7 +146,7 @@ test("parseToCanonical codex reasoning item routes to update_reasoning", () => {
     },
     "codex",
   );
-  assert.equal(started.length, 0);
+  expect(started.length).toBe(0);
   const completed = parseToCanonical(
     {
       type: "item.completed",
@@ -158,8 +154,8 @@ test("parseToCanonical codex reasoning item routes to update_reasoning", () => {
     },
     "codex",
   );
-  assert.equal(completed.length, 1);
-  assert.deepEqual(completed[0], {
+  expect(completed.length).toBe(1);
+  expect(completed[0]).toEqual({
     kind: "update_reasoning",
     text: "**Exploring repo**",
   });
@@ -170,8 +166,8 @@ test("parseToCanonical opencode reasoning part routes to update_reasoning", () =
     { type: "reasoning", part: { text: "weighing options" } },
     "opencode",
   );
-  assert.equal(events.length, 1);
-  assert.deepEqual(events[0], {
+  expect(events.length).toBe(1);
+  expect(events[0]).toEqual({
     kind: "update_reasoning",
     text: "weighing options",
   });
@@ -186,8 +182,8 @@ test("parseToCanonical cursor thinking block routes to update_reasoning", () => 
     },
     "cursor",
   );
-  assert.equal(events.length, 1);
-  assert.deepEqual(events[0], {
+  expect(events.length).toBe(1);
+  expect(events[0]).toEqual({
     kind: "update_reasoning",
     text: "hmm let me see",
   });

@@ -1,5 +1,4 @@
-import { describe, it, beforeEach } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, beforeEach, expect } from "vitest";
 import {
   backgroundShellQueueLengthForTests,
   matchBackgroundShellId,
@@ -14,17 +13,15 @@ describe("backgroundShells", () => {
   });
 
   it("matches Claude Code background shell id wording", () => {
-    assert.equal(
+    expect(
       matchBackgroundShellId("Command running in background with ID: bash_1"),
-      "bash_1",
-    );
-    assert.equal(
+    ).toBe("bash_1");
+    expect(
       matchBackgroundShellId(
         "The command is running in the background with ID bash_3.",
       ),
-      "bash_3",
-    );
-    assert.equal(matchBackgroundShellId("exit code 0\nok"), null);
+    ).toBe("bash_3");
+    expect(matchBackgroundShellId("exit code 0\nok")).toBe(null);
   });
 
   it("queues register on background Bash tool_result", () => {
@@ -38,18 +35,18 @@ describe("backgroundShells", () => {
       "Command running in background with ID: bash_2",
       false,
     );
-    assert.equal(backgroundShellQueueLengthForTests(), 1);
+    expect(backgroundShellQueueLengthForTests()).toBe(1);
   });
 
   it("does not queue register for foreground Bash results", () => {
     trackClaudeToolUse("Bash", { command: "echo hi" }, "toolu_fg");
     trackClaudeToolResult("toolu_fg", "hi\n", false);
-    assert.equal(backgroundShellQueueLengthForTests(), 0);
+    expect(backgroundShellQueueLengthForTests()).toBe(0);
   });
 
   it("queues agent_killed on successful KillShell", () => {
     trackClaudeToolUse("KillShell", { shell_id: "bash_9" }, "toolu_kill");
     trackClaudeToolResult("toolu_kill", "killed", false);
-    assert.equal(backgroundShellQueueLengthForTests(), 1);
+    expect(backgroundShellQueueLengthForTests()).toBe(1);
   });
 });

@@ -38,16 +38,11 @@
     }
   },
   "devDependencies": {
-    "babel-plugin-react-compiler": "^1.0.0",
     "husky": "^9.1.7",
     "knip": "6.27.0",
     "lint-staged": "^16.2.7",
     "oxlint": "1.74.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.0"
-  },
-  "dependencies": {
-    "@tanstack/react-hotkeys": "^0.3.2",
-    "embla-carousel-react": "^8.6.0"
   }
 }

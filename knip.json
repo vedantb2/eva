@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
+    ".": {
+      "entry": ["scripts/*.{ts,mjs}"],
+      "project": ["scripts/*.{ts,mjs}"]
+    },
     "apps/web": {
       "project": ["src/**/*.{ts,tsx}"]
     },
@@ -16,6 +20,7 @@
         "tests/**/*.ts"
       ],
       "project": ["convex/**/*.ts", "callback-src/**/*.ts", "tests/**/*.ts"],
+      "ignore": ["scripts/vercel-sandbox-spike/**"],
       "includeEntryExports": true
     },
     "packages/shared": {
@@ -25,10 +30,13 @@
       "project": ["src/**/*.{ts,tsx}"]
     }
   },
+  "ignoreDependencies": ["@tiptap/pm", "lint-staged"],
+  "ignoreBinaries": ["ps"],
   "rules": {
-    "files": "warn",
-    "dependencies": "warn",
-    "unlisted": "warn",
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "binaries": "warn",
     "exports": "warn",
     "types": "warn",
     "duplicates": "warn"

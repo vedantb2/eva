@@ -1435,14 +1435,16 @@ export const deleteSeededSnapshot = internalAction({
 
 /**
  * One-shot / ops cleanup: delete every Vercel snap_* in the project that is not
- * the current base Image or a per-app seeded capture. Use after ephemeral
- * automation sandboxes left never-expiring snapshots behind (delete did not
- * cascade). Safe for Daytona repos (no-ops).
+ * (1) the current base Image / per-app seeded capture, or (2) still owned by an
+ * existing sandbox (session / quick-task / project resume snaps). Use after
+ * ephemeral automation sandboxes left never-expiring orphans behind. Daytona
+ * repos no-op.
  */
 export const purgeUnreferencedVercelSnapshots = internalAction({
   args: { repoId: v.id("githubRepos") },
   returns: v.object({
     protectedCount: v.number(),
+    liveSandboxCount: v.number(),
     deletedCount: v.number(),
     skippedCount: v.number(),
   }),
@@ -1451,23 +1453,47 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
     args,
   ): Promise<{
     protectedCount: number;
+    liveSandboxCount: number;
     deletedCount: number;
     skippedCount: number;
   }> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     if (credentials.kind !== "vercel") {
-      return { protectedCount: 0, deletedCount: 0, skippedCount: 0 };
+      return {
+        protectedCount: 0,
+        liveSandboxCount: 0,
+        deletedCount: 0,
+        skippedCount: 0,
+      };
     }
+    const creds = {
+      token: credentials.token,
+      teamId: credentials.teamId,
+      projectId: credentials.projectId,
+    };
     const protectedIds = new Set(
       await ctx.runQuery(internal.repoSnapshots.listProtectedSnapshotIds, {
         repoId: args.repoId,
       }),
     );
-    const listed = await Snapshot.list({
-      token: credentials.token,
-      teamId: credentials.teamId,
-      projectId: credentials.projectId,
-    });
+
+    // Protect resume snaps for every sandbox that still exists — otherwise this
+    // purge would wipe session/task/project filesystem state.
+    let liveSandboxCount = 0;
+    const sandboxes = await Sandbox.list(creds);
+    for await (const sandbox of sandboxes) {
+      liveSandboxCount += 1;
+      const currentId = sandbox.currentSnapshotId;
+      if (typeof currentId === "string" && currentId.length > 0) {
+        protectedIds.add(currentId);
+      }
+      const owned = await Snapshot.list({ ...creds, name: sandbox.name });
+      for await (const meta of owned) {
+        protectedIds.add(meta.id);
+      }
+    }
+
+    const listed = await Snapshot.list(creds);
     let deletedCount = 0;
     let skippedCount = 0;
     // list() yields plain metadata (`id`, no .delete()) — re-hydrate to delete.
@@ -1482,9 +1508,7 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
       }
       try {
         const snap = await Snapshot.get({
-          token: credentials.token,
-          teamId: credentials.teamId,
-          projectId: credentials.projectId,
+          ...creds,
           snapshotId: meta.id,
         });
         await snap.delete();
@@ -1498,10 +1522,11 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
       }
     }
     console.log(
-      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} deleted=${deletedCount} skipped=${skippedCount}`,
+      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} liveSandboxes=${liveSandboxCount} deleted=${deletedCount} skipped=${skippedCount}`,
     );
     return {
       protectedCount: protectedIds.size,
+      liveSandboxCount,
       deletedCount,
       skippedCount,
     };

@@ -36,6 +36,17 @@ import type {
   SandboxState,
 } from "./provider";
 
+/**
+ * Cap auto-snapshots (on stop) and explicit `snapshot()` calls to one per
+ * sandbox lineage, deleting older ones immediately. Without this, persistent
+ * sandboxes accumulate snap_* objects on every stop/resume cycle.
+ * @see https://vercel.com/docs/sandbox/sdk-reference#keeplastsnapshots
+ */
+const KEEP_LAST_SNAPSHOTS = {
+  count: 1,
+  deleteEvicted: true,
+} as const;
+
 /** Vercel API credentials, passed on every SDK call. */
 interface VercelCredentials {
   token: string;
@@ -723,6 +734,9 @@ class VercelSandboxHandle implements SandboxHandle {
       console.log(
         `[vercel] stop requested sandbox=${this.sandbox.name} status=${attached}`,
       );
+      // stop() auto-snapshots persistent sandboxes — enforce retention first
+      // so older sandboxes created before create-time policy still stay at 1.
+      await this.ensureSnapshotRetention();
       await this.sandbox.stop();
       await this.waitForStopConfirmation();
       return;
@@ -751,8 +765,14 @@ class VercelSandboxHandle implements SandboxHandle {
     console.log(
       `[vercel] stop via sessionId sandbox=${this.sandbox.name} sessionId=${listed.sessionId} status=${listed.status}`,
     );
+    await this.ensureSnapshotRetention();
     await this.stopSessionById(listed.sessionId);
     await this.waitForStopConfirmation();
+  }
+
+  /** Apply keepLastSnapshots=1 so stop/snapshot do not pile up snap_* objects. */
+  private async ensureSnapshotRetention(): Promise<void> {
+    await this.sandbox.update({ keepLastSnapshots: KEEP_LAST_SNAPSHOTS });
   }
   async archive(): Promise<void> {
     // No separate cold-storage archive on Vercel — stop() auto-snapshots.
@@ -794,16 +814,11 @@ class VercelSandboxHandle implements SandboxHandle {
   async createSnapshot(
     _params: CreateSnapshotParams,
   ): Promise<{ snapshotId: string }> {
-    // Vercel snapshots are id-addressed (name is ignored). A persistent
-    // sandbox also auto-snapshots on every stop, so without a retention
-    // policy a long-lived seed-prep sandbox's lineage of snap_* objects
-    // grows unbounded. Cap it at the single most recent snapshot and delete
-    // evicted ones immediately — this is in ADDITION to (not a replacement
-    // for) snapshotWorkflow's own delete-before-capture step, which targets
-    // the previous seeded snapshot by name across sandbox lineages.
-    await this.sandbox.update({
-      keepLastSnapshots: { count: 1, deleteEvicted: true },
-    });
+    // Vercel snapshots are id-addressed (name is ignored). Retention is also
+    // set at create/stop; re-apply here so explicit captures still evict
+    // older snap_* objects. snapshotWorkflow separately deletes the previous
+    // seeded snapshot by name across sandbox lineages.
+    await this.ensureSnapshotRetention();
     const snap = await this.sandbox.snapshot({ expiration: 0 });
     return { snapshotId: snap.snapshotId };
   }
@@ -822,6 +837,7 @@ class VercelSandboxClient implements SandboxClient {
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
     // env is written to a file post-create (see EVA_ENV_FILE) rather than passed
     // here — Vercel's create-time env cap is 4 KB and eva's env exceeds it.
+    const persistent = params.lifecycle.ephemeral !== true;
     const base = {
       ...this.creds,
       // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
@@ -830,10 +846,12 @@ class VercelSandboxClient implements SandboxClient {
       // resumes have headroom; eva stops sandboxes explicitly (snapshot/stop),
       // and Vercel bills only active CPU + provisioned memory while running.
       timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
-      persistent: params.lifecycle.ephemeral !== true,
+      persistent,
       resources: { vcpus: DEFAULT_VCPUS },
       ports: (params.ports ?? VERCEL_DEFAULT_EXPOSED_PORTS).slice(0, MAX_PORTS),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
+      // Persistent sandboxes auto-snapshot on every stop; keep only the latest.
+      ...(persistent ? { keepLastSnapshots: KEEP_LAST_SNAPSHOTS } : {}),
     };
     try {
       const sandbox = params.snapshot

@@ -2,7 +2,8 @@
 
 ## Shared automations use sibling Vercel project for sandboxes - 2026-07-19
 
-- Automation runs (and the shared `resolveSandboxRepoId` helper) now create/launch sandboxes with a monorepo app row that has `VERCEL_PROJECT_ID`, not the bare root.
+- Automation runs (and the shared `resolveSandboxRepoId` / `pickSandboxRepoId` helpers) now create/launch sandboxes with a monorepo app row that has `VERCEL_PROJECT_ID`, not the bare root.
+- Unit tests lock the carepulse-shaped root→web credential pick so this regresses loudly.
 - Reason for change: shared Daily digest on carepulse root failed because Vercel is required but project id only exists on `apps/web` / `eprocurement`.
 
 ## Eva oxlint plugin: vmem-style rules + fixture tests - 2026-07-19

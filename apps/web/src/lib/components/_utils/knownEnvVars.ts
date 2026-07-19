@@ -19,7 +19,6 @@ export const SANDBOX_PROVIDER_KEY = "SANDBOX_PROVIDER";
 export type { EnvVarSlotEntry, EnvVarScope } from "./envVarSlotTypes";
 export { filterSlotsForScope, slotEnvVarKeys } from "./envVarSlotTypes";
 export { INFRA_ENV_VARS } from "./infraEnvVars";
-export { SANDBOX_PROVIDER_KEY };
 
 /**
  * Coding-agent auth vars surfaced as first-class "paste-in" slots. `matchKeys`

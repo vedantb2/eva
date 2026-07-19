@@ -3,12 +3,7 @@ import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
 import { filterActiveEntities } from "../numId";
 
-export function buildAutomationRunBranchName(
-  automationId: Id<"automations">,
-  runId: Id<"automationRuns">,
-): string {
-  return `eva/automation-${String(automationId)}-${String(runId)}`;
-}
+export { buildAutomationRunBranchName } from "../_git/branchNames";
 
 /** Lists automations visible for a repo: app-specific plus shared monorepo automations. */
 export async function listAutomationsForRepo(

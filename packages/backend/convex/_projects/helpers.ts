@@ -9,17 +9,7 @@ import type { DataModel, Id, Doc } from "../_generated/dataModel";
 
 type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
 
-/** Builds a git branch name for a project, optionally versioned. */
-export function buildProjectBranchName(
-  projectId: Id<"projects">,
-  branchVersion?: number,
-): string {
-  const version = branchVersion ?? 1;
-  if (version <= 1) {
-    return `eva/project-${projectId}`;
-  }
-  return `eva/project-${projectId}-v${version}`;
-}
+export { buildProjectBranchName } from "../_git/branchNames";
 
 /** Convex validator for a project document with its conversation history and generated spec. */
 export const projectWithDetailsValidator = v.object({

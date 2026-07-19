@@ -107,7 +107,7 @@ export const refreshToken = internalAction({
       error: v.string(),
     }),
   ),
-  handler: async (ctx, { refreshToken }) => {
+  handler: async (_ctx, { refreshToken }) => {
     try {
       const secret = new TextEncoder().encode(getJwtSecret());
       const { payload } = await jwtVerify(refreshToken, secret);

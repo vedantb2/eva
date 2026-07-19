@@ -334,7 +334,6 @@ export const kickOffSnapshotBuild = internalAction({
       return null;
     }
 
-    const _daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo

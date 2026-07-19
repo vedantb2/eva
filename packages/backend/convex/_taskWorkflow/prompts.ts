@@ -66,8 +66,8 @@ export function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
-  repoOwner: string,
-  repoName: string,
+  _repoOwner: string,
+  _repoName: string,
   changeRequests?: ChangeRequestPromptInput[],
   projectContext?: { title: string; description?: string },
   systemPrompt?: string,
@@ -186,8 +186,8 @@ export function buildConflictResolutionPrompt(
   branchName: string,
   baseBranch: string,
   rootDirectory: string,
-  repoOwner: string,
-  repoName: string,
+  _repoOwner: string,
+  _repoName: string,
   systemPrompt?: string,
 ): string {
   return `You are resolving merge conflicts. Do NOT re-implement or change any feature — only resolve conflicts and ensure compatibility with the latest base branch.

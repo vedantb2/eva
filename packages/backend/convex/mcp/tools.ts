@@ -78,7 +78,7 @@ export function registerTools(
 
   async function resolveTargetWithAccess(
     repoId: string,
-    deployKey: string,
+    _deployKey: string,
     userId: string,
     environment: "staging" | "prod",
   ): Promise<RepoCredentials> {

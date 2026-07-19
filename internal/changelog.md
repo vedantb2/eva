@@ -4,6 +4,7 @@
 
 - Env vars UI adds an Infrastructure section (Daytona API key, Vercel token/team/project) with brand-colored logos; agent logos recolored too.
 - Infra secrets default to `sandboxExclude`; `VERCEL_PROJECT_ID` slot is repo-only; team tab omits it.
+- `SANDBOX_PROVIDER` toggle (Daytona / Vercel) in Infrastructure; listed in plaintext since it is not a secret.
 - Reason for change: Vercel/Daytona creds were buried in free-form vars; first-class slots match coding-agent UX and keep project id per app.
 
 ## Shared automations use sibling Vercel project for sandboxes - 2026-07-19

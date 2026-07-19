@@ -13,9 +13,13 @@ import type { EnvVarSlotEntry } from "./envVarSlotTypes";
 import { INFRA_ENV_VARS } from "./infraEnvVars";
 import { slotEnvVarKeys } from "./envVarSlotTypes";
 
+/** Non-secret env key for the sandbox provider toggle (`daytona` | `vercel`). */
+export const SANDBOX_PROVIDER_KEY = "SANDBOX_PROVIDER";
+
 export type { EnvVarSlotEntry, EnvVarScope } from "./envVarSlotTypes";
 export { filterSlotsForScope, slotEnvVarKeys } from "./envVarSlotTypes";
 export { INFRA_ENV_VARS } from "./infraEnvVars";
+export { SANDBOX_PROVIDER_KEY };
 
 /**
  * Coding-agent auth vars surfaced as first-class "paste-in" slots. `matchKeys`
@@ -66,9 +70,9 @@ export const KNOWN_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
 ];
 
 /** Agent + infra keys owned by slots — hidden from the free-form table. */
-export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = slotEnvVarKeys([
-  ...KNOWN_ENV_VARS,
-  ...INFRA_ENV_VARS,
+export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = new Set([
+  ...slotEnvVarKeys([...KNOWN_ENV_VARS, ...INFRA_ENV_VARS]),
+  SANDBOX_PROVIDER_KEY,
 ]);
 
 /** @deprecated Use SLOT_ENV_VAR_KEYS */

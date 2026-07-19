@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
+import { envVarListDisplayValue } from "./_envVars/listDisplay";
 
 /** Lists team env vars for the authenticated user, masking actual values. */
 export const list = authQuery({
@@ -30,7 +31,7 @@ export const list = authQuery({
     if (!doc) return [];
     return doc.vars.map((entry) => ({
       key: entry.key,
-      value: "••••••",
+      value: envVarListDisplayValue(entry.key, entry.value),
       sandboxExclude: entry.sandboxExclude ?? false,
     }));
   },

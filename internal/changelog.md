@@ -1,5 +1,12 @@
 # Changelog
 
+## Eva oxlint plugin: vmem-style rules + fixture tests - 2026-07-19
+
+- Restructured `scripts/oxlint-plugin-eva/` (`.mjs`, `rules/`, `utils`, fixture harness) — vmem internals, eva `scripts/` location.
+- Kept `eva/no-is-record` (error); added `eva/no-json-parse` and `eva/no-double-cast` (warn); dropped soft `eva/no-explicit-unknown`.
+- `no-json-parse` only allows Zod `.safeParse` / `.parse` wrappers — not `: unknown` / `as unknown`.
+- Reason for change: name-ban rules were low signal; match vmem’s high-signal boundary-parse checks with real oxlint tests.
+
 ## Richer session PRD artifact + Plan Ready composer banner - 2026-07-18
 
 - PRD card gains Download .md, uses the first markdown heading as title, and keeps Copy / Save as Document / Approve.

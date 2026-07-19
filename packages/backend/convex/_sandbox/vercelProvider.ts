@@ -39,6 +39,9 @@ import {
   KEEP_LAST_SNAPSHOTS,
   vercelSnapshotCreateOptions,
 } from "./vercelSnapshotOptions";
+import { EVA_ENV_FILE } from "./vercelEnvFile";
+
+export { EVA_ENV_FILE, renderEvaEnvFile } from "./vercelEnvFile";
 
 /** Vercel API credentials, passed on every SDK call. */
 interface VercelCredentials {
@@ -52,16 +55,6 @@ const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 // repo/team env (~6 KB+). Instead of passing env at create, we write it to this
 // file in the sandbox and source it on every exec — no size cap, and it persists
 // across get()/resume like any other file.
-export const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
-
-/** Renders env vars as sourceable `export K='V'` lines (single-quote-escaped). */
-export function renderEvaEnvFile(env: Record<string, string>): string {
-  return (
-    Object.entries(env)
-      .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
-      .join("\n") + "\n"
-  );
-}
 
 /** Prefix that sources the eva env file (if present) before a command. */
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;

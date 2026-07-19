@@ -11,6 +11,7 @@ import {
   parseSkillMarkdown,
   SKILL_FILE_NAME,
 } from "./skillMarkdown";
+import { decodeGitHubContent } from "./decodeGitHubContent";
 
 const SKILLS_ROOT_PATH = ".agents/skills";
 
@@ -66,15 +67,6 @@ const applyGithubSyncRef = makeFunctionReference<
 function isGithubNotFound(error: Error): boolean {
   const message = error.message.toLowerCase();
   return message.includes("not found") || message.includes("404");
-}
-
-function decodeGitHubContent(content: string): string {
-  const binary = atob(content.replace(/\n/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new TextDecoder("utf-8").decode(bytes);
 }
 
 async function fetchSkillDirectories(

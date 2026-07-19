@@ -175,6 +175,14 @@ export function SessionDetailClient({
             activeTab={activeSandboxTab}
             onTabChange={onSandboxTabChange}
             agentBrowsingAt={session.agentBrowsingAt}
+            onStartSandbox={
+              session.archived === true || isSandboxStopping || isStopPending
+                ? undefined
+                : () => {
+                    void handleSandboxToggle("start");
+                  }
+            }
+            isSandboxStarting={isSandboxStarting}
           />
         }
         leftDefaultSize="30%"

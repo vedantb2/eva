@@ -10,6 +10,7 @@ import {
 import { useSessionStorage } from "usehooks-ts";
 import {
   IconAlertTriangle,
+  IconPlayerPlay,
   IconRefresh,
   IconWorld,
   IconX,
@@ -42,6 +43,9 @@ interface WebPreviewPanelProps {
   port: number;
   onPortChange: (port: number) => void;
   pathStorageKey: string;
+  /** When set, inactive empty state shows a Start sandbox button (tasks/projects/sessions). */
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 function NavigationBar({
@@ -94,6 +98,8 @@ export function WebPreviewPanel({
   port,
   onPortChange,
   pathStorageKey,
+  onStartSandbox,
+  isSandboxStarting = false,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [warningHintDismissed, setWarningHintDismissed] = useState(false);
@@ -130,6 +136,17 @@ export function WebPreviewPanel({
               ? "Start the sandbox to preview your app"
               : "Waiting for sandbox..."}
           </p>
+          {!isActive && onStartSandbox ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onStartSandbox}
+              disabled={isSandboxStarting}
+            >
+              <IconPlayerPlay size={14} />
+              {isSandboxStarting ? "Starting..." : "Start sandbox"}
+            </Button>
+          ) : null}
         </div>
       </div>
     );

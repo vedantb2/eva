@@ -114,6 +114,7 @@ export function ProjectDetailClient({
     isSandboxStopping,
     sandboxStartupActivity,
     sandboxId: projectSandboxId,
+    handleStartSandbox,
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
@@ -250,6 +251,10 @@ export function ProjectDetailClient({
         devCommand={project.devCommand}
         terminalPanes={project.terminalPanes}
         sandboxTab={tab}
+        onStartSandbox={
+          canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
+        }
+        isSandboxStarting={isSandboxStarting}
       />
     ) : (
       <div className="flex h-full items-center justify-center p-8">

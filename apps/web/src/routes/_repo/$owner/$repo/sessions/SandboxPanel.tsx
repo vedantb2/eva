@@ -46,6 +46,8 @@ interface SandboxPanelProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   agentBrowsingAt?: number;
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 export function SandboxPanel({
@@ -63,6 +65,8 @@ export function SandboxPanel({
   activeTab,
   onTabChange,
   agentBrowsingAt,
+  onStartSandbox,
+  isSandboxStarting,
 }: SandboxPanelProps) {
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
@@ -204,6 +208,8 @@ export function SandboxPanel({
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
+          onStartSandbox={onStartSandbox}
+          isSandboxStarting={isSandboxStarting}
         />
       </div>
     </div>

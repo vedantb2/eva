@@ -33,6 +33,8 @@ interface TaskSandboxPanelProps {
   prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 /**
@@ -55,6 +57,8 @@ export function TaskSandboxPanel({
   prUrl,
   activeTab,
   onTabChange,
+  onStartSandbox,
+  isSandboxStarting,
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
 
@@ -132,6 +136,8 @@ export function TaskSandboxPanel({
           devCommand={devCommand}
           prUrl={prUrl}
           onComputerRunningChange={setComputerRunning}
+          onStartSandbox={onStartSandbox}
+          isSandboxStarting={isSandboxStarting}
         />
       </div>
     </div>

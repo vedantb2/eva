@@ -45,6 +45,9 @@ interface SandboxPaneSlotsProps {
   runConsoleDevCommandOnConnect?: boolean;
   /** Computer/Browser desktop starting or running — gates Computer tab close. */
   onComputerRunningChange?: (running: boolean) => void;
+  /** Preview empty state Start button when sandbox is stopped. */
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 /**
@@ -69,6 +72,8 @@ export function SandboxPaneSlots({
   agentBrowsingAt,
   runConsoleDevCommandOnConnect = true,
   onComputerRunningChange,
+  onStartSandbox,
+  isSandboxStarting,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -126,6 +131,8 @@ export function SandboxPaneSlots({
                 id,
                 preview.effectivePort,
               ].join(":")}
+              onStartSandbox={onStartSandbox}
+              isSandboxStarting={isSandboxStarting}
             />
           </div>
         ))}

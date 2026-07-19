@@ -31,6 +31,8 @@ interface ProjectSandboxPanelProps {
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
   sandboxTab: TaskRouteSandboxTab;
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 export function ProjectSandboxPanel({
@@ -45,6 +47,8 @@ export function ProjectSandboxPanel({
   devCommand,
   terminalPanes,
   sandboxTab,
+  onStartSandbox,
+  isSandboxStarting,
 }: ProjectSandboxPanelProps) {
   const navigate = useNavigate();
   const { basePath } = useRepo();
@@ -133,6 +137,8 @@ export function ProjectSandboxPanel({
           devCommand={devCommand}
           prUrl={prUrl}
           onComputerRunningChange={setComputerRunning}
+          onStartSandbox={onStartSandbox}
+          isSandboxStarting={isSandboxStarting}
         />
       </div>
     </div>

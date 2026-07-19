@@ -100,6 +100,7 @@ export function TaskDetailInline({
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
+    handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
     handleRetryStartupCommands,
@@ -162,6 +163,10 @@ export function TaskDetailInline({
         prUrl={latestPrUrl}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
+        onStartSandbox={
+          canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
+        }
+        isSandboxStarting={isSandboxStarting}
       />
     ) : (
       <div className="flex h-full items-center justify-center p-8">

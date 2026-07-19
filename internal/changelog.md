@@ -4,7 +4,7 @@
 
 - `sandbox.delete()` now lists and deletes snap\_\* for that sandbox name (SDK cascade was leaving never-expiring storage that bills Snapshot Storage).
 - Create always sets an explicit `snapshotExpiration` so children of expiration:0 seeds don't inherit forever-TTL; seed-prep delete preserves the new base/seeded id.
-- Added `purgeUnreferencedVercelSnapshots` ops action to reclaim already-orphaned snaps while keeping current base + seeded ids.
+- `purgeUnreferencedVercelSnapshots` reclaims orphans while keeping base + seeded ids **and** every snap still owned by a live sandbox (session / task / project resumes).
 - Reason for change: automation/ephemeral sandboxes deleted cleanly but snapshots stayed forever on the Vercel Snapshots dashboard.
 
 ## Infrastructure env slots + colored provider logos - 2026-07-19

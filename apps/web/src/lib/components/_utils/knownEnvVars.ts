@@ -3,46 +3,28 @@ import {
   OPENCODE_AUTH_ENV_KEYS,
   CURSOR_AUTH_ENV_KEYS,
 } from "@conductor/backend";
-import type { ComponentType } from "react";
 import {
   ClaudeLogo,
   OpenAILogo,
   OpenCodeLogo,
   CursorLogo,
 } from "@/lib/components/ui/providerLogos";
+import type { EnvVarSlotEntry } from "./envVarSlotTypes";
+import { INFRA_ENV_VARS } from "./infraEnvVars";
+import { slotEnvVarKeys } from "./envVarSlotTypes";
 
-interface ProviderLogoProps {
-  size?: number;
-  className?: string;
-}
-
-export interface KnownEnvVar {
-  /** Stable id for React keys and diffing. */
-  provider: "claude" | "codex" | "opencode" | "cursor";
-  /** Human label shown next to the logo. */
-  label: string;
-  /** The key the paste-in slot writes to. */
-  primaryKey: string;
-  /** Any of these keys present means the provider is configured. */
-  matchKeys: ReadonlyArray<string>;
-  /** Provider brand mark. */
-  Logo: ComponentType<ProviderLogoProps>;
-  /** One-line guidance shown under the label. */
-  hint: string;
-  /** Input placeholder. */
-  placeholder: string;
-  /** JSON/blob values use a Textarea instead of a single-line Input. */
-  multiline: boolean;
-}
+export type { EnvVarSlotEntry, EnvVarScope } from "./envVarSlotTypes";
+export { filterSlotsForScope, slotEnvVarKeys } from "./envVarSlotTypes";
+export { INFRA_ENV_VARS } from "./infraEnvVars";
 
 /**
  * Coding-agent auth vars surfaced as first-class "paste-in" slots. `matchKeys`
  * reuse the backend's exported key lists (the single source of truth for which
  * env vars unlock each agent — see `getAIProviderAvailability`).
  */
-export const KNOWN_ENV_VARS: ReadonlyArray<KnownEnvVar> = [
+export const KNOWN_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
   {
-    provider: "claude",
+    id: "claude",
     label: "Claude Code",
     primaryKey: "CLAUDE_CODE_OAUTH_TOKEN",
     matchKeys: ["CLAUDE_CODE_OAUTH_TOKEN"],
@@ -52,7 +34,7 @@ export const KNOWN_ENV_VARS: ReadonlyArray<KnownEnvVar> = [
     multiline: false,
   },
   {
-    provider: "codex",
+    id: "codex",
     label: "Codex",
     primaryKey: "CODEX_AUTH_JSON",
     matchKeys: CODEX_AUTH_ENV_KEYS,
@@ -62,7 +44,7 @@ export const KNOWN_ENV_VARS: ReadonlyArray<KnownEnvVar> = [
     multiline: true,
   },
   {
-    provider: "opencode",
+    id: "opencode",
     label: "OpenCode",
     primaryKey: "OPENCODE_AUTH_JSON",
     matchKeys: OPENCODE_AUTH_ENV_KEYS,
@@ -72,7 +54,7 @@ export const KNOWN_ENV_VARS: ReadonlyArray<KnownEnvVar> = [
     multiline: true,
   },
   {
-    provider: "cursor",
+    id: "cursor",
     label: "Cursor",
     primaryKey: "CURSOR_API_KEY",
     matchKeys: CURSOR_AUTH_ENV_KEYS,
@@ -83,7 +65,11 @@ export const KNOWN_ENV_VARS: ReadonlyArray<KnownEnvVar> = [
   },
 ];
 
-/** All keys owned by a known slot — used to hide them from the free-form table. */
-export const KNOWN_ENV_VAR_KEYS: ReadonlySet<string> = new Set(
-  KNOWN_ENV_VARS.flatMap((entry) => entry.matchKeys),
-);
+/** Agent + infra keys owned by slots — hidden from the free-form table. */
+export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = slotEnvVarKeys([
+  ...KNOWN_ENV_VARS,
+  ...INFRA_ENV_VARS,
+]);
+
+/** @deprecated Use SLOT_ENV_VAR_KEYS */
+export const KNOWN_ENV_VAR_KEYS = SLOT_ENV_VAR_KEYS;

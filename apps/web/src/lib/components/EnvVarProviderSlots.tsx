@@ -22,12 +22,12 @@ import {
 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import type { EnvVar } from "@/lib/components/EnvVarsTable";
-import {
-  KNOWN_ENV_VARS,
-  type KnownEnvVar,
-} from "@/lib/components/_utils/knownEnvVars";
+import type { EnvVarSlotEntry } from "@/lib/components/_utils/envVarSlotTypes";
 
 interface EnvVarProviderSlotsProps {
+  entries: ReadonlyArray<EnvVarSlotEntry>;
+  /** sandboxExclude passed to onUpsert for new values from paste-in slots. */
+  defaultSandboxExclude?: boolean;
   vars: EnvVar[] | undefined;
   onUpsert?: (
     key: string,
@@ -37,48 +37,55 @@ interface EnvVarProviderSlotsProps {
   onReveal?: (key: string) => Promise<string | null>;
   onRemove?: (key: string) => Promise<void>;
   readOnly?: boolean;
+  removeDialogDescription?: string;
 }
 
 /**
- * Dedicated paste-in slots for the coding-agent auth vars (Claude, Codex,
- * OpenCode, Cursor). Each slot writes to the same free-form store as the table
- * below via the shared onUpsert/onReveal/onRemove callbacks — no extra backend
- * surface. A slot is "configured" when any of the provider's keys is present.
+ * Dedicated paste-in slots for known env vars (coding agents, infrastructure).
+ * Each slot writes to the same free-form store as the table below via the shared
+ * onUpsert/onReveal/onRemove callbacks — no extra backend surface.
  */
 export function EnvVarProviderSlots({
+  entries,
+  defaultSandboxExclude = false,
   vars,
   onUpsert,
   onReveal,
   onRemove,
   readOnly = false,
+  removeDialogDescription = "The agent it enables will stop working until you paste it again.",
 }: EnvVarProviderSlotsProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [savingProvider, setSavingProvider] = useState<string | null>(null);
-  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [revealed, setRevealed] = useState<Record<string, string>>({});
   const [revealingKey, setRevealingKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
 
-  const matchOf = (entry: KnownEnvVar): EnvVar | undefined =>
+  const matchOf = (entry: EnvVarSlotEntry): EnvVar | undefined =>
     vars?.find((v) => entry.matchKeys.includes(v.key));
 
-  const save = async (entry: KnownEnvVar) => {
-    const value = drafts[entry.provider] ?? "";
+  const save = async (entry: EnvVarSlotEntry) => {
+    const value = drafts[entry.id] ?? "";
     if (!value.trim() || !onUpsert) return;
-    setSavingProvider(entry.provider);
-    await onUpsert(entry.primaryKey, value, false);
-    setSavingProvider(null);
-    setDrafts((prev) => ({ ...prev, [entry.provider]: "" }));
+    setSavingId(entry.id);
+    await onUpsert(entry.primaryKey, value, defaultSandboxExclude);
+    setSavingId(null);
+    setDrafts((prev) => ({ ...prev, [entry.id]: "" }));
   };
 
-  const saveEdit = async (entry: KnownEnvVar, matched: EnvVar) => {
+  const saveEdit = async (entry: EnvVarSlotEntry, matched: EnvVar) => {
     if (!editValue.trim() || !onUpsert) return;
-    setSavingProvider(entry.provider);
-    await onUpsert(matched.key, editValue, matched.sandboxExclude);
-    setSavingProvider(null);
-    setEditingProvider(null);
+    setSavingId(entry.id);
+    await onUpsert(
+      matched.key,
+      editValue,
+      defaultSandboxExclude ? true : matched.sandboxExclude,
+    );
+    setSavingId(null);
+    setEditingId(null);
     setEditValue("");
     setRevealed((prev) => {
       const next = { ...prev };
@@ -128,7 +135,7 @@ export function EnvVarProviderSlots({
   };
 
   const renderValueInput = (
-    entry: KnownEnvVar,
+    entry: EnvVarSlotEntry,
     value: string,
     onChange: (v: string) => void,
     onSubmit: () => void,
@@ -140,7 +147,7 @@ export function EnvVarProviderSlots({
         onChange={(e) => onChange(e.target.value)}
         placeholder={entry.placeholder}
         className="h-20 font-mono text-xs"
-        autoFocus={editingProvider === entry.provider}
+        autoFocus={editingId === entry.id}
       />
     ) : (
       <Input
@@ -149,7 +156,7 @@ export function EnvVarProviderSlots({
         onChange={(e) => onChange(e.target.value)}
         placeholder={entry.placeholder}
         className="h-7 font-mono text-xs"
-        autoFocus={editingProvider === entry.provider}
+        autoFocus={editingId === entry.id}
         onKeyDown={(e) => {
           if (e.key === "Enter") onSubmit();
           if (e.key === "Escape") onCancel?.();
@@ -159,20 +166,20 @@ export function EnvVarProviderSlots({
 
   return (
     <div className="space-y-2">
-      {KNOWN_ENV_VARS.map((entry) => {
+      {entries.map((entry) => {
         const matched = matchOf(entry);
         const configured = matched !== undefined;
-        const isEditing = editingProvider === entry.provider;
-        const busy = savingProvider === entry.provider;
+        const isEditing = editingId === entry.id;
+        const busy = savingId === entry.id;
         const Logo = entry.Logo;
 
         return (
           <div
-            key={entry.provider}
+            key={entry.id}
             className="rounded-surface border border-border bg-muted/40 px-3 py-2.5"
           >
             <div className="flex items-start gap-3">
-              <Logo size={20} className="mt-0.5 shrink-0 text-foreground" />
+              <Logo size={20} className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{entry.label}</span>
@@ -186,17 +193,16 @@ export function EnvVarProviderSlots({
                   {entry.hint}
                 </p>
 
-                {/* Unconfigured, editable: paste-in field. */}
                 {!configured && !readOnly && (
                   <div className="mt-2 flex items-start gap-1.5">
                     <div className="flex-1">
                       {renderValueInput(
                         entry,
-                        drafts[entry.provider] ?? "",
+                        drafts[entry.id] ?? "",
                         (v) =>
                           setDrafts((prev) => ({
                             ...prev,
-                            [entry.provider]: v,
+                            [entry.id]: v,
                           })),
                         () => save(entry),
                       )}
@@ -204,14 +210,13 @@ export function EnvVarProviderSlots({
                     <Button
                       size="sm"
                       onClick={() => save(entry)}
-                      disabled={!(drafts[entry.provider] ?? "").trim() || busy}
+                      disabled={!(drafts[entry.id] ?? "").trim() || busy}
                     >
                       Save
                     </Button>
                   </div>
                 )}
 
-                {/* Configured + editing: replace value. */}
                 {configured && matched && isEditing && (
                   <div className="mt-2 flex items-start gap-1.5">
                     <div className="flex-1">
@@ -221,7 +226,7 @@ export function EnvVarProviderSlots({
                         setEditValue,
                         () => saveEdit(entry, matched),
                         () => {
-                          setEditingProvider(null);
+                          setEditingId(null);
                           setEditValue("");
                         },
                       )}
@@ -240,7 +245,7 @@ export function EnvVarProviderSlots({
                       size="icon-sm"
                       variant="ghost"
                       onClick={() => {
-                        setEditingProvider(null);
+                        setEditingId(null);
                         setEditValue("");
                       }}
                       title="Cancel"
@@ -250,7 +255,6 @@ export function EnvVarProviderSlots({
                   </div>
                 )}
 
-                {/* Configured, not editing: show masked/revealed value. */}
                 {configured && matched && !isEditing && (
                   <div className="mt-1.5">
                     {revealed[matched.key] !== undefined && (
@@ -265,7 +269,6 @@ export function EnvVarProviderSlots({
                 )}
               </div>
 
-              {/* Action buttons for configured, non-editing slots. */}
               {configured && matched && !isEditing && (
                 <div className="flex shrink-0 items-center gap-0.5">
                   <Button
@@ -311,7 +314,7 @@ export function EnvVarProviderSlots({
                         size="icon-sm"
                         variant="ghost"
                         onClick={() => {
-                          setEditingProvider(entry.provider);
+                          setEditingId(entry.id);
                           setEditValue("");
                         }}
                         title="Replace value"
@@ -351,7 +354,7 @@ export function EnvVarProviderSlots({
             <span className="font-mono font-medium text-foreground">
               {deleteKey}
             </span>
-            ? The agent it enables will stop working until you paste it again.
+            ? {removeDialogDescription}
           </p>
           <DialogFooter>
             <Button

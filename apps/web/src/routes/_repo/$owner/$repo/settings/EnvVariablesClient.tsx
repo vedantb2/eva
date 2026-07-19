@@ -43,6 +43,7 @@ export function EnvVariablesClient() {
   return (
     <EnvVarsTable
       vars={vars}
+      scope="repo"
       onUpsert={async (key, value, sandboxExclude) => {
         await upsertVar({ repoId, key, value, sandboxExclude });
       }}

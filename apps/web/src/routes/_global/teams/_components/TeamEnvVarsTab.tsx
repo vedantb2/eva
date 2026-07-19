@@ -50,6 +50,7 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
   return (
     <EnvVarsTable
       vars={teamEnvVars}
+      scope="team"
       onUpsert={async (key, value, sandboxExclude) => {
         await upsertTeamVar({ teamId, key, value, sandboxExclude });
       }}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { cn } from "@conductor/ui";
 import { DaytonaLogo, VercelLogo } from "@/lib/components/ui/providerLogos";
 import type { EnvVar } from "@/lib/components/EnvVarsTable";
 import type { EnvVarScope } from "@/lib/components/_utils/envVarSlotTypes";
@@ -9,10 +9,9 @@ import { SANDBOX_PROVIDER_KEY } from "@/lib/components/_utils/knownEnvVars";
 
 type SandboxProvider = "daytona" | "vercel";
 
-function readProvider(vars: EnvVar[] | undefined): SandboxProvider {
-  const entry = vars?.find((v) => v.key === SANDBOX_PROVIDER_KEY);
-  if (!entry) return "daytona";
-  return entry.value === "vercel" ? "vercel" : "daytona";
+function parseProvider(value: string | undefined): SandboxProvider | null {
+  if (value === "vercel" || value === "daytona") return value;
+  return null;
 }
 
 interface SandboxProviderToggleProps {
@@ -23,27 +22,63 @@ interface SandboxProviderToggleProps {
     value: string,
     sandboxExclude: boolean,
   ) => Promise<void>;
+  /** Needed to read legacy encrypted SANDBOX_PROVIDER values once. */
+  onReveal?: (key: string) => Promise<string | null>;
   readOnly?: boolean;
 }
 
 /**
- * Daytona vs Vercel switch for `SANDBOX_PROVIDER`. Writes through the same
- * upsert path as other env vars; value is non-secret and listed in plaintext.
+ * Daytona vs Vercel switch for `SANDBOX_PROVIDER`. New writes are plaintext so
+ * list queries can show the active provider; legacy `enc:` values are revealed
+ * once and rewritten as plaintext.
  */
 export function SandboxProviderToggle({
   vars,
   scope,
   onUpsert,
+  onReveal,
   readOnly = false,
 }: SandboxProviderToggleProps) {
+  const entry = vars?.find((v) => v.key === SANDBOX_PROVIDER_KEY);
+  const listed = parseProvider(entry?.value);
+  const [revealed, setRevealed] = useState<SandboxProvider | null>(null);
   const [saving, setSaving] = useState(false);
-  const provider = readProvider(vars);
+
+  const provider = listed ?? revealed ?? "daytona";
+
+  // Legacy encrypted values come back masked from list — reveal + heal once.
+  useEffect(() => {
+    if (listed !== null) {
+      setRevealed(null);
+      return;
+    }
+    if (entry === undefined || !onReveal) return;
+    let cancelled = false;
+    void (async () => {
+      const value = await onReveal(SANDBOX_PROVIDER_KEY);
+      if (cancelled) return;
+      const parsed = parseProvider(value ?? undefined);
+      if (parsed === null) return;
+      setRevealed(parsed);
+      // Rewrite as plaintext so the next list query works without reveal.
+      if (onUpsert && !readOnly) {
+        await onUpsert(SANDBOX_PROVIDER_KEY, parsed, true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [entry?.key, entry?.value, listed, onReveal, onUpsert, readOnly]);
 
   const handleChange = async (next: SandboxProvider) => {
     if (!onUpsert || readOnly || next === provider || saving) return;
     setSaving(true);
-    await onUpsert(SANDBOX_PROVIDER_KEY, next, true);
-    setSaving(false);
+    try {
+      await onUpsert(SANDBOX_PROVIDER_KEY, next, true);
+      setRevealed(next);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const scopeHint =
@@ -58,34 +93,61 @@ export function SandboxProviderToggle({
           <p className="text-sm font-medium">Sandbox provider</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{scopeHint}</p>
         </div>
-        <Tabs
-          value={provider}
-          onValueChange={(value) => {
-            if (value === "daytona" || value === "vercel") {
-              void handleChange(value);
-            }
-          }}
+        <div
+          className="tabs-segmented inline-flex h-9 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-background p-1"
+          role="group"
+          aria-label="Sandbox provider"
         >
-          <TabsList className="tabs-segmented h-9 shrink-0">
-            <TabsTrigger
-              value="daytona"
-              disabled={readOnly || saving}
-              className="gap-1.5 px-3 text-xs"
-            >
-              <DaytonaLogo size={14} />
-              Daytona
-            </TabsTrigger>
-            <TabsTrigger
-              value="vercel"
-              disabled={readOnly || saving}
-              className="gap-1.5 px-3 text-xs"
-            >
-              <VercelLogo size={14} />
-              Vercel
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+          <ProviderOption
+            active={provider === "daytona"}
+            disabled={readOnly || saving}
+            onClick={() => void handleChange("daytona")}
+            label="Daytona"
+            icon={<DaytonaLogo size={14} />}
+          />
+          <ProviderOption
+            active={provider === "vercel"}
+            disabled={readOnly || saving}
+            onClick={() => void handleChange("vercel")}
+            label="Vercel"
+            icon={<VercelLogo size={14} />}
+          />
+        </div>
       </div>
     </div>
+  );
+}
+
+function ProviderOption({
+  active,
+  disabled,
+  onClick,
+  label,
+  icon,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
+        "disabled:pointer-events-none disabled:opacity-50",
+        active
+          ? "border border-border bg-card text-foreground shadow-sm"
+          : "border border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

@@ -463,6 +463,7 @@ export function EnvVarsTable({
                 vars={vars}
                 scope={scope}
                 onUpsert={onUpsert}
+                onReveal={onReveal}
                 readOnly={readOnly}
               />
               <EnvVarProviderSlots

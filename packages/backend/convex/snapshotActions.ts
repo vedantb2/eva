@@ -1470,21 +1470,28 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
     });
     let deletedCount = 0;
     let skippedCount = 0;
-    for await (const snap of listed) {
-      if (protectedIds.has(snap.snapshotId)) {
+    // list() yields plain metadata (`id`, no .delete()) — re-hydrate to delete.
+    for await (const meta of listed) {
+      if (protectedIds.has(meta.id)) {
         skippedCount += 1;
         continue;
       }
-      if (String(snap.status) === "deleted") {
+      if (String(meta.status) === "deleted") {
         skippedCount += 1;
         continue;
       }
       try {
+        const snap = await Snapshot.get({
+          token: credentials.token,
+          teamId: credentials.teamId,
+          projectId: credentials.projectId,
+          snapshotId: meta.id,
+        });
         await snap.delete();
         deletedCount += 1;
       } catch (error) {
         console.warn(
-          `[snapshot] purgeUnreferencedVercelSnapshots: failed ${snap.snapshotId}: ${
+          `[snapshot] purgeUnreferencedVercelSnapshots: failed ${meta.id}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );

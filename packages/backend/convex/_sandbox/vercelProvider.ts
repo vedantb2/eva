@@ -800,20 +800,25 @@ class VercelSandboxHandle implements SandboxHandle {
     preserveSnapshotIds: ReadonlySet<string>,
   ): Promise<number> {
     const { Snapshot } = await import("@vercel/sandbox");
+    // list() yields plain metadata (`id`, no .delete()) — re-hydrate to delete.
     const listed = await Snapshot.list({
       ...this.creds,
       name: sandboxName,
     });
     let deleted = 0;
-    for await (const snap of listed) {
-      if (preserveSnapshotIds.has(snap.snapshotId)) continue;
-      if (String(snap.status) === "deleted") continue;
+    for await (const meta of listed) {
+      if (preserveSnapshotIds.has(meta.id)) continue;
+      if (String(meta.status) === "deleted") continue;
       try {
+        const snap = await Snapshot.get({
+          ...this.creds,
+          snapshotId: meta.id,
+        });
         await snap.delete();
         deleted += 1;
       } catch (error) {
         console.warn(
-          `[vercel] snapshot.delete failed sandbox=${sandboxName} snapshotId=${snap.snapshotId}: ${
+          `[vercel] snapshot.delete failed sandbox=${sandboxName} snapshotId=${meta.id}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );

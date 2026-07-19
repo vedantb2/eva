@@ -10,6 +10,7 @@ import {
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
 import { cancelTrackedWorkflow } from "../workflowManager";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
+import { resolveSandboxRepoId } from "../_githubRepos/helpers";
 
 /** Loads a run and its automation, throwing unless the user can access the repo. */
 async function loadRunWithAccess(
@@ -104,6 +105,8 @@ export const getAutomationData = internalQuery({
       repoName: v.string(),
       rootDirectory: v.string(),
       defaultBaseBranch: v.optional(v.string()),
+      /** App row used for sandbox credentials (VERCEL_PROJECT_ID lives here). */
+      sandboxRepoId: v.id("githubRepos"),
     }),
     v.null(),
   ),
@@ -115,6 +118,7 @@ export const getAutomationData = internalQuery({
       repoName: repo.name,
       rootDirectory: repo.rootDirectory ?? "",
       defaultBaseBranch: repo.defaultBaseBranch,
+      sandboxRepoId: await resolveSandboxRepoId(ctx.db, args.repoId),
     };
   },
 });

@@ -34,6 +34,8 @@ export const automationExecutionWorkflow = workflow.define({
     let sandboxId: string | undefined;
     let vercelSandboxId: string | undefined;
     let completionPrUrl: string | null = null;
+    // App-row credentials for Vercel; defaults to automation repo until resolved.
+    let sandboxRepoId = args.repoId;
     const isReadOnly = args.readOnly === true;
     const isActionable = isReadOnly && args.actionsEnabled === true;
 
@@ -48,6 +50,9 @@ export const automationExecutionWorkflow = workflow.define({
         repoId: args.repoId,
       });
       if (!data) throw new Error("Automation data not found");
+      // Shared automations live on the monorepo root; Vercel credentials live on
+      // app rows. Use sandboxRepoId for create/launch/delete/push only.
+      sandboxRepoId = data.sandboxRepoId;
 
       const prompt = isActionable
         ? buildActionableReportPrompt(
@@ -75,7 +80,7 @@ export const automationExecutionWorkflow = workflow.define({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
         ephemeral: true,
-        repoId: args.repoId,
+        repoId: sandboxRepoId,
         streamingEntityId,
         baseBranch: data.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         branchName: isReadOnly ? undefined : args.branchName,
@@ -102,7 +107,7 @@ export const automationExecutionWorkflow = workflow.define({
         allowedTools: isReadOnly
           ? "Read,Bash,Glob,Grep"
           : "Read,Write,Edit,Bash,Glob,Grep",
-        repoId: args.repoId,
+        repoId: sandboxRepoId,
         streamingEntityId,
         runId: String(args.runId),
         requireTaskCommit: !isReadOnly,
@@ -116,7 +121,7 @@ export const automationExecutionWorkflow = workflow.define({
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
-          repoId: args.repoId,
+          repoId: sandboxRepoId,
           branchName: args.branchName,
         });
 
@@ -177,7 +182,7 @@ export const automationExecutionWorkflow = workflow.define({
       if (sandboxId) {
         await step.runAction(internal.daytona.deleteSandbox, {
           sandboxId,
-          repoId: args.repoId,
+          repoId: sandboxRepoId,
         });
       }
     } catch (error) {
@@ -193,7 +198,7 @@ export const automationExecutionWorkflow = workflow.define({
         try {
           await step.runAction(internal.daytona.deleteSandbox, {
             sandboxId,
-            repoId: args.repoId,
+            repoId: sandboxRepoId,
           });
         } catch (cleanupError) {
           console.error("Failed to cleanup sandbox:", cleanupError);

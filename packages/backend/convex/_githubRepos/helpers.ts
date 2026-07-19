@@ -93,6 +93,54 @@ export async function findAllSiblingRepoIds(
   return siblings.map((s) => s._id);
 }
 
+/**
+ * Picks which githubRepos row to use for sandbox credentials.
+ * Prefers the default visible app when it has VERCEL_PROJECT_ID; otherwise any
+ * sibling (or the workflow repo itself) that defines that key. Falls back to
+ * the workflow repo for Daytona / single-app codebases.
+ *
+ * Shared automations and PR recaps often run against the monorepo root, which
+ * has no VERCEL_PROJECT_ID — credentials live on app rows.
+ */
+export async function resolveSandboxRepoId(
+  db: GenericDatabaseReader<DataModel>,
+  workflowRepoId: Id<"githubRepos">,
+  siblings?: Array<Doc<"githubRepos">>,
+): Promise<Id<"githubRepos">> {
+  const siblingRepos = siblings ?? (await findSiblingRepos(db, workflowRepoId));
+
+  async function hasVercelProjectId(
+    repoId: Id<"githubRepos">,
+  ): Promise<boolean> {
+    const envDoc = await db
+      .query("repoEnvVars")
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+      .first();
+    return (
+      envDoc?.vars.some((entry) => entry.key === "VERCEL_PROJECT_ID") === true
+    );
+  }
+
+  const preferred = pickDefaultVisibleAppRepo(siblingRepos);
+  if (preferred && (await hasVercelProjectId(preferred._id))) {
+    return preferred._id;
+  }
+
+  for (const sibling of siblingRepos) {
+    if (sibling._id === workflowRepoId) continue;
+    if (sibling.rootDirectory === undefined) continue;
+    if (await hasVercelProjectId(sibling._id)) {
+      return sibling._id;
+    }
+  }
+
+  if (await hasVercelProjectId(workflowRepoId)) {
+    return workflowRepoId;
+  }
+
+  return preferred?._id ?? workflowRepoId;
+}
+
 /** Validator for the full githubRepos document shape including system fields. */
 export const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),

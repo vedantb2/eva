@@ -28,6 +28,7 @@ import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
   type SandboxTab,
+  type TaskRouteSandboxTab,
 } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";

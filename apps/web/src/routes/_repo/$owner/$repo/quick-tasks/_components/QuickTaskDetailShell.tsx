@@ -97,7 +97,14 @@ export function QuickTaskDetailShell({
         fillHeight
         childPadding={false}
       >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
+        {/* Detail keeps page gutters; sandbox is flush like sessions/projects. */}
+        <div
+          className={
+            navSurface === "detail"
+              ? "relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0"
+              : "relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
+          }
+        >
           <div
             className={
               navSurface === "detail"

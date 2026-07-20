@@ -1,5 +1,19 @@
 # Changelog
 
+## Fix empty proof captures (retry + longer cap) - 2026-07-20
+
+- Proof max runtime raised from 10m → 30m; empty media message is now "Eva decided not to capture."
+- Uses the repo Proof Capture Model from settings (e.g. cursor:grok); retries once with a hard capture prompt if the first turn left no file.
+- Proof activity is stored on the run (`type: "proof"`) so empty captures are debuggable.
+- Reason for change: carepulse PRs #1916–#1918 burned the old 10m proof budget and attached no media despite real UI changes.
+
+## Harden proof capture runtime + fallback copy - 2026-07-20
+
+- Empty proof media now records "No proof media captured" (not "No UI changes"); the uploader also scans `rootDirectory/recordings|screenshots`.
+- Before the proof agent, the platform revives dead background daemons (Convex) and starts the app so captures are not error pages from undeployed functions.
+- Proof prompt uses the repo's real `devPort`/`devCommand`, requires captures under `/tmp/repo/...`, and mandates re-capture when Convex/runtime errors appear.
+- Reason for change: PRs like carepulse #1910 labeled UI work as "No UI changes", and some proofs were screenshots of Convex errors because the backend was cold.
+
 ## Purge Vercel snap\_\* on ephemeral sandbox delete - 2026-07-19
 
 - `sandbox.delete()` now lists and deletes snap\_\* for that sandbox name (SDK cascade was leaving never-expiring storage that bills Snapshot Storage).

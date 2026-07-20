@@ -12,7 +12,11 @@ import {
   auditCompleteEvent,
   proofCompleteEvent,
 } from "./events";
-import { buildAuditPrompt, buildProofPrompt } from "./prompts";
+import {
+  buildAuditPrompt,
+  buildProofPrompt,
+  buildProofRetryPrompt,
+} from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -201,15 +205,28 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      // Proof capture runs after push so PR enrichment can include media, and
-      // uses proofModel (not the implementation model). Soft-fail like audit.
+      // Proof capture runs after push so PR enrichment can include media,
+      // and uses repo.proofModel (falls back to the task model). Soft-fail
+      // like audit. Retry once if the first turn left no media file.
       if (
         finalSuccess &&
         sandboxId &&
         data.screenshotsVideosEnabled &&
         args.mode !== "resolve_conflicts"
       ) {
+        const proofModel = data.proofModel ?? args.model;
+        const proofRuntime = {
+          devPort: data.devPort,
+          devCommand: data.devCommand,
+        };
         try {
+          // Revive Convex/etc. + start the app so proof does not screenshot
+          // "function not found" / connection errors from a cold backend.
+          await step.runAction(internal.daytona.prepareProofSandbox, {
+            sandboxId,
+            repoId: args.repoId,
+            taskId: args.taskId,
+          });
           await step.runAction(internal.daytona.launchProof, {
             sandboxId,
             prompt: buildProofPrompt(
@@ -219,18 +236,63 @@ export const taskExecutionWorkflow = workflow.define({
               },
               data.rootDirectory,
               completionResult,
+              undefined,
+              proofRuntime,
             ),
             taskId: String(args.taskId),
             runId: args.runId,
             userId: args.userId,
             repoId: args.repoId,
-            model: data.proofModel ?? args.model,
+            model: proofModel,
+            rootDirectory: data.rootDirectory,
           });
           const proofResult = await step.awaitEvent(proofCompleteEvent);
           if (!proofResult.success) {
             console.error(
               `[task-workflow] run=${args.runId} proof step failed: ${proofResult.error ?? "unknown"}`,
             );
+          }
+
+          const hasMedia = await step.runQuery(
+            internal.taskProof.hasMediaForRun,
+            { taskId: args.taskId, runId: args.runId },
+          );
+          if (!hasMedia) {
+            console.error(
+              `[task-workflow] run=${args.runId} proof left no media; retrying once with hard capture prompt`,
+            );
+            await step.runMutation(
+              internal.taskProof.clearMessageProofsForRun,
+              { taskId: args.taskId, runId: args.runId },
+            );
+            await step.runAction(internal.daytona.prepareProofSandbox, {
+              sandboxId,
+              repoId: args.repoId,
+              taskId: args.taskId,
+            });
+            await step.runAction(internal.daytona.launchProof, {
+              sandboxId,
+              prompt: buildProofRetryPrompt(
+                {
+                  title: data.taskTitle,
+                  description: data.taskDescription,
+                },
+                data.rootDirectory,
+                proofRuntime,
+              ),
+              taskId: String(args.taskId),
+              runId: args.runId,
+              userId: args.userId,
+              repoId: args.repoId,
+              model: proofModel,
+              rootDirectory: data.rootDirectory,
+            });
+            const retryResult = await step.awaitEvent(proofCompleteEvent);
+            if (!retryResult.success) {
+              console.error(
+                `[task-workflow] run=${args.runId} proof retry failed: ${retryResult.error ?? "unknown"}`,
+              );
+            }
           }
         } catch (proofError) {
           console.error(

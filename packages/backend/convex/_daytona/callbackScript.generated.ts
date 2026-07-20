@@ -20,6 +20,7 @@ var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
+var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
@@ -1197,6 +1198,27 @@ function codexItemToStep(item) {
   };
 }
 
+// callback-src/runtime/proofMedia.ts
+var PROOF_NO_MEDIA_MESSAGE = "Eva decided not to capture.";
+function proofMediaCandidateRoots(workDir, rootDirectory) {
+  const roots = [workDir];
+  const trimmed = rootDirectory?.trim() ?? "";
+  if (trimmed.length > 0 && trimmed !== "." && !trimmed.startsWith("/") && !trimmed.includes("..")) {
+    const appRoot = \`\${workDir}/\${trimmed.replace(/\\/+\$/, "")}\`;
+    if (appRoot !== workDir) {
+      roots.push(appRoot);
+    }
+  }
+  return roots;
+}
+function proofMediaSearchDirs(workDir, rootDirectory) {
+  const roots = proofMediaCandidateRoots(workDir, rootDirectory);
+  return {
+    recordings: roots.map((root) => \`\${root}/recordings\`),
+    screenshots: roots.map((root) => \`\${root}/screenshots\`)
+  };
+}
+
 // callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
@@ -1571,7 +1593,7 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
     const messageArgs = {
       taskId: ENTITY_ID ?? "",
-      message: "No UI changes"
+      message: PROOF_NO_MEDIA_MESSAGE
     };
     if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
@@ -1587,8 +1609,12 @@ async function uploadAndAttachSandboxMedia() {
   let videoStorageId = null;
   let imageStorageId = null;
   let lastFileName = null;
-  const recDir = WORK_DIR + "/recordings";
-  if (existsSync3(recDir)) {
+  const { recordings, screenshots } = proofMediaSearchDirs(
+    WORK_DIR,
+    ROOT_DIRECTORY
+  );
+  for (const recDir of recordings) {
+    if (!existsSync3(recDir)) continue;
     for (const file of readdirSync2(recDir)) {
       if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
       const fp = recDir + "/" + file;
@@ -1603,21 +1629,22 @@ async function uploadAndAttachSandboxMedia() {
       } catch {
       }
     }
+    if (videoStorageId) break;
   }
   if (!videoStorageId) {
-    const ssDir = WORK_DIR + "/screenshots";
-    if (existsSync3(ssDir)) {
+    const mimeMap = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp"
+    };
+    for (const ssDir of screenshots) {
+      if (!existsSync3(ssDir)) continue;
       for (const file of readdirSync2(ssDir)) {
         if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
         const fp = ssDir + "/" + file;
         const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-        const mimeMap = {
-          png: "image/png",
-          jpg: "image/jpeg",
-          jpeg: "image/jpeg",
-          gif: "image/gif",
-          webp: "image/webp"
-        };
         const mimeType = mimeMap[ext] || "image/png";
         try {
           imageStorageId = await uploadMediaFile(fp, mimeType);
@@ -1629,6 +1656,7 @@ async function uploadAndAttachSandboxMedia() {
         } catch {
         }
       }
+      if (imageStorageId) break;
     }
   }
   try {

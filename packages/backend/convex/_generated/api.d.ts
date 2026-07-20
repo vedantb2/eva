@@ -62,6 +62,7 @@ import type * as _docEditor_markdown from "../_docEditor/markdown.js";
 import type * as _drafts_helpers from "../_drafts/helpers.js";
 import type * as _drafts_mutations from "../_drafts/mutations.js";
 import type * as _drafts_queries from "../_drafts/queries.js";
+import type * as _envVars_listDisplay from "../_envVars/listDisplay.js";
 import type * as _githubRepos_helpers from "../_githubRepos/helpers.js";
 import type * as _githubRepos_mutations from "../_githubRepos/mutations.js";
 import type * as _githubRepos_queries from "../_githubRepos/queries.js";
@@ -341,6 +342,7 @@ declare const fullApi: ApiFromModules<{
   "_drafts/helpers": typeof _drafts_helpers;
   "_drafts/mutations": typeof _drafts_mutations;
   "_drafts/queries": typeof _drafts_queries;
+  "_envVars/listDisplay": typeof _envVars_listDisplay;
   "_githubRepos/helpers": typeof _githubRepos_helpers;
   "_githubRepos/mutations": typeof _githubRepos_mutations;
   "_githubRepos/queries": typeof _githubRepos_queries;

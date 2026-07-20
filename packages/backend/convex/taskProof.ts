@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { authMutation, authQuery, hasTaskAccess } from "./functions";
 
 /** Generates a temporary upload URL for storing proof files. */
@@ -91,6 +92,47 @@ export const listByTask = authQuery({
         };
       }),
     );
+  },
+});
+
+/** True when this run already has at least one file-based proof (not a text stub). */
+export const hasMediaForRun = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const proofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    return proofs.some(
+      (p) => p.runId === args.runId && p.storageId !== undefined,
+    );
+  },
+});
+
+/** Clears text-only proof stubs for a run before a capture retry. */
+export const clearMessageProofsForRun = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const proofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    let removed = 0;
+    for (const proof of proofs) {
+      if (proof.runId !== args.runId) continue;
+      if (proof.storageId !== undefined) continue;
+      await ctx.db.delete(proof._id);
+      removed += 1;
+    }
+    return removed;
   },
 });
 

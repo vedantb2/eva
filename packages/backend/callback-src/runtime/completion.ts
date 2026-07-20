@@ -3,6 +3,7 @@ import {
   ENTITY_ID,
   ENTITY_ID_FIELD,
   PROVIDER,
+  ROOT_DIRECTORY,
   RUN_ID,
   SCRIPT_STARTED_AT,
   TASK_PROOF_CAPTURE_ENABLED,
@@ -21,6 +22,10 @@ import {
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
+import {
+  PROOF_NO_MEDIA_MESSAGE,
+  proofMediaSearchDirs,
+} from "../runtime/proofMedia.js";
 import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
@@ -549,7 +554,7 @@ export async function persistTaskProofIfNeeded(
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
     const messageArgs: JsonObject = {
       taskId: ENTITY_ID ?? "",
-      message: "No UI changes",
+      message: PROOF_NO_MEDIA_MESSAGE,
     };
     if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
@@ -562,10 +567,11 @@ export async function persistTaskProofIfNeeded(
 }
 
 /**
- * Scans sandbox `recordings/` then `screenshots/`, uploads the newest media,
- * and attaches it to the last session message (or task proof). Shared by the
- * one-shot callback and the Claude sdk-daemon finalize path — daemon turns
- * previously skipped this, so chat never showed agent recordings.
+ * Scans sandbox `recordings/` then `screenshots/` under the repo root and the
+ * app rootDirectory, uploads the newest media, and attaches it to the last
+ * session message (or task proof). Shared by the one-shot callback and the
+ * Claude sdk-daemon finalize path — daemon turns previously skipped this, so
+ * chat never showed agent recordings.
  *
  * Prefer calling after the completion mutation so `screenshots:attachMedia`
  * patches the assistant message that was just written.
@@ -577,8 +583,13 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
   let imageStorageId: string | null = null;
   let lastFileName: string | null = null;
 
-  const recDir = WORK_DIR + "/recordings";
-  if (existsSync(recDir)) {
+  const { recordings, screenshots } = proofMediaSearchDirs(
+    WORK_DIR,
+    ROOT_DIRECTORY,
+  );
+
+  for (const recDir of recordings) {
+    if (!existsSync(recDir)) continue;
     for (const file of readdirSync(recDir)) {
       if (!/\.(webm|mp4|mov|avi)$/i.test(file)) continue;
       const fp = recDir + "/" + file;
@@ -595,22 +606,23 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
         /* ignore */
       }
     }
+    if (videoStorageId) break;
   }
 
   if (!videoStorageId) {
-    const ssDir = WORK_DIR + "/screenshots";
-    if (existsSync(ssDir)) {
+    const mimeMap: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+    };
+    for (const ssDir of screenshots) {
+      if (!existsSync(ssDir)) continue;
       for (const file of readdirSync(ssDir)) {
         if (!/\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
         const fp = ssDir + "/" + file;
         const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-        const mimeMap: Record<string, string> = {
-          png: "image/png",
-          jpg: "image/jpeg",
-          jpeg: "image/jpeg",
-          gif: "image/gif",
-          webp: "image/webp",
-        };
         const mimeType = mimeMap[ext] || "image/png";
         try {
           imageStorageId = await uploadMediaFile(fp, mimeType);
@@ -624,6 +636,7 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
           /* ignore */
         }
       }
+      if (imageStorageId) break;
     }
   }
 

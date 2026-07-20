@@ -279,6 +279,11 @@ export const runBackgroundCommands = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    /**
+     * When true, skip daemons whose `/tmp/bg-<i>.pid` is still alive.
+     * Used before proof capture so we do not double-start Convex.
+     */
+    onlyRestartDead: v.optional(v.boolean()),
   },
   returns: v.object({
     ran: v.boolean(),
@@ -301,12 +306,28 @@ export const runBackgroundCommands = internalAction({
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
-      `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)`,
+      `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)${args.onlyRestartDead ? " (onlyRestartDead)" : ""}`,
     );
 
     const errors: string[] = [];
+    let launched = 0;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
+      if (args.onlyRestartDead) {
+        const alive = (
+          await execHandle(
+            sandbox,
+            `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
+            5,
+          )
+        ).trim();
+        if (alive === "alive") {
+          console.log(
+            `[daytona] runBackgroundCommands: still alive, skip: ${command}`,
+          );
+          continue;
+        }
+      }
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
       // Write the command to a script file and launch THAT, rather than
@@ -329,6 +350,7 @@ export const runBackgroundCommands = internalAction({
       try {
         // Short timeout — we only wait for the shell to fork the daemon.
         await execHandle(sandbox, launchCmd, 10);
+        launched += 1;
       } catch (e) {
         const msg = errorMessage(e, "command failed");
         console.error(
@@ -339,7 +361,11 @@ export const runBackgroundCommands = internalAction({
       }
     }
 
-    return { ran: true, commandCount: commands.length, errors };
+    return {
+      ran: launched > 0 || !args.onlyRestartDead,
+      commandCount: launched,
+      errors,
+    };
   },
 });
 

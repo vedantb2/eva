@@ -3,9 +3,11 @@ export const SNAPSHOT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Safety-net TTL if an ephemeral sandbox ever produces a snap_* (should not —
- * persistent:false skips auto-snapshot). Short so leaked storage self-heals.
+ * persistent:false skips auto-snapshot). Vercel rejects values between 0 and
+ * 1 day (`snapshotExpiration` must be 0 or >= 86400000); use the minimum
+ * non-zero TTL so leaked storage still expires instead of inheriting forever.
  */
-export const EPHEMERAL_SNAPSHOT_TTL_MS = 60 * 60 * 1000;
+export const EPHEMERAL_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Cap auto-snapshots (on stop) and explicit `snapshot()` calls to one per

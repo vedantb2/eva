@@ -19,6 +19,7 @@ import {
   getTaskRunStreamingEntityId,
   recordCompletionLog,
   sendCompletionEvent,
+  upsertActivityLog,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -277,6 +278,10 @@ export const handleProofCompletion = authMutation({
         `[taskWorkflow] handleProofCompletion: workflow.sendEvent failed task=${String(args.taskId)} runId=${String(args.runId)}: ${detail}`,
       );
       throw new Error(`Failed to deliver proof completion event: ${detail}`);
+    }
+
+    if (args.activityLog) {
+      await upsertActivityLog(ctx, args.runId, args.activityLog, "proof");
     }
 
     const task = await ctx.db.get(args.taskId);

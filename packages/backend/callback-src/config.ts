@@ -10,6 +10,8 @@ export const RUN_ID = process.env.RUN_ID || null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 export const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
+/** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */
+export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 export const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 export const REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 export const PROVIDER = process.env.AI_PROVIDER || "claude";

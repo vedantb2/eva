@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Message as AIMessage,
   MessageContent,
@@ -9,8 +7,6 @@ import {
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
 import { motion } from "motion/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
@@ -24,24 +20,32 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { UserAttachmentImages } from "@/lib/components/chat/imageAttachments";
-import {
-  ChangedFilesCard,
-  collectChangedFiles,
-} from "@/lib/components/chat/ChangedFilesCard";
+import { ChangedFilesCard } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import type {
   ParsedQuestion,
   ChatBodyMessage,
 } from "@/lib/components/chat/chatBodyUtils";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { getAssistantTurnState } from "@/lib/components/chat/chatBodyUtils";
 
 const EVA_ICON = <EvaIcon />;
+
+/** Matches `.rounded-surface`, but squares the avatar-side corner (iMessage). */
+function userBubbleRadius(isOtherUser: boolean): string {
+  const r = "clamp(0.75rem, var(--radius), 1.25rem)";
+  // CSS order: top-left, top-right, bottom-right, bottom-left
+  return isOtherUser ? `${r} ${r} ${r} 0` : `${r} ${r} 0 ${r}`;
+}
 
 interface ChatMessageProps {
   message: ChatBodyMessage;
   repoBasePath: string;
   isLast: boolean;
+  /** True when this user turn belongs to a teammate (left-aligned). */
+  isOtherUser?: boolean;
+  /** First name shown above teammate bubbles. */
+  senderFirstName?: string;
   streamingActivity?: string;
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
@@ -57,6 +61,8 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   repoBasePath,
   isLast,
+  isOtherUser = false,
+  senderFirstName,
   streamingActivity,
   streamingContent,
   blockingQuestions,
@@ -67,26 +73,6 @@ export const ChatMessage = memo(function ChatMessage({
   onOpenFile,
   onViewDiff,
 }: ChatMessageProps) {
-  const currentUserId = useQuery(api.auth.me);
-
-  // Only your own user turns stay right-aligned; teammates sit on the left
-  // (same bubble style). Missing userId / auth still loading → treat as own.
-  const isOtherUserMessage =
-    !message.isSystemAlert &&
-    message.role === "user" &&
-    message.userId !== undefined &&
-    currentUserId !== undefined &&
-    message.userId !== currentUserId;
-
-  const otherUser = useQuery(
-    api.users.get,
-    isOtherUserMessage && message.userId ? { id: message.userId } : "skip",
-  );
-  const otherUserFirstName =
-    otherUser?.firstName?.trim() ||
-    otherUser?.fullName?.trim().split(" ")[0] ||
-    null;
-
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
@@ -98,17 +84,8 @@ export const ChatMessage = memo(function ChatMessage({
     );
   }
 
-  const isStreamingPlaceholder =
-    message.role === "assistant" &&
-    !message.content &&
-    message.finishedAt === undefined;
-  const showQuestions = isStreamingPlaceholder || isLast;
-  const changedFiles =
-    !isStreamingPlaceholder &&
-    message.role === "assistant" &&
-    message.activityLog
-      ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
-      : [];
+  const { isStreamingPlaceholder, showQuestions, changedFiles } =
+    getAssistantTurnState(message, isLast);
 
   return (
     <motion.div
@@ -121,12 +98,12 @@ export const ChatMessage = memo(function ChatMessage({
       <AIMessage
         from={message.role}
         className={
-          isOtherUserMessage ? "ml-0 mr-auto justify-start" : undefined
+          isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
         }
       >
-        {isOtherUserMessage && otherUserFirstName ? (
-          <span className="px-1 text-[11px] font-medium leading-none text-muted-foreground">
-            {otherUserFirstName}
+        {isOtherUser && senderFirstName ? (
+          <span className="px-1 text-[11px] font-medium text-muted-foreground">
+            {senderFirstName}
           </span>
         ) : null}
         <MessageContent
@@ -134,20 +111,13 @@ export const ChatMessage = memo(function ChatMessage({
             message.role === "user"
               ? cn(
                   "group bg-secondary px-4 py-3 text-foreground",
-                  isOtherUserMessage && "group-[.is-user]:ml-0",
+                  isOtherUser && "group-[.is-user]:ml-0",
                 )
               : "px-1 py-2"
           }
           style={
             message.role === "user"
-              ? {
-                  // Match `.rounded-surface`, but square the avatar-side corner
-                  // (iMessage-style). Inline so it wins over group rounded-surface.
-                  // CSS order: top-left, top-right, bottom-right, bottom-left
-                  borderRadius: isOtherUserMessage
-                    ? "clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) 0"
-                    : "clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) 0 clamp(0.75rem, var(--radius), 1.25rem)",
-                }
+              ? { borderRadius: userBubbleRadius(isOtherUser) }
               : undefined
           }
         >
@@ -256,14 +226,10 @@ export const ChatMessage = memo(function ChatMessage({
           <div
             className={cn(
               "mt-0.5 flex items-center gap-2",
-              isOtherUserMessage
-                ? "mr-auto justify-start"
-                : "ml-auto justify-end",
+              isOtherUser ? "mr-auto justify-start" : "ml-auto justify-end",
             )}
           >
-            {isOtherUserMessage ? (
-              <UserMessageAvatar userId={message.userId} />
-            ) : null}
+            {isOtherUser ? <UserMessageAvatar userId={message.userId} /> : null}
             <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
               {message.content ? (
                 <ChatMessageActions
@@ -295,9 +261,7 @@ export const ChatMessage = memo(function ChatMessage({
                 </span>
               )}
             </div>
-            {isOtherUserMessage ? null : (
-              <UserMessageAvatar userId={message.userId} />
-            )}
+            {isOtherUser ? null : <UserMessageAvatar userId={message.userId} />}
           </div>
         )}
       </AIMessage>

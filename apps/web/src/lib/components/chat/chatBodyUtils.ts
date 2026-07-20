@@ -1,6 +1,11 @@
-import { type Doc } from "@conductor/backend";
+import { type Doc, type Id } from "@conductor/backend";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
+import {
+  collectChangedFiles,
+  type ChangedFile,
+} from "@/lib/components/chat/ChangedFilesCard";
 import { z } from "zod";
 
 export type ChatBodyMessage = Doc<"messages"> & {
@@ -39,6 +44,54 @@ export function parsePendingQuestion(
   } catch {
     return null;
   }
+}
+
+/** First name for chat labels; falls back to the first word of full name. */
+export function firstNameFromUser(user: {
+  firstName?: string | null;
+  fullName?: string | null;
+}): string | null {
+  return user.firstName?.trim() || user.fullName?.trim().split(" ")[0] || null;
+}
+
+/** Teammate user turn (not yours). Missing ids → treat as own to avoid layout flash. */
+export function isOtherUserChatMessage(
+  message: ChatBodyMessage,
+  currentUserId: Id<"users"> | undefined,
+): boolean {
+  return (
+    !message.isSystemAlert &&
+    message.role === "user" &&
+    message.userId !== undefined &&
+    currentUserId !== undefined &&
+    message.userId !== currentUserId
+  );
+}
+
+/** Streaming / questions / changed-files flags for an assistant row. */
+export function getAssistantTurnState(
+  message: ChatBodyMessage,
+  isLast: boolean,
+): {
+  isStreamingPlaceholder: boolean;
+  showQuestions: boolean;
+  changedFiles: ChangedFile[];
+} {
+  const isStreamingPlaceholder =
+    message.role === "assistant" &&
+    !message.content &&
+    message.finishedAt === undefined;
+  const changedFiles =
+    !isStreamingPlaceholder &&
+    message.role === "assistant" &&
+    message.activityLog
+      ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
+      : [];
+  return {
+    isStreamingPlaceholder,
+    showQuestions: isStreamingPlaceholder || isLast,
+    changedFiles,
+  };
 }
 
 /** Previously sent user messages as editable display text, newest-first. */

@@ -11,7 +11,9 @@ import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
+  api,
   type AIModel,
   type Id,
   type StoredModelTraits,
@@ -22,6 +24,8 @@ import {
   buildJumpRailTicks,
   buildMessageHistory,
   findLastUserMessageIndex,
+  firstNameFromUser,
+  isOtherUserChatMessage,
   parsePendingQuestion,
   type ChatBodyMessage,
   type ChatBodyQueuedMessage,
@@ -215,12 +219,28 @@ export function ChatBody({
     [messages],
   );
 
+  const currentUserId = useQuery(api.auth.me);
+  const users = useQuery(api.users.listAll);
+  const firstNameByUserId = useMemo(() => {
+    const map = new Map<Id<"users">, string>();
+    for (const user of users ?? []) {
+      const name = firstNameFromUser(user);
+      if (name) map.set(user._id, name);
+    }
+    return map;
+  }, [users]);
+
   const renderMessage = (message: ChatBodyMessage) => {
     const isLast = message._id === lastMessageId;
     const isStreamingPlaceholder =
       message.role === "assistant" &&
       !message.content &&
       message.finishedAt === undefined;
+    const isOtherUser = isOtherUserChatMessage(message, currentUserId);
+    const senderFirstName =
+      isOtherUser && message.userId
+        ? firstNameByUserId.get(message.userId)
+        : undefined;
 
     return (
       <ChatMessage
@@ -228,6 +248,8 @@ export function ChatBody({
         message={message}
         repoBasePath={repoBasePath}
         isLast={isLast}
+        isOtherUser={isOtherUser}
+        senderFirstName={senderFirstName}
         streamingActivity={
           isStreamingPlaceholder ? streamingActivity : undefined
         }

@@ -25,11 +25,11 @@ import {
   IconChevronDown,
   IconCalendarClock,
   IconDots,
-  IconLink,
   IconRefresh,
   IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -171,19 +171,6 @@ export function TaskFooter({
               : "flex flex-wrap items-center gap-1.5 sm:gap-2"
           }
         >
-          {isHeader ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size={buttonSize}
-              onClick={() => {
-                void navigator.clipboard.writeText(window.location.href);
-              }}
-            >
-              <IconLink size={iconSize} />
-              <span className="hidden sm:inline">Copy link</span>
-            </Button>
-          ) : null}
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -283,6 +270,7 @@ export function TaskFooter({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {isHeader ? <CopyLinkButton iconSize={iconSize} /> : null}
           {latestPrUrl ? (
             <Button asChild variant="secondary" size={buttonSize}>
               <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">

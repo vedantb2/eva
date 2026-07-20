@@ -33,6 +33,7 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
+import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 import {
@@ -408,6 +409,7 @@ export function ProjectDetailClient({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              <CopyLinkButton />
               {project.prUrl && (
                 <Button variant="secondary" size="sm" asChild>
                   <a

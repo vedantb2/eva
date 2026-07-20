@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
@@ -143,6 +144,10 @@ export function SessionChatHeader({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <CopyLinkButton
+        iconSize={14}
+        className="motion-press hover:scale-[1.01] active:scale-[0.96]"
+      />
       {onToggleSandbox && (
         <Button
           size="icon"

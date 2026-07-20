@@ -1,5 +1,11 @@
 # Changelog
 
+## Flat activity timeline with shared rail - 2026-07-20
+
+- Run rows (success / made changes / running / error / queued) drop the muted card; proof and nested audit sit as sibling events under the run, not indented inside it.
+- Contiguous non-comment activity shares a vertical rail through icon centers; comment cards stay off the rail with the avatar inside the card.
+- Reason for change: activity felt like stacked cards instead of a readable event timeline.
+
 ## Quick task detail: sections, copy link, activity coalesce - 2026-07-20
 
 - Sidebar fields split into Properties / Labels / Project; page content capped at `max-w-7xl` and centered; hairline divider above Activity.

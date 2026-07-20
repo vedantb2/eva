@@ -5,15 +5,14 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import {
-  IconChecklist,
   IconChevronRight,
   IconGitPullRequest,
   IconPercentage,
-  IconUsers,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 import { StatsIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import { OnlineTeamAvatars } from "@/lib/components/sidebar/TeamMembers";
 
 type RepoDoc = FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>;
 
@@ -24,26 +23,20 @@ interface RepoStatsSummaryProps {
 }
 
 /**
- * Compact all-time repo stats at the foot of the sidebar. Replaces the old
- * full-page repo home so the headline numbers stay glanceable while the main
- * pane is free for work; the block links through to the full Stats page.
+ * Compact sidebar footer: PRs + cook rate (link to Stats) with online teammates
+ * in the space that used to show cookers/tasks counts.
  */
 export function RepoStatsSummary({
   repo,
   repoBasePath,
   collapsed,
 }: RepoStatsSummaryProps) {
-  // All-time figures keep the summary self-contained (no range picker).
   const impactStats = useQuery(
     api.analytics.getImpactStats,
     repo ? { repoId: repo._id } : "skip",
   );
-  const activeUsers = useQuery(
-    api.analytics.getActiveUsers,
-    repo ? { repoId: repo._id } : "skip",
-  );
 
-  if (!repo || impactStats === undefined || activeUsers === undefined) {
+  if (!repo || impactStats === undefined) {
     return null;
   }
 
@@ -57,12 +50,6 @@ export function RepoStatsSummary({
       icon: IconPercentage,
       label: "Cook rate",
       value: `${impactStats.shipRate}%`,
-    },
-    { icon: IconUsers, label: "Cookers now", value: activeUsers.count },
-    {
-      icon: IconChecklist,
-      label: "Tasks done",
-      value: impactStats.tasksCompleted,
     },
   ];
 
@@ -87,42 +74,44 @@ export function RepoStatsSummary({
             <TooltipContent side="right">{item.label}</TooltipContent>
           </Tooltip>
         ))}
+        <OnlineTeamAvatars collapsed />
       </div>
     );
   }
 
   return (
-    <Link
-      to={statsHref}
-      className={cn(
-        "ui-surface block p-2.5 transition-colors hover:bg-muted/40",
-      )}
-    >
-      <div className="mb-2 flex items-center gap-1.5">
-        <StatsIcon size={14} className="text-primary" />
-        <span className="text-xs font-medium text-sidebar-foreground">
-          Stats
-        </span>
-        <IconChevronRight
-          size={14}
-          className="ml-auto shrink-0 text-muted-foreground"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <item.icon size={15} className="shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
-                {item.value}
-              </p>
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                {item.label}
-              </p>
+    <div className={cn("ui-surface p-2.5")}>
+      <Link
+        to={statsHref}
+        className="block rounded-md transition-colors hover:bg-muted/40 -m-1 p-1"
+      >
+        <div className="mb-2 flex items-center gap-1.5">
+          <StatsIcon size={14} className="text-primary" />
+          <span className="text-xs font-medium text-sidebar-foreground">
+            Stats
+          </span>
+          <IconChevronRight
+            size={14}
+            className="ml-auto shrink-0 text-muted-foreground"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {items.map((item) => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <item.icon size={15} className="shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
+                  {item.value}
+                </p>
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                  {item.label}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </Link>
+          ))}
+        </div>
+      </Link>
+      <OnlineTeamAvatars collapsed={false} />
+    </div>
   );
 }

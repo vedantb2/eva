@@ -9,7 +9,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconChevronLeft,
-  IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
@@ -23,7 +22,6 @@ import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -355,18 +353,6 @@ export function Sidebar() {
                   </>
                 ) : (
                   <>
-                    {!collapsed && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => navigate({ to: repoBasePath })}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Repo home"
-                      >
-                        <IconHome size={16} className="text-sidebar-primary" />
-                      </Button>
-                    )}
-
                     {!collapsed && repoName ? (
                       <div
                         className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
@@ -523,10 +509,7 @@ export function Sidebar() {
               </div>
             </nav>
 
-            <div
-              className={cn("space-y-2", collapsed ? "px-2 py-3" : "px-3 py-3")}
-            >
-              <TeamMembers collapsed={collapsed} />
+            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
               <RepoStatsSummary
                 repo={repo}
                 repoBasePath={repoBasePath}

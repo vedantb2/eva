@@ -1,8 +1,13 @@
 # Changelog
 
+## Sidebar stats card hosts online teammates - 2026-07-20
+
+Removed the repo Home header button. Footer stats keep PRs shipped + cook rate and drop cookers/tasks rows; online team avatars live in that space in the same card.
+
 ## Task creation shown in activity timeline - 2026-07-20
 
 Creator avatar, name, and date no longer sit between the task title and description; they appear as the first activity event (“created the quick task”), so provenance lives with the rest of the history.
+
 ## Delete orphan Vercel sandboxes when post-create setup fails - 2026-07-20
 
 `createSandbox` now deletes the VM if jq/git/docker setup fails after `client.create`, and treats the eva-env bashrc hook as best-effort. Fixes orphans left when the hook threw before the handle was returned to callers.

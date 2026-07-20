@@ -4,9 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
-import { IconUsers } from "@tabler/icons-react";
 import { useFollow } from "@/lib/contexts/FollowContext";
-import { RepoLogo } from "@/lib/components/RepoLogo";
 
 function getDisplayName(user: {
   firstName?: string | null;
@@ -20,7 +18,8 @@ function getDisplayName(user: {
   );
 }
 
-export function TeamMembers({ collapsed }: { collapsed: boolean }) {
+/** Online teammates as followable avatars (no card chrome — for the stats footer). */
+export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const { following, startFollowing, stopFollowing } = useFollow();
 
@@ -37,7 +36,7 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center gap-1 pb-3">
+      <div className="flex flex-col items-center gap-1">
         {onlineMembers.slice(0, 3).map((u) => {
           const name = getDisplayName(u);
           const isFollowing = following?.userId === u._id;
@@ -83,17 +82,8 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="ui-surface mb-2 p-2.5">
-      <div className="mb-2 flex items-center gap-1.5">
-        <RepoLogo
-          logoUrl={teamData.logoUrl}
-          size={18}
-          fallback={
-            <div className="flex size-[18px] shrink-0 items-center justify-center rounded border border-border bg-primary/10">
-              <IconUsers size={11} className="text-primary" />
-            </div>
-          }
-        />
+    <div className="mt-2.5 min-w-0 border-t border-border pt-2.5">
+      <div className="mb-1.5 flex items-center gap-1.5">
         <span
           className="relative flex size-2 shrink-0 items-center justify-center"
           aria-hidden
@@ -101,10 +91,7 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
           <span className="size-1.5 rounded-full bg-success" />
           <span className="absolute inline-flex size-2 animate-ping rounded-full bg-success/40" />
         </span>
-        <span className="truncate text-xs font-medium text-sidebar-foreground">
-          {teamData.teamName}
-        </span>
-        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
+        <span className="truncate text-[10px] text-muted-foreground">
           {onlineMembers.length} online
         </span>
       </div>

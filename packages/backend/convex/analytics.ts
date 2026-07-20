@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
 
-/** Returns aggregate impact metrics (PRs shipped, tasks completed, ship rate) for a repo, with optional period comparison. */
+/** Returns aggregate impact metrics for a repo, with optional period comparison. */
 export const getImpactStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -10,11 +10,15 @@ export const getImpactStats = authQuery({
   },
   returns: v.object({
     prsShipped: v.number(),
+    /** Tasks in a terminal outcome (done/merged + cancelled). */
+    tasksRan: v.number(),
     totalSessions: v.number(),
     sessionsWithPr: v.number(),
+    /** done / (done + cancelled), as a percent. */
     shipRate: v.number(),
     tasksCompleted: v.number(),
     prevPrsShipped: v.optional(v.number()),
+    prevTasksRan: v.optional(v.number()),
     prevTasksCompleted: v.optional(v.number()),
     prevShipRate: v.optional(v.number()),
   }),
@@ -22,6 +26,7 @@ export const getImpactStats = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return {
         prsShipped: 0,
+        tasksRan: 0,
         totalSessions: 0,
         sessionsWithPr: 0,
         shipRate: 0,
@@ -66,10 +71,12 @@ export const getImpactStats = authQuery({
         }
       }
       let done = 0;
+      let cancelled = 0;
       for (let i = 0; i < allTasks.length; i++) {
         const task = allTasks[i];
         if (from !== undefined && task.updatedAt < from) continue;
         if (task.status === "done") done++;
+        else if (task.status === "cancelled") cancelled++;
         for (const run of allTaskRuns[i]) {
           if (run.prUrl) prUrls.add(run.prUrl);
         }
@@ -81,11 +88,13 @@ export const getImpactStats = authQuery({
       for (const p of filteredProjects) {
         if (p.prUrl) prUrls.add(p.prUrl);
       }
-      const total = filtered.length;
-      const rate = total > 0 ? Math.round((withPr / total) * 100) : 0;
+      const tasksRan = done + cancelled;
+      // Cook rate: finished successfully vs finished at all (done/merged + cancelled).
+      const rate = tasksRan > 0 ? Math.round((done / tasksRan) * 100) : 0;
       return {
         prsShipped: prUrls.size,
-        totalSessions: total,
+        tasksRan,
+        totalSessions: filtered.length,
         sessionsWithPr: withPr,
         shipRate: rate,
         tasksCompleted: done,
@@ -98,24 +107,17 @@ export const getImpactStats = authQuery({
       const periodMs = Date.now() - startTime;
       const prevStart = startTime - periodMs;
       const prev = computeStats(prevStart);
-      const prevFiltered = {
-        prsShipped: prev.prsShipped - current.prsShipped,
-        tasksCompleted: prev.tasksCompleted - current.tasksCompleted,
-        totalSessions: prev.totalSessions - current.totalSessions,
-        sessionsWithPr: prev.sessionsWithPr - current.sessionsWithPr,
-        shipRate: 0,
-      };
-      prevFiltered.shipRate =
-        prevFiltered.totalSessions > 0
-          ? Math.round(
-              (prevFiltered.sessionsWithPr / prevFiltered.totalSessions) * 100,
-            )
-          : 0;
+      const prevTasksCompleted = prev.tasksCompleted - current.tasksCompleted;
+      const prevTasksRan = prev.tasksRan - current.tasksRan;
       return {
         ...current,
-        prevPrsShipped: prevFiltered.prsShipped,
-        prevTasksCompleted: prevFiltered.tasksCompleted,
-        prevShipRate: prevFiltered.shipRate,
+        prevPrsShipped: prev.prsShipped - current.prsShipped,
+        prevTasksRan,
+        prevTasksCompleted,
+        prevShipRate:
+          prevTasksRan > 0
+            ? Math.round((prevTasksCompleted / prevTasksRan) * 100)
+            : 0,
       };
     }
 

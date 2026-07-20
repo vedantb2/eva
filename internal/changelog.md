@@ -1,5 +1,9 @@
 # Changelog
 
+## Cook rate uses settled tasks; sidebar shows Tasks ran - 2026-07-20
+
+Cook/ship rate is now done ÷ (done + cancelled) instead of sessions-with-PR ÷ sessions. Sidebar stats label “PRs shipped” → “Tasks ran” (terminal task count).
+
 ## Sidebar stats card hosts online teammates - 2026-07-20
 
 Removed the repo Home header button. Footer stats keep PRs shipped + cook rate and drop cookers/tasks rows; online team avatars live in that space in the same card.

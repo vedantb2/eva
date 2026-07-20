@@ -43,8 +43,8 @@ export function RepoStatsSummary({
   const items: { icon: TablerIcon; label: string; value: string | number }[] = [
     {
       icon: IconGitPullRequest,
-      label: "PRs shipped",
-      value: impactStats.prsShipped,
+      label: "Tasks ran",
+      value: impactStats.tasksRan,
     },
     {
       icon: IconPercentage,

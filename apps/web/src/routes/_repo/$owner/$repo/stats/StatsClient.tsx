@@ -107,9 +107,9 @@ export function StatsClient() {
               />
               <Kpi
                 icon={IconPercentage}
-                label="Ship Rate"
+                label="Cook Rate"
                 value={`${impactStats.shipRate}%`}
-                subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
+                subtitle={`${impactStats.tasksCompleted} of ${impactStats.tasksRan} settled tasks`}
                 currentValue={impactStats.shipRate}
                 previousValue={
                   "prevShipRate" in impactStats
@@ -149,7 +149,6 @@ export function StatsClient() {
             <SessionFunnel
               totalSessions={impactStats.totalSessions}
               sessionsWithPr={impactStats.sessionsWithPr}
-              shipRate={impactStats.shipRate}
             />
           </motion.div>
 

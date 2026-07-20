@@ -23,6 +23,7 @@ function kindLabel(model: DraftCardModel): string {
   if (kind === "taskComment") {
     return parentCommentId ? "Reply" : "Comment";
   }
+  if (kind === "taskChat") return "Task chat";
   if (kind === "sessionChat") return "Session";
   return "Design";
 }
@@ -63,6 +64,26 @@ async function resolveTaskActivityPath(
   return `${basePath}/quick-tasks/${taskSegment}`;
 }
 
+/** Opens the surface where the task sandbox chat draft was written. */
+async function resolveTaskChatPath(
+  convex: ConvexReactClient,
+  basePath: string,
+  taskId: Id<"agentTasks">,
+  taskProjectId: Id<"projects"> | undefined,
+): Promise<string | null> {
+  const root = await resolveTaskActivityPath(
+    convex,
+    basePath,
+    taskId,
+    taskProjectId,
+  );
+  if (!root) return null;
+  // Quick tasks have a dedicated sandbox route; project tasks embed sandbox
+  // in the detail layout, so land on activity.
+  if (taskProjectId) return root;
+  return `${root}/sandbox/preview`;
+}
+
 export function DraftCard({ model, basePath }: DraftCardProps) {
   const navigate = useNavigate();
   const convex = useConvex();
@@ -93,6 +114,21 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
     if (kind === "taskComment" && taskId) {
       void (async () => {
         const path = await resolveTaskActivityPath(
+          convex,
+          basePath,
+          taskId,
+          taskProjectId,
+        );
+        if (path) {
+          await navigate({ to: path });
+        }
+      })();
+      return;
+    }
+
+    if (kind === "taskChat" && taskId) {
+      void (async () => {
+        const path = await resolveTaskChatPath(
           convex,
           basePath,
           taskId,

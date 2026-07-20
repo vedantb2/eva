@@ -53,6 +53,11 @@ export const set = authMutation({
         taskId: args.target.taskId,
         parentCommentId: args.target.parentCommentId,
       });
+    } else if (args.target.kind === "taskChat") {
+      await ctx.db.insert("drafts", {
+        ...base,
+        taskId: args.target.taskId,
+      });
     } else if (args.target.kind === "sessionChat") {
       await ctx.db.insert("drafts", {
         ...base,

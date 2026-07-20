@@ -1,5 +1,9 @@
 # Changelog
 
+## Task sandbox chat: drafts + blocking questions - 2026-07-20
+
+Quick-task sandbox chat now persists composer drafts (`taskChat`) and answers blocking AskUserQuestion like sessions, so remounts and paused turns work the same.
+
 ## Repo home title matches sidebar label - 2026-07-20
 
 Repo home widget header shows the same display name as the sidebar (custom label or app leaf) instead of "Eva's Stats" + owner/name subtitle.

@@ -700,6 +700,7 @@ export const draftFields = {
   repoId: v.id("githubRepos"),
   kind: v.union(
     v.literal("taskComment"),
+    v.literal("taskChat"),
     v.literal("sessionChat"),
     v.literal("designChat"),
   ),
@@ -735,6 +736,10 @@ export const draftTarget = v.union(
     kind: v.literal("taskComment"),
     taskId: v.id("agentTasks"),
     parentCommentId: v.optional(v.id("taskComments")),
+  }),
+  v.object({
+    kind: v.literal("taskChat"),
+    taskId: v.id("agentTasks"),
   }),
   v.object({
     kind: v.literal("sessionChat"),

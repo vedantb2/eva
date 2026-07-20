@@ -28,7 +28,26 @@ async function findTaskCommentDraft(
       q.eq("userId", userId).eq("taskId", taskId),
     )
     .collect();
-  return rows.find((d) => d.parentCommentId === parentCommentId) ?? null;
+  return (
+    rows.find(
+      (d) => d.kind === "taskComment" && d.parentCommentId === parentCommentId,
+    ) ?? null
+  );
+}
+
+/** Finds a user's draft row for task sandbox chat, matched by taskId. */
+async function findTaskChatDraft(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  taskId: Id<"agentTasks">,
+): Promise<Doc<"drafts"> | null> {
+  const rows = await db
+    .query("drafts")
+    .withIndex("by_user_and_task", (q) =>
+      q.eq("userId", userId).eq("taskId", taskId),
+    )
+    .collect();
+  return rows.find((d) => d.kind === "taskChat") ?? null;
 }
 
 /**
@@ -69,6 +88,32 @@ export async function resolveTarget(
       repoId,
       findExisting: () =>
         findTaskCommentDraft(db, userId, taskId, parentCommentId),
+    };
+  }
+
+  if (target.kind === "taskChat") {
+    const task = await db.get(target.taskId);
+    if (!task) throw new Error("Task not found");
+
+    let repoId: Id<"githubRepos">;
+    if (task.repoId) {
+      repoId = task.repoId;
+    } else if (task.projectId) {
+      const project = await db.get(task.projectId);
+      if (!project) throw new Error("Project not found");
+      repoId = project.repoId;
+    } else {
+      throw new Error("Task has no repo or project");
+    }
+
+    if (!(await hasRepoAccess(db, repoId, userId))) {
+      throw new Error("Not authorized");
+    }
+
+    const taskId = target.taskId;
+    return {
+      repoId,
+      findExisting: () => findTaskChatDraft(db, userId, taskId),
     };
   }
 

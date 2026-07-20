@@ -54,7 +54,10 @@ export const listForRepo = authQuery({
       let contextTitle = "Untitled";
       let taskProjectId: Id<"projects"> | undefined = undefined;
 
-      if (draft.kind === "taskComment" && draft.taskId) {
+      if (
+        (draft.kind === "taskComment" || draft.kind === "taskChat") &&
+        draft.taskId
+      ) {
         const task = await ctx.db.get(draft.taskId);
         if (!task) continue; // surface gone — skip
         contextTitle = task.title || "Untitled";

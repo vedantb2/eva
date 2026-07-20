@@ -109,11 +109,15 @@ export function TaskActivityItem({
           <span className="font-medium text-foreground/80">
             {merged ? "Done" : "Cancelled"}
           </span>
+          <span className="text-muted-foreground/50" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <RelativeDateTime
+            at={event.createdAt}
+            className="text-muted-foreground/70"
+          />
         </span>
-        <RelativeDateTime
-          at={event.createdAt}
-          className="shrink-0 text-muted-foreground/70"
-        />
       </div>
     );
   }
@@ -159,11 +163,15 @@ export function TaskActivityItem({
             </span>
           </>
         )}
+        <span className="text-muted-foreground/50" aria-hidden>
+          {" "}
+          ·{" "}
+        </span>
+        <RelativeDateTime
+          at={event.createdAt}
+          className="text-muted-foreground/70"
+        />
       </span>
-      <RelativeDateTime
-        at={event.createdAt}
-        className="shrink-0 text-muted-foreground/70"
-      />
     </div>
   );
 }

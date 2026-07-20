@@ -1,5 +1,13 @@
 # Changelog
 
+## Keep audit rail icon top-aligned when open - 2026-07-20
+
+Audit accordion icon no longer stretches/centers with open content — it stays beside the trigger like run rows.
+
+## Activity timestamps inline with duration on the right - 2026-07-20
+
+Relative time sits after a · next to the event copy/badges; run and audit duration stay at the far end of the accordion trigger so elapsed time stays scannable.
+
 ## Rounded Eva icon on activity rail + run fallback - 2026-07-20
 
 Activity audit/proof marks and run rows without a requester now use the same rounded-full Eva icon as chat, so system-authored success/error runs still show a clear actor on the timeline.

@@ -180,13 +180,19 @@ export function ProofTimelineItem({
           ) : messagePreview ? (
             <span className="text-muted-foreground"> — {messagePreview}</span>
           ) : null}
+          {showTimestamp ? (
+            <>
+              <span className="text-muted-foreground/50" aria-hidden>
+                {" "}
+                ·{" "}
+              </span>
+              <RelativeDateTime
+                at={proof.createdAt}
+                className="text-muted-foreground/70"
+              />
+            </>
+          ) : null}
         </span>
-        {showTimestamp ? (
-          <RelativeDateTime
-            at={proof.createdAt}
-            className="shrink-0 text-muted-foreground/70"
-          />
-        ) : null}
       </div>
       {hasMedia ? (
         <ProofCaptureGallery

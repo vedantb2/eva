@@ -71,18 +71,17 @@ export function AuditTimelineItem({
         : null;
 
   return (
-    <div className="flex gap-2">
-      <div className="flex w-4 shrink-0 items-center justify-center self-stretch">
-        <span className="relative z-10 flex size-4 items-center justify-center bg-background">
-          <EvaIcon size={16} />
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <Accordion
-          type="multiple"
-          defaultValue={isAuditStreaming || isFixStreaming ? [audit._id] : []}
-        >
-          <AccordionItem value={audit._id} className="border-none">
+    <Accordion
+      type="multiple"
+      defaultValue={isAuditStreaming || isFixStreaming ? [audit._id] : []}
+    >
+      <AccordionItem value={audit._id} className="border-none">
+        {/* Icon sits only beside the trigger so it stays top-aligned when open. */}
+        <div className="flex gap-2">
+          <div className="relative z-10 flex w-4 shrink-0 items-start justify-center bg-background pt-1.5">
+            <EvaIcon size={16} />
+          </div>
+          <div className="min-w-0 flex-1">
             <AccordionTrigger className="py-1.5">
               <div className="mr-2 flex min-w-0 flex-1 items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -98,56 +97,55 @@ export function AuditTimelineItem({
                       {score.passed}/{score.total}
                     </Badge>
                   ) : null}
-                  {durationLabel ? (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {durationLabel}
-                    </span>
-                  ) : null}
+                  <span className="text-muted-foreground/50" aria-hidden>
+                    ·
+                  </span>
+                  <RelativeDateTime
+                    at={audit.createdAt}
+                    className="shrink-0 text-xs"
+                  />
                 </div>
-                <RelativeDateTime
-                  at={audit.createdAt}
-                  className="shrink-0 text-xs"
-                />
+                {durationLabel ? (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {durationLabel}
+                  </span>
+                ) : null}
               </div>
             </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-2 pb-2">
-                {isAuditStreaming &&
-                  auditStreaming?.currentActivity &&
-                  (() => {
-                    const steps = parseActivitySteps(
-                      auditStreaming.currentActivity,
-                    );
-                    return steps ? (
-                      <ActivityTasks
-                        steps={steps}
-                        isStreaming
-                        name="Auditing"
-                      />
-                    ) : null;
-                  })()}
-                {isFixStreaming &&
-                  auditStreaming?.currentActivity &&
-                  (() => {
-                    const steps = parseActivitySteps(
-                      auditStreaming.currentActivity,
-                    );
-                    return steps ? (
-                      <ActivityTasks steps={steps} isStreaming name="Fixing" />
-                    ) : null;
-                  })()}
-                {audit.status === "error" ? (
-                  <p className="text-sm text-destructive">
-                    {audit.error ?? "Audit failed"}
-                  </p>
-                ) : (
-                  <AuditResults auditData={audit} />
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
-    </div>
+          </div>
+        </div>
+        <AccordionContent>
+          <div className="ml-6 space-y-2 pb-2">
+            {isAuditStreaming &&
+              auditStreaming?.currentActivity &&
+              (() => {
+                const steps = parseActivitySteps(
+                  auditStreaming.currentActivity,
+                );
+                return steps ? (
+                  <ActivityTasks steps={steps} isStreaming name="Auditing" />
+                ) : null;
+              })()}
+            {isFixStreaming &&
+              auditStreaming?.currentActivity &&
+              (() => {
+                const steps = parseActivitySteps(
+                  auditStreaming.currentActivity,
+                );
+                return steps ? (
+                  <ActivityTasks steps={steps} isStreaming name="Fixing" />
+                ) : null;
+              })()}
+            {audit.status === "error" ? (
+              <p className="text-sm text-destructive">
+                {audit.error ?? "Audit failed"}
+              </p>
+            ) : (
+              <AuditResults auditData={audit} />
+            )}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }

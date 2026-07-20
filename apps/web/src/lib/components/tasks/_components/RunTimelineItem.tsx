@@ -156,12 +156,15 @@ export function RunTimelineItem({
                       {run.credentialSourceLabel}
                     </Badge>
                   ) : null}
-                  {runDuration}
+                  <span className="text-muted-foreground/50" aria-hidden>
+                    ·
+                  </span>
+                  <RelativeDateTime
+                    at={run.startedAt}
+                    className="shrink-0 text-xs"
+                  />
                 </div>
-                <RelativeDateTime
-                  at={run.startedAt}
-                  className="shrink-0 text-xs"
-                />
+                {runDuration}
               </div>
             </AccordionTrigger>
             {isActiveRun && (

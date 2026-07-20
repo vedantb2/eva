@@ -92,7 +92,7 @@ function railTileActive(active: boolean): string {
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts), then
  * repos, then Testing (dev) / account / settings at the bottom. Clicking a repo
- * switches the active app (preserving the current sub-page via onSelect).
+ * switches the active app and routes to its root via onSelect.
  */
 export function RepoRail({
   repos,

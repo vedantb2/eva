@@ -69,6 +69,24 @@ export const ChatMessage = memo(function ChatMessage({
 }: ChatMessageProps) {
   const currentUserId = useQuery(api.auth.me);
 
+  // Only your own user turns stay right-aligned; teammates sit on the left
+  // (same bubble style). Missing userId / auth still loading → treat as own.
+  const isOtherUserMessage =
+    !message.isSystemAlert &&
+    message.role === "user" &&
+    message.userId !== undefined &&
+    currentUserId !== undefined &&
+    message.userId !== currentUserId;
+
+  const otherUser = useQuery(
+    api.users.get,
+    isOtherUserMessage && message.userId ? { id: message.userId } : "skip",
+  );
+  const otherUserFirstName =
+    otherUser?.firstName?.trim() ||
+    otherUser?.fullName?.trim().split(" ")[0] ||
+    null;
+
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
@@ -79,14 +97,6 @@ export const ChatMessage = memo(function ChatMessage({
       />
     );
   }
-
-  // Only your own user turns stay right-aligned; teammates sit on the left
-  // (same bubble style). Missing userId / auth still loading → treat as own.
-  const isOtherUserMessage =
-    message.role === "user" &&
-    message.userId !== undefined &&
-    currentUserId !== undefined &&
-    message.userId !== currentUserId;
 
   const isStreamingPlaceholder =
     message.role === "assistant" &&
@@ -114,14 +124,31 @@ export const ChatMessage = memo(function ChatMessage({
           isOtherUserMessage ? "ml-0 mr-auto justify-start" : undefined
         }
       >
+        {isOtherUserMessage && otherUserFirstName ? (
+          <span className="px-1 text-[11px] font-medium leading-none text-muted-foreground">
+            {otherUserFirstName}
+          </span>
+        ) : null}
         <MessageContent
           className={
             message.role === "user"
               ? cn(
-                  "group rounded-surface bg-secondary text-foreground px-4 py-3",
+                  "group bg-secondary px-4 py-3 text-foreground",
                   isOtherUserMessage && "group-[.is-user]:ml-0",
                 )
               : "px-1 py-2"
+          }
+          style={
+            message.role === "user"
+              ? {
+                  // Match `.rounded-surface`, but square the avatar-side corner
+                  // (iMessage-style). Inline so it wins over group rounded-surface.
+                  // CSS order: top-left, top-right, bottom-right, bottom-left
+                  borderRadius: isOtherUserMessage
+                    ? "clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) 0"
+                    : "clamp(0.75rem, var(--radius), 1.25rem) clamp(0.75rem, var(--radius), 1.25rem) 0 clamp(0.75rem, var(--radius), 1.25rem)",
+                }
+              : undefined
           }
         >
           {isStreamingPlaceholder ? (

@@ -2,7 +2,7 @@
 
 ## Other users' chat messages sit on the left - 2026-07-20
 
-Sandbox/session chat now right-aligns only your own user turns; teammates' messages use the same bubble on the left so shared chats read as a conversation.
+Sandbox/session chat now right-aligns only your own user turns; teammates' messages use the same bubble on the left with their first name above the bubble (Apple Messages-style) so shared chats read as a conversation.
 
 ## Restore repo root as icon + title - 2026-07-20
 

@@ -32,6 +32,7 @@ import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar"
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
+import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -522,8 +523,15 @@ export function Sidebar() {
               </div>
             </nav>
 
-            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
+            <div
+              className={cn("space-y-2", collapsed ? "px-2 py-3" : "px-3 py-3")}
+            >
               <TeamMembers collapsed={collapsed} />
+              <RepoStatsSummary
+                repo={repo}
+                repoBasePath={repoBasePath}
+                collapsed={collapsed}
+              />
             </div>
           </div>
         ) : null}

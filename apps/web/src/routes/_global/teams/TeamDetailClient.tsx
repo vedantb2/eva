@@ -115,7 +115,7 @@ export function TeamDetailClient({
         onValueChange={(v) => {
           if (
             v === "members" ||
-            v === "repos" ||
+            v === "codebases" ||
             v === "env" ||
             v === "artifacts"
           ) {
@@ -127,7 +127,7 @@ export function TeamDetailClient({
       >
         <TabsList className="mb-4">
           <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="repos">Codebases</TabsTrigger>
+          <TabsTrigger value="codebases">Codebases</TabsTrigger>
           <TabsTrigger value="env">Environment Variables</TabsTrigger>
           <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
         </TabsList>
@@ -140,7 +140,7 @@ export function TeamDetailClient({
           />
         </TabsContent>
 
-        <TabsContent value="repos">
+        <TabsContent value="codebases">
           <TeamReposTab
             teamId={team._id}
             repos={repos}

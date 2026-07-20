@@ -1,0 +1,103 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Id } from "@conductor/backend";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Spinner,
+} from "@conductor/ui";
+import { useSetRepoLabel } from "@/lib/hooks/useSetRepoLabel";
+
+interface RepoLabelDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  repoId: Id<"githubRepos">;
+  /** Current custom label, if any. */
+  label: string | undefined;
+  /** Placeholder / default shown when label is empty (GitHub name or leaf). */
+  fallbackName: string;
+  /** When set, optimistically patches `listByTeam` for this team too. */
+  teamId?: Id<"teams">;
+}
+
+/** Dialog to set or clear a repo/app display label. */
+export function RepoLabelDialog({
+  open,
+  onOpenChange,
+  repoId,
+  label,
+  fallbackName,
+  teamId,
+}: RepoLabelDialogProps) {
+  const setLabel = useSetRepoLabel(teamId);
+  const [value, setValue] = useState(label ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setValue(label ?? "");
+    }
+  }, [open, label]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await setLabel({ repoId, label: value });
+      onOpenChange(false);
+    } catch (err) {
+      console.error("Failed to update repo label:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Rename</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Display name</label>
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={fallbackName}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void save();
+              }
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown in the sidebar instead of{" "}
+            <span className="font-medium text-foreground/80">
+              {fallbackName}
+            </span>
+            . Leave empty to use the default.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? <Spinner size="sm" /> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

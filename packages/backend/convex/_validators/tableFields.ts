@@ -345,6 +345,9 @@ export const githubRepoFields = {
   // lists. Per-app (not shared across monorepo siblings). Resolved to a URL by
   // list/listByTeam via ctx.storage.getUrl.
   logoStorageId: v.optional(v.id("_storage")),
+  // Optional display name shown in the sidebar / repo lists instead of the
+  // GitHub name (or monorepo leaf). Per-app; empty clears back to the default.
+  label: v.optional(v.string()),
 };
 
 /** Eva team (personal or shared). Logo is resolved to `logoUrl` in list/get. */

@@ -196,6 +196,7 @@ export const updateConfig = authMutation({
     backgroundCommands: v.optional(v.array(v.string())),
     stopCommands: v.optional(v.array(v.string())),
     systemPrompt: v.optional(v.string()),
+    label: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -287,6 +288,13 @@ export const updateConfig = authMutation({
       await ctx.db.patch(args.repoId, {
         systemPrompt:
           args.systemPrompt.trim().length > 0 ? args.systemPrompt : undefined,
+      });
+    }
+
+    if (args.label !== undefined) {
+      const trimmed = args.label.trim();
+      await ctx.db.patch(args.repoId, {
+        label: trimmed.length > 0 ? trimmed : undefined,
       });
     }
 

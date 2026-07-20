@@ -18,6 +18,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { LogoMark } from "@/lib/components/LogoMark";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
@@ -36,6 +37,7 @@ import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
   "designs",
@@ -152,6 +154,10 @@ export function Sidebar() {
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
     owner && repoName ? { owner, name: repoName, appName } : "skip",
+  );
+  const repoLogoUrl = useQuery(
+    api.githubRepos.getLogoUrl,
+    repo?._id ? { repoId: repo._id } : "skip",
   );
 
   const sidebarScrollKey =
@@ -363,12 +369,31 @@ export function Sidebar() {
                     )}
 
                     {!collapsed && repoName ? (
-                      <span
-                        className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary"
-                        title={appName ? `${repoName} / ${appName}` : repoName}
+                      <div
+                        className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
+                        title={
+                          repo
+                            ? `${repoDisplayLabel(repo)} (${repo.owner}/${repo.name})`
+                            : appName
+                              ? `${repoName} / ${appName}`
+                              : repoName
+                        }
                       >
-                        {appName ? `${repoName} / ${appName}` : repoName}
-                      </span>
+                        {repoLogoUrl ? (
+                          <RepoLogo
+                            logoUrl={repoLogoUrl}
+                            size={18}
+                            fallback={null}
+                          />
+                        ) : null}
+                        <span className="min-w-0 truncate text-sm font-medium text-sidebar-primary">
+                          {repo
+                            ? repoDisplayLabel(repo)
+                            : appName
+                              ? `${repoName} / ${appName}`
+                              : repoName}
+                        </span>
+                      </div>
                     ) : null}
 
                     <div

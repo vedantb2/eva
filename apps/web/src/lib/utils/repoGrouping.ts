@@ -7,8 +7,22 @@ export type RepoWithLogo = FunctionReturnType<
 >[number];
 
 /** The leaf directory name used as a monorepo app's URL/display label. */
-export function appLeafName(app: RepoWithLogo): string {
+export function appLeafName(app: {
+  name: string;
+  rootDirectory?: string;
+}): string {
   return app.rootDirectory?.split("/").pop() ?? app.name;
+}
+
+/** Custom `label` when set; otherwise GitHub name / monorepo leaf. */
+export function repoDisplayLabel(repo: {
+  label?: string;
+  name: string;
+  rootDirectory?: string;
+}): string {
+  const custom = repo.label?.trim();
+  if (custom) return custom;
+  return appLeafName(repo);
 }
 
 /** Matches a monorepo app row to the URL `appName` segment. */

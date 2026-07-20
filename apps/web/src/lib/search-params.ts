@@ -251,7 +251,7 @@ export function isEnvVarScope(s: string): s is EnvVarScope {
   return envVarScopes.some((scope) => scope === s);
 }
 
-const teamDetailTabs = ["members", "repos", "env", "artifacts"] as const;
+const teamDetailTabs = ["members", "codebases", "env", "artifacts"] as const;
 export type TeamDetailTab = (typeof teamDetailTabs)[number];
 
 export function isTeamDetailTab(s: string): s is TeamDetailTab {

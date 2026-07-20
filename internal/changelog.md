@@ -1,5 +1,12 @@
 # Changelog
 
+## Custom display labels for GitHub apps - 2026-07-20
+
+- Optional per-app `label` on `githubRepos` (e.g. "CarePulse v2", "Eva Web") shown in the sidebar header instead of the GitHub/path name; logo appears left of the title when set.
+- Set via App settings → Identity, or Rename in the sidebar rail / home / team codebases context menus. Empty clears back to the default name.
+- Team tab route renamed `/teams/:id/repos` → `/teams/:id/codebases` (legacy URL redirects).
+- Reason for change: monorepo apps and similarly named repos were hard to tell apart as `owner/name` or leaf folders.
+
 ## Tidy quick-task More menu and sandbox + tabs - 2026-07-20
 
 - Quick-task "View PR" moves into the More dropdown so the header stays focused on Run / Sandbox.

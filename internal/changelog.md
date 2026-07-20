@@ -1,5 +1,9 @@
 # Changelog
 
+## Task creation shown in activity timeline - 2026-07-20
+
+Creator avatar, name, and date no longer sit between the task title and description; they appear as the first activity event (“created the quick task”), so provenance lives with the rest of the history.
+
 ## Fix sandbox create crash from eva-env bashrc hook - 2026-07-20
 
 `ensureEvaEnvInteractiveHookScript` joined a `for` loop with `;`, producing invalid `do;` and failing every Vercel sandbox create. Loop is now one statement; test guards the SOURCE_ENV prefix concat.

@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import {
   Accordion,
   AccordionItem,
@@ -15,7 +14,7 @@ import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { AuditActivityLog } from "../AuditActivityLog";
 import { AuditResults } from "./AuditResults";
-import { LogoMark } from "@/lib/components/LogoMark";
+import { RunRailEvaIcon } from "./ProofTimelineItem";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 
@@ -43,14 +42,83 @@ export function AuditTimelineItem({
   const isFixStreaming = isLatest && audit.fixStatus === "fixing";
 
   return (
-    <Fragment>
-      {audit.fixStatus && (
+    <div className="flex gap-2">
+      <div className="relative z-10 pt-3">
+        <RunRailEvaIcon />
+      </div>
+      <div className="min-w-0 flex-1 space-y-2">
+        {audit.fixStatus && (
+          <Accordion
+            type="multiple"
+            defaultValue={isFixStreaming || isFirst ? [`fix-${audit._id}`] : []}
+          >
+            <AccordionItem
+              value={`fix-${audit._id}`}
+              className="rounded-surface border border-border bg-card px-3"
+            >
+              <AccordionTrigger>
+                <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <Badge
+                      variant={
+                        audit.fixStatus === "fixing"
+                          ? "warning"
+                          : audit.fixStatus === "fix_error"
+                            ? "destructive"
+                            : "success"
+                      }
+                    >
+                      {audit.fixStatus === "fixing"
+                        ? "fixing audit issues"
+                        : audit.fixStatus === "fix_error"
+                          ? "fix error"
+                          : "fixed audit issues"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {dayjs(audit.createdAt).format("DD/MM/YYYY HH:mm")}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {isFixStreaming
+                      ? formatElapsed(fixElapsed)
+                      : audit.fixCompletedAt
+                        ? formatDuration(audit.createdAt, audit.fixCompletedAt)
+                        : null}
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  {isFixStreaming &&
+                    auditStreaming?.currentActivity &&
+                    (() => {
+                      const steps = parseActivitySteps(
+                        auditStreaming.currentActivity,
+                      );
+                      return steps ? (
+                        <ActivityTasks
+                          steps={steps}
+                          isStreaming
+                          name="Fixing"
+                        />
+                      ) : null;
+                    })()}
+                  {!isFixStreaming && audit.runId && (
+                    <AuditActivityLog runId={audit.runId} type="fix" />
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
         <Accordion
           type="multiple"
-          defaultValue={isFixStreaming || isFirst ? [`fix-${audit._id}`] : []}
+          defaultValue={
+            isAuditStreaming || isFirst ? [`audit-${audit._id}`] : []
+          }
         >
           <AccordionItem
-            value={`fix-${audit._id}`}
+            value={`audit-${audit._id}`}
             className="rounded-surface border border-border bg-card px-3"
           >
             <AccordionTrigger>
@@ -58,136 +126,84 @@ export function AuditTimelineItem({
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   <Badge
                     variant={
-                      audit.fixStatus === "fixing"
+                      audit.status === "running"
                         ? "warning"
-                        : audit.fixStatus === "fix_error"
+                        : audit.status === "error"
                           ? "destructive"
                           : "success"
                     }
                   >
-                    {audit.fixStatus === "fixing"
-                      ? "fixing audit issues"
-                      : audit.fixStatus === "fix_error"
-                        ? "fix error"
-                        : "fixed audit issues"}
+                    {audit.status === "running"
+                      ? "auditing"
+                      : audit.status === "error"
+                        ? "audit error"
+                        : "audited"}
                   </Badge>
                   <span className="text-xs text-muted-foreground truncate">
                     {dayjs(audit.createdAt).format("DD/MM/YYYY HH:mm")}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {isFixStreaming
-                    ? formatElapsed(fixElapsed)
-                    : audit.fixCompletedAt
-                      ? formatDuration(audit.createdAt, audit.fixCompletedAt)
-                      : null}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {audit.status === "completed" &&
+                    audit.sections.length > 0 &&
+                    (() => {
+                      const passed = audit.sections.reduce(
+                        (sum, s) =>
+                          sum + s.results.filter((r) => r.passed).length,
+                        0,
+                      );
+                      const total = audit.sections.reduce(
+                        (sum, s) => sum + s.results.length,
+                        0,
+                      );
+                      return (
+                        <Badge
+                          variant={passed === total ? "success" : "warning"}
+                        >
+                          {passed}/{total}
+                        </Badge>
+                      );
+                    })()}
+                  <span className="text-xs text-muted-foreground">
+                    {isAuditStreaming
+                      ? formatElapsed(auditElapsed)
+                      : audit.completedAt
+                        ? formatDuration(audit.createdAt, audit.completedAt)
+                        : null}
+                  </span>
+                </div>
               </div>
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-2">
-                {isFixStreaming &&
+                {isAuditStreaming &&
                   auditStreaming?.currentActivity &&
                   (() => {
                     const steps = parseActivitySteps(
                       auditStreaming.currentActivity,
                     );
                     return steps ? (
-                      <ActivityTasks steps={steps} isStreaming name="Fixing" />
+                      <ActivityTasks
+                        steps={steps}
+                        isStreaming
+                        name="Auditing"
+                      />
                     ) : null;
                   })()}
-                {!isFixStreaming && audit.runId && (
-                  <AuditActivityLog runId={audit.runId} type="fix" />
+                {!isAuditStreaming && audit.runId && (
+                  <AuditActivityLog runId={audit.runId} type="audit" />
+                )}
+                {audit.status === "error" && (
+                  <p className="text-sm text-destructive">
+                    {audit.error ?? "Audit failed"}
+                  </p>
                 )}
               </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      )}
-      <Accordion
-        type="multiple"
-        defaultValue={isAuditStreaming || isFirst ? [`audit-${audit._id}`] : []}
-      >
-        <AccordionItem
-          value={`audit-${audit._id}`}
-          className="rounded-surface border border-border bg-card px-3"
-        >
-          <AccordionTrigger>
-            <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <Badge
-                  variant={
-                    audit.status === "running"
-                      ? "warning"
-                      : audit.status === "error"
-                        ? "destructive"
-                        : "success"
-                  }
-                >
-                  {audit.status === "running"
-                    ? "auditing"
-                    : audit.status === "error"
-                      ? "audit error"
-                      : "audited"}
-                </Badge>
-                <span className="text-xs text-muted-foreground truncate">
-                  {dayjs(audit.createdAt).format("DD/MM/YYYY HH:mm")}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {audit.status === "completed" &&
-                  audit.sections.length > 0 &&
-                  (() => {
-                    const passed = audit.sections.reduce(
-                      (sum, s) =>
-                        sum + s.results.filter((r) => r.passed).length,
-                      0,
-                    );
-                    const total = audit.sections.reduce(
-                      (sum, s) => sum + s.results.length,
-                      0,
-                    );
-                    return (
-                      <Badge variant={passed === total ? "success" : "warning"}>
-                        {passed}/{total}
-                      </Badge>
-                    );
-                  })()}
-                <span className="text-xs text-muted-foreground">
-                  {isAuditStreaming
-                    ? formatElapsed(auditElapsed)
-                    : audit.completedAt
-                      ? formatDuration(audit.createdAt, audit.completedAt)
-                      : null}
-                </span>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2">
-              {isAuditStreaming &&
-                auditStreaming?.currentActivity &&
-                (() => {
-                  const steps = parseActivitySteps(
-                    auditStreaming.currentActivity,
-                  );
-                  return steps ? (
-                    <ActivityTasks steps={steps} isStreaming name="Auditing" />
-                  ) : null;
-                })()}
-              {!isAuditStreaming && audit.runId && (
-                <AuditActivityLog runId={audit.runId} type="audit" />
-              )}
-              {audit.status === "error" && (
-                <p className="text-sm text-destructive">
-                  {audit.error ?? "Audit failed"}
-                </p>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </Fragment>
+      </div>
+    </div>
   );
 }
 
@@ -202,11 +218,9 @@ function auditScore(audit: Audit): { passed: number; total: number } {
 }
 
 /**
- * Audit shown nested under its run in the activity timeline (an audit's `runId`
- * is the code-generation run itself). Mirrors the `RunProofRows` layout — a
- * top border plus an indented left rail — but is its own accordion because the
- * audit has expandable detail (results + Run Fixes). Streaming/elapsed state
- * only applies to the latest audit, gated by `isLatest`.
+ * Audit nested under its run — sibling timeline event (same rail as proof),
+ * own accordion for expandable results / Run Fixes. Streaming/elapsed only
+ * applies to the latest audit, gated by `isLatest`.
  */
 export function RunAuditRow({
   audit,
@@ -234,16 +248,16 @@ export function RunAuditRow({
         : null;
 
   return (
-    <div className="border-t border-border/60">
-      <div className="ml-2 border-l-2 border-muted-foreground/25 pl-3">
+    <div className="flex gap-2">
+      <RunRailEvaIcon />
+      <div className="min-w-0 flex-1">
         <Accordion
           type="multiple"
           defaultValue={isAuditStreaming || isFixStreaming ? [audit._id] : []}
         >
           <AccordionItem value={audit._id} className="border-none">
             <AccordionTrigger className="py-1.5">
-              <div className="flex flex-1 items-center gap-2 min-w-0 mr-2">
-                <LogoMark size={16} className="shrink-0" />
+              <div className="mr-2 flex min-w-0 flex-1 items-center gap-2">
                 <span className="text-xs font-medium text-foreground">
                   {audit.status === "running"
                     ? "Eva is auditing"

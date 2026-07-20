@@ -133,79 +133,83 @@ export function RunTimelineItem({
       </Tooltip>
     ) : null;
 
+  const hasProofs = Boolean(proofs && proofs.length > 0);
+
   return (
     <Accordion type="multiple" defaultValue={[]}>
-      <AccordionItem
-        value={run._id}
-        className="rounded-surface bg-muted/40 px-3"
-      >
-        <div className="flex items-center gap-2">
-          <AccordionTrigger className="flex-1 min-w-0">
-            <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-3">
-              <div className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
-                {requesterUserId ? (
-                  <UserInitials
-                    userId={requesterUserId}
-                    size="sm"
-                    hideLastSeen
-                  />
-                ) : null}
-                {requester ? (
-                  <span className="truncate text-xs font-medium text-foreground">
-                    {getUserDisplayName(requester)}
-                  </span>
-                ) : null}
-                <Badge
-                  variant={
-                    run.status === "running"
-                      ? "warning"
-                      : run.status === "error"
-                        ? "destructive"
-                        : run.status === "success"
-                          ? "success"
-                          : "secondary"
-                  }
-                >
-                  {getRunStatusLabel(run, hasRunComment)}
-                </Badge>
-                {run.credentialSourceLabel ? (
-                  <Badge variant="secondary">{run.credentialSourceLabel}</Badge>
-                ) : null}
-                {runDuration}
-              </div>
-              <RelativeDateTime
-                at={run.startedAt}
-                className="shrink-0 text-xs"
-              />
-            </div>
-          </AccordionTrigger>
-          {isActiveRun && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onStopConfirm();
-                    }}
-                    disabled={isStopping}
+      <AccordionItem value={run._id} className="border-none">
+        {/* Header: person avatar sits on the shared activity timeline rail. */}
+        <div className="flex gap-2">
+          <div className="relative z-10 flex w-4 shrink-0 items-start justify-center bg-background pt-1.5">
+            {requesterUserId ? (
+              <UserInitials userId={requesterUserId} size="sm" hideLastSeen />
+            ) : (
+              <span className="size-4 shrink-0" />
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <AccordionTrigger className="min-w-0 flex-1 py-1.5">
+              <div className="mr-2 flex min-w-0 flex-1 items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  {requester ? (
+                    <span className="truncate text-xs font-medium text-foreground">
+                      {getUserDisplayName(requester)}
+                    </span>
+                  ) : null}
+                  <Badge
+                    variant={
+                      run.status === "running"
+                        ? "warning"
+                        : run.status === "error"
+                          ? "destructive"
+                          : run.status === "success"
+                            ? "success"
+                            : "secondary"
+                    }
                   >
-                    {isStopping ? (
-                      <IconLoader2 size={14} className="animate-spin" />
-                    ) : (
-                      <IconPlayerStop size={14} />
-                    )}
-                    Stop
-                  </Button>
+                    {getRunStatusLabel(run, hasRunComment)}
+                  </Badge>
+                  {run.credentialSourceLabel ? (
+                    <Badge variant="secondary">
+                      {run.credentialSourceLabel}
+                    </Badge>
+                  ) : null}
+                  {runDuration}
                 </div>
-              </TooltipTrigger>
-            </Tooltip>
-          )}
+                <RelativeDateTime
+                  at={run.startedAt}
+                  className="shrink-0 text-xs"
+                />
+              </div>
+            </AccordionTrigger>
+            {isActiveRun && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStopConfirm();
+                      }}
+                      disabled={isStopping}
+                    >
+                      {isStopping ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconPlayerStop size={14} />
+                      )}
+                      Stop
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+              </Tooltip>
+            )}
+          </div>
         </div>
-        {proofs && proofs.length > 0 ? <RunProofRows proofs={proofs} /> : null}
+        {hasProofs && proofs ? <RunProofRows proofs={proofs} /> : null}
         {audit ? (
           <RunAuditRow
             audit={audit}
@@ -216,7 +220,7 @@ export function RunTimelineItem({
           />
         ) : null}
         <AccordionContent>
-          <div className="space-y-2">
+          <div className="ml-6 space-y-2">
             {runComment ? (
               <div
                 className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
@@ -262,15 +266,15 @@ export function RunTimelineItem({
               </Streamdown>
             )}
             {run.error && (
-              <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
+              <div className="rounded bg-destructive/10 p-2 text-sm text-destructive">
                 {run.error}
               </div>
             )}
             {run.logs.length > 0 && (
               <div className="mt-2">
-                <p className="text-xs text-muted-foreground mb-1">Logs</p>
+                <p className="mb-1 text-xs text-muted-foreground">Logs</p>
                 <div
-                  className={`bg-muted rounded p-2 font-mono text-xs space-y-1 ${RUN_ACCORDION_SCROLL_CLASS}`}
+                  className={`space-y-1 rounded bg-muted p-2 font-mono text-xs ${RUN_ACCORDION_SCROLL_CLASS}`}
                 >
                   {run.logs.map((log, i) => (
                     <div
@@ -283,7 +287,7 @@ export function RunTimelineItem({
                             : "text-muted-foreground"
                       }`}
                     >
-                      <span className="text-muted-foreground flex-shrink-0">
+                      <span className="flex-shrink-0 text-muted-foreground">
                         {dayjs(log.timestamp).format("DD/MM/YYYY HH:mm")}
                       </span>
                       <span className="break-all">{log.message}</span>

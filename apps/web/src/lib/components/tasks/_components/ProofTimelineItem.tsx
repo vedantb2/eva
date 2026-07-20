@@ -161,8 +161,10 @@ export function ProofTimelineItem({
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
-        <LogoMark size={16} className="shrink-0" />
+      <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-white">
+          <LogoMark size={16} />
+        </span>
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-foreground">
             Eva attached proof
@@ -200,7 +202,23 @@ export function ProofTimelineItem({
   );
 }
 
-/** Nested under a run accordion — media gallery link + message-only rows. */
+/**
+ * Eva mark on the shared activity timeline rail. White fill masks the global
+ * connector so the line doesn't cut through the icon.
+ */
+export function RunRailEvaIcon() {
+  return (
+    <div className="flex w-4 shrink-0 items-center justify-center self-stretch">
+      <span className="relative z-10 flex size-4 items-center justify-center bg-white">
+        <LogoMark size={16} />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Proof rows nested under a run — sibling timeline events on the shared rail.
+ */
 export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const mediaProofs = proofs.filter(isMediaProof);
@@ -211,11 +229,11 @@ export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
   if (mediaProofs.length === 0 && messageProofs.length === 0) return null;
 
   return (
-    <div className="border-t border-border/60">
-      <div className="ml-2 space-y-0 border-l-2 border-muted-foreground/25 pl-3">
-        {mediaProofs.length > 0 ? (
-          <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-            <LogoMark size={16} className="shrink-0" />
+    <>
+      {mediaProofs.length > 0 ? (
+        <div className="flex gap-2">
+          <RunRailEvaIcon />
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-xs text-muted-foreground">
             <span className="min-w-0 flex-1 truncate">
               <span className="font-medium text-foreground">
                 Eva attached proof
@@ -231,13 +249,12 @@ export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
               </button>
             </span>
           </div>
-        ) : null}
-        {messageProofs.map((proof) => (
-          <div
-            key={proof._id}
-            className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground"
-          >
-            <LogoMark size={16} className="shrink-0" />
+        </div>
+      ) : null}
+      {messageProofs.map((proof) => (
+        <div key={proof._id} className="flex gap-2">
+          <RunRailEvaIcon />
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-xs text-muted-foreground">
             <span className="min-w-0 flex-1 truncate">
               <span className="font-medium text-foreground">
                 Eva attached proof
@@ -248,8 +265,8 @@ export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
               </span>
             </span>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
       {mediaProofs.length > 0 ? (
         <ProofCaptureGallery
           proofs={mediaProofs}
@@ -257,6 +274,6 @@ export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
           onOpenChange={setGalleryOpen}
         />
       ) : null}
-    </div>
+    </>
   );
 }

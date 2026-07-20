@@ -98,7 +98,9 @@ export function TaskActivityItem({
     const merged = event.newValue === "merged";
     return (
       <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-        <span className="flex size-4 shrink-0 items-center justify-center" />
+        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
+          <span className="size-1.5 rounded-full bg-border" />
+        </span>
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-foreground">GitHub</span>
           {merged
@@ -128,9 +130,8 @@ export function TaskActivityItem({
 
   return (
     <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-      {/* Fixed slot reserves the avatar's width so it fills in without shifting
-          the text once the user record resolves. */}
-      <span className="flex size-4 shrink-0 items-center justify-center">
+      {/* Fixed slot on the shared timeline rail — bg masks the connector. */}
+      <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
         {event.userId && actor ? (
           <UserInitials
             userId={event.userId}
@@ -138,7 +139,9 @@ export function TaskActivityItem({
             size="sm"
             hideLastSeen
           />
-        ) : null}
+        ) : (
+          <span className="size-1.5 rounded-full bg-border" />
+        )}
       </span>
       <span className="min-w-0 flex-1 truncate">
         <span className="font-medium text-foreground">{actorName}</span>

@@ -35,27 +35,13 @@ import type {
   SandboxSnapshotInfo,
   SandboxState,
 } from "./provider";
+import {
+  KEEP_LAST_SNAPSHOTS,
+  vercelSnapshotCreateOptions,
+} from "./vercelSnapshotOptions";
+import { EVA_ENV_FILE } from "./vercelEnvFile";
 
-/** Default TTL for auto-snapshots on persistent sandboxes (30 days). */
-const SNAPSHOT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-/**
- * Safety-net TTL if an ephemeral sandbox ever produces a snap_* (should not —
- * persistent:false skips auto-snapshot). Short so leaked storage self-heals.
- */
-const EPHEMERAL_SNAPSHOT_TTL_MS = 60 * 60 * 1000;
-
-/**
- * Cap auto-snapshots (on stop) and explicit `snapshot()` calls to one per
- * sandbox lineage, deleting older ones immediately. Without this, persistent
- * sandboxes accumulate snap_* objects on every stop/resume cycle.
- * Explicit `expiration` prevents inheriting never-expire TTLs from seed snaps.
- * @see https://vercel.com/docs/sandbox/sdk-reference#keeplastsnapshots
- */
-const KEEP_LAST_SNAPSHOTS = {
-  count: 1,
-  deleteEvicted: true,
-  expiration: SNAPSHOT_TTL_MS,
-} as const;
+export { EVA_ENV_FILE, renderEvaEnvFile } from "./vercelEnvFile";
 
 /** Vercel API credentials, passed on every SDK call. */
 interface VercelCredentials {
@@ -69,16 +55,6 @@ const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 // repo/team env (~6 KB+). Instead of passing env at create, we write it to this
 // file in the sandbox and source it on every exec — no size cap, and it persists
 // across get()/resume like any other file.
-export const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
-
-/** Renders env vars as sourceable `export K='V'` lines (single-quote-escaped). */
-export function renderEvaEnvFile(env: Record<string, string>): string {
-  return (
-    Object.entries(env)
-      .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
-      .join("\n") + "\n"
-  );
-}
 
 /** Prefix that sources the eva env file (if present) before a command. */
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
@@ -916,16 +892,10 @@ class VercelSandboxClient implements SandboxClient {
       // and Vercel bills only active CPU + provisioned memory while running.
       timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
       persistent,
-      // Always set an explicit TTL. Creating from a seed snap with expiration:0
-      // otherwise inherits never-expire, so any auto-snap (or leak) bills forever.
-      snapshotExpiration: persistent
-        ? SNAPSHOT_TTL_MS
-        : EPHEMERAL_SNAPSHOT_TTL_MS,
+      ...vercelSnapshotCreateOptions(persistent),
       resources: { vcpus: DEFAULT_VCPUS },
       ports: (params.ports ?? VERCEL_DEFAULT_EXPOSED_PORTS).slice(0, MAX_PORTS),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
-      // Persistent sandboxes auto-snapshot on every stop; keep only the latest.
-      ...(persistent ? { keepLastSnapshots: KEEP_LAST_SNAPSHOTS } : {}),
     };
     try {
       const sandbox = params.snapshot

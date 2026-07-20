@@ -16,6 +16,7 @@ import {
 } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { workflow } from "../workflowManager";
+import { sanitizeSeededApps } from "./sanitizeSeededApps";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
@@ -55,35 +56,6 @@ async function expireStaleBuild(
     return false;
   }
   return true;
-}
-
-type SeededAppReturn = {
-  repoId: Id<"githubRepos">;
-  seededSnapshotName: string | null;
-  app?: string;
-  status?: "running" | "seeded" | "fallback";
-};
-
-/** Drops legacy warmup fields still present on older prod rows. */
-function sanitizeSeededApps(
-  seededApps: Doc<"snapshotBuilds">["seededApps"],
-): SeededAppReturn[] | undefined {
-  if (seededApps === undefined) {
-    return undefined;
-  }
-  return seededApps.map((app) => {
-    const cleaned: SeededAppReturn = {
-      repoId: app.repoId,
-      seededSnapshotName: app.seededSnapshotName,
-    };
-    if (app.app !== undefined) {
-      cleaned.app = app.app;
-    }
-    if (app.status !== undefined) {
-      cleaned.status = app.status;
-    }
-    return cleaned;
-  });
 }
 
 function sanitizeBuildForReturn(build: Doc<"snapshotBuilds">) {

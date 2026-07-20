@@ -29,6 +29,7 @@ import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import {
   EVA_ENV_FILE,
+  ensureEvaEnvInteractiveHookScript,
   renderEvaEnvFile,
   VERCEL_DEFAULT_EXPOSED_PORTS,
 } from "../_sandbox/vercelProvider";
@@ -384,6 +385,12 @@ export async function createSandbox(
             INSTALLATION_ID: String(installationId),
           }),
         ),
+      );
+      // So Preview Console / login shells see secrets without manual `source`.
+      await runLoggedGitStep(
+        "createSandbox.ensureEvaEnvInteractiveHook",
+        sandbox.id,
+        () => execHandle(sandbox, ensureEvaEnvInteractiveHookScript(), 30, "/"),
       );
     }
 

@@ -41,7 +41,12 @@ import {
 } from "./vercelSnapshotOptions";
 import { EVA_ENV_FILE } from "./vercelEnvFile";
 
-export { EVA_ENV_FILE, renderEvaEnvFile } from "./vercelEnvFile";
+export {
+  EVA_ENV_FILE,
+  ensureEvaEnvInteractiveHookScript,
+  renderEvaEnvFile,
+  tmuxNewSessionWithEvaEnv,
+} from "./vercelEnvFile";
 
 /** Vercel API credentials, passed on every SDK call. */
 interface VercelCredentials {

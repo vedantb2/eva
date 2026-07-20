@@ -102,6 +102,9 @@ export function sendVercelPtyControl(
 }
 
 const VERCEL_PTY_CWD = "/tmp/repo";
+/** Must match packages/backend/convex/_sandbox/vercelEnvFile.ts */
+const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
+const EVA_ENV_SOURCE_CMD = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`;
 
 function safeVercelSessionName(sessionName: string | undefined): string {
   const source =
@@ -123,6 +126,8 @@ export function startVercelPty(
   // existing session so reconnects don't thrash create/destroy.
   // alternate-screen off: keep output in xterm scrollback (Console scrollbar).
   // mouse off (global + session): never let tmux capture the wheel.
+  // New tmux sessions start bash with sandbox env sourced so typed commands
+  // (e.g. pnpm run dev) see the same secrets as agent exec / auto-launch.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
@@ -131,13 +136,14 @@ export function startVercelPty(
       [
         `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
         `if command -v tmux >/dev/null 2>&1; then`,
-        `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
+        `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName} -c ${cwd} -- bash -c '${EVA_ENV_SOURCE_CMD}; exec bash -i'`,
         `  tmux set-option -g mouse off`,
         `  tmux set-option -t ${sessionName} mouse off`,
         `  tmux set-option -t ${sessionName} alternate-screen off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,
+        `${EVA_ENV_SOURCE_CMD}`,
         `exec bash -l`,
       ].join("\n"),
     ],

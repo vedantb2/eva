@@ -3,9 +3,12 @@
 import type { SandboxHandle } from "../_sandbox/provider";
 import { defaultTerminalPtyId } from "../_daytona/devServer";
 import { workspaceDirShell } from "../_daytona/helpers";
+import {
+  EVA_ENV_FILE,
+  tmuxNewSessionWithEvaEnv,
+} from "../_sandbox/vercelEnvFile";
 import { tmuxSessionName } from "./vercel";
 
-const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 const CONSOLE_LAUNCH_SCRIPT = "/tmp/eva-console-dev.sh";
 
 /**
@@ -71,7 +74,7 @@ export async function launchDevServerInVercelConsole(
     )
   ).output.trim();
   if (hasSession !== "yes") {
-    await handle.exec(`tmux new-session -d -s ${sessionName} -c ${workspace}`, {
+    await handle.exec(tmuxNewSessionWithEvaEnv(sessionName, workspace), {
       cwd: "/",
       timeoutSeconds: 15,
     });

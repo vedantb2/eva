@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview Console loads sandbox env for typed commands - 2026-07-20
+
+Vercel Console tmux shells now source `/vercel/sandbox/.eva-env.sh` on create (plus login/bashrc hooks), so manually typed `pnpm run dev` sees the same secrets as agent exec and auto-launch. Existing bare sessions need a sandbox restart or a new terminal tab.
+
 ## Task + project sandboxes launch Preview Console like sessions - 2026-07-20
 
 Quick-task and project preview sandboxes now start the app server in the Preview Console tmux session (same as sessions) instead of relying on fragile frontend auto-type when the PTY is new. Stops idle Consoles after Vercel resume/early-ready. Contract tests pin the backend call sites and `runConsoleDevCommandOnConnect={false}` on all three panels.

@@ -3,6 +3,7 @@ import { useQueryState } from "nuqs";
 import { api } from "@conductor/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import { repoStatsRangeParser } from "@/lib/search-params";
 import {
   Select,
@@ -72,20 +73,10 @@ export function RepoHomeClient() {
       <div className="w-full max-w-3xl">
         <Widget
           title={
-            <div className="flex w-max items-center gap-2">
-              <img
-                src="/icon.svg"
-                alt="Eva"
-                width={30}
-                height={30}
-                className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-              />
-              <span className="text-xl tracking-tight font-semibold text-primary">
-                Eva's Stats
-              </span>
-            </div>
+            <span className="text-xl tracking-tight font-semibold text-primary">
+              {repoDisplayLabel(repo)}
+            </span>
           }
-          subtitle={`${repo.owner}/${repo.name}`}
           actions={
             <Select
               value={statsRange}

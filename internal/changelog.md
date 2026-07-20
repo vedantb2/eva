@@ -1,5 +1,9 @@
 # Changelog
 
+## Repo home title matches sidebar label - 2026-07-20
+
+Repo home widget header shows the same display name as the sidebar (custom label or app leaf) instead of "Eva's Stats" + owner/name subtitle.
+
 ## Keep audit rail icon top-aligned when open - 2026-07-20
 
 Audit accordion icon no longer stretches/centers with open content — it stays beside the trigger like run rows.

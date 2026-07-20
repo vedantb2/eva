@@ -1,5 +1,12 @@
 # Changelog
 
+## Quick task detail: sections, copy link, activity coalesce - 2026-07-20
+
+- Sidebar fields split into Properties / Labels / Project; page content capped at `max-w-7xl` and centered; hairline divider above Activity.
+- Header gains a Copy link control next to More (clipboard gets the current URL).
+- Same actor+field task activity edits within 5 minutes coalesce into one timeline row instead of stacking duplicates.
+- Reason for change: quick-task chrome felt flat/wide, and rapid description edits spam the activity feed.
+
 ## Fix empty proof captures (retry + longer cap) - 2026-07-20
 
 - Proof max runtime raised from 10m → 30m; empty media message is now "Eva decided not to capture."

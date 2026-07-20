@@ -251,7 +251,7 @@ export function TaskDetailInline({
                       inline={true}
                     />
 
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                         Activity
                         {isActivityBusy ? (

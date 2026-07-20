@@ -25,6 +25,7 @@ import {
   IconChevronDown,
   IconCalendarClock,
   IconDots,
+  IconLink,
   IconRefresh,
   IconServerBolt,
 } from "@tabler/icons-react";
@@ -120,7 +121,11 @@ export function TaskFooter({
     showRequestChanges ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
-    showViewSandbox || showStopSandbox || showMoreMenu || Boolean(latestPrUrl);
+    isHeader ||
+    showViewSandbox ||
+    showStopSandbox ||
+    showMoreMenu ||
+    Boolean(latestPrUrl);
 
   return (
     <div
@@ -166,6 +171,19 @@ export function TaskFooter({
               : "flex flex-wrap items-center gap-1.5 sm:gap-2"
           }
         >
+          {isHeader ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size={buttonSize}
+              onClick={() => {
+                void navigator.clipboard.writeText(window.location.href);
+              }}
+            >
+              <IconLink size={iconSize} />
+              <span className="hidden sm:inline">Copy link</span>
+            </Button>
+          ) : null}
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

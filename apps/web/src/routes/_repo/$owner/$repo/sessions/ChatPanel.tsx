@@ -41,6 +41,7 @@ import {
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -67,6 +68,8 @@ interface ChatPanelProps {
   isSandboxStopping?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
+  /** Archive or PR merged/closed — hides composer and shows read-only banner. */
+  isReadOnly?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
@@ -99,7 +102,8 @@ export function ChatPanel({
   isSandboxToggling,
   isSandboxStopping = false,
   onSandboxToggle,
-  isArchived,
+  isArchived = false,
+  isReadOnly = false,
   deploymentStatus,
   sandboxCollapsed,
   onToggleSandbox,
@@ -268,7 +272,7 @@ export function ChatPanel({
               planContent={planContent}
               onApprovePlan={handleApprovePlan}
               variant="compact"
-              isArchived={isArchived}
+              isArchived={isReadOnly}
             />
           </motion.div>
         </AnimatePresence>
@@ -278,7 +282,7 @@ export function ChatPanel({
           planContent={planContent}
           onViewPlan={handleViewPlan}
           onApprovePlan={handleApprovePlan}
-          isArchived={isArchived}
+          isArchived={isReadOnly}
         />
       ) : null}
     </>
@@ -305,10 +309,15 @@ export function ChatPanel({
       ? "Describe the product requirements... / for skills · @ for docs"
       : "Ask Eva anything... / for skills · @ for docs";
 
+  const readOnlyMessage = getSessionReadOnlyMessage({
+    isArchived,
+    prState,
+  });
+
   return (
     <ChatPageWrapper
       title={title}
-      isArchived={isArchived}
+      readOnlyMessage={readOnlyMessage}
       headerLeft={headerLeft}
       headerRight={headerRight}
     >
@@ -325,7 +334,7 @@ export function ChatPanel({
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
         isInputDisabled={!isSandboxActive}
-        isArchived={isArchived}
+        isArchived={isReadOnly}
         placeholder={placeholder}
         emptyStateTitle={emptyStateTitle}
         emptyStateOverride={emptyStateOverride}

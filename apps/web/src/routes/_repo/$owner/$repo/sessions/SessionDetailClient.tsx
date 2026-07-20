@@ -10,6 +10,7 @@ import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
+import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
 
 export function SessionDetailClient({
   sessionId,
@@ -119,6 +120,9 @@ export function SessionDetailClient({
   }
 
   const isSandboxActive = session.status === "active";
+  const isArchived = session.archived === true;
+  // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
+  const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
 
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
@@ -145,7 +149,8 @@ export function SessionDetailClient({
             }
             isSandboxStopping={isSandboxStopping || isStopPending}
             onSandboxToggle={handleSandboxToggle}
-            isArchived={session.archived === true}
+            isArchived={isArchived}
+            isReadOnly={isReadOnly}
             deploymentStatus={session.deploymentStatus}
             sandboxCollapsed={rightPanelCollapsed}
             onToggleSandbox={onToggleRightPanel}
@@ -171,12 +176,12 @@ export function SessionDetailClient({
             devCommand={session.devCommand ?? repo.devCommand}
             terminalPanes={session.terminalPanes}
             planContent={session.planContent}
-            isArchived={session.archived === true}
+            isArchived={isReadOnly}
             activeTab={activeSandboxTab}
             onTabChange={onSandboxTabChange}
             agentBrowsingAt={session.agentBrowsingAt}
             onStartSandbox={
-              session.archived === true || isSandboxStopping || isStopPending
+              isReadOnly || isSandboxStopping || isStopPending
                 ? undefined
                 : () => {
                     void handleSandboxToggle("start");

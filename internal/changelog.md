@@ -1,5 +1,11 @@
 # Changelog
 
+## Read-only sessions when PR is merged or closed - 2026-07-20
+
+- Sessions whose PR is `merged` or `closed` use the same read-only chrome as archive (banner, no composer, no sandbox start, PRD locked), without auto-archiving.
+- Banner copy is PR-specific; reopening the PR on GitHub (webhook → `open`/`draft`) unlocks the session again. No in-app unlock.
+- Reason for change: post-merge/closed sessions were still editable even though the work was done.
+
 ## Persist list scroll across detail navigation - 2026-07-20
 
 - Quick tasks / projects (list, kanban columns, table) and the sidebar nav restore scroll via sessionStorage when returning from a detail view.

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQueryState } from "nuqs";
 import type { Id } from "@conductor/backend";
 import { Badge } from "@conductor/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
@@ -23,7 +24,11 @@ import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDial
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
+import {
+  fileViewerPathParser,
+  isTaskRouteSandboxTab,
+  type SandboxTab,
+} from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -42,6 +47,7 @@ export function TaskDetailInline({
 }: TaskDetailInlineProps) {
   const [embeddedSandboxTab, setEmbeddedSandboxTab] =
     useState<SandboxTab>("preview");
+  const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
 
   const {
@@ -116,6 +122,20 @@ export function TaskDetailInline({
     handleCreatePr,
   } = useTaskDetail(taskId, routing);
 
+  // Chat file chips → Files tab + `?file=` (same pattern as sessions).
+  // Must stay above early returns so hooks order is stable.
+  const openFile = useCallback(
+    (path: string) => {
+      if (routing?.mode === "quick-sandbox") {
+        routing.quick.onOpenFile(path);
+        return;
+      }
+      void setFileViewerPath(path);
+      setEmbeddedSandboxTab("files");
+    },
+    [setFileViewerPath, routing],
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -137,9 +157,11 @@ export function TaskDetailInline({
     routing?.mode === "quick-sandbox" ? routeSandboxTab : embeddedSandboxTab;
   const handleSandboxTabChange = (tab: SandboxTab) => {
     if (routing?.mode === "quick-sandbox") {
-      const nextTab: TaskRouteSandboxTab =
-        tab === "prd" || tab === "files" ? "preview" : tab;
-      routing.quick.onSandboxTabChange(nextTab);
+      if (tab === "prd" || !isTaskRouteSandboxTab(tab)) {
+        routing.quick.onSandboxTabChange("preview");
+        return;
+      }
+      routing.quick.onSandboxTabChange(tab);
       return;
     }
     setEmbeddedSandboxTab(tab);
@@ -190,6 +212,7 @@ export function TaskDetailInline({
         <TaskSandboxChatPanel
           taskId={taskId}
           isSandboxActive={isSandboxActive}
+          onOpenFile={openFile}
         />
       )}
       rightPanel={sandboxRightPanel}

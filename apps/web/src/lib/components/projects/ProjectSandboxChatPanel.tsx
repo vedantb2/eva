@@ -42,11 +42,14 @@ function chatSettingsKey(parentId: string) {
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
   isSandboxActive: boolean;
+  /** Opens the Files tab and loads this sandbox path in the file viewer. */
+  onOpenFile?: (path: string) => void;
 }
 
 export function ProjectSandboxChatPanel({
   projectId,
   isSandboxActive,
+  onOpenFile,
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
@@ -225,6 +228,7 @@ export function ProjectSandboxChatPanel({
         formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
+        onOpenFile={onOpenFile}
       />
     </div>
   );

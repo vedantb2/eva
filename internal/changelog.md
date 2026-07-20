@@ -1,5 +1,9 @@
 # Changelog
 
+## Files tab on task and project sandboxes - 2026-07-20
+
+Quick-task and project sandboxes now include the session Files viewer (URL-routable + chat file-chip open), so sandbox file reads aren’t session-only anymore.
+
 ## Browser tab on task and project sandboxes - 2026-07-20
 
 Quick-task and project sandbox views now expose the same Browser tab as sessions (URL-routable), so agent Chrome is reachable outside session detail. Agent auto-switch still session-only until browsing lock is wired on those entities.

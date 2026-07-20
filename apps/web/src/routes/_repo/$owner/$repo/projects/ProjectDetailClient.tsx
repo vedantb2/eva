@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import {
   Tooltip,
@@ -53,7 +54,6 @@ import {
   IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
@@ -142,6 +142,18 @@ export function ProjectDetailClient({
       to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
     });
   };
+
+  // Chat file chips → Files tab + `?file=` (same pattern as sessions).
+  const openFile = useCallback(
+    (path: string) => {
+      if (!projectPathSegment) return;
+      void navigate({
+        to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,
+        search: (prev) => ({ ...prev, file: path }),
+      });
+    },
+    [basePath, navigate, projectPathSegment],
+  );
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -279,6 +291,7 @@ export function ProjectDetailClient({
         <ProjectSandboxChatPanel
           projectId={projectId}
           isSandboxActive={isSandboxActive}
+          onOpenFile={openFile}
         />
       )}
       rightPanel={projectSandboxPanel}

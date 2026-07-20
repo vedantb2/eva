@@ -13,6 +13,7 @@ import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { FileViewerPanel } from "@/routes/_repo/$owner/$repo/sessions/FileViewerPanel";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -41,8 +42,8 @@ interface TaskSandboxPanelProps {
 
 /**
  * Right-side sandbox panel for a quick task — mirrors the session sandbox
- * panel (Preview, Browser, Terminal, Diffs, Editor/Computer via +). PRD and
- * Files stay session-only.
+ * panel (Preview, Browser, Terminal, Diffs, Files, Editor/Computer via +).
+ * PRD stays session-only.
  *
  * All shared multi-pane / preview / PTY logic lives in the `sandbox/` module
  * so this file is just a thin orchestrator.
@@ -129,6 +130,7 @@ export function TaskSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
+        showFilesTab
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
@@ -138,6 +140,15 @@ export function TaskSandboxPanel({
         onCloseEditor={closeEditor}
       />
       <div className="flex-1 overflow-hidden bg-card">
+        <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
+          {tabBarValue === "files" ? (
+            <FileViewerPanel
+              sandboxId={sandboxId}
+              repoId={repoId}
+              isActive={isActive}
+            />
+          ) : null}
+        </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}
           panes={panes}

@@ -26,6 +26,8 @@ export type QuickTaskSandboxRouting = {
   sandboxTab: TaskRouteSandboxTab;
   onSandboxTabChange: (tab: TaskRouteSandboxTab) => void;
   onExitSandboxView: () => void;
+  /** Opens Files tab with `?file=` set (chat file chips). */
+  onOpenFile: (path: string) => void;
 };
 
 export type ProjectTaskDetailRouting = {

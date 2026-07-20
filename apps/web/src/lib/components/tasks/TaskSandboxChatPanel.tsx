@@ -42,11 +42,14 @@ function chatSettingsKey(parentId: string) {
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
   isSandboxActive: boolean;
+  /** Opens the Files tab and loads this sandbox path in the file viewer. */
+  onOpenFile?: (path: string) => void;
 }
 
 export function TaskSandboxChatPanel({
   taskId,
   isSandboxActive,
+  onOpenFile,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const task = useQuery(api.agentTasks.get, { id: taskId });
@@ -227,6 +230,7 @@ export function TaskSandboxChatPanel({
         formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
+        onOpenFile={onOpenFile}
       />
     </div>
   );

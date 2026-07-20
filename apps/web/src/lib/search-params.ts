@@ -101,6 +101,7 @@ const taskRouteSandboxTabs = [
   "terminal",
   "computer",
   "diffs",
+  "files",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 

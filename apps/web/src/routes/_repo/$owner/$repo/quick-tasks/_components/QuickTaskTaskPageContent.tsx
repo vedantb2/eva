@@ -61,6 +61,12 @@ export function QuickTaskTaskPageContent({
               to: `${basePath}/quick-tasks/${pathSegment}`,
             });
           },
+          onOpenFile: (path: string) => {
+            navigate({
+              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/files`,
+              search: (prev) => ({ ...prev, file: path }),
+            });
+          },
         },
       };
     }

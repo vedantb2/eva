@@ -14,6 +14,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import {
+  IconBrandGithub,
   IconGitPullRequest,
   IconPercentage,
   IconUsers,
@@ -27,6 +28,7 @@ import {
 } from "./_utils";
 import { StatCard } from "./_components/StatCard";
 import { Widget } from "@/lib/components/Widget";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 
 export function RepoHomeClient() {
   const { repo } = useRepo();
@@ -40,6 +42,7 @@ export function RepoHomeClient() {
     [statsRange],
   );
 
+  const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
   const impactStats = useQuery(api.analytics.getImpactStats, {
     repoId: repo._id,
     startTime,
@@ -73,8 +76,20 @@ export function RepoHomeClient() {
       <div className="w-full max-w-3xl">
         <Widget
           title={
-            <span className="text-xl tracking-tight font-semibold text-primary">
-              {repoDisplayLabel(repo)}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <RepoLogo
+                logoUrl={logoUrl}
+                size={28}
+                fallback={
+                  <IconBrandGithub
+                    size={28}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                }
+              />
+              <span className="truncate text-xl tracking-tight font-semibold text-primary">
+                {repoDisplayLabel(repo)}
+              </span>
             </span>
           }
           actions={

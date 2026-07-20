@@ -161,6 +161,8 @@ export function TaskSandboxPanel({
           cacheKey={taskIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
+          // Backend starts the app in the Console tmux session after startup.
+          runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}

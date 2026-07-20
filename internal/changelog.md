@@ -1,5 +1,9 @@
 # Changelog
 
+## Task + project sandboxes launch Preview Console like sessions - 2026-07-20
+
+Quick-task and project preview sandboxes now start the app server in the Preview Console tmux session (same as sessions) instead of relying on fragile frontend auto-type when the PTY is new. Stops idle Consoles after Vercel resume/early-ready.
+
 ## Files tab on task and project sandboxes - 2026-07-20
 
 Quick-task and project sandboxes now include the session Files viewer (URL-routable + chat file-chip open), so sandbox file reads aren’t session-only anymore.

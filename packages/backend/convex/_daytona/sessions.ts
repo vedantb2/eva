@@ -46,21 +46,20 @@ import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { startDesktopWithChrome } from "./desktop";
 
-/** Starts the session app server where Console can show logs (Vercel tmux; else background). */
-async function launchSessionDevServer(
+/**
+ * Starts the app server where Console can show logs (Vercel tmux; else
+ * background). `ownerKey` must match the Preview Console PTY owner
+ * (`session-*` / `task-*` / `project-*`).
+ */
+async function launchPreviewDevServer(
   clientKind: "daytona" | "vercel",
   handle: SandboxHandle,
-  sessionId: Id<"sessions">,
+  ownerKey: string,
   devCommand: string,
   devPort: number,
 ): Promise<void> {
   if (clientKind === "vercel") {
-    await launchDevServerInVercelConsole(
-      handle,
-      `session-${sessionId}`,
-      devCommand,
-      devPort,
-    );
+    await launchDevServerInVercelConsole(handle, ownerKey, devCommand, devPort);
     return;
   }
   await launchDevServerInBackground(handle, devCommand, devPort);
@@ -852,10 +851,10 @@ async function prepareSessionSandboxInternal(
               "reuseSessionSandbox.launchDevServer",
               sandboxDetails,
               () =>
-                launchSessionDevServer(
+                launchPreviewDevServer(
                   "vercel",
                   handle,
-                  args.sessionId,
+                  `session-${args.sessionId}`,
                   devCommand,
                   devPort,
                 ),
@@ -1348,10 +1347,10 @@ async function prepareSessionSandboxInternal(
       "newSessionSandbox.launchDevServer",
       sandboxDetails,
       () =>
-        launchSessionDevServer(
+        launchPreviewDevServer(
           client.kind,
           handle,
-          args.sessionId,
+          `session-${args.sessionId}`,
           devCommand,
           devPort,
         ),
@@ -1390,10 +1389,10 @@ async function prepareSessionSandboxInternal(
         client.kind === "vercel"
       ) {
         try {
-          await launchSessionDevServer(
+          await launchPreviewDevServer(
             "vercel",
             handle,
-            args.sessionId,
+            `session-${args.sessionId}`,
             resolvedDevCommand,
             resolvedDevPort,
           );
@@ -2033,6 +2032,19 @@ async function prepareTaskPreviewSandboxInternal(
       label: "Launching background commands...",
       status: "complete",
     });
+    // Same as sessions: put the app in Preview Console (Vercel tmux) / background.
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.launchDevServer",
+      sandboxDetails,
+      () =>
+        launchPreviewDevServer(
+          client.kind,
+          handle,
+          `task-${args.taskId}`,
+          devCommand,
+          devPort,
+        ),
+    );
     reusedResult = {
       sandbox: handle,
       isNew: false,
@@ -2286,6 +2298,19 @@ async function prepareTaskPreviewSandboxInternal(
       },
     );
 
+    await runLoggedSessionStep(
+      "newTaskSandbox.launchDevServer",
+      sandboxDetails,
+      () =>
+        launchPreviewDevServer(
+          client.kind,
+          handle,
+          `task-${args.taskId}`,
+          devCommand,
+          devPort,
+        ),
+    );
+
     return {
       sandbox: handle,
       isNew: true,
@@ -2526,6 +2551,21 @@ async function prepareProjectPreviewSandboxInternal(
         label: "Launching background commands...",
         status: "complete",
       });
+    }
+    // Interview/automation paths skip startup; preview sandboxes still need the app.
+    if (!args.skipStartupCommands) {
+      await runLoggedSessionStep(
+        "reuseProjectSandbox.launchDevServer",
+        sandboxDetails,
+        () =>
+          launchPreviewDevServer(
+            client.kind,
+            handle,
+            `project-${args.projectId}`,
+            devCommand,
+            devPort,
+          ),
+      );
     }
     reusedResult = {
       sandbox: handle,
@@ -2783,6 +2823,19 @@ async function prepareProjectPreviewSandboxInternal(
           );
         }
       },
+    );
+
+    await runLoggedSessionStep(
+      "newProjectSandbox.launchDevServer",
+      sandboxDetails,
+      () =>
+        launchPreviewDevServer(
+          client.kind,
+          handle,
+          `project-${args.projectId}`,
+          devCommand,
+          devPort,
+        ),
     );
   }
 

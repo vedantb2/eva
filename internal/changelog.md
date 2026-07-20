@@ -1,5 +1,11 @@
 # Changelog
 
+## Proof and audit as top-level activity events - 2026-07-20
+
+- Proofs and audits no longer nest under the run accordion; each is its own timeline row on the shared rail.
+- Audits use a dedicated accordion titled "Eva performed audit" (with running/error/fix variants) and expandable results.
+- Reason for change: nested proof/audit under the run made the timeline hard to scan as discrete events.
+
 ## Flat activity timeline with shared rail - 2026-07-20
 
 - Run rows (success / made changes / running / error / queued) drop the muted card; proof and nested audit sit as sibling events under the run, not indented inside it.

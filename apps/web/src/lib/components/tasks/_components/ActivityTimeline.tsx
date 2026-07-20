@@ -178,33 +178,11 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
-  const runIds = new Set((runs ?? []).map((run) => run._id));
-  const proofsByRunId = new Map<string, Proof[]>();
-  const orphanProofs: Proof[] = [];
-  for (const proof of proofs ?? []) {
-    if (!proof.url && !proof.message) continue;
-    if (proof.runId && runIds.has(proof.runId)) {
-      const existing = proofsByRunId.get(proof.runId) ?? [];
-      existing.push(proof);
-      proofsByRunId.set(proof.runId, existing);
-    } else {
-      orphanProofs.push(proof);
-    }
-  }
-
-  // An audit's `runId` is the code-generation run it audited, so nest each
-  // audit under its run. Audits with no matching loaded run (session audits,
-  // legacy) fall back to a top-level timeline item so nothing disappears.
+  // Proofs and audits are top-level timeline events (not nested under runs).
+  const timelineProofs = (proofs ?? []).filter(
+    (proof) => proof.url || proof.message,
+  );
   const latestAuditId = allAudits?.[0]?._id;
-  const auditsByRunId = new Map<string, NonNullable<Audits>[number]>();
-  const orphanAudits: NonNullable<Audits>[number][] = [];
-  for (const audit of allAudits ?? []) {
-    if (audit.runId && runIds.has(audit.runId)) {
-      auditsByRunId.set(audit.runId, audit);
-    } else {
-      orphanAudits.push(audit);
-    }
-  }
 
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
@@ -212,7 +190,7 @@ export function ActivityTimeline({
   );
 
   const activityTimeline: ActivityItem[] = [
-    ...orphanAudits.map((audit) => ({
+    ...(allAudits ?? []).map((audit) => ({
       kind: "audit" as const,
       timestamp: audit.createdAt,
       audit,
@@ -227,7 +205,7 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...orphanProofs.map((proof) => ({
+    ...timelineProofs.map((proof) => ({
       kind: "proof" as const,
       timestamp: proof.createdAt,
       proof,
@@ -260,17 +238,15 @@ export function ActivityTimeline({
     }
   }
 
-  const renderTimelineItem = (item: ActivityItem, index: number) => {
+  const renderTimelineItem = (item: ActivityItem) => {
     if (item.kind === "audit") {
       const audit = item.audit;
-      const auditIndex = (allAudits ?? []).indexOf(audit);
-      const isLatest = auditIndex === 0;
+      const isLatest = audit._id === latestAuditId;
       return (
         <AuditTimelineItem
           key={`audit-${audit._id}`}
           audit={audit}
           isLatest={isLatest}
-          isFirst={index === activityTimeline.length - 1}
           auditStreaming={auditStreaming}
           auditElapsed={auditElapsed}
           fixElapsed={fixElapsed}
@@ -311,12 +287,6 @@ export function ActivityTimeline({
             runComment ? (repliesByParentId.get(runComment._id) ?? []) : []
           }
           users={users}
-          proofs={proofsByRunId.get(run._id)}
-          audit={auditsByRunId.get(run._id)}
-          isLatestAudit={auditsByRunId.get(run._id)?._id === latestAuditId}
-          auditStreaming={auditStreaming}
-          auditElapsed={auditElapsed}
-          fixElapsed={fixElapsed}
         />
       </Suspense>
     );
@@ -353,9 +323,7 @@ export function ActivityTimeline({
                   aria-hidden
                   className="pointer-events-none absolute bottom-2 left-2 top-2 w-px -translate-x-1/2 bg-border"
                 />
-                {segment.items.map((item) =>
-                  renderTimelineItem(item, activityTimeline.indexOf(item)),
-                )}
+                {segment.items.map((item) => renderTimelineItem(item))}
               </div>
             );
           })

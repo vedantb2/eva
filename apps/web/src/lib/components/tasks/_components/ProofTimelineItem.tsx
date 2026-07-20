@@ -143,10 +143,7 @@ export function ProofCaptureGallery({
   );
 }
 
-/**
- * Status-style proof row for the activity timeline (legacy orphans) or nested
- * under a run accordion header (always visible when collapsed).
- */
+/** Top-level proof row on the activity timeline rail. */
 export function ProofTimelineItem({
   proof,
   showTimestamp = true,
@@ -196,82 +193,6 @@ export function ProofTimelineItem({
           proofs={[proof]}
           open={open}
           onOpenChange={setOpen}
-        />
-      ) : null}
-    </>
-  );
-}
-
-/**
- * Eva mark on the shared activity timeline rail. White fill masks the global
- * connector so the line doesn't cut through the icon.
- */
-export function RunRailEvaIcon() {
-  return (
-    <div className="flex w-4 shrink-0 items-center justify-center self-stretch">
-      <span className="relative z-10 flex size-4 items-center justify-center bg-white">
-        <LogoMark size={16} />
-      </span>
-    </div>
-  );
-}
-
-/**
- * Proof rows nested under a run — sibling timeline events on the shared rail.
- */
-export function RunProofRows({ proofs }: { proofs: TaskProof[] }) {
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const mediaProofs = proofs.filter(isMediaProof);
-  const messageProofs = proofs.filter(
-    (proof) => !isMediaProof(proof) && Boolean(proof.message?.trim()),
-  );
-
-  if (mediaProofs.length === 0 && messageProofs.length === 0) return null;
-
-  return (
-    <>
-      {mediaProofs.length > 0 ? (
-        <div className="flex gap-2">
-          <RunRailEvaIcon />
-          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-xs text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate">
-              <span className="font-medium text-foreground">
-                Eva attached proof
-              </span>{" "}
-              <button
-                type="button"
-                onClick={() => setGalleryOpen(true)}
-                className="font-medium text-primary underline-offset-2 hover:underline"
-              >
-                {mediaProofs.length === 1
-                  ? "View capture"
-                  : `View captures (${mediaProofs.length})`}
-              </button>
-            </span>
-          </div>
-        </div>
-      ) : null}
-      {messageProofs.map((proof) => (
-        <div key={proof._id} className="flex gap-2">
-          <RunRailEvaIcon />
-          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-xs text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate">
-              <span className="font-medium text-foreground">
-                Eva attached proof
-              </span>
-              <span className="text-muted-foreground">
-                {" "}
-                — {truncateProofMessage(proof.message ?? "")}
-              </span>
-            </span>
-          </div>
-        </div>
-      ))}
-      {mediaProofs.length > 0 ? (
-        <ProofCaptureGallery
-          proofs={mediaProofs}
-          open={galleryOpen}
-          onOpenChange={setGalleryOpen}
         />
       ) : null}
     </>

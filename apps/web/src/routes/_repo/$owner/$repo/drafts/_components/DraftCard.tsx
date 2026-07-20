@@ -24,6 +24,7 @@ function kindLabel(model: DraftCardModel): string {
     return parentCommentId ? "Reply" : "Comment";
   }
   if (kind === "taskChat") return "Task chat";
+  if (kind === "projectChat") return "Project chat";
   if (kind === "sessionChat") return "Session";
   return "Design";
 }
@@ -108,8 +109,14 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
       return;
     }
 
-    const { kind, taskId, taskProjectId, sessionId, designSessionId } =
-      model.row;
+    const {
+      kind,
+      taskId,
+      taskProjectId,
+      projectId,
+      sessionId,
+      designSessionId,
+    } = model.row;
 
     if (kind === "taskComment" && taskId) {
       void (async () => {
@@ -137,6 +144,20 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         if (path) {
           await navigate({ to: path });
         }
+      })();
+      return;
+    }
+
+    if (kind === "projectChat" && projectId) {
+      void (async () => {
+        const project = await convex.query(api.projects.get, { id: projectId });
+        const segment = project ? entityPathSegment(project) : null;
+        if (!segment) {
+          return;
+        }
+        await navigate({
+          to: `${basePath}/projects/${segment}/sandbox/preview`,
+        });
       })();
       return;
     }

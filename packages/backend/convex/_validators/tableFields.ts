@@ -701,11 +701,13 @@ export const draftFields = {
   kind: v.union(
     v.literal("taskComment"),
     v.literal("taskChat"),
+    v.literal("projectChat"),
     v.literal("sessionChat"),
     v.literal("designChat"),
   ),
   taskId: v.optional(v.id("agentTasks")),
   parentCommentId: v.optional(v.id("taskComments")),
+  projectId: v.optional(v.id("projects")),
   sessionId: v.optional(v.id("sessions")),
   designSessionId: v.optional(v.id("designSessions")),
   content: v.string(),
@@ -740,6 +742,10 @@ export const draftTarget = v.union(
   v.object({
     kind: v.literal("taskChat"),
     taskId: v.id("agentTasks"),
+  }),
+  v.object({
+    kind: v.literal("projectChat"),
+    projectId: v.id("projects"),
   }),
   v.object({
     kind: v.literal("sessionChat"),

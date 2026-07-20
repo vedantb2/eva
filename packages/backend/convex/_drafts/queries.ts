@@ -62,6 +62,10 @@ export const listForRepo = authQuery({
         if (!task) continue; // surface gone — skip
         contextTitle = task.title || "Untitled";
         taskProjectId = task.projectId;
+      } else if (draft.kind === "projectChat" && draft.projectId) {
+        const project = await ctx.db.get(draft.projectId);
+        if (!project) continue;
+        contextTitle = project.title || "Untitled";
       } else if (draft.kind === "sessionChat" && draft.sessionId) {
         const session = await ctx.db.get(draft.sessionId);
         if (!session) continue;

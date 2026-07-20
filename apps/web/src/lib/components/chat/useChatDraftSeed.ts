@@ -19,10 +19,16 @@ export type TaskChatTarget = {
   taskId: Id<"agentTasks">;
 };
 
+export type ProjectChatTarget = {
+  kind: "projectChat";
+  projectId: Id<"projects">;
+};
+
 export type ChatDraftTarget =
   | SessionChatTarget
   | DesignChatTarget
-  | TaskChatTarget;
+  | TaskChatTarget
+  | ProjectChatTarget;
 
 /** Seed bundle passed to ChatBody (and used inline in DesignChatPanel). */
 export type ChatDraftSeed = {

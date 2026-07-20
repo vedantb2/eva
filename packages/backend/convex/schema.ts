@@ -433,6 +433,7 @@ const schema = defineSchema(
     // comments and chat prompts so drafts survive page reloads.
     drafts: defineTable(draftFields)
       .index("by_user_and_task", ["userId", "taskId"])
+      .index("by_user_and_project", ["userId", "projectId"])
       .index("by_user_and_session", ["userId", "sessionId"])
       .index("by_user_and_designSession", ["userId", "designSessionId"])
       .index("by_user_and_repo", ["userId", "repoId"]),

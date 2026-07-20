@@ -50,6 +50,21 @@ async function findTaskChatDraft(
   return rows.find((d) => d.kind === "taskChat") ?? null;
 }
 
+/** Finds a user's draft row for project sandbox chat, matched by projectId. */
+async function findProjectChatDraft(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  projectId: Id<"projects">,
+): Promise<Doc<"drafts"> | null> {
+  const rows = await db
+    .query("drafts")
+    .withIndex("by_user_and_project", (q) =>
+      q.eq("userId", userId).eq("projectId", projectId),
+    )
+    .collect();
+  return rows.find((d) => d.kind === "projectChat") ?? null;
+}
+
 /**
  * Validates that the surface doc exists, the user has repo access, and returns
  * the repoId plus a query helper to locate the matching draft row.
@@ -114,6 +129,20 @@ export async function resolveTarget(
     return {
       repoId,
       findExisting: () => findTaskChatDraft(db, userId, taskId),
+    };
+  }
+
+  if (target.kind === "projectChat") {
+    const project = await db.get(target.projectId);
+    if (!project) throw new Error("Project not found");
+    if (!(await hasRepoAccess(db, project.repoId, userId))) {
+      throw new Error("Not authorized");
+    }
+    const { repoId } = project;
+    const projectId = target.projectId;
+    return {
+      repoId,
+      findExisting: () => findProjectChatDraft(db, userId, projectId),
     };
   }
 

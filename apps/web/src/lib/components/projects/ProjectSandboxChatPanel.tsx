@@ -20,6 +20,7 @@ import {
   ChatBody,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
+import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -79,6 +80,35 @@ export function ProjectSandboxChatPanel({
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+
+  const draftSeed = useChatDraftSeed({
+    kind: "projectChat" as const,
+    projectId,
+  });
+  const draftBundle = draftSeed.isReady
+    ? {
+        target: { kind: "projectChat" as const, projectId },
+        initialDisplay: draftSeed.initialDisplay,
+        mentionMap: draftSeed.mentionMap,
+        skillMap: draftSeed.skillMap,
+      }
+    : undefined;
+
+  // Same entityId the project-chat sandbox posts with (project id, not stream prefix).
+  const activeQuestion = useQuery(api.pendingQuestions.getActive, {
+    entityId: projectId,
+  });
+  const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
+  const handleAnswerBlockingQuestion = useCallback(
+    async (toolUseId: string, answers: Record<string, string>) => {
+      await answerPendingQuestion({
+        entityId: projectId,
+        toolUseId,
+        answer: JSON.stringify(answers),
+      });
+    },
+    [answerPendingQuestion, projectId],
+  );
 
   const setModel = useCallback(
     (next: AIModel) =>
@@ -168,6 +198,8 @@ export function ProjectSandboxChatPanel({
         streamingActivity={streaming?.currentActivity}
         streamingContent={streaming?.currentContent}
         streamingPendingQuestion={streaming?.pendingQuestion}
+        blockingQuestion={activeQuestion ?? undefined}
+        onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
         isInputDisabled={!isSandboxActive}
         placeholder={
@@ -191,6 +223,8 @@ export function ProjectSandboxChatPanel({
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}
+        draft={draftBundle}
+        isDraftLoading={!draftSeed.isReady}
       />
     </div>
   );

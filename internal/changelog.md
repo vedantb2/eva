@@ -1,8 +1,8 @@
 # Changelog
 
-## Task sandbox chat: drafts + blocking questions - 2026-07-20
+## Task + project sandbox chat: drafts + blocking questions - 2026-07-20
 
-Quick-task sandbox chat now persists composer drafts (`taskChat`) and answers blocking AskUserQuestion like sessions, so remounts and paused turns work the same.
+Quick-task and project sandbox chat now persist composer drafts (`taskChat` / `projectChat`) and answer blocking AskUserQuestion like sessions, so remounts and paused turns work the same.
 
 ## Repo home title matches sidebar label - 2026-07-20
 

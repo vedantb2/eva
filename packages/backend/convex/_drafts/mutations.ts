@@ -58,6 +58,11 @@ export const set = authMutation({
         ...base,
         taskId: args.target.taskId,
       });
+    } else if (args.target.kind === "projectChat") {
+      await ctx.db.insert("drafts", {
+        ...base,
+        projectId: args.target.projectId,
+      });
     } else if (args.target.kind === "sessionChat") {
       await ctx.db.insert("drafts", {
         ...base,

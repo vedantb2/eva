@@ -17,6 +17,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { CreatedTimelineItem } from "./CreatedTimelineItem";
 import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
@@ -39,10 +40,15 @@ type Streaming = FunctionReturnType<typeof api.streaming.get>;
 type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
+type User = NonNullable<Users>[number];
 type Proofs = FunctionReturnType<typeof api.taskProof.listByTask>;
 type Proof = NonNullable<Proofs>[number];
 
 type ActivityItem =
+  | {
+      kind: "created";
+      timestamp: number;
+    }
   | {
       kind: "audit";
       timestamp: number;
@@ -71,6 +77,8 @@ type ActivityItem =
 
 export function ActivityTimeline({
   taskId,
+  createdAt,
+  creatorUser,
   runs,
   allAudits,
   comments,
@@ -96,6 +104,8 @@ export function ActivityTimeline({
   isProjectTask,
 }: {
   taskId: Id<"agentTasks">;
+  createdAt: number | undefined;
+  creatorUser: User | undefined;
   isProjectTask: boolean;
   runs: Runs | undefined;
   allAudits: Audits | undefined;
@@ -190,6 +200,9 @@ export function ActivityTimeline({
   );
 
   const activityTimeline: ActivityItem[] = [
+    ...(createdAt !== undefined
+      ? [{ kind: "created" as const, timestamp: createdAt }]
+      : []),
     ...(allAudits ?? []).map((audit) => ({
       kind: "audit" as const,
       timestamp: audit.createdAt,
@@ -239,6 +252,16 @@ export function ActivityTimeline({
   }
 
   const renderTimelineItem = (item: ActivityItem) => {
+    if (item.kind === "created") {
+      return (
+        <CreatedTimelineItem
+          key="created"
+          createdAt={item.timestamp}
+          creatorUser={creatorUser}
+          isProjectTask={isProjectTask}
+        />
+      );
+    }
     if (item.kind === "audit") {
       const audit = item.audit;
       const isLatest = audit._id === latestAuditId;

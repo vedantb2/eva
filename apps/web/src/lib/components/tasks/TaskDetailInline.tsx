@@ -7,9 +7,7 @@ import type { Id } from "@conductor/backend";
 import { Badge } from "@conductor/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { UserInitials } from "@conductor/shared";
 import { useTaskDetail } from "./useTaskDetail";
-import { getUserDisplayName } from "./_components/task-detail-constants";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
@@ -236,8 +234,8 @@ export function TaskDetailInline({
                         canEditTaskText={canEditTaskText}
                         taskId={taskId}
                       />
-                      <div className="flex items-center gap-2 mt-2">
-                        {task?.scheduledAt ? (
+                      {task?.scheduledAt ? (
+                        <div className="mt-2 flex items-center gap-2">
                           <Badge
                             variant="outline"
                             className="gap-1 text-xs font-normal text-muted-foreground"
@@ -248,25 +246,8 @@ export function TaskDetailInline({
                               : "Was scheduled for"}{" "}
                             {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
                           </Badge>
-                        ) : null}
-                        {task?.createdAt ? (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
-                            {creatorUser ? (
-                              <>
-                                <UserInitials
-                                  userId={creatorUser._id}
-                                  size="sm"
-                                />
-                                <span>{getUserDisplayName(creatorUser)}</span>
-                                <span>·</span>
-                              </>
-                            ) : null}
-                            <span>
-                              {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                     <TaskDescription
                       description={task?.description}
@@ -288,6 +269,8 @@ export function TaskDetailInline({
                   <div className="mt-3 flex flex-col sm:mt-4">
                     <ActivityTimeline
                       taskId={taskId}
+                      createdAt={task.createdAt}
+                      creatorUser={creatorUser}
                       runs={runs}
                       allAudits={allAudits}
                       comments={comments}

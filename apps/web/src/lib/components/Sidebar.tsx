@@ -176,12 +176,10 @@ export function Sidebar() {
     selectedName: string,
     rootDirectory?: string,
   ) => {
-    const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
-    const segments = subPath.split("/").filter(Boolean);
-    const preservePath =
-      segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
+    // Clicking an app in the rail always routes to the repo root, not the
+    // current sub-page.
     const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
-    navigate({ to: `${base}${preservePath}` });
+    navigate({ to: base });
     closeMobileSidebar();
   };
 

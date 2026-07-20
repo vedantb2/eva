@@ -1,5 +1,11 @@
 # Changelog
 
+## Convex env slots + fixed provider logos - 2026-07-20
+
+- Env vars UI adds a Convex section: staging (`CONVEX_DEPLOY_KEY` / `CONVEX_ADMIN_KEY`, `NEXT_PUBLIC_CONVEX_URL` / `VITE_CONVEX_URL` / `CONVEX_URL`) and prod (`PROD_CONVEX_DEPLOY_KEY` / `PROD_CONVEX_ADMIN_KEY`, `PROD_CONVEX_URL`); secrets and prod URL default to `sandboxExclude`.
+- OpenAI/Codex mark uses current B&W brand (not legacy green); Cursor from svgl; Daytona from daytona.io favicon; theme-aware fills for dark mode.
+- Reason for change: Convex BYOK keys were free-form only, and several brand marks were wrong or invisible on dark surfaces.
+
 ## Proof and audit as top-level activity events - 2026-07-20
 
 - Proofs and audits no longer nest under the run accordion; each is its own timeline row on the shared rail.

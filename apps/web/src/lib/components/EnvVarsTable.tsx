@@ -39,6 +39,7 @@ import { parseEnvVars } from "./_utils/parseEnvVars";
 import {
   KNOWN_ENV_VARS,
   INFRA_ENV_VARS,
+  CONVEX_ENV_VARS,
   SLOT_ENV_VAR_KEYS,
   filterSlotsForScope,
   type EnvVarScope,
@@ -214,6 +215,7 @@ export function EnvVarsTable({
   const parsedPreview = parseEnvVars(bulkText);
   const agentSlots = filterSlotsForScope(KNOWN_ENV_VARS, scope);
   const infraSlots = filterSlotsForScope(INFRA_ENV_VARS, scope);
+  const convexSlots = filterSlotsForScope(CONVEX_ENV_VARS, scope);
   // Known slot keys are surfaced above — keep them out of the free-form table.
   const freeformVars = vars?.filter((v) => !SLOT_ENV_VAR_KEYS.has(v.key));
   const sandboxVars = (
@@ -477,6 +479,20 @@ export function EnvVarsTable({
                 removeDialogDescription="Sandbox provisioning may fail until you paste it again."
               />
             </div>
+          </div>
+          <div className="mb-6">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Convex
+            </p>
+            <EnvVarProviderSlots
+              entries={convexSlots}
+              vars={vars}
+              onUpsert={onUpsert}
+              onReveal={onReveal}
+              onRemove={onRemove}
+              readOnly={readOnly}
+              removeDialogDescription="The sandboxed app may lose access to its Convex backend until you paste it again."
+            />
           </div>
         </>
       )}

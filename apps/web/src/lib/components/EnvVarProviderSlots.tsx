@@ -67,11 +67,14 @@ export function EnvVarProviderSlots({
   const matchOf = (entry: EnvVarSlotEntry): EnvVar | undefined =>
     vars?.find((v) => entry.matchKeys.includes(v.key));
 
+  const sandboxExcludeFor = (entry: EnvVarSlotEntry): boolean =>
+    entry.sandboxExclude ?? defaultSandboxExclude;
+
   const save = async (entry: EnvVarSlotEntry) => {
     const value = drafts[entry.id] ?? "";
     if (!value.trim() || !onUpsert) return;
     setSavingId(entry.id);
-    await onUpsert(entry.primaryKey, value, defaultSandboxExclude);
+    await onUpsert(entry.primaryKey, value, sandboxExcludeFor(entry));
     setSavingId(null);
     setDrafts((prev) => ({ ...prev, [entry.id]: "" }));
   };
@@ -82,7 +85,7 @@ export function EnvVarProviderSlots({
     await onUpsert(
       matched.key,
       editValue,
-      defaultSandboxExclude ? true : matched.sandboxExclude,
+      sandboxExcludeFor(entry) ? true : matched.sandboxExclude,
     );
     setSavingId(null);
     setEditingId(null);

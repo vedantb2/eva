@@ -18,6 +18,11 @@ export interface EnvVarSlotEntry {
   multiline: boolean;
   /** When true, slot is hidden on the team env tab (repo-only keys). */
   repoOnly?: boolean;
+  /**
+   * When set, overrides the slots component's `defaultSandboxExclude` for
+   * new upserts from this slot (e.g. deploy keys stay out of sandboxes).
+   */
+  sandboxExclude?: boolean;
 }
 
 export type EnvVarScope = "repo" | "team";

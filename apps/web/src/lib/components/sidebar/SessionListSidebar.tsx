@@ -297,12 +297,12 @@ export function SessionListSidebar<T extends SessionItem>({
                                   to={`${baseUrl}/${entityPathSegment(session) ?? session._id}`}
                                   onClick={onNavigate}
                                   className={cn(
-                                    "block",
                                     sidebarNavListItemClass(isSelected),
+                                    "justify-between gap-2",
                                     !isSelected && "text-sidebar-foreground/60",
                                   )}
                                 >
-                                  <MarqueeOnHover className="text-sm">
+                                  <MarqueeOnHover className="min-w-0 text-sm">
                                     {session.title}
                                   </MarqueeOnHover>
                                   <RelativeDateTime
@@ -310,7 +310,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                       session.updatedAt ?? session._creationTime
                                     }
                                     className={cn(
-                                      "text-xs text-muted-foreground/60 transition-opacity",
+                                      "shrink-0 text-xs text-muted-foreground/60 transition-opacity",
                                       isSelected
                                         ? "opacity-100"
                                         : "opacity-0 group-hover:opacity-100",

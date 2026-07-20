@@ -15,6 +15,7 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
+import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -105,6 +106,11 @@ export function SandboxPanel({
     openComputer,
     closeComputer,
   } = useComputerTab(`session:${sessionIdStr}`, activeTab, onTabChange);
+  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
+    `session:${sessionIdStr}`,
+    activeTab,
+    onTabChange,
+  );
 
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
@@ -149,6 +155,9 @@ export function SandboxPanel({
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
         onCloseComputer={closeComputer}
+        editorTabOpen={editorTabOpen}
+        onOpenEditor={openEditor}
+        onCloseEditor={closeEditor}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div

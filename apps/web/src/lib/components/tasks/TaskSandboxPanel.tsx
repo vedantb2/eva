@@ -11,6 +11,7 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
+import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -106,6 +107,11 @@ export function TaskSandboxPanel({
     openComputer,
     closeComputer,
   } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
+  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
+    `task:${taskIdStr}`,
+    tabBarValue,
+    handleTabChange,
+  );
 
   return (
     <div className="h-full flex flex-col">
@@ -121,6 +127,9 @@ export function TaskSandboxPanel({
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
         onCloseComputer={closeComputer}
+        editorTabOpen={editorTabOpen}
+        onOpenEditor={openEditor}
+        onCloseEditor={closeEditor}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots

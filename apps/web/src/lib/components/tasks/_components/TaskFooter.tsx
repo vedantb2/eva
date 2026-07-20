@@ -119,13 +119,10 @@ export function TaskFooter({
     canCreatePr ||
     showResolveConflicts ||
     showRequestChanges ||
-    Boolean(latestDeployment?.deploymentStatus);
-  const hasSecondaryContent =
-    isHeader ||
-    showViewSandbox ||
-    showStopSandbox ||
-    showMoreMenu ||
+    Boolean(latestDeployment?.deploymentStatus) ||
     Boolean(latestPrUrl);
+  const hasSecondaryContent =
+    isHeader || showViewSandbox || showStopSandbox || showMoreMenu;
 
   return (
     <div
@@ -245,6 +242,18 @@ export function TaskFooter({
                     Create PR
                   </DropdownMenuItem>
                 )}
+                {latestPrUrl ? (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={latestPrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <IconGitPullRequest size={14} />
+                      View PR
+                    </a>
+                  </DropdownMenuItem>
+                ) : null}
                 {latestDeployment?.deploymentStatus && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -271,14 +280,6 @@ export function TaskFooter({
             </DropdownMenu>
           )}
           {isHeader ? <CopyLinkButton iconSize={iconSize} /> : null}
-          {latestPrUrl ? (
-            <Button asChild variant="secondary" size={buttonSize}>
-              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                <IconGitPullRequest size={iconSize} />
-                <span className="hidden sm:inline">View PR</span>
-              </a>
-            </Button>
-          ) : null}
           {showStopSandbox ? (
             <Button
               variant="destructive"

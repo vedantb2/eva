@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useLocalStorage } from "usehooks-ts";
+import { useCallback, useState } from "react";
+import { usePinnedSandboxTab } from "@/lib/components/sandbox/usePinnedSandboxTab";
 
 /**
  * Tracks whether the optional Computer tab (from `+`) is pinned open, and
@@ -12,37 +12,24 @@ export function useComputerTab(
   activeTab: string,
   onTabChange: (tab: string) => void,
 ) {
-  const [computerTabOpen, setComputerTabOpen] = useLocalStorage(
+  const { isOpen, openTab, closeTab } = usePinnedSandboxTab(
     `conductor:${storageScope}:computer-tab`,
-    false,
+    "computer",
+    activeTab,
+    onTabChange,
   );
   const [computerRunning, setComputerRunning] = useState(false);
 
-  // Deep-link / resume onto /computer pins the tab open.
-  useEffect(() => {
-    if (activeTab === "computer") {
-      setComputerTabOpen(true);
-    }
-  }, [activeTab, setComputerTabOpen]);
-
-  const openComputer = useCallback(() => {
-    setComputerTabOpen(true);
-    onTabChange("computer");
-  }, [onTabChange, setComputerTabOpen]);
-
   const closeComputer = useCallback(() => {
     if (computerRunning) return;
-    setComputerTabOpen(false);
-    if (activeTab === "computer") {
-      onTabChange("preview");
-    }
-  }, [activeTab, computerRunning, onTabChange, setComputerTabOpen]);
+    closeTab();
+  }, [closeTab, computerRunning]);
 
   return {
-    computerTabOpen,
+    computerTabOpen: isOpen,
     computerRunning,
     setComputerRunning,
-    openComputer,
+    openComputer: openTab,
     closeComputer,
   };
 }

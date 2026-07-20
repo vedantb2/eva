@@ -18,6 +18,7 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
+import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
@@ -109,6 +110,11 @@ export function ProjectSandboxPanel({
     openComputer,
     closeComputer,
   } = useComputerTab(`project:${projectIdStr}`, activeTab, handleTabChange);
+  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
+    `project:${projectIdStr}`,
+    activeTab,
+    handleTabChange,
+  );
 
   return (
     <div className="h-full flex flex-col">
@@ -124,6 +130,9 @@ export function ProjectSandboxPanel({
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
         onCloseComputer={closeComputer}
+        editorTabOpen={editorTabOpen}
+        onOpenEditor={openEditor}
+        onCloseEditor={closeEditor}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots

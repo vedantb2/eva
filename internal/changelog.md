@@ -1,5 +1,12 @@
 # Changelog
 
+## Tidy quick-task More menu and sandbox + tabs - 2026-07-20
+
+- Quick-task "View PR" moves into the More dropdown so the header stays focused on Run / Sandbox.
+- Sandbox Editor joins Computer in the `+` menu (pinned closable tab when opened) across sessions, tasks, and projects.
+- Archived sidebar rows use full-width justify-between for title vs date (flex was overridden by `block`).
+- Reason for change: primary chrome was crowded with secondary actions and less-used tabs.
+
 ## Read-only sessions when PR is merged or closed - 2026-07-20
 
 - Sessions whose PR is `merged` or `closed` use the same read-only chrome as archive (banner, no composer, no sandbox start, PRD locked), without auto-archiving.

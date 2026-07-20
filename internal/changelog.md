@@ -1,5 +1,9 @@
 # Changelog
 
+## Restore repo root as icon + title - 2026-07-20
+
+Repo root (`/$owner/$repo`) renders again with the app logo and display name instead of redirecting to Sessions; stats stay in the sidebar.
+
 ## Cook rate uses settled tasks; sidebar shows Tasks ran - 2026-07-20
 
 Cook/ship rate is now done ÷ (done + cancelled) instead of sessions-with-PR ÷ sessions. Sidebar stats label “PRs shipped” → “Tasks ran” (terminal task count).

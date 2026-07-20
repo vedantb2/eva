@@ -3,6 +3,9 @@
 ## Task creation shown in activity timeline - 2026-07-20
 
 Creator avatar, name, and date no longer sit between the task title and description; they appear as the first activity event (“created the quick task”), so provenance lives with the rest of the history.
+## Delete orphan Vercel sandboxes when post-create setup fails - 2026-07-20
+
+`createSandbox` now deletes the VM if jq/git/docker setup fails after `client.create`, and treats the eva-env bashrc hook as best-effort. Fixes orphans left when the hook threw before the handle was returned to callers.
 
 ## Fix sandbox create crash from eva-env bashrc hook - 2026-07-20
 

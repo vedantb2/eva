@@ -370,90 +370,121 @@ export async function createSandbox(
     logGit(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
-    if (onSandboxAcquired) {
-      await onSandboxAcquired(sandbox);
-    }
-    if (client.kind === "vercel") {
-      const token = await tokenPromise;
-      await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
-        sandbox.writeFile(
-          EVA_ENV_FILE,
-          renderEvaEnvFile({
-            VNC_RESOLUTION: "1920x1080",
-            ...sandboxEnvVars,
-            GITHUB_TOKEN: token,
-            INSTALLATION_ID: String(installationId),
-          }),
-        ),
-      );
-      // So Preview Console / login shells see secrets without manual `source`.
+    // Outer callers only see the returned handle. If post-create setup throws
+    // before return, their `sandbox` var stays unset and they cannot delete —
+    // so orphans must be cleaned up here.
+    try {
+      if (onSandboxAcquired) {
+        await onSandboxAcquired(sandbox);
+      }
+      if (client.kind === "vercel") {
+        const token = await tokenPromise;
+        await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
+          sandbox.writeFile(
+            EVA_ENV_FILE,
+            renderEvaEnvFile({
+              VNC_RESOLUTION: "1920x1080",
+              ...sandboxEnvVars,
+              GITHUB_TOKEN: token,
+              INSTALLATION_ID: String(installationId),
+            }),
+          ),
+        );
+        // Belt-and-suspenders for login shells; tmux Console already sources
+        // eva-env. Never fail create over this hook.
+        try {
+          await runLoggedGitStep(
+            "createSandbox.ensureEvaEnvInteractiveHook",
+            sandbox.id,
+            () =>
+              execHandle(sandbox, ensureEvaEnvInteractiveHookScript(), 30, "/"),
+          );
+        } catch (hookError) {
+          console.warn(
+            `[daytona][git] createSandbox.ensureEvaEnvInteractiveHook failed on ${sandbox.id} (continuing): ${hookError instanceof Error ? hookError.message : String(hookError)}`,
+          );
+        }
+      }
+
+      const appSlug = process.env.GITHUB_APP_SLUG;
+      const botUserId = process.env.GITHUB_BOT_USER_ID;
+      if (!appSlug || !botUserId) {
+        throw new Error(
+          "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
+        );
+      }
+      // Fresh Vercel node24 sandboxes ship without `jq`, which the git credential
+      // helper (git-credential-conductor) shells out to on every authenticated
+      // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
+      // ("jq: command not found") before the seed toolchain stage ever runs.
+      // Daytona bakes jq into its base Image, so this is a no-op there.
+      // Timed individually (vs. one blanket log) so slow session creates can be
+      // attributed to a specific step from Convex logs alone.
+      if (client.kind === "vercel") {
+        await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
+          execHandle(
+            sandbox,
+            "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
+            120,
+          ),
+        );
+      }
       await runLoggedGitStep(
-        "createSandbox.ensureEvaEnvInteractiveHook",
+        "createSandbox.gitConfig",
         sandbox.id,
-        () => execHandle(sandbox, ensureEvaEnvInteractiveHookScript(), 30, "/"),
+        async () => {
+          await execHandle(
+            sandbox,
+            `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
+            10,
+          );
+          // Snapshot-restored /tmp/repo is owned by vercel-sandbox; session git
+          // commands run as a different uid and hit "dubious ownership" without this.
+          await execHandle(
+            sandbox,
+            "git config --global --add safe.directory '*'",
+            10,
+          );
+          // Agents (esp. Cursor ship skills) often run `git pull` without
+          // --rebase/--no-rebase; modern git fatals on divergent branches unless
+          // a default is set. Rebase keeps session history linear when they do.
+          await execHandle(sandbox, "git config --global pull.rebase true", 10);
+        },
       );
-    }
 
-    const appSlug = process.env.GITHUB_APP_SLUG;
-    const botUserId = process.env.GITHUB_BOT_USER_ID;
-    if (!appSlug || !botUserId) {
-      throw new Error(
-        "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
-      );
-    }
-    // Fresh Vercel node24 sandboxes ship without `jq`, which the git credential
-    // helper (git-credential-conductor) shells out to on every authenticated
-    // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
-    // ("jq: command not found") before the seed toolchain stage ever runs.
-    // Daytona bakes jq into its base Image, so this is a no-op there.
-    // Timed individually (vs. one blanket log) so slow session creates can be
-    // attributed to a specific step from Convex logs alone.
-    if (client.kind === "vercel") {
-      await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
-        execHandle(
-          sandbox,
-          "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
-          120,
-        ),
-      );
-    }
-    await runLoggedGitStep("createSandbox.gitConfig", sandbox.id, async () => {
-      await execHandle(
-        sandbox,
-        `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
-        10,
-      );
-      // Snapshot-restored /tmp/repo is owned by vercel-sandbox; session git
-      // commands run as a different uid and hit "dubious ownership" without this.
-      await execHandle(
-        sandbox,
-        "git config --global --add safe.directory '*'",
-        10,
-      );
-      // Agents (esp. Cursor ship skills) often run `git pull` without
-      // --rebase/--no-rebase; modern git fatals on divergent branches unless
-      // a default is set. Rebase keeps session history linear when they do.
-      await execHandle(sandbox, "git config --global pull.rebase true", 10);
-    });
+      // Start Docker daemon if available (for Docker-in-Docker / Supabase local
+      // dev). Idempotent — also re-invoked from ensureSandboxRunning on resume
+      // since dockerd doesn't survive auto-stop. Both helpers already fast-path
+      // on an already-running daemon (`docker info` check first); the timing
+      // wrapper just makes that fast path visible in logs instead of assumed.
+      if (client.kind === "vercel") {
+        await runLoggedGitStep(
+          "createSandbox.bootstrapDocker",
+          sandbox.id,
+          () => bootstrapVercelDocker(sandbox),
+        );
+      } else {
+        await runLoggedGitStep(
+          "createSandbox.ensureDockerDaemon",
+          sandbox.id,
+          () => ensureDockerDaemon(sandbox),
+        );
+      }
 
-    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
-    // Idempotent — also re-invoked from ensureSandboxRunning on resume since
-    // dockerd doesn't survive auto-stop. Both helpers already fast-path on an
-    // already-running daemon (`docker info` check first); the timing wrapper
-    // just makes that fast path visible in logs instead of assumed.
-    if (client.kind === "vercel") {
-      await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
-        bootstrapVercelDocker(sandbox),
+      return sandbox;
+    } catch (error) {
+      console.warn(
+        `[daytona][git] createSandbox: post-create setup failed for ${sandbox.id}; deleting orphan: ${error instanceof Error ? error.message : String(error)}`,
       );
-    } else {
-      await runLoggedGitStep(
-        "createSandbox.ensureDockerDaemon",
-        sandbox.id,
-        () => ensureDockerDaemon(sandbox),
-      );
+      try {
+        await sandbox.delete();
+      } catch (deleteError) {
+        console.warn(
+          `[daytona][git] createSandbox: orphan delete failed for ${sandbox.id}: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
+        );
+      }
+      throw error;
     }
-
-    return sandbox;
   });
 }
 

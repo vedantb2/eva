@@ -1,4 +1,4 @@
-import { useCallback, useState, type RefCallback } from "react";
+import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id, api } from "@conductor/backend";
 import { Virtuoso } from "react-virtuoso";
@@ -16,6 +16,7 @@ import {
 import { entityPathSegment } from "@/lib/numId";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -33,12 +34,8 @@ export function ProjectsListView({
   onDelete,
 }: ProjectsListViewProps) {
   const { owner, name, basePath } = useRepo();
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/projects/list`,
   );
   const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
     const nonEmpty = new Set(

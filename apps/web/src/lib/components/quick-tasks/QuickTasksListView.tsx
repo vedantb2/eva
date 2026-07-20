@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type RefCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -9,6 +9,7 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import {
   Button,
   Collapsible,
@@ -63,7 +64,7 @@ export function QuickTasksListView({
   onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
-  const { repoId, basePath } = useRepo();
+  const { repoId, basePath, owner, name } = useRepo();
   const currentUserId = useQuery(api.auth.me);
   const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
@@ -194,13 +195,8 @@ export function QuickTasksListView({
     }
   };
 
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/quick-tasks/list`,
   );
 
   return (

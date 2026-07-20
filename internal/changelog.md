@@ -1,5 +1,11 @@
 # Changelog
 
+## Persist list scroll across detail navigation - 2026-07-20
+
+- Quick tasks / projects (list, kanban columns, table) and the sidebar nav restore scroll via sessionStorage when returning from a detail view.
+- Positions are per tab and clear when the tab closes; nested scroll containers are keyed by repo + view (and kanban column).
+- Reason for change: opening a task/project unmounted the list and dropped you back at the top.
+
 ## Convex env slots + fixed provider logos - 2026-07-20
 
 - Env vars UI adds a Convex section: staging (`CONVEX_DEPLOY_KEY` / `CONVEX_ADMIN_KEY`, `NEXT_PUBLIC_CONVEX_URL` / `VITE_CONVEX_URL` / `CONVEX_URL`) and prod (`PROD_CONVEX_DEPLOY_KEY` / `PROD_CONVEX_ADMIN_KEY`, `PROD_CONVEX_URL`); secrets and prod URL default to `sandboxExclude`.

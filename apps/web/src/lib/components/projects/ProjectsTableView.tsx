@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -26,6 +26,7 @@ import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -158,8 +159,10 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
-  const { basePath, repo } = useRepo();
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  const { basePath, repo, owner, name } = useRepo();
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/projects/table`,
+  );
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
   ]);
@@ -208,10 +211,6 @@ export function ProjectsTableView({
       }
     },
   );
-
-  const scrollRef = useCallback((node: HTMLDivElement | null) => {
-    setScrollParent(node);
-  }, []);
 
   const resolvedColumns = useMemo<ColumnDef<Project, unknown>[]>(() => {
     return columns.map((col) => {

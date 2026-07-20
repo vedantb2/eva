@@ -1,5 +1,3 @@
-import { useCallback, useState } from "react";
-import type { RefCallback } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id, api } from "@conductor/backend";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,6 +10,7 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCard } from "@/lib/components/projects/ProjectCard";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -80,13 +79,8 @@ function VirtualProjectColumn({
   onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }) {
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/projects/kanban/${phase}`,
   );
 
   return (

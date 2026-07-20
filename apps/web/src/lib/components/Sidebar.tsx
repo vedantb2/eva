@@ -35,6 +35,7 @@ import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebar
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
   "designs",
@@ -152,6 +153,13 @@ export function Sidebar() {
     api.githubRepos.getByOwnerAndName,
     owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
+
+  const sidebarScrollKey =
+    owner && repoName
+      ? `${owner}/${repoName}${appName ? `/${appName}` : ""}/sidebar/${contextSidebarMode}`
+      : `sidebar/${contextSidebarMode}`;
+  const { scrollRef: sidebarScrollRef } =
+    usePersistedScrollParent(sidebarScrollKey);
 
   const { theme, toggleTheme } = useThemeContext();
 
@@ -404,7 +412,10 @@ export function Sidebar() {
               </motion.div>
             </div>
 
-            <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
+            <nav
+              ref={sidebarScrollRef}
+              className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2"
+            >
               <div className="space-y-4">
                 <motion.div
                   key={

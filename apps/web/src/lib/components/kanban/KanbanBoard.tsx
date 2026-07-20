@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode, RefCallback } from "react";
-import { useState, useMemo, useCallback } from "react";
+import type { ReactNode } from "react";
+import { useState, useMemo } from "react";
 import {
   type DragEndEvent,
   type DragStartEvent,
@@ -26,6 +26,8 @@ import {
   type TaskStatus,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 interface BaseTask {
   _id: string;
@@ -243,13 +245,9 @@ function VirtualKanbanColumn<T extends BaseTask>({
   renderCard: (item: T) => ReactNode;
   onItemClick: (item: T) => void;
 }) {
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
+  const { owner, name } = useRepo();
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/quick-tasks/kanban/${status}`,
   );
 
   const itemIds = useMemo(() => items.map((item) => item._id), [items]);

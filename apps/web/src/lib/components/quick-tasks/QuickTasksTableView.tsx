@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -25,6 +25,7 @@ import { compactRelativeTime } from "@conductor/shared/dates";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -156,16 +157,14 @@ export function QuickTasksTableView({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
-  const { basePath } = useRepo();
+  const { basePath, owner, name } = useRepo();
   const users = useQuery(api.users.listAll);
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/quick-tasks/table`,
+  );
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
-
-  const scrollRef = useCallback((node: HTMLDivElement | null) => {
-    setScrollParent(node);
-  }, []);
 
   const [{ q, statuses }] = useQuickTaskFilters();
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);

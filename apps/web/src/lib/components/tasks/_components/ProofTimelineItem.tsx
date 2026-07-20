@@ -13,7 +13,7 @@ import {
   IconChevronRight,
   IconExternalLink,
 } from "@tabler/icons-react";
-import { LogoMark } from "@/lib/components/LogoMark";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { VideoPreview } from "@/lib/components/MediaPreview";
 import type { FunctionReturnType } from "convex/server";
@@ -159,8 +159,8 @@ export function ProofTimelineItem({
   return (
     <>
       <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-white">
-          <LogoMark size={16} />
+        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
+          <EvaIcon size={16} />
         </span>
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-foreground">

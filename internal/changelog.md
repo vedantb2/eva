@@ -1,5 +1,9 @@
 # Changelog
 
+## Rounded Eva icon on activity rail + run fallback - 2026-07-20
+
+Activity audit/proof marks and run rows without a requester now use the same rounded-full Eva icon as chat, so system-authored success/error runs still show a clear actor on the timeline.
+
 ## Custom display labels for GitHub apps - 2026-07-20
 
 - Optional per-app `label` on `githubRepos` (e.g. "CarePulse v2", "Eva Web") shown in the sidebar header instead of the GitHub/path name; logo appears left of the title when set.

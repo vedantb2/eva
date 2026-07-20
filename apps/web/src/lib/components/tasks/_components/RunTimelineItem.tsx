@@ -19,6 +19,7 @@ import {
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
 import dayjs, { formatExactDateTime } from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
@@ -125,7 +126,7 @@ export function RunTimelineItem({
             {requesterUserId ? (
               <UserInitials userId={requesterUserId} size="sm" hideLastSeen />
             ) : (
-              <span className="size-4 shrink-0" />
+              <EvaIcon size={16} />
             )}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2">

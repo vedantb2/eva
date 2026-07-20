@@ -13,7 +13,7 @@ import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { AuditResults } from "./AuditResults";
-import { LogoMark } from "@/lib/components/LogoMark";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 
@@ -73,8 +73,8 @@ export function AuditTimelineItem({
   return (
     <div className="flex gap-2">
       <div className="flex w-4 shrink-0 items-center justify-center self-stretch">
-        <span className="relative z-10 flex size-4 items-center justify-center bg-white">
-          <LogoMark size={16} />
+        <span className="relative z-10 flex size-4 items-center justify-center bg-background">
+          <EvaIcon size={16} />
         </span>
       </div>
       <div className="min-w-0 flex-1">

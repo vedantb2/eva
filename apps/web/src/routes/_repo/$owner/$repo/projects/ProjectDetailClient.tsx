@@ -507,7 +507,8 @@ export function ProjectDetailClient({
         ) : null
       }
     >
-      <ProjectMetadataBar projectId={projectId} />
+      {/* Status/metadata bar is detail-only — sandbox stays flush like sessions. */}
+      {isSandboxSurface ? null : <ProjectMetadataBar projectId={projectId} />}
       <div className="flex min-h-0 flex-1 flex-col">
         {isSandboxSurface ? (
           <div className="min-h-0 flex-1 overflow-hidden">

@@ -1,5 +1,9 @@
 # Changelog
 
+## Other users' chat messages sit on the left - 2026-07-20
+
+Sandbox/session chat now right-aligns only your own user turns; teammates' messages use the same bubble on the left so shared chats read as a conversation.
+
 ## Restore repo root as icon + title - 2026-07-20
 
 Repo root (`/$owner/$repo`) renders again with the app logo and display name instead of redirecting to Sessions; stats stay in the sidebar.

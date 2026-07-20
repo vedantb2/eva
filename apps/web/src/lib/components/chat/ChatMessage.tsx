@@ -1,11 +1,16 @@
+"use client";
+
 import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
+  cn,
 } from "@conductor/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
 import { motion } from "motion/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
@@ -62,6 +67,8 @@ export const ChatMessage = memo(function ChatMessage({
   onOpenFile,
   onViewDiff,
 }: ChatMessageProps) {
+  const currentUserId = useQuery(api.auth.me);
+
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
@@ -72,6 +79,14 @@ export const ChatMessage = memo(function ChatMessage({
       />
     );
   }
+
+  // Only your own user turns stay right-aligned; teammates sit on the left
+  // (same bubble style). Missing userId / auth still loading → treat as own.
+  const isOtherUserMessage =
+    message.role === "user" &&
+    message.userId !== undefined &&
+    currentUserId !== undefined &&
+    message.userId !== currentUserId;
 
   const isStreamingPlaceholder =
     message.role === "assistant" &&
@@ -93,11 +108,19 @@ export const ChatMessage = memo(function ChatMessage({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
     >
-      <AIMessage from={message.role}>
+      <AIMessage
+        from={message.role}
+        className={
+          isOtherUserMessage ? "ml-0 mr-auto justify-start" : undefined
+        }
+      >
         <MessageContent
           className={
             message.role === "user"
-              ? "group rounded-surface bg-secondary text-foreground px-4 py-3"
+              ? cn(
+                  "group rounded-surface bg-secondary text-foreground px-4 py-3",
+                  isOtherUserMessage && "group-[.is-user]:ml-0",
+                )
               : "px-1 py-2"
           }
         >
@@ -203,7 +226,17 @@ export const ChatMessage = memo(function ChatMessage({
           </div>
         ) : null}
         {message.role === "user" && (
-          <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
+          <div
+            className={cn(
+              "mt-0.5 flex items-center gap-2",
+              isOtherUserMessage
+                ? "mr-auto justify-start"
+                : "ml-auto justify-end",
+            )}
+          >
+            {isOtherUserMessage ? (
+              <UserMessageAvatar userId={message.userId} />
+            ) : null}
             <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
               {message.content ? (
                 <ChatMessageActions
@@ -235,7 +268,9 @@ export const ChatMessage = memo(function ChatMessage({
                 </span>
               )}
             </div>
-            <UserMessageAvatar userId={message.userId} />
+            {isOtherUserMessage ? null : (
+              <UserMessageAvatar userId={message.userId} />
+            )}
           </div>
         )}
       </AIMessage>

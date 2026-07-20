@@ -96,6 +96,7 @@ export function isLegacyDesktopSandboxTab(s: string): boolean {
 
 const taskRouteSandboxTabs = [
   "preview",
+  "browser",
   "editor",
   "terminal",
   "computer",

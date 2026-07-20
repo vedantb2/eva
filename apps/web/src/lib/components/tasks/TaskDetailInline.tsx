@@ -138,7 +138,7 @@ export function TaskDetailInline({
   const handleSandboxTabChange = (tab: SandboxTab) => {
     if (routing?.mode === "quick-sandbox") {
       const nextTab: TaskRouteSandboxTab =
-        tab === "prd" || tab === "files" || tab === "browser" ? "preview" : tab;
+        tab === "prd" || tab === "files" ? "preview" : tab;
       routing.quick.onSandboxTabChange(nextTab);
       return;
     }

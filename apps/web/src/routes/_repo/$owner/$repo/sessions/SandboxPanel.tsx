@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
@@ -16,20 +16,9 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
-
-/** Inserts the sessions-only Browser tab after Preview in the enabled set. */
-function withBrowserTab(
-  tabs: ReadonlyArray<SandboxTab>,
-): ReadonlyArray<SandboxTab> {
-  const out: SandboxTab[] = [];
-  for (const tab of tabs) {
-    out.push(tab);
-    if (tab === "preview") out.push("browser");
-  }
-  return out;
-}
 
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;

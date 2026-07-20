@@ -12,6 +12,7 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -40,8 +41,8 @@ interface TaskSandboxPanelProps {
 
 /**
  * Right-side sandbox panel for a quick task — mirrors the session sandbox
- * panel. Exposes Preview, Terminal, Editor, and Desktop tabs (PRD is omitted
- * since it's a session-only concept).
+ * panel (Preview, Browser, Terminal, Diffs, Editor/Computer via +). PRD and
+ * Files stay session-only.
  *
  * All shared multi-pane / preview / PTY logic lives in the `sandbox/` module
  * so this file is just a thin orchestrator.
@@ -113,6 +114,11 @@ export function TaskSandboxPanel({
     handleTabChange,
   );
 
+  const enabledTabs = useMemo(
+    () => withBrowserTab(panes.enabledTabs),
+    [panes.enabledTabs],
+  );
+
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
@@ -122,7 +128,7 @@ export function TaskSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={panes.enabledTabs}
+        enabledTabs={enabledTabs}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}

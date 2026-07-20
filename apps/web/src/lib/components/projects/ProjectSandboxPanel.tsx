@@ -19,6 +19,7 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
@@ -116,6 +117,11 @@ export function ProjectSandboxPanel({
     handleTabChange,
   );
 
+  const enabledTabs = useMemo(
+    () => withBrowserTab(panes.enabledTabs),
+    [panes.enabledTabs],
+  );
+
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
@@ -125,7 +131,7 @@ export function ProjectSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={panes.enabledTabs}
+        enabledTabs={enabledTabs}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}

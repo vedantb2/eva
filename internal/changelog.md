@@ -1,5 +1,9 @@
 # Changelog
 
+## Browser tab on task and project sandboxes - 2026-07-20
+
+Quick-task and project sandbox views now expose the same Browser tab as sessions (URL-routable), so agent Chrome is reachable outside session detail. Agent auto-switch still session-only until browsing lock is wired on those entities.
+
 ## Task + project sandbox chat: drafts + blocking questions - 2026-07-20
 
 Quick-task and project sandbox chat now persist composer drafts (`taskChat` / `projectChat`) and answer blocking AskUserQuestion like sessions, so remounts and paused turns work the same.

@@ -8,6 +8,7 @@ import {
 describe("isTaskRouteSandboxTab", () => {
   it("accepts real task sandbox tabs", () => {
     expect(isTaskRouteSandboxTab("diffs")).toBe(true);
+    expect(isTaskRouteSandboxTab("browser")).toBe(true);
   });
 
   it("rejects nuqs-corrupted tab segments that embed query strings", () => {

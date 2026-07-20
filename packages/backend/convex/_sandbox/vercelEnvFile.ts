@@ -28,17 +28,16 @@ export function tmuxNewSessionWithEvaEnv(
 /**
  * Installs login + interactive hooks so new bash shells source sandbox env.
  * Idempotent (marker-guarded for bashrc).
+ *
+ * Must stay valid when vercel exec runs `bash -lc "${SOURCE_ENV} ${cmd}"` —
+ * never split `for …; do` across `;` joins (`do;` is a bash syntax error).
  */
 export function ensureEvaEnvInteractiveHookScript(): string {
+  const marker = "# eva-sandbox-env";
   return [
-    `HOOK='${EVA_ENV_SOURCE_CMD}'`,
-    `echo "$HOOK" | sudo tee /etc/profile.d/eva-sandbox-env.sh >/dev/null`,
+    `printf '%s\\n' '${EVA_ENV_SOURCE_CMD}' | sudo tee /etc/profile.d/eva-sandbox-env.sh >/dev/null`,
     `sudo chmod 644 /etc/profile.d/eva-sandbox-env.sh`,
-    `MARKER='# eva-sandbox-env'`,
-    `for rc in /home/eva/.bashrc /root/.bashrc "$HOME/.bashrc"; do`,
-    `  mkdir -p "$(dirname "$rc")" 2>/dev/null || true`,
-    `  touch "$rc" 2>/dev/null || continue`,
-    `  grep -qF "$MARKER" "$rc" 2>/dev/null || printf '\\n%s\\n%s\\n' "$MARKER" "$HOOK" >> "$rc"`,
-    `done`,
+    // Entire for-loop is one statement so join("; ") cannot produce `do;`.
+    `for rc in /home/eva/.bashrc /root/.bashrc; do grep -qF '${marker}' "$rc" 2>/dev/null || printf '%s\\n' '' '${marker}' '${EVA_ENV_SOURCE_CMD}' >> "$rc" 2>/dev/null || true; done`,
   ].join("; ");
 }

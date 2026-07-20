@@ -1,5 +1,9 @@
 # Changelog
 
+## Fix sandbox create crash from eva-env bashrc hook - 2026-07-20
+
+`ensureEvaEnvInteractiveHookScript` joined a `for` loop with `;`, producing invalid `do;` and failing every Vercel sandbox create. Loop is now one statement; test guards the SOURCE_ENV prefix concat.
+
 ## Preview Console loads sandbox env for typed commands - 2026-07-20
 
 Vercel Console tmux shells now source `/vercel/sandbox/.eva-env.sh` on create (plus login/bashrc hooks), so manually typed `pnpm run dev` sees the same secrets as agent exec and auto-launch. Existing bare sessions need a sandbox restart or a new terminal tab.

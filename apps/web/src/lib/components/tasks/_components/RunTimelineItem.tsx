@@ -231,6 +231,8 @@ export function RunTimelineItem({
               runId={run._id}
               isActive={isActiveRun}
               finalText={run.resultSummary}
+              startedAt={run.startedAt}
+              finishedAt={run.finishedAt}
             />
             {run.resultSummary && (
               <Streamdown

@@ -6,9 +6,16 @@ import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import {
   isLegacyDesktopSandboxTab,
   isLegacyDiffsSandboxTab,
+  isPrPanelTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
 import { SessionDetailClient } from "../SessionDetailClient";
+
+function stripPrTabSearch<T extends Record<string, unknown>>(
+  prev: T,
+): T & { prTab: undefined } {
+  return { ...prev, prTab: undefined };
+}
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/$sandboxTab",
@@ -16,11 +23,25 @@ export const Route = createFileRoute(
   beforeLoad: ({ params, search }) => {
     const corrupted = splitCorruptedSandboxTabParam(params.sandboxTab);
     if (corrupted) {
+      if (isLegacyDiffsSandboxTab(corrupted.tab) || corrupted.tab === "pr") {
+        throw redirect({
+          to: "/$owner/$repo/sessions/$numId/pr/$prSubTab",
+          params: {
+            owner: params.owner,
+            repo: params.repo,
+            numId: params.numId,
+            prSubTab: "diffs",
+          },
+          search: {
+            diffFile: corrupted.diffFile,
+            diffView: corrupted.diffView,
+          },
+          replace: true,
+        });
+      }
       const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
         ? "computer"
-        : isLegacyDiffsSandboxTab(corrupted.tab)
-          ? "pr"
-          : corrupted.tab;
+        : corrupted.tab;
       throw redirect({
         to: "/$owner/$repo/sessions/$numId/$sandboxTab",
         params: {
@@ -32,9 +53,6 @@ export const Route = createFileRoute(
         search: {
           diffFile: corrupted.diffFile,
           diffView: corrupted.diffView,
-          ...(isLegacyDiffsSandboxTab(corrupted.tab)
-            ? { prTab: "diffs" as const }
-            : {}),
         },
         replace: true,
       });
@@ -53,17 +71,33 @@ export const Route = createFileRoute(
     }
     if (isLegacyDiffsSandboxTab(params.sandboxTab)) {
       throw redirect({
-        to: "/$owner/$repo/sessions/$numId/$sandboxTab",
+        to: "/$owner/$repo/sessions/$numId/pr/$prSubTab",
         params: {
           owner: params.owner,
           repo: params.repo,
           numId: params.numId,
-          sandboxTab: "pr",
+          prSubTab: "diffs",
         },
-        search: {
-          ...search,
-          prTab: "diffs",
+        search: stripPrTabSearch(search),
+        replace: true,
+      });
+    }
+    if (params.sandboxTab === "pr") {
+      const fromSearch =
+        "prTab" in search &&
+        typeof search.prTab === "string" &&
+        isPrPanelTab(search.prTab)
+          ? search.prTab
+          : "diffs";
+      throw redirect({
+        to: "/$owner/$repo/sessions/$numId/pr/$prSubTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          prSubTab: fromSearch,
         },
+        search: stripPrTabSearch(search),
         replace: true,
       });
     }
@@ -93,19 +127,25 @@ function SessionSandboxRoute() {
 
   const openDiffs = (repoRelativePath?: string) => {
     void navigate({
-      to: `${basePath}/sessions/${numId}/pr`,
+      to: `${basePath}/sessions/${numId}/pr/diffs`,
       search: (prev) => ({
         ...prev,
-        prTab: "diffs",
         ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
       }),
     });
   };
 
   const onSandboxTabChange = (next: string) => {
+    if (next === "pr") {
+      void navigate({
+        to: `${basePath}/sessions/${numId}/pr/diffs`,
+        search: true,
+      });
+      return;
+    }
     void navigate({
       to: `${basePath}/sessions/${numId}/${next}`,
-      // Keep diffFile/diffView/prTab (and other search) across sandbox tabs.
+      // Keep diffFile/diffView (and other search) across sandbox tabs.
       search: true,
     });
   };

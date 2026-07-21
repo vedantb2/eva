@@ -1,5 +1,9 @@
 # Changelog
 
+## Session PR Diffs/Recap use path tabs - 2026-07-21
+
+PR sub-views lived in `?prTab=`, which was hard to share and inconsistent with docs tabs. Sessions now use `/pr/diffs` and `/pr/recap` with the shared Tabs component; old `?prTab=` and bare `/pr` URLs redirect.
+
 ## Composer toolbar: + first, model on the right - 2026-07-21
 
 Composer chrome put model/reasoning next to attach, crowding the left. + is now first on the left; model and reasoning sit with send on the right. Skills/Documents submenu rows match the @/`/` picker (prefix, title, truncated description).

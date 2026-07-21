@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@conductor/backend";
-import { cn } from "@conductor/ui";
-import type { PrPanelTab } from "@/lib/search-params";
+import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@conductor/ui";
+import { isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
 import { DiffsPanel } from "./DiffsPanel";
 import { PrRecapPanel } from "./PrRecapPanel";
 import { usePrTabParam } from "./usePrTabParam";
@@ -16,8 +16,9 @@ interface PrPanelProps {
 }
 
 /**
- * Sandbox PR tab: Diffs + Recap sub-tabs. Defaults to Recap when a ready recap
- * exists (resolved once on first activation so mid-generation doesn't jump).
+ * Sandbox PR tab: Diffs + Recap via `@conductor/ui` Tabs. Sessions use path
+ * segments (`/pr/diffs`, `/pr/recap`); other surfaces may still use `?prTab=`.
+ * Defaults to Recap when a ready recap exists and no tab is in the URL yet.
  */
 export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   const { prTab, setPrTab } = usePrTabParam();
@@ -46,41 +47,43 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   const activeSubTab: PrPanelTab = prTab ?? resolvedDefault ?? "diffs";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <Tabs
+      value={activeSubTab}
+      onValueChange={(value) => {
+        if (isPrPanelTab(value)) setPrTab(value);
+      }}
+      className="flex h-full min-h-0 flex-col"
+    >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <div className="inline-flex rounded-md border border-border p-0.5">
-          {(
-            [
-              { value: "diffs", label: "Diffs" },
-              { value: "recap", label: "Recap" },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setPrTab(tab.value);
-              }}
-              className={cn(
-                "rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                activeSubTab === tab.value
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <TabsList className="h-8">
+          <TabsTrigger value="diffs" className="px-2.5 py-1 text-xs">
+            Diffs
+          </TabsTrigger>
+          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
+            Recap
+          </TabsTrigger>
+        </TabsList>
       </div>
-      <div className="min-h-0 flex-1">
-        <div className={activeSubTab === "diffs" ? "h-full" : "hidden"}>
-          <DiffsPanel prUrl={prUrl} repoId={repoId} />
-        </div>
-        <div className={activeSubTab === "recap" ? "h-full" : "hidden"}>
-          <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
-        </div>
-      </div>
-    </div>
+      <TabsContent
+        value="diffs"
+        forceMount
+        className={cn(
+          "mt-0 min-h-0 flex-1 focus-visible:ring-0",
+          activeSubTab !== "diffs" && "hidden",
+        )}
+      >
+        <DiffsPanel prUrl={prUrl} repoId={repoId} />
+      </TabsContent>
+      <TabsContent
+        value="recap"
+        forceMount
+        className={cn(
+          "mt-0 min-h-0 flex-1 focus-visible:ring-0",
+          activeSubTab !== "recap" && "hidden",
+        )}
+      >
+        <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
+      </TabsContent>
+    </Tabs>
   );
 }

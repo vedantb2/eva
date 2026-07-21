@@ -80,7 +80,7 @@ export function isLegacyDesktopSandboxTab(s: string): boolean {
   return s === "desktop";
 }
 
-/** Old Diffs-tab URL segment; redirect to `pr` with `prTab=diffs`. */
+/** Old Diffs-tab URL segment; redirect to `pr/diffs`. */
 export function isLegacyDiffsSandboxTab(s: string): boolean {
   return s === "diffs";
 }

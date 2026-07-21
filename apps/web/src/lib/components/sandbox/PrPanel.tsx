@@ -16,9 +16,9 @@ interface PrPanelProps {
 }
 
 /**
- * Sandbox PR tab: Diffs + Recap via `@conductor/ui` Tabs. Sessions use path
- * segments (`/review/diffs/…`, `/review/recap`); other surfaces may still use
- * `?prTab=`.
+ * Sandbox Review tab: Diffs + Recap via `@conductor/ui` Tabs. Path segments
+ * (`…/review/diffs/…`, `…/review/recap`) are preferred; `?prTab=` remains a
+ * redirect/fallback.
  * Defaults to Recap when a ready recap exists and no tab is in the URL yet.
  */
 export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {

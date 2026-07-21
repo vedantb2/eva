@@ -1,0 +1,31 @@
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { isDiffView, reviewPathFromSearch } from "@/lib/search-params";
+import { ProjectSandboxReviewPage } from "../-ProjectSandboxReviewPage";
+
+export const Route = createFileRoute(
+  "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView",
+)({
+  beforeLoad: ({ params, search }) => {
+    if (!isDiffView(params.diffView)) {
+      const dest = reviewPathFromSearch(search);
+      const diffView = dest.kind === "diffs" ? dest.diffView : "unified";
+      throw redirect({
+        to: "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          diffView,
+        },
+        search: (prev) => ({ ...prev, prTab: undefined, diffView: undefined }),
+        replace: true,
+      });
+    }
+  },
+  component: ProjectSandboxReviewDiffViewRoute,
+});
+
+function ProjectSandboxReviewDiffViewRoute() {
+  const { numId } = Route.useParams();
+  return <ProjectSandboxReviewPage numId={numId} />;
+}

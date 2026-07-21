@@ -1,5 +1,9 @@
 # Changelog
 
+## Projects and quick tasks use Review path tabs - 2026-07-21
+
+Projects/quick-tasks still drove Diffs/Recap and unified/split via `?prTab=` / `?diffView=`. They now match sessions with `/sandbox/review/diffs/…` and `/sandbox/review/recap`; old query URLs redirect.
+
 ## Review tab route is /review - 2026-07-21
 
 The sandbox tab was labeled Review but still lived at `/pr`. Sessions now use `/review/diffs/…` and `/review/recap` (projects/quick-tasks use `/sandbox/review`); old `/pr` URLs redirect.

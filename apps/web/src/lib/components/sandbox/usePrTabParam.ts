@@ -15,7 +15,8 @@ function prTabFromPathname(pathname: string): PrPanelTab | undefined {
 
 /**
  * Review panel Diffs/Recap sub-tab. Prefers path segments
- * (`…/review/diffs/…`, `…/review/recap`) and falls back to `?prTab=`.
+ * (`…/review/diffs/…`, `…/review/recap`) on sessions/projects/quick-tasks and
+ * falls back to `?prTab=` only when those paths are absent.
  */
 export function usePrTabParam() {
   const navigate = useNavigate();

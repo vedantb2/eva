@@ -70,9 +70,16 @@ export function ProjectSandboxPanel({
 
   const navigateToSandboxTab = (tab: SandboxTab) => {
     if (tab === "prd" || !projectPathSegment) return;
-    navigate({
+    if (tab === "review") {
+      void navigate({
+        to: `${basePath}/projects/${projectPathSegment}/sandbox/review/diffs/unified`,
+        search: true,
+      });
+      return;
+    }
+    void navigate({
       to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
-      // Keep diffFile/diffView across sandbox tabs.
+      // Keep diffFile across sandbox tabs.
       search: true,
     });
   };

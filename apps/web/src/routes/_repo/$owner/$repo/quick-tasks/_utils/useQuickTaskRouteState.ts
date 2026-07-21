@@ -1,4 +1,4 @@
-import { useParams } from "@tanstack/react-router";
+import { useParams, useRouterState } from "@tanstack/react-router";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import {
   isTaskRouteSandboxTab,
@@ -13,15 +13,27 @@ export type QuickTaskRouteState =
       detailTab: TaskDetailTab;
     };
 
+const SANDBOX_REVIEW_PATH = /\/sandbox\/review(?:\/|$)/;
+
 /**
  * Reads the active quick-task child segment (detail or sandbox) from the
  * matched route params without remounting the parent layout.
  *
  * Detail lives at `/quick-tasks/$numId` (no tab segment). Sandbox stays at
- * `/quick-tasks/$numId/sandbox/$sandboxTab`.
+ * `/quick-tasks/$numId/sandbox/$sandboxTab`, with Review at
+ * `/sandbox/review/diffs/…` or `/sandbox/review/recap`.
  */
 export function useQuickTaskRouteState(): QuickTaskRouteState | null {
   const params = useParams({ strict: false });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  if (SANDBOX_REVIEW_PATH.test(pathname)) {
+    return {
+      surface: "sandbox",
+      sandboxTab: "review",
+      detailTab: "activity",
+    };
+  }
 
   const sandboxTab = params.sandboxTab;
   if (typeof sandboxTab === "string" && isTaskRouteSandboxTab(sandboxTab)) {

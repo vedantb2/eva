@@ -112,11 +112,33 @@ export function isPrPanelTab(s: string): s is PrPanelTab {
   return prPanelTabs.some((tab) => tab === s);
 }
 
-// Layout for the Diffs tab — path segment on sessions (`/review/diffs/unified`).
+// Layout for the Diffs tab — path segment (`/review/diffs/unified`).
 const diffViews = ["unified", "split"] as const;
 export type DiffView = (typeof diffViews)[number];
 export function isDiffView(s: string): s is DiffView {
   return s === "unified" || s === "split";
+}
+
+/**
+ * Map legacy `?prTab=` / `?diffView=` (or defaults) onto a Review path target.
+ * Used when redirecting bare `/review` and old query-backed URLs.
+ */
+export function reviewPathFromSearch(search: {
+  prTab?: unknown;
+  diffView?: unknown;
+}): { kind: "recap" } | { kind: "diffs"; diffView: DiffView } {
+  if (
+    typeof search.prTab === "string" &&
+    isPrPanelTab(search.prTab) &&
+    search.prTab === "recap"
+  ) {
+    return { kind: "recap" };
+  }
+  const diffView =
+    typeof search.diffView === "string" && isDiffView(search.diffView)
+      ? search.diffView
+      : "unified";
+  return { kind: "diffs", diffView };
 }
 export const diffViewParser = parseAsStringLiteral(diffViews)
   .withDefault("unified")

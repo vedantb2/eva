@@ -3,13 +3,67 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useProjectByNumId } from "@/lib/useResolveByNumId";
 import {
+  isDiffView,
   isLegacyDesktopSandboxTab,
   isLegacyDiffsSandboxTab,
   isLegacyPrSandboxTab,
   isTaskRouteSandboxTab,
+  reviewPathFromSearch,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
 import { ProjectDetailClient } from "../../ProjectDetailClient";
+
+function redirectToProjectReview(args: {
+  owner: string;
+  repo: string;
+  numId: string;
+  search: Record<string, unknown>;
+  diffView?: string;
+  diffFile?: string;
+}) {
+  const dest = reviewPathFromSearch({
+    prTab: args.search.prTab,
+    diffView:
+      args.diffView !== undefined && isDiffView(args.diffView)
+        ? args.diffView
+        : args.search.diffView,
+  });
+
+  if (dest.kind === "recap") {
+    throw redirect({
+      to: "/$owner/$repo/projects/$numId/sandbox/review/recap",
+      params: {
+        owner: args.owner,
+        repo: args.repo,
+        numId: args.numId,
+      },
+      search: {
+        ...args.search,
+        prTab: undefined,
+        diffView: undefined,
+        ...(args.diffFile !== undefined ? { diffFile: args.diffFile } : {}),
+      },
+      replace: true,
+    });
+  }
+
+  throw redirect({
+    to: "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView",
+    params: {
+      owner: args.owner,
+      repo: args.repo,
+      numId: args.numId,
+      diffView: dest.diffView,
+    },
+    search: {
+      ...args.search,
+      prTab: undefined,
+      diffView: undefined,
+      ...(args.diffFile !== undefined ? { diffFile: args.diffFile } : {}),
+    },
+    replace: true,
+  });
+}
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
@@ -17,14 +71,25 @@ export const Route = createFileRoute(
   beforeLoad: ({ params, search }) => {
     const corrupted = splitCorruptedSandboxTabParam(params.sandboxTab);
     if (corrupted) {
+      if (
+        isLegacyDiffsSandboxTab(corrupted.tab) ||
+        isLegacyPrSandboxTab(corrupted.tab) ||
+        corrupted.tab === "review"
+      ) {
+        redirectToProjectReview({
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          diffView: corrupted.diffView,
+          diffFile: corrupted.diffFile,
+          search: {},
+        });
+      }
       const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
         ? "computer"
-        : isLegacyDiffsSandboxTab(corrupted.tab) ||
-            isLegacyPrSandboxTab(corrupted.tab)
-          ? "review"
-          : isTaskRouteSandboxTab(corrupted.tab)
-            ? corrupted.tab
-            : "preview";
+        : isTaskRouteSandboxTab(corrupted.tab)
+          ? corrupted.tab
+          : "preview";
       throw redirect({
         to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
         params: {
@@ -36,9 +101,6 @@ export const Route = createFileRoute(
         search: {
           diffFile: corrupted.diffFile,
           diffView: corrupted.diffView,
-          ...(isLegacyDiffsSandboxTab(corrupted.tab)
-            ? { prTab: "diffs" as const }
-            : {}),
         },
         replace: true,
       });
@@ -55,33 +117,16 @@ export const Route = createFileRoute(
         replace: true,
       });
     }
-    if (isLegacyPrSandboxTab(params.sandboxTab)) {
-      throw redirect({
-        to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
-        params: {
-          owner: params.owner,
-          repo: params.repo,
-          numId: params.numId,
-          sandboxTab: "review",
-        },
+    if (
+      isLegacyPrSandboxTab(params.sandboxTab) ||
+      isLegacyDiffsSandboxTab(params.sandboxTab) ||
+      params.sandboxTab === "review"
+    ) {
+      redirectToProjectReview({
+        owner: params.owner,
+        repo: params.repo,
+        numId: params.numId,
         search,
-        replace: true,
-      });
-    }
-    if (isLegacyDiffsSandboxTab(params.sandboxTab)) {
-      throw redirect({
-        to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
-        params: {
-          owner: params.owner,
-          repo: params.repo,
-          numId: params.numId,
-          sandboxTab: "review",
-        },
-        search: {
-          ...search,
-          prTab: "diffs",
-        },
-        replace: true,
       });
     }
     if (!isTaskRouteSandboxTab(params.sandboxTab)) {

@@ -60,7 +60,13 @@ export function useQuickTaskNeighbors({
     const segment = task ? entityPathSegment(task) : null;
     if (!segment) return;
     if (navSurface === "sandbox" && sandboxTab) {
-      navigate({
+      if (sandboxTab === "review") {
+        void navigate({
+          to: `${basePath}/quick-tasks/${segment}/sandbox/review/diffs/unified`,
+        });
+        return;
+      }
+      void navigate({
         to: `${basePath}/quick-tasks/${segment}/sandbox/${sandboxTab}`,
       });
       return;

@@ -49,9 +49,16 @@ export function QuickTaskTaskPageContent({
         quick: {
           sandboxTab,
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
-            navigate({
+            if (tab === "review") {
+              void navigate({
+                to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+                search: true,
+              });
+              return;
+            }
+            void navigate({
               to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
-              // Keep diffFile/diffView across sandbox tabs.
+              // Keep diffFile across sandbox tabs.
               search: true,
             });
           },
@@ -81,7 +88,13 @@ export function QuickTaskTaskPageContent({
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
-          navigate({
+          if (sandboxTab === "review") {
+            void navigate({
+              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+            });
+            return;
+          }
+          void navigate({
             to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
           });
         },

@@ -240,8 +240,10 @@ export async function isDevServerBooting(
         `hex=$(printf '%04X' ${port})`,
         `if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ":${port} "; then echo booting; exit 0; fi`,
         `if grep -Eiq ":$hex[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null; then echo booting; exit 0; fi`,
-        // Console-launched next/vite may not hold the lock.
-        `if pgrep -f "[n]ext dev|[v]ite|[p]npm turbo|[p]npm --filter" >/dev/null 2>&1; then echo booting; exit 0; fi`,
+        // Console-launched next/vite may not hold the lock. Match the app
+        // server only — not every `pnpm --filter` (that false-positive'd
+        // while Console was starting and suppressed remount recovery).
+        `if pgrep -f "[n]ext dev|[v]ite|[p]npm turbo" >/dev/null 2>&1; then echo booting; exit 0; fi`,
         "now=$(date +%s)",
         'last=$(cat "$LAST" 2>/dev/null || echo 0)',
         `if [ "$last" != "0" ] && [ $((now - last)) -lt ${DEVSERVER_BOOT_GRACE_SECONDS} ]; then echo booting; exit 0; fi`,

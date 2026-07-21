@@ -58,7 +58,14 @@ export function vercelAppListenPort(logicalPort: number): number {
   return VERCEL_APP_INTERNAL_PORT + 1;
 }
 
-/** Rewrite `PORT=<logical>` in a launch command for the Vercel listen port. */
+/**
+ * Force the Vercel listen port even when a nested package.json script hardcodes
+ * `-p 3001` / `--port 3001` (CarePulse eprocurement). Outer `PORT=` alone is not
+ * enough — Next prefers an explicit CLI port flag.
+ *
+ * Rewrites `PORT=` / `-p` / `--port` on the outer command, then appends
+ * ` -- -p <listen>` for npm/pnpm/yarn/bun so the last port wins inside the script.
+ */
 export function withVercelAppListenPort(
   logicalPort: number,
   devCommand: string,
@@ -68,14 +75,41 @@ export function withVercelAppListenPort(
   if (listenPort === logicalPort) {
     return { listenPort, publicPort, devCommand };
   }
-  return {
-    listenPort,
-    publicPort,
-    devCommand: devCommand.replace(
-      new RegExp(`PORT=${logicalPort}\\b`),
-      `PORT=${listenPort}`,
-    ),
-  };
+
+  let command = devCommand.replace(
+    new RegExp(`PORT=${logicalPort}\\b`),
+    `PORT=${listenPort}`,
+  );
+  command = command.replace(
+    new RegExp(`(-p|--port)\\s+${logicalPort}\\b`, "g"),
+    `$1 ${listenPort}`,
+  );
+
+  const listenFlag = `-p ${listenPort}`;
+  const alreadyForced =
+    command.includes(` -- ${listenFlag}`) ||
+    command.includes(` -- --port ${listenPort}`) ||
+    new RegExp(`(?:-p|--port)\\s+${listenPort}\\b`).test(command);
+
+  if (alreadyForced) {
+    return { listenPort, publicPort, devCommand: command };
+  }
+
+  // Nested scripts (e.g. `"dev": "next dev -p 3001"`) ignore PORT=; forward a
+  // trailing port so the last `-p` wins (Next/Vite CLI). Only touch app-dev
+  // invocations — not `pnpm turbo` / install / etc.
+  if (/\bnext\s+dev\b/.test(command)) {
+    command = `${command} ${listenFlag}`;
+  } else if (
+    /\b(pnpm|npm|yarn|bun)\b/.test(command) &&
+    /\b(run\s+)?dev\b/.test(command)
+  ) {
+    command = /\s--\s/.test(command)
+      ? `${command} ${listenFlag}`
+      : `${command} -- ${listenFlag}`;
+  }
+
+  return { listenPort, publicPort, devCommand: command };
 }
 
 /**

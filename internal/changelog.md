@@ -1,5 +1,9 @@
 # Changelog
 
+## Vercel Preview no longer dual-launches the app on resume - 2026-07-21
+
+Today's proxy remap (public 3001 / listen 13001) plus Preview remount heal raced project Start: heal background-launched Next, CarePulse's hardcoded `next dev -p 3001` ignored `PORT=13001` and stole the public port, then Console hit EADDRINUSE. Preview polls are probe-only again on Vercel; Console is the single launcher; remap appends `-- -p <listen>` so nested package scripts honor the listen port.
+
 ## Create task modal field rows - 2026-07-21
 
 Create-task metadata was one crowded wrap row. Core run settings (priority, code reviewer, model, branch) now sit on the first row; proof/audit, tags, and project move to a second row.

@@ -27,7 +27,7 @@ test("listen port is logical+10000 so the proxy can own the public port", () => 
   expect(vercelAppListenPort(5173)).toBe(15173);
 });
 
-test("rewrites PORT= in the launch command for any app port", () => {
+test("rewrites PORT=; appends -- -p only for package-manager dev scripts", () => {
   expect(
     withVercelAppListenPort(
       3000,
@@ -48,7 +48,21 @@ test("rewrites PORT= in the launch command for any app port", () => {
     listenPort: 15173,
     publicPort: 5173,
     devCommand:
-      "cd /tmp/repo && HOSTNAME=0.0.0.0 PORT=15173 pnpm --filter web dev",
+      "cd /tmp/repo && HOSTNAME=0.0.0.0 PORT=15173 pnpm --filter web dev -- -p 15173",
+  });
+});
+
+test("forces listen port past nested next -p in eprocurement-style commands", () => {
+  expect(
+    withVercelAppListenPort(
+      3001,
+      "cd /tmp/repo && HOSTNAME=0.0.0.0 PORT=3001 pnpm --filter eprocurement dev",
+    ),
+  ).toEqual({
+    listenPort: 13001,
+    publicPort: 3001,
+    devCommand:
+      "cd /tmp/repo && HOSTNAME=0.0.0.0 PORT=13001 pnpm --filter eprocurement dev -- -p 13001",
   });
 });
 

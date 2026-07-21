@@ -10,6 +10,7 @@ import {
 import { tmuxSessionName } from "./vercel";
 
 const CONSOLE_LAUNCH_SCRIPT = "/tmp/eva-console-dev.sh";
+const DEVSERVER_LAST_LAUNCH = "/tmp/eva-devserver-last-launch";
 
 /**
  * Starts the app dev server inside the Preview Console's shared tmux session
@@ -52,16 +53,28 @@ export async function launchDevServerInVercelConsole(
     return;
   }
 
+  // Stamp boot grace so Preview's isDevServerBooting skips any leftover
+  // background remount path while Console is starting.
+  await handle.exec(`date +%s > ${DEVSERVER_LAST_LAUNCH}`, {
+    cwd: "/",
+    timeoutSeconds: 5,
+  });
+
   const script = [
     "#!/usr/bin/env bash",
     "set -euo pipefail",
     `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
     `cd ${workspace} 2>/dev/null || cd /vercel/sandbox || cd /tmp/repo || true`,
     `export INIT_CWD="$(pwd)"`,
-    // Free the port if a previous background launch left something behind.
+    // Free the listen port if a previous background launch left something behind.
     `if command -v fuser >/dev/null 2>&1; then fuser -k ${port}/tcp >/dev/null 2>&1 || true`,
     `elif command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${port} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
     "fi",
+    // Drop a wrong-port Next left on the public proxy slot (e.g. hardcoded
+    // `next dev -p 3001` from an older heal). Do not fuser the public port —
+    // the auth proxy may already own it after a prior ready cycle.
+    `pkill -TERM -f '[n]ext dev' 2>/dev/null || true`,
+    "sleep 0.5",
     devCommand,
   ].join("\n");
   await handle.writeFile(CONSOLE_LAUNCH_SCRIPT, script);

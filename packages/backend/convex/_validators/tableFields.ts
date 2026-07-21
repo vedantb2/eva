@@ -123,9 +123,14 @@ export const agentTaskFields = {
   // prompt and sandbox env var are computed.
   screenshotsVideosEnabled: v.optional(v.boolean()),
   // Per-task override for whether an audit runs after a successful run.
-  // undefined = inherit project -> default ("project tasks audit"). true =
-  // force on. false = force off. Resolved in `getTaskData` (`runAuditEnabled`).
+  // undefined = inherit project -> default. true = force on. false = force
+  // off. Resolved in `getTaskData` (`runAuditEnabled`).
   runAuditEnabled: v.optional(v.boolean()),
+  // Per-task-sandbox-chat switches, separate from the run-level proof/audit
+  // above. Absent = off. Toggled from the sandbox chat composer options menu;
+  // read when a chat turn runs (proof prompt) / completes (audit).
+  chatCaptureProofEnabled: v.optional(v.boolean()),
+  chatRunAuditEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
@@ -392,9 +397,13 @@ export const projectFields = {
   ),
   priority: v.optional(priorityValidator),
   // Per-project tri-state defaults inherited by member tasks (task override
-  // wins). undefined = inherit repo/global default. Resolved in `getTaskData`.
+  // wins). undefined = inherit default (off). Resolved in `getTaskData`.
   screenshotsVideosEnabled: v.optional(v.boolean()),
   runAuditEnabled: v.optional(v.boolean()),
+  // Per-project-sandbox-chat switches, separate from the task defaults above.
+  // Absent = off. Toggled from the project sandbox chat composer options menu.
+  chatCaptureProofEnabled: v.optional(v.boolean()),
+  chatRunAuditEnabled: v.optional(v.boolean()),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),

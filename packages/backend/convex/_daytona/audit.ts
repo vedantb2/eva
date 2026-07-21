@@ -304,3 +304,72 @@ export const runSessionAudit = internalAction({
     return null;
   },
 });
+
+/**
+ * Runs an audit on a task/project sandbox after a chat turn. Detached like the
+ * session audit (the chat workflow does not await it). Takes the typed entity id
+ * so it can derive the Claude session uuid and route the completion callback to
+ * the right entity field ("taskId"/"projectId").
+ */
+export const runChatAudit = internalAction({
+  args: {
+    taskId: v.optional(v.id("agentTasks")),
+    projectId: v.optional(v.id("projects")),
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+    auditId: v.id("audits"),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const entity = args.taskId ?? args.projectId;
+    if (!entity) {
+      await ctx.runMutation(internal.audits.fail, {
+        id: args.auditId,
+        error: "No entity for chat audit",
+      });
+      return null;
+    }
+    const entityIdField = args.taskId ? "taskId" : "projectId";
+    try {
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const categories = await ctx.runQuery(
+        internal.auditCategories.listEnabledForContext,
+        { repoId: args.repoId },
+      );
+      if (categories.length === 0) {
+        await ctx.runMutation(internal.audits.fail, {
+          id: args.auditId,
+          error: "No audit categories enabled",
+        });
+        return null;
+      }
+
+      await signAndLaunchScript(
+        ctx,
+        sandbox,
+        args.userId,
+        buildSessionAuditPrompt(categories),
+        "audits:handleChatAuditCompletion",
+        entityIdField,
+        String(entity),
+        args.repoId,
+        {
+          model: repo?.auditReviewModel ?? "haiku",
+          claudeSessionId: sessionClaudeUuid(entity),
+          extraEnvVars: { ...AUDIT_TIMEOUT_ENV_VARS },
+          enableMcp: false,
+        },
+      );
+    } catch (err) {
+      await ctx.runMutation(internal.audits.fail, {
+        id: args.auditId,
+        error: errorMessage(err, "Audit failed"),
+      });
+    }
+    return null;
+  },
+});

@@ -72,6 +72,9 @@ export const update = authMutation({
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
     // null = clear the override (inherit project/default). undefined = no change.
     runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // Per-task-sandbox-chat switches (plain on/off, no inherit). Absent = no change.
+    chatCaptureProofEnabled: v.optional(v.boolean()),
+    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -111,6 +114,10 @@ export const update = authMutation({
         args.screenshotsVideosEnabled ?? undefined;
     if (args.runAuditEnabled !== undefined)
       updates.runAuditEnabled = args.runAuditEnabled ?? undefined;
+    if (args.chatCaptureProofEnabled !== undefined)
+      updates.chatCaptureProofEnabled = args.chatCaptureProofEnabled;
+    if (args.chatRunAuditEnabled !== undefined)
+      updates.chatRunAuditEnabled = args.chatRunAuditEnabled;
     await ctx.db.patch(args.id, updates);
 
     if (args.title !== undefined && args.title !== task.title) {

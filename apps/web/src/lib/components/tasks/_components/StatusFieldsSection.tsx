@@ -66,7 +66,6 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { TriStateOverrideSelect } from "./TriStateOverrideSelect";
 
@@ -187,7 +186,6 @@ export function StatusFieldsSection({
       );
     }
   });
-  const { repo } = useRepo();
   const [tagDraft, setTagDraft] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const tagDraftRef = useRef<HTMLInputElement>(null);
@@ -355,11 +353,7 @@ export function StatusFieldsSection({
           label="Proof"
           groupLabel="Proof of completion"
           value={task?.screenshotsVideosEnabled}
-          inheritedDefault={
-            taskProject?.screenshotsVideosEnabled ??
-            repo.screenshotsVideosEnabled ??
-            false
-          }
+          inheritedDefault={taskProject?.screenshotsVideosEnabled ?? false}
           onIcon={IconCamera}
           offIcon={IconCameraOff}
           onChange={(next) =>
@@ -371,9 +365,7 @@ export function StatusFieldsSection({
           label="Audit"
           groupLabel="Audit after run"
           value={task?.runAuditEnabled}
-          inheritedDefault={
-            taskProject?.runAuditEnabled ?? task?.projectId !== undefined
-          }
+          inheritedDefault={taskProject?.runAuditEnabled ?? false}
           onIcon={IconChecklist}
           offIcon={IconClipboardOff}
           onChange={(next) => updateTask({ id: taskId, runAuditEnabled: next })}

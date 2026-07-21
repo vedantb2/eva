@@ -1,5 +1,13 @@
 # Changelog
 
+## Proof/audit off by default, plus sandbox-chat toggles - 2026-07-21
+
+- Removed the repo-level "Screenshots and Videos" default: proof and audit are now off by default everywhere and opt-in per area (task, project, session, sandbox chat). Project tasks no longer auto-audit unless enabled on the project or task. Resolution is task, then project, else off.
+- Added a migration to clear the deprecated `screenshotsVideosEnabled` field from repo docs; the field stays in the schema until the migration has run in prod, then a follow-up drops it.
+- The quick-task and project sandbox chats gained an "Options" entry in the composer "+" menu with Capture proof / Run audit, persisted per task/project. Proof adds a capture step to the chat turn; audit runs after a successful turn.
+- Project sandbox-chat proof and audit required widening the media-attach and audit-entity types to accept projects (projects previously had no audit path at all).
+- Reason for change: teams wanted proof/audit decided per piece of work rather than a repo-wide default, and wanted the same control inside the in-sandbox chats, not just runs and sessions.
+
 ## Project View PR lives in More - 2026-07-21
 
 Project header kept View PR as a standalone button while quick tasks tuck it into More with Create PR / Preview. Projects now match that menu grouping.

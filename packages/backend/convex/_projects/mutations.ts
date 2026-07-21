@@ -101,6 +101,10 @@ export const update = authMutation({
     // Tri-state proof/audit defaults for member tasks. null clears the override.
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
     runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // Per-project-sandbox-chat switches (plain on/off). Flow through the generic
+    // spread below since they are never null.
+    chatCaptureProofEnabled: v.optional(v.boolean()),
+    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

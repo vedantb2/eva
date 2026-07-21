@@ -19,6 +19,7 @@ import {
   ChatBody,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
+import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -224,6 +225,7 @@ export function TaskSandboxChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        optionsSubmenu={<TaskChatOptionsSubmenu taskId={taskId} />}
       />
     </div>
   );

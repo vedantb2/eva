@@ -53,6 +53,7 @@ export {
   launchAuditFix,
   launchSelectedAuditFixes,
   runSessionAudit,
+  runChatAudit,
 } from "./_daytona/audit";
 
 export { launchProof, prepareProofSandbox } from "./_daytona/proof";

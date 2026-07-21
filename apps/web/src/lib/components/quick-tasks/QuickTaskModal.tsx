@@ -339,20 +339,13 @@ export function QuickTaskModal({
 
             <ScreenshotsToggle
               value={screenshotsVideosEnabled}
-              repoDefault={
-                effectiveProject?.screenshotsVideosEnabled ??
-                repo.screenshotsVideosEnabled ??
-                false
-              }
+              repoDefault={effectiveProject?.screenshotsVideosEnabled ?? false}
               onChange={setScreenshotsVideosEnabled}
             />
 
             <AuditToggle
               value={runAuditEnabled}
-              inheritedDefault={
-                effectiveProject?.runAuditEnabled ??
-                effectiveProjectId !== undefined
-              }
+              inheritedDefault={effectiveProject?.runAuditEnabled ?? false}
               onChange={setRunAuditEnabled}
             />
 

@@ -231,7 +231,7 @@ const schema = defineSchema(
       .index("by_repo", ["repoId"])
       .index("by_repo_and_source_path", ["repoId", "sourcePath"]),
     audits: defineTable({
-      entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+      entityId: v.union(v.id("agentTasks"), v.id("sessions"), v.id("projects")),
       runId: v.optional(v.id("agentRuns")),
       status: evaluationStatusValidator,
       sections: v.optional(v.array(auditSectionValidator)),

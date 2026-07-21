@@ -353,6 +353,21 @@ export const projectChatExecuteWorkflow = workflow.define({
       activityLog: result.activityLog,
       pendingQuestion: result.pendingQuestion,
     });
+
+    // Fire a detached audit when the project has chat audit enabled. No-ops
+    // when off / no sandbox / no categories / an audit is already running.
+    if (savedSuccess) {
+      try {
+        await step.runMutation(internal.audits.maybeStartProjectChatAudit, {
+          projectId: args.projectId,
+          userId: args.userId,
+        });
+      } catch (error) {
+        console.error(
+          `[projectChatWorkflow] maybeStartProjectChatAudit failed projectId=${String(args.projectId)}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   },
 });
 
@@ -442,6 +457,7 @@ export const getChatData = internalQuery({
       rootDirectory: repo.rootDirectory ?? "",
       customInstructionsBlock,
       systemPrompt: repo.systemPrompt,
+      captureProof: project.chatCaptureProofEnabled === true,
     });
     if (prefixBlock) {
       prompt = `${prefixBlock}\n\n${prompt}`;

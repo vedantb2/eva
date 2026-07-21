@@ -14,7 +14,12 @@ export const generateUploadUrl = authMutation({
 /** Attaches uploaded image/video storage IDs to the most recent message of a parent entity. */
 export const attachMedia = authAction({
   args: {
-    parentId: v.union(v.id("sessions"), v.id("designSessions")),
+    parentId: v.union(
+      v.id("sessions"),
+      v.id("designSessions"),
+      v.id("projects"),
+      v.id("agentTasks"),
+    ),
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
   },

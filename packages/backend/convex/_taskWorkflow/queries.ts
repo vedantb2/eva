@@ -265,19 +265,15 @@ export const getTaskData = internalQuery({
           ? await ctx.db.get(defaultsProjectId)
           : null;
 
-    // Per-task override wins, then project default, then repo, then off.
+    // Proof and audit are off by default and opt-in per area: task override
+    // wins, then the project default, else off. There is no repo-level default.
     const screenshotsVideosEnabled =
       task.screenshotsVideosEnabled ??
       defaultsProject?.screenshotsVideosEnabled ??
-      repo.screenshotsVideosEnabled ??
       false;
 
-    // Audit: task override -> project default -> current behavior (project
-    // tasks audit by default, quick tasks do not).
     const runAuditEnabled =
-      task.runAuditEnabled ??
-      defaultsProject?.runAuditEnabled ??
-      args.projectId !== undefined;
+      task.runAuditEnabled ?? defaultsProject?.runAuditEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"

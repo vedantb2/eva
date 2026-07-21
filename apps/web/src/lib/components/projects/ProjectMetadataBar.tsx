@@ -341,7 +341,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         <TriStateOverrideToggle
           label="Proof"
           value={project.screenshotsVideosEnabled}
-          inheritedDefault={repo.screenshotsVideosEnabled ?? false}
+          inheritedDefault={false}
           onIcon={IconCamera}
           offIcon={IconCameraOff}
           onChange={(next: TriStateValue) =>
@@ -357,7 +357,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         <TriStateOverrideToggle
           label="Audit"
           value={project.runAuditEnabled}
-          inheritedDefault={true}
+          inheritedDefault={false}
           onIcon={IconChecklist}
           offIcon={IconClipboardOff}
           onChange={(next: TriStateValue) =>

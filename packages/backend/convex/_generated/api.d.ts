@@ -18,6 +18,7 @@ import type * as _agentTasks_internal from "../_agentTasks/internal.js";
 import type * as _agentTasks_mutations from "../_agentTasks/mutations.js";
 import type * as _agentTasks_queries from "../_agentTasks/queries.js";
 import type * as _agentTasks_sandbox from "../_agentTasks/sandbox.js";
+import type * as _audits_chatAudit from "../_audits/chatAudit.js";
 import type * as _audits_fixes from "../_audits/fixes.js";
 import type * as _audits_queries from "../_audits/queries.js";
 import type * as _audits_sessionAudit from "../_audits/sessionAudit.js";
@@ -99,6 +100,7 @@ import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
 import type * as _migrations_projectInterview from "../_migrations/projectInterview.js";
 import type * as _migrations_projectPhases from "../_migrations/projectPhases.js";
+import type * as _migrations_removeRepoScreenshotsVideosEnabled from "../_migrations/removeRepoScreenshotsVideosEnabled.js";
 import type * as _migrations_removeSessionStartupRequestedAt from "../_migrations/removeSessionStartupRequestedAt.js";
 import type * as _migrations_removeSnapshotWarmupFields from "../_migrations/removeSnapshotWarmupFields.js";
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
@@ -310,6 +312,7 @@ declare const fullApi: ApiFromModules<{
   "_agentTasks/mutations": typeof _agentTasks_mutations;
   "_agentTasks/queries": typeof _agentTasks_queries;
   "_agentTasks/sandbox": typeof _agentTasks_sandbox;
+  "_audits/chatAudit": typeof _audits_chatAudit;
   "_audits/fixes": typeof _audits_fixes;
   "_audits/queries": typeof _audits_queries;
   "_audits/sessionAudit": typeof _audits_sessionAudit;
@@ -391,6 +394,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
   "_migrations/projectInterview": typeof _migrations_projectInterview;
   "_migrations/projectPhases": typeof _migrations_projectPhases;
+  "_migrations/removeRepoScreenshotsVideosEnabled": typeof _migrations_removeRepoScreenshotsVideosEnabled;
   "_migrations/removeSessionStartupRequestedAt": typeof _migrations_removeSessionStartupRequestedAt;
   "_migrations/removeSnapshotWarmupFields": typeof _migrations_removeSnapshotWarmupFields;
   "_migrations/repoSkills": typeof _migrations_repoSkills;

@@ -200,7 +200,7 @@ export function TaskDetailInline({
   const sandboxContent = (
     <ResizablePanelLayout
       storageKey="task-sandbox-panel"
-      leftDefaultSize="30%"
+      leftDefaultSize="40%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}

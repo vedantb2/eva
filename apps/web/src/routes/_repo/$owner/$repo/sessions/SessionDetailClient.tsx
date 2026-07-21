@@ -194,7 +194,7 @@ export function SessionDetailClient({
             isSandboxStarting={isSandboxStarting}
           />
         }
-        leftDefaultSize="30%"
+        leftDefaultSize="40%"
         leftMinWidthPx={350}
         rightMinWidthPx={300}
         storageKey="sandbox-collapsed"

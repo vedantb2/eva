@@ -21,6 +21,7 @@ test("classifyTurnKind marks code tasks as agent", () => {
 });
 
 test("classifyTurnKind marks MCP and platform tool requests as agent", () => {
+  // Latency pre-filter only — false negatives escalate via <<EVA_ESCALATE>>.
   expect(
     classifyTurnKind(
       "can you use eva mcp to run a test query against a project?",

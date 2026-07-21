@@ -172,13 +172,27 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
+export {
+  ESCALATION_SENTINEL,
+  isEscalationReply,
+  shouldHoldConversationalStream,
+} from "./conversationalEscalation.js";
+
+const CONVERSATIONAL_SYSTEM_PROMPT = `Reply briefly and directly. Do not use tools.
+
+If the request needs any of the following, reply with EXACTLY <<EVA_ESCALATE>> and nothing else:
+- repo files, code, or codebase inspection
+- project or database data
+- Eva platform actions (tasks, docs, queries, MCP tools)
+- context from earlier turns in this coding session`;
+
 /** Fresh one-shot query for conversational turns: no resume, no tools, no MCP. */
 export function buildConversationalSdkOptions(): SdkOptions {
   return {
     cwd: WORK_DIR,
     model: "haiku",
     pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: "Reply briefly and directly. Do not use tools.",
+    systemPrompt: CONVERSATIONAL_SYSTEM_PROMPT,
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     allowedTools: [],
@@ -243,6 +257,8 @@ function buildSdkOptionsFromParts(
     DISABLE_TELEMETRY: "1",
     DISABLE_AUTOUPDATER: "1",
     DISABLE_ERROR_REPORTING: "1",
+    // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
+    ENABLE_TOOL_SEARCH: "auto",
   };
   delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
 

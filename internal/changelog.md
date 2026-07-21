@@ -1,5 +1,9 @@
 # Changelog
 
+## Conversational turns self-escalate to agent for MCP - 2026-07-21
+
+The Haiku fast path stripped tools, so soft MCP asks ("list my repos?") silently failed. Conversational turns can now emit `<<EVA_ESCALATE>>` and the daemon re-dispatches the same turn onto the full agent query; agent turns also set `ENABLE_TOOL_SEARCH=auto` so large MCP schemas stay deferred. See `internal/t3code-ideas.md` for related t3code research (not implemented).
+
 ## Repo home and /sessions share new-session landing - 2026-07-21
 
 Repo root only showed a logo, while `/sessions` had a carded composer. Both routes now render the same landing (app icon + title, prompt copy, cardless composer) so starting a session is consistent wherever you land.

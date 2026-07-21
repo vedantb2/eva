@@ -768,12 +768,7 @@ function tailCap(text, max) {
   }
   return { text: text.slice(text.length - max), truncated: true };
 }
-var HEAVY_FIELDS = [
-  "output",
-  "edits",
-  "files",
-  "contentPreview"
-];
+var HEAVY_FIELDS = ["output", "edits", "files", "contentPreview"];
 function stripHeavyField(step, field) {
   if (field === "output" && step.output !== void 0) {
     delete step.output;
@@ -3885,6 +3880,18 @@ function buildCanUseTool() {
   };
 }
 
+// callback-src/providers/conversationalEscalation.ts
+var ESCALATION_SENTINEL = "<<EVA_ESCALATE>>";
+function isEscalationReply(text) {
+  return text.trimStart().startsWith(ESCALATION_SENTINEL);
+}
+function shouldHoldConversationalStream(text) {
+  const trimmed = text.trimStart();
+  if (trimmed.length === 0) return true;
+  if (isEscalationReply(trimmed)) return true;
+  return ESCALATION_SENTINEL.startsWith(trimmed);
+}
+
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
@@ -3929,12 +3936,19 @@ function buildSdkOptions(sessionMode) {
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
+var CONVERSATIONAL_SYSTEM_PROMPT = \`Reply briefly and directly. Do not use tools.
+
+If the request needs any of the following, reply with EXACTLY <<EVA_ESCALATE>> and nothing else:
+- repo files, code, or codebase inspection
+- project or database data
+- Eva platform actions (tasks, docs, queries, MCP tools)
+- context from earlier turns in this coding session\`;
 function buildConversationalSdkOptions() {
   return {
     cwd: WORK_DIR,
     model: "haiku",
     pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: "Reply briefly and directly. Do not use tools.",
+    systemPrompt: CONVERSATIONAL_SYSTEM_PROMPT,
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     allowedTools: [],
@@ -3968,7 +3982,9 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
     DISABLE_TELEMETRY: "1",
     DISABLE_AUTOUPDATER: "1",
-    DISABLE_ERROR_REPORTING: "1"
+    DISABLE_ERROR_REPORTING: "1",
+    // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
+    ENABLE_TOOL_SEARCH: "auto"
   };
   delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
@@ -4383,6 +4399,36 @@ function extractAssistantTextFromMessage(message) {
   const text = parts.join("");
   return text.length > 0 ? text : null;
 }
+function appendConversationalStreamText(message, previous) {
+  const full = extractAssistantTextFromMessage(message);
+  if (full !== null) {
+    return full;
+  }
+  if (message.type !== "stream_event") {
+    return previous;
+  }
+  const event = message.event;
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    return previous;
+  }
+  if (event.type !== "content_block_delta") {
+    return previous;
+  }
+  const delta = event.delta;
+  if (typeof delta !== "object" || delta === null || Array.isArray(delta)) {
+    return previous;
+  }
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    return previous + delta.text;
+  }
+  return previous;
+}
+function extractResultText(message) {
+  if (message.type !== "result") {
+    return null;
+  }
+  return typeof message.result === "string" ? message.result : null;
+}
 function appendSyntheticResultLine(output, replyText) {
   const line = JSON.stringify({
     type: "result",
@@ -4458,6 +4504,56 @@ async function runConversationalWarmTurn(runner, prompt) {
   let output = "";
   const sawFirstMessageThisTurn = { value: false };
   const sawAssistantThisTurn = { value: false };
+  let holdStreaming = true;
+  const heldLines = [];
+  let streamedText = "";
+  const releaseOrHoldStream = (line) => {
+    if (!holdStreaming) {
+      processRealtimeStdoutChunk(line);
+      return;
+    }
+    if (shouldHoldConversationalStream(streamedText)) {
+      heldLines.push(line);
+      return;
+    }
+    holdStreaming = false;
+    for (const held of heldLines) {
+      processRealtimeStdoutChunk(held);
+    }
+    heldLines.length = 0;
+    processRealtimeStdoutChunk(line);
+  };
+  const processConversationalMessage = (message) => {
+    const messageType = typeof message.type === "string" ? message.type : "?";
+    if (!sawFirstMessageThisTurn.value) {
+      sawFirstMessageThisTurn.value = true;
+      log(
+        "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
+      );
+    }
+    if (!sawAssistantThisTurn.value && messageType === "assistant") {
+      sawAssistantThisTurn.value = true;
+      log(
+        "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
+      );
+    }
+    const line = JSON.stringify(message) + "\\n";
+    appendToRawLogFile(line);
+    output = trimBufferHead(output + line);
+    appendToRawOutput(line);
+    streamedText = appendConversationalStreamText(message, streamedText);
+    releaseOrHoldStream(line);
+    return { isResult: message.type === "result" };
+  };
+  const escalateTurn = async () => {
+    endWatchedTurn();
+    resetTurnState();
+    await drainUntilConversationalResult(runner);
+    log(
+      "daemon[timing]: conversational escalated +" + (Date.now() - turnStartedAt) + "ms"
+    );
+    return "escalated";
+  };
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
@@ -4466,17 +4562,13 @@ async function runConversationalWarmTurn(runner, prompt) {
       );
     }
     noteWatchedMessage();
-    const processed = processDaemonMessage(
-      message,
-      output,
-      turnStartedAt,
-      sawFirstMessageThisTurn,
-      sawAssistantThisTurn
-    );
-    output = processed.output;
+    const processed = processConversationalMessage(message);
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        if (isEscalationReply(replyText)) {
+          return escalateTurn();
+        }
         endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt2 = Date.now();
@@ -4489,9 +4581,13 @@ async function runConversationalWarmTurn(runner, prompt) {
         );
         resetTurnState();
         await drainUntilConversationalResult(runner);
-        return;
+        return "completed";
       }
       continue;
+    }
+    const resultText = extractResultText(message);
+    if (resultText !== null && isEscalationReply(resultText) || isEscalationReply(streamedText)) {
+      return escalateTurn();
     }
     endWatchedTurn();
     const resultAt = Date.now();
@@ -4503,7 +4599,7 @@ async function runConversationalWarmTurn(runner, prompt) {
       "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt) + "ms"
     );
     resetTurnState();
-    return;
+    return "completed";
   }
 }
 function callbackScriptWentStaleOnDisk() {
@@ -4627,7 +4723,14 @@ async function runSdkDaemon() {
   }
   try {
     while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
+      const outcome = await runConversationalWarmTurn(
+        convRunner,
+        nextTurn.prompt
+      );
+      if (outcome === "escalated") {
+        nextTurn = { ...nextTurn, turnKind: "agent" };
+        break;
+      }
       nextTurn = await waitForNextTurn();
     }
     if (nextTurn === null) {
@@ -4669,7 +4772,14 @@ async function runSdkDaemon() {
         output = "";
         let upcoming = await waitForNextTurn();
         while (upcoming !== null && upcoming.turnKind === "conversational") {
-          await runConversationalWarmTurn(convRunner, upcoming.prompt);
+          const outcome = await runConversationalWarmTurn(
+            convRunner,
+            upcoming.prompt
+          );
+          if (outcome === "escalated") {
+            upcoming = { ...upcoming, turnKind: "agent" };
+            break;
+          }
           upcoming = await waitForNextTurn();
         }
         if (upcoming === null) {

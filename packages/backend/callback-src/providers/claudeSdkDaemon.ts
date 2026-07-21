@@ -42,6 +42,10 @@ import {
   loadSdk,
   type SdkUserMessage,
 } from "./claudeSdk.js";
+import {
+  isEscalationReply,
+  shouldHoldConversationalStream,
+} from "./conversationalEscalation.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
@@ -475,6 +479,42 @@ function extractAssistantTextFromMessage(
   return text.length > 0 ? text : null;
 }
 
+/** Appends live text_delta tokens (or replaces with a full assistant text). */
+function appendConversationalStreamText(
+  message: DaemonMessage,
+  previous: string,
+): string {
+  const full = extractAssistantTextFromMessage(message);
+  if (full !== null) {
+    return full;
+  }
+  if (message.type !== "stream_event") {
+    return previous;
+  }
+  const event = message.event;
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    return previous;
+  }
+  if (event.type !== "content_block_delta") {
+    return previous;
+  }
+  const delta = event.delta;
+  if (typeof delta !== "object" || delta === null || Array.isArray(delta)) {
+    return previous;
+  }
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    return previous + delta.text;
+  }
+  return previous;
+}
+
+function extractResultText(message: DaemonMessage): string | null {
+  if (message.type !== "result") {
+    return null;
+  }
+  return typeof message.result === "string" ? message.result : null;
+}
+
 function appendSyntheticResultLine(output: string, replyText: string): string {
   const line =
     JSON.stringify({
@@ -564,11 +604,15 @@ async function drainUntilConversationalResult(
   }
 }
 
-/** Feed a prompt into the warm conversational query and wait for its result. */
+/**
+ * Feed a prompt into the warm conversational query and wait for its result.
+ * Returns `"escalated"` when Haiku asks for the full agent path (sentinel);
+ * the caller re-dispatches the same turn without waiting for a new claim.
+ */
 async function runConversationalWarmTurn(
   runner: WarmConversationalRunner,
   prompt: string,
-): Promise<void> {
+): Promise<"completed" | "escalated"> {
   resetTurnState();
   const turnStartedAt = Date.now();
   S.activeAttemptStartedAt = turnStartedAt;
@@ -578,6 +622,71 @@ async function runConversationalWarmTurn(
   let output = "";
   const sawFirstMessageThisTurn = { value: false };
   const sawAssistantThisTurn = { value: false };
+  // Hold stream_event flushes while text is still a prefix of the escalation
+  // sentinel so `<<EVA_ESCALATE>>` never flashes in the UI.
+  let holdStreaming = true;
+  const heldLines: string[] = [];
+  let streamedText = "";
+
+  const releaseOrHoldStream = (line: string): void => {
+    if (!holdStreaming) {
+      processRealtimeStdoutChunk(line);
+      return;
+    }
+    if (shouldHoldConversationalStream(streamedText)) {
+      heldLines.push(line);
+      return;
+    }
+    holdStreaming = false;
+    for (const held of heldLines) {
+      processRealtimeStdoutChunk(held);
+    }
+    heldLines.length = 0;
+    processRealtimeStdoutChunk(line);
+  };
+
+  const processConversationalMessage = (
+    message: DaemonMessage,
+  ): { isResult: boolean } => {
+    const messageType = typeof message.type === "string" ? message.type : "?";
+    if (!sawFirstMessageThisTurn.value) {
+      sawFirstMessageThisTurn.value = true;
+      log(
+        "daemon[timing]: first SDK message (" +
+          messageType +
+          ") +" +
+          (Date.now() - turnStartedAt) +
+          "ms after turn start",
+      );
+    }
+    if (!sawAssistantThisTurn.value && messageType === "assistant") {
+      sawAssistantThisTurn.value = true;
+      log(
+        "daemon[timing]: first assistant msg +" +
+          (Date.now() - turnStartedAt) +
+          "ms after turn start",
+      );
+    }
+    const line = JSON.stringify(message) + "\n";
+    appendToRawLogFile(line);
+    output = trimBufferHead(output + line);
+    appendToRawOutput(line);
+    streamedText = appendConversationalStreamText(message, streamedText);
+    releaseOrHoldStream(line);
+    return { isResult: message.type === "result" };
+  };
+
+  const escalateTurn = async (): Promise<"escalated"> => {
+    endWatchedTurn();
+    resetTurnState();
+    await drainUntilConversationalResult(runner);
+    log(
+      "daemon[timing]: conversational escalated +" +
+        (Date.now() - turnStartedAt) +
+        "ms",
+    );
+    return "escalated";
+  };
 
   while (true) {
     const message = await runner.waitMessage();
@@ -589,17 +698,13 @@ async function runConversationalWarmTurn(
       );
     }
     noteWatchedMessage();
-    const processed = processDaemonMessage(
-      message,
-      output,
-      turnStartedAt,
-      sawFirstMessageThisTurn,
-      sawAssistantThisTurn,
-    );
-    output = processed.output;
+    const processed = processConversationalMessage(message);
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        if (isEscalationReply(replyText)) {
+          return escalateTurn();
+        }
         endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt = Date.now();
@@ -616,9 +721,16 @@ async function runConversationalWarmTurn(
         );
         resetTurnState();
         await drainUntilConversationalResult(runner);
-        return;
+        return "completed";
       }
       continue;
+    }
+    const resultText = extractResultText(message);
+    if (
+      (resultText !== null && isEscalationReply(resultText)) ||
+      isEscalationReply(streamedText)
+    ) {
+      return escalateTurn();
     }
     endWatchedTurn();
     const resultAt = Date.now();
@@ -634,7 +746,7 @@ async function runConversationalWarmTurn(
         "ms",
     );
     resetTurnState();
-    return;
+    return "completed";
   }
 }
 
@@ -804,7 +916,15 @@ export async function runSdkDaemon(): Promise<void> {
 
   try {
     while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
+      const outcome = await runConversationalWarmTurn(
+        convRunner,
+        nextTurn.prompt,
+      );
+      if (outcome === "escalated") {
+        // Same prompt/turn — flip to agent and fall through to the persistent query.
+        nextTurn = { ...nextTurn, turnKind: "agent" };
+        break;
+      }
       nextTurn = await waitForNextTurn();
     }
     if (nextTurn === null) {
@@ -855,7 +975,14 @@ export async function runSdkDaemon(): Promise<void> {
 
         let upcoming = await waitForNextTurn();
         while (upcoming !== null && upcoming.turnKind === "conversational") {
-          await runConversationalWarmTurn(convRunner, upcoming.prompt);
+          const outcome = await runConversationalWarmTurn(
+            convRunner,
+            upcoming.prompt,
+          );
+          if (outcome === "escalated") {
+            upcoming = { ...upcoming, turnKind: "agent" };
+            break;
+          }
           upcoming = await waitForNextTurn();
         }
         if (upcoming === null) {

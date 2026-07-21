@@ -48,6 +48,8 @@ interface SandboxPaneSlotsProps {
   /** Preview empty state Start button when sandbox is stopped. */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  /** Session-only: preview select-element → chat submit. */
+  onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
 }
 
 /**
@@ -74,6 +76,7 @@ export function SandboxPaneSlots({
   onComputerRunningChange,
   onStartSandbox,
   isSandboxStarting,
+  onAnnotationSubmit,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -133,6 +136,7 @@ export function SandboxPaneSlots({
               ].join(":")}
               onStartSandbox={onStartSandbox}
               isSandboxStarting={isSandboxStarting}
+              onAnnotationSubmit={onAnnotationSubmit}
             />
           </div>
         ))}

@@ -19,6 +19,7 @@ import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
@@ -63,6 +64,7 @@ export function SandboxPanel({
   const { setMode } = useSessionSettings(sessionIdStr, {
     defaultModel: repo.defaultModel,
   });
+  const submitAnnotation = useSessionAnnotationSend(sessionId);
 
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
@@ -202,6 +204,7 @@ export function SandboxPanel({
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
+          onAnnotationSubmit={submitAnnotation}
         />
       </div>
     </div>

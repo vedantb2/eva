@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview select-element annotations + device presets - 2026-07-21
+
+Session Preview could browse the app but not point Eva at a specific UI element. The preview toolbar now has a Cursor-style select tool (hover highlight, click → comment card → immediate chat message with rich selector/HTML/React context) and mobile/tablet/desktop width presets, so visual feedback reaches the agent without leaving the sandbox.
+
 ## Expandable tool output/diff detail in chat - 2026-07-21
 
 Per-call rows showed _what_ ran but not _what came back_. The sandbox harness now captures command output, exit codes, edit before/after, and write previews (budget-capped) for Claude/Codex/Cursor/OpenCode, and rows with detail expand in place — so you can verify a turn without digging through raw logs.

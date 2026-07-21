@@ -505,6 +505,8 @@ export const queuedMessageFields = {
     v.id("agentTasks"),
   ),
   content: v.string(),
+  /** Compact chat-display text; `content` remains the full agent message. */
+  displayContent: v.optional(v.string()),
   createdAt: v.number(),
   // Sort key for queue run order. Enqueue sets Date.now() (appends to the end);
   // the reorder mutation rewrites this to 0-based positions. Optional so the

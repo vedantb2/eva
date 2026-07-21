@@ -151,7 +151,7 @@ export function ChatComposer({
 
   const queuedMessageItems = queuedMessages.map((message) => ({
     id: message._id,
-    content: message.content,
+    content: message.displayContent ?? message.content,
     info: formatQueuedInfo?.(message),
   }));
 

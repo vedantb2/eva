@@ -183,6 +183,8 @@ export const enqueueMessage = authMutation({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
+    /** Compact chat-display text when `message` is a rich agent prompt. */
+    displayContent: v.optional(v.string()),
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
@@ -195,6 +197,7 @@ export const enqueueMessage = authMutation({
   handler: async (ctx, args) => {
     const content = args.message.trim();
     if (!content) return null;
+    const displayContent = args.displayContent?.trim();
 
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
@@ -204,6 +207,7 @@ export const enqueueMessage = authMutation({
     await ctx.db.insert("queuedMessages", {
       parentId: args.sessionId,
       content,
+      displayContent: displayContent || undefined,
       createdAt: Date.now(),
       order: Date.now(),
       userId: ctx.userId,

@@ -10,6 +10,7 @@ import {
   PREVIEW_SESSION_COOKIE,
   PREVIEW_SESSION_TTL_SECONDS,
 } from "../previewGrantConfig";
+import { buildAnnotationScriptSource } from "./previewAnnotationScript";
 import {
   VERCEL_APP_INTERNAL_PORT,
   VERCEL_APP_PUBLIC_PORT_FALLBACK,
@@ -43,7 +44,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v11";
+const SCRIPT_VERSION = "annotate-v11";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -496,8 +497,11 @@ const injectedScript = "(" + function () {
   sendLocation();
 }.toString() + ")();";
 
+const ANNOTATION_SCRIPT = ${JSON.stringify(buildAnnotationScriptSource())};
+
 function buildInjectionTag() {
-  const safeScript = injectedScript.replace(/<\/script/gi, "<\\/script");
+  const combined = injectedScript + "\n" + ANNOTATION_SCRIPT;
+  const safeScript = combined.replace(/<\/script/gi, "<\\/script");
   return "<script data-eva-preview-nav-sync>" + safeScript + "</scr" + "ipt>";
 }
 

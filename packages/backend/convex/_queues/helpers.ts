@@ -61,7 +61,7 @@ export async function startNextQueuedSessionMessage(
   await ctx.db.insert("messages", {
     parentId: sessionId,
     role: "user",
-    content: nextMessage.content,
+    content: nextMessage.displayContent ?? nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
     mode: nextMessage.mode,

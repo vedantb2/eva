@@ -1,12 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import {
-  Spinner,
-  Button,
-  WebPreview,
-  WebPreviewNavigation,
-  WebPreviewBody,
-  useWebPreview,
-} from "@conductor/ui";
+import { Spinner, Button, WebPreview, WebPreviewBody } from "@conductor/ui";
 import { useSessionStorage } from "usehooks-ts";
 import {
   IconAlertTriangle,
@@ -16,10 +9,15 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import {
-  PreviewNavBar,
   buildUrlWithPath,
   normalizePreviewPath,
 } from "@/lib/components/PreviewNavBar";
+import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
+import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
+import {
+  PREVIEW_DEVICE_WIDTHS,
+  type PreviewDevice,
+} from "./_utils/-previewAnnotation";
 
 interface PreviewInfo {
   url: string;
@@ -46,44 +44,11 @@ interface WebPreviewPanelProps {
   /** When set, inactive empty state shows a Start sandbox button (tasks/projects/sessions). */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
-}
-
-function NavigationBar({
-  previewInfo,
-  isLoading,
-  onRefresh,
-  containerRef,
-  port,
-  onPortChange,
-  previewPath,
-  onPathChange,
-}: {
-  previewInfo: PreviewInfo | null;
-  isLoading: boolean;
-  onRefresh: () => void;
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  port: number;
-  onPortChange: (port: number) => void;
-  previewPath: string;
-  onPathChange: (path: string) => void;
-}) {
-  const { iframeRef } = useWebPreview();
-
-  return (
-    <WebPreviewNavigation>
-      <PreviewNavBar
-        previewUrl={previewInfo?.url ?? null}
-        iframeRef={iframeRef}
-        containerRef={containerRef}
-        port={port}
-        path={previewPath}
-        onPortChange={onPortChange}
-        onPathChange={onPathChange}
-        isLoading={isLoading}
-        onRefresh={onRefresh}
-      />
-    </WebPreviewNavigation>
-  );
+  /**
+   * Session-only: submit compact display + rich agent prompt for a preview
+   * annotation. When absent, the select-element toggle is hidden.
+   */
+  onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
 }
 
 export function WebPreviewPanel({
@@ -100,13 +65,19 @@ export function WebPreviewPanel({
   pathStorageKey,
   onStartSandbox,
   isSandboxStarting = false,
+  onAnnotationSubmit,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [warningHintDismissed, setWarningHintDismissed] = useState(false);
+  const [annotationMode, setAnnotationMode] = useState(false);
   const [previewPath, setPreviewPath] = useSessionStorage(pathStorageKey, "/", {
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
   });
+  const [device, setDevice] = useSessionStorage<PreviewDevice>(
+    `${pathStorageKey}:device`,
+    "desktop",
+  );
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is
@@ -149,13 +120,16 @@ export function WebPreviewPanel({
     );
   }
 
+  const deviceWidth =
+    device === "desktop" ? undefined : PREVIEW_DEVICE_WIDTHS[device];
+
   return (
     <WebPreview
       ref={containerRef}
       defaultUrl={iframeSrc ?? ""}
       className="h-full rounded-none border-0"
     >
-      <NavigationBar
+      <PreviewPanelNavBar
         previewInfo={previewInfo}
         isLoading={isLoading}
         onRefresh={onRefresh}
@@ -164,6 +138,11 @@ export function WebPreviewPanel({
         onPortChange={onPortChange}
         previewPath={previewPath}
         onPathChange={handlePathChange}
+        device={device}
+        onDeviceChange={setDevice}
+        annotationMode={annotationMode}
+        onAnnotationModeChange={setAnnotationMode}
+        showAnnotationToggle={Boolean(onAnnotationSubmit)}
       />
       {!warningHintDismissed && !vercelSandboxId ? (
         <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
@@ -182,25 +161,38 @@ export function WebPreviewPanel({
           </Button>
         </div>
       ) : null}
-      <WebPreviewBody
-        key={iframeKey}
-        src={iframeSrc}
-        loading={
-          isLoading && !previewInfo ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-              <Spinner size="lg" />
-            </div>
-          ) : error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-destructive">{error}</p>
-              <Button size="sm" variant="secondary" onClick={onRefresh}>
-                <IconRefresh className="w-4 h-4" />
-                Retry
-              </Button>
-            </div>
-          ) : undefined
-        }
-      />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <WebPreviewBody
+          key={iframeKey}
+          src={iframeSrc}
+          className={deviceWidth ? "mx-auto border-x border-border" : undefined}
+          style={
+            deviceWidth ? { width: deviceWidth, maxWidth: "100%" } : undefined
+          }
+          loading={
+            isLoading && !previewInfo ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                <Spinner size="lg" />
+              </div>
+            ) : error ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button size="sm" variant="secondary" onClick={onRefresh}>
+                  <IconRefresh className="w-4 h-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+        {onAnnotationSubmit ? (
+          <PreviewAnnotationLayer
+            mode={annotationMode}
+            onModeChange={setAnnotationMode}
+            onSubmit={onAnnotationSubmit}
+          />
+        ) : null}
+      </div>
     </WebPreview>
   );
 }

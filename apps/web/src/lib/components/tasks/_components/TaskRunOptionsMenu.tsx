@@ -6,6 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
+  Badge,
   Button,
   Tooltip,
   TooltipTrigger,
@@ -56,6 +57,7 @@ export function TaskRunOptionsMenu({
 
   const captureProof = task?.screenshotsVideosEnabled === true;
   const runAudit = task?.runAuditEnabled === true;
+  const checkedCount = (captureProof ? 1 : 0) + (runAudit ? 1 : 0);
 
   return (
     <DropdownMenu>
@@ -65,8 +67,19 @@ export function TaskRunOptionsMenu({
             <Button
               variant="secondary"
               size={size === "sm" ? "icon-sm" : "icon"}
+              className="relative"
+              aria-label={
+                checkedCount > 0
+                  ? `Run options, ${checkedCount} enabled`
+                  : "Run options"
+              }
             >
               <IconAdjustmentsHorizontal size={size === "sm" ? 16 : 18} />
+              {checkedCount > 0 ? (
+                <Badge className="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] leading-none">
+                  {checkedCount}
+                </Badge>
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>

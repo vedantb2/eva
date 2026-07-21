@@ -1,5 +1,9 @@
 # Changelog
 
+## Run options button shows checked count - 2026-07-21
+
+The Options control next to Run Eva hid whether proof/audit were on. A small badge now shows how many of those steps are checked.
+
 ## Remove Add UI details scaffold - 2026-07-21
 
 The create/edit task “Add UI details” button and description hint pushed a Route/Control/Acceptance template that was rarely used. Removed the UI scaffold; agent-side UI-task detection from title/description keywords remains.

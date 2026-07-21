@@ -295,7 +295,7 @@ export function QuickTaskModal({
           if (!v) handleClose();
         }}
       >
-        <DialogContent className="max-w-3xl gap-0 p-0" hideCloseButton>
+        <DialogContent className="max-w-5xl gap-0 p-0" hideCloseButton>
           <div className="px-5 pt-5 pb-1">
             <Input
               placeholder="Task title"

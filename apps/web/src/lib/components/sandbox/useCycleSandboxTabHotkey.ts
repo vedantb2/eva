@@ -5,13 +5,13 @@ import type { SandboxTab } from "@/lib/search-params";
 
 /**
  * Tab order matches `SandboxTabBar`'s always-visible row (preview → browser →
- * terminal → diffs). Editor / Computer are only cyclable when pinned from `+`.
+ * terminal → PR). Editor / Computer are only cyclable when pinned from `+`.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
   "browser",
   "terminal",
-  "diffs",
+  "pr",
 ];
 
 /**

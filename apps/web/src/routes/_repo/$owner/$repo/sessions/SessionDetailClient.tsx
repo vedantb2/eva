@@ -25,7 +25,7 @@ export function SessionDetailClient({
   onSandboxTabChange: (tab: string) => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile: (path: string) => void;
-  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
+  /** Opens the PR tab (Diffs sub-tab); optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
 }) {
   const { basePath, repo } = useRepo();
@@ -86,7 +86,11 @@ export function SessionDetailClient({
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
   const openDiffsTab = () => {
-    onSandboxTabChange("diffs");
+    if (onViewDiff) {
+      onViewDiff();
+      return;
+    }
+    onSandboxTabChange("pr");
   };
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only

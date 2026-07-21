@@ -434,9 +434,28 @@ export const sessionExecuteWorkflow = workflow.define({
       // on the session or on GitHub for this branch, or if not ahead of base).
       // Retried on later turns so a transient GitHub failure self-heals.
       try {
-        await step.runAction(internal.github.createDraftSessionPr, {
-          sessionId: args.sessionId,
-        });
+        const sessionPrUrl = await step.runAction(
+          internal.github.createDraftSessionPr,
+          {
+            sessionId: args.sessionId,
+          },
+        );
+        if (sessionPrUrl) {
+          try {
+            await step.runMutation(
+              internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
+              {
+                repoId: data.repoId,
+                userId: args.userId,
+                prUrl: sessionPrUrl,
+              },
+            );
+          } catch (recapError) {
+            console.error(
+              `[sessionWorkflow] scheduleEvaPrRecap failed sessionId=${args.sessionId}: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
+            );
+          }
+        }
       } catch (error) {
         const errorDetail =
           error instanceof Error ? error.message : String(error);

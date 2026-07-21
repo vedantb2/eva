@@ -5,6 +5,7 @@ export const RESERVED_APP_TAB_SLUGS = new Set([
   "terminal",
   "desktop",
   "diffs",
+  "pr",
   "prd",
 ]);
 

@@ -7,7 +7,7 @@ import {
   IconCode,
   IconTerminal2,
   IconClipboardList,
-  IconGitCompare,
+  IconGitPullRequest,
   IconFileText,
   IconPlus,
   IconX,
@@ -43,7 +43,7 @@ const allTabs: Array<{
   { value: "preview", label: "Preview", icon: IconWorld },
   { value: "browser", label: "Browser", icon: IconBrowser },
   { value: "terminal", label: "Terminal", icon: IconTerminal2 },
-  { value: "diffs", label: "Diffs", icon: IconGitCompare },
+  { value: "pr", label: "PR", icon: IconGitPullRequest },
 ];
 
 interface SandboxTabBarProps {

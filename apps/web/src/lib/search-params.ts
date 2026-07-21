@@ -59,7 +59,7 @@ const sandboxTabs = [
   "editor",
   "terminal",
   "computer",
-  "diffs",
+  "pr",
   "files",
   "prd",
 ] as const;
@@ -80,19 +80,31 @@ export function isLegacyDesktopSandboxTab(s: string): boolean {
   return s === "desktop";
 }
 
+/** Old Diffs-tab URL segment; redirect to `pr` with `prTab=diffs`. */
+export function isLegacyDiffsSandboxTab(s: string): boolean {
+  return s === "diffs";
+}
+
 const taskRouteSandboxTabs = [
   "preview",
   "browser",
   "editor",
   "terminal",
   "computer",
-  "diffs",
+  "pr",
   "files",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
 export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return taskRouteSandboxTabs.some((tab) => tab === s);
+}
+
+const prPanelTabs = ["diffs", "recap"] as const;
+export type PrPanelTab = (typeof prPanelTabs)[number];
+
+export function isPrPanelTab(s: string): s is PrPanelTab {
+  return prPanelTabs.some((tab) => tab === s);
 }
 
 // Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
@@ -136,19 +148,25 @@ export function splitCorruptedSandboxTabParam(raw: string): {
   return { tab, diffFile, diffView };
 }
 
-/** Search fields used by the Diffs tab (quick-tasks validateSearch must allow these). */
+/** Search fields used by the PR/Diffs tab (quick-tasks validateSearch must allow these). */
 export function parseDiffSearchFields(search: {
   diffFile?: string;
   diffView?: string;
+  prTab?: string;
 }): {
   diffFile: string | undefined;
   diffView: DiffView | undefined;
+  prTab: PrPanelTab | undefined;
 } {
   return {
     diffFile: typeof search.diffFile === "string" ? search.diffFile : undefined,
     diffView:
       search.diffView === "unified" || search.diffView === "split"
         ? search.diffView
+        : undefined,
+    prTab:
+      typeof search.prTab === "string" && isPrPanelTab(search.prTab)
+        ? search.prTab
         : undefined,
   };
 }

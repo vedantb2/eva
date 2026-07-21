@@ -48,7 +48,9 @@ export function DocRecapViewer({
 }) {
   const navigate = useNavigate();
   const { basePath } = useRepo();
-  const streaming = useQuery(api.streaming.get, { entityId: doc._id });
+  const streaming = useQuery(api.streaming.get, {
+    entityId: `pr-recap:${doc._id}`,
+  });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const docComments =
     useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];

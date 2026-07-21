@@ -17,6 +17,7 @@ export const Route = createFileRoute(
         draft: undefined,
         diffFile: undefined,
         diffView: undefined,
+        prTab: undefined,
       },
       replace: true,
     });

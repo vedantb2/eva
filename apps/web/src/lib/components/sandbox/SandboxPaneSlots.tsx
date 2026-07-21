@@ -9,7 +9,7 @@ import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPane
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
-import { DiffsPanel } from "./DiffsPanel";
+import { PrPanel } from "./PrPanel";
 import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
 import { ConsoleDock } from "./ConsoleDock";
@@ -30,7 +30,7 @@ interface SandboxPaneSlotsProps {
   /** sessionStorage cache namespace for editor / desktop URL caches. */
   cacheKey: string;
   devCommand?: string;
-  /** PR URL for the Diffs tab; absent when no PR exists for this surface. */
+  /** PR URL for the PR tab; absent when no PR exists for this surface. */
   prUrl?: string;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
@@ -52,7 +52,7 @@ interface SandboxPaneSlotsProps {
 
 /**
  * Renders the standard sandbox tab slots (preview, terminal, editor, desktop,
- * diffs) as a fragment. Callers wrap this in their own flex container and may
+ * PR) as a fragment. Callers wrap this in their own flex container and may
  * add their own slots alongside (e.g. session PRD slot).
  */
 export function SandboxPaneSlots({
@@ -233,8 +233,8 @@ export function SandboxPaneSlots({
           onRunningChange={onComputerRunningChange}
         />
       </div>
-      <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-        <DiffsPanel prUrl={prUrl} repoId={repoId} />
+      <div className={activeTab === "pr" ? "h-full" : "hidden"}>
+        <PrPanel prUrl={prUrl} repoId={repoId} isActive={activeTab === "pr"} />
       </div>
       {customTabs?.map((tab) => {
         const slug = slugifyAppTabName(tab.name);

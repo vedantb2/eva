@@ -78,6 +78,9 @@ export const docKindValidator = v.union(
   v.literal("pr-recap"),
 );
 
+/** Marks PR recaps generated from Eva sandbox work (hidden from Documents sidebar). */
+export const prRecapOriginValidator = v.literal("eva");
+
 export const docVersionSourceValidator = v.union(
   v.literal("recap-regeneration"),
   v.literal("manual"),

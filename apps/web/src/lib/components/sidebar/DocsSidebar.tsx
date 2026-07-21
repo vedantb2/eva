@@ -65,15 +65,21 @@ export function DocsSidebar({
 }: DocsSidebarProps) {
   const navigate = useNavigate();
   const convex = useConvex();
-  const docs = useQuery(api.docs.list, { repoId });
+  const docs = useQuery(api.docs.list, {
+    repoId,
+    excludeEvaRecaps: true,
+  });
   const createDoc = useMutation(api.docs.create);
   const removeDoc = useMutation(api.docs.remove).withOptimisticUpdate(
     (localStore, args) => {
-      const current = localStore.getQuery(api.docs.list, { repoId });
+      const current = localStore.getQuery(api.docs.list, {
+        repoId,
+        excludeEvaRecaps: true,
+      });
       if (current !== undefined) {
         localStore.setQuery(
           api.docs.list,
-          { repoId },
+          { repoId, excludeEvaRecaps: true },
           current.filter((d) => d._id !== args.id),
         );
       }

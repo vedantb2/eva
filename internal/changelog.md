@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox Diffs tab becomes PR (Diffs + Recap) - 2026-07-21
+
+Eva draft PRs never got recaps (webhook skips drafts), so sandbox work had diffs but no walkthrough. The Diffs tab is now a PR tab with Diffs/Recap sub-tabs; when `prRecapsEnabled` is on, finishing a task/session turn auto-generates an Eva-origin recap for draft PRs, hidden from the Documents sidebar but openable from the panel.
+
 ## Message-first session creation with LLM titles - 2026-07-21
 
 Creating a coding session used to mean naming it in a modal before you could type. Sidebar `+` and `/sessions` now open a composer: submit creates the session as "New session", queues the first message until the sandbox is ready, and generates a short title via AI Gateway (`openai/gpt-5-nano`) without overwriting a manual rename.

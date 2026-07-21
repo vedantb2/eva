@@ -4,6 +4,7 @@ import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useProjectByNumId } from "@/lib/useResolveByNumId";
 import {
   isLegacyDesktopSandboxTab,
+  isLegacyDiffsSandboxTab,
   isTaskRouteSandboxTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
@@ -12,14 +13,16 @@ import { ProjectDetailClient } from "../../ProjectDetailClient";
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
 )({
-  beforeLoad: ({ params }) => {
+  beforeLoad: ({ params, search }) => {
     const corrupted = splitCorruptedSandboxTabParam(params.sandboxTab);
     if (corrupted) {
       const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
         ? "computer"
-        : isTaskRouteSandboxTab(corrupted.tab)
-          ? corrupted.tab
-          : "preview";
+        : isLegacyDiffsSandboxTab(corrupted.tab)
+          ? "pr"
+          : isTaskRouteSandboxTab(corrupted.tab)
+            ? corrupted.tab
+            : "preview";
       throw redirect({
         to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
         params: {
@@ -31,6 +34,9 @@ export const Route = createFileRoute(
         search: {
           diffFile: corrupted.diffFile,
           diffView: corrupted.diffView,
+          ...(isLegacyDiffsSandboxTab(corrupted.tab)
+            ? { prTab: "diffs" as const }
+            : {}),
         },
         replace: true,
       });
@@ -43,6 +49,22 @@ export const Route = createFileRoute(
           repo: params.repo,
           numId: params.numId,
           sandboxTab: "computer",
+        },
+        replace: true,
+      });
+    }
+    if (isLegacyDiffsSandboxTab(params.sandboxTab)) {
+      throw redirect({
+        to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          sandboxTab: "pr",
+        },
+        search: {
+          ...search,
+          prTab: "diffs",
         },
         replace: true,
       });

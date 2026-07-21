@@ -3,6 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import {
   findSiblingRepos,
+  hasCodebaseRepoAccess,
   pickDefaultVisibleAppRepo,
 } from "../_githubRepos/helpers";
 
@@ -14,6 +15,40 @@ function pickWorkflowRepo(
     siblings.find((repo) => repo.rootDirectory === undefined) ?? siblings[0]
   );
 }
+
+/**
+ * Manual Generate context — access-checked, not gated on prRecapsEnabled
+ * (explicit user intent from the PR panel button).
+ */
+export const getManualRecapContext = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+  },
+  returns: v.union(
+    v.object({
+      workflowRepoId: v.id("githubRepos"),
+      installationId: v.number(),
+      owner: v.string(),
+      name: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasCodebaseRepoAccess(ctx.db, args.repoId, args.userId))) {
+      return null;
+    }
+    const siblings = await findSiblingRepos(ctx.db, args.repoId);
+    const workflowRepo = pickWorkflowRepo(siblings);
+    if (!workflowRepo) return null;
+    return {
+      workflowRepoId: workflowRepo._id,
+      installationId: workflowRepo.installationId,
+      owner: workflowRepo.owner,
+      name: workflowRepo.name,
+    };
+  },
+});
 
 /** Checks whether PR recaps are enabled for a repo's codebase siblings. */
 export const getRecapSiblingsGate = internalQuery({

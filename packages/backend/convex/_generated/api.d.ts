@@ -101,6 +101,7 @@ import type * as _migrations_removeSnapshotWarmupFields from "../_migrations/rem
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
 import type * as _migrations_setEprocSandboxProvider from "../_migrations/setEprocSandboxProvider.js";
+import type * as _prRecapWorkflow_evaTrigger from "../_prRecapWorkflow/evaTrigger.js";
 import type * as _prRecapWorkflow_finalizeOutcome from "../_prRecapWorkflow/finalizeOutcome.js";
 import type * as _prRecapWorkflow_prompts from "../_prRecapWorkflow/prompts.js";
 import type * as _prRecapWorkflow_start from "../_prRecapWorkflow/start.js";
@@ -389,6 +390,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/repoSkills": typeof _migrations_repoSkills;
   "_migrations/sessionModes": typeof _migrations_sessionModes;
   "_migrations/setEprocSandboxProvider": typeof _migrations_setEprocSandboxProvider;
+  "_prRecapWorkflow/evaTrigger": typeof _prRecapWorkflow_evaTrigger;
   "_prRecapWorkflow/finalizeOutcome": typeof _prRecapWorkflow_finalizeOutcome;
   "_prRecapWorkflow/prompts": typeof _prRecapWorkflow_prompts;
   "_prRecapWorkflow/start": typeof _prRecapWorkflow_start;

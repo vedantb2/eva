@@ -7,12 +7,13 @@ import {
 
 describe("isTaskRouteSandboxTab", () => {
   it("accepts real task sandbox tabs", () => {
-    expect(isTaskRouteSandboxTab("diffs")).toBe(true);
+    expect(isTaskRouteSandboxTab("pr")).toBe(true);
     expect(isTaskRouteSandboxTab("browser")).toBe(true);
     expect(isTaskRouteSandboxTab("files")).toBe(true);
   });
 
-  it("rejects nuqs-corrupted tab segments that embed query strings", () => {
+  it("rejects legacy diffs and corrupted segments", () => {
+    expect(isTaskRouteSandboxTab("diffs")).toBe(false);
     expect(
       isTaskRouteSandboxTab(
         "diffs?diffFile=apps%2Fweb%2Fapp%2F(commissioner)%2Flist%2FCHCard.tsx",
@@ -53,17 +54,23 @@ describe("splitCorruptedSandboxTabParam", () => {
 });
 
 describe("parseDiffSearchFields", () => {
-  it("keeps only valid Diffs search keys", () => {
+  it("keeps only valid Diffs/PR search keys", () => {
     expect(
       parseDiffSearchFields({
         diffFile: "apps/web/foo.tsx",
         diffView: "split",
+        prTab: "recap",
       }),
-    ).toEqual({ diffFile: "apps/web/foo.tsx", diffView: "split" });
+    ).toEqual({
+      diffFile: "apps/web/foo.tsx",
+      diffView: "split",
+      prTab: "recap",
+    });
 
-    expect(parseDiffSearchFields({ diffView: "nope" })).toEqual({
+    expect(parseDiffSearchFields({ diffView: "nope", prTab: "junk" })).toEqual({
       diffFile: undefined,
       diffView: undefined,
+      prTab: undefined,
     });
   });
 });

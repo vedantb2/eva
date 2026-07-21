@@ -1,5 +1,9 @@
 # Changelog
 
+## Drop repo screenshotsVideosEnabled after migration - 2026-07-21
+
+Ran `migrations:removeRepoScreenshotsVideosEnabled` on evalucom clouddev and prod (2 / 3 repos patched), then removed the unused field from `githubRepoFields` so the schema matches the opt-in-per-area model.
+
 ## Run options button shows checked count - 2026-07-21
 
 The Options control next to Run Eva hid whether proof/audit were on. A small badge now shows how many of those steps are checked.

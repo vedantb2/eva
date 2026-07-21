@@ -117,10 +117,10 @@ export const agentTaskFields = {
   // launch in `signAndLaunchScript`.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
   baseBranch: v.optional(v.string()),
-  // Per-task override for the repo-level `screenshotsVideosEnabled` setting.
-  // undefined = inherit repo. true = force on. false = force off. Resolved at
-  // run time in `_taskWorkflow/queries.ts` (`getTaskData`) where the agent
-  // prompt and sandbox env var are computed.
+  // Per-task proof capture. undefined = inherit project -> default (off).
+  // true = force on. false = force off. Resolved at run time in
+  // `_taskWorkflow/queries.ts` (`getTaskData`) where the agent prompt and
+  // sandbox env var are computed.
   screenshotsVideosEnabled: v.optional(v.boolean()),
   // Per-task override for whether an audit runs after a successful run.
   // undefined = inherit project -> default. true = force on. false = force
@@ -331,7 +331,6 @@ export const githubRepoFields = {
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
-  screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
   // Clean-shutdown commands run before snapshotting a seeded sandbox so on-disk

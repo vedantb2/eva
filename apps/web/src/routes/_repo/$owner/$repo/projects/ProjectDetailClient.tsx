@@ -234,7 +234,8 @@ export function ProjectDetailClient({
   const hasPlanContext = Boolean(parsedSpec);
   const hasSandboxCommandItems =
     showRetryStartupCommands || showRunBackgroundCommands;
-  const hasPrLinkItems = canCreatePr || hasDeployedPreview;
+  const hasPrLinkItems =
+    canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -387,6 +388,18 @@ export function ProjectDetailClient({
                       Create PR
                     </DropdownMenuItem>
                   )}
+                  {project.prUrl ? (
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={project.prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <IconGitPullRequest size={14} />
+                        View PR
+                      </a>
+                    </DropdownMenuItem>
+                  ) : null}
                   {hasDeployedPreview && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -425,18 +438,6 @@ export function ProjectDetailClient({
                   <CopyLinkMenuItem />
                 </DropdownMenuContent>
               </DropdownMenu>
-              {project.prUrl && (
-                <Button variant="secondary" size="sm" asChild>
-                  <a
-                    href={project.prUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconGitPullRequest size={16} />
-                    <span className="hidden sm:inline">View PR</span>
-                  </a>
-                </Button>
-              )}
               {isSandboxActive && !isSandboxStopping ? (
                 <Button
                   variant="destructive"

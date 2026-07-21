@@ -1,5 +1,9 @@
 # Changelog
 
+## Project View PR lives in More - 2026-07-21
+
+Project header kept View PR as a standalone button while quick tasks tuck it into More with Create PR / Preview. Projects now match that menu grouping.
+
 ## Review Diffs chrome on shared tab row - 2026-07-21
 
 Unified/Split and Refresh sat on a second bar under Diffs/Recap. They now share the Review header row and only appear while Diffs is active (sessions, projects, quick tasks).

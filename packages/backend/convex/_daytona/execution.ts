@@ -109,10 +109,9 @@ import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import {
   ensurePreviewNavigationProxy,
+  VERCEL_PREVIEW_PROXY_PORT,
   VERCEL_DESKTOP_INTERNAL_PORT,
   VERCEL_EDITOR_INTERNAL_PORT,
-  vercelAppListenPort,
-  vercelAppPublicPort,
 } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
@@ -538,18 +537,15 @@ export const getPreviewUrl = action({
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
-    // On Vercel, services listen on internal ports and the auth proxy owns the
-    // exposed port (desktop 16080→6080, editor 18080→8080, app logical+10000→
-    // logical public port e.g. 13000→3000, 15173→5173, 13001→3001).
+    // On Vercel, desktop/editor listen on internal ports and the auth proxy
+    // owns the exposed port (same pattern as app preview 54321→app listen).
     // Probe the upstream service port for readiness, not the proxy port.
     const upstreamPort =
       credentials.kind === "vercel" && args.port === 6080
         ? VERCEL_DESKTOP_INTERNAL_PORT
         : credentials.kind === "vercel" && args.port === 8080
           ? VERCEL_EDITOR_INTERNAL_PORT
-          : credentials.kind === "vercel"
-            ? vercelAppListenPort(args.port)
-            : args.port;
+          : args.port;
 
     let ready = true;
     if (args.checkReady) {
@@ -586,9 +582,8 @@ export const getPreviewUrl = action({
       //
       // Vercel: Preview must NOT background-launch the app. Lifecycle owns
       // Console (`launchPreviewDevServer` → tmux). Remount via
-      // `launchDevServerInBackground` raced resume, bound CarePulse's
-      // hardcoded `next dev -p 3001` onto the public proxy port, then Console
-      // hit EADDRINUSE. Probe-only here; Console is the single launcher.
+      // `launchDevServerInBackground` raced resume and hit EADDRINUSE.
+      // Probe-only here; Console is the single launcher.
       const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
       if (!ready && !isDesktopOrEditorPort && credentials.kind !== "vercel") {
         try {
@@ -618,11 +613,11 @@ export const getPreviewUrl = action({
     // is gated the same way for Preview, Computer, and Editor.
     //
     // Vercel exposes a fixed 4-port set. Map:
-    //   app/dev → proxy on the app's logical port (3000, 3001, 5173, …);
-    //             app listens on logical+10000
-    //   editor  → proxy on 8080  (upstream 18080)
-    //   desktop → proxy on 6080  (upstream 16080)
-    // 54321 stays exposed for local Supabase Kong — not Eva's proxy.
+    //   app/dev (3000, 5173, …) → proxy on 54321 (upstream = real listen port)
+    //   editor                  → proxy on 8080  (upstream 18080)
+    //   desktop                 → proxy on 6080  (upstream 16080)
+    // Calling sandbox.domain(5173) throws "No route for port 5173" because Vite
+    // is not in the create-time expose list — always use the fixed proxy port.
     // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
     const isVercelDesktopOrEditor =
@@ -633,9 +628,9 @@ export const getPreviewUrl = action({
         ? undefined
         : isVercelDesktopOrEditor
           ? args.port
-          : vercelAppPublicPort(args.port);
-    // Public route port: on Vercel app/dev this is the repo/Preview port
-    // (3000/3001/5173/…), never the remapped listen port (13000/15173/…).
+          : VERCEL_PREVIEW_PROXY_PORT;
+    // Public route port: on Vercel app/dev previews this is always 54321, never
+    // the upstream listen port (e.g. Vite 5173).
     let previewPort = fixedVercelProxyPort ?? args.port;
     // Same upstream mapping used for the readiness probe above (Vercel desktop/
     // editor listen on internal ports; everything else on args.port).

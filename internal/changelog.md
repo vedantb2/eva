@@ -1,8 +1,8 @@
 # Changelog
 
-## Vercel Preview no longer dual-launches the app on resume - 2026-07-21
+## Revert Vercel app Preview proxy remap - 2026-07-22
 
-Today's proxy remap (public 3001 / listen 13001) plus Preview remount heal raced project Start: heal background-launched Next, CarePulse's hardcoded `next dev -p 3001` ignored `PORT=13001` and stole the public port, then Console hit EADDRINUSE. Preview polls are probe-only again on Vercel; Console is the single launcher; remap appends `-- -p <listen>` so nested package scripts honor the listen port.
+Today's port+10000 remap (proxy on 3000/3001/5173, app on listen+10000) broke CarePulse and any repo with hardcoded `next dev -p …` — PORT was ignored, dual-launch raced Console, Preview hit EADDRINUSE. Restored pre-remap layout: app listens on the configured port; Eva auth proxy is on 54321 again. Kept probe-only Preview on Vercel (no remount dual-launch). Trade-off returns: local Supabase Kong and Eva's proxy share 54321.
 
 ## Create task modal field rows - 2026-07-21
 

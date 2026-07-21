@@ -518,6 +518,31 @@ export function DesignChatPanel({
                         mentionRef={mentionRef}
                         attachmentMode="images"
                       />
+                      <PersonaDropdown
+                        repoId={repoId}
+                        value={selectedPersonaId}
+                        onChange={setSelectedPersonaId}
+                      />
+                    </PromptInputTools>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>Designs:</span>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setNumDesigns(n)}
+                            disabled={!isSandboxActive}
+                            className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
+                              numDesigns === n
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
                       <ModelSelect
                         value={model}
                         options={modelOptions}
@@ -559,31 +584,6 @@ export function DesignChatPanel({
                           }
                         />
                       ) : null}
-                      <PersonaDropdown
-                        repoId={repoId}
-                        value={selectedPersonaId}
-                        onChange={setSelectedPersonaId}
-                      />
-                    </PromptInputTools>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>Designs:</span>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setNumDesigns(n)}
-                          disabled={!isSandboxActive}
-                          className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
-                            numDesigns === n
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-1">
                       <PromptInputSpeech disabled={!isSandboxActive} />
                       {isExecuting ? (
                         <Button

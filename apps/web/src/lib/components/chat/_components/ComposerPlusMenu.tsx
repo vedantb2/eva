@@ -36,6 +36,36 @@ function docDescriptionPreview(doc: {
   return content || undefined;
 }
 
+function previewOneLine(text: string, maxLength = 72): string {
+  const singleLine = text.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= maxLength) return singleLine;
+  return `${singleLine.slice(0, maxLength - 1)}…`;
+}
+
+/** Matches MentionEditor picker rows: `/` or `@` + title, truncated description. */
+function MentionMenuRow({
+  prefix,
+  label,
+  description,
+}: {
+  prefix: "/" | "@";
+  label: string;
+  description?: string;
+}) {
+  const detail = description ? previewOneLine(description) : null;
+  return (
+    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
+      <span className="flex min-w-0 items-center gap-0.5">
+        <span className="shrink-0 text-muted-foreground">{prefix}</span>
+        <span className="truncate">{label}</span>
+      </span>
+      {detail ? (
+        <span className="truncate text-xs text-muted-foreground">{detail}</span>
+      ) : null}
+    </span>
+  );
+}
+
 function openFilePicker(accept: string, onFiles: (files: FileList) => void) {
   const input = document.createElement("input");
   input.type = "file";
@@ -113,13 +143,14 @@ export function ComposerPlusMenu({
             <IconSparkles className="mr-2 size-4" />
             Skills
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-48 max-h-64 overflow-y-auto">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
             {availableSkills.length === 0 ? (
               <DropdownMenuItem disabled>No available skills</DropdownMenuItem>
             ) : (
               availableSkills.map((skill) => (
                 <DropdownMenuItem
                   key={skill._id}
+                  className="items-start py-2"
                   onSelect={() => {
                     mentionRef.current?.insertSkill({
                       id: skill._id,
@@ -128,7 +159,11 @@ export function ComposerPlusMenu({
                     });
                   }}
                 >
-                  <span className="truncate">{skill.title}</span>
+                  <MentionMenuRow
+                    prefix="/"
+                    label={skill.title}
+                    description={skill.description}
+                  />
                 </DropdownMenuItem>
               ))
             )}
@@ -140,24 +175,32 @@ export function ComposerPlusMenu({
             <IconFileText className="mr-2 size-4" />
             Documents
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-48 max-h-64 overflow-y-auto">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
             {docs.length === 0 ? (
               <DropdownMenuItem disabled>No documents</DropdownMenuItem>
             ) : (
-              docs.map((doc) => (
-                <DropdownMenuItem
-                  key={doc._id}
-                  onSelect={() => {
-                    mentionRef.current?.insertMention({
-                      id: doc._id,
-                      label: doc.title,
-                      description: docDescriptionPreview(doc),
-                    });
-                  }}
-                >
-                  <span className="truncate">{doc.title}</span>
-                </DropdownMenuItem>
-              ))
+              docs.map((doc) => {
+                const description = docDescriptionPreview(doc);
+                return (
+                  <DropdownMenuItem
+                    key={doc._id}
+                    className="items-start py-2"
+                    onSelect={() => {
+                      mentionRef.current?.insertMention({
+                        id: doc._id,
+                        label: doc.title,
+                        description,
+                      });
+                    }}
+                  >
+                    <MentionMenuRow
+                      prefix="@"
+                      label={doc.title}
+                      description={description}
+                    />
+                  </DropdownMenuItem>
+                );
+              })
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>

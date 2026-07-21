@@ -1,5 +1,9 @@
 # Changelog
 
+## Composer toolbar: + first, model on the right - 2026-07-21
+
+Composer chrome put model/reasoning next to attach, crowding the left. + is now first on the left; model and reasoning sit with send on the right. Skills/Documents submenu rows match the @/`/` picker (prefix, title, truncated description).
+
 ## Conversational turns self-escalate to agent for MCP - 2026-07-21
 
 The Haiku fast path stripped tools, so soft MCP asks ("list my repos?") silently failed. Conversational turns can now emit `<<EVA_ESCALATE>>` and the daemon re-dispatches the same turn onto the full agent query; agent turns also set `ENABLE_TOOL_SEARCH=auto` so large MCP schemas stay deferred. See `internal/t3code-ideas.md` for related t3code research (not implemented).

@@ -257,7 +257,6 @@ export function ChatComposer({
               />
               <PromptInputFooter>
                 <PromptInputTools>
-                  {toolsBefore}
                   <ComposerPlusMenu
                     docs={docs}
                     skills={skills}
@@ -265,6 +264,9 @@ export function ChatComposer({
                     attachmentMode={attachmentMode}
                     optionsSubmenu={optionsSubmenu}
                   />
+                  {toolsBefore}
+                </PromptInputTools>
+                <div className="flex min-w-0 items-center gap-1">
                   <ModelSelect
                     value={model}
                     options={modelOptions}
@@ -307,8 +309,6 @@ export function ChatComposer({
                       }
                     />
                   ) : null}
-                </PromptInputTools>
-                <div className="flex min-w-0 items-center gap-1">
                   <PromptInputSpeech />
                   {isExecuting ? (
                     <Button

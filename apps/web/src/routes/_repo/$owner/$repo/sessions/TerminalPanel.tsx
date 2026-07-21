@@ -91,6 +91,12 @@ export function TerminalPanel({
     sandboxId ?? "no-sandbox",
     ptyInstanceId,
   );
+  const ownerKey =
+    owner.kind === "session"
+      ? `session:${owner.sessionId}`
+      : owner.kind === "task"
+        ? `task:${owner.taskId}`
+        : `project:${owner.projectId}`;
   const [terminalHistory, setTerminalHistory] = useSessionStorage(
     terminalHistoryKey,
     "",
@@ -104,7 +110,19 @@ export function TerminalPanel({
   const resizePtyRef = useRef(resizePtyAction);
   resizePtyRef.current = resizePtyAction;
 
-  const connectWebSocket = async (
+  // Keep connect logic off the connect-effect dep list. Listing the function
+  // itself re-ran the effect on every parent render (preview poll, Convex
+  // updates), which tore down the WebSocket, called connectPty again (log
+  // spam), and cleared the Vercel console — looks like a permanent refresh.
+  const connectWebSocketRef = useRef<
+    (
+      terminal: Terminal,
+      mounted: { current: boolean },
+      historyWriter: TerminalHistoryWriter,
+    ) => Promise<void>
+  >(async () => {});
+
+  connectWebSocketRef.current = async (
     terminal: Terminal,
     mounted: { current: boolean },
     historyWriter: TerminalHistoryWriter,
@@ -250,11 +268,9 @@ export function TerminalPanel({
           !shellExitedRef.current &&
           !intentionalCloseRef.current
         ) {
-          connectWebSocket(
-            terminalInstanceRef.current,
-            mounted,
-            historyWriter,
-          ).catch(() => {});
+          connectWebSocketRef
+            .current(terminalInstanceRef.current, mounted, historyWriter)
+            .catch(() => {});
         }
       }, RECONNECT_DELAY_MS);
     };
@@ -351,7 +367,7 @@ export function TerminalPanel({
         }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
-        await connectWebSocket(terminal, mounted, historyWriter);
+        await connectWebSocketRef.current(terminal, mounted, historyWriter);
       } catch (err) {
         if (mounted.current) {
           setError(
@@ -383,15 +399,10 @@ export function TerminalPanel({
       }
       historyWriter.dispose();
     };
-  }, [
-    isActive,
-    sandboxId,
-    owner,
-    retryCount,
-    connectWebSocket,
-    ptyInstanceId,
-    setTerminalHistory,
-  ]);
+    // connectWebSocketRef / setTerminalHistory intentionally omitted — see
+    // comment above connectWebSocketRef. ownerKey (not owner) so a fresh
+    // { kind, id } object from a parent render does not reconnect.
+  }, [isActive, sandboxId, ownerKey, retryCount, ptyInstanceId]);
 
   useLayoutEffect(() => {
     if (!isForeground) {
@@ -412,7 +423,7 @@ export function TerminalPanel({
         .current({ owner, cols, rows, ptyInstanceId })
         .catch(() => {});
     }
-  }, [isForeground, owner, ptyInstanceId]);
+  }, [isForeground, ownerKey, owner, ptyInstanceId]);
 
   useEffect(() => {
     if (!terminalRef.current) {
@@ -448,7 +459,7 @@ export function TerminalPanel({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [owner, ptyInstanceId, isForeground]);
+  }, [ownerKey, owner, ptyInstanceId, isForeground]);
 
   if (!isActive || !sandboxId) {
     return (

@@ -1,5 +1,9 @@
 # Changelog
 
+## Stop Console PTY reconnect loop on preview - 2026-07-21
+
+TerminalPanel listed its `connectWebSocket` function in a `useEffect` dependency array. Parent re-renders (preview polling, Convex) recreated that function, tore down the WebSocket, and called `connectPty` again — clearing the Vercel console and spamming `resolveSandboxProviderKind` in prod logs. Connect logic now lives behind a ref; the effect only re-runs when sandbox/owner/pane identity changes.
+
 ## Vercel app preview proxy moves off Supabase port 54321 - 2026-07-21
 
 Vercel app/dev preview used exposed 54321 as the auth proxy in front of Next/Vite. CarePulse (and any repo with local Supabase) already binds Kong there, so the public `*.vercel.run` preview URL returned Kong's `no Route matched` JSON while Next was fine on 3000. App preview now matches desktop/editor: the auth proxy owns the **app's configured port** (3000, 3001, 5173, …), the app listens on port+10000, and 54321 stays free for Supabase. Loopback requests through the proxy skip the grant gate so Inngest/`BASE_APP_URL` on localhost still work.

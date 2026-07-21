@@ -11,14 +11,15 @@ import {
   PREVIEW_SESSION_TTL_SECONDS,
 } from "../previewGrantConfig";
 import { buildAnnotationScriptSource } from "./previewAnnotationScript";
+import { VERCEL_PREVIEW_PROXY_PORT } from "./vercelAppPorts";
+
+export { VERCEL_PREVIEW_PROXY_PORT };
 
 // Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
 // navigation proxy must listen inside that range.
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
-/** Vercel app Preview auth proxy; app listens on the repo's configured port. */
-export const VERCEL_PREVIEW_PROXY_PORT = 54321;
 /** noVNC/websockify listens here; auth proxy owns exposed 6080. */
 export const VERCEL_DESKTOP_INTERNAL_PORT = 16080;
 /** code-server listens here; auth proxy owns exposed 8080. */

@@ -164,7 +164,7 @@ Only if eva stands up a long-lived Node host tier (e.g. for sub-150 ms token str
 
 - **Convex action wall-clock limit:** ~10 minutes (cited repeatedly across workflows)
 - **IPv4-only:** Daytona/Vercel sandboxes don't support IPv6; all services bind to IPv4
-- **Vercel port cap:** 4 exposed ports — 3000 (app default), 8080 (editor), 6080 (desktop), 54321 (app Preview auth proxy; also local Supabase Kong when present)
+- **Vercel port cap:** 4 exposed ports — 3000 (app Preview auth proxy), 8080 (editor), 6080 (desktop), 54321 (local Supabase Kong). App listens on the UI port (or 13000 when UI port is 3000); Eva launches `exec next|vite -p <listen>` so customer `-p` flags cannot steal the wrong port.
 - **Daemon idle-exit:** 45 minutes; next turn respawns
 - **Heartbeat flush:** 150 ms (accumulated events)
 - **Heartbeat touch ping:** 10 s (keep watchdog alive during silent tool runs)

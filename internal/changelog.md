@@ -1,8 +1,8 @@
 # Changelog
 
-## Revert Vercel app Preview proxy remap - 2026-07-22
+## Vercel Preview proxy on 3000; leave 54321 for Supabase - 2026-07-22
 
-Today's port+10000 remap (proxy on 3000/3001/5173, app on listen+10000) broke CarePulse and any repo with hardcoded `next dev -p …` — PORT was ignored, dual-launch raced Console, Preview hit EADDRINUSE. Restored pre-remap layout: app listens on the configured port; Eva auth proxy is on 54321 again. Kept probe-only Preview on Vercel (no remount dual-launch). Trade-off returns: local Supabase Kong and Eva's proxy share 54321.
+CarePulse web Preview showed Kong's "no Route matched" because Eva's auth proxy shared 54321 with local Supabase, while eprocurement (no Supabase) worked. Public Preview proxy is now always on exposed port 3000; 54321 stays for Kong. When the UI port is 3000 the app listens on 13000; otherwise it listens on the UI port (e.g. 3001). Eva launches `pnpm exec next|vite -p <listen>` in the sandbox Console so customer package.json `-p` flags are not used — no repo edits required.
 
 ## Create task modal field rows - 2026-07-21
 

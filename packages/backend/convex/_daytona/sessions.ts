@@ -42,6 +42,7 @@ import {
   launchDevServerInBackground,
 } from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
+import { resolveVercelConsoleDevCommand } from "./vercelAppPorts";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { startDesktopWithChrome } from "./desktop";
@@ -50,6 +51,9 @@ import { startDesktopWithChrome } from "./desktop";
  * Starts the app server where Console can show logs (Vercel tmux; else
  * background). `ownerKey` must match the Preview Console PTY owner
  * (`session-*` / `task-*` / `project-*`).
+ *
+ * On Vercel, Eva launches `exec next|vite -p <listen>` so customer
+ * package.json `-p` flags cannot bind the wrong port. Proxy owns 3000.
  */
 async function launchPreviewDevServer(
   clientKind: "daytona" | "vercel",
@@ -57,9 +61,21 @@ async function launchPreviewDevServer(
   ownerKey: string,
   devCommand: string,
   devPort: number,
+  rootDir: string,
 ): Promise<void> {
   if (clientKind === "vercel") {
-    await launchDevServerInVercelConsole(handle, ownerKey, devCommand, devPort);
+    const resolved = await resolveVercelConsoleDevCommand(
+      handle,
+      rootDir,
+      devPort,
+      devCommand,
+    );
+    await launchDevServerInVercelConsole(
+      handle,
+      ownerKey,
+      resolved.devCommand,
+      resolved.listenPort,
+    );
     return;
   }
   await launchDevServerInBackground(handle, devCommand, devPort);
@@ -857,6 +873,7 @@ async function prepareSessionSandboxInternal(
                   `session-${args.sessionId}`,
                   devCommand,
                   devPort,
+                  rootDir,
                 ),
             );
             reusedResult = {
@@ -1353,6 +1370,7 @@ async function prepareSessionSandboxInternal(
           `session-${args.sessionId}`,
           devCommand,
           devPort,
+          rootDir,
         ),
     );
 
@@ -1395,6 +1413,7 @@ async function prepareSessionSandboxInternal(
             `session-${args.sessionId}`,
             resolvedDevCommand,
             resolvedDevPort,
+            rootDir,
           );
         } catch (launchError) {
           console.warn(
@@ -2055,6 +2074,7 @@ async function prepareTaskPreviewSandboxInternal(
           `task-${args.taskId}`,
           devCommand,
           devPort,
+          rootDir,
         ),
     );
     reusedResult = {
@@ -2326,6 +2346,7 @@ async function prepareTaskPreviewSandboxInternal(
           `task-${args.taskId}`,
           devCommand,
           devPort,
+          rootDir,
         ),
     );
 
@@ -2598,6 +2619,7 @@ async function prepareProjectPreviewSandboxInternal(
             `project-${args.projectId}`,
             devCommand,
             devPort,
+            rootDir,
           ),
       );
     }
@@ -2875,6 +2897,7 @@ async function prepareProjectPreviewSandboxInternal(
           `project-${args.projectId}`,
           devCommand,
           devPort,
+          rootDir,
         ),
     );
   }

@@ -113,6 +113,7 @@ import {
   VERCEL_DESKTOP_INTERNAL_PORT,
   VERCEL_EDITOR_INTERNAL_PORT,
 } from "./previewProxy";
+import { vercelAppListenPort } from "./vercelAppPorts";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 
@@ -537,15 +538,17 @@ export const getPreviewUrl = action({
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
-    // On Vercel, desktop/editor listen on internal ports and the auth proxy
-    // owns the exposed port (same pattern as app preview 54321→app listen).
+    // On Vercel, services listen on internal ports and the auth proxy owns the
+    // exposed port (desktop 16080→6080, editor 18080→8080, app listen→3000).
     // Probe the upstream service port for readiness, not the proxy port.
     const upstreamPort =
       credentials.kind === "vercel" && args.port === 6080
         ? VERCEL_DESKTOP_INTERNAL_PORT
         : credentials.kind === "vercel" && args.port === 8080
           ? VERCEL_EDITOR_INTERNAL_PORT
-          : args.port;
+          : credentials.kind === "vercel"
+            ? vercelAppListenPort(args.port)
+            : args.port;
 
     let ready = true;
     if (args.checkReady) {
@@ -613,11 +616,9 @@ export const getPreviewUrl = action({
     // is gated the same way for Preview, Computer, and Editor.
     //
     // Vercel exposes a fixed 4-port set. Map:
-    //   app/dev (3000, 5173, …) → proxy on 54321 (upstream = real listen port)
-    //   editor                  → proxy on 8080  (upstream 18080)
-    //   desktop                 → proxy on 6080  (upstream 16080)
-    // Calling sandbox.domain(5173) throws "No route for port 5173" because Vite
-    // is not in the create-time expose list — always use the fixed proxy port.
+    //   app/dev → proxy on 3000 (upstream = listen port; 54321 left for Supabase)
+    //   editor  → proxy on 8080  (upstream 18080)
+    //   desktop → proxy on 6080  (upstream 16080)
     // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
     const isVercelDesktopOrEditor =
@@ -629,11 +630,10 @@ export const getPreviewUrl = action({
         : isVercelDesktopOrEditor
           ? args.port
           : VERCEL_PREVIEW_PROXY_PORT;
-    // Public route port: on Vercel app/dev previews this is always 54321, never
-    // the upstream listen port (e.g. Vite 5173).
+    // Public route port: on Vercel app/dev previews this is always 3000, never
+    // the upstream listen port (e.g. Next 13000 / 3001, Vite 5173).
     let previewPort = fixedVercelProxyPort ?? args.port;
-    // Same upstream mapping used for the readiness probe above (Vercel desktop/
-    // editor listen on internal ports; everything else on args.port).
+    // Same upstream mapping used for the readiness probe above.
     const proxyTargetPort = upstreamPort;
     const shouldStartPreviewProxy =
       credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
@@ -648,8 +648,8 @@ export const getPreviewUrl = action({
             repoId: args.repoId,
             webAppUrl: process.env.WEB_APP_URL ?? "",
             inject: args.navigationSync === true,
-            // Browser-facing port for /preview-auth (may differ from upstream).
-            authPort: args.port,
+            // Browser-facing port for /preview-auth (public proxy, not listen).
+            authPort: fixedVercelProxyPort ?? args.port,
           },
           fixedVercelProxyPort,
         );
@@ -681,7 +681,8 @@ export const getPreviewUrl = action({
     if (previewPublicJwk && ready) {
       const grant = await signPreviewGrant({
         sandboxId: args.sandboxId,
-        port: args.port,
+        // Grant must match AUTH_PORT (public proxy on Vercel app previews).
+        port: fixedVercelProxyPort ?? args.port,
         sub: identity.subject,
       });
       parsedUrl.searchParams.set(PREVIEW_GRANT_PARAM, grant);

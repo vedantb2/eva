@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@conductor/backend";
 import {
@@ -135,31 +134,30 @@ function contentTypeForUpload(
  */
 export function useUploadChatAttachments(mode: ChatAttachmentMode) {
   const generateUploadUrl = useMutation(api.messages.generateUploadUrl);
-  return useCallback(
-    async (files: PromptInputMessage["files"]): Promise<Id<"_storage">[]> => {
-      const allowed = files.filter((file) => isAllowedComposerFile(mode, file));
-      const results = await Promise.all(
-        allowed.map(async (file) => {
-          try {
-            const blob = await (await fetch(file.url)).blob();
-            const uploadUrl = await generateUploadUrl({});
-            const contentType = contentTypeForUpload(file, blob.type);
-            const res = await fetch(uploadUrl, {
-              method: "POST",
-              headers: { "Content-Type": contentType },
-              body: blob,
-            });
-            if (!res.ok) return null;
-            return parseStorageId(await res.text());
-          } catch {
-            return null;
-          }
-        }),
-      );
-      return results.filter((id): id is Id<"_storage"> => id !== null);
-    },
-    [generateUploadUrl, mode],
-  );
+  return async (
+    files: PromptInputMessage["files"],
+  ): Promise<Id<"_storage">[]> => {
+    const allowed = files.filter((file) => isAllowedComposerFile(mode, file));
+    const results = await Promise.all(
+      allowed.map(async (file) => {
+        try {
+          const blob = await (await fetch(file.url)).blob();
+          const uploadUrl = await generateUploadUrl({});
+          const contentType = contentTypeForUpload(file, blob.type);
+          const res = await fetch(uploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": contentType },
+            body: blob,
+          });
+          if (!res.ok) return null;
+          return parseStorageId(await res.text());
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter((id): id is Id<"_storage"> => id !== null);
+  };
 }
 
 /** @deprecated Prefer useUploadChatAttachments("images"). */

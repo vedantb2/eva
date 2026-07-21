@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -85,18 +85,12 @@ export function QuickTasksListView({
   });
   const startExecution = useMutation(api.agentTasks.startExecution);
 
-  const taskIds = useMemo(
-    () => externalTasks.map((t) => t._id),
-    [externalTasks],
-  );
+  const taskIds = externalTasks.map((t) => t._id);
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
     repoId,
     taskIds,
   });
-  const errorTaskIdSet = useMemo(
-    () => new Set(errorTaskIds ?? []),
-    [errorTaskIds],
-  );
+  const errorTaskIdSet = new Set(errorTaskIds ?? []);
 
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -106,13 +100,13 @@ export function QuickTasksListView({
 
   const [{ q, statuses }] = useQuickTaskFilters();
   const searchQuery = q;
-  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
+  const visibleStatuses = new Set(statuses);
 
   // Respect the sort order applied by QuickTasksClient (e.g. by latest run).
   // Re-sorting here would override the user's chosen sort.
   const tasks = externalTasks;
 
-  const filteredTasks = useMemo(() => {
+  const filteredTasks = (() => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return tasks;
     return tasks.filter(
@@ -120,15 +114,15 @@ export function QuickTasksListView({
         t.title.toLowerCase().includes(query) ||
         t.description?.toLowerCase().includes(query),
     );
-  }, [tasks, searchQuery]);
+  })();
 
-  const tasksByStatus = useMemo(() => {
+  const tasksByStatus = (() => {
     const result: Partial<Record<DisplayTaskStatus, Task[]>> = {};
     for (const status of TASK_STATUSES) {
       result[status] = filteredTasks.filter((t) => t.status === status);
     }
     return result;
-  }, [filteredTasks]);
+  })();
 
   const todoTasks = tasks.filter((t) => t.status === "todo");
   const ownedTodoTasks = todoTasks.filter((t) => t.createdBy === currentUserId);
@@ -146,26 +140,23 @@ export function QuickTasksListView({
     });
   };
 
-  const handleDragEnd = useCallback(
-    async (event: ListDragEndEvent) => {
-      const data = parseDragEvent(event);
-      if (!data) return;
-      if (data.source === data.target) return;
+  const handleDragEnd = async (event: ListDragEndEvent) => {
+    const data = parseDragEvent(event);
+    if (!data) return;
+    if (data.source === data.target) return;
 
-      const targetStatus = TASK_STATUSES.find((s) => s === data.target);
-      if (!targetStatus) return;
+    const targetStatus = TASK_STATUSES.find((s) => s === data.target);
+    if (!targetStatus) return;
 
-      const task = tasks.find((t) => t._id === data.itemId);
-      if (!task) return;
+    const task = tasks.find((t) => t._id === data.itemId);
+    if (!task) return;
 
-      try {
-        await updateStatus({ id: task._id, status: targetStatus });
-      } catch (err) {
-        console.error("Failed to update status:", err);
-      }
-    },
-    [updateStatus, tasks],
-  );
+    try {
+      await updateStatus({ id: task._id, status: targetStatus });
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
+  };
 
   const handleRunAll = async () => {
     if (ownedTodoTasks.length === 0) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -159,71 +159,55 @@ export function ProjectsTimeline({
     },
   );
 
-  const progressMap = useMemo(() => {
-    const map = new Map<string, ProjectProgress>();
-    for (const entry of progressList ?? []) map.set(entry.projectId, entry);
-    return map;
-  }, [progressList]);
+  const progressMap = new Map<string, ProjectProgress>();
+  for (const entry of progressList ?? []) {
+    progressMap.set(entry.projectId, entry);
+  }
 
-  const { features, scheduledProjectMap, unscheduled } = useMemo(() => {
-    const scheduled: GanttFeature[] = [];
-    const map = new Map<string, Project>();
-    const noDate: Project[] = [];
+  const scheduled: GanttFeature[] = [];
+  const scheduledProjectMap = new Map<string, Project>();
+  const unscheduled: Project[] = [];
 
-    for (const project of projects) {
-      if (project.projectStartDate && project.projectEndDate) {
-        map.set(project._id, project);
-        scheduled.push({
-          id: project._id,
-          name: project.title,
-          startAt: new Date(project.projectStartDate),
-          endAt: new Date(project.projectEndDate),
-          status: phaseStatusMap[project.phase],
-        });
-      } else {
-        noDate.push(project);
-      }
+  for (const project of projects) {
+    if (project.projectStartDate && project.projectEndDate) {
+      scheduledProjectMap.set(project._id, project);
+      scheduled.push({
+        id: project._id,
+        name: project.title,
+        startAt: new Date(project.projectStartDate),
+        endAt: new Date(project.projectEndDate),
+        status: phaseStatusMap[project.phase],
+      });
+    } else {
+      unscheduled.push(project);
     }
+  }
 
-    return {
-      features: scheduled,
-      scheduledProjectMap: map,
-      unscheduled: noDate,
-    };
-  }, [projects]);
+  const features = scheduled;
 
   const scrollToTodayRef = useRef<(() => void) | null>(null);
 
-  const handleSelectItem = useCallback(
-    (id: string) => {
-      const project = scheduledProjectMap.get(id);
-      const segment = project ? entityPathSegment(project) : null;
-      if (!segment) return;
-      navigate({ to: `${basePath}/projects/${segment}` });
-    },
-    [navigate, basePath, scheduledProjectMap],
-  );
+  const handleSelectItem = (id: string) => {
+    const project = scheduledProjectMap.get(id);
+    const segment = project ? entityPathSegment(project) : null;
+    if (!segment) return;
+    navigate({ to: `${basePath}/projects/${segment}` });
+  };
 
-  const handleMove = useCallback(
-    (id: string, startAt: Date, endAt: Date | null) => {
-      if (!endAt) return;
-      const project = scheduledProjectMap.get(id);
-      if (!project) return;
-      updateProject({
-        id: project._id,
-        projectStartDate: startAt.getTime(),
-        projectEndDate: endAt.getTime(),
-      });
-    },
-    [updateProject, scheduledProjectMap],
-  );
+  const handleMove = (id: string, startAt: Date, endAt: Date | null) => {
+    if (!endAt) return;
+    const project = scheduledProjectMap.get(id);
+    if (!project) return;
+    updateProject({
+      id: project._id,
+      projectStartDate: startAt.getTime(),
+      projectEndDate: endAt.getTime(),
+    });
+  };
 
-  const handleSchedule = useCallback(
-    (id: Id<"projects">, start: number, end: number) => {
-      updateProject({ id, projectStartDate: start, projectEndDate: end });
-    },
-    [updateProject],
-  );
+  const handleSchedule = (id: Id<"projects">, start: number, end: number) => {
+    updateProject({ id, projectStartDate: start, projectEndDate: end });
+  };
 
   if (projects.length === 0) return null;
 

@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
@@ -50,12 +49,9 @@ export function useQuickTaskFilters(): [
     DEFAULTS,
   );
 
-  const setParams = useCallback(
-    (patch: Partial<QuickTaskFilters>) => {
-      setFilters((prev) => ({ ...prev, ...patch }));
-    },
-    [setFilters],
-  );
+  const setParams = (patch: Partial<QuickTaskFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
 
   return [filters, setParams];
 }
@@ -166,8 +162,6 @@ export function useFilteredQuickTasks(
 ): QuickTask[] {
   const [filters] = useQuickTaskFilters();
   const groupByStatus = options?.groupByStatus ?? false;
-  return useMemo(() => {
-    const sorted = applyQuickTaskFilters(tasks ?? [], filters);
-    return groupByStatus ? groupByStatusOrder(sorted) : sorted;
-  }, [tasks, filters, groupByStatus]);
+  const sorted = applyQuickTaskFilters(tasks ?? [], filters);
+  return groupByStatus ? groupByStatusOrder(sorted) : sorted;
 }

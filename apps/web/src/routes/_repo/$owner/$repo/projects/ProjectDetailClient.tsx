@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -144,16 +144,13 @@ export function ProjectDetailClient({
   };
 
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
-  const openFile = useCallback(
-    (path: string) => {
-      if (!projectPathSegment) return;
-      void navigate({
-        to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,
-        search: (prev) => ({ ...prev, file: path }),
-      });
-    },
-    [basePath, navigate, projectPathSegment],
-  );
+  const openFile = (path: string) => {
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,
+      search: (prev) => ({ ...prev, file: path }),
+    });
+  };
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -167,7 +164,7 @@ export function ProjectDetailClient({
     }
   };
 
-  const handleCreatePr = useCallback(async () => {
+  const handleCreatePr = async () => {
     setPrError(null);
     setIsCreatingPr(true);
     try {
@@ -179,9 +176,9 @@ export function ProjectDetailClient({
     } finally {
       setIsCreatingPr(false);
     }
-  }, [createProjectPrAction, projectId]);
+  };
 
-  const handleResolveConflicts = useCallback(async () => {
+  const handleResolveConflicts = async () => {
     setPrError(null);
     setIsResolvingConflicts(true);
     try {
@@ -193,7 +190,7 @@ export function ProjectDetailClient({
     } finally {
       setIsResolvingConflicts(false);
     }
-  }, [resolveProjectConflicts, projectId]);
+  };
 
   if (project === undefined) {
     return (

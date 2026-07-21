@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useState } from "react";
 import type { Id } from "@conductor/backend";
 
 interface FollowTarget {
@@ -25,18 +19,15 @@ const FollowContext = createContext<FollowContextType | undefined>(undefined);
 export function FollowProvider({ children }: { children: React.ReactNode }) {
   const [following, setFollowing] = useState<FollowTarget | null>(null);
 
-  const startFollowing = useCallback((userId: Id<"users">, name: string) => {
+  const startFollowing = (userId: Id<"users">, name: string) => {
     setFollowing({ userId, name });
-  }, []);
+  };
 
-  const stopFollowing = useCallback(() => {
+  const stopFollowing = () => {
     setFollowing(null);
-  }, []);
+  };
 
-  const value = useMemo(
-    () => ({ following, startFollowing, stopFollowing }),
-    [following, startFollowing, stopFollowing],
-  );
+  const value = { following, startFollowing, stopFollowing };
 
   return (
     <FollowContext.Provider value={value}>{children}</FollowContext.Provider>

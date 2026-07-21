@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useRef } from "react";
+import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   usePromptInputController,
@@ -89,58 +89,46 @@ export const MentionTextarea = forwardRef<
   const setInput = controller.textInput.setInput;
 
   // Any manual keystroke exits history navigation back to a fresh draft.
-  const handleValueChange = useCallback(
-    (next: string) => {
-      historyIndexRef.current = null;
-      setInput(next);
-    },
-    [setInput],
-  );
+  const handleValueChange = (next: string) => {
+    historyIndexRef.current = null;
+    setInput(next);
+  };
 
-  const handleHistoryNavigate = useCallback(
-    (direction: "up" | "down") => {
-      if (!history || history.length === 0) return false;
-      if (direction === "up") {
-        if (historyIndexRef.current === null) {
-          stashedDraftRef.current = value;
-          historyIndexRef.current = 0;
-        } else {
-          historyIndexRef.current = Math.min(
-            historyIndexRef.current + 1,
-            history.length - 1,
-          );
-        }
-        setInput(history[historyIndexRef.current] ?? "");
-        return true;
+  const handleHistoryNavigate = (direction: "up" | "down") => {
+    if (!history || history.length === 0) return false;
+    if (direction === "up") {
+      if (historyIndexRef.current === null) {
+        stashedDraftRef.current = value;
+        historyIndexRef.current = 0;
+      } else {
+        historyIndexRef.current = Math.min(
+          historyIndexRef.current + 1,
+          history.length - 1,
+        );
       }
-      if (historyIndexRef.current === null) return false;
-      if (historyIndexRef.current === 0) {
-        historyIndexRef.current = null;
-        setInput(stashedDraftRef.current);
-        return true;
-      }
-      historyIndexRef.current -= 1;
       setInput(history[historyIndexRef.current] ?? "");
       return true;
-    },
-    [history, value, setInput],
-  );
+    }
+    if (historyIndexRef.current === null) return false;
+    if (historyIndexRef.current === 0) {
+      historyIndexRef.current = null;
+      setInput(stashedDraftRef.current);
+      return true;
+    }
+    historyIndexRef.current -= 1;
+    setInput(history[historyIndexRef.current] ?? "");
+    return true;
+  };
 
-  const handleMentionChipClick = useCallback(
-    (id: string) => {
-      if (isMentionTokenDocId(id)) {
-        void navigateToDocById(id, docs);
-      }
-    },
-    [docs, navigateToDocById],
-  );
+  const handleMentionChipClick = (id: string) => {
+    if (isMentionTokenDocId(id)) {
+      void navigateToDocById(id, docs);
+    }
+  };
 
-  const handleSkillChipClick = useCallback(
-    (_skillId: string) => {
-      navigate({ to: `${repoBasePath}/settings/skills` });
-    },
-    [navigate, repoBasePath],
-  );
+  const handleSkillChipClick = (_skillId: string) => {
+    navigate({ to: `${repoBasePath}/settings/skills` });
+  };
 
   const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
     id: doc._id,

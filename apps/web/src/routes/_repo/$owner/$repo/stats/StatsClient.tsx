@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
@@ -30,14 +29,10 @@ export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  const { startTime, bucketSize, timelineStart } = useMemo(() => {
-    const start = getStartTime(timeRange);
-    return {
-      startTime: start,
-      bucketSize: getBucketSize(timeRange),
-      timelineStart: start ?? dayjs().subtract(90, "day").valueOf(),
-    };
-  }, [timeRange]);
+  const start = getStartTime(timeRange);
+  const startTime = start;
+  const bucketSize = getBucketSize(timeRange);
+  const timelineStart = start ?? dayjs().subtract(90, "day").valueOf();
 
   const impactStats = useQuery(api.analytics.getImpactStats, {
     repoId: repo._id,

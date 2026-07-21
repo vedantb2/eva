@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -86,7 +86,7 @@ export function Sidebar() {
 
   const repos = useQuery(api.githubRepos.list, {});
 
-  const { repoBasePath, owner, repoName, appName, isRepoRoute } = useMemo((): {
+  const { repoBasePath, owner, repoName, appName, isRepoRoute } = ((): {
     repoBasePath: string | null;
     owner: string | null;
     repoName: string | null;
@@ -146,7 +146,7 @@ export function Sidebar() {
       appName: decoded.appName,
       isRepoRoute: true,
     };
-  }, [pathname]);
+  })();
 
   const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
 

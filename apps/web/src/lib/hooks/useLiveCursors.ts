@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
 import { api } from "@conductor/backend";
@@ -49,12 +49,9 @@ export function useLiveCursors(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
 
-  const sendUpdate = useCallback(
-    (x: number, y: number) => {
-      updateCursor({ roomId, x, y }).catch(console.error);
-    },
-    [updateCursor, roomId],
-  );
+  const sendUpdate = (x: number, y: number) => {
+    updateCursor({ roomId, x, y }).catch(console.error);
+  };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -96,7 +93,7 @@ export function useLiveCursors(
     };
   }, [sendUpdate]);
 
-  return useMemo(() => {
+  return (() => {
     if (!presenceState) return [];
     const now = Date.now();
     const cursors: RemoteCursor[] = [];
@@ -116,5 +113,5 @@ export function useLiveCursors(
       });
     }
     return cursors;
-  }, [presenceState, userId]);
+  })();
 }

@@ -2,7 +2,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
@@ -40,7 +40,7 @@ export function DesignDetailClient({
   const isSandboxStopping = session?.status === "stopping";
   const isSandboxActive = session?.status === "active";
 
-  const fetchPreviewUrl = useCallback(async () => {
+  async function fetchPreviewUrl() {
     if (!session?.sandboxId) {
       setPreviewUrl(null);
       return;
@@ -67,21 +67,18 @@ export function DesignDetailClient({
     } catch {
       setPreviewUrl(null);
     }
-  }, [session?.sandboxId, session?.status, getPreviewUrl, session?.repoId]);
+  }
 
   useEffect(() => {
-    fetchPreviewUrl();
-  }, [fetchPreviewUrl]);
+    void fetchPreviewUrl();
+  }, [session?.sandboxId, session?.status, session?.repoId]);
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
 
-  const latestVariations = useMemo(
-    () => getLatestVariations(messagesList),
-    [messagesList],
-  );
+  const latestVariations = getLatestVariations(messagesList);
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
 import { api } from "@conductor/backend";
@@ -60,7 +60,7 @@ export function useTypingPresence(
   const isTypingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const stopTyping = useCallback(() => {
+  function stopTyping() {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -69,9 +69,9 @@ export function useTypingPresence(
       isTypingRef.current = false;
       updateTyping({ roomId, isTyping: false }).catch(console.error);
     }
-  }, [updateTyping, roomId]);
+  }
 
-  const onActivity = useCallback(() => {
+  function onActivity() {
     if (!userId) return;
     // Send "typing: true" only on the rising edge — while the user keeps
     // typing, no further mutations are sent.
@@ -81,12 +81,12 @@ export function useTypingPresence(
     }
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(stopTyping, TYPING_TIMEOUT_MS);
-  }, [updateTyping, roomId, stopTyping, userId]);
+  }
 
   // Clear the flag when leaving the conversation (unmount or room change).
   useEffect(() => stopTyping, [stopTyping]);
 
-  const typingUsers = useMemo(() => {
+  const typingUsers = (() => {
     if (!presenceState) return [];
     const users: TypingUser[] = [];
     for (const member of presenceState) {
@@ -99,7 +99,7 @@ export function useTypingPresence(
       users.push({ userId: member.userId, firstName: data.firstName });
     }
     return users;
-  }, [presenceState, userId]);
+  })();
 
   return { typingUsers, onActivity, stopTyping };
 }

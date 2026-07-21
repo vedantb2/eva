@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { Button, Input } from "@conductor/ui";
@@ -40,13 +40,13 @@ export function TabsSettingsClient() {
   const [port, setPort] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const takenSlugs = useMemo(() => {
+  const takenSlugs = (() => {
     const set = new Set<string>();
     for (const tab of tabs ?? []) {
       set.add(slugifyAppTabName(tab.name));
     }
     return set;
-  }, [tabs]);
+  })();
 
   const parsedPort = parseInt(port.trim(), 10);
   const portValid =
@@ -59,7 +59,7 @@ export function TabsSettingsClient() {
     portValid &&
     validationError === null;
 
-  const handleAdd = useCallback(async () => {
+  async function handleAdd() {
     if (!canAdd) return;
     setSubmitError(null);
     try {
@@ -76,7 +76,7 @@ export function TabsSettingsClient() {
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to add tab");
     }
-  }, [canAdd, create, repoId, name, icon, parsedPort]);
+  }
 
   const PreviewIcon = resolveTablerIcon(icon.trim());
   const formError = validationError ?? submitError;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Spinner,
   Button,
@@ -119,12 +119,9 @@ export function WebPreviewPanel({
     // eslint-disable-next-line react/exhaustive-deps
   }, [previewInfo, pathStorageKey, iframeKey]);
 
-  const handlePathChange = useCallback(
-    (path: string) => {
-      setPreviewPath(normalizePreviewPath(path));
-    },
-    [setPreviewPath],
-  );
+  function handlePathChange(path: string) {
+    setPreviewPath(normalizePreviewPath(path));
+  }
 
   if (!isActive || !sandboxId) {
     return (

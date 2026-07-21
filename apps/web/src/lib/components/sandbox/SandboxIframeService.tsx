@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ComponentType,
-} from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useAction } from "convex/react";
 import { useSessionStorage } from "usehooks-ts";
 import { api } from "@conductor/backend";
@@ -144,31 +138,28 @@ export function SandboxIframeService({
     onStateChangeRef.current?.(state);
   }, [state]);
 
-  const refreshIframe = useCallback(() => {
+  const refreshIframe = () => {
     setIframeKey((k) => k + 1);
-  }, []);
+  };
 
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
-  const stopPolling = useCallback(() => {
+  const stopPolling = () => {
     clearTimeout(pollTimer.current);
     pollTimer.current = undefined;
-  }, []);
+  };
 
-  const acceptReady = useCallback(
-    (rawUrl: string) => {
-      const finalUrl = transformUrl ? transformUrl(rawUrl) : rawUrl;
-      setUrl(finalUrl);
-      setState("running");
-      // Cache the grant-free URL; the iframe still loads `finalUrl` (with grant)
-      // for its first paint, which sets the proxy session cookie.
-      setCachedUrl(stripPreviewGrant(finalUrl));
-      onReady?.(finalUrl);
-    },
-    [setCachedUrl, transformUrl, onReady],
-  );
+  const acceptReady = (rawUrl: string) => {
+    const finalUrl = transformUrl ? transformUrl(rawUrl) : rawUrl;
+    setUrl(finalUrl);
+    setState("running");
+    // Cache the grant-free URL; the iframe still loads `finalUrl` (with grant)
+    // for its first paint, which sets the proxy session cookie.
+    setCachedUrl(stripPreviewGrant(finalUrl));
+    onReady?.(finalUrl);
+  };
 
-  const pollForReady = useCallback(async () => {
+  const pollForReady = async () => {
     if (!sandboxId || !isActive) return;
     attempts.current = 0;
 
@@ -199,19 +190,9 @@ export function SandboxIframeService({
     };
 
     check();
-  }, [
-    sandboxId,
-    isActive,
-    getPreviewUrl,
-    port,
-    repoId,
-    maxAttempts,
-    acceptReady,
-    pollFailedError,
-    loadFailedError,
-  ]);
+  };
 
-  const start = useCallback(async () => {
+  const start = async () => {
     if (!sandboxId) return;
     setState("starting");
     setError(null);
@@ -257,20 +238,9 @@ export function SandboxIframeService({
       setError(err instanceof Error ? err.message : startFailedError);
       setState("error");
     }
-  }, [
-    sandboxId,
-    port,
-    repoId,
-    getPreviewUrl,
-    stopPolling,
-    acceptReady,
-    startAction,
-    pollForReady,
-    startFailedError,
-    ensureStartedBeforeReady,
-  ]);
+  };
 
-  const stop = useCallback(async () => {
+  const stop = async () => {
     if (!sandboxId) return;
     stopPolling();
     setState("idle");
@@ -282,7 +252,7 @@ export function SandboxIframeService({
     } catch {
       // best-effort stop
     }
-  }, [sandboxId, stopPolling, setCachedUrl, stopAction]);
+  };
 
   // Hydrate from sessionStorage cache when the sandbox is up; clear on stop.
   // Desktop (ensureStartedBeforeReady) must NOT paint a cached URL immediately —
@@ -315,7 +285,7 @@ export function SandboxIframeService({
     start,
   ]);
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -324,7 +294,7 @@ export function SandboxIframeService({
       containerRef.current.requestFullscreen();
       setIsFullscreen(true);
     }
-  }, []);
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {

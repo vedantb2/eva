@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -135,14 +135,14 @@ export function ProjectChatTab({
     }
   }, []);
 
-  const askQuestion = useCallback(async () => {
+  const askQuestion = async () => {
     setIsLoading(true);
     await startProjectInterview({
       projectId: projectId,
       featureDescription: rawInput,
       previousAnswers: [], // Session persistence provides context
     });
-  }, [projectId, rawInput, startProjectInterview]);
+  };
 
   const handleStartInterview = () => {
     void askQuestion();

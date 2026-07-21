@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
@@ -98,18 +98,12 @@ export function useSandboxPanes({
   );
   const previewIds = previewState.ids;
   const previewActive = previewState.activeId;
-  const setPreviewIds = useCallback(
-    (ids: string[]) => {
-      setPreviewState((current) => ({ ...current, ids }));
-    },
-    [setPreviewState],
-  );
-  const setPreviewActive = useCallback(
-    (activeId: string) => {
-      setPreviewState((current) => ({ ...current, activeId }));
-    },
-    [setPreviewState],
-  );
+  const setPreviewIds = (ids: string[]) => {
+    setPreviewState((current) => ({ ...current, ids }));
+  };
+  const setPreviewActive = (activeId: string) => {
+    setPreviewState((current) => ({ ...current, activeId }));
+  };
 
   const [termActive, setTermActiveState] = useLocalStorage<string>(
     `conductor:${storageScope}:active-terminal`,
@@ -122,12 +116,9 @@ export function useSandboxPanes({
   const consolePane = termPanes[0];
   const userTermPanes = termPanes.slice(1);
   const userTermIds = userTermPanes.map((pane) => pane.id);
-  const setTermActive = useCallback(
-    (activeId: string) => {
-      setTermActiveState(activeId);
-    },
-    [setTermActiveState],
-  );
+  const setTermActive = (activeId: string) => {
+    setTermActiveState(activeId);
+  };
 
   // Terminal panes are shared Convex state so every collaborator sees and
   // controls the same PTYs. Ensure the default pane exists on mount even when
@@ -181,73 +172,52 @@ export function useSandboxPanes({
         : previewIds[0]
       : "";
 
-  const handleNewPreview = useCallback(() => {
+  const handleNewPreview = () => {
     if (!isActive || previewIds.length >= MAX_PREVIEW_PANES) return;
     const id = crypto.randomUUID();
     const next = previewIds.length === 0 ? [id] : [...previewIds, id];
     setPreviewIds(next);
     setPreviewActive(id);
     void setActiveTab("preview");
-  }, [isActive, previewIds, setPreviewIds, setPreviewActive, setActiveTab]);
+  };
 
-  const handleNewTerminal = useCallback(() => {
+  const handleNewTerminal = () => {
     if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
     void createTerminalPane({ owner }).then((pane) => {
       setTermActive(pane.id);
       void setActiveTab("terminal");
     });
-  }, [
-    isActive,
-    termIds.length,
-    createTerminalPane,
-    owner,
-    setTermActive,
-    setActiveTab,
-  ]);
+  };
 
-  const handleCloseTerminal = useCallback(
-    async (ptyId: string) => {
-      // The console pane is never closable from the UI.
-      if (consolePane?.id === ptyId) return;
-      const removedIdx = userTermIds.indexOf(ptyId);
-      if (removedIdx < 0) return;
-      const next = userTermIds.filter((id) => id !== ptyId);
-      try {
-        await disconnectPtyAction({ owner, ptyInstanceId: ptyId });
-      } catch {
-        // still remove from UI
-      }
-      await closeTerminalPane({ owner, paneId: ptyId });
-      if (termActive === ptyId) {
-        const pick = next[removedIdx - 1] ?? next[0] ?? "";
-        setTermActive(pick);
-      }
-    },
-    [
-      consolePane,
-      userTermIds,
-      termActive,
-      disconnectPtyAction,
-      closeTerminalPane,
-      owner,
-      setTermActive,
-    ],
-  );
+  const handleCloseTerminal = async (ptyId: string) => {
+    // The console pane is never closable from the UI.
+    if (consolePane?.id === ptyId) return;
+    const removedIdx = userTermIds.indexOf(ptyId);
+    if (removedIdx < 0) return;
+    const next = userTermIds.filter((id) => id !== ptyId);
+    try {
+      await disconnectPtyAction({ owner, ptyInstanceId: ptyId });
+    } catch {
+      // still remove from UI
+    }
+    await closeTerminalPane({ owner, paneId: ptyId });
+    if (termActive === ptyId) {
+      const pick = next[removedIdx - 1] ?? next[0] ?? "";
+      setTermActive(pick);
+    }
+  };
 
-  const handleClosePreview = useCallback(
-    (previewId: string) => {
-      if (previewIds[0] === previewId) return;
-      const removedIdx = previewIds.indexOf(previewId);
-      if (removedIdx < 0) return;
-      const next = previewIds.filter((id) => id !== previewId);
-      setPreviewIds(next);
-      if (previewActive === previewId) {
-        const pick = next[removedIdx - 1] ?? next[0] ?? "";
-        setPreviewActive(pick);
-      }
-    },
-    [previewIds, previewActive, setPreviewIds, setPreviewActive],
-  );
+  const handleClosePreview = (previewId: string) => {
+    if (previewIds[0] === previewId) return;
+    const removedIdx = previewIds.indexOf(previewId);
+    if (removedIdx < 0) return;
+    const next = previewIds.filter((id) => id !== previewId);
+    setPreviewIds(next);
+    if (previewActive === previewId) {
+      const pick = next[removedIdx - 1] ?? next[0] ?? "";
+      setPreviewActive(pick);
+    }
+  };
 
   const newTerminalDisabled = !isActive || termIds.length >= MAX_TERMINAL_PANES;
   const newPreviewDisabled =

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  type RefObject,
-} from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import {
   Input,
   Spinner,
@@ -102,16 +96,13 @@ export function PreviewNavBar({
     setPathInput(path ?? defaultPath);
   }, [path, defaultPath]);
 
-  const notifyPathChange = useCallback(
-    (nextPath: string) => {
-      if (lastNotifiedPathRef.current === nextPath) return;
-      lastNotifiedPathRef.current = nextPath;
-      onPathChange?.(nextPath);
-    },
-    [onPathChange],
-  );
+  function notifyPathChange(nextPath: string) {
+    if (lastNotifiedPathRef.current === nextPath) return;
+    lastNotifiedPathRef.current = nextPath;
+    onPathChange?.(nextPath);
+  }
 
-  const syncPathFromIframe = useCallback(() => {
+  function syncPathFromIframe() {
     try {
       const href = iframeRef.current?.contentWindow?.location.href;
       // Skip about:blank, data:, blob:, etc. — the iframe fires `load` for the
@@ -124,7 +115,7 @@ export function PreviewNavBar({
     } catch {
       // cross-origin — cannot read iframe location
     }
-  }, [iframeRef, notifyPathChange]);
+  }
 
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");

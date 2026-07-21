@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
@@ -78,6 +79,7 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
+    babel({ presets: [reactCompilerPreset()] }),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({

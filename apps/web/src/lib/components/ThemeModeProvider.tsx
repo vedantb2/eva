@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { ThemeModeContext } from "@/lib/hooks/useThemeMode";
 import type { ThemeMode } from "@/lib/hooks/useThemeMode";
@@ -26,13 +26,10 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   const theme: ThemeMode = isValidTheme(storedTheme) ? storedTheme : "light";
   const resolvedTheme = resolveTheme(theme);
 
-  const setTheme = useCallback(
-    (t: ThemeMode) => {
-      setStoredTheme(t);
-      applyTheme(resolveTheme(t));
-    },
-    [setStoredTheme],
-  );
+  const setTheme = (t: ThemeMode) => {
+    setStoredTheme(t);
+    applyTheme(resolveTheme(t));
+  };
 
   useEffect(() => {
     applyTheme(resolvedTheme);

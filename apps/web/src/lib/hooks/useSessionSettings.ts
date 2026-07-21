@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   DEFAULT_AI_MODEL,
@@ -65,36 +64,24 @@ export function useSessionSettings(
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
 
-  const setModel = useCallback(
-    (nextModel: AIModel) => {
-      setSettings((prev) => ({
-        ...prev,
-        model: normalizeAIModel(nextModel),
-      }));
-    },
-    [setSettings],
-  );
+  const setModel = (nextModel: AIModel) => {
+    setSettings((prev) => ({
+      ...prev,
+      model: normalizeAIModel(nextModel),
+    }));
+  };
 
-  const setMode = useCallback(
-    (mode: SessionMode) => {
-      setSettings((prev) => ({ ...prev, mode }));
-    },
-    [setSettings],
-  );
+  const setMode = (mode: SessionMode) => {
+    setSettings((prev) => ({ ...prev, mode }));
+  };
 
-  const onTraitsChange = useCallback(
-    (partial: Partial<StoredModelTraits>) => {
-      setSettings((prev) => ({ ...prev, ...partial }));
-    },
-    [setSettings],
-  );
+  const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
+    setSettings((prev) => ({ ...prev, ...partial }));
+  };
 
-  const setProviderAccountId = useCallback(
-    (providerAccountId: string | null) => {
-      setSettings((prev) => ({ ...prev, providerAccountId }));
-    },
-    [setSettings],
-  );
+  const setProviderAccountId = (providerAccountId: string | null) => {
+    setSettings((prev) => ({ ...prev, providerAccountId }));
+  };
 
   return {
     model,

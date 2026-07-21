@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Textarea, Button, Spinner } from "@conductor/ui";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { RolePresetPicker } from "./RolePresetPicker";
 
 export function PersonalisationClient() {
@@ -43,10 +43,10 @@ export function PersonalisationClient() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const savedValue = personalisation?.customInstructions ?? "";
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     const value = textareaRef.current?.value ?? "";
     await setCustomInstructions({ customInstructions: value });
-  }, [setCustomInstructions]);
+  };
 
   // Sync textarea value when server data loads
   useEffect(() => {

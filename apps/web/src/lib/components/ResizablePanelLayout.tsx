@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Group,
   Panel,
@@ -80,17 +74,14 @@ export function ResizablePanelLayout({
     rightPanelRef.current?.resize(lastExpandedSize.current);
   }, [expandRightSignal, isMobile, rightPanelRef, setSavedCollapsed]);
 
-  const handleResize = useCallback(
-    (size: PanelSize) => {
-      const collapsed = size.asPercentage === 0;
-      if (!collapsed) {
-        lastExpandedSize.current = `${size.asPercentage}%`;
-      }
-      setRightCollapsed(collapsed);
-      setSavedCollapsed(collapsed);
-    },
-    [setSavedCollapsed],
-  );
+  const handleResize = (size: PanelSize) => {
+    const collapsed = size.asPercentage === 0;
+    if (!collapsed) {
+      lastExpandedSize.current = `${size.asPercentage}%`;
+    }
+    setRightCollapsed(collapsed);
+    setSavedCollapsed(collapsed);
+  };
 
   const ctx: PanelContext = {
     rightPanelCollapsed: rightCollapsed,

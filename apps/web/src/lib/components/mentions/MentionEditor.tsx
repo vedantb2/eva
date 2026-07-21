@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -287,14 +286,14 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     typeof setTimeout
   > | null>(null);
 
-  const cancelChipHoverClose = useCallback(() => {
+  const cancelChipHoverClose = () => {
     if (mentionHoverCloseTimerRef.current !== null) {
       clearTimeout(mentionHoverCloseTimerRef.current);
       mentionHoverCloseTimerRef.current = null;
     }
-  }, []);
+  };
 
-  const clearChipHoverCard = useCallback(() => {
+  const clearChipHoverCard = () => {
     cancelChipHoverClose();
     if (mentionHoverOpenTimerRef.current !== null) {
       clearTimeout(mentionHoverOpenTimerRef.current);
@@ -304,63 +303,57 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     setMentionHover(null);
     setContentChipHover(null);
     setMentionHoverRect(null);
-  }, [cancelChipHoverClose]);
+  };
 
-  const scheduleChipHoverClose = useCallback(() => {
+  const scheduleChipHoverClose = () => {
     cancelChipHoverClose();
     mentionHoverCloseTimerRef.current = setTimeout(() => {
       mentionHoverCloseTimerRef.current = null;
       clearChipHoverCard();
     }, 200);
-  }, [cancelChipHoverClose, clearChipHoverCard]);
+  };
 
-  const scheduleMentionHoverCard = useCallback(
-    (chip: HTMLElement) => {
-      cancelChipHoverClose();
-      if (mentionHoverChipRef.current === chip) return;
-      mentionHoverChipRef.current = chip;
-      if (mentionHoverOpenTimerRef.current !== null) {
-        clearTimeout(mentionHoverOpenTimerRef.current);
-      }
-      const label = chip.dataset.mentionLabel;
-      if (!label) return;
-      const id = mentionMap.get(label);
-      if (id === undefined) return;
-      mentionHoverOpenTimerRef.current = setTimeout(() => {
-        mentionHoverOpenTimerRef.current = null;
-        setContentChipHover(null);
-        setMentionHover({ userId: id });
-        setMentionHoverRect(chip.getBoundingClientRect());
-      }, 250);
-    },
-    [cancelChipHoverClose, mentionMap],
-  );
+  const scheduleMentionHoverCard = (chip: HTMLElement) => {
+    cancelChipHoverClose();
+    if (mentionHoverChipRef.current === chip) return;
+    mentionHoverChipRef.current = chip;
+    if (mentionHoverOpenTimerRef.current !== null) {
+      clearTimeout(mentionHoverOpenTimerRef.current);
+    }
+    const label = chip.dataset.mentionLabel;
+    if (!label) return;
+    const id = mentionMap.get(label);
+    if (id === undefined) return;
+    mentionHoverOpenTimerRef.current = setTimeout(() => {
+      mentionHoverOpenTimerRef.current = null;
+      setContentChipHover(null);
+      setMentionHover({ userId: id });
+      setMentionHoverRect(chip.getBoundingClientRect());
+    }, 250);
+  };
 
-  const scheduleContentChipHoverCard = useCallback(
-    (chip: HTMLElement, kind: "mention" | "skill") => {
-      cancelChipHoverClose();
-      if (mentionHoverChipRef.current === chip) return;
-      mentionHoverChipRef.current = chip;
-      if (mentionHoverOpenTimerRef.current !== null) {
-        clearTimeout(mentionHoverOpenTimerRef.current);
-      }
-      const label =
-        kind === "mention"
-          ? chip.dataset.mentionLabel
-          : chip.dataset.skillLabel;
-      if (!label) return;
-      const id =
-        kind === "mention" ? mentionMap.get(label) : skillMap.get(label);
-      if (id === undefined) return;
-      mentionHoverOpenTimerRef.current = setTimeout(() => {
-        mentionHoverOpenTimerRef.current = null;
-        setMentionHover(null);
-        setContentChipHover({ kind, id });
-        setMentionHoverRect(chip.getBoundingClientRect());
-      }, 250);
-    },
-    [cancelChipHoverClose, mentionMap, skillMap],
-  );
+  const scheduleContentChipHoverCard = (
+    chip: HTMLElement,
+    kind: "mention" | "skill",
+  ) => {
+    cancelChipHoverClose();
+    if (mentionHoverChipRef.current === chip) return;
+    mentionHoverChipRef.current = chip;
+    if (mentionHoverOpenTimerRef.current !== null) {
+      clearTimeout(mentionHoverOpenTimerRef.current);
+    }
+    const label =
+      kind === "mention" ? chip.dataset.mentionLabel : chip.dataset.skillLabel;
+    if (!label) return;
+    const id = kind === "mention" ? mentionMap.get(label) : skillMap.get(label);
+    if (id === undefined) return;
+    mentionHoverOpenTimerRef.current = setTimeout(() => {
+      mentionHoverOpenTimerRef.current = null;
+      setMentionHover(null);
+      setContentChipHover({ kind, id });
+      setMentionHoverRect(chip.getBoundingClientRect());
+    }, 250);
+  };
 
   useEffect(() => {
     if (value === "" && (mentionMap.size > 0 || skillMap.size > 0)) {
@@ -437,60 +430,42 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const popupItems =
     trigger.kind === "slash" ? activeSlashItems : activeMentionItems;
 
-  const closeTrigger = useCallback(() => {
+  const closeTrigger = () => {
     setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
     setSelectedIndex(0);
-  }, []);
+  };
 
-  const insertMentionItem = useCallback(
-    (item: TItem) => {
-      const visible = `@${item.label}`;
-      const before = value.slice(0, trigger.startIndex);
-      const after = value.slice(trigger.startIndex + trigger.query.length + 1);
-      const newValue = before + visible + " " + after;
-      setMentionMap((prev) => {
-        const next = new Map(prev);
-        next.set(item.label, item.id);
-        return next;
-      });
-      onValueChange(newValue);
-      closeTrigger();
-      requestAnimationFrame(() => editorRef.current?.focus());
-    },
-    [
-      onValueChange,
-      trigger.startIndex,
-      trigger.query.length,
-      closeTrigger,
-      value,
-    ],
-  );
+  const insertMentionItem = (item: TItem) => {
+    const visible = `@${item.label}`;
+    const before = value.slice(0, trigger.startIndex);
+    const after = value.slice(trigger.startIndex + trigger.query.length + 1);
+    const newValue = before + visible + " " + after;
+    setMentionMap((prev) => {
+      const next = new Map(prev);
+      next.set(item.label, item.id);
+      return next;
+    });
+    onValueChange(newValue);
+    closeTrigger();
+    requestAnimationFrame(() => editorRef.current?.focus());
+  };
 
-  const insertSlashItem = useCallback(
-    (item: SlashItem) => {
-      const visible = `/${item.label}`;
-      const before = value.slice(0, trigger.startIndex);
-      const after = value.slice(trigger.startIndex + trigger.query.length + 1);
-      const newValue = before + visible + " " + after;
-      setSkillMap((prev) => {
-        const next = new Map(prev);
-        next.set(item.label, item.id);
-        return next;
-      });
-      onValueChange(newValue);
-      closeTrigger();
-      requestAnimationFrame(() => editorRef.current?.focus());
-    },
-    [
-      onValueChange,
-      trigger.startIndex,
-      trigger.query.length,
-      closeTrigger,
-      value,
-    ],
-  );
+  const insertSlashItem = (item: SlashItem) => {
+    const visible = `/${item.label}`;
+    const before = value.slice(0, trigger.startIndex);
+    const after = value.slice(trigger.startIndex + trigger.query.length + 1);
+    const newValue = before + visible + " " + after;
+    setSkillMap((prev) => {
+      const next = new Map(prev);
+      next.set(item.label, item.id);
+      return next;
+    });
+    onValueChange(newValue);
+    closeTrigger();
+    requestAnimationFrame(() => editorRef.current?.focus());
+  };
 
-  const insertActiveItem = useCallback(() => {
+  const insertActiveItem = () => {
     if (trigger.kind === "slash") {
       const item = activeSlashItems[selectedIndex];
       if (item) insertSlashItem(item);
@@ -498,14 +473,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     }
     const item = activeMentionItems[selectedIndex];
     if (item) insertMentionItem(item);
-  }, [
-    trigger.kind,
-    activeSlashItems,
-    activeMentionItems,
-    selectedIndex,
-    insertSlashItem,
-    insertMentionItem,
-  ]);
+  };
 
   useEffect(() => {
     const next = findActiveTrigger(
@@ -543,165 +511,133 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     };
   }, [trigger.isOpen, trigger.query, trigger.startIndex, value]);
 
-  const handleInput = useCallback(() => {
+  const handleInput = () => {
     const el = editorRef.current;
     if (!el) return;
     const text = normalizeMentionText(extractEditableText(el));
     if (text !== value) {
       onValueChange(text);
     }
-  }, [onValueChange, value]);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const showEmptySlash =
-        trigger.isOpen &&
-        trigger.kind === "slash" &&
-        popupItems.length === 0 &&
-        emptySlashContent !== undefined;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const showEmptySlash =
+      trigger.isOpen &&
+      trigger.kind === "slash" &&
+      popupItems.length === 0 &&
+      emptySlashContent !== undefined;
 
-      if (trigger.isOpen && (popupItems.length > 0 || showEmptySlash)) {
-        if (popupItems.length > 0) {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            setSelectedIndex((prev) =>
-              prev >= popupItems.length - 1 ? 0 : prev + 1,
-            );
-            return;
-          }
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
-            setSelectedIndex((prev) =>
-              prev <= 0 ? popupItems.length - 1 : prev - 1,
-            );
-            return;
-          }
-          if (e.key === "Enter") {
-            if (isComposing || e.nativeEvent.isComposing) return;
-            e.preventDefault();
-            e.stopPropagation();
-            insertActiveItem();
-            return;
-          }
-          if (e.key === "Tab") {
-            e.preventDefault();
-            insertActiveItem();
-            return;
-          }
-        }
-        if (e.key === "Escape") {
+    if (trigger.isOpen && (popupItems.length > 0 || showEmptySlash)) {
+      if (popupItems.length > 0) {
+        if (e.key === "ArrowDown") {
           e.preventDefault();
-          closeTrigger();
+          setSelectedIndex((prev) =>
+            prev >= popupItems.length - 1 ? 0 : prev + 1,
+          );
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedIndex((prev) =>
+            prev <= 0 ? popupItems.length - 1 : prev - 1,
+          );
+          return;
+        }
+        if (e.key === "Enter") {
+          if (isComposing || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          e.stopPropagation();
+          insertActiveItem();
+          return;
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          insertActiveItem();
           return;
         }
       }
-
-      // Message-history recall: only when the popup is closed and no modifier
-      // is held, so it never competes with the mention picker or shortcuts.
-      if (
-        onHistoryNavigate &&
-        !trigger.isOpen &&
-        !e.shiftKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      ) {
-        const el = editorRef.current;
-        if (e.key === "ArrowUp" && el && isCaretOnFirstLine(el)) {
-          if (onHistoryNavigate("up")) {
-            e.preventDefault();
-            return;
-          }
-        }
-        if (e.key === "ArrowDown" && el && isCaretOnLastLine(el)) {
-          if (onHistoryNavigate("down")) {
-            e.preventDefault();
-            return;
-          }
-        }
-      }
-
-      if (e.key === "Enter" && onEnterSubmit) {
-        if (isComposing || e.nativeEvent.isComposing) return;
-        if (e.shiftKey) return;
+      if (e.key === "Escape") {
         e.preventDefault();
-        onEnterSubmit(e);
+        closeTrigger();
+        return;
       }
-    },
-    [
-      trigger.isOpen,
-      trigger.kind,
-      popupItems.length,
-      emptySlashContent,
-      insertActiveItem,
-      closeTrigger,
-      isComposing,
-      onEnterSubmit,
-      onHistoryNavigate,
-    ],
-  );
+    }
 
-  const handleBlur = useCallback(() => {
+    // Message-history recall: only when the popup is closed and no modifier
+    // is held, so it never competes with the mention picker or shortcuts.
+    if (
+      onHistoryNavigate &&
+      !trigger.isOpen &&
+      !e.shiftKey &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
+      const el = editorRef.current;
+      if (e.key === "ArrowUp" && el && isCaretOnFirstLine(el)) {
+        if (onHistoryNavigate("up")) {
+          e.preventDefault();
+          return;
+        }
+      }
+      if (e.key === "ArrowDown" && el && isCaretOnLastLine(el)) {
+        if (onHistoryNavigate("down")) {
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+
+    if (e.key === "Enter" && onEnterSubmit) {
+      if (isComposing || e.nativeEvent.isComposing) return;
+      if (e.shiftKey) return;
+      e.preventDefault();
+      onEnterSubmit(e);
+    }
+  };
+
+  const handleBlur = () => {
     if (trigger.isOpen) closeTrigger();
     if (chipHoverEnabled) clearChipHoverCard();
     onBlur?.();
-  }, [
-    trigger.isOpen,
-    closeTrigger,
-    onBlur,
-    chipHoverEnabled,
-    clearChipHoverCard,
-  ]);
+  };
 
-  const handleEditorMouseOver = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!chipHoverEnabled) return;
-      const target = e.target;
-      if (!(target instanceof Element)) return;
-      const mentionChip = target.closest("[data-mention-label]");
-      if (mentionChip instanceof HTMLElement) {
-        if (mentionChipHoverCard) {
-          scheduleMentionHoverCard(mentionChip);
-        } else if (renderMentionChipHoverCard) {
-          scheduleContentChipHoverCard(mentionChip, "mention");
-        }
+  const handleEditorMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!chipHoverEnabled) return;
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const mentionChip = target.closest("[data-mention-label]");
+    if (mentionChip instanceof HTMLElement) {
+      if (mentionChipHoverCard) {
+        scheduleMentionHoverCard(mentionChip);
+      } else if (renderMentionChipHoverCard) {
+        scheduleContentChipHoverCard(mentionChip, "mention");
+      }
+      return;
+    }
+    const skillChip = target.closest("[data-skill-label]");
+    if (
+      skillChip instanceof HTMLElement &&
+      renderSkillChipHoverCard !== undefined
+    ) {
+      scheduleContentChipHoverCard(skillChip, "skill");
+    }
+  };
+
+  const handleEditorMouseOut = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!chipHoverEnabled) return;
+    const related = e.relatedTarget;
+    if (related instanceof Element) {
+      if (
+        related.closest("[data-mention-label]") !== null ||
+        related.closest("[data-skill-label]") !== null ||
+        related.closest("[data-mention-hover-card]") !== null
+      ) {
         return;
       }
-      const skillChip = target.closest("[data-skill-label]");
-      if (
-        skillChip instanceof HTMLElement &&
-        renderSkillChipHoverCard !== undefined
-      ) {
-        scheduleContentChipHoverCard(skillChip, "skill");
-      }
-    },
-    [
-      chipHoverEnabled,
-      mentionChipHoverCard,
-      renderMentionChipHoverCard,
-      renderSkillChipHoverCard,
-      scheduleMentionHoverCard,
-      scheduleContentChipHoverCard,
-    ],
-  );
-
-  const handleEditorMouseOut = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!chipHoverEnabled) return;
-      const related = e.relatedTarget;
-      if (related instanceof Element) {
-        if (
-          related.closest("[data-mention-label]") !== null ||
-          related.closest("[data-skill-label]") !== null ||
-          related.closest("[data-mention-hover-card]") !== null
-        ) {
-          return;
-        }
-      }
-      scheduleChipHoverClose();
-    },
-    [chipHoverEnabled, scheduleChipHoverClose],
-  );
+    }
+    scheduleChipHoverClose();
+  };
 
   useEffect(() => {
     if ((!mentionHover && !contentChipHover) || !mentionHoverRect) return;
@@ -730,73 +666,67 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     };
   }, []);
 
-  const handleChipClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const target = e.target;
-      if (!(target instanceof Element)) return;
+  const handleChipClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
 
-      const mentionChip = target.closest("[data-mention-label]");
-      if (mentionChip instanceof HTMLElement && onMentionChipClick) {
-        const label = mentionChip.dataset.mentionLabel;
-        if (label) {
-          const id = mentionMap.get(label);
-          if (id !== undefined) {
-            e.preventDefault();
-            e.stopPropagation();
-            onMentionChipClick(id);
-          }
+    const mentionChip = target.closest("[data-mention-label]");
+    if (mentionChip instanceof HTMLElement && onMentionChipClick) {
+      const label = mentionChip.dataset.mentionLabel;
+      if (label) {
+        const id = mentionMap.get(label);
+        if (id !== undefined) {
+          e.preventDefault();
+          e.stopPropagation();
+          onMentionChipClick(id);
         }
+      }
+      return;
+    }
+
+    const skillChip = target.closest("[data-skill-label]");
+    if (skillChip instanceof HTMLElement && onSkillChipClick) {
+      const label = skillChip.dataset.skillLabel;
+      if (label) {
+        const id = skillMap.get(label);
+        if (id !== undefined) {
+          e.preventDefault();
+          e.stopPropagation();
+          onSkillChipClick(id);
+        }
+      }
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    // Hand pasted image files to the attachment handler instead of inserting
+    // them as text. Only images are intercepted; other files fall through.
+    if (onImageFiles) {
+      const imageFiles: File[] = [];
+      for (const item of e.clipboardData.items) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        onImageFiles(imageFiles);
         return;
       }
-
-      const skillChip = target.closest("[data-skill-label]");
-      if (skillChip instanceof HTMLElement && onSkillChipClick) {
-        const label = skillChip.dataset.skillLabel;
-        if (label) {
-          const id = skillMap.get(label);
-          if (id !== undefined) {
-            e.preventDefault();
-            e.stopPropagation();
-            onSkillChipClick(id);
-          }
-        }
-      }
-    },
-    [mentionMap, skillMap, onMentionChipClick, onSkillChipClick],
-  );
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent<HTMLDivElement>) => {
-      // Hand pasted image files to the attachment handler instead of inserting
-      // them as text. Only images are intercepted; other files fall through.
-      if (onImageFiles) {
-        const imageFiles: File[] = [];
-        for (const item of e.clipboardData.items) {
-          if (item.kind === "file" && item.type.startsWith("image/")) {
-            const file = item.getAsFile();
-            if (file) imageFiles.push(file);
-          }
-        }
-        if (imageFiles.length > 0) {
-          e.preventDefault();
-          onImageFiles(imageFiles);
-          return;
-        }
-      }
-      e.preventDefault();
-      const text = e.clipboardData.getData("text/plain");
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(text));
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      handleInput();
-    },
-    [handleInput, onImageFiles],
-  );
+    }
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    handleInput();
+  };
 
   const isEmpty = value === "" || value === "\n";
 

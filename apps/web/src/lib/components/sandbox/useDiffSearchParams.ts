@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { DiffView } from "@/lib/search-params";
 
@@ -25,28 +24,22 @@ export function useDiffSearchParams() {
       ? diffViewValue
       : "unified";
 
-  const setDiffFile = useCallback(
-    (path: string) => {
-      // `to: "."` keeps current path and loosens search typing for a hook used
-      // across quick-tasks / projects / sessions (see TanStack search-params guide).
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, diffFile: path }),
-        replace: true,
-      });
-    },
-    [navigate],
-  );
+  const setDiffFile = (path: string) => {
+    // `to: "."` keeps current path and loosens search typing for a hook used
+    // across quick-tasks / projects / sessions (see TanStack search-params guide).
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, diffFile: path }),
+      replace: true,
+    });
+  };
 
-  const setDiffView = useCallback(
-    (view: DiffView) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, diffView: view }),
-      });
-    },
-    [navigate],
-  );
+  const setDiffView = (view: DiffView) => {
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, diffView: view }),
+    });
+  };
 
   return { diffFile, diffView, setDiffFile, setDiffView };
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
@@ -34,10 +33,7 @@ export function useQuickTaskNeighbors({
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
-  const selectedTask = useMemo(() => {
-    if (!tasks) return undefined;
-    return tasks.find((t) => t._id === taskId);
-  }, [taskId, tasks]);
+  const selectedTask = tasks?.find((t) => t._id === taskId);
 
   const orderedTasks = useFilteredQuickTasks(tasks, {
     // Kanban and list both render tasks grouped by status, so prev/next must
@@ -45,7 +41,7 @@ export function useQuickTaskNeighbors({
     groupByStatus: view === "kanban" || view === "list",
   });
 
-  const { prevTaskId, nextTaskId } = useMemo(() => {
+  const neighborIds = (() => {
     if (orderedTasks.length === 0) {
       return { prevTaskId: null, nextTaskId: null };
     }
@@ -56,7 +52,8 @@ export function useQuickTaskNeighbors({
       nextTaskId:
         idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
     };
-  }, [taskId, orderedTasks]);
+  })();
+  const { prevTaskId, nextTaskId } = neighborIds;
 
   const goToTask = (id: Id<"agentTasks">) => {
     const task = orderedTasks.find((t) => t._id === id);

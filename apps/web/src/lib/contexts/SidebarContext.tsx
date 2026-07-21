@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 const COOKIE_NAME = "sidebar-collapsed";
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -24,10 +24,10 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsedState] = useState(readCookie);
 
-  const setCollapsed = useCallback((value: boolean) => {
+  const setCollapsed = (value: boolean) => {
     setCollapsedState(value);
     writeCookie(value);
-  }, []);
+  };
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>

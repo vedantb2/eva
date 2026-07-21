@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -105,21 +105,21 @@ export function TaskDescription({
     }
   }, [desc, isEditing]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     const tokenized = mentionRef.current?.tokenize(editValue) ?? editValue;
     const trimmed = tokenized.trim();
     if (canEditTaskText && trimmed !== desc) {
       updateTask({ id: taskId, description: trimmed });
     }
     setIsEditing(false);
-  }, [canEditTaskText, desc, editValue, taskId, updateTask]);
+  };
 
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (!isEditing && canEditTaskText) {
       setEditValue(desc);
       setIsEditing(true);
     }
-  }, [isEditing, canEditTaskText, desc]);
+  };
 
   return (
     <div className="group">

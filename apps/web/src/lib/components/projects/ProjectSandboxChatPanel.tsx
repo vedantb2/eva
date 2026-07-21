@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useLocalStorage } from "usehooks-ts";
@@ -107,35 +106,26 @@ export function ProjectSandboxChatPanel({
     entityId: projectId,
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const handleAnswerBlockingQuestion = useCallback(
-    async (toolUseId: string, answers: Record<string, string>) => {
-      await answerPendingQuestion({
-        entityId: projectId,
-        toolUseId,
-        answer: JSON.stringify(answers),
-      });
-    },
-    [answerPendingQuestion, projectId],
-  );
+  const handleAnswerBlockingQuestion = async (
+    toolUseId: string,
+    answers: Record<string, string>,
+  ) => {
+    await answerPendingQuestion({
+      entityId: projectId,
+      toolUseId,
+      answer: JSON.stringify(answers),
+    });
+  };
 
-  const setModel = useCallback(
-    (next: AIModel) =>
-      setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) })),
-    [setSettings],
-  );
+  const setModel = (next: AIModel) =>
+    setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) }));
 
-  const onTraitsChange = useCallback(
-    (partial: Partial<StoredModelTraits>) => {
-      setSettings((prev) => ({ ...prev, ...partial }));
-    },
-    [setSettings],
-  );
+  const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
+    setSettings((prev) => ({ ...prev, ...partial }));
+  };
 
-  const setProviderAccountId = useCallback(
-    (next: string | null) =>
-      setSettings((prev) => ({ ...prev, providerAccountId: next })),
-    [setSettings],
-  );
+  const setProviderAccountId = (next: string | null) =>
+    setSettings((prev) => ({ ...prev, providerAccountId: next }));
 
   const lastMessage = messages?.[messages.length - 1];
   const lastAssistantHasNoContent =
@@ -143,57 +133,47 @@ export function ProjectSandboxChatPanel({
   const isExecuting =
     Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
 
-  const handleSend = useCallback(
-    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
-      if (isExecuting) {
-        await enqueueMessage({
-          projectId,
-          message: content,
-          model,
-          ...executionTraits,
-          providerAccountId: resolveAccountId(providerAccountId),
-          attachmentStorageIds,
-        });
-        return;
-      }
-      const accountId = resolveAccountId(providerAccountId);
-      await addMessage({
-        projectId,
-        content,
-        attachmentStorageIds,
-        providerAccountId: accountId,
-      });
-      await startExecute({
+  const handleSend = async (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => {
+    if (isExecuting) {
+      await enqueueMessage({
         projectId,
         message: content,
         model,
         ...executionTraits,
-        providerAccountId: accountId,
+        providerAccountId: resolveAccountId(providerAccountId),
+        attachmentStorageIds,
       });
-    },
-    [
-      isExecuting,
-      enqueueMessage,
-      addMessage,
-      startExecute,
+      return;
+    }
+    const accountId = resolveAccountId(providerAccountId);
+    await addMessage({
       projectId,
+      content,
+      attachmentStorageIds,
+      providerAccountId: accountId,
+    });
+    await startExecute({
+      projectId,
+      message: content,
       model,
-      executionTraits,
-      providerAccountId,
-      resolveAccountId,
-    ],
-  );
+      ...executionTraits,
+      providerAccountId: accountId,
+    });
+  };
 
-  const handleCancel = useCallback(async () => {
+  const handleCancel = async () => {
     await cancelExecution({ projectId });
-  }, [cancelExecution, projectId]);
+  };
 
-  const formatQueuedInfo = useCallback((msg: ChatBodyQueuedMessage) => {
+  const formatQueuedInfo = (msg: ChatBodyQueuedMessage) => {
     const parts = [
       msg.model ? findAIModelOption(msg.model).label : null,
     ].filter((part): part is string => Boolean(part));
     return parts.length > 0 ? parts.join(" / ") : undefined;
-  }, []);
+  };
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">

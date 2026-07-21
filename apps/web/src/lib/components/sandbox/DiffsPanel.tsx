@@ -78,47 +78,33 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
     };
   }, [prUrl, repoId, reloadKey, getPrDiff]);
 
-  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+  const refresh = () => setReloadKey((key) => key + 1);
 
   // One entry per changed file: the self-contained patch and its (new) path.
-  const fileEntries = useMemo(
-    () =>
-      (state.status === "ready" ? splitDiffFiles(state.diff) : []).map(
-        (patch, index) => ({
-          patch,
-          path: fileNameFromPatch(patch, `file-${index}`),
-        }),
-      ),
-    [state],
-  );
-  const filePaths = useMemo(
-    () => fileEntries.map((entry) => entry.path),
-    [fileEntries],
-  );
-  const statuses = useMemo(
-    () =>
-      Object.fromEntries(
-        fileEntries.map((entry): [string, GitStatus] => [
-          entry.path,
-          diffFileStatus(entry.patch),
-        ]),
-      ),
-    [fileEntries],
+  const fileEntries = (
+    state.status === "ready" ? splitDiffFiles(state.diff) : []
+  ).map((patch, index) => ({
+    patch,
+    path: fileNameFromPatch(patch, `file-${index}`),
+  }));
+  const filePaths = fileEntries.map((entry) => entry.path);
+  const statuses = Object.fromEntries(
+    fileEntries.map((entry): [string, GitStatus] => [
+      entry.path,
+      diffFileStatus(entry.patch),
+    ]),
   );
   // Stable identity for the current file set: remounts the tree (whose model is
   // created once) whenever the changed files change.
   const filesKey = useMemo(() => filePaths.join("\n"), [filePaths]);
 
   // Selecting a file in the tree records it in the URL and scrolls its diff up.
-  const handleSelect = useCallback(
-    (path: string) => {
-      setDiffFile(path);
-      fileRefs.current
-        .get(path)
-        ?.scrollIntoView({ block: "start", behavior: "smooth" });
-    },
-    [setDiffFile],
-  );
+  const handleSelect = (path: string) => {
+    setDiffFile(path);
+    fileRefs.current
+      .get(path)
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
 
   // On first load with a remembered file, scroll to it once (no smooth jump).
   const didInitialScrollRef = useRef(false);

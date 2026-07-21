@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@conductor/ui";
 import {
   assignHeadingIds,
@@ -106,31 +100,28 @@ export function FloatingToc({
     };
   }, [containerRef, items]);
 
-  const handleClick = useCallback(
-    (id: string) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const index = items.findIndex((item) => item.id === id);
-      if (index < 0) return;
-      const el = getHeadingElements(container)[index];
-      if (!el) return;
+  const handleClick = (id: string) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const el = getHeadingElements(container)[index];
+    if (!el) return;
 
-      clickScrollingRef.current = true;
-      setClickActiveId(id);
+    clickScrollingRef.current = true;
+    setClickActiveId(id);
 
-      const top = headingTopInContainer(el, container) - SCROLL_SPY_OFFSET;
-      container.scrollTo({
-        top: Math.max(0, top),
-        behavior: "smooth",
-      });
+    const top = headingTopInContainer(el, container) - SCROLL_SPY_OFFSET;
+    container.scrollTo({
+      top: Math.max(0, top),
+      behavior: "smooth",
+    });
 
-      window.setTimeout(() => {
-        clickScrollingRef.current = false;
-        setClickActiveId(null);
-      }, 800);
-    },
-    [containerRef],
-  );
+    window.setTimeout(() => {
+      clickScrollingRef.current = false;
+      setClickActiveId(null);
+    }, 800);
+  };
 
   if (items.length < 2) return null;
 

@@ -3,7 +3,7 @@ import type { AIModel, Id, ModelTraitsExecutionArgs } from "@conductor/backend";
 import type { ModelAccount } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback } from "react";
+
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
@@ -103,77 +103,65 @@ export function useSessionSend({
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
   const isExecuting = lastAssistantHasNoContent;
 
-  const handleSend = useCallback(
-    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
-      const finalContent = appendReviewCommentsToPrompt(
-        content,
-        review?.comments ?? [],
-      );
-      if (isExecuting) {
-        await enqueueMessage({
-          sessionId,
-          message: finalContent,
-          mode,
-          model,
-          ...executionTraits,
-          providerAccountId: resolveAccountId(providerAccountId),
-          attachmentStorageIds,
-        });
-        review?.clear();
-        return;
-      }
-      const accountId = resolveAccountId(providerAccountId);
-      void Promise.all([
-        addMessage({
+  const handleSend = async (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => {
+    const finalContent = appendReviewCommentsToPrompt(
+      content,
+      review?.comments ?? [],
+    );
+    if (isExecuting) {
+      await enqueueMessage({
+        sessionId,
+        message: finalContent,
+        mode,
+        model,
+        ...executionTraits,
+        providerAccountId: resolveAccountId(providerAccountId),
+        attachmentStorageIds,
+      });
+      review?.clear();
+      return;
+    }
+    const accountId = resolveAccountId(providerAccountId);
+    void Promise.all([
+      addMessage({
+        id: sessionId,
+        role: "user",
+        content: finalContent,
+        mode,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+      }),
+      startExecution({
+        sessionId,
+        message: finalContent,
+        mode,
+        model,
+        ...executionTraits,
+        providerAccountId: accountId,
+        attachmentStorageIds,
+      }),
+    ])
+      .catch(async (error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send message";
+        await addMessage({
           id: sessionId,
-          role: "user",
-          content: finalContent,
+          role: "assistant",
+          content: `Error: ${errorMessage}`,
           mode,
-          attachmentStorageIds,
-          providerAccountId: accountId,
-        }),
-        startExecution({
-          sessionId,
-          message: finalContent,
-          mode,
-          model,
-          ...executionTraits,
-          providerAccountId: accountId,
-          attachmentStorageIds,
-        }),
-      ])
-        .catch(async (error) => {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to send message";
-          await addMessage({
-            id: sessionId,
-            role: "assistant",
-            content: `Error: ${errorMessage}`,
-            mode,
-          });
-        })
-        .finally(() => {
-          review?.clear();
         });
-    },
-    [
-      isExecuting,
-      enqueueMessage,
-      addMessage,
-      startExecution,
-      sessionId,
-      mode,
-      model,
-      executionTraits,
-      providerAccountId,
-      resolveAccountId,
-      review,
-    ],
-  );
+      })
+      .finally(() => {
+        review?.clear();
+      });
+  };
 
-  const handleCancel = useCallback(async () => {
+  const handleCancel = async () => {
     await cancelExecutionMutation({ sessionId });
-  }, [cancelExecutionMutation, sessionId]);
+  };
 
   return { isExecuting, handleSend, handleCancel };
 }

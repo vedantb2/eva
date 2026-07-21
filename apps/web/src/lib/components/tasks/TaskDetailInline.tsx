@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import type { Id } from "@conductor/backend";
@@ -123,17 +123,14 @@ export function TaskDetailInline({
 
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   // Must stay above early returns so hooks order is stable.
-  const openFile = useCallback(
-    (path: string) => {
-      if (routing?.mode === "quick-sandbox") {
-        routing.quick.onOpenFile(path);
-        return;
-      }
-      void setFileViewerPath(path);
-      setEmbeddedSandboxTab("files");
-    },
-    [setFileViewerPath, routing],
-  );
+  const openFile = (path: string) => {
+    if (routing?.mode === "quick-sandbox") {
+      routing.quick.onOpenFile(path);
+      return;
+    }
+    void setFileViewerPath(path);
+    setEmbeddedSandboxTab("files");
+  };
 
   if (isLoading) {
     return (

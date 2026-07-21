@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -141,15 +141,12 @@ export function SnapshotsClient({
   const baseImageReady =
     lastBuild?.status === "success" && !isRunning && !isSeeding;
 
-  const handleSnapshotsTabChange = useCallback(
-    (value: string) => {
-      if (!isSnapshotSettingsTab(value)) return;
-      navigate({
-        to: `${basePath}/settings/snapshots/${value}`,
-      });
-    },
-    [basePath, navigate],
-  );
+  const handleSnapshotsTabChange = (value: string) => {
+    if (!isSnapshotSettingsTab(value)) return;
+    navigate({
+      to: `${basePath}/settings/snapshots/${value}`,
+    });
+  };
 
   if (snapshot === undefined) {
     return (

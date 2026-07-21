@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { SandboxTab } from "@/lib/search-params";
 
@@ -62,24 +61,13 @@ export function useCycleSandboxTabHotkey({
   showEditorTab?: boolean;
   enabled?: boolean;
 }) {
-  const cyclableTabs = useMemo(
-    () =>
-      getCyclableSandboxTabs(
-        enabledTabs,
-        showPrdTab,
-        customTabSlugs,
-        showFilesTab,
-        showComputerTab,
-        showEditorTab,
-      ),
-    [
-      enabledTabs,
-      showPrdTab,
-      customTabSlugs,
-      showFilesTab,
-      showComputerTab,
-      showEditorTab,
-    ],
+  const cyclableTabs = getCyclableSandboxTabs(
+    enabledTabs,
+    showPrdTab,
+    customTabSlugs,
+    showFilesTab,
+    showComputerTab,
+    showEditorTab,
   );
 
   useHotkey(

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   IconWorld,
   IconBrowser,
@@ -115,9 +114,8 @@ export function SandboxTabBar({
   const showComputerTab = showDesktopItem && computerTabOpen;
   const showEditorTab = showEditorItem && editorTabOpen;
 
-  const customTabSlugs = useMemo(
-    () => (customTabs ?? []).map((tab) => slugifyAppTabName(tab.name)),
-    [customTabs],
+  const customTabSlugs = (customTabs ?? []).map((tab) =>
+    slugifyAppTabName(tab.name),
   );
 
   useCycleSandboxTabHotkey({

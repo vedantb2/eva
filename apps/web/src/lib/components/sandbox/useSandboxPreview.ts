@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -75,14 +75,14 @@ export function useSandboxPreview({
     clearLegacyPreviewUrlCache();
   }, []);
 
-  const stopPolling = useCallback(() => {
+  const stopPolling = () => {
     if (pollingRef.current) {
       clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
-  }, []);
+  };
 
-  const fetchPreview = useCallback(async () => {
+  const fetchPreview = async () => {
     if (!sandboxId || !isActive) return;
     const generation = generationRef.current;
     setIsLoading(true);
@@ -114,7 +114,7 @@ export function useSandboxPreview({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, effectivePort]);
+  };
 
   useEffect(() => {
     // Invalidate any in-flight poll from the previous config before starting

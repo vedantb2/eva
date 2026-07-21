@@ -1,8 +1,8 @@
 "use client";
 
 import { Badge, KanbanBoard } from "@conductor/ui";
-import type { ReactNode, RefCallback } from "react";
-import { useCallback } from "react";
+import { useCallback, type ReactNode, type RefCallback } from "react";
+
 import type { IconCircle } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 

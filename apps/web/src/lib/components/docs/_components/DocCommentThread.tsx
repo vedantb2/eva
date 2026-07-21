@@ -9,7 +9,7 @@ import { UserInitials } from "@conductor/shared";
 import { Button, cn, Textarea } from "@conductor/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -43,7 +43,7 @@ export function DocCommentThread({
     }
   }, [isActive]);
 
-  const handleReply = useCallback(async () => {
+  const handleReply = async () => {
     if (!replyContent.trim()) return;
     await createComment({
       docId,
@@ -52,7 +52,7 @@ export function DocCommentThread({
     });
     setReplyContent("");
     setIsReplying(false);
-  }, [replyContent, docId, root._id, createComment]);
+  };
 
   return (
     <div

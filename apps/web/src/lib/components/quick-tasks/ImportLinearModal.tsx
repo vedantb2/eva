@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +55,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
     api.agentTasks.createQuickTasksBatch,
   );
 
-  const identifiers = useMemo(() => parseLinearIdentifiers(input), [input]);
+  const identifiers = parseLinearIdentifiers(input);
 
   const handleSubmit = async () => {
     if (identifiers.length === 0 || !repo) return;

@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -97,36 +96,33 @@ export function DesktopPanel({
   const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
   const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
 
-  const startAction = useCallback(async (): Promise<StartResult> => {
+  const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
     await toggleDesktopServer({ sandboxId, repoId, action: "start" });
     return { success: true };
-  }, [sandboxId, repoId, toggleDesktopServer]);
+  };
 
-  const stopAction = useCallback(async () => {
+  const stopAction = async () => {
     if (!sandboxId) return;
     await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
-  }, [sandboxId, repoId, toggleDesktopServer]);
+  };
 
-  const handleReady = useCallback(() => {
+  const handleReady = () => {
     if (!sandboxId) return;
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
-  }, [sandboxId, repoId, launchChromeInDesktop]);
+  };
 
-  const handleStateChange = useCallback(
-    (state: SandboxIframeServiceState) => {
-      onRunningChange?.(state === "starting" || state === "running");
-    },
-    [onRunningChange],
-  );
+  const handleStateChange = (state: SandboxIframeServiceState) => {
+    onRunningChange?.(state === "starting" || state === "running");
+  };
 
   const showLockOverlay =
     sessionId !== undefined && isAgentBrowsingActive(agentBrowsingAt);
 
-  const handleTakeControl = useCallback(() => {
+  const handleTakeControl = () => {
     if (!sessionId) return;
     void releaseBrowserLock({ sessionId });
-  }, [sessionId, releaseBrowserLock]);
+  };
 
   return (
     <div className="relative h-full min-h-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -54,12 +54,12 @@ export function CustomTabPanel({
 
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
-  const stopPolling = useCallback(() => {
+  const stopPolling = () => {
     clearTimeout(pollTimer.current);
     pollTimer.current = undefined;
-  }, []);
+  };
 
-  const fetchUrl = useCallback(async () => {
+  const fetchUrl = async () => {
     if (!sandboxId || !isActive) return;
     const gen = generation.current;
     try {
@@ -89,7 +89,7 @@ export function CustomTabPanel({
       setError(err instanceof Error ? err.message : `Failed to load ${name}.`);
       setState("error");
     }
-  }, [sandboxId, isActive, getPreviewUrl, port, repoId, name]);
+  };
 
   useEffect(() => {
     generation.current += 1;
@@ -104,7 +104,7 @@ export function CustomTabPanel({
     return stopPolling;
   }, [isActive, sandboxId, port, fetchUrl, stopPolling]);
 
-  const retry = useCallback(() => {
+  const retry = () => {
     generation.current += 1;
     stopPolling();
     attempts.current = 0;
@@ -112,16 +112,16 @@ export function CustomTabPanel({
     setError(null);
     setState("loading");
     fetchUrl();
-  }, [fetchUrl, stopPolling]);
+  };
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
       containerRef.current.requestFullscreen();
     }
-  }, []);
+  };
 
   if (!isActive || !sandboxId) {
     return (

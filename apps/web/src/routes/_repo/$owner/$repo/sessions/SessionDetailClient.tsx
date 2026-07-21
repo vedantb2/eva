@@ -2,7 +2,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
@@ -85,9 +85,9 @@ export function SessionDetailClient({
 
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
-  const openDiffsTab = useCallback(() => {
+  const openDiffsTab = () => {
     onSandboxTabChange("diffs");
-  }, [onSandboxTabChange]);
+  };
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only
   // (undefined → set). Don't fight the user if they switch away mid-lock.

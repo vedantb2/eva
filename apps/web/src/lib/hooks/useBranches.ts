@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 
@@ -45,7 +45,7 @@ export function useBranches(
   const [isValidating, setIsValidating] = useState(false);
   const fetchBranches = useAction(api.github.listBranches);
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const result = await fetchBranches({
         installationId,
@@ -57,7 +57,7 @@ export function useBranches(
     } catch (err) {
       console.error("Failed to fetch branches:", err);
     }
-  }, [fetchBranches, installationId, owner, repoName, cacheKey]);
+  };
 
   useEffect(() => {
     if (!enabled) return;
@@ -73,12 +73,12 @@ export function useBranches(
     load().finally(() => setIsLoading(false));
   }, [load, enabled, cacheKey]);
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     setIsValidating(true);
     branchCache.delete(cacheKey);
     await load();
     setIsValidating(false);
-  }, [load, cacheKey]);
+  };
 
   return { branches, isLoading, isValidating, refresh };
 }

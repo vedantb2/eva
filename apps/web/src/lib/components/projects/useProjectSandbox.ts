@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -51,7 +51,7 @@ export function useProjectSandbox(
       : "skip",
   );
 
-  const handleStartSandbox = useCallback(async () => {
+  const handleStartSandbox = async () => {
     setIsStartingLocal(true);
     try {
       await startProjectSandboxMutation({ projectId });
@@ -60,9 +60,9 @@ export function useProjectSandbox(
     } finally {
       setIsStartingLocal(false);
     }
-  }, [startProjectSandboxMutation, projectId]);
+  };
 
-  const handleStopSandbox = useCallback(async () => {
+  const handleStopSandbox = async () => {
     setIsStoppingLocal(true);
     try {
       await stopProjectSandboxMutation({ projectId });
@@ -71,9 +71,9 @@ export function useProjectSandbox(
     } finally {
       setIsStoppingLocal(false);
     }
-  }, [stopProjectSandboxMutation, projectId]);
+  };
 
-  const handleRetryStartupCommands = useCallback(async () => {
+  const handleRetryStartupCommands = async () => {
     setIsRetryingStartupCommands(true);
     try {
       await retryStartupCommandsMutation({ projectId });
@@ -82,9 +82,9 @@ export function useProjectSandbox(
     } finally {
       setIsRetryingStartupCommands(false);
     }
-  }, [retryStartupCommandsMutation, projectId]);
+  };
 
-  const handleRunBackgroundCommands = useCallback(async () => {
+  const handleRunBackgroundCommands = async () => {
     setIsRunningBackgroundCommands(true);
     try {
       await runBackgroundCommandsMutation({ projectId });
@@ -93,7 +93,7 @@ export function useProjectSandbox(
     } finally {
       setIsRunningBackgroundCommands(false);
     }
-  }, [runBackgroundCommandsMutation, projectId]);
+  };
 
   return {
     canStartSandbox,

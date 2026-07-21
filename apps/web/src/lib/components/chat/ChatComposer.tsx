@@ -28,7 +28,7 @@ import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useCallback, useMemo, useRef } from "react";
+import { useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -125,39 +125,35 @@ export function ChatComposer({
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
 
-  const handleSubmit = useCallback(
-    async (text: string, files: PromptInputMessage["files"]) => {
-      const visible = text.trim();
-      const attachmentStorageIds = await uploadChatAttachments(files);
-      if (files.length > 0 && attachmentStorageIds.length < files.length) {
-        toast.error("Some attachments could not be uploaded.");
-      }
-      if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
-        return;
-      }
-      const content = mentionRef.current?.tokenize(visible) ?? visible;
-      await onSend(
-        content,
-        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
-      );
-    },
-    [onSend, uploadChatAttachments, hasPendingContext],
-  );
+  const handleSubmit = async (
+    text: string,
+    files: PromptInputMessage["files"],
+  ) => {
+    const visible = text.trim();
+    const attachmentStorageIds = await uploadChatAttachments(files);
+    if (files.length > 0 && attachmentStorageIds.length < files.length) {
+      toast.error("Some attachments could not be uploaded.");
+    }
+    if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
+      return;
+    }
+    const content = mentionRef.current?.tokenize(visible) ?? visible;
+    await onSend(
+      content,
+      attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
+    );
+  };
 
   const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
     if (isInputDisabled) return;
     await handleSubmit(text, files);
   };
 
-  const queuedMessageItems = useMemo(
-    () =>
-      queuedMessages.map((message) => ({
-        id: message._id,
-        content: message.content,
-        info: formatQueuedInfo?.(message),
-      })),
-    [queuedMessages, formatQueuedInfo],
-  );
+  const queuedMessageItems = queuedMessages.map((message) => ({
+    id: message._id,
+    content: message.content,
+    info: formatQueuedInfo?.(message),
+  }));
 
   return (
     <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">

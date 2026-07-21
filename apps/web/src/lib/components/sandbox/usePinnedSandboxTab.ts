@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 
 /**
@@ -21,17 +21,17 @@ export function usePinnedSandboxTab(
     }
   }, [activeTab, setIsOpen, tab]);
 
-  const openTab = useCallback(() => {
+  const openTab = () => {
     setIsOpen(true);
     onTabChange(tab);
-  }, [onTabChange, setIsOpen, tab]);
+  };
 
-  const closeTab = useCallback(() => {
+  const closeTab = () => {
     setIsOpen(false);
     if (activeTab === tab) {
       onTabChange("preview");
     }
-  }, [activeTab, onTabChange, setIsOpen, tab]);
+  };
 
   return { isOpen, openTab, closeTab };
 }

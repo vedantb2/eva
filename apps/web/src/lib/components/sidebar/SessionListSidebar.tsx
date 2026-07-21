@@ -2,7 +2,7 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Id } from "@conductor/backend";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
@@ -118,25 +118,22 @@ export function SessionListSidebar<T extends SessionItem>({
 
   const currentSessionNumId = routeNumIdFromPath(pathname, baseUrl);
 
-  const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return query
+  const search = searchQuery.toLowerCase().trim();
+  const filteredSessions = !sessions
+    ? []
+    : search
       ? sessions.filter((session) =>
-          session.title.toLowerCase().includes(query),
+          session.title.toLowerCase().includes(search),
         )
       : sessions;
-  }, [sessions, searchQuery]);
 
-  const filteredArchivedSessions = useMemo(() => {
-    if (!archivedSessions) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return query
+  const filteredArchivedSessions = !archivedSessions
+    ? []
+    : search
       ? archivedSessions.filter((session) =>
-          session.title.toLowerCase().includes(query),
+          session.title.toLowerCase().includes(search),
         )
       : archivedSessions;
-  }, [archivedSessions, searchQuery]);
 
   useEffect(() => {
     if (createRequestId === undefined) return;

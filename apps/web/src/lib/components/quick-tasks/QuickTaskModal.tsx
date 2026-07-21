@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -135,18 +135,12 @@ export function QuickTaskModal({
 
   // Seed the mention/skill maps from the initial draft's tokenized description
   // so that @-mention and /skill chips render correctly on deep-link open.
-  const initialDescMaps = useMemo(
-    () =>
-      initialDraft
-        ? tokenizedToEditable(initialDraft.description ?? "")
-        : {
-            mentionMap: new Map<string, string>(),
-            skillMap: new Map<string, string>(),
-          },
-    // initialDraft is stable for the lifetime of this mount (key remount on change).
-    // eslint-disable-next-line react/exhaustive-deps
-    [],
-  );
+  const initialDescMaps = initialDraft
+    ? tokenizedToEditable(initialDraft.description ?? "")
+    : {
+        mentionMap: new Map<string, string>(),
+        skillMap: new Map<string, string>(),
+      };
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
@@ -175,7 +169,7 @@ export function QuickTaskModal({
     return tokenized.trim();
   };
 
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
@@ -189,9 +183,9 @@ export function QuickTaskModal({
     setPriority(undefined);
     setScreenshotsVideosEnabled(undefined);
     setRunAuditEnabled(undefined);
-  }, [defaultBranch, defaultModel, projectId]);
+  };
 
-  const handleClose = useCallback(async () => {
+  const handleClose = async () => {
     const desc = getDescription().trim();
     if (title.trim() || desc) {
       await saveDraft({
@@ -205,17 +199,7 @@ export function QuickTaskModal({
     }
     resetForm();
     onClose();
-  }, [
-    saveDraft,
-    activeDraftId,
-    repo._id,
-    title,
-    baseBranch,
-    branchLockedToProject,
-    selectedProjectId,
-    resetForm,
-    onClose,
-  ]);
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !displayBaseBranch || !repo) return;

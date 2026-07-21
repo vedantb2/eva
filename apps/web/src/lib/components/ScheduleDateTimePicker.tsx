@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Calendar, Button } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 
@@ -44,10 +44,10 @@ export function useScheduleDateTime(initialTimestamp?: number) {
 
   const timestamp = parseTimestamp(selectedDate, time);
 
-  const reset = useCallback((ts?: number) => {
+  const reset = (ts?: number) => {
     setSelectedDate(ts ? new Date(ts) : new Date());
     setTime(ts ? dayjs(ts).format("HH:mm") : dayjs().format("HH:mm"));
-  }, []);
+  };
 
   return {
     selectedDate,

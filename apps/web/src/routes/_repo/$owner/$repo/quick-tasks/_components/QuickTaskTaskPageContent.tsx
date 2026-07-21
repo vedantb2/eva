@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -29,7 +28,7 @@ export function QuickTaskTaskPageContent({
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
-  const allTags = useMemo(() => {
+  const allTags = (() => {
     if (!tasks) return [];
     const tagSet = new Set<string>();
     for (const t of tasks) {
@@ -38,9 +37,9 @@ export function QuickTaskTaskPageContent({
       }
     }
     return [...tagSet].sort();
-  }, [tasks]);
+  })();
 
-  const routing = useMemo(() => {
+  const routing = (() => {
     if (!pathSegment) return undefined;
 
     if (routeState.surface === "sandbox") {
@@ -88,7 +87,7 @@ export function QuickTaskTaskPageContent({
         },
       },
     };
-  }, [basePath, navigate, pathSegment, routeState]);
+  })();
 
   if (!pathSegment || !routing) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useConvex } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
@@ -73,22 +73,22 @@ export function SessionPrdPlanView({
 
   const showEdit = !isArchived && editingSnapshot === null;
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
     await navigator.clipboard.writeText(
       normalizePlanMarkdownForExport(planContent),
     );
     setCopied(true);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [planContent]);
+  };
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = () => {
     if (!planContent.trim()) return;
     downloadPlanAsMarkdownFile(
       buildProposedPlanMarkdownFilename(planContent),
       normalizePlanMarkdownForExport(planContent),
     );
-  }, [planContent]);
+  };
 
   useEffect(() => {
     return () => {
@@ -96,20 +96,20 @@ export function SessionPrdPlanView({
     };
   }, []);
 
-  const handleStartEdit = useCallback(() => {
+  const handleStartEdit = () => {
     setEditingSnapshot(planContent);
     setEditKey((k) => k + 1);
-  }, [planContent]);
+  };
 
-  const handleCancelEdit = useCallback(() => {
+  const handleCancelEdit = () => {
     setEditingSnapshot(null);
-  }, []);
+  };
 
-  const handleEditorReady = useCallback((getMarkdown: () => string | null) => {
+  const handleEditorReady = (getMarkdown: () => string | null) => {
     getMarkdownRef.current = getMarkdown;
-  }, []);
+  };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     const markdown = getMarkdownRef.current();
     if (markdown === null) return;
     setIsSaving(true);
@@ -122,9 +122,9 @@ export function SessionPrdPlanView({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionId, updatePlanContent]);
+  };
 
-  const handleSaveAsDocument = useCallback(async () => {
+  const handleSaveAsDocument = async () => {
     if (!planContent.trim()) return;
     setIsSavingDoc(true);
     try {
@@ -138,14 +138,7 @@ export function SessionPrdPlanView({
     } finally {
       setIsSavingDoc(false);
     }
-  }, [
-    basePath,
-    convex,
-    createDocFromSession,
-    navigate,
-    planContent,
-    sessionId,
-  ]);
+  };
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";

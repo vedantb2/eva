@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
@@ -99,7 +99,7 @@ export function RepoNavSections({
     }));
   };
 
-  const repoNavigation = useMemo(() => {
+  const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
       {
         label: "BUILD",
@@ -176,7 +176,7 @@ export function RepoNavSections({
         items: g.items.filter((i) => !i.devOnly),
       }))
       .filter((g) => g.items.length > 0);
-  }, [repoBasePath, isDev]);
+  })();
 
   const navItemClass = (isActive: boolean) =>
     sidebarNavLinkClass(isActive, collapsed);

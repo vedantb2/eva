@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -70,39 +70,36 @@ export function DocRecapViewer({
     !doc.activeWorkflowId &&
     doc.prRecapStatus !== "pending";
 
-  const toggleComments = useCallback(() => {
+  const toggleComments = () => {
     setCommentsOpen((v) => !v);
     setHistoryPanelOpen(false);
     setSuggestionsOpen(false);
-  }, []);
-  const toggleHistory = useCallback(() => {
+  };
+  const toggleHistory = () => {
     setHistoryPanelOpen((v) => !v);
     setCommentsOpen(false);
     setSuggestionsOpen(false);
-  }, []);
-  const toggleSuggestions = useCallback(() => {
+  };
+  const toggleSuggestions = () => {
     setSuggestionsOpen((v) => !v);
     setCommentsOpen(false);
     setHistoryPanelOpen(false);
-  }, []);
+  };
 
-  const handleDocTabChange = useCallback(
-    (value: string) => {
-      if (!isDocViewerTab(value)) return;
-      navigate({
-        to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
-        search: (prev) => prev,
-      });
-    },
-    [basePath, doc, navigate],
-  );
+  const handleDocTabChange = (value: string) => {
+    if (!isDocViewerTab(value)) return;
+    navigate({
+      to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      search: (prev) => prev,
+    });
+  };
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
     await navigator.clipboard.writeText(doc.content);
     setCopied(true);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [doc.content]);
+  };
 
   useEffect(() => {
     return () => {
@@ -113,14 +110,14 @@ export function DocRecapViewer({
   const isRecapPending = doc.prRecapStatus === "pending";
   const isRecapErrored = doc.prRecapStatus === "error";
 
-  const handleReviseRecap = useCallback(async () => {
+  const handleReviseRecap = async () => {
     setIsRevising(true);
     try {
       await reviseRecap({ docId: doc._id });
     } finally {
       setIsRevising(false);
     }
-  }, [doc._id, reviseRecap]);
+  };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">

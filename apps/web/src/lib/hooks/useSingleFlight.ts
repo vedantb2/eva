@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useRef } from "react";
 
 type NoPending = { has: false };
 type HasPending<TArgs> = { has: true; args: TArgs };
@@ -20,43 +20,40 @@ export function useSingleFlight<TArgs, TRet>(
   const inFlight = useRef(false);
   const pending = useRef<Pending<TArgs>>(NO_PENDING);
 
-  const invoke = useCallback(
-    async (args: TArgs): Promise<TRet | undefined> => {
-      if (inFlight.current) {
-        pending.current = { has: true, args };
-        return undefined;
-      }
+  const invoke = async (args: TArgs): Promise<TRet | undefined> => {
+    if (inFlight.current) {
+      pending.current = { has: true, args };
+      return undefined;
+    }
 
-      inFlight.current = true;
-      pending.current = NO_PENDING;
+    inFlight.current = true;
+    pending.current = NO_PENDING;
 
-      // Avoid `finally` here: TypeScript narrows discriminated unions to `never`
-      // inside `finally` blocks when the try body is async, making `next.args`
-      // inaccessible. Use explicit try/catch/then instead.
-      let result: TRet | undefined;
-      try {
-        result = await fn(args);
-      } catch (err) {
-        inFlight.current = false;
-        runPending();
-        throw err;
-      }
+    // Avoid `finally` here: TypeScript narrows discriminated unions to `never`
+    // inside `finally` blocks when the try body is async, making `next.args`
+    // inaccessible. Use explicit try/catch/then instead.
+    let result: TRet | undefined;
+    try {
+      result = await fn(args);
+    } catch (err) {
       inFlight.current = false;
       runPending();
-      return result;
+      throw err;
+    }
+    inFlight.current = false;
+    runPending();
+    return result;
 
-      function runPending(): void {
-        const next: Pending<TArgs> = pending.current;
-        pending.current = NO_PENDING;
-        if (next.has) {
-          // Recurse with the latest coalesced args — return value discarded
-          // intentionally since the original caller already received undefined.
-          void invoke(next.args);
-        }
+    function runPending(): void {
+      const next: Pending<TArgs> = pending.current;
+      pending.current = NO_PENDING;
+      if (next.has) {
+        // Recurse with the latest coalesced args — return value discarded
+        // intentionally since the original caller already received undefined.
+        void invoke(next.args);
       }
-    },
-    [fn],
-  );
+    }
+  };
 
   return invoke;
 }

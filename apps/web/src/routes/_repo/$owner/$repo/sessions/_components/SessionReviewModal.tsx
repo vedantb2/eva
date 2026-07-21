@@ -15,7 +15,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 const REVIEW_AUDITS = [
   "Running code audits",
@@ -47,15 +47,15 @@ export function SessionReviewModal({
     reviewStep === "auditing" ? { sessionId } : "skip",
   );
 
-  const resetState = useCallback(() => {
+  const resetState = () => {
     setReviewStep("confirm");
     setCompletedAudits(0);
-  }, []);
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     onClose();
     resetState();
-  }, [onClose, resetState]);
+  };
 
   const handleCreatePr = async () => {
     setReviewStep("auditing");

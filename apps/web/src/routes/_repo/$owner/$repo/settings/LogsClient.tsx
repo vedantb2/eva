@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -31,24 +30,21 @@ export function LogsClient() {
     entityTypes: logEntityTypesParser,
   });
 
-  const visibleTypes = useMemo(() => new Set(entityTypes), [entityTypes]);
+  const visibleTypes = new Set(entityTypes);
 
-  const handleTypeToggle = useCallback(
-    (type: string, allTypes: string[]) => {
-      const next = new Set(visibleTypes.size === 0 ? allTypes : visibleTypes);
-      if (next.has(type)) {
-        if (next.size === 1) return;
-        next.delete(type);
-      } else {
-        next.add(type);
-      }
-      const isAll = allTypes.every((t) => next.has(t));
-      void setEntityParams({ entityTypes: isAll ? [] : [...next] });
-    },
-    [visibleTypes, setEntityParams],
-  );
+  const handleTypeToggle = (type: string, allTypes: string[]) => {
+    const next = new Set(visibleTypes.size === 0 ? allTypes : visibleTypes);
+    if (next.has(type)) {
+      if (next.size === 1) return;
+      next.delete(type);
+    } else {
+      next.add(type);
+    }
+    const isAll = allTypes.every((t) => next.has(t));
+    void setEntityParams({ entityTypes: isAll ? [] : [...next] });
+  };
 
-  const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
+  const startTime = getStartTime(timeRange);
 
   // Fetch every log in range — group-key filtering happens on the client so
   // project-tagged entries can roll up into the "project" group regardless of
@@ -63,7 +59,7 @@ export function LogsClient() {
     startTime: startTime ?? undefined,
   });
 
-  const filteredLogs = useMemo(() => {
+  const filteredLogs = (() => {
     if (!logs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
     return logs.filter((log) => {
@@ -75,7 +71,7 @@ export function LogsClient() {
       }
       return true;
     });
-  }, [logs, visibleTypes, searchQuery]);
+  })();
 
   const {
     totalCost,
@@ -86,7 +82,7 @@ export function LogsClient() {
     totalDuration,
     grouped,
     availableTypes,
-  } = useMemo(() => {
+  } = (() => {
     if (!filteredLogs)
       return {
         totalCost: 0,
@@ -145,9 +141,9 @@ export function LogsClient() {
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
     };
-  }, [filteredLogs]);
+  })();
 
-  const projectGroups = useMemo(() => {
+  const projectGroups = (() => {
     if (!projectLogs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
 
@@ -175,7 +171,7 @@ export function LogsClient() {
       })
       .filter((g) => g.logs.length > 0)
       .sort((a, b) => b.totalCost - a.totalCost);
-  }, [projectLogs, searchQuery]);
+  })();
 
   const isProjectView = logView === "project";
   const isLoading = isProjectView

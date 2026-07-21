@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   type DragEndEvent,
   type DragStartEvent,
@@ -76,42 +76,26 @@ export function KanbanBoard<T extends BaseTask>({
     }),
   );
 
-  const itemsById = useMemo(() => {
-    const map = new Map<string, T>();
-    for (const item of items) {
-      map.set(item._id, item);
-    }
-    return map;
-  }, [items]);
+  const itemsById = new Map(items.map((item) => [item._id, item]));
 
-  const kanbanData: KanbanItem[] = useMemo(
-    () =>
-      items.map((item) => ({
-        id: item._id,
-        name: item.title,
-        column: item.status,
-      })),
-    [items],
-  );
+  const kanbanData: KanbanItem[] = items.map((item) => ({
+    id: item._id,
+    name: item.title,
+    column: item.status,
+  }));
 
-  const itemsByStatus = useMemo(() => {
-    const map = new Map<string, T[]>();
-    for (const status of KANBAN_STATUSES) {
-      map.set(status, []);
-    }
-    for (const item of items) {
-      map.get(item.status)?.push(item);
-    }
-    return map;
-  }, [items]);
+  const itemsByStatus = new Map<string, T[]>();
+  for (const status of KANBAN_STATUSES) {
+    itemsByStatus.set(status, []);
+  }
+  for (const item of items) {
+    itemsByStatus.get(item.status)?.push(item);
+  }
 
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const status of KANBAN_STATUSES) {
-      counts[status] = itemsByStatus.get(status)?.length ?? 0;
-    }
-    return counts;
-  }, [itemsByStatus]);
+  const countByStatus: Record<string, number> = {};
+  for (const status of KANBAN_STATUSES) {
+    countByStatus[status] = itemsByStatus.get(status)?.length ?? 0;
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = itemsById.get(String(event.active.id));

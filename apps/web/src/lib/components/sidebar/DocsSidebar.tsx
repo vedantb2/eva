@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
@@ -105,7 +105,7 @@ export function DocsSidebar({
     setIsCreateDialogOpen(true);
   }, [createRequestId]);
 
-  const filteredDocs = useMemo(() => {
+  const filteredDocs = (() => {
     if (!docs) return [];
     const byKind = docs.filter((doc) =>
       docListFilter === "pr-recaps"
@@ -114,7 +114,7 @@ export function DocsSidebar({
     );
     const q = searchQuery.toLowerCase().trim();
     return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
-  }, [docs, searchQuery, docListFilter]);
+  })();
 
   const defaultDocTab = (kind: string | undefined) =>
     kind === "pr-recap" ? DOC_RECAP_DEFAULT_TAB : DOC_VIEWER_DEFAULT_TAB;

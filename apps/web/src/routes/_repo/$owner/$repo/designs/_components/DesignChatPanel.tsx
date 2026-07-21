@@ -8,7 +8,7 @@ import {
   type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -193,14 +193,10 @@ export function DesignChatPanel({
 
   // Previously sent messages as editable display text, newest-first, for
   // ArrowUp/ArrowDown history recall in the composer.
-  const messageHistory = useMemo(
-    () =>
-      (messages ?? [])
-        .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-        .map((m) => tokenizedToEditable(m.content ?? "").displayText)
-        .reverse(),
-    [messages],
-  );
+  const messageHistory = (messages ?? [])
+    .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
+    .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+    .reverse();
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -208,10 +204,7 @@ export function DesignChatPanel({
     }
   }, [isSending, lastMessage]);
 
-  const personaMap = useMemo(
-    () => new Map(personas?.map((p) => [p._id, p]) ?? []),
-    [personas],
-  );
+  const personaMap = new Map(personas?.map((p) => [p._id, p]) ?? []);
 
   const evaIcon = <EvaIcon />;
 
@@ -275,24 +268,22 @@ export function DesignChatPanel({
     await handleSend(text, attachmentStorageIds);
   };
 
-  const queuedMessageItems = useMemo(
-    () =>
-      (queuedMessages ?? []).map((message: QueuedDesignMessage) => {
-        const detailParts = [
-          message.personaId
-            ? (personaMap.get(message.personaId)?.name ?? "Persona")
-            : null,
-          typeof message.numDesigns === "number"
-            ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
-            : null,
-        ].filter((part): part is string => Boolean(part));
-        return {
-          id: message._id,
-          content: message.content,
-          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
-        };
-      }),
-    [personaMap, queuedMessages],
+  const queuedMessageItems = (queuedMessages ?? []).map(
+    (message: QueuedDesignMessage) => {
+      const detailParts = [
+        message.personaId
+          ? (personaMap.get(message.personaId)?.name ?? "Persona")
+          : null,
+        typeof message.numDesigns === "number"
+          ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
+          : null,
+      ].filter((part): part is string => Boolean(part));
+      return {
+        id: message._id,
+        content: message.content,
+        info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+      };
+    },
   );
 
   return (

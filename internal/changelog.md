@@ -1,5 +1,9 @@
 # Changelog
 
+## React Compiler enabled on web; drop ceremonial memoization - 2026-07-21
+
+apps/web now runs React Compiler via `@vitejs/plugin-react` + `@rolldown/plugin-babel`. Manual `useMemo`/`useCallback` were stripped where the compiler owns memoization (~300 → ~9 kept for SortableContext/TerminalPanel/ref/iframe identity). Agents should not add those hooks by default.
+
 ## Session chat can attach HTML/MD/TXT design files - 2026-07-21
 
 Session coding chat now accepts HTML (and Markdown/plain text) attachments alongside images. Files land in the sandbox as `/tmp/eva-attachment-*` with the same prompt note pattern as images, so Claude Design HTML exports can drive implementation without paste-only workarounds. Project sandbox chat stays images-only.

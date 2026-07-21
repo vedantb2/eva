@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -106,7 +100,7 @@ export function TaskReactionsProvider({
     localStore.setQuery(api.taskReactions.listByTask, { taskId }, next);
   });
 
-  const groupsByTarget = useMemo(() => {
+  const groupsByTarget = (() => {
     const map = new Map<string, ReactionGroup[]>();
     if (!reactions) return map;
     const nameById = new Map<Id<"users">, string>();
@@ -142,19 +136,17 @@ export function TaskReactionsProvider({
       );
     }
     return map;
-  }, [reactions, currentUserId, users]);
+  })();
 
-  const toggle = useCallback(
-    async (targetType: ReactionTargetType, targetId: string, emoji: string) => {
-      await toggleMutation({ taskId, targetType, targetId, emoji });
-    },
-    [toggleMutation, taskId],
-  );
+  async function toggle(
+    targetType: ReactionTargetType,
+    targetId: string,
+    emoji: string,
+  ) {
+    await toggleMutation({ taskId, targetType, targetId, emoji });
+  }
 
-  const value = useMemo<TaskReactionsContextValue>(
-    () => ({ groupsByTarget, toggle }),
-    [groupsByTarget, toggle],
-  );
+  const value: TaskReactionsContextValue = { groupsByTarget, toggle };
 
   return (
     <TaskReactionsContext.Provider value={value}>
@@ -171,9 +163,6 @@ export function useReactions(targetType: ReactionTargetType, targetId: string) {
   }
   const groups =
     context.groupsByTarget.get(targetKey(targetType, targetId)) ?? EMPTY_GROUPS;
-  const toggle = useCallback(
-    (emoji: string) => context.toggle(targetType, targetId, emoji),
-    [context, targetType, targetId],
-  );
+  const toggle = (emoji: string) => context.toggle(targetType, targetId, emoji);
   return { groups, toggle };
 }

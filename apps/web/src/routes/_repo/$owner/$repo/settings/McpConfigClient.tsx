@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -29,12 +29,12 @@ export function McpConfigClient() {
 
   const prompt = repo.mcpRootPrompt ?? "";
 
-  const handleOpen = useCallback(() => {
+  const handleOpen = () => {
     setDraft(prompt);
     setOpen(true);
-  }, [prompt]);
+  };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
       await updateMcpRootPrompt({
@@ -45,7 +45,7 @@ export function McpConfigClient() {
     } finally {
       setSaving(false);
     }
-  }, [updateMcpRootPrompt, repoId, draft]);
+  };
 
   const isDirty = draft !== prompt;
 

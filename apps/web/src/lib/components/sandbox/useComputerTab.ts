@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { usePinnedSandboxTab } from "@/lib/components/sandbox/usePinnedSandboxTab";
 
 /**
@@ -20,10 +20,10 @@ export function useComputerTab(
   );
   const [computerRunning, setComputerRunning] = useState(false);
 
-  const closeComputer = useCallback(() => {
+  const closeComputer = () => {
     if (computerRunning) return;
     closeTab();
-  }, [closeTab, computerRunning]);
+  };
 
   return {
     computerTabOpen: isOpen,

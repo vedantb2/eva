@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MessageActions, MessageAction, cn } from "@conductor/ui";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
@@ -52,13 +46,13 @@ export function ChatMessageActions({
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
     if (copyText === undefined) return;
     await navigator.clipboard.writeText(copyText);
     setCopied(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [copyText]);
+  };
 
   useEffect(() => {
     return () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -167,9 +167,9 @@ export function QuickTasksTableView({
   ]);
 
   const [{ q, statuses }] = useQuickTaskFilters();
-  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
+  const visibleStatuses = new Set(statuses);
 
-  const tasks = useMemo(() => {
+  const tasks = (() => {
     const query = q.toLowerCase().trim();
     return externalTasks
       .filter((t) =>
@@ -182,42 +182,37 @@ export function QuickTasksTableView({
           t.description?.toLowerCase().includes(query)
         );
       });
-  }, [externalTasks, q, visibleStatuses]);
+  })();
 
-  const resolvedColumns = useMemo(() => {
-    return columns.map((col) => {
-      if ("id" in col && col.id === "project") {
-        return {
-          ...col,
-          cell: ({ row }: { row: { original: Task } }) => {
-            const name = row.original.projectId
-              ? projectNames.get(row.original.projectId)
-              : undefined;
-            if (!name) return <span className="text-muted-foreground">—</span>;
-            return (
-              <span className="text-xs truncate max-w-[120px] block">
-                {name}
-              </span>
-            );
-          },
-        };
-      }
-      if ("id" in col && col.id === "assignedTo") {
-        return {
-          ...col,
-          cell: ({ row }: { row: { original: Task } }) => {
-            const userId = row.original.assignedTo;
-            if (!userId)
-              return <span className="text-muted-foreground">—</span>;
-            const user = users?.find((u) => u._id === userId);
-            if (!user) return <span className="text-muted-foreground">—</span>;
-            return <UserInitials user={user} size="sm" />;
-          },
-        };
-      }
-      return col;
-    });
-  }, [projectNames, users]);
+  const resolvedColumns = columns.map((col) => {
+    if ("id" in col && col.id === "project") {
+      return {
+        ...col,
+        cell: ({ row }: { row: { original: Task } }) => {
+          const name = row.original.projectId
+            ? projectNames.get(row.original.projectId)
+            : undefined;
+          if (!name) return <span className="text-muted-foreground">—</span>;
+          return (
+            <span className="text-xs truncate max-w-[120px] block">{name}</span>
+          );
+        },
+      };
+    }
+    if ("id" in col && col.id === "assignedTo") {
+      return {
+        ...col,
+        cell: ({ row }: { row: { original: Task } }) => {
+          const userId = row.original.assignedTo;
+          if (!userId) return <span className="text-muted-foreground">—</span>;
+          const user = users?.find((u) => u._id === userId);
+          if (!user) return <span className="text-muted-foreground">—</span>;
+          return <UserInitials user={user} size="sm" />;
+        },
+      };
+    }
+    return col;
+  });
 
   const table = useReactTable({
     data: tasks,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
@@ -94,13 +94,10 @@ export function TaskSandboxPanel({
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
-  const handleTabChange = useCallback(
-    (tab: string) => {
-      if (!isSessionSandboxTab(tab) || tab === "prd") return;
-      onTabChange(tab);
-    },
-    [onTabChange],
-  );
+  const handleTabChange = (tab: string) => {
+    if (!isSessionSandboxTab(tab) || tab === "prd") return;
+    onTabChange(tab);
+  };
 
   const {
     computerTabOpen,
@@ -115,10 +112,7 @@ export function TaskSandboxPanel({
     handleTabChange,
   );
 
-  const enabledTabs = useMemo(
-    () => withBrowserTab(panes.enabledTabs),
-    [panes.enabledTabs],
-  );
+  const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
     <div className="h-full flex flex-col">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -98,24 +98,21 @@ export function DocInterviewDialog({
 
   const messages = doc.interviewHistory ?? [];
 
-  const answers = useMemo(() => {
-    const result: AnswerRecord[] = [];
-    for (let i = 0; i < messages.length - 1; i++) {
-      const msg = messages[i];
-      const nextMsg = messages[i + 1];
-      if (msg.role === "assistant" && nextMsg?.role === "user") {
-        try {
-          const parsed = JSON.parse(msg.content);
-          if (parsed.question) {
-            result.push({ question: parsed.question, answer: nextMsg.content });
-          }
-        } catch {
-          continue;
+  const answers: AnswerRecord[] = [];
+  for (let i = 0; i < messages.length - 1; i++) {
+    const msg = messages[i];
+    const nextMsg = messages[i + 1];
+    if (msg.role === "assistant" && nextMsg?.role === "user") {
+      try {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.question) {
+          answers.push({ question: parsed.question, answer: nextMsg.content });
         }
+      } catch {
+        continue;
       }
     }
-    return result;
-  }, [messages]);
+  }
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -151,17 +148,14 @@ export function DocInterviewDialog({
     }
   }, [open]);
 
-  const askQuestion = useCallback(
-    async (currentAnswers: AnswerRecord[]) => {
-      setIsLoading(true);
-      await startDocInterview({
-        docId: doc._id,
-        docTitle: doc.title,
-        previousAnswers: currentAnswers,
-      });
-    },
-    [doc._id, doc.title, startDocInterview],
-  );
+  const askQuestion = async (currentAnswers: AnswerRecord[]) => {
+    setIsLoading(true);
+    await startDocInterview({
+      docId: doc._id,
+      docTitle: doc.title,
+      previousAnswers: currentAnswers,
+    });
+  };
 
   const handleAnswer = async (answer: string) => {
     const lastAssistantMsg = [...messages]

@@ -3,7 +3,7 @@
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
-import { useCallback, useMemo, useState, type RefCallback } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Virtuoso } from "react-virtuoso";
 import { useMutation } from "convex/react";
@@ -133,52 +133,40 @@ export function ProjectTaskListPanel({
   >(null);
   const reorderTasks = useMutation(api.agentTasks.reorderProjectTasks);
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
-  );
 
-  const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
+  const taskIds = tasks.map((t) => t._id);
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
     repoId,
     taskIds,
   });
-  const errorTaskIdSet = useMemo(
-    () => new Set(errorTaskIds ?? []),
-    [errorTaskIds],
-  );
+  const errorTaskIdSet = new Set(errorTaskIds ?? []);
 
-  const groupedTasks = useMemo(() => {
-    const groups: Record<TaskStatus, Task[]> = {
-      draft: [],
-      todo: [],
-      in_progress: [],
-      code_review: [],
-      business_review: [],
-      done: [],
-      cancelled: [],
-    };
-    for (const task of tasks) {
-      groups[task.status].push(task);
+  const groupedTasks: Record<TaskStatus, Task[]> = {
+    draft: [],
+    todo: [],
+    in_progress: [],
+    code_review: [],
+    business_review: [],
+    done: [],
+    cancelled: [],
+  };
+  for (const task of tasks) {
+    groupedTasks[task.status].push(task);
+  }
+  // Sort non-todo groups by latest run date (descending), falling back to createdAt
+  const sortByLastRun = (a: Task, b: Task) => {
+    const aTime = a.lastRunStartedAt ?? a.createdAt;
+    const bTime = b.lastRunStartedAt ?? b.createdAt;
+    return bTime - aTime;
+  };
+  for (const [status, group] of Object.entries(groupedTasks)) {
+    if (status !== "todo") {
+      group.sort(sortByLastRun);
     }
-    // Sort non-todo groups by latest run date (descending), falling back to createdAt
-    const sortByLastRun = (a: Task, b: Task) => {
-      const aTime = a.lastRunStartedAt ?? a.createdAt;
-      const bTime = b.lastRunStartedAt ?? b.createdAt;
-      return bTime - aTime;
-    };
-    for (const [status, group] of Object.entries(groups)) {
-      if (status !== "todo") {
-        group.sort(sortByLastRun);
-      }
-    }
-    return groups;
-  }, [tasks]);
+  }
 
-  const todoTasks = useMemo(() => {
-    if (!localTodoOrder) return groupedTasks.todo;
+  let todoTasks = groupedTasks.todo;
+  if (localTodoOrder) {
     const taskMap = new Map(groupedTasks.todo.map((t) => [t._id, t]));
     const ordered: Task[] = [];
     for (const id of localTodoOrder) {
@@ -188,8 +176,8 @@ export function ProjectTaskListPanel({
     for (const task of groupedTasks.todo) {
       if (!localTodoOrder.includes(task._id)) ordered.push(task);
     }
-    return ordered;
-  }, [groupedTasks.todo, localTodoOrder]);
+    todoTasks = ordered;
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -229,7 +217,12 @@ export function ProjectTaskListPanel({
   );
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto scrollbar">
+    <div
+      ref={(node) => {
+        setScrollParent(node);
+      }}
+      className="h-full overflow-y-auto scrollbar"
+    >
       <Accordion
         type="multiple"
         className="px-3 [&_hr]:bg-border"

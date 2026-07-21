@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import type { Id } from "@conductor/backend";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -79,32 +79,29 @@ export function ProjectTabs({
     api.projectInterviewWorkflow.startInterview,
   );
 
-  const handleSpecGenerated = useCallback((spec: string) => {
+  const handleSpecGenerated = (spec: string) => {
     setPendingSpec(spec);
-  }, []);
+  };
 
-  const handleClear = useCallback(async () => {
+  const handleClear = async () => {
     await clearMessagesDb({ id: projectId });
     await updateProject({ id: projectId, phase: "draft" });
     setPendingSpec(null);
-  }, [clearMessagesDb, updateProject, projectId]);
+  };
 
-  const handleRejectSpec = useCallback(
-    async (reason: string) => {
-      await updateProject({ id: projectId, phase: "draft" });
-      await addMessageDb({ id: projectId, role: "user", content: reason });
+  const handleRejectSpec = async (reason: string) => {
+    await updateProject({ id: projectId, phase: "draft" });
+    await addMessageDb({ id: projectId, role: "user", content: reason });
 
-      await startProjectInterview({
-        projectId,
-        featureDescription: rawInput,
-        previousAnswers: [], // Session persistence provides context
-        rejectionReason: reason,
-      });
+    await startProjectInterview({
+      projectId,
+      featureDescription: rawInput,
+      previousAnswers: [], // Session persistence provides context
+      rejectionReason: reason,
+    });
 
-      setPendingSpec(null);
-    },
-    [projectId, rawInput, updateProject, addMessageDb, startProjectInterview],
-  );
+    setPendingSpec(null);
+  };
 
   const specToShow =
     projectPhase !== "draft" ? (pendingSpec ?? generatedSpec) : undefined;

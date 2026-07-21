@@ -6,7 +6,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
@@ -149,18 +149,15 @@ export function useTaskDetail(
         ? routing.project.detailTab
         : internalActiveTab;
 
-  const setActiveTab = useCallback(
-    (tab: TaskDetailTab) => {
-      if (routing?.mode === "quick-detail") {
-        routing.quick.onDetailTabChange(tab);
-      } else if (routing?.mode === "project-detail") {
-        routing.project.onDetailTabChange(tab);
-      } else {
-        setInternalActiveTab(tab);
-      }
-    },
-    [routing],
-  );
+  const setActiveTab = (tab: TaskDetailTab) => {
+    if (routing?.mode === "quick-detail") {
+      routing.quick.onDetailTabChange(tab);
+    } else if (routing?.mode === "project-detail") {
+      routing.project.onDetailTabChange(tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
+  };
 
   const showSandbox =
     routing?.mode === "quick-sandbox"
@@ -239,15 +236,15 @@ export function useTaskDetail(
       : "skip",
   );
 
-  const openSandboxAfterStart = useCallback(() => {
+  const openSandboxAfterStart = () => {
     if (routing?.mode === "quick-detail") {
       routing.quick.onOpenSandboxView("preview");
     } else {
       setEmbeddedShowSandbox(true);
     }
-  }, [routing]);
+  };
 
-  const handleStartSandbox = useCallback(async () => {
+  const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
     try {
       await startTaskSandboxMutation({ taskId });
@@ -257,9 +254,9 @@ export function useTaskDetail(
     } finally {
       setIsSandboxStarting(false);
     }
-  }, [startTaskSandboxMutation, taskId, openSandboxAfterStart]);
+  };
 
-  const handleStopSandbox = useCallback(async () => {
+  const handleStopSandbox = async () => {
     setIsSandboxStopping(true);
     try {
       await stopTaskSandboxMutation({ taskId });
@@ -268,9 +265,9 @@ export function useTaskDetail(
     } finally {
       setIsSandboxStopping(false);
     }
-  }, [stopTaskSandboxMutation, taskId]);
+  };
 
-  const handleRetryStartupCommands = useCallback(async () => {
+  const handleRetryStartupCommands = async () => {
     setIsRetryingStartupCommands(true);
     try {
       await retryStartupCommandsMutation({ taskId });
@@ -280,9 +277,9 @@ export function useTaskDetail(
     } finally {
       setIsRetryingStartupCommands(false);
     }
-  }, [retryStartupCommandsMutation, taskId, openSandboxAfterStart]);
+  };
 
-  const handleRunDevServer = useCallback(async () => {
+  const handleRunDevServer = async () => {
     setIsRunningDevServer(true);
     try {
       await runDevServerMutation({ taskId });
@@ -293,9 +290,9 @@ export function useTaskDetail(
     } finally {
       setIsRunningDevServer(false);
     }
-  }, [runDevServerMutation, taskId, setExecutionError]);
+  };
 
-  const handleRunBackgroundCommands = useCallback(async () => {
+  const handleRunBackgroundCommands = async () => {
     setIsRunningBackgroundCommands(true);
     try {
       await runBackgroundCommandsMutation({ taskId });
@@ -308,7 +305,7 @@ export function useTaskDetail(
     } finally {
       setIsRunningBackgroundCommands(false);
     }
-  }, [runBackgroundCommandsMutation, taskId, setExecutionError]);
+  };
 
   const devServerCommandLabel = (() => {
     const fromTask = task?.devCommand?.trim();
@@ -318,7 +315,7 @@ export function useTaskDetail(
     return "Auto-detected from package.json (e.g. pnpm run dev)";
   })();
 
-  const handleCreatePr = useCallback(async () => {
+  const handleCreatePr = async () => {
     setIsCreatingPr(true);
     try {
       await createTaskPrAction({ taskId });
@@ -329,9 +326,9 @@ export function useTaskDetail(
     } finally {
       setIsCreatingPr(false);
     }
-  }, [createTaskPrAction, taskId]);
+  };
 
-  const handleToggleSandboxView = useCallback(() => {
+  const handleToggleSandboxView = () => {
     if (routing?.mode === "quick-sandbox") {
       routing.quick.onExitSandboxView();
       return;
@@ -341,7 +338,7 @@ export function useTaskDetail(
       return;
     }
     setEmbeddedShowSandbox((prev) => !prev);
-  }, [routing]);
+  };
 
   const status = task?.status;
   const isRunWrappingUp =

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -60,17 +60,14 @@ export function TestingArenaSidebar({
     setShowTestAllModal(true);
   }, [createRequestId]);
 
-  const filteredDocs = useMemo(() => {
+  const filteredDocs = (() => {
     if (!docs) return [];
     const q = searchQuery.toLowerCase().trim();
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
-  }, [docs, searchQuery]);
+  })();
 
   // Only docs with content can be evaluated; the rest are skipped.
-  const testableDocs = useMemo(
-    () => (docs ?? []).filter((d) => d.content.trim().length > 0),
-    [docs],
-  );
+  const testableDocs = (docs ?? []).filter((d) => d.content.trim().length > 0);
 
   const handleTestAll = async () => {
     setShowTestAllModal(false);

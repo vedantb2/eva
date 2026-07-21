@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
@@ -62,39 +62,30 @@ function SessionSandboxRoute() {
   // Opening a file from a chat chip both switches to the Files tab and sets the
   // `?file=` param the File Viewer reads. Stable so the memoised activity
   // renderer that ultimately calls it is not invalidated each render.
-  const openFile = useCallback(
-    (path: string) => {
-      void navigate({
-        to: `${basePath}/sessions/${numId}/files`,
-        search: (prev) => ({ ...prev, file: path }),
-      });
-    },
-    [navigate, basePath, numId],
-  );
+  const openFile = (path: string) => {
+    void navigate({
+      to: `${basePath}/sessions/${numId}/files`,
+      search: (prev) => ({ ...prev, file: path }),
+    });
+  };
 
-  const openDiffs = useCallback(
-    (repoRelativePath?: string) => {
-      void navigate({
-        to: `${basePath}/sessions/${numId}/diffs`,
-        search: (prev) =>
-          repoRelativePath
-            ? { ...prev, diffFile: repoRelativePath }
-            : { ...prev },
-      });
-    },
-    [navigate, basePath, numId],
-  );
+  const openDiffs = (repoRelativePath?: string) => {
+    void navigate({
+      to: `${basePath}/sessions/${numId}/diffs`,
+      search: (prev) =>
+        repoRelativePath
+          ? { ...prev, diffFile: repoRelativePath }
+          : { ...prev },
+    });
+  };
 
-  const onSandboxTabChange = useCallback(
-    (next: string) => {
-      void navigate({
-        to: `${basePath}/sessions/${numId}/${next}`,
-        // Keep diffFile/diffView (and other search) across sandbox tabs.
-        search: true,
-      });
-    },
-    [navigate, basePath, numId],
-  );
+  const onSandboxTabChange = (next: string) => {
+    void navigate({
+      to: `${basePath}/sessions/${numId}/${next}`,
+      // Keep diffFile/diffView (and other search) across sandbox tabs.
+      search: true,
+    });
+  };
 
   return (
     <EntityNumIdGate

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -102,12 +101,8 @@ function formatDate(dateStr: string): string {
 }
 
 export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
-  const { activities, totalCount, currentStreak, longestStreak } =
-    useMemo(() => {
-      const { activities, totalCount } = toActivities(data);
-      const { currentStreak, longestStreak } = computeStreak(data);
-      return { activities, totalCount, currentStreak, longestStreak };
-    }, [data]);
+  const { activities, totalCount } = toActivities(data);
+  const { currentStreak, longestStreak } = computeStreak(data);
 
   return (
     <Widget contentClassName="p-5">

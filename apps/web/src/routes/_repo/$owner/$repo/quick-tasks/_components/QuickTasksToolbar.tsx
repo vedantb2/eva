@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Button,
@@ -139,8 +138,8 @@ export function QuickTasksToolbar({
     { statuses, assignee, tags, sortField, sortDir, timeRange },
     setParams,
   ] = useQuickTaskFilters();
-  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
-  const selectedTags = useMemo(() => new Set(tags), [tags]);
+  const visibleStatuses = new Set(statuses);
+  const selectedTags = new Set(tags);
 
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
 

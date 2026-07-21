@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import {
   Dialog,
   DialogContent,
@@ -91,18 +91,18 @@ export function NewProjectModal({
 
   const getDescription = () => editorRef.current?.getMarkdown() ?? description;
 
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
     setPriority(undefined);
     setSkipPlanning(defaultSkipPlanning);
-  }, [defaultBranch, defaultSkipPlanning]);
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     resetForm();
     onClose();
-  }, [resetForm, onClose]);
+  };
 
   const canSubmit = !isLoading && !!title.trim() && !!description.trim();
   const submitDisabledReason = getSubmitDisabledReason(

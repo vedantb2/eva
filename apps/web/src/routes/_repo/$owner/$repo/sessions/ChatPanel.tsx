@@ -5,7 +5,7 @@ import {
   type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -171,28 +171,27 @@ export function ChatPanel({
     entityId: sessionId,
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const handleAnswerBlockingQuestion = useCallback(
-    async (toolUseId: string, answers: Record<string, string>) => {
-      await answerPendingQuestion({
-        entityId: sessionId,
-        toolUseId,
-        answer: JSON.stringify(answers),
-      });
-    },
-    [answerPendingQuestion, sessionId],
-  );
+  const handleAnswerBlockingQuestion = async (
+    toolUseId: string,
+    answers: Record<string, string>,
+  ) => {
+    await answerPendingQuestion({
+      entityId: sessionId,
+      toolUseId,
+      answer: JSON.stringify(answers),
+    });
+  };
 
-  const formatQueuedInfo = useCallback(
-    (message: ChatBodyQueuedMessage): string | undefined => {
-      const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
-      const detailParts = [
-        modeLabel,
-        message.model ? findAIModelOption(message.model).label : null,
-      ].filter((part): part is string => Boolean(part));
-      return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
-    },
-    [],
-  );
+  const formatQueuedInfo = (
+    message: ChatBodyQueuedMessage,
+  ): string | undefined => {
+    const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
+    const detailParts = [
+      modeLabel,
+      message.model ? findAIModelOption(message.model).label : null,
+    ].filter((part): part is string => Boolean(part));
+    return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
+  };
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
@@ -244,16 +243,16 @@ export function ChatPanel({
   // When the card is hidden but a plan exists, show a slim Plan Ready strip.
   const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
 
-  const handleApprovePlan = useCallback(() => {
+  const handleApprovePlan = () => {
     setMode("edit");
-  }, [setMode]);
+  };
 
-  const handleViewPlan = useCallback(() => {
+  const handleViewPlan = () => {
     setMode("plan");
     if (sandboxCollapsed === false) {
       onOpenPrdTab?.();
     }
-  }, [onOpenPrdTab, sandboxCollapsed, setMode]);
+  };
 
   const preInputContent = (
     <>

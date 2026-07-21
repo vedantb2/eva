@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import {
   isSessionSandboxTab,
@@ -68,17 +68,14 @@ export function ProjectSandboxPanel({
     [projectId],
   );
 
-  const navigateToSandboxTab = useCallback(
-    (tab: SandboxTab) => {
-      if (tab === "prd" || !projectPathSegment) return;
-      navigate({
-        to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
-        // Keep diffFile/diffView across sandbox tabs.
-        search: true,
-      });
-    },
-    [basePath, navigate, projectPathSegment],
-  );
+  const navigateToSandboxTab = (tab: SandboxTab) => {
+    if (tab === "prd" || !projectPathSegment) return;
+    navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
+      // Keep diffFile/diffView across sandbox tabs.
+      search: true,
+    });
+  };
 
   const preview = useSandboxPreview({
     sandboxId,
@@ -97,13 +94,10 @@ export function ProjectSandboxPanel({
   });
 
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
-  const handleTabChange = useCallback(
-    (tab: string) => {
-      if (!isSessionSandboxTab(tab) || tab === "prd") return;
-      navigateToSandboxTab(tab);
-    },
-    [navigateToSandboxTab],
-  );
+  const handleTabChange = (tab: string) => {
+    if (!isSessionSandboxTab(tab) || tab === "prd") return;
+    navigateToSandboxTab(tab);
+  };
 
   const {
     computerTabOpen,
@@ -118,10 +112,7 @@ export function ProjectSandboxPanel({
     handleTabChange,
   );
 
-  const enabledTabs = useMemo(
-    () => withBrowserTab(panes.enabledTabs),
-    [panes.enabledTabs],
-  );
+  const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
     <div className="h-full flex flex-col">

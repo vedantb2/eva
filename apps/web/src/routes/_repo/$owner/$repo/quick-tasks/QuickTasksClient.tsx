@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -72,7 +72,7 @@ export function QuickTasksClient() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const users = useQuery(api.users.listAll);
 
-  const projectNames = useMemo(() => {
+  const projectNames = (() => {
     const map = new Map<string, string>();
     if (projects) {
       for (const p of projects) {
@@ -80,9 +80,9 @@ export function QuickTasksClient() {
       }
     }
     return map;
-  }, [projects]);
+  })();
 
-  const allTags = useMemo(() => {
+  const allTags = (() => {
     if (!tasks) return [];
     const tagSet = new Set<string>();
     for (const t of tasks) {
@@ -93,19 +93,19 @@ export function QuickTasksClient() {
       }
     }
     return [...tagSet].sort();
-  }, [tasks]);
+  })();
 
   const quickTasks = useFilteredQuickTasks(tasks);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
-  const taskIdSet = useMemo(() => {
+  const taskIdSet = (() => {
     const set = new Set<string>();
     if (tasks) {
       for (const t of tasks) set.add(t._id);
     }
     return set;
-  }, [tasks]);
+  })();
 
   useEffect(() => {
     if (!isSelecting) return;
@@ -143,7 +143,7 @@ export function QuickTasksClient() {
     setActiveBulkAction(null);
   };
 
-  const activeFilterLabels = useMemo(() => {
+  const activeFilterLabels = (() => {
     const labels: Array<{ key: string; label: string }> = [];
     if (project === "all") {
       labels.push({ key: "project", label: "All Projects" });
@@ -191,7 +191,7 @@ export function QuickTasksClient() {
       });
     }
     return labels;
-  }, [project, projects, user, users, assignee, statuses, tags, timeRange]);
+  })();
 
   const clearFilter = (key: string) => {
     switch (key) {

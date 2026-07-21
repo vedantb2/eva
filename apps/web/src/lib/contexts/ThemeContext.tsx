@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -465,29 +459,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyCustomThemeVars(customTheme, isDark);
   }, [syncedCustomTheme, theme]);
 
-  const setTheme = useCallback(
-    (next: "light" | "dark" | "system") => {
-      setNextTheme(next);
-      if (next === "light" || next === "dark") {
-        setThemeMutation({ theme: next });
-      }
-    },
-    [setNextTheme, setThemeMutation],
-  );
+  const setTheme = (next: "light" | "dark" | "system") => {
+    setNextTheme(next);
+    if (next === "light" || next === "dark") {
+      setThemeMutation({ theme: next });
+    }
+  };
 
-  const toggleTheme = useCallback(() => {
+  const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-  }, [theme, setTheme]);
+  };
 
-  const setCustomTheme = useCallback(
-    (customTheme: CustomTheme) => {
-      setCustomThemeMutation({ customTheme });
-      const isDark = theme === "dark";
-      applyCustomThemeVars(customTheme, isDark);
-    },
-    [setCustomThemeMutation, theme],
-  );
+  const setCustomTheme = (customTheme: CustomTheme) => {
+    setCustomThemeMutation({ customTheme });
+    const isDark = theme === "dark";
+    applyCustomThemeVars(customTheme, isDark);
+  };
 
   const customTheme: CustomTheme = syncedCustomTheme ?? {};
 

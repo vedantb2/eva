@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Button, Textarea } from "@conductor/ui";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 
 export function DocNewCommentComposer({
   docId,
@@ -25,26 +25,23 @@ export function DocNewCommentComposer({
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submit = useCallback(
-    async (resolutionTarget?: "agent" | "human") => {
-      if (!content.trim()) return;
-      setIsSubmitting(true);
-      try {
-        await createComment({
-          docId,
-          content: content.trim(),
-          anchorId,
-          anchorText,
-          resolutionTarget,
-        });
-        setContent("");
-        onCreated();
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [content, docId, anchorId, anchorText, createComment, onCreated],
-  );
+  const submit = async (resolutionTarget?: "agent" | "human") => {
+    if (!content.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await createComment({
+        docId,
+        content: content.trim(),
+        anchorId,
+        anchorText,
+        resolutionTarget,
+      });
+      setContent("");
+      onCreated();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div>

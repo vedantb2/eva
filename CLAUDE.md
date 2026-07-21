@@ -51,6 +51,7 @@ Implementation:
 - NEVER use `isRecord(object: unknown)` type guards — an `unknown` reaching that point is the bug; parse at the boundary (Zod) instead.
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
+- With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
 - Minimize surface area of change.
 - Co-locate logic where it naturally belongs.
 - Avoid premature abstractions.

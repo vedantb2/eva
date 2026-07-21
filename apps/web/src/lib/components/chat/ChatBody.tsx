@@ -11,7 +11,7 @@ import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -174,17 +174,14 @@ export function ChatBody({
   const [questionDismissed, setQuestionDismissed] = useState(false);
   const pendingQuestionRaw =
     streamingPendingQuestion ?? lastMessage?.pendingQuestion;
-  const activePendingQuestion = useMemo(
-    () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
-    [questionDismissed, pendingQuestionRaw],
-  );
+  const activePendingQuestion = questionDismissed
+    ? null
+    : parsePendingQuestion(pendingQuestionRaw);
   // A blocking AskUserQuestion (Agent SDK) takes precedence over the
   // fire-and-forget path: it keeps the turn paused until the user answers.
-  const blockingQuestions = useMemo(
-    () =>
-      blockingQuestion ? parsePendingQuestion(blockingQuestion.payload) : null,
-    [blockingQuestion],
-  );
+  const blockingQuestions = blockingQuestion
+    ? parsePendingQuestion(blockingQuestion.payload)
+    : null;
 
   useEffect(() => {
     if (pendingQuestionRaw) {
@@ -192,47 +189,32 @@ export function ChatBody({
     }
   }, [pendingQuestionRaw]);
 
-  const handleQuestionAnswer = useCallback(
-    async (answer: string) => {
-      setQuestionDismissed(true);
-      await onSend(answer);
-    },
-    [onSend],
-  );
+  const handleQuestionAnswer = async (answer: string) => {
+    setQuestionDismissed(true);
+    await onSend(answer);
+  };
 
-  const handleBlockingAnswer = useCallback(
-    async (answers: Record<string, string>) => {
-      if (!blockingQuestion || !onAnswerBlockingQuestion) return;
-      await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
-    },
-    [blockingQuestion, onAnswerBlockingQuestion],
-  );
+  const handleBlockingAnswer = async (answers: Record<string, string>) => {
+    if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+    await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+  };
 
-  const messageHistory = useMemo(
-    () => buildMessageHistory(messages),
-    [messages],
-  );
+  const messageHistory = buildMessageHistory(messages);
 
-  const lastUserMessageIndex = useMemo(
-    () => findLastUserMessageIndex(messages),
-    [messages],
-  );
+  const lastUserMessageIndex = findLastUserMessageIndex(messages);
 
-  const jumpRailMessages = useMemo(
-    () => buildJumpRailTicks(messages),
-    [messages],
-  );
+  const jumpRailMessages = buildJumpRailTicks(messages);
 
   const currentUserId = useQuery(api.auth.me);
   const users = useQuery(api.users.listAll);
-  const firstNameByUserId = useMemo(() => {
+  const firstNameByUserId = (() => {
     const map = new Map<Id<"users">, string>();
     for (const user of users ?? []) {
       const name = firstNameFromUser(user);
       if (name) map.set(user._id, name);
     }
     return map;
-  }, [users]);
+  })();
 
   const renderMessage = (message: ChatBodyMessage) => {
     const isLast = message._id === lastMessageId;

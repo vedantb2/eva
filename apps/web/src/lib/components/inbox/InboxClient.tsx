@@ -17,7 +17,6 @@ import {
   NotificationIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
-import { useMemo } from "react";
 
 const KNOWN_SUB_PAGES = new Set([
   "projects",
@@ -103,16 +102,14 @@ export function InboxClient() {
   });
   const [filter, setFilter] = useQueryState("filter", inboxFilterParser);
 
-  const filtered = useMemo(() => {
-    if (!notifications) return undefined;
-    if (filter === "unread") return notifications.filter((n) => !n.read);
-    return notifications;
-  }, [notifications, filter]);
+  const filtered =
+    notifications === undefined
+      ? undefined
+      : filter === "unread"
+        ? notifications.filter((n) => !n.read)
+        : notifications;
 
-  const groups = useMemo(() => {
-    if (!filtered) return undefined;
-    return groupByDate(filtered);
-  }, [filtered]);
+  const groups = filtered === undefined ? undefined : groupByDate(filtered);
 
   const handleClick = (n: Notification) => {
     if (!n.read) markAsRead({ id: n._id });

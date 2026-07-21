@@ -103,10 +103,7 @@ export function SandboxPanel({
 
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
-  const customTabs = useMemo(
-    () => (allCustomTabs ?? []).filter((tab) => tab.enabled),
-    [allCustomTabs],
-  );
+  const customTabs = (allCustomTabs ?? []).filter((tab) => tab.enabled);
 
   // If the URL points at a custom tab that no longer exists (deleted / disabled /
   // renamed), fall back to preview. Wait for the query to load before deciding.
@@ -118,10 +115,7 @@ export function SandboxPanel({
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);
 
-  const enabledTabs = useMemo(
-    () => withBrowserTab(panes.enabledTabs),
-    [panes.enabledTabs],
-  );
+  const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
     <div className="h-full flex flex-col">

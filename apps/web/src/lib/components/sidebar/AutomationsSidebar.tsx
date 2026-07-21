@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
@@ -55,13 +55,13 @@ export function AutomationsSidebar({
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const filteredAutomations = useMemo(() => {
+  const filteredAutomations = (() => {
     if (!automations) return [];
     const q = searchQuery.toLowerCase().trim();
     return q
       ? automations.filter((a) => a.title.toLowerCase().includes(q))
       : automations;
-  }, [automations, searchQuery]);
+  })();
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;

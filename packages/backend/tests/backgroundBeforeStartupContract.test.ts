@@ -31,7 +31,8 @@ function allIndices(source: string, needle: string): number[] {
 
 /**
  * Startup may wait on background daemons (e.g. Convex ready in /tmp/bg-0.log).
- * Every sandbox owner path must launch background before startup.
+ * Paths that still run both must launch background before startup.
+ * Task/project resume only runs startup when forceStartupCommands (Retry).
  */
 test("sessions.ts runs background before startup for every owner kind", () => {
   for (const owner of [
@@ -50,14 +51,15 @@ test("sessions.ts runs background before startup for every owner kind", () => {
       backgroundAts.length,
       `${owner} missing background step`,
     ).toBeGreaterThan(0);
-    expect(startupAts.length, `${owner} missing startup step`).toBe(
-      backgroundAts.length,
+    expect(startupAts.length, `${owner} missing startup step`).toBeGreaterThan(
+      0,
     );
     for (let i = 0; i < startupAts.length; i++) {
+      const backgroundBefore = backgroundAts.find((at) => at < startupAts[i]);
       expect(
-        backgroundAts[i],
-        `${owner} pair ${i}: background must appear before startup`,
-      ).toBeLessThan(startupAts[i]);
+        backgroundBefore,
+        `${owner} startup ${i}: needs a background step before it`,
+      ).toBeTypeOf("number");
     }
   }
 });

@@ -105,8 +105,8 @@ export const startTaskSandbox = authMutation({
 /**
  * Re-runs startup commands for a task's preview sandbox by kicking off the
  * regular sandbox startup workflow with `forceStartupCommands: true`. Used to
- * recover when startup commands previously failed (the marker file is created
- * regardless of failure, so a normal start would skip them).
+ * recover when seed/import failed. Normal Start only relaunches background
+ * daemons; this is the explicit path that re-runs startupCommands.
  *
  * Auto-starts the sandbox if it isn't running yet — same workflow path either
  * way, just with the force flag set so commands always re-execute.

@@ -2017,29 +2017,40 @@ async function prepareTaskPreviewSandboxInternal(
       label: "Launching background commands...",
       status: "complete",
     });
-    // Note: runStartupCommands is intentionally not surfaced as a UI step
-    // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-    // makes it a no-op once the sandbox has been initialised, so showing
-    // "Running startup commands..." would be misleading on resume.
-    await runLoggedSessionStep(
-      "reuseTaskSandbox.runStartupCommands",
-      sandboxDetails,
-      async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runStartupCommands,
-          {
-            sandboxId: handle.id,
-            repoId: args.repoId,
-            force: args.forceStartupCommands,
-          },
-        );
-        if (result.ran && result.commandCount > 0) {
-          logSession(
-            `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+    // Resume Start = background only (Convex/etc.). Do not re-run seed/import
+    // startupCommands — that is one-time on create, or via Retry startup.
+    if (args.forceStartupCommands) {
+      await emitTaskProgress(
+        ctx,
+        args.taskId,
+        completedSteps,
+        "Running startup commands...",
+      );
+      await runLoggedSessionStep(
+        "reuseTaskSandbox.runStartupCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runStartupCommands,
+            {
+              sandboxId: handle.id,
+              repoId: args.repoId,
+              force: true,
+            },
           );
-        }
-      },
-    );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            );
+          }
+        },
+      );
+      completedSteps.push({
+        type: "tool",
+        label: "Running startup commands...",
+        status: "complete",
+      });
+    }
     // Same as sessions: put the app in Preview Console (Vercel tmux) / background.
     await runLoggedSessionStep(
       "reuseTaskSandbox.launchDevServer",
@@ -2547,29 +2558,40 @@ async function prepareProjectPreviewSandboxInternal(
         label: "Launching background commands...",
         status: "complete",
       });
-      // Note: runStartupCommands is intentionally not surfaced as a UI step
-      // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-      // makes it a no-op once the sandbox has been initialised, so showing
-      // "Running startup commands..." would be misleading on resume.
-      await runLoggedSessionStep(
-        "reuseProjectSandbox.runStartupCommands",
-        sandboxDetails,
-        async () => {
-          const result = await ctx.runAction(
-            internal.daytona.runStartupCommands,
-            {
-              sandboxId: handle.id,
-              repoId: args.repoId,
-              force: args.forceStartupCommands,
-            },
-          );
-          if (result.ran && result.commandCount > 0) {
-            logSession(
-              `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+      // Resume Start = background only (Convex/etc.). Do not re-run seed/import
+      // startupCommands — that is one-time on create, or via Retry startup.
+      if (args.forceStartupCommands) {
+        await emitProjectProgress(
+          ctx,
+          args.projectId,
+          completedSteps,
+          "Running startup commands...",
+        );
+        await runLoggedSessionStep(
+          "reuseProjectSandbox.runStartupCommands",
+          sandboxDetails,
+          async () => {
+            const result = await ctx.runAction(
+              internal.daytona.runStartupCommands,
+              {
+                sandboxId: handle.id,
+                repoId: args.repoId,
+                force: true,
+              },
             );
-          }
-        },
-      );
+            if (result.ran && result.commandCount > 0) {
+              logSession(
+                `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+              );
+            }
+          },
+        );
+        completedSteps.push({
+          type: "tool",
+          label: "Running startup commands...",
+          status: "complete",
+        });
+      }
     }
     // Interview/automation paths skip startup; preview sandboxes still need the app.
     if (!args.skipStartupCommands) {

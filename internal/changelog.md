@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox PR tab labeled Review - 2026-07-21
+
+"PR" was opaque for a tab that holds diffs and recap. The sandbox tab label is now Review; route segment stays `pr` and the pull-request icon is unchanged.
+
 ## Diff layout is path-backed Tabs too - 2026-07-21
 
 Unified/split lived in `?diffView=` beside path-based PR tabs. Sessions now use `/pr/diffs/unified` and `/pr/diffs/split` with the same Tabs component; `?diffView=` still works as a fallback/redirect on other surfaces.

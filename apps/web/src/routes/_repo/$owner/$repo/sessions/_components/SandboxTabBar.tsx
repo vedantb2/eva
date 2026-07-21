@@ -43,7 +43,7 @@ const allTabs: Array<{
   { value: "preview", label: "Preview", icon: IconWorld },
   { value: "browser", label: "Browser", icon: IconBrowser },
   { value: "terminal", label: "Terminal", icon: IconTerminal2 },
-  { value: "pr", label: "PR", icon: IconGitPullRequest },
+  { value: "pr", label: "Review", icon: IconGitPullRequest },
 ];
 
 interface SandboxTabBarProps {

@@ -158,6 +158,11 @@ export function Sidebar() {
     api.githubRepos.getLogoUrl,
     repo?._id ? { repoId: repo._id } : "skip",
   );
+  const team = useQuery(
+    api.teams.get,
+    repo?.teamId ? { id: repo.teamId } : "skip",
+  );
+  const teamBackgroundUrl = team?.backgroundUrl ?? null;
 
   const sidebarScrollKey =
     owner && repoName
@@ -282,10 +287,21 @@ export function Sidebar() {
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
-                "flex h-16 items-center",
+                "relative flex items-center overflow-hidden",
+                teamBackgroundUrl && !showContextSidebar ? "h-24" : "h-16",
                 collapsed ? "px-2" : "px-3",
               )}
             >
+              {teamBackgroundUrl && !showContextSidebar ? (
+                <>
+                  <img
+                    src={teamBackgroundUrl}
+                    alt=""
+                    className="absolute inset-0 size-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
+                </>
+              ) : null}
               <motion.div
                 key={
                   showContextSidebar
@@ -293,8 +309,11 @@ export function Sidebar() {
                     : "main-header"
                 }
                 className={cn(
-                  "relative flex w-full items-center",
+                  "relative z-10 flex w-full items-center",
                   collapsed ? "justify-center" : "justify-between",
+                  teamBackgroundUrl &&
+                    !showContextSidebar &&
+                    "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-sm",
                 )}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}

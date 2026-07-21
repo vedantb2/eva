@@ -1,5 +1,9 @@
 # Changelog
 
+## Team sidebar background banners - 2026-07-21
+
+Teams only had a square logo, so app sidebars looked the same at the top. Teams can now upload a rectangular background that renders behind the app name in every sidebar for that team's codebases.
+
 ## Preview remount no longer kills Next mid-compile - 2026-07-21
 
 Session preview polls treated a slow first-route compile as "not ready", then `fuser`-killed `:13000` and relaunched — while `launchDevServerInBackground`'s 20s cooldown often no-op'd, so Console showed Ready → Compiling `/` → exit forever. Ready now means the port is listening (`/proc/net/tcp` when `ss` is missing), and remount skips while a boot/lock/grace window is active.

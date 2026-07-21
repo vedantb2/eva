@@ -21,6 +21,7 @@ import {
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -44,12 +45,16 @@ interface ProjectSandboxChatPanelProps {
   isSandboxActive: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
+  sandboxCollapsed?: boolean;
+  onToggleSandbox?: () => void;
 }
 
 export function ProjectSandboxChatPanel({
   projectId,
   isSandboxActive,
   onOpenFile,
+  sandboxCollapsed,
+  onToggleSandbox,
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
@@ -191,7 +196,15 @@ export function ProjectSandboxChatPanel({
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col w-full">
+    <div className="flex h-full min-h-0 w-full flex-col">
+      {onToggleSandbox ? (
+        <div className="flex shrink-0 items-center justify-end border-b border-border px-2 py-1">
+          <SandboxPanelToggleButton
+            collapsed={sandboxCollapsed === true}
+            onToggle={onToggleSandbox}
+          />
+        </div>
+      ) : null}
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}

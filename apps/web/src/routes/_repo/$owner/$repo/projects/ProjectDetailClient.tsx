@@ -282,16 +282,18 @@ export function ProjectDetailClient({
 
   const projectSandboxContent = (
     <ResizablePanelLayout
-      storageKey="project-sandbox-collapsed"
+      storageKey="project-sandbox-panel"
       leftDefaultSize="30%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
-      leftPanel={() => (
+      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <ProjectSandboxChatPanel
           projectId={projectId}
           isSandboxActive={isSandboxActive}
           onOpenFile={openFile}
+          sandboxCollapsed={rightPanelCollapsed}
+          onToggleSandbox={onToggleRightPanel}
         />
       )}
       rightPanel={projectSandboxPanel}

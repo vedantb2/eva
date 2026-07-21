@@ -1,5 +1,9 @@
 # Changelog
 
+## Project/task sandbox panel reopen control - 2026-07-21
+
+Project and quick-task sandbox chat now get the same show/hide control sessions already had. Without it, a collapsed `project-sandbox-collapsed` / `task-sandbox-collapsed` localStorage value could hide Preview/Files with no way back.
+
 ## Other users' chat messages sit on the left - 2026-07-20
 
 Sandbox/session chat now right-aligns only your own user turns; teammates' messages use the same bubble on the left with their first name above the bubble (Apple Messages-style) so shared chats read as a conversation.

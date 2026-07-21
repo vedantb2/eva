@@ -202,16 +202,18 @@ export function TaskDetailInline({
 
   const sandboxContent = (
     <ResizablePanelLayout
-      storageKey="task-sandbox-collapsed"
+      storageKey="task-sandbox-panel"
       leftDefaultSize="30%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
-      leftPanel={() => (
+      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <TaskSandboxChatPanel
           taskId={taskId}
           isSandboxActive={isSandboxActive}
           onOpenFile={openFile}
+          sandboxCollapsed={rightPanelCollapsed}
+          onToggleSandbox={onToggleRightPanel}
         />
       )}
       rightPanel={sandboxRightPanel}

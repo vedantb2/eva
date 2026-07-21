@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Vercel app Preview port map.
  *

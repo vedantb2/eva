@@ -354,7 +354,7 @@ const statusStyles: Record<TestStatus, string> = {
 const statusIcons: Record<TestStatus, React.ReactNode> = {
   failed: <XCircleIcon className="size-4" />,
   passed: <CheckCircle2Icon className="size-4" />,
-  running: <CircleDotIcon className="size-4 animate-pulse" />,
+  running: <CircleDotIcon className="size-4" />,
   skipped: <CircleIcon className="size-4" />,
 };
 

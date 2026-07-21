@@ -260,7 +260,7 @@ export function TaskDetailInline({
                       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                         Activity
                         {isActivityBusy ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-warning" />
                         ) : null}
                       </div>
                       <TaskSubscribers taskId={taskId} users={users} />

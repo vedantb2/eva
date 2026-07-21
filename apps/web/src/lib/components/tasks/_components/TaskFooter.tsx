@@ -309,7 +309,7 @@ export function TaskFooter({
                 <IconTerminal2 size={iconSize} />
               )}
               {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
               )}
               <span className="hidden sm:inline">
                 {isSandboxStopping

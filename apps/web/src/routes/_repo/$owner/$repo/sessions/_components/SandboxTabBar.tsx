@@ -151,7 +151,7 @@ export function SandboxTabBar({
                 {tab.label}
                 {tab.value === "browser" && showBrowserPulse ? (
                   <span
-                    className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary animate-pulse"
+                    className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
                     aria-label="Agent is browsing"
                   />
                 ) : null}

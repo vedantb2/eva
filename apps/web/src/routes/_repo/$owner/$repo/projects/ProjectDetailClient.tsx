@@ -465,7 +465,7 @@ export function ProjectDetailClient({
                     <IconTerminal2 size={16} />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   )}
                   <span className="hidden sm:inline">
                     {isSandboxStopping

@@ -21,9 +21,9 @@ export const DEPLOYMENT_STATUS_CONFIG: Record<
   { iconColor: string; label: string }
 > = {
   deployed: { iconColor: "text-emerald-500", label: "Deployed" },
-  building: { iconColor: "text-amber-500 animate-pulse", label: "Building" },
+  building: { iconColor: "text-amber-500", label: "Building" },
   error: { iconColor: "text-red-500", label: "Deploy failed" },
-  queued: { iconColor: "text-blue-500 animate-pulse", label: "Queued" },
+  queued: { iconColor: "text-blue-500", label: "Queued" },
 };
 
 export function capitalize(s: string): string {

@@ -109,7 +109,10 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    // `id` must be omitted — leaving it in the rest-spread patches a stray
+    // `id` field onto the document and breaks projects:list return validation.
     const {
+      id: _projectId,
       generatedSpec,
       projectLead,
       priority,
@@ -121,6 +124,7 @@ export const update = authMutation({
       runAuditEnabled,
       ...fields
     } = args;
+    void _projectId;
     const updates: Record<
       string,
       string | number | boolean | Array<string> | undefined

@@ -15,6 +15,7 @@ export {
 } from "./_migrations/projectPhases";
 export { removeSnapshotWarmupFields } from "./_migrations/removeSnapshotWarmupFields";
 export { removeSessionStartupRequestedAt } from "./_migrations/removeSessionStartupRequestedAt";
+export { removeProjectIdField } from "./_migrations/removeProjectIdField";
 export {
   backfillNumIds,
   backfillNumIdsForEntityType,

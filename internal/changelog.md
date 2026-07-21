@@ -1,5 +1,9 @@
 # Changelog
 
+## Repo home and /sessions share new-session landing - 2026-07-21
+
+Repo root only showed a logo, while `/sessions` had a carded composer. Both routes now render the same landing (app icon + title, prompt copy, cardless composer) so starting a session is consistent wherever you land.
+
 ## Composer "+" menu for attach, skills, and docs - 2026-07-21
 
 Composer actions were split across paste/drop, `@`/`/` typing, and a separate Options control. A single "+" dropdown now groups Options (session submenu), Attach files / Add photos, and Skills / Documents submenus so attachments and mentions are reachable without memorizing shortcuts.

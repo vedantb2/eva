@@ -1,7 +1,7 @@
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
@@ -16,9 +16,8 @@ interface SessionOptionsMenuProps {
 }
 
 /**
- * Composer options for a session: toggle "Capture proof" and "Run audit". Both
- * persist on the session doc and apply to every subsequent turn until unchecked
- * (bound directly to Convex with an optimistic update — no local mirror).
+ * Session run options as a submenu for the composer "+" menu (Capture proof /
+ * Run audit). Bound to Convex with optimistic updates — no local mirror.
  */
 export function SessionOptionsMenu({ sessionId }: SessionOptionsMenuProps) {
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -44,19 +43,14 @@ export function SessionOptionsMenu({ sessionId }: SessionOptionsMenuProps) {
 
   const captureProof = session?.captureProofEnabled ?? false;
   const runAudit = session?.runAuditEnabled ?? false;
-  const anyOn = captureProof || runAudit;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground ${anyOn ? "text-foreground" : "text-muted-foreground"}`}
-        >
-          <IconAdjustmentsHorizontal className="size-3.5" />
-          Options
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <IconAdjustmentsHorizontal className="mr-2 size-4" />
+        Options
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
         <DropdownMenuLabel>Run options</DropdownMenuLabel>
         <DropdownMenuCheckboxItem
           checked={captureProof}
@@ -76,7 +70,7 @@ export function SessionOptionsMenu({ sessionId }: SessionOptionsMenuProps) {
         >
           Run audit
         </DropdownMenuCheckboxItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Composer "+" menu for attach, skills, and docs - 2026-07-21
+
+Composer actions were split across paste/drop, `@`/`/` typing, and a separate Options control. A single "+" dropdown now groups Options (session submenu), Attach files / Add photos, and Skills / Documents submenus so attachments and mentions are reachable without memorizing shortcuts.
+
 ## Preview select-element annotations + device presets - 2026-07-21
 
 Session Preview could browse the app but not point Eva at a specific UI element. The preview toolbar now has a Cursor-style select tool (hover highlight, click → comment card → immediate chat message with rich selector/HTML/React context) and mobile/tablet/desktop width presets, so visual feedback reaches the agent without leaving the sandbox.

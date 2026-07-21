@@ -47,6 +47,10 @@ export interface MentionEditorHandle {
   tokenize: (text: string) => string;
   reset: () => void;
   focus: () => void;
+  /** Append an @mention chip (and trailing space) to the current draft. */
+  insertMention: (item: MentionItem) => void;
+  /** Append a /skill chip (and trailing space) to the current draft. */
+  insertSkill: (item: SlashItem) => void;
 }
 
 export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
@@ -385,6 +389,31 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     chipsClickable,
   ]);
 
+  const appendToken = (
+    prefix: "@" | "/",
+    item: MentionItem,
+    kind: "mention" | "skill",
+  ) => {
+    const visible = `${prefix}${item.label}`;
+    const needsSpace = value.length > 0 && !/\s$/.test(value);
+    const newValue = `${value}${needsSpace ? " " : ""}${visible} `;
+    if (kind === "mention") {
+      setMentionMap((prev) => {
+        const next = new Map(prev);
+        next.set(item.label, item.id);
+        return next;
+      });
+    } else {
+      setSkillMap((prev) => {
+        const next = new Map(prev);
+        next.set(item.label, item.id);
+        return next;
+      });
+    }
+    onValueChange(newValue);
+    requestAnimationFrame(() => editorRef.current?.focus());
+  };
+
   useImperativeHandle(
     ref,
     () => ({
@@ -413,8 +442,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         setSkillMap(new Map());
       },
       focus: () => editorRef.current?.focus(),
+      insertMention: (item: MentionItem) => appendToken("@", item, "mention"),
+      insertSkill: (item: SlashItem) => appendToken("/", item, "skill"),
     }),
-    [mentionMap, skillMap],
+    [mentionMap, skillMap, value, onValueChange],
   );
 
   // Full filtered lists — popup scrolls; do not cap (callers need every

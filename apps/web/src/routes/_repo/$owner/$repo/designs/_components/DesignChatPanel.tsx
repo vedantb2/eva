@@ -70,6 +70,7 @@ import {
 } from "@/lib/components/chat/MentionTextarea";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -111,6 +112,7 @@ export function DesignChatPanel({
   });
   const personas = useQuery(api.designPersonas.list, { repoId });
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
+  const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
@@ -510,6 +512,12 @@ export function DesignChatPanel({
                   />
                   <PromptInputFooter>
                     <PromptInputTools>
+                      <ComposerPlusMenu
+                        docs={docs}
+                        skills={skills}
+                        mentionRef={mentionRef}
+                        attachmentMode="images"
+                      />
                       <ModelSelect
                         value={model}
                         options={modelOptions}

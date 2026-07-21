@@ -95,6 +95,8 @@ interface ChatBodyProps {
   preInputContent?: React.ReactNode;
   /** Optional slot inserted before the model selector (session mode dropdown). */
   toolsBefore?: React.ReactNode;
+  /** Optional "Options" submenu inside the composer "+" menu. */
+  optionsSubmenu?: React.ReactNode;
   /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
   /** Optional formatter for queued message info tooltips. Falls back to none. */
@@ -159,6 +161,7 @@ export function ChatBody({
   beforeQueuedContent,
   preInputContent,
   toolsBefore,
+  optionsSubmenu,
   emptyStateOverride,
   formatQueuedInfo,
   draft,
@@ -301,6 +304,7 @@ export function ChatBody({
           beforeQueuedContent={beforeQueuedContent}
           preInputContent={preInputContent}
           toolsBefore={toolsBefore}
+          optionsSubmenu={optionsSubmenu}
           formatQueuedInfo={formatQueuedInfo}
           draft={draft}
           isDraftLoading={isDraftLoading}

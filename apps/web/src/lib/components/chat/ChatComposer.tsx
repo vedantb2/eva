@@ -27,8 +27,9 @@ import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
+import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -81,6 +82,8 @@ interface ChatComposerProps {
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
   toolsBefore?: React.ReactNode;
+  /** Optional "Options" submenu inside the composer "+" menu. */
+  optionsSubmenu?: ReactNode;
   formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
@@ -111,6 +114,7 @@ export function ChatComposer({
   beforeQueuedContent,
   preInputContent,
   toolsBefore,
+  optionsSubmenu,
   formatQueuedInfo,
   draft,
   isDraftLoading,
@@ -254,6 +258,13 @@ export function ChatComposer({
               <PromptInputFooter>
                 <PromptInputTools>
                   {toolsBefore}
+                  <ComposerPlusMenu
+                    docs={docs}
+                    skills={skills}
+                    mentionRef={mentionRef}
+                    attachmentMode={attachmentMode}
+                    optionsSubmenu={optionsSubmenu}
+                  />
                   <ModelSelect
                     value={model}
                     options={modelOptions}

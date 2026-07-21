@@ -288,11 +288,9 @@ export function ChatPanel({
   );
 
   const toolsBefore = (
-    <>
-      <SessionModeDropdown mode={mode} onModeChange={setMode} />
-      <SessionOptionsMenu sessionId={sessionId} />
-    </>
+    <SessionModeDropdown mode={mode} onModeChange={setMode} />
   );
+  const optionsSubmenu = <SessionOptionsMenu sessionId={sessionId} />;
 
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
@@ -346,6 +344,7 @@ export function ChatPanel({
           />
         }
         toolsBefore={toolsBefore}
+        optionsSubmenu={optionsSubmenu}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}

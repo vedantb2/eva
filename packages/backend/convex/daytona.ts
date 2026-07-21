@@ -40,6 +40,7 @@ export {
   launchChromeInDesktop,
   startDesktopForBrowserSession,
   readSandboxFile,
+  listSandboxFiles,
 } from "./_daytona/services";
 
 export {

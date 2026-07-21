@@ -41,7 +41,7 @@ function fileCacheKey(sandboxId: string, path: string): string {
 }
 
 /** Centered icon + message, matching the sandbox panels' inactive states. */
-function ViewerNotice({ message }: { message: string }) {
+export function ViewerNotice({ message }: { message: string }) {
   return (
     <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3 px-6 text-center">
       <IconFileText className="w-12 h-12 opacity-50" />
@@ -135,7 +135,7 @@ export function FileViewerPanel({
   }, [filePath, sandboxId, isActive, repoId, readSandboxFile, refreshKey]);
 
   if (state.kind === "empty") {
-    return <ViewerNotice message="Click a file in the chat to view it here" />;
+    return <ViewerNotice message="Select a file to view it" />;
   }
   if (state.kind === "not_running") {
     return <ViewerNotice message="Start the sandbox to view files" />;

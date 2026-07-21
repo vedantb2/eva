@@ -7,7 +7,7 @@ import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
-import { FileViewerPanel } from "./FileViewerPanel";
+import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
   useSandboxPanes,
@@ -175,7 +175,7 @@ export function SandboxPanel({
         </div>
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
           {activeTab === "files" ? (
-            <FileViewerPanel
+            <FilesPanel
               sandboxId={sandboxId}
               repoId={repoId}
               isActive={isActive}

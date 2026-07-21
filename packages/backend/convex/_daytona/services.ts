@@ -299,3 +299,62 @@ export const readSandboxFile = action({
     return { status: "ok" as const, content, truncated };
   },
 });
+
+/** Cap on entries returned to the Files tab tree. */
+const MAX_FILE_LIST_ENTRIES = 20_000;
+
+/**
+ * Lists tracked + untracked (non-ignored) files in a running sandbox for the
+ * session Files tab tree. Uses `git ls-files -z` so non-ASCII paths stay
+ * unambiguous; NUL survives the exec transport (see binary detection above).
+ *
+ * The script embeds only a numeric cap — no user input — so shell-quote is
+ * unnecessary. Cap is applied in-sandbox via GNU `head -z` so pathological
+ * repos do not ship megabytes into the action.
+ */
+export const listSandboxFiles = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.union(
+    v.object({
+      status: v.literal("ok"),
+      root: v.string(),
+      paths: v.array(v.string()),
+      truncated: v.boolean(),
+    }),
+    v.object({ status: v.literal("not_running") }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
+    if (!repo) throw new Error("Not authorized to access this repository");
+
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    if (handle.state !== "running") {
+      return { status: "not_running" as const };
+    }
+
+    // Echo the resolved workspace root first so legacy `/workspace/repo`
+    // sandboxes build correct absolute `?file=` paths. Keep default exec cwd.
+    const script =
+      `d=${workspaceDirShell()}; ` +
+      `printf '%s\\0' "$d"; ` +
+      `git -C "$d" ls-files --cached --others --exclude-standard -z` +
+      ` | head -z -n ${MAX_FILE_LIST_ENTRIES + 1}`;
+    const out = await execHandle(handle, script, 30);
+
+    const records = out.split("\u0000");
+    const root = records[0];
+    if (!root) {
+      throw new Error("Sandbox file list did not return a workspace root");
+    }
+    const entries = records.slice(1).filter((p) => p.trim().length > 0);
+    const truncated = entries.length > MAX_FILE_LIST_ENTRIES;
+    const paths = truncated ? entries.slice(0, MAX_FILE_LIST_ENTRIES) : entries;
+    return { status: "ok" as const, root, paths, truncated };
+  },
+});

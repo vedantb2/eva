@@ -1,5 +1,9 @@
 # Changelog
 
+## Session Files tab is a full repo explorer - 2026-07-21
+
+The Files tab only opened when a chat chip set `?file=`, with no way to browse the sandbox. It now shows a searchable left-hand tree (`git ls-files`, ignoring gitignored paths) beside the existing viewer, so you can explore the whole repo while chip deep-links keep working.
+
 ## Sandbox Diffs tab becomes PR (Diffs + Recap) - 2026-07-21
 
 Eva draft PRs never got recaps (webhook skips drafts), so sandbox work had diffs but no walkthrough. The Diffs tab is now a PR tab with Diffs/Recap sub-tabs; when `prRecapsEnabled` is on, finishing a task/session turn auto-generates an Eva-origin recap for draft PRs, hidden from the Documents sidebar but openable from the panel.

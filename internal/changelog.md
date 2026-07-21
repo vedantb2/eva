@@ -1,5 +1,9 @@
 # Changelog
 
+## Review Diffs chrome on shared tab row - 2026-07-21
+
+Unified/Split and Refresh sat on a second bar under Diffs/Recap. They now share the Review header row and only appear while Diffs is active (sessions, projects, quick tasks).
+
 ## Docs Reviews hides Eva-created PR recaps - 2026-07-21
 
 Eva session/project/quick-task PR recaps were listed under docs Reviews because webhook refreshes never set `prRecapOrigin`. Those stay on the sandbox Review tab; the docs list is for external PRs only.

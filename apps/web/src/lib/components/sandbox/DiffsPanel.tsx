@@ -5,21 +5,9 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { GitStatus } from "@pierre/trees";
-import {
-  Button,
-  Spinner,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  cn,
-} from "@conductor/ui";
-import {
-  IconGitPullRequest,
-  IconRefresh,
-  IconAlertTriangle,
-} from "@tabler/icons-react";
+import { Spinner } from "@conductor/ui";
+import { IconGitPullRequest, IconAlertTriangle } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
-import { isDiffView } from "@/lib/search-params";
 import { DiffFileTree } from "./DiffFileTree";
 import { ReviewableFileDiff } from "./ReviewableFileDiff";
 import { splitDiffFiles, fileNameFromPatch, diffFileStatus } from "./diffFiles";
@@ -29,6 +17,11 @@ interface DiffsPanelProps {
   /** PR URL for the current surface; absent when no PR exists yet. */
   prUrl?: string;
   repoId: Id<"githubRepos">;
+  /** Lets PrPanel host Unified/Split + Refresh on the Diffs/Recap row. */
+  onToolbarStateChange?: (state: {
+    isLoading: boolean;
+    refresh: () => void;
+  }) => void;
 }
 
 type DiffState =
@@ -41,13 +34,16 @@ type DiffState =
  * `@pierre/diffs`, in unified or split view, alongside a clickable
  * `@pierre/trees` file tree on the left for jumping straight to a file's diff.
  * The diff comes from a non-reactive Convex action, so it is loaded imperatively
- * and re-pulled by a Refresh button.
+ * and re-pulled by Refresh (chrome lives on PrPanel's Diffs/Recap row).
  */
-export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
+export function DiffsPanel({
+  prUrl,
+  repoId,
+  onToolbarStateChange,
+}: DiffsPanelProps) {
   const getPrDiff = useAction(api.github.getPrDiff);
   const { resolvedTheme } = useThemeMode();
-  const { diffView, setDiffView, diffFile, setDiffFile } =
-    useDiffSearchParams();
+  const { diffView, diffFile, setDiffFile } = useDiffSearchParams();
 
   const [state, setState] = useState<DiffState>({ status: "loading" });
   // Bumped by Refresh to force the load effect to re-run.
@@ -86,7 +82,14 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
     };
   }, [prUrl, repoId, reloadKey, getPrDiff]);
 
-  const refresh = () => setReloadKey((key) => key + 1);
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+
+  useEffect(() => {
+    onToolbarStateChange?.({
+      isLoading: state.status === "loading",
+      refresh,
+    });
+  }, [onToolbarStateChange, refresh, state.status]);
 
   // One entry per changed file: the self-contained patch and its (new) path.
   const fileEntries = (
@@ -147,88 +150,54 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const showTree = state.status === "ready" && fileEntries.length > 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-        <Tabs
-          value={diffView}
-          onValueChange={(value) => {
-            if (isDiffView(value)) setDiffView(value);
-          }}
-        >
-          <TabsList className="h-8">
-            <TabsTrigger value="unified" className="px-2.5 py-1 text-xs">
-              Unified
-            </TabsTrigger>
-            <TabsTrigger value="split" className="px-2.5 py-1 text-xs">
-              Split
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refresh}
-          disabled={state.status === "loading"}
-        >
-          <IconRefresh
-            className={cn(
-              "h-3.5 w-3.5",
-              state.status === "loading" && "animate-spin",
-            )}
+    <div className="flex h-full min-h-0">
+      {showTree ? (
+        <div className="flex min-h-0 w-64 shrink-0 flex-col border-r border-border">
+          <DiffFileTree
+            key={filesKey}
+            files={filePaths}
+            statuses={statuses}
+            initialSelectedPath={diffFile || null}
+            onSelect={handleSelect}
           />
-          Refresh
-        </Button>
-      </div>
-
-      <div className="flex min-h-0 flex-1">
-        {showTree ? (
-          <div className="flex min-h-0 w-64 shrink-0 flex-col border-r border-border">
-            <DiffFileTree
-              key={filesKey}
-              files={filePaths}
-              statuses={statuses}
-              initialSelectedPath={diffFile || null}
-              onSelect={handleSelect}
-            />
-          </div>
-        ) : null}
-
-        <div className="min-h-0 flex-1 overflow-auto">
-          {state.status === "loading" ? (
-            <div className="flex h-full items-center justify-center">
-              <Spinner />
-            </div>
-          ) : state.status === "error" ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-              <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
-              <p className="text-sm text-muted-foreground">
-                Could not load the pull request diff.
-              </p>
-            </div>
-          ) : fileEntries.length === 0 ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              No changes in this pull request yet.
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 p-3">
-              {state.truncated ? (
-                <p className="text-xs text-muted-foreground">
-                  Diff is large and has been truncated.
-                </p>
-              ) : null}
-              {fileEntries.map(({ patch, path }) => (
-                <div key={path} ref={setFileRef(path)}>
-                  <ReviewableFileDiff
-                    patch={patch}
-                    path={path}
-                    diffView={diffView}
-                    resolvedTheme={resolvedTheme}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-auto">
+        {state.status === "loading" ? (
+          <div className="flex h-full items-center justify-center">
+            <Spinner />
+          </div>
+        ) : state.status === "error" ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
+            <p className="text-sm text-muted-foreground">
+              Could not load the pull request diff.
+            </p>
+          </div>
+        ) : fileEntries.length === 0 ? (
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+            No changes in this pull request yet.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 p-3">
+            {state.truncated ? (
+              <p className="text-xs text-muted-foreground">
+                Diff is large and has been truncated.
+              </p>
+            ) : null}
+            {fileEntries.map(({ patch, path }) => (
+              <div key={path} ref={setFileRef(path)}>
+                <ReviewableFileDiff
+                  patch={patch}
+                  path={path}
+                  diffView={diffView}
+                  resolvedTheme={resolvedTheme}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

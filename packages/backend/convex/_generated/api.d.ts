@@ -72,6 +72,7 @@ import type * as _githubRepos_queries from "../_githubRepos/queries.js";
 import type * as _githubRepos_sandboxRepoPick from "../_githubRepos/sandboxRepoPick.js";
 import type * as _githubRepos_sync from "../_githubRepos/sync.js";
 import type * as _github_api from "../_github/api.js";
+import type * as _github_evaPrOwnership from "../_github/evaPrOwnership.js";
 import type * as _github_helpers from "../_github/helpers.js";
 import type * as _github_prComments from "../_github/prComments.js";
 import type * as _github_prDiff from "../_github/prDiff.js";
@@ -88,6 +89,7 @@ import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessag
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
 import type * as _messages_preview from "../_messages/preview.js";
+import type * as _migrations_backfillEvaPrRecapOrigin from "../_migrations/backfillEvaPrRecapOrigin.js";
 import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.js";
 import type * as _migrations_backfillQueuedMessageOrder from "../_migrations/backfillQueuedMessageOrder.js";
 import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
@@ -362,6 +364,7 @@ declare const fullApi: ApiFromModules<{
   "_githubRepos/sandboxRepoPick": typeof _githubRepos_sandboxRepoPick;
   "_githubRepos/sync": typeof _githubRepos_sync;
   "_github/api": typeof _github_api;
+  "_github/evaPrOwnership": typeof _github_evaPrOwnership;
   "_github/helpers": typeof _github_helpers;
   "_github/prComments": typeof _github_prComments;
   "_github/prDiff": typeof _github_prDiff;
@@ -378,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;
   "_mentions/skillToken": typeof _mentions_skillToken;
   "_messages/preview": typeof _messages_preview;
+  "_migrations/backfillEvaPrRecapOrigin": typeof _migrations_backfillEvaPrRecapOrigin;
   "_migrations/backfillNumIds": typeof _migrations_backfillNumIds;
   "_migrations/backfillQueuedMessageOrder": typeof _migrations_backfillQueuedMessageOrder;
   "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;

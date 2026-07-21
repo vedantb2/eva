@@ -1,11 +1,11 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation, useConvex } from "convex/react";
+import { useMutation } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { SessionListSidebar } from "@/lib/components/sidebar/SessionListSidebar";
-import { entityPathSegment } from "@/lib/numId";
 import { IconTerminal2 } from "@tabler/icons-react";
 
 interface SessionsSidebarProps {
@@ -23,7 +23,7 @@ export function SessionsSidebar({
   onNavigate,
   createRequestId,
 }: SessionsSidebarProps) {
-  const convex = useConvex();
+  const navigate = useNavigate();
   const sessions = useQuery(api.sessions.list, { repoId });
   const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
   const createSession = useMutation(api.sessions.create);
@@ -100,14 +100,9 @@ export function SessionsSidebar({
       pathname={pathname}
       onNavigate={onNavigate}
       createRequestId={createRequestId}
-      onCreate={async (title) => {
-        const id = await createSession({ repoId, title });
-        const session = await convex.query(api.sessions.get, { id });
-        const segment = session ? entityPathSegment(session) : null;
-        if (!segment) {
-          throw new Error("Created session is missing numId");
-        }
-        return segment;
+      onCreateNavigate={() => {
+        navigate({ to: `${basePath}/sessions` });
+        onNavigate?.();
       }}
       onArchive={async (session) => {
         if (session.sandboxId) {
@@ -125,16 +120,11 @@ export function SessionsSidebar({
         });
       }}
       onDuplicate={async (session) => {
-        const id = await createSession({
+        const { numId } = await createSession({
           repoId,
           title: `${session.title} (copy)`,
         });
-        const created = await convex.query(api.sessions.get, { id });
-        const segment = created ? entityPathSegment(created) : null;
-        if (!segment) {
-          throw new Error("Duplicated session is missing numId");
-        }
-        return segment;
+        return String(numId);
       }}
       emptyIcon={<IconTerminal2 size={28} />}
       emptyLabel="No sessions yet"

@@ -62,7 +62,10 @@ interface SessionListSidebarProps<T extends SessionItem> {
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
-  onCreate: (title: string) => Promise<string>;
+  /** Title modal create (designs). Prefer `onCreateNavigate` for coding sessions. */
+  onCreate?: (title: string) => Promise<string>;
+  /** Navigate to a composer landing page instead of opening the title modal. */
+  onCreateNavigate?: () => void;
   onArchive: (session: T) => Promise<void>;
   onUnarchive?: (session: T) => Promise<void>;
   onRename?: (session: T, newTitle: string) => Promise<void>;
@@ -85,6 +88,7 @@ export function SessionListSidebar<T extends SessionItem>({
   onNavigate,
   createRequestId,
   onCreate,
+  onCreateNavigate,
   onArchive,
   onUnarchive,
   onRename,
@@ -139,8 +143,12 @@ export function SessionListSidebar<T extends SessionItem>({
     if (createRequestId === undefined) return;
     if (createRequestId <= lastCreateRequestIdRef.current) return;
     lastCreateRequestIdRef.current = createRequestId;
+    if (onCreateNavigate) {
+      onCreateNavigate();
+      return;
+    }
     setIsCreateModalOpen(true);
-  }, [createRequestId]);
+  }, [createRequestId, onCreateNavigate]);
 
   const handleArchive = async () => {
     if (!sessionToArchive) return;
@@ -163,7 +171,7 @@ export function SessionListSidebar<T extends SessionItem>({
   };
 
   const handleCreate = async () => {
-    if (!newSessionTitle.trim()) return;
+    if (!onCreate || !newSessionTitle.trim()) return;
     setIsCreating(true);
     try {
       const id = await onCreate(newSessionTitle.trim());
@@ -174,6 +182,14 @@ export function SessionListSidebar<T extends SessionItem>({
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleCreateClick = () => {
+    if (onCreateNavigate) {
+      onCreateNavigate();
+      return;
+    }
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -191,7 +207,7 @@ export function SessionListSidebar<T extends SessionItem>({
           size="icon-sm"
           variant="ghost"
           className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={handleCreateClick}
           title={createTitle}
         >
           <IconPlus size={16} />

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
-import { sessionValidator } from "./helpers";
+import { DEFAULT_SESSION_TITLE, sessionValidator } from "./helpers";
 import { internal } from "../_generated/api";
 import { deploymentStatusValidator } from "../validators";
 
@@ -119,6 +119,28 @@ export const setAgentBrowsingAt = internalMutation({
     if (!session) return null;
     await ctx.db.patch(sessionId, {
       agentBrowsingAt: args.locked ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Applies an LLM-generated session title only while the placeholder remains.
+ * Manual renames (anything other than DEFAULT_SESSION_TITLE) are never overwritten.
+ */
+export const applyGeneratedTitle = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    title: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (session.title !== DEFAULT_SESSION_TITLE) return null;
+    await ctx.db.patch(args.sessionId, {
+      title: args.title,
       updatedAt: Date.now(),
     });
     return null;

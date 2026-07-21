@@ -5,6 +5,8 @@ import type { DatabaseReader } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { allocateNumId } from "../numId";
 import {
+  aiModelValidator,
+  reasoningLevelValidator,
   roleValidator,
   sessionModeValidator,
   sessionStatusValidator,
@@ -13,6 +15,7 @@ import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
+import { DEFAULT_SESSION_TITLE } from "./helpers";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -30,20 +33,32 @@ async function getSessionOrThrow(
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
-    title: v.string(),
+    title: v.optional(v.string()),
+    message: v.optional(v.string()),
+    mode: v.optional(sessionModeValidator),
+    model: v.optional(aiModelValidator),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
-  returns: v.id("sessions"),
+  returns: v.object({
+    sessionId: v.id("sessions"),
+    numId: v.number(),
+  }),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
     const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
-      title: args.title,
+      title,
       status: "starting",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
@@ -65,7 +80,35 @@ export const create = authMutation({
         repoId: args.repoId,
       },
     );
-    return sessionId;
+
+    const content = args.message?.trim() ?? "";
+    if (content) {
+      if (!args.mode || !args.model) {
+        throw new Error("mode and model are required when queuing a message");
+      }
+      await ctx.db.insert("queuedMessages", {
+        parentId: sessionId,
+        content,
+        createdAt: Date.now(),
+        order: Date.now(),
+        userId: ctx.userId,
+        mode: args.mode,
+        model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        providerAccountId: args.providerAccountId,
+        attachmentStorageIds: args.attachmentStorageIds,
+      });
+      if (title === DEFAULT_SESSION_TITLE) {
+        await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
+          sessionId,
+          message: content,
+        });
+      }
+    }
+
+    return { sessionId, numId };
   },
 });
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Message-first session creation with LLM titles - 2026-07-21
+
+Creating a coding session used to mean naming it in a modal before you could type. Sidebar `+` and `/sessions` now open a composer: submit creates the session as "New session", queues the first message until the sandbox is ready, and generates a short title via AI Gateway (`openai/gpt-5-nano`) without overwriting a manual rename.
+
 ## Team sidebar background banners - 2026-07-21
 
 Teams only had a square logo, so app sidebars looked the same at the top. Teams can now upload a rectangular background that renders behind the app name in every sidebar for that team's codebases.

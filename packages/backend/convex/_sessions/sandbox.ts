@@ -10,6 +10,7 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { markAllRunningExited } from "../backgroundProcesses";
+import { startNextQueuedSessionMessage } from "../_queues/helpers";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -329,6 +330,9 @@ export const sandboxReady = internalMutation({
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
     });
+    // Drain first-message (and any other) queued turns now that chat can run.
+    // Early + final ready both call this; second no-ops while activeWorkflowId is set.
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
 });

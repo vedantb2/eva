@@ -552,11 +552,16 @@ export async function persistTaskProofIfNeeded(
   }
   if (ENTITY_ID_FIELD === "taskId") {
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
+    // Sandbox chat launches with entityIdField=taskId but no RUN_ID. Without
+    // this guard every chat turn with no screenshot spam the timeline with
+    // "Eva decided not to capture." stubs. Only formal proof/coding runs
+    // (which set RUN_ID) should record a no-media proof message.
+    if (!RUN_ID) return;
     const messageArgs: JsonObject = {
       taskId: ENTITY_ID ?? "",
       message: PROOF_NO_MEDIA_MESSAGE,
+      runId: RUN_ID,
     };
-    if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",

@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox chat no longer spams "decided not to capture" proofs - 2026-07-21
+
+Task sandbox chat shares `entityIdField=taskId` with formal proof runs, and proof capture defaulted on. Every chat turn with no screenshot wrote a `taskProof` stub ("Eva decided not to capture"), flooding the activity timeline. Chat now disables proof capture; no-media stubs only record when a real run id is present.
+
 ## Inbox shows app icon + title per notification - 2026-07-21
 
 Inbox rows only showed a type icon and the notification title, so scanning which CarePulse/Eva app a ping came from meant reading each href or guessing. Each row now joins `repoId` to the app logo and display label so the source is visible at a glance.

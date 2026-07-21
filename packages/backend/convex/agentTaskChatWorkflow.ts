@@ -331,6 +331,8 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,
       streamingEntityId,
+      // Chat must not write taskProof timeline stubs ("decided not to capture").
+      taskProofCaptureEnabled: false,
       attachmentStorageIds: data.attachmentStorageIds,
     });
 

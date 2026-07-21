@@ -1591,11 +1591,12 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   }
   if (ENTITY_ID_FIELD === "taskId") {
     if (!TASK_PROOF_CAPTURE_ENABLED) return;
+    if (!RUN_ID) return;
     const messageArgs = {
       taskId: ENTITY_ID ?? "",
-      message: PROOF_NO_MEDIA_MESSAGE
+      message: PROOF_NO_MEDIA_MESSAGE,
+      runId: RUN_ID
     };
-    if (RUN_ID) messageArgs.runId = RUN_ID;
     await callConvexWithRetry(
       "mutation",
       "taskProof:saveMessage",

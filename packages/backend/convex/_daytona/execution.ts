@@ -315,11 +315,19 @@ export const runBackgroundCommands = internalAction({
     let launched = 0;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
+      const isConvexCommand = /\bconvex\b/i.test(command);
       if (args.onlyRestartDead) {
+        // `kill -0` is true for zombies (state Z). After `npx convex dev`
+        // dies, a defunct bash PID left heal permanently skipping relaunch.
         const alive = (
           await execHandle(
             sandbox,
-            `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
+            [
+              `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+              `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
+              `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
+              `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
+            ].join("; "),
             5,
           )
         ).trim();
@@ -330,6 +338,25 @@ export const runBackgroundCommands = internalAction({
           continue;
         }
       }
+      // Drop a stale pid / leftover Convex before (re)launch so a zombie or
+      // half-dead backend cannot keep :3210 / ExportInProgress wedged.
+      const cleanup = [
+        `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+        `if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; fi`,
+        `rm -f /tmp/bg-${i}.pid`,
+      ];
+      if (isConvexCommand) {
+        // Use `[c]onvex` so pkill does not match this cleanup shell's cmdline.
+        cleanup.push(
+          `pkill -TERM -f '[c]onvex-local-backend' 2>/dev/null || true`,
+          `pkill -TERM -f '[c]onvex dev' 2>/dev/null || true`,
+          `sleep 1`,
+          `pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true`,
+          `pkill -KILL -f '[c]onvex dev' 2>/dev/null || true`,
+        );
+      }
+      cleanup.push("true");
+      await execHandle(sandbox, cleanup.join("; "), 15);
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
       // Write the command to a script file and launch THAT, rather than
@@ -339,7 +366,44 @@ export const runBackgroundCommands = internalAction({
       // (the unguarded "npx convex dev" launch text) and silently never starts
       // the daemon. With a script file the cmdline is just the file path.
       // Base64 transport also makes user quoting unbreakable.
-      const cb64 = Buffer.from(command, "utf8").toString("base64");
+      //
+      // CarePulse local backends break when non-TTY `npx convex dev` auto-
+      // upgrades the binary: it snapshot-exports the whole DB (answersHistory
+      // ~325k docs), dies mid-export, then every boot fails with
+      // ExportInProgress and :3210 never returns. Also seeded images export
+      // CONVEX_AGENT_MODE=anonymous from the login profile (`env -u` before
+      // `bash -l` is useless). Before launch: unset agent mode, and align
+      // `.convex/**/config.json` backendVersion with the newest cached
+      // binary so the CLI takes the no-upgrade path.
+      const scriptBody = isConvexCommand
+        ? [
+            "unset CONVEX_AGENT_MODE",
+            "python3 - <<'PY'",
+            "import glob, json, os",
+            "caches=[]",
+            "for root in (",
+            "  os.path.expanduser('~/.cache/convex/binaries'),",
+            "  '/home/vercel-sandbox/.cache/convex/binaries',",
+            "  '/tmp/cursor-home/.cache/convex/binaries',",
+            "):",
+            "  if os.path.isdir(root):",
+            "    caches += [n for n in os.listdir(root) if n.startswith('precompiled-')]",
+            "newest=sorted(set(caches))[-1] if caches else None",
+            "if newest:",
+            "  for p in glob.glob('/tmp/repo/**/.convex/**/config.json', recursive=True):",
+            "    try:",
+            "      with open(p) as f: cfg=json.load(f)",
+            "      if cfg.get('backendVersion') == newest: continue",
+            "      cfg['backendVersion']=newest",
+            "      with open(p,'w') as f: json.dump(cfg,f)",
+            "      print(f'aligned {p} -> {newest}')",
+            "    except Exception as e:",
+            "      print(f'skip {p}: {e}')",
+            "PY",
+            command,
+          ].join("\n")
+        : command;
+      const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       // setsid + </dev/null fully detaches the daemon into its own session, so
       // it survives the exec session teardown even when the user's command
       // self-backgrounds. A trailing `&` would otherwise let bash -lc exit

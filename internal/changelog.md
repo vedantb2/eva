@@ -1,8 +1,16 @@
 # Changelog
 
+## Local Convex survives backend binary bumps - 2026-07-21
+
+CarePulse eproc sandboxes died on `:3210` after `npx convex dev` auto-upgraded the local backend in non-TTY: snapshot-export of huge tables (`answersHistory`) stuck on `ExportInProgress`, and zombie `/tmp/bg-*.pid` files made Preview heal skip relaunch. Background Convex launches now treat zombies as dead, clear leftover backends, unset `CONVEX_AGENT_MODE`, and align `.convex` `backendVersion` with the newest cached binary so the CLI skips the upgrade/export path.
+
 ## Sandbox chat no longer spams "decided not to capture" proofs - 2026-07-21
 
 Task sandbox chat shares `entityIdField=taskId` with formal proof runs, and proof capture defaulted on. Every chat turn with no screenshot wrote a `taskProof` stub ("Eva decided not to capture"), flooding the activity timeline. Chat now disables proof capture; no-media stubs only record when a real run id is present.
+
+## Project/task Start resumes background only - 2026-07-21
+
+Hitting Start on an existing project or quick-task sandbox re-ran startupCommands whenever the seed marker was missing (or seed had failed), so CarePulse eproc spent minutes re-importing instead of just bringing `npx convex dev` back. Resume Start now only relaunches background daemons; seed/import stays on first create or the explicit Retry startup action.
 
 ## Inbox shows app icon + title per notification - 2026-07-21
 

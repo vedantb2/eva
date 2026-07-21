@@ -34,10 +34,6 @@ import {
   IconCalendarDue,
   IconGitBranch,
   IconInfoCircle,
-  IconCamera,
-  IconCameraOff,
-  IconChecklist,
-  IconClipboardOff,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import {
@@ -59,10 +55,8 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
-import {
-  TriStateOverrideToggle,
-  type TriStateValue,
-} from "@/lib/components/quick-tasks/TriStateOverrideToggle";
+import { ScreenshotsToggle } from "@/lib/components/quick-tasks/ScreenshotsToggle";
+import { AuditToggle } from "@/lib/components/quick-tasks/AuditToggle";
 
 const GHOST_TRIGGER_CLASS =
   "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
@@ -338,30 +332,22 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
       </div>
 
       <div className="flex items-center h-8 shrink-0">
-        <TriStateOverrideToggle
-          label="Proof"
-          value={project.screenshotsVideosEnabled}
-          inheritedDefault={false}
-          onIcon={IconCamera}
-          offIcon={IconCameraOff}
-          onChange={(next: TriStateValue) =>
+        <ScreenshotsToggle
+          value={project.screenshotsVideosEnabled === true}
+          onChange={(next) =>
             updateProject({
               id: projectId,
-              screenshotsVideosEnabled: next ?? null,
+              screenshotsVideosEnabled: next,
             })
           }
         />
       </div>
 
       <div className="flex items-center h-8 shrink-0">
-        <TriStateOverrideToggle
-          label="Audit"
-          value={project.runAuditEnabled}
-          inheritedDefault={false}
-          onIcon={IconChecklist}
-          offIcon={IconClipboardOff}
-          onChange={(next: TriStateValue) =>
-            updateProject({ id: projectId, runAuditEnabled: next ?? null })
+        <AuditToggle
+          value={project.runAuditEnabled === true}
+          onChange={(next) =>
+            updateProject({ id: projectId, runAuditEnabled: next })
           }
         />
       </div>

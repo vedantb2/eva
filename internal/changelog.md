@@ -1,5 +1,13 @@
 # Changelog
 
+## Remove Add UI details scaffold - 2026-07-21
+
+The create/edit task “Add UI details” button and description hint pushed a Route/Control/Acceptance template that was rarely used. Removed the UI scaffold; agent-side UI-task detection from title/description keywords remains.
+
+## Proof/audit create toggles are plain switches - 2026-07-21
+
+Create-dialog and project-metadata proof/audit controls still used vestigial inherit/on/off after repo defaults went away. They are now boolean Switch controls for the task/project default.
+
 ## Task proof/audit is now a per-run choice - 2026-07-21
 
 - Proof/audit for tasks moved off the task-detail properties sidebar and onto the run itself. A task-level default (set in the create dialog, and editable via an Options control next to the task's Run button) drives runs started from a plain Run button, including the first run.

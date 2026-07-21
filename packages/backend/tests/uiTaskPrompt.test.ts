@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  isUiImplementationTask,
-  UI_TASK_DESCRIPTION_TEMPLATE,
-} from "@conductor/shared/uiTaskPrompt";
+import { isUiImplementationTask } from "@conductor/shared/uiTaskPrompt";
 import {
   buildImplementationSteps,
   buildSummarySection,
@@ -75,10 +72,11 @@ describe("ui implementation prompt sections", () => {
     expect(summary).not.toMatch(/specific control you changed/);
   });
 
-  it("adds UI proof hint when description uses the template", () => {
+  it("adds UI proof hint when description has route/control sections", () => {
     const uiTask = detectUiImplementationTask({
       title: "Minor tweak",
-      description: UI_TASK_DESCRIPTION_TEMPLATE,
+      description:
+        "## Route\n/domcare/users-may\n\n## Control\nProfile type filter",
     });
     expect(uiTask).toBe(true);
     expect(buildUiProofCaptureHint(uiTask)).toMatch(/exact control/);

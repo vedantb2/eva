@@ -1,20 +1,3 @@
-/** Markdown scaffold for UI tasks — paste into the task description so the agent knows where to look. */
-export const UI_TASK_DESCRIPTION_TEMPLATE = `## Route
-/e.g. /domcare/users-may
-
-## Control
-e.g. "Profile type" filter in the filter bar — not the Edit user modal
-
-## Acceptance
-Scrollbar always visible when the option list overflows.
-
-## Notes
-(Optional sandbox preview URL or screenshot link)
-`;
-
-export const UI_TASK_DESCRIPTION_HINT =
-  "For UI work: add Route, Control, and Acceptance (use “Add UI details” when creating the task).";
-
 const UI_TASK_SECTION_MARKERS = ["## route", "## control", "## acceptance"];
 
 const UI_TASK_KEYWORDS = [

@@ -32,10 +32,7 @@ import {
   type AIModel,
   type Id,
 } from "@conductor/backend";
-import {
-  FALLBACK_GIT_BASE_BRANCH,
-  UI_TASK_DESCRIPTION_HINT,
-} from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -60,15 +57,11 @@ import {
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
-import {
-  ScreenshotsToggle,
-  type ScreenshotsToggleValue,
-} from "./ScreenshotsToggle";
-import { AuditToggle, type AuditToggleValue } from "./AuditToggle";
+import { ScreenshotsToggle } from "./ScreenshotsToggle";
+import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
-import { insertUiTaskDescriptionTemplate } from "@/lib/components/tasks/_utils/insertUiTaskDescription";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -125,9 +118,8 @@ export function QuickTaskModal({
   const [tagSearch, setTagSearch] = useState("");
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
-    useState<ScreenshotsToggleValue>(undefined);
-  const [runAuditEnabled, setRunAuditEnabled] =
-    useState<AuditToggleValue>(undefined);
+    useState(false);
+  const [runAuditEnabled, setRunAuditEnabled] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
@@ -181,8 +173,8 @@ export function QuickTaskModal({
     setSelectedTags([]);
     setTagSearch("");
     setPriority(undefined);
-    setScreenshotsVideosEnabled(undefined);
-    setRunAuditEnabled(undefined);
+    setScreenshotsVideosEnabled(false);
+    setRunAuditEnabled(false);
   };
 
   const handleClose = async () => {
@@ -311,21 +303,12 @@ export function QuickTaskModal({
               ref={editorRef}
               value={description}
               onValueChange={setDescription}
-              placeholder={`Add description... @ for docs, / for skills. ${UI_TASK_DESCRIPTION_HINT}`}
+              placeholder="Add description... @ for docs, / for skills."
               minHeight="min-h-[160px]"
               className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
               initialMentionMap={initialDescMaps.mentionMap}
               initialSkillMap={initialDescMaps.skillMap}
             />
-            <button
-              type="button"
-              className="hit-target inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() =>
-                setDescription(insertUiTaskDescriptionTemplate(description))
-              }
-            >
-              Add UI details
-            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
@@ -339,13 +322,11 @@ export function QuickTaskModal({
 
             <ScreenshotsToggle
               value={screenshotsVideosEnabled}
-              repoDefault={effectiveProject?.screenshotsVideosEnabled ?? false}
               onChange={setScreenshotsVideosEnabled}
             />
 
             <AuditToggle
               value={runAuditEnabled}
-              inheritedDefault={effectiveProject?.runAuditEnabled ?? false}
               onChange={setRunAuditEnabled}
             />
 

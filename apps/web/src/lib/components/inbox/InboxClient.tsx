@@ -14,6 +14,7 @@ import dayjs from "@conductor/shared/dates";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { inboxFilterParser } from "@/lib/search-params";
 import {
+  getNotificationAppearance,
   NotificationIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
@@ -77,16 +78,27 @@ function NotificationSourceAvatar({
   }
 
   const label = repoDisplayLabel(repo);
+  const appearance = getNotificationAppearance(notification);
+  const TypeIcon = appearance.icon;
+
   return (
-    <RepoLogo
-      logoUrl={repo.logoUrl}
-      size={28}
-      fallback={
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">
-          {label.charAt(0).toUpperCase()}
-        </span>
-      }
-    />
+    <div className="relative size-7 shrink-0">
+      <RepoLogo
+        logoUrl={repo.logoUrl}
+        size={28}
+        fallback={
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">
+            {label.charAt(0).toUpperCase()}
+          </span>
+        }
+      />
+      <span
+        className={`absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded border border-background ${appearance.iconBg}`}
+        aria-hidden
+      >
+        <TypeIcon size={9} className={appearance.iconColor} />
+      </span>
+    </div>
   );
 }
 

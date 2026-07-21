@@ -42,6 +42,7 @@ import {
   launchDevServerInBackground,
 } from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
+import { withVercelAppListenPort } from "./vercelAppPorts";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { startDesktopWithChrome } from "./desktop";
@@ -59,7 +60,13 @@ async function launchPreviewDevServer(
   devPort: number,
 ): Promise<void> {
   if (clientKind === "vercel") {
-    await launchDevServerInVercelConsole(handle, ownerKey, devCommand, devPort);
+    // Logical UI port stays `devPort` (session.devPort / Preview bar: 3000,
+    // 3001, 5173, …). Auth proxy owns that public port; app listens on +10000.
+    const { listenPort, devCommand: command } = withVercelAppListenPort(
+      devPort,
+      devCommand,
+    );
+    await launchDevServerInVercelConsole(handle, ownerKey, command, listenPort);
     return;
   }
   await launchDevServerInBackground(handle, devCommand, devPort);

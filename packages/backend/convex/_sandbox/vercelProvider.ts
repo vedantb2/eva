@@ -40,6 +40,7 @@ import {
   vercelSnapshotCreateOptions,
 } from "./vercelSnapshotOptions";
 import { EVA_ENV_FILE } from "./vercelEnvFile";
+import { vercelExposedPortsForPublicPort } from "../_daytona/vercelAppPorts";
 
 export {
   EVA_ENV_FILE,
@@ -63,12 +64,15 @@ const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 
 /** Prefix that sources the eva env file (if present) before a command. */
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
-/** Vercel exposes at most 4 ports; default to the eva dev + proxy range if unset. */
+/** Vercel exposes at most 4 ports; default assumes Next on 3000 + Supabase API. */
 const MAX_PORTS = 4;
 const STOP_CONFIRMATION_TIMEOUT_MS = 180_000;
 const STOP_CONFIRMATION_POLL_MS = 1_000;
 export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
-  3000, 8080, 6080, 54321,
+  // 3000 = default app auth preview proxy (overridden per-repo via previewUrl)
+  3000, 8080, 6080,
+  // 54321 = local Supabase Kong (not Eva's proxy — CarePulse needs this)
+  54321,
 ];
 
 /** Maps Vercel's session status onto the neutral {@link SandboxState}. */
@@ -845,20 +849,12 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async previewUrl(port: number): Promise<PreviewUrl> {
-    if (VERCEL_DEFAULT_EXPOSED_PORTS.includes(port)) {
-      await this.sandbox.update({ ports: [...VERCEL_DEFAULT_EXPOSED_PORTS] });
-      await this.refresh();
-    }
-    try {
-      return { url: this.sandbox.domain(port), port };
-    } catch (error) {
-      if (!VERCEL_DEFAULT_EXPOSED_PORTS.includes(port)) {
-        throw error;
-      }
-      await this.sandbox.update({ ports: [...VERCEL_DEFAULT_EXPOSED_PORTS] });
-      await this.refresh();
-      return { url: this.sandbox.domain(port), port };
-    }
+    // Ensure this public port is in the fixed 4-slot expose set (app may be
+    // 3000, 3001, 5173, … — not only the create-time default).
+    const ports = vercelExposedPortsForPublicPort(port);
+    await this.sandbox.update({ ports });
+    await this.refresh();
+    return { url: this.sandbox.domain(port), port };
   }
 
   async createSnapshot(

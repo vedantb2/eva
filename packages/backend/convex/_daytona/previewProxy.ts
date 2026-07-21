@@ -10,13 +10,31 @@ import {
   PREVIEW_SESSION_COOKIE,
   PREVIEW_SESSION_TTL_SECONDS,
 } from "../previewGrantConfig";
+import {
+  VERCEL_APP_INTERNAL_PORT,
+  VERCEL_APP_PUBLIC_PORT_FALLBACK,
+  VERCEL_PREVIEW_PROXY_PORT,
+  vercelAppListenPort,
+  vercelAppPublicPort,
+  withVercelAppListenPort,
+  vercelExposedPortsForPublicPort,
+} from "./vercelAppPorts";
+
+export {
+  VERCEL_APP_INTERNAL_PORT,
+  VERCEL_APP_PUBLIC_PORT_FALLBACK,
+  VERCEL_PREVIEW_PROXY_PORT,
+  vercelAppListenPort,
+  vercelAppPublicPort,
+  withVercelAppListenPort,
+  vercelExposedPortsForPublicPort,
+};
 
 // Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
 // navigation proxy must listen inside that range.
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
-export const VERCEL_PREVIEW_PROXY_PORT = 54321;
 /** noVNC/websockify listens here; auth proxy owns exposed 6080. */
 export const VERCEL_DESKTOP_INTERNAL_PORT = 16080;
 /** code-server listens here; auth proxy owns exposed 8080. */
@@ -25,7 +43,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v10";
+const SCRIPT_VERSION = "auth-v11";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -296,8 +314,20 @@ const STATIC_ASSET_RE =
 
 // Returns true if the request is authorized and may proceed. Returns false when
 // it has already written a response (cookie-set redirect, login redirect, 401).
+function isLoopbackRequest(req) {
+  const addr = req.socket && req.socket.remoteAddress;
+  return (
+    addr === "127.0.0.1" ||
+    addr === "::1" ||
+    addr === "::ffff:127.0.0.1"
+  );
+}
+
 function authorize(clientReq, clientRes) {
   if (!GATE_ENABLED) return true;
+  // In-sandbox clients (Inngest, BASE_APP_URL, agent-browser) hit the proxy on
+  // exposed 3000 via localhost — must not require a preview grant.
+  if (isLoopbackRequest(clientReq)) return true;
 
   let parsed = null;
   try {
@@ -694,7 +724,7 @@ server.on("upgrade", function handleUpgrade(req, socket, head) {
   // missing on the upgrade request, which left noVNC stuck on "Loading".
   // Accept either a valid session cookie OR a grant on the upgrade URL
   // (DesktopPanel forwards __eva_grant via noVNC's path query param).
-  if (GATE_ENABLED) {
+  if (GATE_ENABLED && !isLoopbackRequest(req)) {
     const cookies = parseCookies(req.headers["cookie"]);
     const session = cookies[SESSION_COOKIE];
     let authorized = Boolean(session && verifySession(session));

@@ -1,5 +1,9 @@
 # Changelog
 
+## Vercel app preview proxy moves off Supabase port 54321 - 2026-07-21
+
+Vercel app/dev preview used exposed 54321 as the auth proxy in front of Next/Vite. CarePulse (and any repo with local Supabase) already binds Kong there, so the public `*.vercel.run` preview URL returned Kong's `no Route matched` JSON while Next was fine on 3000. App preview now matches desktop/editor: the auth proxy owns the **app's configured port** (3000, 3001, 5173, …), the app listens on port+10000, and 54321 stays free for Supabase. Loopback requests through the proxy skip the grant gate so Inngest/`BASE_APP_URL` on localhost still work.
+
 ## React Compiler enabled on web; drop ceremonial memoization - 2026-07-21
 
 apps/web now runs React Compiler via `@vitejs/plugin-react` + `@rolldown/plugin-babel`. Manual `useMemo`/`useCallback` were stripped where the compiler owns memoization (~300 → ~9 kept for SortableContext/TerminalPanel/ref/iframe identity). Agents should not add those hooks by default.

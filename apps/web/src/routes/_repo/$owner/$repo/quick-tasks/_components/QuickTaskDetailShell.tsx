@@ -6,6 +6,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
@@ -66,9 +67,14 @@ export function QuickTaskDetailShell({
               />
             </div>
             {selectedTask?.numId !== undefined ? (
-              <span className="min-w-0 truncate font-semibold font-mono tabular-nums text-muted-foreground">
+              <span className="shrink-0 font-semibold font-mono tabular-nums text-muted-foreground">
                 #{selectedTask.numId}
               </span>
+            ) : null}
+            {navSurface === "sandbox" && selectedTask?.title ? (
+              <MarqueeOnHover className="min-w-0 font-semibold">
+                {selectedTask.title}
+              </MarqueeOnHover>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
               <EntityContextUsage repoId={repo._id} entityId={taskId} />

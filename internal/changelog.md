@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick-task sandbox breadcrumb shows title - 2026-07-21
+
+Sandbox view only showed `#{numId}`, which was hard to identify. The truncated task title now follows the number in the breadcrumb.
+
 ## Projects and quick tasks use Review path tabs - 2026-07-21
 
 Projects/quick-tasks still drove Diffs/Recap and unified/split via `?prTab=` / `?diffView=`. They now match sessions with `/sandbox/review/diffs/…` and `/sandbox/review/recap`; old query URLs redirect.

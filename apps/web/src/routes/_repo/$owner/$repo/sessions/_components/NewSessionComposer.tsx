@@ -74,30 +74,27 @@ export function NewSessionComposer() {
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
       <div className="flex w-full max-w-3xl flex-col gap-6">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex min-w-0 items-center gap-3">
-            <RepoLogo
-              logoUrl={logoUrl}
-              size={40}
-              fallback={
-                <IconBrandGithub
-                  size={40}
-                  className="shrink-0 text-muted-foreground"
-                />
-              }
-            />
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
-              {repoDisplayLabel(repo)}
-            </h1>
-          </div>
-          <div className="space-y-1.5">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
-              What are we building?
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Describe the task — Eva will start a session and title it for you.
-            </p>
-          </div>
+        <div className="space-y-1.5 text-center">
+          <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            <span>What are we building for</span>
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-primary">
+              <RepoLogo
+                logoUrl={logoUrl}
+                size={28}
+                fallback={
+                  <IconBrandGithub
+                    size={28}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                }
+              />
+              <span className="truncate">{repoDisplayLabel(repo)}</span>
+            </span>
+            <span>?</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Describe the task — Eva will start a session and title it for you.
+          </p>
         </div>
         <ChatComposer
           repoId={repo._id}

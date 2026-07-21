@@ -4074,7 +4074,7 @@ function callbackScriptWentStaleOnDisk() {
   }
 }
 function attachmentExtensionForMimeType(mimeType) {
-  const type = mimeType.split(";")[0]?.trim() ?? "";
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   switch (type) {
     case "image/jpeg":
       return ".jpg";
@@ -4084,8 +4084,17 @@ function attachmentExtensionForMimeType(mimeType) {
       return ".webp";
     case "image/svg+xml":
       return ".svg";
-    default:
+    case "image/png":
       return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      if (type.startsWith("image/")) return ".png";
+      return ".bin";
   }
 }
 async function materializeTurnAttachments(turn) {
@@ -4118,7 +4127,7 @@ async function materializeTurnAttachments(turn) {
   turn.prompt += \`
 
 ---
-The user attached the following image file(s). View them with your file-reading tool before responding:
+The user attached the following file(s). Read them with your file-reading tool before responding:
 \${list}\`;
 }
 async function waitForNextTurn() {

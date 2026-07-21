@@ -10,6 +10,7 @@ import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -124,6 +125,8 @@ interface ChatBodyProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
+  /** Session coding chat can attach HTML/MD/TXT; default images-only. */
+  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatBody({
@@ -163,6 +166,7 @@ export function ChatBody({
   onOpenFile,
   onViewDiff,
   hasPendingContext,
+  attachmentMode = "images",
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
@@ -319,6 +323,7 @@ export function ChatBody({
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
+          attachmentMode={attachmentMode}
         />
       )}
     </>

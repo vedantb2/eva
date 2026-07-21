@@ -1,5 +1,9 @@
 # Changelog
 
+## Session chat can attach HTML/MD/TXT design files - 2026-07-21
+
+Session coding chat now accepts HTML (and Markdown/plain text) attachments alongside images. Files land in the sandbox as `/tmp/eva-attachment-*` with the same prompt note pattern as images, so Claude Design HTML exports can drive implementation without paste-only workarounds. Project sandbox chat stays images-only.
+
 ## Project/task sandboxes run background before startup - 2026-07-21
 
 Task and project preview sandboxes used to run startup commands before background processes. Repos like carepulse eproc wait in startup for `npx convex dev` (background) to log “Convex functions ready” before importing data — so import never succeeded and the frontend came up with a dead backend. Order now matches sessions: background → startup → Preview Console. Contract test locks the order across session/task/project + prepareSandboxSteps.

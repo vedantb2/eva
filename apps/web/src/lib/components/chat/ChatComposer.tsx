@@ -15,11 +15,13 @@ import {
   type ModelAccount,
 } from "@conductor/ui";
 import {
-  MAX_IMAGE_ATTACHMENTS,
-  MAX_IMAGE_ATTACHMENT_BYTES,
-  imageAttachmentErrorMessage,
-  useUploadImageAttachments,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_ATTACHMENT_BYTES,
+  chatAttachmentAccept,
+  chatAttachmentErrorMessage,
+  useUploadChatAttachments,
   ChatAttachmentPreview,
+  type ChatAttachmentMode,
 } from "@/lib/components/chat/imageAttachments";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
@@ -83,6 +85,8 @@ interface ChatComposerProps {
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
+  /** Session coding chat can attach HTML/MD/TXT; others stay images-only. */
+  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatComposer({
@@ -111,24 +115,22 @@ export function ChatComposer({
   draft,
   isDraftLoading,
   hasPendingContext = false,
+  attachmentMode = "images",
 }: ChatComposerProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
-  const uploadImageAttachments = useUploadImageAttachments();
+  const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
 
   const handleSubmit = useCallback(
     async (text: string, files: PromptInputMessage["files"]) => {
       const visible = text.trim();
-      const imageCount = files.filter((file) =>
-        file.mediaType?.startsWith("image/"),
-      ).length;
-      const attachmentStorageIds = await uploadImageAttachments(files);
-      if (attachmentStorageIds.length < imageCount) {
-        toast.error("Some images could not be uploaded.");
+      const attachmentStorageIds = await uploadChatAttachments(files);
+      if (files.length > 0 && attachmentStorageIds.length < files.length) {
+        toast.error("Some attachments could not be uploaded.");
       }
       if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
         return;
@@ -139,7 +141,7 @@ export function ChatComposer({
         attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
       );
     },
-    [onSend, uploadImageAttachments, hasPendingContext],
+    [onSend, uploadChatAttachments, hasPendingContext],
   );
 
   const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
@@ -232,11 +234,13 @@ export function ChatComposer({
             )}
             <PromptInput
               onSubmit={handlePromptSubmit}
-              accept="image/*"
+              accept={chatAttachmentAccept(attachmentMode)}
               multiple
-              maxFiles={MAX_IMAGE_ATTACHMENTS}
-              maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
-              onError={(err) => toast.error(imageAttachmentErrorMessage(err))}
+              maxFiles={MAX_CHAT_ATTACHMENTS}
+              maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
+              onError={(err) =>
+                toast.error(chatAttachmentErrorMessage(attachmentMode, err))
+              }
             >
               <ChatAttachmentPreview />
               <MentionTextarea

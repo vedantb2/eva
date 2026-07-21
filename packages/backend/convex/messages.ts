@@ -13,9 +13,18 @@ const messageValidator = v.object({
   ...messageFields,
   imageUrl: v.optional(v.union(v.string(), v.null())),
   videoUrl: v.optional(v.union(v.string(), v.null())),
-  // Resolved URLs for user-attached input images, in the same order as
+  // Resolved URLs for user-attached input files, in the same order as
   // attachmentStorageIds. Entries that fail to resolve are null.
   attachmentUrls: v.optional(v.array(v.union(v.string(), v.null()))),
+  // Parallel metadata for rendering (image thumb vs file chip).
+  attachments: v.optional(
+    v.array(
+      v.object({
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  ),
 });
 
 /** Temporary upload URL for a composer image attachment (client POSTs the file, then sends the message). */
@@ -35,20 +44,35 @@ async function resolveMessageUrls(
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .collect();
   return Promise.all(
-    messages.map(async (m) => ({
-      ...m,
-      imageUrl: m.imageStorageId
-        ? await ctx.storage.getUrl(m.imageStorageId)
-        : undefined,
-      videoUrl: m.videoStorageId
-        ? await ctx.storage.getUrl(m.videoStorageId)
-        : undefined,
-      attachmentUrls: m.attachmentStorageIds
+    messages.map(async (m) => {
+      const attachmentEntries = m.attachmentStorageIds
         ? await Promise.all(
-            m.attachmentStorageIds.map((id) => ctx.storage.getUrl(id)),
+            m.attachmentStorageIds.map(async (id) => {
+              const [url, meta] = await Promise.all([
+                ctx.storage.getUrl(id),
+                ctx.storage.getMetadata(id),
+              ]);
+              return {
+                url,
+                contentType: meta?.contentType ?? null,
+              };
+            }),
           )
-        : undefined,
-    })),
+        : undefined;
+      return {
+        ...m,
+        imageUrl: m.imageStorageId
+          ? await ctx.storage.getUrl(m.imageStorageId)
+          : undefined,
+        videoUrl: m.videoStorageId
+          ? await ctx.storage.getUrl(m.videoStorageId)
+          : undefined,
+        attachmentUrls: attachmentEntries
+          ? attachmentEntries.map((entry) => entry.url)
+          : undefined,
+        attachments: attachmentEntries,
+      };
+    }),
   );
 }
 

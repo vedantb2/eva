@@ -19,7 +19,7 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import { UserAttachmentImages } from "@/lib/components/chat/imageAttachments";
+import { UserMessageAttachments } from "@/lib/components/chat/imageAttachments";
 import { ChangedFilesCard } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
@@ -193,7 +193,15 @@ export const ChatMessage = memo(function ChatMessage({
                 </>
               ) : (
                 <>
-                  <UserAttachmentImages urls={message.attachmentUrls} />
+                  <UserMessageAttachments
+                    attachments={
+                      message.attachments ??
+                      message.attachmentUrls?.map((url) => ({
+                        url,
+                        contentType: url ? "image/*" : null,
+                      }))
+                    }
+                  />
                   {message.content ? (
                     <CollapsibleUserMessageBody text={message.content}>
                       <ReviewCommentMessage

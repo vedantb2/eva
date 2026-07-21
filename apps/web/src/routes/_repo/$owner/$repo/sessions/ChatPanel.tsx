@@ -307,7 +307,7 @@ export function ChatPanel({
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
       ? "Describe the product requirements... / for skills · @ for docs"
-      : "Ask Eva anything... / for skills · @ for docs";
+      : "Ask Eva anything... / for skills · @ for docs · attach images or HTML";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
@@ -361,6 +361,7 @@ export function ChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        attachmentMode="sessionFiles"
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
       />

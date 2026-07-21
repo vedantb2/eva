@@ -11,7 +11,12 @@ import { z } from "zod";
 export type ChatBodyMessage = Doc<"messages"> & {
   imageUrl?: string | null;
   videoUrl?: string | null;
+  /** @deprecated Prefer `attachments` — kept for optimistic/local messages. */
   attachmentUrls?: (string | null)[];
+  attachments?: {
+    url: string | null;
+    contentType: string | null;
+  }[];
 };
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;

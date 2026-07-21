@@ -65,6 +65,7 @@ export function useSessionSend({
         videoUrl: undefined,
         attachmentStorageIds: args.attachmentStorageIds,
         attachmentUrls: undefined,
+        attachments: undefined,
         credentialSourceLabel: resolveCredentialSourceLabel(
           args.providerAccountId,
           accounts,
@@ -82,6 +83,7 @@ export function useSessionSend({
         imageUrl: undefined,
         videoUrl: undefined,
         attachmentUrls: undefined,
+        attachments: undefined,
       };
       localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
         ...existing,

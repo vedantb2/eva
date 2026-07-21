@@ -659,7 +659,7 @@ function callbackScriptWentStaleOnDisk(): boolean {
  */
 /** Mirrors attachmentExtensionForMimeType in convex/_daytona/attachments.ts. */
 function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim() ?? "";
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   switch (type) {
     case "image/jpeg":
       return ".jpg";
@@ -669,17 +669,27 @@ function attachmentExtensionForMimeType(mimeType: string): string {
       return ".webp";
     case "image/svg+xml":
       return ".svg";
-    default:
+    case "image/png":
       return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      if (type.startsWith("image/")) return ".png";
+      return ".bin";
   }
 }
 
 /**
- * Downloads this turn's input images into the sandbox filesystem and appends a
- * note pointing the agent at them, so a claimed turn's prompt references files
- * that already exist on disk (no race — the daemon owns ordering). Uses the same
- * flat `/tmp/eva-attachment-<n>.<ext>` scheme + note text as the CLI launch path
- * (convex/_daytona/attachments.ts). Failed downloads are skipped.
+ * Downloads this turn's input attachments into the sandbox filesystem and
+ * appends a note pointing the agent at them, so a claimed turn's prompt
+ * references files that already exist on disk (no race — the daemon owns
+ * ordering). Uses the same flat `/tmp/eva-attachment-<n>.<ext>` scheme + note
+ * text as the CLI launch path (convex/_daytona/attachments.ts). Failed
+ * downloads are skipped.
  */
 async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
   if (turn.attachmentUrls.length === 0) return;
@@ -710,7 +720,7 @@ async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
   }
   if (paths.length === 0) return;
   const list = paths.map((p) => `- ${p}`).join("\n");
-  turn.prompt += `\n\n---\nThe user attached the following image file(s). View them with your file-reading tool before responding:\n${list}`;
+  turn.prompt += `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
 }
 
 async function waitForNextTurn(): Promise<ClaimedTurn | null> {

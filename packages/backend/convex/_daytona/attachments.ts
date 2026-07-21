@@ -3,9 +3,9 @@ import type { Id } from "../_generated/dataModel";
 import type { SandboxHandle } from "../_sandbox/provider";
 
 /**
- * Delivering user-attached input images to the agent.
+ * Delivering user-attached input files to the agent.
  *
- * The composer uploads pasted/dropped images to Convex file storage. At launch
+ * The composer uploads pasted/dropped files to Convex file storage. At launch
  * we download the bytes and write them into the sandbox filesystem as flat
  * `/tmp/eva-attachment-<n>.<ext>` files (flat avoids any per-provider mkdir
  * behaviour), then append a note to the prompt pointing the agent at them. The
@@ -16,9 +16,10 @@ import type { SandboxHandle } from "../_sandbox/provider";
  * `callback-src`, which is a separate bundle and cannot import this module).
  */
 
-/** Maps an image mime type to a file extension. Defaults to `.png` (pasted screenshots). */
+/** Maps a mime type to a file extension. Defaults to `.bin` for unknown types. */
 export function attachmentExtensionForMimeType(mimeType: string): string {
-  switch (mimeType) {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
     case "image/jpeg":
       return ".jpg";
     case "image/gif":
@@ -27,8 +28,18 @@ export function attachmentExtensionForMimeType(mimeType: string): string {
       return ".webp";
     case "image/svg+xml":
       return ".svg";
-    default:
+    case "image/png":
       return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      // Pasted screenshots historically arrived without a reliable type.
+      if (type.startsWith("image/")) return ".png";
+      return ".bin";
   }
 }
 
@@ -40,11 +51,11 @@ export function attachmentSandboxPath(
   return `/tmp/eva-attachment-${index}${extension}`;
 }
 
-/** The prompt suffix that tells the agent where the attached images live. */
+/** The prompt suffix that tells the agent where the attached files live. */
 export function buildAttachmentPromptNote(paths: readonly string[]): string {
   if (paths.length === 0) return "";
   const list = paths.map((p) => `- ${p}`).join("\n");
-  return `\n\n---\nThe user attached the following image file(s). View them with your file-reading tool before responding:\n${list}`;
+  return `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
 }
 
 /**

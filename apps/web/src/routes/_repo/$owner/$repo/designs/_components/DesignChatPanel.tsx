@@ -36,7 +36,7 @@ import {
   imageAttachmentErrorMessage,
   useUploadImageAttachments,
   ChatAttachmentPreview,
-  UserAttachmentImages,
+  UserMessageAttachments,
 } from "@/lib/components/chat/imageAttachments";
 import {
   IconPlayerPlay,
@@ -402,8 +402,14 @@ export function DesignChatPanel({
                               </>
                             ) : (
                               <>
-                                <UserAttachmentImages
-                                  urls={message.attachmentUrls}
+                                <UserMessageAttachments
+                                  attachments={
+                                    message.attachments ??
+                                    message.attachmentUrls?.map((url) => ({
+                                      url,
+                                      contentType: url ? "image/*" : null,
+                                    }))
+                                  }
                                 />
                                 {message.content ? (
                                   <MessageMentionText

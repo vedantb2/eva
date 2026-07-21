@@ -10,6 +10,7 @@ import {
   deriveProjectPhaseFromPrEvent,
   isProjectReviewPhase,
 } from "./_projects/prSync";
+import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -289,6 +290,7 @@ export const handlePrRecapEvent = internalMutation({
     headSha: v.string(),
     draft: v.optional(v.boolean()),
     authorLogin: v.optional(v.string()),
+    branchName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -319,6 +321,12 @@ export const handlePrRecapEvent = internalMutation({
       siblings.find((repo) => repo.rootDirectory === undefined) ??
       connectedRepo;
 
+    const evaOwned = await isEvaOwnedPullRequest(
+      ctx,
+      args.prUrl,
+      args.branchName,
+    );
+
     await ctx.runMutation(internal.docs.startPrRecap, {
       repoId: workflowRepo._id,
       userId: connectedRepo.connectedBy,
@@ -329,6 +337,7 @@ export const handlePrRecapEvent = internalMutation({
       prNumber: args.prNumber,
       prTitle: args.prTitle,
       headSha: args.headSha,
+      ...(evaOwned ? { prRecapOrigin: "eva" } : {}),
     });
 
     return null;

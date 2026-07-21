@@ -1,5 +1,9 @@
 # Changelog
 
+## Docs Reviews hides Eva-created PR recaps - 2026-07-21
+
+Eva session/project/quick-task PR recaps were listed under docs Reviews because webhook refreshes never set `prRecapOrigin`. Those stay on the sandbox Review tab; the docs list is for external PRs only.
+
 ## Docs Reviews filter and recap tab labels - 2026-07-21
 
 Docs sidebar “PR recaps” is now Reviews (`?docFilter=reviews`); recap docs use Recap/Summary tabs at `/recap` and `/summary` instead of Walkthrough/Markdown on `/html`/`/content`.

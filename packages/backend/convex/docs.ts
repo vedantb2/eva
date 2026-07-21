@@ -31,6 +31,7 @@ import {
   hasCodebaseRepoAccess,
   resolveCodebaseDocsRepoId,
 } from "./_githubRepos/helpers";
+import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
 
 const docValidator = v.object({
   _id: v.id("docs"),
@@ -638,6 +639,11 @@ export const startPrRecap = internalMutation({
         ? "_Revising recap from feedback…_"
         : "_Generating recap…_");
 
+    // Explicit origin wins; otherwise tag Eva-managed PRs so docs Reviews hides them.
+    const prRecapOrigin =
+      args.prRecapOrigin ??
+      ((await isEvaOwnedPullRequest(ctx, args.prUrl)) ? "eva" : undefined);
+
     const docId: Id<"docs"> = await upsertPrRecapDocImpl(ctx, {
       repoId: docsRepoId,
       prUrl: args.prUrl,
@@ -646,9 +652,7 @@ export const startPrRecap = internalMutation({
       headSha: args.headSha,
       content: placeholder,
       prRecapStatus: "pending",
-      ...(args.prRecapOrigin !== undefined
-        ? { prRecapOrigin: args.prRecapOrigin }
-        : {}),
+      ...(prRecapOrigin !== undefined ? { prRecapOrigin } : {}),
     });
 
     const workflowId = await workflow.start(

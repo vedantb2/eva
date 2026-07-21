@@ -490,6 +490,7 @@ http.route({
                 headSha,
                 draft: draft ?? undefined,
                 authorLogin: authorLogin ?? undefined,
+                branchName: branchName ?? undefined,
               },
             );
           }

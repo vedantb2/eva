@@ -37,6 +37,7 @@ import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   detectPackageManager,
   launchDevServerInBackground,
+  isDevServerBooting,
   restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox,
 } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
@@ -58,15 +59,35 @@ async function resolveDevCommandForPreview(
   return `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${pm} run dev`;
 }
 
+/** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
+function portListenProbeCmd(port: number): string {
+  const hex = port.toString(16).toUpperCase().padStart(4, "0");
+  return [
+    `if command -v ss >/dev/null 2>&1; then ss -ltn 2>/dev/null | grep -q ":${port} " && echo yes && exit 0; fi`,
+    `if command -v lsof >/dev/null 2>&1; then lsof -iTCP:${port} -sTCP:LISTEN >/dev/null 2>&1 && echo yes && exit 0; fi`,
+    // /proc/net/tcp{,6} local_address port is hex, big-endian (13000 → 32C8).
+    `if grep -Eiq ":${hex}[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null; then echo yes; exit 0; fi`,
+    "echo no",
+  ].join("; ");
+}
+
 async function probePreviewReady(
   handle: SandboxHandle,
   port: number,
 ): Promise<boolean> {
   try {
+    // Prefer a listen check: Next/Vite often bind before the first route
+    // finishes compiling. A short HTTP curl times out mid-compile and used to
+    // trigger remount → kill → relaunch loops (session 41 / CarePulse web).
+    const listening = (
+      await execHandle(handle, portListenProbeCmd(port), 5)
+    ).trim();
+    if (listening === "yes") return true;
+
     const result = await execHandle(
       handle,
-      `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${port}`,
-      3,
+      `curl -s -o /dev/null -w "%{http_code}" --max-time 2 http://127.0.0.1:${port}`,
+      5,
     );
     const code = parseInt(result.trim() || "0", 10);
     return code >= 200 && code < 500;
@@ -570,34 +591,46 @@ export const getPreviewUrl = action({
         // (13001). Free the public port for the auth proxy and relaunch on
         // the remapped listen port so polling can recover without a full
         // sandbox recycle.
+        //
+        // Never fuser-kill while a launch is still booting: Preview polls
+        // faster than CarePulse Next's first-route compile, and
+        // launchDevServerInBackground then no-ops on its 20s cooldown —
+        // leaving Console empty ("exited while compiling") with nothing on
+        // :13000.
         try {
           const listenPort = vercelAppListenPort(args.port);
-          const baseCommand = await resolveDevCommandForPreview(
-            handle,
-            repo,
-            args.port,
-          );
-          const remapped = withVercelAppListenPort(args.port, baseCommand);
-          await execHandle(
-            handle,
-            [
-              "if command -v fuser >/dev/null 2>&1; then",
-              `  fuser -k ${args.port}/tcp >/dev/null 2>&1 || true`,
-              `  fuser -k ${listenPort}/tcp >/dev/null 2>&1 || true`,
-              "elif command -v lsof >/dev/null 2>&1; then",
-              `  for p in $(lsof -ti :${args.port} -ti :${listenPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
-              "fi",
-            ].join("\n"),
-            15,
-            "/",
-          );
-          await launchDevServerInBackground(
-            handle,
-            remapped.devCommand,
-            remapped.listenPort,
-          );
-          await sleep(10);
-          ready = await probePreviewReady(handle, remapped.listenPort);
+          if (await isDevServerBooting(handle, listenPort)) {
+            console.log(
+              `[daytona] vercel preview remount skipped (booting) sandbox=${args.sandboxId} listen=${listenPort}`,
+            );
+          } else {
+            const baseCommand = await resolveDevCommandForPreview(
+              handle,
+              repo,
+              args.port,
+            );
+            const remapped = withVercelAppListenPort(args.port, baseCommand);
+            await execHandle(
+              handle,
+              [
+                "if command -v fuser >/dev/null 2>&1; then",
+                `  fuser -k ${args.port}/tcp >/dev/null 2>&1 || true`,
+                `  fuser -k ${listenPort}/tcp >/dev/null 2>&1 || true`,
+                "elif command -v lsof >/dev/null 2>&1; then",
+                `  for p in $(lsof -ti :${args.port} -ti :${listenPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
+                "fi",
+              ].join("\n"),
+              15,
+              "/",
+            );
+            await launchDevServerInBackground(
+              handle,
+              remapped.devCommand,
+              remapped.listenPort,
+            );
+            await sleep(10);
+            ready = await probePreviewReady(handle, remapped.listenPort);
+          }
         } catch (e) {
           console.warn(
             `[daytona] vercel preview listen remount failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "remount failed")}`,
@@ -609,14 +642,20 @@ export const getPreviewUrl = action({
         credentials.kind !== "vercel"
       ) {
         try {
-          const devCommand = await resolveDevCommandForPreview(
-            handle,
-            repo,
-            args.port,
-          );
-          await launchDevServerInBackground(handle, devCommand, args.port);
-          await sleep(8);
-          ready = await probePreviewReady(handle, args.port);
+          if (await isDevServerBooting(handle, args.port)) {
+            console.log(
+              `[daytona] preview restart skipped (booting) sandbox=${args.sandboxId} port=${args.port}`,
+            );
+          } else {
+            const devCommand = await resolveDevCommandForPreview(
+              handle,
+              repo,
+              args.port,
+            );
+            await launchDevServerInBackground(handle, devCommand, args.port);
+            await sleep(8);
+            ready = await probePreviewReady(handle, args.port);
+          }
         } catch (e) {
           console.warn(
             `[daytona] preview dev server restart failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "restart failed")}`,

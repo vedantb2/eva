@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview remount no longer kills Next mid-compile - 2026-07-21
+
+Session preview polls treated a slow first-route compile as "not ready", then `fuser`-killed `:13000` and relaunched — while `launchDevServerInBackground`'s 20s cooldown often no-op'd, so Console showed Ready → Compiling `/` → exit forever. Ready now means the port is listening (`/proc/net/tcp` when `ss` is missing), and remount skips while a boot/lock/grace window is active.
+
 ## Local Convex survives backend binary bumps - 2026-07-21
 
 CarePulse eproc sandboxes died on `:3210` after `npx convex dev` auto-upgraded the local backend in non-TTY: snapshot-export of huge tables (`answersHistory`) stuck on `ExportInProgress`, and zombie `/tmp/bg-*.pid` files made Preview heal skip relaunch. Background Convex launches now treat zombies as dead, clear leftover backends, unset `CONVEX_AGENT_MODE`, and align `.convex` `backendVersion` with the newest cached binary so the CLI skips the upgrade/export path.

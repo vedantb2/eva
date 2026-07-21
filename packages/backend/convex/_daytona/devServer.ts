@@ -215,6 +215,44 @@ const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 const DEVSERVER_LOCK = "/tmp/eva-devserver.lock";
 const DEVSERVER_LAST_LAUNCH = "/tmp/eva-devserver-last-launch";
 const DEVSERVER_RELAUNCH_COOLDOWN_SECONDS = 20;
+/** Preview remount must wait out first-route compile (CarePulse web can exceed 20s). */
+const DEVSERVER_BOOT_GRACE_SECONDS = 120;
+
+/**
+ * True when a background/console app server is still starting for `port`.
+ * Preview polls every few seconds; HTTP can fail while Next is compiling `/`
+ * even though the process is alive — remount must not kill that process.
+ */
+export async function isDevServerBooting(
+  sandbox: SandboxHandle,
+  port: number,
+): Promise<boolean> {
+  const state = (
+    await execHandle(
+      sandbox,
+      [
+        `LOCK=${DEVSERVER_LOCK}`,
+        `LAST=${DEVSERVER_LAST_LAUNCH}`,
+        'pid=$(cat "$LOCK" 2>/dev/null || true)',
+        'if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo booting; exit 0; fi',
+        // Already bound (first-route compile can still make HTTP curl fail).
+        // Vercel images often lack `ss`; /proc/net/tcp port is hex (13000→32C8).
+        `hex=$(printf '%04X' ${port})`,
+        `if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ":${port} "; then echo booting; exit 0; fi`,
+        `if grep -Eiq ":$hex[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null; then echo booting; exit 0; fi`,
+        // Console-launched next/vite may not hold the lock.
+        `if pgrep -f "[n]ext dev|[v]ite|[p]npm turbo|[p]npm --filter" >/dev/null 2>&1; then echo booting; exit 0; fi`,
+        "now=$(date +%s)",
+        'last=$(cat "$LAST" 2>/dev/null || echo 0)',
+        `if [ "$last" != "0" ] && [ $((now - last)) -lt ${DEVSERVER_BOOT_GRACE_SECONDS} ]; then echo booting; exit 0; fi`,
+        "echo idle",
+      ].join("; "),
+      10,
+      "/",
+    )
+  ).trim();
+  return state === "booting";
+}
 
 /** Starts the dev server detached so preview can load without an open terminal tab. */
 export async function launchDevServerInBackground(

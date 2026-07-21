@@ -32,11 +32,14 @@ export async function launchDevServerInVercelConsole(
     { cwd: "/", timeoutSeconds: 120 },
   );
 
+  const portHex = port.toString(16).toUpperCase().padStart(4, "0");
   const portBusy = (
     await handle.exec(
       [
         `if command -v ss >/dev/null 2>&1; then ss -ltn 2>/dev/null | grep -q ":${port} " && echo busy && exit 0; fi`,
         `if command -v lsof >/dev/null 2>&1; then lsof -iTCP:${port} -sTCP:LISTEN >/dev/null 2>&1 && echo busy && exit 0; fi`,
+        // Vercel images often lack ss; /proc/net/tcp port is hex (13000→32C8).
+        `if grep -Eiq ":${portHex}[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null; then echo busy; exit 0; fi`,
         "echo free",
       ].join("; "),
       { cwd: "/", timeoutSeconds: 10 },

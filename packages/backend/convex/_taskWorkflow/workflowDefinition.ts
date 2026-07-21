@@ -72,6 +72,7 @@ export const taskExecutionWorkflow = workflow.define({
       const data = await step.runQuery(internal.taskWorkflow.getTaskData, {
         taskId: args.taskId,
         repoId: args.repoId,
+        runId: args.runId,
         projectId: args.projectId,
         branchName: args.branchName,
         mode: args.mode,

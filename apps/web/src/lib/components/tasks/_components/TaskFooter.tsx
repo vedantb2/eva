@@ -31,6 +31,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { TaskRunOptionsMenu } from "./TaskRunOptionsMenu";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -167,6 +168,9 @@ export function TaskFooter({
             onStartExecution={onStartExecution}
             size={buttonSize}
           />
+        )}
+        {showRunButton && (
+          <TaskRunOptionsMenu taskId={taskId} size={buttonSize} />
         )}
         {showRunButton && hasSecondaryContent && (
           <div className="h-6 w-px bg-muted-foreground/20" />

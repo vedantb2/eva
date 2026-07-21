@@ -1,5 +1,12 @@
 # Changelog
 
+## Task proof/audit is now a per-run choice - 2026-07-21
+
+- Proof/audit for tasks moved off the task-detail properties sidebar and onto the run itself. A task-level default (set in the create dialog, and editable via an Options control next to the task's Run button) drives runs started from a plain Run button, including the first run.
+- Requesting changes now has its own Capture proof / Run audit options in the comment composer, applying to that run only and defaulting to off — so a change request never silently repeats a proof or audit pass unless you ask for it.
+- Under the hood the effective choice is recorded on the run: a per-run override wins, otherwise the run falls back to the task, then project, default. Removed the task-detail proof/audit selects.
+- Reason for change: proof/audit read better as "what this run should do" than as static task properties, and re-runs were carrying the steps forward when users did not want them to.
+
 ## Proof/audit off by default, plus sandbox-chat toggles - 2026-07-21
 
 - Removed the repo-level "Screenshots and Videos" default: proof and audit are now off by default everywhere and opt-in per area (task, project, session, sandbox chat). Project tasks no longer auto-audit unless enabled on the project or task. Resolution is task, then project, else off.

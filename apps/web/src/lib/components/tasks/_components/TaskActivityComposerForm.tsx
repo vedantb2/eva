@@ -2,7 +2,18 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { Tooltip, TooltipTrigger, TooltipContent, cn } from "@conductor/ui";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  cn,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+} from "@conductor/ui";
+import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -53,6 +64,11 @@ export function TaskActivityComposerForm({
 
   const [commentText, setCommentText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Per-run proof/audit choice for this change request. Transient (default off,
+  // reset after submit) so a change request never repeats these steps unless
+  // explicitly asked for this run.
+  const [captureProof, setCaptureProof] = useState(false);
+  const [runAudit, setRunAudit] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
@@ -121,8 +137,15 @@ export function TaskActivityComposerForm({
       if (isProjectTask) {
         await updateStatus({ id: taskId, status: "todo" });
       } else {
-        await startExecution({ id: taskId, triggeringCommentId: commentId });
+        await startExecution({
+          id: taskId,
+          triggeringCommentId: commentId,
+          screenshotsVideosEnabled: captureProof,
+          runAuditEnabled: runAudit,
+        });
       }
+      setCaptureProof(false);
+      setRunAudit(false);
       onRequestChangesSubmitted();
     } catch (err) {
       const message =
@@ -192,48 +215,87 @@ export function TaskActivityComposerForm({
           />
         )}
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={effectiveRequestingChanges}
-                  aria-label="Make changes"
-                  disabled={!canRequestChanges}
-                  onClick={() => {
-                    setRequestingChanges(!requestingChanges);
-                    clearExecutionError();
-                  }}
-                  className={cn(
-                    "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                    !canRequestChanges && "cursor-not-allowed opacity-50",
-                  )}
-                >
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={effectiveRequestingChanges}
+                    aria-label="Make changes"
+                    disabled={!canRequestChanges}
+                    onClick={() => {
+                      setRequestingChanges(!requestingChanges);
+                      clearExecutionError();
+                    }}
+                    className={cn(
+                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
+                      !canRequestChanges && "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
+                        effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
+                      )}
+                    />
+                  </button>
                   <span
                     className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
-                      effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
+                      "text-xs select-none",
+                      canRequestChanges
+                        ? "text-foreground"
+                        : "text-muted-foreground",
                     )}
-                  />
-                </button>
-                <span
-                  className={cn(
-                    "text-xs select-none",
-                    canRequestChanges
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Make changes
+                  >
+                    Make changes
+                  </span>
                 </span>
-              </span>
-            </TooltipTrigger>
-            {disabledReason !== undefined && (
-              <TooltipContent>{disabledReason}</TooltipContent>
+              </TooltipTrigger>
+              {disabledReason !== undefined && (
+                <TooltipContent>{disabledReason}</TooltipContent>
+              )}
+            </Tooltip>
+            {effectiveRequestingChanges && !isProjectTask && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground",
+                      captureProof || runAudit
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <IconAdjustmentsHorizontal className="size-3.5" />
+                    Options
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuLabel>Extra steps this run</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={captureProof}
+                    onCheckedChange={(checked) =>
+                      setCaptureProof(checked === true)
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Capture proof
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={runAudit}
+                    onCheckedChange={(checked) => setRunAudit(checked === true)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Run audit
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </Tooltip>
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <span>

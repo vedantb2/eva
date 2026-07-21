@@ -194,6 +194,11 @@ export const agentRunFields = {
   // label). Stored at insert so history stays readable if the account is
   // renamed or deleted later.
   credentialSourceLabel: v.optional(v.string()),
+  // Per-run proof/audit override. Set when a run trigger passes an explicit
+  // choice (the request-changes composer, default off). Absent = fall back to
+  // the task/project default. Resolved in `getTaskData`.
+  screenshotsVideosEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
 };
 
 export const sessionFields = {

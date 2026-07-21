@@ -33,10 +33,6 @@ import {
   IconInfoCircle,
   IconBrandVercelFilled,
   IconChevronDown,
-  IconCamera,
-  IconCameraOff,
-  IconChecklist,
-  IconClipboardOff,
 } from "@tabler/icons-react";
 import { UserInitials, getUserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
@@ -67,7 +63,6 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
-import { TriStateOverrideSelect } from "./TriStateOverrideSelect";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -221,9 +216,6 @@ export function StatusFieldsSection({
   };
 
   const projectOptions = projects ?? [];
-  const taskProject = task?.projectId
-    ? projectOptions.find((p) => p._id === task.projectId)
-    : undefined;
   const hasSelectedProject =
     task?.projectId !== undefined &&
     projectOptions.some((project) => project._id === task.projectId);
@@ -348,28 +340,6 @@ export function StatusFieldsSection({
             </SelectGroup>
           </SelectContent>
         </Select>
-
-        <TriStateOverrideSelect
-          label="Proof"
-          groupLabel="Proof of completion"
-          value={task?.screenshotsVideosEnabled}
-          inheritedDefault={taskProject?.screenshotsVideosEnabled ?? false}
-          onIcon={IconCamera}
-          offIcon={IconCameraOff}
-          onChange={(next) =>
-            updateTask({ id: taskId, screenshotsVideosEnabled: next })
-          }
-        />
-
-        <TriStateOverrideSelect
-          label="Audit"
-          groupLabel="Audit after run"
-          value={task?.runAuditEnabled}
-          inheritedDefault={taskProject?.runAuditEnabled ?? false}
-          onIcon={IconChecklist}
-          offIcon={IconClipboardOff}
-          onChange={(next) => updateTask({ id: taskId, runAuditEnabled: next })}
-        />
 
         <Select
           value={task?.assignedTo ?? UNASSIGNED_VALUE}

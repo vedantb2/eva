@@ -6,10 +6,10 @@ import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../../SessionDetailClient";
 
 /**
- * Shared session page for `/pr/recap` and `/pr/diffs/$diffView` — same shell,
- * PR sandbox tab active.
+ * Shared session page for `/review/recap` and `/review/diffs/$diffView` — same
+ * shell, Review sandbox tab active.
  */
-export function SessionPrPage({ numId }: { numId: string }) {
+export function SessionReviewPage({ numId }: { numId: string }) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
@@ -23,7 +23,7 @@ export function SessionPrPage({ numId }: { numId: string }) {
 
   const openDiffs = (repoRelativePath?: string) => {
     void navigate({
-      to: `${basePath}/sessions/${numId}/pr/diffs/unified`,
+      to: `${basePath}/sessions/${numId}/review/diffs/unified`,
       search: (prev) => ({
         ...prev,
         ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
@@ -32,9 +32,9 @@ export function SessionPrPage({ numId }: { numId: string }) {
   };
 
   const onSandboxTabChange = (next: string) => {
-    if (next === "pr") {
+    if (next === "review") {
       void navigate({
-        to: `${basePath}/sessions/${numId}/pr/diffs/unified`,
+        to: `${basePath}/sessions/${numId}/review/diffs/unified`,
         search: true,
       });
       return;
@@ -55,7 +55,7 @@ export function SessionPrPage({ numId }: { numId: string }) {
       {(sessionId) => (
         <SessionDetailClient
           sessionId={sessionId}
-          activeSandboxTab="pr"
+          activeSandboxTab="review"
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
           onViewDiff={openDiffs}

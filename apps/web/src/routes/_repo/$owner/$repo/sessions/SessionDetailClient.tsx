@@ -90,7 +90,7 @@ export function SessionDetailClient({
       onViewDiff();
       return;
     }
-    onSandboxTabChange("pr");
+    onSandboxTabChange("review");
   };
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only

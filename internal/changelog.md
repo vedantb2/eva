@@ -1,5 +1,9 @@
 # Changelog
 
+## Review tab route is /review - 2026-07-21
+
+The sandbox tab was labeled Review but still lived at `/pr`. Sessions now use `/review/diffs/…` and `/review/recap` (projects/quick-tasks use `/sandbox/review`); old `/pr` URLs redirect.
+
 ## Copy link lives in More menus - 2026-07-21
 
 Copy link sat as a separate header button next to More on sessions, projects, and quick tasks. It now lives in More with dividers between action groups so the chrome stays lighter.

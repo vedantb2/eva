@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isDiffView, isPrPanelTab } from "@/lib/search-params";
 
+/** Legacy `/pr` → `/review`. */
 export const Route = createFileRoute("/_repo/$owner/$repo/sessions/$numId/pr/")(
   {
     beforeLoad: ({ params, search }) => {
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/sessions/$numId/pr/")(
 
       if (prTab === "recap") {
         throw redirect({
-          to: "/$owner/$repo/sessions/$numId/pr/recap",
+          to: "/$owner/$repo/sessions/$numId/review/recap",
           params: {
             owner: params.owner,
             repo: params.repo,
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/sessions/$numId/pr/")(
           : "unified";
 
       throw redirect({
-        to: "/$owner/$repo/sessions/$numId/pr/diffs/$diffView",
+        to: "/$owner/$repo/sessions/$numId/review/diffs/$diffView",
         params: {
           owner: params.owner,
           repo: params.repo,

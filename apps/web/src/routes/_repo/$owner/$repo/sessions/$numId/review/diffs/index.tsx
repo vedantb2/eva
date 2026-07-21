@@ -1,9 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isDiffView } from "@/lib/search-params";
 
-/** Legacy `/pr/diffs` → `/review/diffs`. */
 export const Route = createFileRoute(
-  "/_repo/$owner/$repo/sessions/$numId/pr/diffs/",
+  "/_repo/$owner/$repo/sessions/$numId/review/diffs/",
 )({
   beforeLoad: ({ params, search }) => {
     const fromSearch =

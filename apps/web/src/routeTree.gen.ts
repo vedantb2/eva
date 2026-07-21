@@ -74,6 +74,7 @@ import { Route as RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport } from "./rou
 import { Route as RepoOwnerRepoSessionsNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/index";
 import { Route as RepoOwnerRepoSessionsNumIdSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/$sandboxTab";
 import { Route as RepoOwnerRepoSessionsNumIdPrRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/route";
+import { Route as RepoOwnerRepoSessionsNumIdReviewRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/route";
 import { Route as RepoOwnerRepoSettingsEnvVariablesIndexRouteImport } from "./routes/_repo/$owner/$repo/settings/env-variables/index";
 import { Route as RepoOwnerRepoSettingsEnvVariablesScopeRouteImport } from "./routes/_repo/$owner/$repo/settings/env-variables/$scope";
 import { Route as RepoOwnerRepoSettingsSnapshotsIndexRouteImport } from "./routes/_repo/$owner/$repo/settings/snapshots/index";
@@ -87,8 +88,13 @@ import { Route as RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport } fro
 import { Route as RepoOwnerRepoSessionsNumIdPrIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/index";
 import { Route as RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/route";
 import { Route as RepoOwnerRepoSessionsNumIdPrRecapRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/recap";
+import { Route as RepoOwnerRepoSessionsNumIdReviewIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/index";
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/route";
+import { Route as RepoOwnerRepoSessionsNumIdReviewRecapRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/recap";
 import { Route as RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/index";
 import { Route as RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView";
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/index";
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -455,6 +461,12 @@ const RepoOwnerRepoSessionsNumIdPrRouteRoute =
     path: "/pr",
     getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
   } as any);
+const RepoOwnerRepoSessionsNumIdReviewRouteRoute =
+  RepoOwnerRepoSessionsNumIdReviewRouteRouteImport.update({
+    id: "/review",
+    path: "/review",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
+  } as any);
 const RepoOwnerRepoSettingsEnvVariablesIndexRoute =
   RepoOwnerRepoSettingsEnvVariablesIndexRouteImport.update({
     id: "/settings/env-variables/",
@@ -533,6 +545,24 @@ const RepoOwnerRepoSessionsNumIdPrRecapRoute =
     path: "/recap",
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrRouteRoute,
   } as any);
+const RepoOwnerRepoSessionsNumIdReviewIndexRoute =
+  RepoOwnerRepoSessionsNumIdReviewIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
+  } as any);
+const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute =
+  RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport.update({
+    id: "/diffs",
+    path: "/diffs",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
+  } as any);
+const RepoOwnerRepoSessionsNumIdReviewRecapRoute =
+  RepoOwnerRepoSessionsNumIdReviewRecapRouteImport.update({
+    id: "/recap",
+    path: "/recap",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
+  } as any);
 const RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute =
   RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport.update({
     id: "/",
@@ -544,6 +574,18 @@ const RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute =
     id: "/$diffView",
     path: "/$diffView",
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute,
+  } as any);
+const RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute =
+  RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute,
+  } as any);
+const RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute =
+  RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport.update({
+    id: "/$diffView",
+    path: "/$diffView",
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute,
   } as any);
 
 export interface FileRoutesByFullPath {
@@ -601,6 +643,7 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
   "/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren;
   "/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
+  "/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
   "/$owner/$repo/automations/$numId/$automationTab": typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
   "/$owner/$repo/docs/$numId/$docTab": typeof RepoOwnerRepoDocsNumIdDocTabRoute;
   "/$owner/$repo/quick-tasks/$numId/$detailTab": typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
@@ -617,14 +660,19 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
   "/$owner/$repo/testing-arena/$numId/": typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
   "/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren;
+  "/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
   "/$owner/$repo/projects/$numId/$taskNumId/$detailTab": typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
   "/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
   "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
   "/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
+  "/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
   "/$owner/$repo/projects/$numId/$taskNumId/": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
   "/$owner/$repo/sessions/$numId/pr/": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
+  "/$owner/$repo/sessions/$numId/review/": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
   "/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
+  "/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
   "/$owner/$repo/sessions/$numId/pr/diffs/": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
+  "/$owner/$repo/sessions/$numId/review/diffs/": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
@@ -688,10 +736,14 @@ export interface FileRoutesByTo {
   "/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
   "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
   "/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
+  "/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
   "/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
   "/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
+  "/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
   "/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
+  "/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
   "/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
+  "/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -751,6 +803,7 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
   "/_repo/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren;
   "/_repo/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
+  "/_repo/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
   "/_repo/$owner/$repo/automations/$numId/$automationTab": typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
   "/_repo/$owner/$repo/docs/$numId/$docTab": typeof RepoOwnerRepoDocsNumIdDocTabRoute;
   "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab": typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
@@ -767,14 +820,19 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
   "/_repo/$owner/$repo/testing-arena/$numId/": typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
   "/_repo/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren;
+  "/_repo/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
   "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab": typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
   "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
   "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
   "/_repo/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
+  "/_repo/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
   "/_repo/$owner/$repo/projects/$numId/$taskNumId/": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
   "/_repo/$owner/$repo/sessions/$numId/pr/": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
+  "/_repo/$owner/$repo/sessions/$numId/review/": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
   "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
+  "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
   "/_repo/$owner/$repo/sessions/$numId/pr/diffs/": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
+  "/_repo/$owner/$repo/sessions/$numId/review/diffs/": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -833,6 +891,7 @@ export interface FileRouteTypes {
     | "/$owner/$repo/testing-arena/"
     | "/$owner/$repo/projects/$numId/$taskNumId"
     | "/$owner/$repo/sessions/$numId/pr"
+    | "/$owner/$repo/sessions/$numId/review"
     | "/$owner/$repo/automations/$numId/$automationTab"
     | "/$owner/$repo/docs/$numId/$docTab"
     | "/$owner/$repo/quick-tasks/$numId/$detailTab"
@@ -849,14 +908,19 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings/snapshots/"
     | "/$owner/$repo/testing-arena/$numId/"
     | "/$owner/$repo/sessions/$numId/pr/diffs"
+    | "/$owner/$repo/sessions/$numId/review/diffs"
     | "/$owner/$repo/projects/$numId/$taskNumId/$detailTab"
     | "/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
     | "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
     | "/$owner/$repo/sessions/$numId/pr/recap"
+    | "/$owner/$repo/sessions/$numId/review/recap"
     | "/$owner/$repo/projects/$numId/$taskNumId/"
     | "/$owner/$repo/sessions/$numId/pr/"
+    | "/$owner/$repo/sessions/$numId/review/"
     | "/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/$owner/$repo/sessions/$numId/pr/diffs/";
+    | "/$owner/$repo/sessions/$numId/review/diffs/$diffView"
+    | "/$owner/$repo/sessions/$numId/pr/diffs/"
+    | "/$owner/$repo/sessions/$numId/review/diffs/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -920,10 +984,14 @@ export interface FileRouteTypes {
     | "/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
     | "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
     | "/$owner/$repo/sessions/$numId/pr/recap"
+    | "/$owner/$repo/sessions/$numId/review/recap"
     | "/$owner/$repo/projects/$numId/$taskNumId"
     | "/$owner/$repo/sessions/$numId/pr"
+    | "/$owner/$repo/sessions/$numId/review"
     | "/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/$owner/$repo/sessions/$numId/pr/diffs";
+    | "/$owner/$repo/sessions/$numId/review/diffs/$diffView"
+    | "/$owner/$repo/sessions/$numId/pr/diffs"
+    | "/$owner/$repo/sessions/$numId/review/diffs";
   id:
     | "__root__"
     | "/"
@@ -982,6 +1050,7 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/testing-arena/"
     | "/_repo/$owner/$repo/projects/$numId/$taskNumId"
     | "/_repo/$owner/$repo/sessions/$numId/pr"
+    | "/_repo/$owner/$repo/sessions/$numId/review"
     | "/_repo/$owner/$repo/automations/$numId/$automationTab"
     | "/_repo/$owner/$repo/docs/$numId/$docTab"
     | "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab"
@@ -998,14 +1067,19 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/settings/snapshots/"
     | "/_repo/$owner/$repo/testing-arena/$numId/"
     | "/_repo/$owner/$repo/sessions/$numId/pr/diffs"
+    | "/_repo/$owner/$repo/sessions/$numId/review/diffs"
     | "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab"
     | "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
     | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
     | "/_repo/$owner/$repo/sessions/$numId/pr/recap"
+    | "/_repo/$owner/$repo/sessions/$numId/review/recap"
     | "/_repo/$owner/$repo/projects/$numId/$taskNumId/"
     | "/_repo/$owner/$repo/sessions/$numId/pr/"
+    | "/_repo/$owner/$repo/sessions/$numId/review/"
     | "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/diffs/";
+    | "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView"
+    | "/_repo/$owner/$repo/sessions/$numId/pr/diffs/"
+    | "/_repo/$owner/$repo/sessions/$numId/review/diffs/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -1474,6 +1548,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteImport;
       parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
     };
+    "/_repo/$owner/$repo/sessions/$numId/review": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review";
+      path: "/review";
+      fullPath: "/$owner/$repo/sessions/$numId/review";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
+    };
     "/_repo/$owner/$repo/settings/env-variables/": {
       id: "/_repo/$owner/$repo/settings/env-variables/";
       path: "/settings/env-variables";
@@ -1565,6 +1646,27 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRecapRouteImport;
       parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute;
     };
+    "/_repo/$owner/$repo/sessions/$numId/review/": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review/";
+      path: "/";
+      fullPath: "/$owner/$repo/sessions/$numId/review/";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
+    };
+    "/_repo/$owner/$repo/sessions/$numId/review/diffs": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs";
+      path: "/diffs";
+      fullPath: "/$owner/$repo/sessions/$numId/review/diffs";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
+    };
+    "/_repo/$owner/$repo/sessions/$numId/review/recap": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review/recap";
+      path: "/recap";
+      fullPath: "/$owner/$repo/sessions/$numId/review/recap";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
+    };
     "/_repo/$owner/$repo/sessions/$numId/pr/diffs/": {
       id: "/_repo/$owner/$repo/sessions/$numId/pr/diffs/";
       path: "/";
@@ -1578,6 +1680,20 @@ declare module "@tanstack/react-router" {
       fullPath: "/$owner/$repo/sessions/$numId/pr/diffs/$diffView";
       preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport;
       parentRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute;
+    };
+    "/_repo/$owner/$repo/sessions/$numId/review/diffs/": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs/";
+      path: "/";
+      fullPath: "/$owner/$repo/sessions/$numId/review/diffs/";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute;
+    };
+    "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView": {
+      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView";
+      path: "/$diffView";
+      fullPath: "/$owner/$repo/sessions/$numId/review/diffs/$diffView";
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport;
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute;
     };
   }
 }
@@ -1784,8 +1900,48 @@ const RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren =
     RepoOwnerRepoSessionsNumIdPrRouteRouteChildren,
   );
 
+interface RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren {
+  RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
+  RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
+}
+
+const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren: RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren =
+  {
+    RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute:
+      RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute,
+    RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute:
+      RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute,
+  };
+
+const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren =
+  RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute._addFileChildren(
+    RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren,
+  );
+
+interface RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren {
+  RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
+  RepoOwnerRepoSessionsNumIdReviewRecapRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
+  RepoOwnerRepoSessionsNumIdReviewIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
+}
+
+const RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren: RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren =
+  {
+    RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute:
+      RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren,
+    RepoOwnerRepoSessionsNumIdReviewRecapRoute:
+      RepoOwnerRepoSessionsNumIdReviewRecapRoute,
+    RepoOwnerRepoSessionsNumIdReviewIndexRoute:
+      RepoOwnerRepoSessionsNumIdReviewIndexRoute,
+  };
+
+const RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren =
+  RepoOwnerRepoSessionsNumIdReviewRouteRoute._addFileChildren(
+    RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren,
+  );
+
 interface RepoOwnerRepoSessionsNumIdRouteRouteChildren {
   RepoOwnerRepoSessionsNumIdPrRouteRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
+  RepoOwnerRepoSessionsNumIdReviewRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
   RepoOwnerRepoSessionsNumIdSandboxTabRoute: typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute;
   RepoOwnerRepoSessionsNumIdIndexRoute: typeof RepoOwnerRepoSessionsNumIdIndexRoute;
 }
@@ -1794,6 +1950,8 @@ const RepoOwnerRepoSessionsNumIdRouteRouteChildren: RepoOwnerRepoSessionsNumIdRo
   {
     RepoOwnerRepoSessionsNumIdPrRouteRoute:
       RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren,
+    RepoOwnerRepoSessionsNumIdReviewRouteRoute:
+      RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren,
     RepoOwnerRepoSessionsNumIdSandboxTabRoute:
       RepoOwnerRepoSessionsNumIdSandboxTabRoute,
     RepoOwnerRepoSessionsNumIdIndexRoute: RepoOwnerRepoSessionsNumIdIndexRoute,

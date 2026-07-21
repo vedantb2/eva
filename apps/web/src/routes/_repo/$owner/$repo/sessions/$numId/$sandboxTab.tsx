@@ -7,12 +7,13 @@ import {
   isDiffView,
   isLegacyDesktopSandboxTab,
   isLegacyDiffsSandboxTab,
+  isLegacyPrSandboxTab,
   isPrPanelTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
 import { SessionDetailClient } from "../SessionDetailClient";
 
-function redirectToPrDiffs(args: {
+function redirectToReviewDiffs(args: {
   owner: string;
   repo: string;
   numId: string;
@@ -30,7 +31,7 @@ function redirectToPrDiffs(args: {
         : "unified";
 
   throw redirect({
-    to: "/$owner/$repo/sessions/$numId/pr/diffs/$diffView",
+    to: "/$owner/$repo/sessions/$numId/review/diffs/$diffView",
     params: {
       owner: args.owner,
       repo: args.repo,
@@ -53,8 +54,12 @@ export const Route = createFileRoute(
   beforeLoad: ({ params, search }) => {
     const corrupted = splitCorruptedSandboxTabParam(params.sandboxTab);
     if (corrupted) {
-      if (isLegacyDiffsSandboxTab(corrupted.tab) || corrupted.tab === "pr") {
-        redirectToPrDiffs({
+      if (
+        isLegacyDiffsSandboxTab(corrupted.tab) ||
+        isLegacyPrSandboxTab(corrupted.tab) ||
+        corrupted.tab === "review"
+      ) {
+        redirectToReviewDiffs({
           owner: params.owner,
           repo: params.repo,
           numId: params.numId,
@@ -94,14 +99,17 @@ export const Route = createFileRoute(
       });
     }
     if (isLegacyDiffsSandboxTab(params.sandboxTab)) {
-      redirectToPrDiffs({
+      redirectToReviewDiffs({
         owner: params.owner,
         repo: params.repo,
         numId: params.numId,
         search,
       });
     }
-    if (params.sandboxTab === "pr") {
+    if (
+      isLegacyPrSandboxTab(params.sandboxTab) ||
+      params.sandboxTab === "review"
+    ) {
       const fromSearch =
         "prTab" in search &&
         typeof search.prTab === "string" &&
@@ -110,7 +118,7 @@ export const Route = createFileRoute(
           : "diffs";
       if (fromSearch === "recap") {
         throw redirect({
-          to: "/$owner/$repo/sessions/$numId/pr/recap",
+          to: "/$owner/$repo/sessions/$numId/review/recap",
           params: {
             owner: params.owner,
             repo: params.repo,
@@ -120,7 +128,7 @@ export const Route = createFileRoute(
           replace: true,
         });
       }
-      redirectToPrDiffs({
+      redirectToReviewDiffs({
         owner: params.owner,
         repo: params.repo,
         numId: params.numId,
@@ -153,7 +161,7 @@ function SessionSandboxRoute() {
 
   const openDiffs = (repoRelativePath?: string) => {
     void navigate({
-      to: `${basePath}/sessions/${numId}/pr/diffs/unified`,
+      to: `${basePath}/sessions/${numId}/review/diffs/unified`,
       search: (prev) => ({
         ...prev,
         ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
@@ -162,9 +170,9 @@ function SessionSandboxRoute() {
   };
 
   const onSandboxTabChange = (next: string) => {
-    if (next === "pr") {
+    if (next === "review") {
       void navigate({
-        to: `${basePath}/sessions/${numId}/pr/diffs/unified`,
+        to: `${basePath}/sessions/${numId}/review/diffs/unified`,
         search: true,
       });
       return;

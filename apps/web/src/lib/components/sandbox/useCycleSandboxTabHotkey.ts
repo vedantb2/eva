@@ -11,7 +11,7 @@ const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
   "browser",
   "terminal",
-  "pr",
+  "review",
 ];
 
 /**

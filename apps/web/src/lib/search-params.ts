@@ -59,7 +59,7 @@ const sandboxTabs = [
   "editor",
   "terminal",
   "computer",
-  "pr",
+  "review",
   "files",
   "prd",
 ] as const;
@@ -80,9 +80,14 @@ export function isLegacyDesktopSandboxTab(s: string): boolean {
   return s === "desktop";
 }
 
-/** Old Diffs-tab URL segment; redirect to `pr/diffs`. */
+/** Old Diffs-tab URL segment; redirect to `review/diffs`. */
 export function isLegacyDiffsSandboxTab(s: string): boolean {
   return s === "diffs";
+}
+
+/** Old Review-tab URL segment (`pr`); redirect to `review`. */
+export function isLegacyPrSandboxTab(s: string): boolean {
+  return s === "pr";
 }
 
 const taskRouteSandboxTabs = [
@@ -91,7 +96,7 @@ const taskRouteSandboxTabs = [
   "editor",
   "terminal",
   "computer",
-  "pr",
+  "review",
   "files",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
@@ -107,7 +112,7 @@ export function isPrPanelTab(s: string): s is PrPanelTab {
   return prPanelTabs.some((tab) => tab === s);
 }
 
-// Layout for the Diffs tab — path segment on sessions (`/pr/diffs/unified`).
+// Layout for the Diffs tab — path segment on sessions (`/review/diffs/unified`).
 const diffViews = ["unified", "split"] as const;
 export type DiffView = (typeof diffViews)[number];
 export function isDiffView(s: string): s is DiffView {

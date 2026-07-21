@@ -7,7 +7,8 @@ import {
 
 describe("isTaskRouteSandboxTab", () => {
   it("accepts real task sandbox tabs", () => {
-    expect(isTaskRouteSandboxTab("pr")).toBe(true);
+    expect(isTaskRouteSandboxTab("review")).toBe(true);
+    expect(isTaskRouteSandboxTab("pr")).toBe(false);
     expect(isTaskRouteSandboxTab("browser")).toBe(true);
     expect(isTaskRouteSandboxTab("files")).toBe(true);
   });

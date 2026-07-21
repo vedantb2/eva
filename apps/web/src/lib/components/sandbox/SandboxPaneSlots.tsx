@@ -54,7 +54,7 @@ interface SandboxPaneSlotsProps {
 
 /**
  * Renders the standard sandbox tab slots (preview, terminal, editor, desktop,
- * PR) as a fragment. Callers wrap this in their own flex container and may
+ * Review) as a fragment. Callers wrap this in their own flex container and may
  * add their own slots alongside (e.g. session PRD slot).
  */
 export function SandboxPaneSlots({
@@ -237,8 +237,12 @@ export function SandboxPaneSlots({
           onRunningChange={onComputerRunningChange}
         />
       </div>
-      <div className={activeTab === "pr" ? "h-full" : "hidden"}>
-        <PrPanel prUrl={prUrl} repoId={repoId} isActive={activeTab === "pr"} />
+      <div className={activeTab === "review" ? "h-full" : "hidden"}>
+        <PrPanel
+          prUrl={prUrl}
+          repoId={repoId}
+          isActive={activeTab === "review"}
+        />
       </div>
       {customTabs?.map((tab) => {
         const slug = slugifyAppTabName(tab.name);

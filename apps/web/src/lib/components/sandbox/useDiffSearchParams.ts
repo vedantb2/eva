@@ -3,12 +3,12 @@
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { isDiffView, type DiffView } from "@/lib/search-params";
 
-const DIFF_VIEW_PATH = /\/pr\/diffs\/(unified|split)\/?$/;
+const DIFF_VIEW_PATH = /\/review\/diffs\/(unified|split)\/?$/;
 
 /**
  * Diffs tab file selection (`?diffFile=`) and layout view.
- * Sessions use path segments (`…/pr/diffs/unified|split`); other surfaces may
- * still use `?diffView=`.
+ * Sessions use path segments (`…/review/diffs/unified|split`); other surfaces
+ * may still use `?diffView=`.
  */
 export function useDiffSearchParams() {
   const navigate = useNavigate();
@@ -40,7 +40,10 @@ export function useDiffSearchParams() {
 
   const setDiffView = (view: DiffView) => {
     if (pathMatch !== null) {
-      const nextPath = pathname.replace(DIFF_VIEW_PATH, `/pr/diffs/${view}`);
+      const nextPath = pathname.replace(
+        DIFF_VIEW_PATH,
+        `/review/diffs/${view}`,
+      );
       if (nextPath === pathname) return;
       void navigate({
         to: nextPath,

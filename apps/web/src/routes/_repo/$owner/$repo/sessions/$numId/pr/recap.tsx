@@ -1,13 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SessionPrPage } from "./-SessionPrPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** Legacy `/pr/recap` → `/review/recap`. */
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/pr/recap",
 )({
-  component: SessionPrRecapRoute,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: "/$owner/$repo/sessions/$numId/review/recap",
+      params: {
+        owner: params.owner,
+        repo: params.repo,
+        numId: params.numId,
+      },
+      search,
+      replace: true,
+    });
+  },
 });
-
-function SessionPrRecapRoute() {
-  const { numId } = Route.useParams();
-  return <SessionPrPage numId={numId} />;
-}

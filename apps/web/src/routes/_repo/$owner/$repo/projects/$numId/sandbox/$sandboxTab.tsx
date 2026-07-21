@@ -5,6 +5,7 @@ import { useProjectByNumId } from "@/lib/useResolveByNumId";
 import {
   isLegacyDesktopSandboxTab,
   isLegacyDiffsSandboxTab,
+  isLegacyPrSandboxTab,
   isTaskRouteSandboxTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
@@ -18,8 +19,9 @@ export const Route = createFileRoute(
     if (corrupted) {
       const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
         ? "computer"
-        : isLegacyDiffsSandboxTab(corrupted.tab)
-          ? "pr"
+        : isLegacyDiffsSandboxTab(corrupted.tab) ||
+            isLegacyPrSandboxTab(corrupted.tab)
+          ? "review"
           : isTaskRouteSandboxTab(corrupted.tab)
             ? corrupted.tab
             : "preview";
@@ -53,6 +55,19 @@ export const Route = createFileRoute(
         replace: true,
       });
     }
+    if (isLegacyPrSandboxTab(params.sandboxTab)) {
+      throw redirect({
+        to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          sandboxTab: "review",
+        },
+        search,
+        replace: true,
+      });
+    }
     if (isLegacyDiffsSandboxTab(params.sandboxTab)) {
       throw redirect({
         to: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab",
@@ -60,7 +75,7 @@ export const Route = createFileRoute(
           owner: params.owner,
           repo: params.repo,
           numId: params.numId,
-          sandboxTab: "pr",
+          sandboxTab: "review",
         },
         search: {
           ...search,

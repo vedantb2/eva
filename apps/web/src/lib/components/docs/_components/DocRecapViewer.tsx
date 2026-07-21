@@ -8,7 +8,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
+import {
+  canonicalizeRecapDocTab,
+  type DocViewerTab,
+} from "@/lib/search-params";
 import {
   ActivityTasks,
   Button,
@@ -88,8 +91,22 @@ export function DocRecapViewer({
     setHistoryPanelOpen(false);
   };
 
+  const viewTab = canonicalizeRecapDocTab(activeTab);
+
+  // Legacy `/html` and `/content` on recap docs → `/recap` and `/summary`.
+  useEffect(() => {
+    if (activeTab === viewTab) return;
+    const segment = entityPathSegment(doc);
+    if (!segment) return;
+    void navigate({
+      to: `${basePath}/docs/${segment}/${viewTab}`,
+      search: (prev) => prev,
+      replace: true,
+    });
+  }, [activeTab, basePath, doc, navigate, viewTab]);
+
   const handleDocTabChange = (value: string) => {
-    if (!isDocViewerTab(value)) return;
+    if (value !== "recap" && value !== "summary") return;
     navigate({
       to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
       search: (prev) => prev,
@@ -230,17 +247,17 @@ export function DocRecapViewer({
       )}
 
       <Tabs
-        value={activeTab}
+        value={viewTab}
         onValueChange={handleDocTabChange}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="html">Walkthrough</TabsTrigger>
-            <TabsTrigger value="content">Markdown</TabsTrigger>
+            <TabsTrigger value="recap">Recap</TabsTrigger>
+            <TabsTrigger value="summary">Summary</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
-            {activeTab === "content" && (
+            {viewTab === "summary" && (
               <>
                 <Button
                   size="sm"
@@ -276,21 +293,21 @@ export function DocRecapViewer({
         </div>
 
         <TabsContent
-          value="html"
+          value="recap"
           className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
         >
           {doc.html ? (
-            <HtmlPreviewFrame html={doc.html} title="PR walkthrough" />
+            <HtmlPreviewFrame html={doc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No walkthrough generated yet. It is created the next time this
-              recap runs.
+              No recap generated yet. It is created the next time this review
+              runs.
             </p>
           )}
         </TabsContent>
 
         <TabsContent
-          value="content"
+          value="summary"
           className="mt-3 min-h-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
         >
           <DocContentTab

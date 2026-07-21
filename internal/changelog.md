@@ -1,5 +1,9 @@
 # Changelog
 
+## Docs Reviews filter and recap tab labels - 2026-07-21
+
+Docs sidebar “PR recaps” is now Reviews (`?docFilter=reviews`); recap docs use Recap/Summary tabs at `/recap` and `/summary` instead of Walkthrough/Markdown on `/html`/`/content`.
+
 ## Quick-task sandbox breadcrumb shows title - 2026-07-21
 
 Sandbox view only showed `#{numId}`, which was hard to identify. The truncated task title now follows the number in the breadcrumb.

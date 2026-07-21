@@ -1,4 +1,5 @@
 import {
+  createParser,
   parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
@@ -226,7 +227,9 @@ export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
   return snapshotSettingsTabs.some((tab) => tab === s);
 }
 
-const docViewerTabs = ["content", "html"] as const;
+// `content`/`html` are PRD docs; `recap`/`summary` are PR-recap docs.
+// Legacy recap URLs still use `html`/`content` and canonicalize at the viewer.
+const docViewerTabs = ["content", "html", "recap", "summary"] as const;
 export type DocViewerTab = (typeof docViewerTabs)[number];
 
 export function isDocViewerTab(s: string): s is DocViewerTab {
@@ -234,6 +237,14 @@ export function isDocViewerTab(s: string): s is DocViewerTab {
 }
 
 export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
+
+/** Canonical recap sub-tabs (legacy `html`→recap, `content`→summary). */
+export type RecapDocTab = "recap" | "summary";
+
+export function canonicalizeRecapDocTab(tab: DocViewerTab): RecapDocTab {
+  if (tab === "summary" || tab === "content") return "summary";
+  return "recap";
+}
 
 const docModes = ["editing", "suggesting", "viewing"] as const;
 export type DocMode = (typeof docModes)[number];
@@ -261,13 +272,26 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
-const docListFilters = ["documents", "pr-recaps"] as const;
+const docListFilters = ["documents", "reviews"] as const;
 export type DocListFilter = (typeof docListFilters)[number];
-export const docListFilterParser = parseAsStringLiteral(docListFilters)
+
+/** Accepts legacy `pr-recaps` and rewrites it to `reviews` on serialize. */
+export const docListFilterParser = createParser({
+  parse(queryValue) {
+    if (queryValue === "reviews" || queryValue === "pr-recaps") {
+      return "reviews";
+    }
+    if (queryValue === "documents") return "documents";
+    return null;
+  },
+  serialize(value) {
+    return value;
+  },
+})
   .withDefault("documents")
   .withOptions(searchOptions);
 
-export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "html";
+export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "recap";
 
 const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)

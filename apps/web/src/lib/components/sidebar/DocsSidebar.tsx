@@ -114,7 +114,7 @@ export function DocsSidebar({
   const filteredDocs = (() => {
     if (!docs) return [];
     const byKind = docs.filter((doc) =>
-      docListFilter === "pr-recaps"
+      docListFilter === "reviews"
         ? doc.kind === "pr-recap"
         : doc.kind !== "pr-recap",
     );
@@ -272,7 +272,7 @@ export function DocsSidebar({
           className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
-        {docListFilter !== "pr-recaps" ? (
+        {docListFilter !== "reviews" ? (
           <Button
             size="icon-sm"
             variant="ghost"
@@ -289,7 +289,7 @@ export function DocsSidebar({
         {(
           [
             ["documents", "Documents"],
-            ["pr-recaps", "PR recaps"],
+            ["reviews", "Reviews"],
           ] as const
         ).map(([value, label]) => (
           <Button
@@ -315,7 +315,11 @@ export function DocsSidebar({
               size={28}
               className="mx-auto mb-2 text-muted-foreground"
             />
-            <p className="text-sm text-muted-foreground">No documents yet</p>
+            <p className="text-sm text-muted-foreground">
+              {docListFilter === "reviews"
+                ? "No reviews yet"
+                : "No documents yet"}
+            </p>
           </div>
         ) : filteredDocs.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">

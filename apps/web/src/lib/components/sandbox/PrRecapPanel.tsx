@@ -36,7 +36,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   const generatePrRecap = useAction(api.docs.generatePrRecap);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [view, setView] = useState<"html" | "markdown">("html");
+  const [view, setView] = useState<"recap" | "summary">("recap");
 
   const streamingEntityId =
     recapDoc !== null && recapDoc !== undefined
@@ -93,7 +93,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         <div className="max-w-md space-y-2">
           <p className="text-sm font-medium">No recap yet</p>
           <p className="text-sm text-muted-foreground">
-            Generate a walkthrough of this pull request for reviewers.
+            Generate a recap of this pull request for reviewers.
           </p>
           {generateError ? (
             <p className="text-sm text-destructive">{generateError}</p>
@@ -131,8 +131,8 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         <div className="inline-flex rounded-md border border-border p-0.5">
           {(
             [
-              { value: "html" as const, label: "Walkthrough" },
-              { value: "markdown" as const, label: "Markdown" },
+              { value: "recap" as const, label: "Recap" },
+              { value: "summary" as const, label: "Summary" },
             ] as const
           ).map((tab) => (
             <button
@@ -165,7 +165,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
           </a>
           {docPath ? (
             <DynamicLink
-              to={`${basePath}/docs/${docPath}/html`}
+              to={`${basePath}/docs/${docPath}/recap`}
               className="hover:text-foreground"
             >
               Open in Documents
@@ -222,12 +222,12 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
-        {view === "html" ? (
+        {view === "recap" ? (
           recapDoc.html ? (
-            <HtmlPreviewFrame html={recapDoc.html} title="PR walkthrough" />
+            <HtmlPreviewFrame html={recapDoc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No walkthrough yet. It is created the next time this recap runs.
+              No recap yet. It is created the next time this review runs.
             </p>
           )
         ) : (

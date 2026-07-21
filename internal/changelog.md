@@ -1,5 +1,9 @@
 # Changelog
 
+## Create task modal field rows - 2026-07-21
+
+Create-task metadata was one crowded wrap row. Core run settings (priority, code reviewer, model, branch) now sit on the first row; proof/audit, tags, and project move to a second row.
+
 ## Drop repo screenshotsVideosEnabled after migration - 2026-07-21
 
 Ran `migrations:removeRepoScreenshotsVideosEnabled` on evalucom clouddev and prod (2 / 3 repos patched), then removed the unused field from `githubRepoFields` so the schema matches the opt-in-per-area model.

@@ -311,176 +311,182 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
-            <AssigneeSelector
-              users={users}
-              assignedTo={assignedTo}
-              setAssignedTo={setAssignedTo}
-            />
+          <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <PriorityPicker value={priority} onChange={setPriority} />
 
-            <PriorityPicker value={priority} onChange={setPriority} />
+              <AssigneeSelector
+                users={users}
+                assignedTo={assignedTo}
+                setAssignedTo={setAssignedTo}
+              />
 
-            <ScreenshotsToggle
-              value={screenshotsVideosEnabled}
-              onChange={setScreenshotsVideosEnabled}
-            />
+              <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
+                <ModelSelect
+                  value={model}
+                  options={modelOptions}
+                  onValueChange={setModel}
+                  accounts={accounts}
+                  accountId={providerAccountId}
+                  onAccountChange={setProviderAccountId}
+                />
+              </div>
 
-            <AuditToggle
-              value={runAuditEnabled}
-              onChange={setRunAuditEnabled}
-            />
-
-            <ProjectPicker
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              open={projectPickerOpen}
-              setOpen={setProjectPickerOpen}
-              onCreateProject={() => setIsCreatingProject(true)}
-            />
-
-            {branchLockedToProject ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
-                  >
-                    <IconGitBranch size={14} />
-                    <span className="text-foreground">{displayBaseBranch}</span>
-                    <IconInfoCircle
-                      size={12}
-                      className="cursor-help text-muted-foreground"
+              {branchLockedToProject ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
+                    >
+                      <IconGitBranch size={14} />
+                      <span className="text-foreground">
+                        {displayBaseBranch}
+                      </span>
+                      <IconInfoCircle
+                        size={12}
+                        className="cursor-help text-muted-foreground"
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Inherited from the project&apos;s base branch
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                    >
+                      <IconGitBranch size={14} />
+                      <span className="text-foreground">{baseBranch}</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-2">
+                    <BranchSelect
+                      value={baseBranch}
+                      onValueChange={setBaseBranch}
+                      placeholder="Select a base branch"
+                      className="h-8 w-full"
                     />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Inherited from the project&apos;s base branch
-                </TooltipContent>
-              </Tooltip>
-            ) : (
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ScreenshotsToggle
+                value={screenshotsVideosEnabled}
+                onChange={setScreenshotsVideosEnabled}
+              />
+
+              <AuditToggle
+                value={runAuditEnabled}
+                onChange={setRunAuditEnabled}
+              />
+
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                   >
-                    <IconGitBranch size={14} />
-                    <span className="text-foreground">{baseBranch}</span>
+                    <IconTag size={14} />
+                    {selectedTags.length > 0 ? (
+                      <span className="text-foreground">
+                        {selectedTags.length} tag
+                        {selectedTags.length !== 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span>Tags</span>
+                    )}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-2">
-                  <BranchSelect
-                    value={baseBranch}
-                    onValueChange={setBaseBranch}
-                    placeholder="Select a base branch"
-                    className="h-8 w-full"
-                  />
+                <PopoverContent align="start" className="w-56 p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search or create tag..."
+                      value={tagSearch}
+                      onValueChange={setTagSearch}
+                      onKeyDown={(e) => {
+                        if (
+                          (e.key === "Enter" || e.key === ",") &&
+                          tagSearch.trim()
+                        ) {
+                          e.preventDefault();
+                          addCustomTag(tagSearch);
+                        }
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {tagSearch.trim() ? (
+                          <button
+                            type="button"
+                            className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
+                            onClick={() => addCustomTag(tagSearch)}
+                          >
+                            Create &quot;{tagSearch.trim()}&quot;
+                          </button>
+                        ) : (
+                          "No tags"
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {(allTags ?? []).map((tag) => (
+                          <CommandItem
+                            key={tag}
+                            value={tag}
+                            onSelect={() => toggleTag(tag)}
+                          >
+                            <IconTag
+                              size={14}
+                              className="text-muted-foreground"
+                            />
+                            {tag}
+                            {selectedTags.includes(tag) && (
+                              <IconCheck size={14} className="ml-auto" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
                 </PopoverContent>
               </Popover>
-            )}
 
-            <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
-              <ModelSelect
-                value={model}
-                options={modelOptions}
-                onValueChange={setModel}
-                accounts={accounts}
-                accountId={providerAccountId}
-                onAccountChange={setProviderAccountId}
+              {selectedTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 ml-1">
+                  {selectedTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="text-[10px] h-5 gap-0.5 pr-0.5"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                        onClick={() => toggleTag(tag)}
+                      >
+                        <IconX size={10} />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <ProjectPicker
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                setSelectedProjectId={setSelectedProjectId}
+                open={projectPickerOpen}
+                setOpen={setProjectPickerOpen}
+                onCreateProject={() => setIsCreatingProject(true)}
               />
             </div>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                >
-                  <IconTag size={14} />
-                  {selectedTags.length > 0 ? (
-                    <span className="text-foreground">
-                      {selectedTags.length} tag
-                      {selectedTags.length !== 1 ? "s" : ""}
-                    </span>
-                  ) : (
-                    <span>Tags</span>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-56 p-0">
-                <Command>
-                  <CommandInput
-                    placeholder="Search or create tag..."
-                    value={tagSearch}
-                    onValueChange={setTagSearch}
-                    onKeyDown={(e) => {
-                      if (
-                        (e.key === "Enter" || e.key === ",") &&
-                        tagSearch.trim()
-                      ) {
-                        e.preventDefault();
-                        addCustomTag(tagSearch);
-                      }
-                    }}
-                  />
-                  <CommandList>
-                    <CommandEmpty>
-                      {tagSearch.trim() ? (
-                        <button
-                          type="button"
-                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
-                          onClick={() => addCustomTag(tagSearch)}
-                        >
-                          Create &quot;{tagSearch.trim()}&quot;
-                        </button>
-                      ) : (
-                        "No tags"
-                      )}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {(allTags ?? []).map((tag) => (
-                        <CommandItem
-                          key={tag}
-                          value={tag}
-                          onSelect={() => toggleTag(tag)}
-                        >
-                          <IconTag
-                            size={14}
-                            className="text-muted-foreground"
-                          />
-                          {tag}
-                          {selectedTags.includes(tag) && (
-                            <IconCheck size={14} className="ml-auto" />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 ml-1">
-                {selectedTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-[10px] h-5 gap-0.5 pr-0.5"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      <IconX size={10} />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
           <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">

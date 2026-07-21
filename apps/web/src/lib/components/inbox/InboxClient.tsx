@@ -17,6 +17,8 @@ import {
   NotificationIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
+import { RepoLogo } from "@/lib/components/RepoLogo";
+import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
 const KNOWN_SUB_PAGES = new Set([
   "projects",
@@ -63,10 +65,37 @@ function groupByDate(notifications: Notification[]) {
   return groups;
 }
 
+function NotificationSourceAvatar({
+  notification,
+  repo,
+}: {
+  notification: Notification;
+  repo: RepoWithLogo | undefined;
+}) {
+  if (!repo) {
+    return <NotificationIcon notification={notification} size="sm" />;
+  }
+
+  const label = repoDisplayLabel(repo);
+  return (
+    <RepoLogo
+      logoUrl={repo.logoUrl}
+      size={28}
+      fallback={
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">
+          {label.charAt(0).toUpperCase()}
+        </span>
+      }
+    />
+  );
+}
+
 export function InboxClient() {
   const navigate = useNavigate();
   const notifications = useQuery(api.notifications.list);
+  const repos = useQuery(api.githubRepos.list, {});
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
+  const repoById = new Map((repos ?? []).map((repo) => [repo._id, repo]));
   const markAsRead = useMutation(
     api.notifications.markAsRead,
   ).withOptimisticUpdate((localStore, args) => {
@@ -201,59 +230,71 @@ export function InboxClient() {
                     {group.label}
                   </span>
                 </div>
-                {group.items.map((n, index) => (
-                  <motion.div
-                    key={n._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{
-                      duration: 0.15,
-                      delay: Math.min(index * 0.02, 0.1),
-                    }}
-                  >
-                    <div className="group relative flex items-center transition-colors duration-100 hover:bg-muted/50">
-                      <button
-                        onClick={() => handleClick(n)}
-                        className={`flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
-                      >
-                        <div className="flex w-3 items-center justify-center flex-shrink-0">
-                          {!n.read && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <NotificationIcon notification={n} size="sm" />
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-xs font-medium sm:text-sm">
-                            {n.title}
-                          </span>
-                          {n.contextLabel && (
-                            <span className="truncate text-[10px] text-muted-foreground sm:text-xs">
-                              {n.contextLabel}
-                            </span>
-                          )}
-                        </div>
-                        <RelativeDateTime
-                          at={n.createdAt}
-                          className={`text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs ${n.read ? "" : "group-hover:opacity-0"}`}
-                        />
-                      </button>
-                      {!n.read && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => markAsRead({ id: n._id })}
-                          title="Mark as read"
-                          aria-label="Mark as read"
-                          className="absolute right-2 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-[opacity,background-color] duration-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 sm:right-3"
+                {group.items.map((n, index) => {
+                  const repo = n.repoId ? repoById.get(n.repoId) : undefined;
+                  const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
+                  return (
+                    <motion.div
+                      key={n._id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{
+                        duration: 0.15,
+                        delay: Math.min(index * 0.02, 0.1),
+                      }}
+                    >
+                      <div className="group relative flex items-center transition-colors duration-100 hover:bg-muted/50">
+                        <button
+                          onClick={() => handleClick(n)}
+                          className={`flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
                         >
-                          <IconCheck size={14} />
-                          Dismiss
-                        </Button>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+                          <div className="flex w-3 items-center justify-center flex-shrink-0">
+                            {!n.read && (
+                              <span className="h-2 w-2 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <NotificationSourceAvatar
+                            notification={n}
+                            repo={repo}
+                          />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            {sourceLabel && (
+                              <span className="truncate text-[10px] font-medium text-muted-foreground sm:text-xs">
+                                {sourceLabel}
+                              </span>
+                            )}
+                            <span className="truncate text-xs font-medium sm:text-sm">
+                              {n.title}
+                            </span>
+                            {n.contextLabel && (
+                              <span className="truncate text-[10px] text-muted-foreground sm:text-xs">
+                                {n.contextLabel}
+                              </span>
+                            )}
+                          </div>
+                          <RelativeDateTime
+                            at={n.createdAt}
+                            className={`text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs ${n.read ? "" : "group-hover:opacity-0"}`}
+                          />
+                        </button>
+                        {!n.read && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => markAsRead({ id: n._id })}
+                            title="Mark as read"
+                            aria-label="Mark as read"
+                            className="absolute right-2 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-[opacity,background-color] duration-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 sm:right-3"
+                          >
+                            <IconCheck size={14} />
+                            Dismiss
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </motion.div>
             ))}
           </AnimatePresence>

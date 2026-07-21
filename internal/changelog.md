@@ -1,5 +1,9 @@
 # Changelog
 
+## Restart dead background daemons when Preview polls - 2026-07-21
+
+`npx convex dev` (and other repo background commands) only relaunched on sandbox start/resume. If they died while the sandbox stayed active, Preview kept serving a frontend with a dead Convex. Preview readiness now runs `runBackgroundCommands({ onlyRestartDead: true })` so dead daemons come back without Stop/Start.
+
 ## Heal Vercel preview when app still listens on pre-remap port - 2026-07-21
 
 After app preview moved to listen on port+10000, sandboxes that still had Next on 3000/3001 never became "ready" (Preview polls forever). getPreviewUrl now remounts the app onto the remapped listen port when the probe misses, so eproc (3001→13001) and similar recover without a full sandbox recycle.

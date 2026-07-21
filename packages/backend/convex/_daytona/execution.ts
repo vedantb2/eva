@@ -479,6 +479,21 @@ export const getPreviewUrl = action({
       if (handle.state !== "running") {
         return { url: "", port: args.port, ready: false };
       }
+      // Background daemons (e.g. `npx convex dev`) only relaunch on sandbox
+      // start/resume. If they die while status stays active, Preview would
+      // keep loading a frontend with a dead backend. Cheap pid check; skip
+      // when still alive.
+      try {
+        await ctx.runAction(internal.daytona.runBackgroundCommands, {
+          sandboxId: args.sandboxId,
+          repoId: args.repoId,
+          onlyRestartDead: true,
+        });
+      } catch (e) {
+        console.warn(
+          `[daytona] preview background heal failed sandbox=${args.sandboxId}: ${errorMessage(e, "heal failed")}`,
+        );
+      }
       ready = await probePreviewReady(handle, upstreamPort);
       // Only auto-restart the app/dev server for app preview ports.
       // Desktop (6080) and editor (8080) are started by their own toggle

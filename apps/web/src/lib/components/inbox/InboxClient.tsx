@@ -93,10 +93,10 @@ function NotificationSourceAvatar({
         }
       />
       <span
-        className={`absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded border border-background ${appearance.iconBg}`}
+        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md border border-border bg-card shadow-sm"
         aria-hidden
       >
-        <TypeIcon size={9} className={appearance.iconColor} />
+        <TypeIcon size={11} className={appearance.iconColor} />
       </span>
     </div>
   );

@@ -5,6 +5,7 @@ import {
 } from "../session/claudeSession.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { toolCallToStep } from "../parse/toolSteps.js";
+import { buildStepOutput } from "../parse/toolResultCapture.js";
 import { callbackState as S } from "../runtime/state.js";
 import {
   trackClaudeToolResult,
@@ -16,9 +17,24 @@ import type {
   JsonValue,
   StreamLineResult,
   TodoItem,
+  ToolCompleteResult,
 } from "../types.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
+
+function claudeToolCompleteResult(
+  resultText: string,
+  isError: boolean,
+): ToolCompleteResult | undefined {
+  const output = buildStepOutput(resultText);
+  if (!output && !isError) {
+    return undefined;
+  }
+  return {
+    output,
+    isError: isError ? true : undefined,
+  };
+}
 
 /** Pull plain text out of a tool_result content field (string or text blocks). */
 function extractToolResultText(content: JsonValue): string {
@@ -145,12 +161,18 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
       typeof event.tool_use_id === "string" && event.tool_use_id.trim()
         ? event.tool_use_id.trim()
         : undefined;
+    const resultText =
+      event.content !== undefined ? extractToolResultText(event.content) : "";
+    const isError = event.is_error === true;
     if (toolUseId) {
-      const resultText =
-        event.content !== undefined ? extractToolResultText(event.content) : "";
-      trackClaudeToolResult(toolUseId, resultText, event.is_error === true);
+      trackClaudeToolResult(toolUseId, resultText, isError);
     }
-    events.push({ kind: "complete_tool", trackingId: toolUseId });
+    const result = claudeToolCompleteResult(resultText, isError);
+    events.push(
+      result
+        ? { kind: "complete_tool", trackingId: toolUseId, result }
+        : { kind: "complete_tool", trackingId: toolUseId },
+    );
     return events;
   }
   if (event.type === "user") {
@@ -174,11 +196,14 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
           block.content !== undefined
             ? extractToolResultText(block.content)
             : "";
-        trackClaudeToolResult(toolUseId, resultText, block.is_error === true);
-        events.push({
-          kind: "complete_tool",
-          trackingId: toolUseId,
-        });
+        const isError = block.is_error === true;
+        trackClaudeToolResult(toolUseId, resultText, isError);
+        const result = claudeToolCompleteResult(resultText, isError);
+        events.push(
+          result
+            ? { kind: "complete_tool", trackingId: toolUseId, result }
+            : { kind: "complete_tool", trackingId: toolUseId },
+        );
       }
     }
     if (events.length > 0) {

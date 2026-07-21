@@ -25,6 +25,7 @@ import {
   type ActivityStep,
   type TodoItem,
   stepConfig,
+  stepHasRichDetail,
   useSpinnerVerb,
   useElapsedSeconds,
   formatElapsed,
@@ -34,6 +35,7 @@ import {
   deriveStepRowPresentation,
   type CommandVisualKind,
 } from "./activity-step-label";
+import { ActivityStepDetail } from "./activity-step-detail";
 import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 
 /** Max activity rows shown before the overflow toggle appears. */
@@ -220,7 +222,8 @@ function ActivityStepRow({
       <button
         type="button"
         title={presentation.fileChip.path}
-        onClick={() => {
+        onClick={(event) => {
+          event.stopPropagation();
           const path = presentation.fileChip?.path;
           if (path) onOpenFile(path);
         }}
@@ -242,35 +245,64 @@ function ActivityStepRow({
       ? visibleChildren.slice(0, MAX_VISIBLE_CHILDREN)
       : visibleChildren;
 
+  const hasDetail = stepHasRichDetail(step);
+
+  const rowHeader = (
+    <div
+      className={cn(
+        "flex items-center gap-2 text-sm",
+        step.isError ? "text-destructive" : "text-muted-foreground",
+      )}
+    >
+      <Icon className="size-4 shrink-0" />
+      {label}
+      {fileChip}
+    </div>
+  );
+
+  const childrenBlock =
+    shownChildren.length > 0 ? (
+      <div
+        className={cn(
+          "space-y-1",
+          depth === 0 && "ml-1 border-l border-border pl-3",
+        )}
+      >
+        {shownChildren.map((child, i) => (
+          <ActivityStepRow
+            key={`${child.step.type}-${i}-${child.step.label}`}
+            row={child}
+            onOpenFile={onOpenFile}
+            depth={depth + 1}
+          />
+        ))}
+        {childOverflow > 0 ? (
+          <p className="text-xs text-muted-foreground">+{childOverflow} more</p>
+        ) : null}
+      </div>
+    ) : null;
+
+  if (hasDetail) {
+    return (
+      <div className="space-y-1">
+        <Collapsible className="group w-full">
+          <CollapsibleTrigger className="flex w-full items-center gap-2 text-left transition-colors hover:text-foreground">
+            {rowHeader}
+            <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-1.5 ml-6 space-y-1 border-l border-border pl-3 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+            <ActivityStepDetail step={step} onOpenFile={onOpenFile} />
+          </CollapsibleContent>
+        </Collapsible>
+        {childrenBlock}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Icon className="size-4 shrink-0" />
-        {label}
-        {fileChip}
-      </div>
-      {shownChildren.length > 0 ? (
-        <div
-          className={cn(
-            "space-y-1",
-            depth === 0 && "ml-1 border-l border-border pl-3",
-          )}
-        >
-          {shownChildren.map((child, i) => (
-            <ActivityStepRow
-              key={`${child.step.type}-${i}-${child.step.label}`}
-              row={child}
-              onOpenFile={onOpenFile}
-              depth={depth + 1}
-            />
-          ))}
-          {childOverflow > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              +{childOverflow} more
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {rowHeader}
+      {childrenBlock}
     </div>
   );
 }

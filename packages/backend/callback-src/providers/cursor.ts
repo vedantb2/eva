@@ -1,5 +1,9 @@
 import { cursorToolToStep } from "../parse/toolSteps.js";
 import {
+  pickToolCallId,
+  probeToolCompleteResult,
+} from "../parse/toolResultCapture.js";
+import {
   syncCursorStateToPersist,
   writeCursorSessionState,
 } from "../session/cursorSession.js";
@@ -58,11 +62,33 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
     typeof event.tool_call === "object" &&
     !Array.isArray(event.tool_call)
   ) {
-    events.push({ kind: "push_step", step: cursorToolToStep(event.tool_call) });
+    const step = cursorToolToStep(event.tool_call);
+    const trackingId =
+      pickToolCallId(event) ??
+      step.toolUseId ??
+      pickToolCallId(event.tool_call);
+    if (trackingId) {
+      step.toolUseId = trackingId;
+      events.push({ kind: "push_step", step, trackingId });
+    } else {
+      events.push({ kind: "push_step", step });
+    }
     return events;
   }
   if (event.type === "tool_call" && event.subtype === "completed") {
-    events.push({ kind: "complete_tool" });
+    const trackingId =
+      pickToolCallId(event) ??
+      (event.tool_call &&
+      typeof event.tool_call === "object" &&
+      !Array.isArray(event.tool_call)
+        ? pickToolCallId(event.tool_call)
+        : undefined);
+    const result = probeToolCompleteResult(event);
+    events.push(
+      result
+        ? { kind: "complete_tool", trackingId, result }
+        : { kind: "complete_tool", trackingId },
+    );
     return events;
   }
   if (event.type === "result") {

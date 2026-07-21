@@ -24,6 +24,17 @@ export interface TodoItem {
   status: "pending" | "in_progress" | "completed";
 }
 
+export interface ActivityStepOutput {
+  text: string;
+  exitCode?: number;
+  truncated?: boolean;
+}
+
+export interface ActivityStepEdit {
+  oldText: string;
+  newText: string;
+}
+
 export interface ActivityStep {
   type:
     | "read"
@@ -53,6 +64,31 @@ export interface ActivityStep {
   parentToolUseId?: string;
   /** Todo checklist snapshot (type "todos" only). */
   todos?: TodoItem[];
+  /** Bash command (fuller than detail, capped). */
+  command?: string;
+  /** Tool result transcript (tail-capped). */
+  output?: ActivityStepOutput;
+  /** Edit before/after snippets. */
+  edits?: ActivityStepEdit[];
+  /** Codex file_change paths. */
+  files?: string[];
+  /** Write tool content head preview. */
+  contentPreview?: string;
+  /** True when the tool failed or exited non-zero. */
+  isError?: boolean;
+  /** Wall time from push → complete (ms). */
+  durationMs?: number;
+}
+
+/** True when the step has expandable rich detail to show. */
+export function stepHasRichDetail(step: ActivityStep): boolean {
+  return Boolean(
+    step.command ||
+    step.output ||
+    (step.edits && step.edits.length > 0) ||
+    (step.files && step.files.length > 0) ||
+    step.contentPreview,
+  );
 }
 
 export function EvaThinkingIcon({ className }: { className?: string }) {

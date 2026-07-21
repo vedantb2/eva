@@ -26,6 +26,7 @@ import {
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendToRawLogFile,
   appendToRawOutput,
@@ -116,7 +117,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       success: false,
       result: null,
       error,
-      activityLog: JSON.stringify(S.accumulatedSteps),
+      activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     });
   } catch {
@@ -288,7 +289,7 @@ async function finalizeTurn(
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(S.accumulatedSteps);
+  const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
   const completionArgs: Record<string, string | boolean | null> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -886,7 +887,7 @@ export async function runSdkDaemon(): Promise<void> {
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
-        activityLog: JSON.stringify(S.accumulatedSteps),
+        activityLog: serializeSteps(S.accumulatedSteps),
       });
     } catch {
       /* ignore */

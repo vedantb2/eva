@@ -9,6 +9,25 @@ export type JsonValue =
 
 export type JsonObject = { [key: string]: JsonValue };
 
+export type StepOutput = {
+  text: string;
+  exitCode?: number;
+  truncated?: boolean;
+};
+
+export type StepEdit = {
+  oldText: string;
+  newText: string;
+};
+
+/** Optional payload attached when a tool call finishes (merged onto the step). */
+export type ToolCompleteResult = {
+  output?: StepOutput;
+  isError?: boolean;
+  files?: string[];
+  durationMs?: number;
+};
+
 export type ProgressStep = {
   type: string;
   label: string;
@@ -24,6 +43,20 @@ export type ProgressStep = {
   parentToolUseId?: string;
   /** Todo checklist snapshot (type "todos" only), JSON-serialised for transport. */
   todos?: TodoItem[];
+  /** Bash command (fuller than detail, capped). */
+  command?: string;
+  /** Tool result transcript (tail-capped). */
+  output?: StepOutput;
+  /** Edit before/after snippets (max 4). */
+  edits?: StepEdit[];
+  /** Codex file_change paths (max 10). */
+  files?: string[];
+  /** Write tool content head preview. */
+  contentPreview?: string;
+  /** True when the tool failed or exited non-zero. */
+  isError?: boolean;
+  /** Wall time from push → complete (ms). */
+  durationMs?: number;
 };
 
 export type TodoItem = {
@@ -44,7 +77,11 @@ export type StartupStep = {
 export type CanonicalEvent =
   | { kind: "update_thinking"; label: string; detail?: string }
   | { kind: "push_step"; step: ProgressStep; trackingId?: string }
-  | { kind: "complete_tool"; trackingId?: string }
+  | {
+      kind: "complete_tool";
+      trackingId?: string;
+      result?: ToolCompleteResult;
+    }
   | { kind: "mark_last_complete" }
   | { kind: "append_text"; text: string }
   | { kind: "stream_text_delta"; text: string }

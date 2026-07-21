@@ -9,6 +9,7 @@ import type {
   JsonObject,
   ProgressStep,
   TodoItem,
+  ToolCompleteResult,
 } from "../types.js";
 import { tryParseJson } from "../utils.js";
 
@@ -22,6 +23,24 @@ export {
   toolCallToStep,
 } from "./toolSteps.js";
 
+/** Push-time timestamps for durationMs (not persisted across serialize). */
+const stepStartedAt = new WeakMap<ProgressStep, number>();
+
+function mergeToolResult(step: ProgressStep, result: ToolCompleteResult): void {
+  if (result.output) {
+    step.output = result.output;
+  }
+  if (result.isError !== undefined) {
+    step.isError = result.isError;
+  }
+  if (result.files && result.files.length > 0) {
+    step.files = result.files;
+  }
+  if (result.durationMs !== undefined) {
+    step.durationMs = result.durationMs;
+  }
+}
+
 /** Flips one step to complete and swaps its in-progress label for the past-tense one. */
 function markStepComplete(step: ProgressStep): void {
   step.status = "complete";
@@ -29,6 +48,12 @@ function markStepComplete(step: ProgressStep): void {
     step.label = completedLabels[step.label];
   } else if (step.label.startsWith("Using ") && step.label.endsWith("...")) {
     step.label = "Used " + step.label.slice(6, -3);
+  }
+  if (step.durationMs === undefined) {
+    const started = stepStartedAt.get(step);
+    if (started !== undefined) {
+      step.durationMs = Date.now() - started;
+    }
   }
 }
 
@@ -44,17 +69,26 @@ export function markLastComplete(): void {
  * id. Matching by id is what lets a subagent's parent `Agent` step stay active
  * until its own tool_result, rather than being closed by its first child.
  */
-function completeToolStep(trackingId?: string): void {
+function completeToolStep(
+  trackingId?: string,
+  result?: ToolCompleteResult,
+): void {
   if (trackingId) {
     for (let i = S.accumulatedSteps.length - 1; i >= 0; i--) {
       const step = S.accumulatedSteps[i];
       if (step.toolUseId === trackingId) {
+        if (result) mergeToolResult(step, result);
         markStepComplete(step);
         return;
       }
     }
   }
-  markLastComplete();
+  if (S.accumulatedSteps.length > 0) {
+    const last = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+    if (result) mergeToolResult(last, result);
+    markStepComplete(last);
+    return;
+  }
 }
 
 /** Short "N of M done" summary used as the todos step's fallback detail. */
@@ -118,6 +152,7 @@ function pushProgressStep(step: ProgressStep): void {
     markLastComplete();
   }
   S.accumulatedSteps.push(step);
+  stepStartedAt.set(step, Date.now());
   S.lastStepType = "tool";
 }
 
@@ -148,7 +183,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         }
         break;
       case "complete_tool":
-        completeToolStep(ev.trackingId);
+        completeToolStep(ev.trackingId, ev.result);
         if (ev.trackingId !== undefined) {
           S.codexToolItemIds.delete(ev.trackingId);
         }

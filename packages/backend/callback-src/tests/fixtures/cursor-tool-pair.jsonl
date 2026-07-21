@@ -1,0 +1,2 @@
+{"type":"tool_call","subtype":"started","call_id":"call_cursor1","tool_call":{"shellToolCall":{"args":{"command":"ls -la"}}}}
+{"type":"tool_call","subtype":"completed","call_id":"call_cursor1","tool_call":{"shellToolCall":{"args":{"command":"ls -la"}}},"result":{"output":"total 12\n","exitCode":0}}

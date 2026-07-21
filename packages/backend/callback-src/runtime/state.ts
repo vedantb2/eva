@@ -16,13 +16,95 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
   }
   const detail = value.detail;
   const path = value.path;
-  return {
+  const step: ProgressStep = {
     type,
     label,
     detail: typeof detail === "string" ? detail : undefined,
     path: typeof path === "string" ? path : undefined,
     status: "complete",
   };
+  if (typeof value.toolUseId === "string" && value.toolUseId.trim()) {
+    step.toolUseId = value.toolUseId.trim();
+  }
+  if (
+    typeof value.parentToolUseId === "string" &&
+    value.parentToolUseId.trim()
+  ) {
+    step.parentToolUseId = value.parentToolUseId.trim();
+  }
+  if (typeof value.command === "string" && value.command) {
+    step.command = value.command;
+  }
+  if (typeof value.contentPreview === "string" && value.contentPreview) {
+    step.contentPreview = value.contentPreview;
+  }
+  if (value.isError === true) {
+    step.isError = true;
+  }
+  if (
+    typeof value.durationMs === "number" &&
+    Number.isFinite(value.durationMs)
+  ) {
+    step.durationMs = value.durationMs;
+  }
+  if (
+    value.output &&
+    typeof value.output === "object" &&
+    !Array.isArray(value.output) &&
+    typeof value.output.text === "string"
+  ) {
+    step.output = {
+      text: value.output.text,
+      exitCode:
+        typeof value.output.exitCode === "number"
+          ? value.output.exitCode
+          : undefined,
+      truncated: value.output.truncated === true ? true : undefined,
+    };
+  }
+  if (Array.isArray(value.edits)) {
+    const edits: NonNullable<ProgressStep["edits"]> = [];
+    for (const edit of value.edits) {
+      if (!edit || typeof edit !== "object" || Array.isArray(edit)) continue;
+      if (
+        typeof edit.oldText !== "string" ||
+        typeof edit.newText !== "string"
+      ) {
+        continue;
+      }
+      edits.push({ oldText: edit.oldText, newText: edit.newText });
+    }
+    if (edits.length > 0) {
+      step.edits = edits;
+    }
+  }
+  if (Array.isArray(value.files)) {
+    const files: string[] = [];
+    for (const file of value.files) {
+      if (typeof file === "string" && file.trim()) {
+        files.push(file.trim());
+      }
+    }
+    if (files.length > 0) {
+      step.files = files;
+    }
+  }
+  if (Array.isArray(value.todos)) {
+    const todos: TodoItem[] = [];
+    for (const item of value.todos) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      if (typeof item.content !== "string" || !item.content) continue;
+      const status =
+        item.status === "in_progress" || item.status === "completed"
+          ? item.status
+          : "pending";
+      todos.push({ content: item.content, status });
+    }
+    if (todos.length > 0) {
+      step.todos = todos;
+    }
+  }
+  return step;
 }
 
 export const parsePriorStepForTest = parsePriorStep;

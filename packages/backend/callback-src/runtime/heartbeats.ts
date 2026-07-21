@@ -22,12 +22,13 @@ import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { terminateAttemptProcess } from "./processControl.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
+import { serializeSteps } from "../parse/stepBudget.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 export function buildStreamingPayload(): string {
-  return JSON.stringify(S.accumulatedSteps);
+  return serializeSteps(S.accumulatedSteps);
 }
 
 export function markHeartbeatSuccess(payload: string): void {

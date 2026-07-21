@@ -52,6 +52,7 @@ import {
   readGitHeadSha,
   readResponseJson,
 } from "./utils.js";
+import { serializeSteps } from "./parse/stepBudget.js";
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -275,7 +276,7 @@ try {
   }
 
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(S.accumulatedSteps);
+  const activityLog = serializeSteps(S.accumulatedSteps);
 
   let completionSuccess = finalResultEvent
     ? !finalResultEvent.isError
@@ -375,7 +376,7 @@ try {
                   : "Claude") +
             " CLI",
     ),
-    activityLog: JSON.stringify(S.accumulatedSteps),
+    activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {

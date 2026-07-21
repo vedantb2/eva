@@ -1,0 +1,6 @@
+{"type":"item.started","item":{"id":"item_shell1","type":"command_execution","command":"npm test","cmd":"npm test"}}
+{"type":"item.completed","item":{"id":"item_shell1","type":"command_execution","aggregated_output":"PASS src/a.test.ts\n","exit_code":0}}
+{"type":"item.started","item":{"id":"item_fc1","type":"file_change","changes":[{"path":"/tmp/repo/src/a.ts"},{"path":"/tmp/repo/src/b.ts"}]}}
+{"type":"item.completed","item":{"id":"item_fc1","type":"file_change","changes":[{"path":"/tmp/repo/src/a.ts"},{"path":"/tmp/repo/src/b.ts"}]}}
+{"type":"item.started","item":{"id":"item_fail1","type":"command_execution","command":"false"}}
+{"type":"item.failed","item":{"id":"item_fail1","type":"command_execution","output":"command failed","exitCode":1}}

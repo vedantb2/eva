@@ -1,5 +1,9 @@
 # Changelog
 
+## Expandable tool output/diff detail in chat - 2026-07-21
+
+Per-call rows showed _what_ ran but not _what came back_. The sandbox harness now captures command output, exit codes, edit before/after, and write previews (budget-capped) for Claude/Codex/Cursor/OpenCode, and rows with detail expand in place — so you can verify a turn without digging through raw logs.
+
 ## Synara-style per-call tool rows in chat - 2026-07-21
 
 Grouped activity blocks ("Ran 3 commands") hid what the agent actually did. Chat now shows one humanized row per tool call — Checked "git status", Searched for "x", Edited Foo.tsx — with tense flip while running and per-command icons, so historical and live sessions read as a clear step-by-step trail without a backend change.

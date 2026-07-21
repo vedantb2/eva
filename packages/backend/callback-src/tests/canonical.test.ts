@@ -60,6 +60,7 @@ test("tool_result clears in-flight tool by tool_use_id", () => {
       step: {
         type: "bash",
         label: "Running command...",
+        toolUseId: "toolu_abc",
         status: "active",
       },
     },
@@ -67,6 +68,72 @@ test("tool_result clears in-flight tool by tool_use_id", () => {
   expect(S.inFlightToolUses).toBe(1);
   applyCanonicalEvents([{ kind: "complete_tool", trackingId: "toolu_abc" }]);
   expect(S.inFlightToolUses).toBe(0);
+  resetStateForTests();
+});
+
+test("complete_tool merges result onto matching step", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    {
+      kind: "push_step",
+      trackingId: "toolu_out",
+      step: {
+        type: "bash",
+        label: "Running command...",
+        toolUseId: "toolu_out",
+        command: "pwd",
+        status: "active",
+      },
+    },
+  ]);
+  applyCanonicalEvents([
+    {
+      kind: "complete_tool",
+      trackingId: "toolu_out",
+      result: {
+        output: { text: "/tmp/repo", exitCode: 0 },
+        isError: false,
+      },
+    },
+  ]);
+  expect(S.accumulatedSteps[0]?.output?.text).toBe("/tmp/repo");
+  expect(S.accumulatedSteps[0]?.output?.exitCode).toBe(0);
+  expect(S.accumulatedSteps[0]?.status).toBe("complete");
+  expect(typeof S.accumulatedSteps[0]?.durationMs).toBe("number");
+  resetStateForTests();
+});
+
+test("codex item.started sets toolUseId for id-matched completion", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "item.started",
+      item: {
+        id: "item_xyz",
+        type: "command_execution",
+        command: "echo hi",
+      },
+    },
+    "codex",
+  );
+  applyCanonicalEvents(events);
+  expect(S.accumulatedSteps[0]?.toolUseId).toBe("item_xyz");
+  applyCanonicalEvents(
+    parseToCanonical(
+      {
+        type: "item.completed",
+        item: {
+          id: "item_xyz",
+          type: "command_execution",
+          aggregated_output: "hi\n",
+          exit_code: 0,
+        },
+      },
+      "codex",
+    ),
+  );
+  expect(S.accumulatedSteps[0]?.status).toBe("complete");
+  expect(S.accumulatedSteps[0]?.output?.text).toContain("hi");
   resetStateForTests();
 });
 

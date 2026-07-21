@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Spinner,
   Tooltip,
@@ -24,7 +25,7 @@ import {
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
-import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
@@ -113,6 +114,7 @@ export function SessionChatHeader({
             <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
+          {(deploymentStatus || prUrl) && <DropdownMenuSeparator />}
           {deploymentStatus && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -142,12 +144,10 @@ export function SessionChatHeader({
               View PR
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
+          <CopyLinkMenuItem />
         </DropdownMenuContent>
       </DropdownMenu>
-      <CopyLinkButton
-        iconSize={14}
-        className="motion-press hover:scale-[1.01] active:scale-[0.96]"
-      />
       {onToggleSandbox && (
         <Button
           size="icon"

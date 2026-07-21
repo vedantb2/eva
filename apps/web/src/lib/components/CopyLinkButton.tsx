@@ -1,30 +1,18 @@
 "use client";
 
-import { Button } from "@conductor/ui";
+import { DropdownMenuItem } from "@conductor/ui";
 import { IconLink } from "@tabler/icons-react";
 
-/** Copies the current page URL. Shared across task / project / session headers. */
-export function CopyLinkButton({
-  size = "sm",
-  iconSize = 16,
-  className,
-}: {
-  size?: "sm" | "icon-sm";
-  iconSize?: number;
-  className?: string;
-}) {
+/** Copies the current page URL — shared More-menu item for task / project / session headers. */
+export function CopyLinkMenuItem({ iconSize = 14 }: { iconSize?: number }) {
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      size={size}
-      className={className}
+    <DropdownMenuItem
       onClick={() => {
         void navigator.clipboard.writeText(window.location.href);
       }}
     >
       <IconLink size={iconSize} />
-      <span className="hidden sm:inline">Copy link</span>
-    </Button>
+      Copy link
+    </DropdownMenuItem>
   );
 }

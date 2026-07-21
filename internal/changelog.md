@@ -1,5 +1,9 @@
 # Changelog
 
+## Copy link lives in More menus - 2026-07-21
+
+Copy link sat as a separate header button next to More on sessions, projects, and quick tasks. It now lives in More with dividers between action groups so the chrome stays lighter.
+
 ## Sandbox PR tab labeled Review - 2026-07-21
 
 "PR" was opaque for a tab that holds diffs and recap. The sandbox tab label is now Review; route segment stays `pr` and the pull-request icon is unchanged.

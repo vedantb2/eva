@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@conductor/ui";
 import {
   IconGitPullRequest,
@@ -29,7 +30,7 @@ import {
   IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -114,7 +115,16 @@ export function TaskFooter({
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRequestChanges =
     status !== "todo" && status !== "in_progress" && status !== undefined;
+  const showRunDevServer = isSandboxActive && canStartSandbox;
+  const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
+  const hasSandboxCommandItems =
+    canStartSandbox || showRunDevServer || showRunBackgroundCommands;
+  const hasPrLinkItems =
+    canCreatePr ||
+    Boolean(latestPrUrl) ||
+    Boolean(latestDeployment?.deploymentStatus);
   const showMoreMenu =
+    isHeader ||
     canStartSandbox ||
     canCreatePr ||
     showResolveConflicts ||
@@ -190,6 +200,9 @@ export function TaskFooter({
                     Resolve Conflicts
                   </DropdownMenuItem>
                 )}
+                {showResolveConflicts && hasSandboxCommandItems ? (
+                  <DropdownMenuSeparator />
+                ) : null}
                 {canStartSandbox && (
                   <DropdownMenuItem
                     onClick={onRunStartupCommands}
@@ -203,7 +216,7 @@ export function TaskFooter({
                     Run Startup Commands
                   </DropdownMenuItem>
                 )}
-                {isSandboxActive && canStartSandbox ? (
+                {showRunDevServer ? (
                   <DropdownMenuItem
                     onClick={onRunDevServer}
                     disabled={isRunningDevServer}
@@ -216,7 +229,7 @@ export function TaskFooter({
                     Run Dev Server
                   </DropdownMenuItem>
                 ) : null}
-                {isSandboxActive && canStartSandbox ? (
+                {showRunBackgroundCommands ? (
                   <DropdownMenuItem
                     onClick={onRunBackgroundCommands}
                     disabled={isRunningBackgroundCommands}
@@ -228,6 +241,10 @@ export function TaskFooter({
                     )}
                     Run Background Commands
                   </DropdownMenuItem>
+                ) : null}
+                {(showResolveConflicts || hasSandboxCommandItems) &&
+                hasPrLinkItems ? (
+                  <DropdownMenuSeparator />
                 ) : null}
                 {canCreatePr && (
                   <DropdownMenuItem
@@ -270,16 +287,30 @@ export function TaskFooter({
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {(showResolveConflicts ||
+                  hasSandboxCommandItems ||
+                  hasPrLinkItems) &&
+                showRequestChanges ? (
+                  <DropdownMenuSeparator />
+                ) : null}
                 {showRequestChanges && (
                   <DropdownMenuItem onClick={onRequestChanges}>
                     <IconMessagePlus size={14} />
                     Request Changes
                   </DropdownMenuItem>
                 )}
+                {isHeader ? (
+                  <>
+                    {(showResolveConflicts ||
+                      hasSandboxCommandItems ||
+                      hasPrLinkItems ||
+                      showRequestChanges) && <DropdownMenuSeparator />}
+                    <CopyLinkMenuItem iconSize={14} />
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {isHeader ? <CopyLinkButton iconSize={iconSize} /> : null}
           {showStopSandbox ? (
             <Button
               variant="destructive"

@@ -34,7 +34,7 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
-import { CopyLinkButton } from "@/lib/components/CopyLinkButton";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 import {
@@ -232,13 +232,9 @@ export function ProjectDetailClient({
     }
   })();
   const hasPlanContext = Boolean(parsedSpec);
-  const showMoreMenu =
-    canCreatePr ||
-    hasDeployedPreview ||
-    showRetryStartupCommands ||
-    showRunBackgroundCommands ||
-    showResolveConflicts ||
-    hasPlanContext;
+  const hasSandboxCommandItems =
+    showRetryStartupCommands || showRunBackgroundCommands;
+  const hasPrLinkItems = canCreatePr || hasDeployedPreview;
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -324,104 +320,111 @@ export function ProjectDetailClient({
             {prError && <p className="text-xs text-destructive">{prError}</p>}
             <div className="flex items-center gap-1.5 sm:gap-2">
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
-              {showMoreMenu && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      <IconDots size={16} />
-                      <span className="hidden sm:inline">More</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {showResolveConflicts && (
-                      <DropdownMenuItem
-                        onClick={() => setShowResolveConfirm(true)}
-                        disabled={isResolvingConflicts}
-                      >
-                        {isResolvingConflicts ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconHammer size={14} />
-                        )}
-                        Resolve Conflicts
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm">
+                    <IconDots size={16} />
+                    <span className="hidden sm:inline">More</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {showResolveConflicts && (
+                    <DropdownMenuItem
+                      onClick={() => setShowResolveConfirm(true)}
+                      disabled={isResolvingConflicts}
+                    >
+                      {isResolvingConflicts ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconHammer size={14} />
+                      )}
+                      Resolve Conflicts
+                    </DropdownMenuItem>
+                  )}
+                  {showResolveConflicts && hasSandboxCommandItems ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {showRetryStartupCommands && (
+                    <DropdownMenuItem
+                      onClick={() => setShowStartupCommandsConfirm(true)}
+                      disabled={isRetryingStartupCommands}
+                    >
+                      {isRetryingStartupCommands ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={14} />
+                      )}
+                      Run Startup Commands
+                    </DropdownMenuItem>
+                  )}
+                  {showRunBackgroundCommands && (
+                    <DropdownMenuItem
+                      onClick={handleRunBackgroundCommands}
+                      disabled={isRunningBackgroundCommands}
+                    >
+                      {isRunningBackgroundCommands ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconServerBolt size={14} />
+                      )}
+                      Run Background Commands
+                    </DropdownMenuItem>
+                  )}
+                  {(showResolveConflicts || hasSandboxCommandItems) &&
+                  hasPrLinkItems ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {canCreatePr && (
+                    <DropdownMenuItem
+                      onClick={handleCreatePr}
+                      disabled={isCreatingPr}
+                    >
+                      {isCreatingPr ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconGitPullRequest size={14} />
+                      )}
+                      Create PR
+                    </DropdownMenuItem>
+                  )}
+                  {hasDeployedPreview && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <DropdownMenuItem disabled>
+                            <IconBrandVercel size={14} />
+                            View Preview
+                          </DropdownMenuItem>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Please start sandbox and view changes through the
+                        preview tab there instead
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {hasPlanContext && (
+                    <>
+                      {(showResolveConflicts ||
+                        hasSandboxCommandItems ||
+                        hasPrLinkItems) && <DropdownMenuSeparator />}
+                      <DropdownMenuItem onClick={() => setShowPlanModal(true)}>
+                        <IconFileText size={14} />
+                        View Plan
                       </DropdownMenuItem>
-                    )}
-                    {showRetryStartupCommands && (
-                      <DropdownMenuItem
-                        onClick={() => setShowStartupCommandsConfirm(true)}
-                        disabled={isRetryingStartupCommands}
-                      >
-                        {isRetryingStartupCommands ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconRefresh size={14} />
-                        )}
-                        Run Startup Commands
+                      <DropdownMenuItem onClick={() => setShowChatModal(true)}>
+                        <IconMessage size={14} />
+                        View Interview History
                       </DropdownMenuItem>
-                    )}
-                    {showRunBackgroundCommands && (
-                      <DropdownMenuItem
-                        onClick={handleRunBackgroundCommands}
-                        disabled={isRunningBackgroundCommands}
-                      >
-                        {isRunningBackgroundCommands ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconServerBolt size={14} />
-                        )}
-                        Run Background Commands
-                      </DropdownMenuItem>
-                    )}
-                    {canCreatePr && (
-                      <DropdownMenuItem
-                        onClick={handleCreatePr}
-                        disabled={isCreatingPr}
-                      >
-                        {isCreatingPr ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconGitPullRequest size={14} />
-                        )}
-                        Create PR
-                      </DropdownMenuItem>
-                    )}
-                    {hasDeployedPreview && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <DropdownMenuItem disabled>
-                              <IconBrandVercel size={14} />
-                              View Preview
-                            </DropdownMenuItem>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Please start sandbox and view changes through the
-                          preview tab there instead
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {hasPlanContext && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setShowPlanModal(true)}
-                        >
-                          <IconFileText size={14} />
-                          View Plan
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setShowChatModal(true)}
-                        >
-                          <IconMessage size={14} />
-                          View Interview History
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <CopyLinkButton />
+                    </>
+                  )}
+                  {(showResolveConflicts ||
+                    hasSandboxCommandItems ||
+                    hasPrLinkItems ||
+                    hasPlanContext) && <DropdownMenuSeparator />}
+                  <CopyLinkMenuItem />
+                </DropdownMenuContent>
+              </DropdownMenu>
               {project.prUrl && (
                 <Button variant="secondary" size="sm" asChild>
                   <a

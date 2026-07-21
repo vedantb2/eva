@@ -1,5 +1,9 @@
 # Changelog
 
+## Synara-style per-call tool rows in chat - 2026-07-21
+
+Grouped activity blocks ("Ran 3 commands") hid what the agent actually did. Chat now shows one humanized row per tool call — Checked "git status", Searched for "x", Edited Foo.tsx — with tense flip while running and per-command icons, so historical and live sessions read as a clear step-by-step trail without a backend change.
+
 ## Session Files tab is a full repo explorer - 2026-07-21
 
 The Files tab only opened when a chat chip set `?file=`, with no way to browse the sandbox. It now shows a searchable left-hand tree (`git ls-files`, ignoring gitignored paths) beside the existing viewer, so you can explore the whole repo while chip deep-links keep working.

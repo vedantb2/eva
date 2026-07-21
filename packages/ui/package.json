@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./cn": "./src/utils/cn.ts",
@@ -58,7 +62,8 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.7",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16"

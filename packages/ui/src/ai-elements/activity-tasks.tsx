@@ -13,7 +13,10 @@ import {
   ChevronDownIcon,
   CircleIcon,
   CircleCheckBigIcon,
+  GitBranchIcon,
   LoaderIcon,
+  SearchIcon,
+  TerminalIcon,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
@@ -21,19 +24,29 @@ import { Shimmer } from "./shimmer";
 import {
   type ActivityStep,
   type TodoItem,
+  stepConfig,
   useSpinnerVerb,
   useElapsedSeconds,
   formatElapsed,
 } from "./activity-shared";
+import { type ActivityRow, buildActivityRows } from "./activity-tasks-utils";
 import {
-  type ActivityBlock,
-  groupSteps,
-  getBlockTitle,
-} from "./activity-tasks-utils";
+  deriveStepRowPresentation,
+  type CommandVisualKind,
+} from "./activity-step-label";
 import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 
-/** Max activity blocks shown before the overflow toggle appears (P2). */
-const MAX_VISIBLE_BLOCKS = 5;
+/** Max activity rows shown before the overflow toggle appears. */
+const MAX_VISIBLE_ROWS = 8;
+
+/** Max nested child rows shown under a subtask before "+N more". */
+const MAX_VISIBLE_CHILDREN = 8;
+
+const HIDDEN_TYPES = new Set<ActivityStep["type"]>([
+  "thinking",
+  "reasoning",
+  "response",
+]);
 
 /** Nearest ancestor that actually scrolls — used to keep the overflow toggle pinned. */
 function findScrollParent(el: HTMLElement): HTMLElement | null {
@@ -81,35 +94,13 @@ export interface ActivityTasksProps extends ComponentProps<"div"> {
   icon?: ReactNode;
   startedAt?: number;
   duration?: string;
+  /** @deprecated Unused; kept so existing call sites compile unchanged. */
   finalText?: string;
   /**
    * When provided, file chips with a known full path become clickable and call
    * this with the path. Pass a stable callback — {@link ActivityTasks} is memoised.
    */
   onOpenFile?: (path: string) => void;
-}
-
-const FILE_TYPES = new Set<ActivityStep["type"]>([
-  "read",
-  "edit",
-  "write",
-  "notebook",
-]);
-
-const HIDDEN_TYPES = new Set<ActivityStep["type"]>([
-  "thinking",
-  "reasoning",
-  "response",
-]);
-
-function getFileVerb(type: ActivityStep["type"], active: boolean): string {
-  if (type === "edit" || type === "notebook") {
-    return active ? "Editing" : "Edited";
-  }
-  if (type === "write") {
-    return active ? "Creating" : "Created";
-  }
-  return active ? "Reading" : "Read";
 }
 
 /** Status glyph for one todo row. */
@@ -162,138 +153,150 @@ function TodoChecklist({
   );
 }
 
-/** One subagent row: its description plus its own nested activity, indented. */
-function SubtaskItem({
-  item,
-  childBlocks,
+function bashIconForKind(kind: CommandVisualKind) {
+  if (kind === "inspect") return SearchIcon;
+  if (kind === "git") return GitBranchIcon;
+  return TerminalIcon;
+}
+
+/** One per-call activity row with Synara-style humanized label. */
+function ActivityStepRow({
+  row,
   onOpenFile,
+  depth = 0,
 }: {
-  item: ActivityStep;
-  childBlocks?: ActivityBlock[];
+  row: ActivityRow;
   onOpenFile?: (path: string) => void;
+  depth?: number;
 }) {
+  const { step, children } = row;
+  const isActive = step.status === "active";
+  const presentation = deriveStepRowPresentation(step, isActive);
+
+  if (step.type === "todos") {
+    return (
+      <Task defaultOpen={isActive} className="w-full">
+        <TaskTrigger
+          title={
+            isActive ? (
+              <Shimmer as="span" duration={2.5} spread={1.5}>
+                {presentation.text}
+              </Shimmer>
+            ) : (
+              <span>{presentation.text}</span>
+            )
+          }
+        />
+        <TaskContent>
+          <TodoChecklist
+            todos={step.todos ?? []}
+            fallback={step.detail ?? step.label}
+          />
+        </TaskContent>
+      </Task>
+    );
+  }
+
+  const config = stepConfig[step.type] ?? stepConfig.tool;
+  const Icon =
+    step.type === "bash" && presentation.commandKind
+      ? bashIconForKind(presentation.commandKind)
+      : config.icon;
+
+  const label = (
+    <span className="min-w-0 truncate" title={presentation.title}>
+      {isActive ? (
+        <Shimmer as="span" duration={2.5} spread={1.5}>
+          {presentation.text}
+        </Shimmer>
+      ) : (
+        presentation.text
+      )}
+    </span>
+  );
+
+  const fileChip = presentation.fileChip ? (
+    presentation.fileChip.path && onOpenFile ? (
+      <button
+        type="button"
+        title={presentation.fileChip.path}
+        onClick={() => {
+          const path = presentation.fileChip?.path;
+          if (path) onOpenFile(path);
+        }}
+        className="inline-flex min-w-0 max-w-full cursor-pointer"
+      >
+        <TaskItemFile className="transition-colors hover:bg-muted">
+          {presentation.fileChip.name}
+        </TaskItemFile>
+      </button>
+    ) : (
+      <TaskItemFile>{presentation.fileChip.name}</TaskItemFile>
+    )
+  ) : null;
+
+  const visibleChildren = children ?? [];
+  const childOverflow = visibleChildren.length - MAX_VISIBLE_CHILDREN;
+  const shownChildren =
+    childOverflow > 0
+      ? visibleChildren.slice(0, MAX_VISIBLE_CHILDREN)
+      : visibleChildren;
+
   return (
-    <div className="space-y-1.5">
-      <TaskItem>{item.detail ?? item.label}</TaskItem>
-      {childBlocks && childBlocks.length > 0 ? (
-        <div className="ml-1 space-y-1.5 border-l border-border pl-3">
-          {childBlocks.map((child, i) => (
-            <ActivityBlockRow key={i} block={child} onOpenFile={onOpenFile} />
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className="size-4 shrink-0" />
+        {label}
+        {fileChip}
+      </div>
+      {shownChildren.length > 0 ? (
+        <div
+          className={cn(
+            "space-y-1",
+            depth === 0 && "ml-1 border-l border-border pl-3",
+          )}
+        >
+          {shownChildren.map((child, i) => (
+            <ActivityStepRow
+              key={`${child.step.type}-${i}-${child.step.label}`}
+              row={child}
+              onOpenFile={onOpenFile}
+              depth={depth + 1}
+            />
           ))}
+          {childOverflow > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              +{childOverflow} more
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
 }
 
-function ActivityBlockRow({
-  block,
-  onOpenFile,
-}: {
-  block: ActivityBlock;
-  onOpenFile?: (path: string) => void;
-}) {
-  const isActive = block.status === "active";
-  const title = getBlockTitle(block);
-  const isFileType = FILE_TYPES.has(block.type);
-  const fileVerb = getFileVerb(block.type, isActive);
-
-  return (
-    <Task key={block.status} defaultOpen={isActive} className="w-full">
-      <TaskTrigger
-        title={
-          isActive ? (
-            <Shimmer as="span" duration={2.5} spread={1.5}>
-              {title}
-            </Shimmer>
-          ) : (
-            <span>{title}</span>
-          )
-        }
-      />
-      <TaskContent>
-        {block.type === "todos"
-          ? block.items.map((item, i) => (
-              <TodoChecklist
-                key={i}
-                todos={item.todos ?? []}
-                fallback={item.detail ?? item.label}
-              />
-            ))
-          : block.type === "subtask"
-            ? block.items.map((item, i) => (
-                <SubtaskItem
-                  key={i}
-                  item={item}
-                  childBlocks={
-                    item.toolUseId
-                      ? block.subtaskChildren?.[item.toolUseId]
-                      : undefined
-                  }
-                  onOpenFile={onOpenFile}
-                />
-              ))
-            : block.items.map((item, i) =>
-                isFileType ? (
-                  <TaskItem key={i}>
-                    <span className="inline-flex max-w-full items-center gap-1">
-                      {fileVerb}
-                      {item.path && onOpenFile ? (
-                        <button
-                          type="button"
-                          title={item.path}
-                          onClick={() => onOpenFile(item.path ?? "")}
-                          className="inline-flex min-w-0 max-w-full cursor-pointer"
-                        >
-                          <TaskItemFile className="transition-colors hover:bg-muted">
-                            {item.detail ?? item.label}
-                          </TaskItemFile>
-                        </button>
-                      ) : (
-                        <TaskItemFile>{item.detail ?? item.label}</TaskItemFile>
-                      )}
-                    </span>
-                  </TaskItem>
-                ) : block.type === "bash" ? (
-                  <TaskItem
-                    key={i}
-                    className="line-clamp-2 break-all font-mono text-xs"
-                  >
-                    {item.detail ?? item.label}
-                  </TaskItem>
-                ) : (
-                  <TaskItem key={i}>{item.detail ?? item.label}</TaskItem>
-                ),
-              )}
-      </TaskContent>
-    </Task>
-  );
-}
-
 /**
- * Renders the activity blocks with an overflow cap (P2). When there are more
- * than MAX_VISIBLE_BLOCKS, the excess is hidden behind a muted "Show N more"
- * toggle. Settled turns cap from the front (show the first N); streaming turns
- * cap from the end (show the newest N) so the latest activity stays visible.
+ * Renders activity rows with an overflow cap. Settled turns cap from the front
+ * (first N); streaming turns cap from the end (newest N) so latest stays visible.
  */
-function ActivityBlockList({
-  blocks,
+function ActivityRowList({
+  rows,
   isStreaming,
   onOpenFile,
 }: {
-  blocks: ActivityBlock[];
+  rows: ActivityRow[];
   isStreaming?: boolean;
   onOpenFile?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const overflow = blocks.length - MAX_VISIBLE_BLOCKS;
+  const overflow = rows.length - MAX_VISIBLE_ROWS;
   const isCapped = overflow > 0 && !expanded;
   const visible = isCapped
     ? isStreaming
-      ? blocks.slice(blocks.length - MAX_VISIBLE_BLOCKS)
-      : blocks.slice(0, MAX_VISIBLE_BLOCKS)
-    : blocks;
+      ? rows.slice(rows.length - MAX_VISIBLE_ROWS)
+      : rows.slice(0, MAX_VISIBLE_ROWS)
+    : rows;
 
   const handleToggle = useCallback(() => {
     const anchor = toggleRef.current;
@@ -306,8 +309,6 @@ function ActivityBlockList({
     });
   }, []);
 
-  // Streaming turns show the toggle above the list (newest kept at the
-  // bottom); settled turns show it below. Same element either way.
   const toggle =
     overflow > 0 ? (
       <OverflowToggle
@@ -321,8 +322,12 @@ function ActivityBlockList({
   return (
     <>
       {isStreaming && toggle}
-      {visible.map((block, i) => (
-        <ActivityBlockRow key={i} block={block} onOpenFile={onOpenFile} />
+      {visible.map((row, i) => (
+        <ActivityStepRow
+          key={`${row.step.type}-${i}-${row.step.label}`}
+          row={row}
+          onOpenFile={onOpenFile}
+        />
       ))}
       {!isStreaming && toggle}
     </>
@@ -367,29 +372,24 @@ export const ActivityTasks = memo(
   }: ActivityTasksProps) => {
     const verb = useSpinnerVerb(Boolean(isStreaming));
     const elapsed = useElapsedSeconds(startedAt, Boolean(isStreaming));
-    const blocks = groupSteps(steps).filter(
-      (block) => !HIDDEN_TYPES.has(block.type),
+    const rows = buildActivityRows(steps).filter(
+      (row) => !HIDDEN_TYPES.has(row.step.type),
     );
 
-    if (blocks.length === 0 && !isStreaming) return null;
+    if (rows.length === 0 && !isStreaming) return null;
 
     void finalText;
 
-    // When real tool/file blocks exist, they already shimmer their own titles —
+    // When real tool/file rows exist, they already shimmer their own titles —
     // don't also show the random "Eva is inferring…" header above them.
-    // When only hidden steps (thinking) remain, prefer that step's label over
-    // a random verb so sandbox startup can say "Starting sandbox..." immediately.
-    const activeStep =
-      steps.find((step) => step.status === "active") ?? steps[0];
+    const activeStep = steps.find((s) => s.status === "active") ?? steps[0];
     const headerText =
-      blocks.length > 0
+      rows.length > 0
         ? null
         : `${
             activeStep?.label ?? `${name ?? "Eva"} is ${verb.toLowerCase()}...`
           }${startedAt ? ` (${formatElapsed(elapsed)})` : ""}`;
 
-    // Settled turn with a known per-turn duration (P1): collapse the whole
-    // turn's activity behind one "Worked for Ns" trigger, default closed.
     if (!isStreaming && duration) {
       return (
         <Collapsible
@@ -402,8 +402,8 @@ export const ActivityTasks = memo(
             <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <ActivityBlockList
-              blocks={blocks}
+            <ActivityRowList
+              rows={rows}
               isStreaming={false}
               onOpenFile={onOpenFile}
             />
@@ -422,8 +422,8 @@ export const ActivityTasks = memo(
             </Shimmer>
           </div>
         ) : null}
-        <ActivityBlockList
-          blocks={blocks}
+        <ActivityRowList
+          rows={rows}
           isStreaming={isStreaming}
           onOpenFile={onOpenFile}
         />

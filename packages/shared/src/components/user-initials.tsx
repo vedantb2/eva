@@ -291,9 +291,6 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
                   (presence.online ? "bg-success" : "bg-muted-foreground/40")
                 }
               />
-              {presence.online ? (
-                <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-success/35" />
-              ) : null}
             </span>
             <span
               className={

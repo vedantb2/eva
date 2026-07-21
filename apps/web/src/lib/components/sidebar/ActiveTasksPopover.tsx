@@ -52,7 +52,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
           )}
           {sandboxTasks.length > 0 && (
             <span className="flex items-center gap-1.5">
-              <PulseDot />
+              <StatusDot />
               <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {sandboxTasks.length}
               </span>
@@ -112,7 +112,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
               <Section
                 label="Sandbox"
                 count={sandboxTasks.length}
-                glyph={<PulseDot />}
+                glyph={<StatusDot />}
               >
                 {sandboxTasks.map((task) => (
                   <TaskRow
@@ -185,11 +185,6 @@ function TaskRow({ title, taskNumber, to }: TaskRowProps) {
   );
 }
 
-function PulseDot() {
-  return (
-    <span className="relative flex h-2 w-2">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
-      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-    </span>
-  );
+function StatusDot() {
+  return <span className="h-2 w-2 rounded-full bg-success" />;
 }

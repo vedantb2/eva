@@ -31,10 +31,7 @@ export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
       variant="secondary"
       className="ml-auto gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
     >
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-      </span>
+      <span className="h-2 w-2 rounded-full bg-success" />
       <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
         {count}
       </span>

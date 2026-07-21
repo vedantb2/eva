@@ -85,12 +85,9 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
     <div className="mt-2.5 min-w-0 border-t border-border pt-2.5">
       <div className="mb-1.5 flex items-center gap-1.5">
         <span
-          className="relative flex size-2 shrink-0 items-center justify-center"
+          className="size-1.5 shrink-0 rounded-full bg-success"
           aria-hidden
-        >
-          <span className="size-1.5 rounded-full bg-success" />
-          <span className="absolute inline-flex size-2 animate-ping rounded-full bg-success/40" />
-        </span>
+        />
         <span className="truncate text-[10px] text-muted-foreground">
           {onlineMembers.length} online
         </span>

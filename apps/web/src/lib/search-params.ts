@@ -107,9 +107,12 @@ export function isPrPanelTab(s: string): s is PrPanelTab {
   return prPanelTabs.some((tab) => tab === s);
 }
 
-// Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
+// Layout for the Diffs tab — path segment on sessions (`/pr/diffs/unified`).
 const diffViews = ["unified", "split"] as const;
 export type DiffView = (typeof diffViews)[number];
+export function isDiffView(s: string): s is DiffView {
+  return s === "unified" || s === "split";
+}
 export const diffViewParser = parseAsStringLiteral(diffViews)
   .withDefault("unified")
   .withOptions(tabOptions);

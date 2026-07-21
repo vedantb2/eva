@@ -1,8 +1,12 @@
 # Changelog
 
+## Diff layout is path-backed Tabs too - 2026-07-21
+
+Unified/split lived in `?diffView=` beside path-based PR tabs. Sessions now use `/pr/diffs/unified` and `/pr/diffs/split` with the same Tabs component; `?diffView=` still works as a fallback/redirect on other surfaces.
+
 ## Session PR Diffs/Recap use path tabs - 2026-07-21
 
-PR sub-views lived in `?prTab=`, which was hard to share and inconsistent with docs tabs. Sessions now use `/pr/diffs` and `/pr/recap` with the shared Tabs component; old `?prTab=` and bare `/pr` URLs redirect.
+PR sub-views lived in `?prTab=`, which was hard to share and inconsistent with docs tabs. Sessions now use `/pr/diffs/…` and `/pr/recap` with the shared Tabs component; old `?prTab=` and bare `/pr` URLs redirect.
 
 ## Composer toolbar: + first, model on the right - 2026-07-21
 

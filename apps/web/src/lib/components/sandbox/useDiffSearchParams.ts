@@ -1,32 +1,36 @@
 "use client";
 
-import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { DiffView } from "@/lib/search-params";
+import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
+import { isDiffView, type DiffView } from "@/lib/search-params";
+
+const DIFF_VIEW_PATH = /\/pr\/diffs\/(unified|split)\/?$/;
 
 /**
- * Diffs tab file/view selection via TanStack search params.
- *
- * Do not use nuqs here: its TanStack adapter does
- * `navigate({ to: pathname + '?diffFile=…' })`, and TanStack's resolvePath
- * treats the `?…` as part of `$sandboxTab`, which quick-tasks/projects then
- * reject and redirect to preview.
+ * Diffs tab file selection (`?diffFile=`) and layout view.
+ * Sessions use path segments (`…/pr/diffs/unified|split`); other surfaces may
+ * still use `?diffView=`.
  */
 export function useDiffSearchParams() {
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const search = useSearch({ strict: false });
 
   const diffFileValue = "diffFile" in search ? search.diffFile : undefined;
   const diffFile = typeof diffFileValue === "string" ? diffFileValue : "";
 
-  const diffViewValue = "diffView" in search ? search.diffView : undefined;
-  const diffView: DiffView =
-    diffViewValue === "split" || diffViewValue === "unified"
-      ? diffViewValue
-      : "unified";
+  const pathMatch = pathname.match(DIFF_VIEW_PATH);
+  const pathView: DiffView | undefined =
+    pathMatch !== null && isDiffView(pathMatch[1]) ? pathMatch[1] : undefined;
+
+  const searchViewValue = "diffView" in search ? search.diffView : undefined;
+  const searchView: DiffView | undefined =
+    typeof searchViewValue === "string" && isDiffView(searchViewValue)
+      ? searchViewValue
+      : undefined;
+
+  const diffView: DiffView = pathView ?? searchView ?? "unified";
 
   const setDiffFile = (path: string) => {
-    // `to: "."` keeps current path and loosens search typing for a hook used
-    // across quick-tasks / projects / sessions (see TanStack search-params guide).
     void navigate({
       to: ".",
       search: (prev) => ({ ...prev, diffFile: path }),
@@ -35,9 +39,20 @@ export function useDiffSearchParams() {
   };
 
   const setDiffView = (view: DiffView) => {
+    if (pathMatch !== null) {
+      const nextPath = pathname.replace(DIFF_VIEW_PATH, `/pr/diffs/${view}`);
+      if (nextPath === pathname) return;
+      void navigate({
+        to: nextPath,
+        search: true,
+        replace: true,
+      });
+      return;
+    }
     void navigate({
       to: ".",
       search: (prev) => ({ ...prev, diffView: view }),
+      replace: true,
     });
   };
 

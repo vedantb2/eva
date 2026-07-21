@@ -3,20 +3,26 @@
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
 
-const PR_SUB_TAB_PATH = /\/pr\/(diffs|recap)\/?$/;
+/** Matches `/pr/diffs…` or `/pr/recap` (with optional trailing slash / view). */
+const PR_DIFFS_PATH = /\/pr\/diffs(?:\/(?:unified|split))?\/?$/;
+const PR_RECAP_PATH = /\/pr\/recap\/?$/;
+
+function prTabFromPathname(pathname: string): PrPanelTab | undefined {
+  if (PR_DIFFS_PATH.test(pathname)) return "diffs";
+  if (PR_RECAP_PATH.test(pathname)) return "recap";
+  return undefined;
+}
 
 /**
- * PR panel Diffs/Recap sub-tab. Prefers path segments (`…/pr/diffs`) and falls
- * back to `?prTab=` for surfaces that have not migrated yet.
+ * PR panel Diffs/Recap sub-tab. Prefers path segments
+ * (`…/pr/diffs/…`, `…/pr/recap`) and falls back to `?prTab=`.
  */
 export function usePrTabParam() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const search = useSearch({ strict: false });
 
-  const pathMatch = pathname.match(PR_SUB_TAB_PATH);
-  const pathTab: PrPanelTab | undefined =
-    pathMatch !== null && isPrPanelTab(pathMatch[1]) ? pathMatch[1] : undefined;
+  const pathTab = prTabFromPathname(pathname);
 
   const searchTabValue = "prTab" in search ? search.prTab : undefined;
   const searchTab: PrPanelTab | undefined =
@@ -27,8 +33,12 @@ export function usePrTabParam() {
   const prTab = pathTab ?? searchTab;
 
   const setPrTab = (tab: PrPanelTab) => {
-    if (pathMatch !== null) {
-      const nextPath = pathname.replace(PR_SUB_TAB_PATH, `/pr/${tab}`);
+    if (pathTab !== undefined) {
+      const prBase = pathname.replace(/\/pr\/.*$/, "/pr");
+      const viewMatch = pathname.match(/\/pr\/diffs\/(unified|split)/);
+      const view = viewMatch?.[1] ?? "unified";
+      const nextPath =
+        tab === "diffs" ? `${prBase}/diffs/${view}` : `${prBase}/recap`;
       if (nextPath === pathname) return;
       void navigate({
         to: nextPath,

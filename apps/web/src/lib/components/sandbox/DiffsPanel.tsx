@@ -5,13 +5,21 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { GitStatus } from "@pierre/trees";
-import { Button, Spinner, cn } from "@conductor/ui";
+import {
+  Button,
+  Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  cn,
+} from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconRefresh,
   IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { isDiffView } from "@/lib/search-params";
 import { DiffFileTree } from "./DiffFileTree";
 import { ReviewableFileDiff } from "./ReviewableFileDiff";
 import { splitDiffFiles, fileNameFromPatch, diffFileStatus } from "./diffFiles";
@@ -141,25 +149,21 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-        <div className="inline-flex rounded-md border border-border p-0.5">
-          {(["unified", "split"] as const).map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => {
-                setDiffView(view);
-              }}
-              className={cn(
-                "rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors",
-                diffView === view
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {view}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={diffView}
+          onValueChange={(value) => {
+            if (isDiffView(value)) setDiffView(value);
+          }}
+        >
+          <TabsList className="h-8">
+            <TabsTrigger value="unified" className="px-2.5 py-1 text-xs">
+              Unified
+            </TabsTrigger>
+            <TabsTrigger value="split" className="px-2.5 py-1 text-xs">
+              Split
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <Button
           variant="ghost"
           size="sm"

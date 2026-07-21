@@ -1,24 +1,49 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { isPrPanelTab } from "@/lib/search-params";
+import { isDiffView, isPrPanelTab } from "@/lib/search-params";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/sessions/$numId/pr/")(
   {
     beforeLoad: ({ params, search }) => {
-      const fromSearch =
+      const prTab =
         "prTab" in search &&
         typeof search.prTab === "string" &&
         isPrPanelTab(search.prTab)
           ? search.prTab
           : "diffs";
+
+      if (prTab === "recap") {
+        throw redirect({
+          to: "/$owner/$repo/sessions/$numId/pr/recap",
+          params: {
+            owner: params.owner,
+            repo: params.repo,
+            numId: params.numId,
+          },
+          search: (prev) => ({
+            ...prev,
+            prTab: undefined,
+            diffView: undefined,
+          }),
+          replace: true,
+        });
+      }
+
+      const diffView =
+        "diffView" in search &&
+        typeof search.diffView === "string" &&
+        isDiffView(search.diffView)
+          ? search.diffView
+          : "unified";
+
       throw redirect({
-        to: "/$owner/$repo/sessions/$numId/pr/$prSubTab",
+        to: "/$owner/$repo/sessions/$numId/pr/diffs/$diffView",
         params: {
           owner: params.owner,
           repo: params.repo,
           numId: params.numId,
-          prSubTab: fromSearch,
+          diffView,
         },
-        search: (prev) => ({ ...prev, prTab: undefined }),
+        search: (prev) => ({ ...prev, prTab: undefined, diffView: undefined }),
         replace: true,
       });
     },

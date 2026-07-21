@@ -1983,29 +1983,7 @@ async function prepareTaskPreviewSandboxInternal(
       label: "Starting dev server...",
       status: "complete",
     });
-    // Note: runStartupCommands is intentionally not surfaced as a UI step
-    // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-    // makes it a no-op once the sandbox has been initialised, so showing
-    // "Running startup commands..." would be misleading on resume.
-    await runLoggedSessionStep(
-      "reuseTaskSandbox.runStartupCommands",
-      sandboxDetails,
-      async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runStartupCommands,
-          {
-            sandboxId: handle.id,
-            repoId: args.repoId,
-            force: args.forceStartupCommands,
-          },
-        );
-        if (result.ran && result.commandCount > 0) {
-          logSession(
-            `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-          );
-        }
-      },
-    );
+    // Background before startup — startup may wait on bg logs (e.g. Convex ready).
     await emitTaskProgress(
       ctx,
       args.taskId,
@@ -2032,6 +2010,29 @@ async function prepareTaskPreviewSandboxInternal(
       label: "Launching background commands...",
       status: "complete",
     });
+    // Note: runStartupCommands is intentionally not surfaced as a UI step
+    // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+    // makes it a no-op once the sandbox has been initialised, so showing
+    // "Running startup commands..." would be misleading on resume.
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.runStartupCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runStartupCommands,
+          {
+            sandboxId: handle.id,
+            repoId: args.repoId,
+            force: args.forceStartupCommands,
+          },
+        );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          );
+        }
+      },
+    );
     // Same as sessions: put the app in Preview Console (Vercel tmux) / background.
     await runLoggedSessionStep(
       "reuseTaskSandbox.launchDevServer",
@@ -2245,6 +2246,34 @@ async function prepareTaskPreviewSandboxInternal(
       status: "complete",
     });
 
+    // Background before startup — startup may wait on bg logs (e.g. Convex ready).
+    await emitTaskProgress(
+      ctx,
+      args.taskId,
+      completedSteps,
+      "Launching background commands...",
+    );
+    await runLoggedSessionStep(
+      "newTaskSandbox.runBackgroundCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runBackgroundCommands,
+          { sandboxId: handle.id, repoId: args.repoId },
+        );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          );
+        }
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Launching background commands...",
+      status: "complete",
+    });
+
     await emitTaskProgress(
       ctx,
       args.taskId,
@@ -2275,28 +2304,6 @@ async function prepareTaskPreviewSandboxInternal(
       label: "Running startup commands...",
       status: "complete",
     });
-
-    await emitTaskProgress(
-      ctx,
-      args.taskId,
-      completedSteps,
-      "Launching background commands...",
-    );
-    await runLoggedSessionStep(
-      "newTaskSandbox.runBackgroundCommands",
-      sandboxDetails,
-      async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runBackgroundCommands,
-          { sandboxId: handle.id, repoId: args.repoId },
-        );
-        if (result.ran && result.commandCount > 0) {
-          logSession(
-            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-          );
-        }
-      },
-    );
 
     await runLoggedSessionStep(
       "newTaskSandbox.launchDevServer",
@@ -2506,25 +2513,7 @@ async function prepareProjectPreviewSandboxInternal(
       status: "complete",
     });
     if (!args.skipStartupCommands) {
-      await runLoggedSessionStep(
-        "reuseProjectSandbox.runStartupCommands",
-        sandboxDetails,
-        async () => {
-          const result = await ctx.runAction(
-            internal.daytona.runStartupCommands,
-            {
-              sandboxId: handle.id,
-              repoId: args.repoId,
-              force: args.forceStartupCommands,
-            },
-          );
-          if (result.ran && result.commandCount > 0) {
-            logSession(
-              `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-            );
-          }
-        },
-      );
+      // Background before startup — startup may wait on bg logs (e.g. Convex ready).
       await emitProjectProgress(
         ctx,
         args.projectId,
@@ -2551,6 +2540,29 @@ async function prepareProjectPreviewSandboxInternal(
         label: "Launching background commands...",
         status: "complete",
       });
+      // Note: runStartupCommands is intentionally not surfaced as a UI step
+      // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+      // makes it a no-op once the sandbox has been initialised, so showing
+      // "Running startup commands..." would be misleading on resume.
+      await runLoggedSessionStep(
+        "reuseProjectSandbox.runStartupCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runStartupCommands,
+            {
+              sandboxId: handle.id,
+              repoId: args.repoId,
+              force: args.forceStartupCommands,
+            },
+          );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            );
+          }
+        },
+      );
     }
     // Interview/automation paths skip startup; preview sandboxes still need the app.
     if (!args.skipStartupCommands) {
@@ -2772,6 +2784,34 @@ async function prepareProjectPreviewSandboxInternal(
   });
 
   if (!args.skipStartupCommands) {
+    // Background before startup — startup may wait on bg logs (e.g. Convex ready).
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Launching background commands...",
+    );
+    await runLoggedSessionStep(
+      "newProjectSandbox.runBackgroundCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runBackgroundCommands,
+          { sandboxId: handle.id, repoId: args.repoId },
+        );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          );
+        }
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Launching background commands...",
+      status: "complete",
+    });
+
     await emitProjectProgress(
       ctx,
       args.projectId,
@@ -2802,28 +2842,6 @@ async function prepareProjectPreviewSandboxInternal(
       label: "Running startup commands...",
       status: "complete",
     });
-
-    await emitProjectProgress(
-      ctx,
-      args.projectId,
-      completedSteps,
-      "Launching background commands...",
-    );
-    await runLoggedSessionStep(
-      "newProjectSandbox.runBackgroundCommands",
-      sandboxDetails,
-      async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runBackgroundCommands,
-          { sandboxId: handle.id, repoId: args.repoId },
-        );
-        if (result.ran && result.commandCount > 0) {
-          logSession(
-            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-          );
-        }
-      },
-    );
 
     await runLoggedSessionStep(
       "newProjectSandbox.launchDevServer",

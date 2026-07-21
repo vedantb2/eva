@@ -92,6 +92,7 @@ import {
   VERCEL_EDITOR_INTERNAL_PORT,
   vercelAppListenPort,
   vercelAppPublicPort,
+  withVercelAppListenPort,
 } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
@@ -483,12 +484,51 @@ export const getPreviewUrl = action({
       // Desktop (6080) and editor (8080) are started by their own toggle
       // actions — launching `pnpm run dev` onto those ports would clobber
       // noVNC/websockify or code-server and surface as SANDBOX_NOT_LISTENING.
-      //
-      // Vercel: never background-restart — sessions start the app in the
-      // Preview Console tmux session so logs stay visible there. Polling
-      // waits until that process is listening.
       const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
-      if (!ready && !isDesktopOrEditorPort && credentials.kind !== "vercel") {
+      if (!ready && !isDesktopOrEditorPort && credentials.kind === "vercel") {
+        // Sandboxes started before app-port remapping still listen on the
+        // logical port (e.g. eproc 3001) while Preview probes logical+10000
+        // (13001). Free the public port for the auth proxy and relaunch on
+        // the remapped listen port so polling can recover without a full
+        // sandbox recycle.
+        try {
+          const listenPort = vercelAppListenPort(args.port);
+          const baseCommand = await resolveDevCommandForPreview(
+            handle,
+            repo,
+            args.port,
+          );
+          const remapped = withVercelAppListenPort(args.port, baseCommand);
+          await execHandle(
+            handle,
+            [
+              "if command -v fuser >/dev/null 2>&1; then",
+              `  fuser -k ${args.port}/tcp >/dev/null 2>&1 || true`,
+              `  fuser -k ${listenPort}/tcp >/dev/null 2>&1 || true`,
+              "elif command -v lsof >/dev/null 2>&1; then",
+              `  for p in $(lsof -ti :${args.port} -ti :${listenPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
+              "fi",
+            ].join("\n"),
+            15,
+            "/",
+          );
+          await launchDevServerInBackground(
+            handle,
+            remapped.devCommand,
+            remapped.listenPort,
+          );
+          await sleep(10);
+          ready = await probePreviewReady(handle, remapped.listenPort);
+        } catch (e) {
+          console.warn(
+            `[daytona] vercel preview listen remount failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "remount failed")}`,
+          );
+        }
+      } else if (
+        !ready &&
+        !isDesktopOrEditorPort &&
+        credentials.kind !== "vercel"
+      ) {
         try {
           const devCommand = await resolveDevCommandForPreview(
             handle,

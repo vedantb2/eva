@@ -1,5 +1,9 @@
 # Changelog
 
+## Heal Vercel preview when app still listens on pre-remap port - 2026-07-21
+
+After app preview moved to listen on port+10000, sandboxes that still had Next on 3000/3001 never became "ready" (Preview polls forever). getPreviewUrl now remounts the app onto the remapped listen port when the probe misses, so eproc (3001→13001) and similar recover without a full sandbox recycle.
+
 ## Stop Console PTY reconnect loop on preview - 2026-07-21
 
 TerminalPanel listed its `connectWebSocket` function in a `useEffect` dependency array. Parent re-renders (preview polling, Convex) recreated that function, tore down the WebSocket, and called `connectPty` again — clearing the Vercel console and spamming `resolveSandboxProviderKind` in prod logs. Connect logic now lives behind a ref; the effect only re-runs when sandbox/owner/pane identity changes.

@@ -254,8 +254,11 @@ export const taskExecutionWorkflow = workflow.define({
             );
           }
 
-          const hasMedia = await step.runQuery(
-            internal.taskProof.hasMediaForRun,
+          // Prefer waiting briefly over an immediate retry — media used to land
+          // after handleProofCompletion (race), which spuriously launched a
+          // second full proof capture.
+          const hasMedia = await step.runAction(
+            internal.daytona.waitForProofMedia,
             { taskId: args.taskId, runId: args.runId },
           );
           if (!hasMedia) {

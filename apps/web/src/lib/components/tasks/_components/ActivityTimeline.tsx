@@ -62,7 +62,7 @@ type ActivityItem =
   | {
       kind: "proof";
       timestamp: number;
-      proof: Proof;
+      proofs: Proof[];
     }
   | {
       kind: "taskActivity";
@@ -188,10 +188,20 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
-  // Proofs and audits are top-level timeline events (not nested under runs).
+  // Proofs are top-level timeline events. Media for the same run collapses into
+  // one row so the proof-capture accordion (and gallery) is not duplicated when
+  // a retry saved a second screenshot.
   const timelineProofs = (proofs ?? []).filter(
     (proof) => proof.url || proof.message,
   );
+  const proofGroups = new Map<string, Proof[]>();
+  for (const proof of timelineProofs) {
+    const key =
+      proof.runId !== undefined ? `run:${proof.runId}` : `proof:${proof._id}`;
+    const group = proofGroups.get(key) ?? [];
+    group.push(proof);
+    proofGroups.set(key, group);
+  }
   const latestAuditId = allAudits?.[0]?._id;
 
   const sortedRunsDesc = [...(runs ?? [])].sort(
@@ -218,10 +228,10 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...timelineProofs.map((proof) => ({
+    ...[...proofGroups.values()].map((group) => ({
       kind: "proof" as const,
-      timestamp: proof.createdAt,
-      proof,
+      timestamp: Math.max(...group.map((p) => p.createdAt)),
+      proofs: group,
     })),
     ...topLevelComments
       .filter((comment) => !commentsShownWithRuns.has(comment._id))
@@ -287,7 +297,10 @@ export function ActivityTimeline({
     }
     if (item.kind === "proof") {
       return (
-        <ProofTimelineItem key={`proof-${item.proof._id}`} proof={item.proof} />
+        <ProofTimelineItem
+          key={`proof-${item.proofs.map((p) => p._id).join("-")}`}
+          proofs={item.proofs}
+        />
       );
     }
     if (item.kind === "comment") {

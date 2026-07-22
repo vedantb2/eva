@@ -13,6 +13,12 @@ export const TASK_PROOF_CAPTURE_ENABLED =
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */
 export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 export const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+/** Proof workflow resumes on completion — media must be saved before that mutation. */
+export function isProofCompletionMutation(
+  mutation: string | undefined = COMPLETION_MUTATION,
+): boolean {
+  return (mutation ?? "").includes("handleProofCompletion");
+}
 export const REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =

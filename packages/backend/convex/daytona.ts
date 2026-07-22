@@ -56,7 +56,11 @@ export {
   runChatAudit,
 } from "./_daytona/audit";
 
-export { launchProof, prepareProofSandbox } from "./_daytona/proof";
+export {
+  launchProof,
+  prepareProofSandbox,
+  waitForProofMedia,
+} from "./_daytona/proof";
 
 export {
   startSessionSandbox,

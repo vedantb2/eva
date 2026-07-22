@@ -15,8 +15,8 @@ import {
 } from "../config.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import {
+  deliverCompletionWithMedia,
   extractResultEvent,
-  uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
   flushStreaming,
@@ -309,15 +309,11 @@ async function finalizeTurn(
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  // Send completion FIRST — this resolves the workflow's awaitEvent and surfaces
-  // the reply. Everything that follows is recovery bookkeeping that must not sit
-  // on the reply-critical path.
+  // Proof: media before completion so the workflow's hasMediaForRun check does
+  // not spuriously retry. Chat/coding: completion first so attachMedia can patch
+  // the assistant message that was just written.
   const completionSentAt = Date.now();
-  await callConvexWithRetry(
-    "mutation",
-    COMPLETION_MUTATION ?? "",
-    completionArgs,
-  );
+  await deliverCompletionWithMedia(completionArgs);
   log(
     "daemon: turn finalized success=" +
       success +
@@ -327,17 +323,6 @@ async function finalizeTurn(
       (Date.now() - completionSentAt) +
       "ms)",
   );
-  // Upload agent recordings/screenshots after completion so attachMedia patches
-  // the assistant message that was just written. One-shot path already did this;
-  // sdk-daemon turns previously skipped it, so chat never showed the media.
-  try {
-    await uploadAndAttachSandboxMedia();
-  } catch (e) {
-    log(
-      "daemon: media upload failed: " +
-        (e instanceof Error ? e.message : String(e)),
-    );
-  }
   // Persist the Claude transcript to the volume for restart recovery, and send a
   // final streaming reconcile. Both run AFTER completion so the ~5s synchronous
   // transcript copy never delays the reply the user is waiting on. The sandbox

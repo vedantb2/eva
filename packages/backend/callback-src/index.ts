@@ -36,9 +36,9 @@ import {
 import {
   appendDiagnosticTail,
   buildErrorMessage,
+  deliverCompletionWithMedia,
   extractResultEvent,
   hasToolActivity,
-  uploadAndAttachSandboxMedia,
   writeDoneFile,
 } from "./runtime/completion.js";
 import {
@@ -330,13 +330,7 @@ try {
   }
 
   try {
-    // Completion first so screenshots:attachMedia can patch the assistant message.
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs,
-    );
-    await uploadAndAttachSandboxMedia();
+    await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

@@ -1,5 +1,13 @@
 # Changelog
 
+## Proof upload before completion (no double capture) - 2026-07-22
+
+Proof completion used to wake the task workflow before the screenshot was saved, so `hasMediaForRun` often failed and a full second proof turn ran — two real images on one run. Proof callbacks now persist media first; the workflow also waits briefly before retrying.
+
+## Proof capture accordion on timeline - 2026-07-22
+
+Make-changes only showed `type: "run"` activity logs, so proof-capture steps were invisible after a run. The Eva attached proof row now expands to the proof activity log, and multiple screenshots from the same run (retry) group into one timeline item with a multi-capture gallery.
+
 ## Comment Options disabled until Make changes - 2026-07-22
 
 Quick-task comment Options stays visible next to Make changes but is disabled (with a short tooltip) until Make changes is on, so the control is discoverable without looking active for plain comments.

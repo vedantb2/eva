@@ -2,28 +2,39 @@
 
 import { useState } from "react";
 import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Button,
+  Spinner,
+  ActivityTasks,
 } from "@conductor/ui";
 import {
   IconChevronLeft,
   IconChevronRight,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { VideoPreview } from "@/lib/components/MediaPreview";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
 
 export type TaskProof = FunctionReturnType<
   typeof api.taskProof.listByTask
 >[number];
 
 const MESSAGE_TRUNCATE = 72;
+const PROOF_ACCORDION_SCROLL_CLASS =
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
 
 export function truncateProofMessage(message: string): string {
   const trimmed = message.replace(/\s+/g, " ").trim();
@@ -141,60 +152,117 @@ export function ProofCaptureGallery({
   );
 }
 
-/** Top-level proof row on the activity timeline rail. */
+function ProofActivityLog({ runId }: { runId: Id<"agentRuns"> }) {
+  const activityLog = useQuery(api.audits.getActivityLog, {
+    runId,
+    type: "proof",
+  });
+  if (activityLog === undefined) return <Spinner size="sm" />;
+  if (activityLog === null) return null;
+  const steps = parseActivitySteps(activityLog);
+  return steps ? (
+    <div className={PROOF_ACCORDION_SCROLL_CLASS}>
+      <ActivityTasks steps={steps} />
+    </div>
+  ) : null;
+}
+
+/**
+ * Top-level proof row on the activity timeline rail. Media proofs with a run
+ * expand to show the dedicated proof-capture activity log (separate from the
+ * make-changes / run accordion).
+ */
 export function ProofTimelineItem({
-  proof,
+  proofs,
   showTimestamp = true,
 }: {
-  proof: TaskProof;
+  proofs: TaskProof[];
   showTimestamp?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const hasMedia = isMediaProof(proof);
+  const mediaProofs = proofs.filter(isMediaProof);
+  const hasMedia = mediaProofs.length > 0;
+  const primary = proofs[0];
+  const runId = proofs.find((p) => p.runId)?.runId;
+  const timestamp = Math.max(...proofs.map((p) => p.createdAt));
   const messagePreview =
-    !hasMedia && proof.message ? truncateProofMessage(proof.message) : null;
+    !hasMedia && primary?.message
+      ? truncateProofMessage(primary.message)
+      : null;
+
+  const title =
+    mediaProofs.length > 1
+      ? `Eva attached ${mediaProofs.length} proofs`
+      : "Eva attached proof";
+
+  const header = (
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">
+      <span className="font-medium text-foreground">{title}</span>
+      {hasMedia ? (
+        <>
+          <span className="text-muted-foreground"> </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(true);
+            }}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            View capture{mediaProofs.length > 1 ? "s" : ""}
+          </button>
+        </>
+      ) : messagePreview ? (
+        <span className="text-muted-foreground"> — {messagePreview}</span>
+      ) : null}
+      {showTimestamp ? (
+        <>
+          <span className="text-muted-foreground/50" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <RelativeDateTime
+            at={timestamp}
+            className="text-muted-foreground/70"
+          />
+        </>
+      ) : null}
+    </div>
+  );
 
   return (
     <>
-      <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
-          <EvaIcon size={16} />
-        </span>
-        <span className="min-w-0 flex-1 truncate">
-          <span className="font-medium text-foreground">
-            Eva attached proof
+      {runId ? (
+        <Accordion type="multiple" defaultValue={[]}>
+          <AccordionItem value={runId} className="border-none">
+            <div className="flex gap-2">
+              <div className="relative z-10 flex w-4 shrink-0 items-start justify-center bg-background pt-1.5">
+                <EvaIcon size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <AccordionTrigger className="py-1.5">
+                  <div className="mr-2 min-w-0 flex-1">{header}</div>
+                </AccordionTrigger>
+              </div>
+            </div>
+            <AccordionContent>
+              <div className="ml-6 space-y-2 pb-2">
+                <ProofActivityLog runId={runId} />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : (
+        <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+          <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
+            <EvaIcon size={16} />
           </span>
-          {hasMedia ? (
-            <>
-              {" "}
-              <button
-                type="button"
-                onClick={() => setOpen(true)}
-                className="font-medium text-primary underline-offset-2 hover:underline"
-              >
-                View capture
-              </button>
-            </>
-          ) : messagePreview ? (
-            <span className="text-muted-foreground"> — {messagePreview}</span>
-          ) : null}
-          {showTimestamp ? (
-            <>
-              <span className="text-muted-foreground/50" aria-hidden>
-                {" "}
-                ·{" "}
-              </span>
-              <RelativeDateTime
-                at={proof.createdAt}
-                className="text-muted-foreground/70"
-              />
-            </>
-          ) : null}
-        </span>
-      </div>
+          <span className="min-w-0 flex-1 truncate">{header}</span>
+        </div>
+      )}
       {hasMedia ? (
         <ProofCaptureGallery
-          proofs={[proof]}
+          proofs={mediaProofs}
           open={open}
           onOpenChange={setOpen}
         />

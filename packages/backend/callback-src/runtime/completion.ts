@@ -1,5 +1,6 @@
 import {
   CODEX_PRICING_PER_MILLION,
+  COMPLETION_MUTATION,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   PROVIDER,
@@ -15,6 +16,7 @@ import {
   NO_OUTPUT_TIMEOUT_MS,
   POST_TEXT_STALL_TIMEOUT_MS,
   WORK_DIR,
+  isProofCompletionMutation,
   normalizedCodexModel,
   normalizedCursorModel,
   normalizedOpencodeModel,
@@ -572,14 +574,41 @@ export async function persistTaskProofIfNeeded(
 }
 
 /**
+ * Sends the completion mutation and attaches sandbox media.
+ *
+ * Chat/coding: completion first so `screenshots:attachMedia` can patch the
+ * assistant message that was just written.
+ *
+ * Proof: media first. `handleProofCompletion` resumes the workflow, which
+ * immediately checks `hasMediaForRun` and retries if empty — uploading after
+ * completion caused duplicate proof captures whenever the upload lagged.
+ */
+export async function deliverCompletionWithMedia(
+  completionArgs: Record<string, string | boolean | null>,
+): Promise<void> {
+  const uploadFirst = isProofCompletionMutation(COMPLETION_MUTATION);
+  if (uploadFirst) {
+    await uploadAndAttachSandboxMedia();
+  }
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs,
+  );
+  if (!uploadFirst) {
+    await uploadAndAttachSandboxMedia();
+  }
+}
+
+/**
  * Scans sandbox `recordings/` then `screenshots/` under the repo root and the
  * app rootDirectory, uploads the newest media, and attaches it to the last
  * session message (or task proof). Shared by the one-shot callback and the
  * Claude sdk-daemon finalize path — daemon turns previously skipped this, so
  * chat never showed agent recordings.
  *
- * Prefer calling after the completion mutation so `screenshots:attachMedia`
- * patches the assistant message that was just written.
+ * Prefer calling via `deliverCompletionWithMedia` so proof runs persist media
+ * before the workflow resumes; chat still completes first for attachMedia.
  */
 export async function uploadAndAttachSandboxMedia(): Promise<void> {
   if (!TASK_PROOF_CAPTURE_ENABLED) return;

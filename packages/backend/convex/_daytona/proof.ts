@@ -75,6 +75,37 @@ export const prepareProofSandbox = internalAction({
 });
 
 /**
+ * Polls briefly for media after proof completion. Covers residual races where
+ * the capture callback finished the completion mutation slightly before
+ * `taskProof:save` committed (legacy order); with media-before-completion this
+ * usually returns on the first check.
+ */
+export const waitForProofMedia = internalAction({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+    timeoutMs: v.optional(v.number()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const timeoutMs = args.timeoutMs ?? 20_000;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const hasMedia = await ctx.runQuery(internal.taskProof.hasMediaForRun, {
+        taskId: args.taskId,
+        runId: args.runId,
+      });
+      if (hasMedia) return true;
+      await sleep(2_000);
+    }
+    return await ctx.runQuery(internal.taskProof.hasMediaForRun, {
+      taskId: args.taskId,
+      runId: args.runId,
+    });
+  },
+});
+
+/**
  * Launches a proof-capture agent on an existing task sandbox after implementation.
  * Uses repo.proofModel (falls back to the task model / sonnet). Does not require
  * a new git commit — implementation already committed and pushed.

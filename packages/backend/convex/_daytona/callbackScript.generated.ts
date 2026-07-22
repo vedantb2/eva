@@ -22,6 +22,9 @@ var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+function isProofCompletionMutation(mutation = COMPLETION_MUTATION) {
+  return (mutation ?? "").includes("handleProofCompletion");
+}
 var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
@@ -1961,6 +1964,20 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
       messageArgs,
       3
     );
+  }
+}
+async function deliverCompletionWithMedia(completionArgs) {
+  const uploadFirst = isProofCompletionMutation(COMPLETION_MUTATION);
+  if (uploadFirst) {
+    await uploadAndAttachSandboxMedia();
+  }
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs
+  );
+  if (!uploadFirst) {
+    await uploadAndAttachSandboxMedia();
   }
 }
 async function uploadAndAttachSandboxMedia() {
@@ -4295,21 +4312,10 @@ async function finalizeTurn(output, opts = {}) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   const completionSentAt = Date.now();
-  await callConvexWithRetry(
-    "mutation",
-    COMPLETION_MUTATION ?? "",
-    completionArgs
-  );
+  await deliverCompletionWithMedia(completionArgs);
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
-  try {
-    await uploadAndAttachSandboxMedia();
-  } catch (e) {
-    log(
-      "daemon: media upload failed: " + (e instanceof Error ? e.message : String(e))
-    );
-  }
   if (!opts.skipBookkeeping) {
     const bookkeepingAt = Date.now();
     syncClaudeStateToPersist("daemon-turn");
@@ -5093,12 +5099,7 @@ try {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   try {
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs
-    );
-    await uploadAndAttachSandboxMedia();
+    await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

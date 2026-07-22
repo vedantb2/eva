@@ -6,7 +6,7 @@ PR review lived awkwardly under Documents (recap filter) and only inside sandbox
 
 ## Pin Convex local backend for Vercel sandbox glibc - 2026-07-22
 
-CarePulse seeded snapshot builds started failing when `version.convex.dev` began serving `precompiled-2026-07-21-82d5e9f`, which needs GLIBC_2.35 that Vercel sandboxes do not have — `npx convex dev` died and startups saw `No CONVEX_DEPLOYMENT set`. Anonymous mode rejects `--local-backend-version`, so we plant a known-good binary (`precompiled-2026-07-20-c4dfbcf`) into the CLI cache under the "latest" label and align `.convex` config so non-TTY auto-upgrade is skipped.
+CarePulse seeded snapshot builds started failing when `version.convex.dev` began serving `precompiled-2026-07-21-82d5e9f`, which needs GLIBC_2.35 that Vercel sandboxes do not have — `npx convex dev` died and startups saw `No CONVEX_DEPLOYMENT set`. Anonymous mode rejects `--local-backend-version`, so we plant a known-good binary (`precompiled-2026-07-20-c4dfbcf`) into the CLI cache under the expected latest label (sandbox version API often 403s) and align `.convex` config so non-TTY auto-upgrade is skipped.
 
 ## Proof upload before completion (no double capture) - 2026-07-22
 

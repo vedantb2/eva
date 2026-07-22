@@ -138,12 +138,15 @@ export function useSandboxPanes({
     setActiveTab("preview");
   }, [activeTab, userTermPanes.length, setActiveTab]);
 
+  // Ensure a default preview pane exists even before the Preview tab is
+  // selected, so the iframe can mount (hidden) and stay cached across tab
+  // switches — including first paint on Review / Editor deep-links.
   useEffect(() => {
-    if (activeTab !== "preview" || previewIds.length > 0) return;
+    if (previewIds.length > 0) return;
     const id = crypto.randomUUID();
     setPreviewIds([id]);
     setPreviewActive(id);
-  }, [activeTab, previewIds.length, setPreviewIds, setPreviewActive]);
+  }, [previewIds.length, setPreviewIds, setPreviewActive]);
 
   // Reconcile active id if it points at a removed pane (or the console pane,
   // whose id can linger in localStorage from before this became user-only).

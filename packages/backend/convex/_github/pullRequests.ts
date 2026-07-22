@@ -152,6 +152,47 @@ export const listPullRequests = action({
 });
 
 /**
+ * Lightweight PR title/meta for the Reviews detail chrome (above tabs).
+ */
+export const getPullRequestHeader = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+  },
+  returns: v.object({
+    number: v.number(),
+    title: v.string(),
+    authorLogin: v.union(v.string(), v.null()),
+    htmlUrl: v.string(),
+    updatedAt: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner: repo.owner,
+      repo: repo.name,
+      pull_number: args.prNumber,
+    });
+
+    return {
+      number: pr.number,
+      title: pr.title,
+      authorLogin: pr.user?.login ?? null,
+      htmlUrl: pr.html_url,
+      updatedAt: pr.updated_at,
+    };
+  },
+});
+
+/**
  * PR description plus issue comments and review comments for the Reviews
  * Overview tab. Soft-capped to keep action payloads bounded.
  */

@@ -14,6 +14,7 @@ export { getPrDiff } from "./_github/prDiff";
 
 export {
   listPullRequests,
+  getPullRequestHeader,
   getPullRequestOverview,
 } from "./_github/pullRequests";
 

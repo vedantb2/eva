@@ -1,5 +1,9 @@
 # Changelog
 
+## Reviews PR title above tabs - 2026-07-22
+
+PR title lived inside Overview only, so Recap/Diff had no shared chrome. Title, author, and GitHub link now sit above the tab row for every review tab.
+
 ## Reviews overview meta column - 2026-07-22
 
 Overview was description-only; reviewers still had to bounce to GitHub for status, checks, and diff size. Overview is now a wider 60/40 layout with a sticky meta column (open/closed/merged, check runs, files + lines).

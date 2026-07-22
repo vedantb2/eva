@@ -152,33 +152,6 @@ export function ReviewOverviewPanel({
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-        <header className="space-y-2 border-b border-border pb-4">
-          <div className="flex flex-wrap items-start gap-2">
-            <h1 className="min-w-0 flex-1 text-xl font-semibold tracking-tight">
-              {overview.title}{" "}
-              <span className="font-normal text-muted-foreground">
-                #{overview.number}
-              </span>
-            </h1>
-            <a
-              href={overview.htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              View on GitHub
-              <IconExternalLink size={12} />
-            </a>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {overview.authorLogin ? <span>{overview.authorLogin}</span> : null}
-            <span>
-              updated{" "}
-              <RelativeDateTime at={new Date(overview.updatedAt).getTime()} />
-            </span>
-          </div>
-        </header>
-
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0 space-y-6">
             <section className="space-y-2">

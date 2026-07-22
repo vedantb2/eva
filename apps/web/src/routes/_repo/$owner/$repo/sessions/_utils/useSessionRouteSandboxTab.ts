@@ -4,8 +4,7 @@ import { useParams, useRouterState } from "@tanstack/react-router";
 const SESSION_REVIEW_PATH = /\/sessions\/[^/]+\/review(?:\/|$)/;
 
 /**
- * Active sandbox tab for a session detail URL, without remounting the parent
- * layout when the child segment changes (preview ↔ editor ↔ review, …).
+ * Active sandbox tab for the current session detail URL.
  *
  * Builtin tabs and custom-tab name slugs come from `$sandboxTab`; Review lives
  * under nested `/review/…` routes (no `$sandboxTab` param).

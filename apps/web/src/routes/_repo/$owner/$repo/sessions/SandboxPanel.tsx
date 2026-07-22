@@ -26,6 +26,11 @@ interface SandboxPanelProps {
   sandboxId: string | undefined;
   vercelSandboxId: string | undefined;
   isActive: boolean;
+  /**
+   * False while another session is shown but this shell stays mounted.
+   * Preview freezes instead of clearing on shared URL search churn.
+   */
+  isRouteActive?: boolean;
   repoId: Id<"githubRepos">;
   prUrl?: string;
   devPort?: number;
@@ -46,6 +51,7 @@ export function SandboxPanel({
   sandboxId,
   vercelSandboxId,
   isActive,
+  isRouteActive = true,
   repoId,
   prUrl,
   devPort,
@@ -77,6 +83,7 @@ export function SandboxPanel({
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
+    isRouteActive,
     repoId,
     devPort,
   });

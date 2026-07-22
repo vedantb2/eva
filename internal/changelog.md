@@ -1,5 +1,9 @@
 # Changelog
 
+## Reviews overview meta column - 2026-07-22
+
+Overview was description-only; reviewers still had to bounce to GitHub for status, checks, and diff size. Overview is now a wider 60/40 layout with a sticky meta column (open/closed/merged, check runs, files + lines).
+
 ## Repo Reviews tab for GitHub PRs - 2026-07-22
 
 PR review lived awkwardly under Documents (recap filter) and only inside sandbox Review once a surface already had a prUrl. Reviews is now a sibling nav item with a PR list and Overview / Recap / Diff tabs keyed by GitHub PR number, shared across monorepo apps. Documents no longer lists recaps; sticky GitHub recap comments link to Reviews.

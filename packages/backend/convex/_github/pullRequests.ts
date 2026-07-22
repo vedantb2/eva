@@ -9,6 +9,7 @@ import type { Id } from "../_generated/dataModel";
 const MAX_LIST_PAGES = 3;
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
+const MAX_CHECKS = 40;
 
 const pullRequestListItemValidator = v.object({
   number: v.number(),
@@ -34,6 +35,13 @@ const pullRequestCommentValidator = v.object({
   line: v.optional(v.union(v.number(), v.null())),
 });
 
+const pullRequestCheckValidator = v.object({
+  name: v.string(),
+  status: v.string(),
+  conclusion: v.union(v.string(), v.null()),
+  htmlUrl: v.union(v.string(), v.null()),
+});
+
 type PullRequestListItem = {
   number: number;
   title: string;
@@ -57,10 +65,18 @@ type PullRequestComment = {
   line?: number | null;
 };
 
+type PullRequestCheck = {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  htmlUrl: string | null;
+};
+
 type PullRequestOverview = {
   number: number;
   title: string;
-  state: "open" | "closed";
+  /** Derived PR lifecycle for the sidebar meta column. */
+  status: "open" | "closed" | "merged";
   draft: boolean;
   body: string | null;
   authorLogin: string | null;
@@ -68,9 +84,22 @@ type PullRequestOverview = {
   htmlUrl: string;
   createdAt: string;
   updatedAt: string;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+  checks: PullRequestCheck[];
+  checksTruncated: boolean;
   comments: PullRequestComment[];
   commentsTruncated: boolean;
 };
+
+function derivePrStatus(
+  state: string,
+  merged: boolean | null | undefined,
+): "open" | "closed" | "merged" {
+  if (merged === true) return "merged";
+  return state === "open" ? "open" : "closed";
+}
 
 /**
  * Lists pull requests for the GitHub repo behind an Eva githubRepos row.
@@ -134,7 +163,11 @@ export const getPullRequestOverview = action({
   returns: v.object({
     number: v.number(),
     title: v.string(),
-    state: v.union(v.literal("open"), v.literal("closed")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("merged"),
+    ),
     draft: v.boolean(),
     body: v.union(v.string(), v.null()),
     authorLogin: v.union(v.string(), v.null()),
@@ -142,6 +175,11 @@ export const getPullRequestOverview = action({
     htmlUrl: v.string(),
     createdAt: v.string(),
     updatedAt: v.string(),
+    changedFiles: v.number(),
+    additions: v.number(),
+    deletions: v.number(),
+    checks: v.array(pullRequestCheckValidator),
+    checksTruncated: v.boolean(),
     comments: v.array(pullRequestCommentValidator),
     commentsTruncated: v.boolean(),
   }),
@@ -162,18 +200,38 @@ export const getPullRequestOverview = action({
       pull_number: args.prNumber,
     });
 
-    const issueRes = await octokit.rest.issues.listComments({
-      owner: repo.owner,
-      repo: repo.name,
-      issue_number: args.prNumber,
-      per_page: MAX_ISSUE_COMMENTS,
-    });
-    const reviewRes = await octokit.rest.pulls.listReviewComments({
-      owner: repo.owner,
-      repo: repo.name,
-      pull_number: args.prNumber,
-      per_page: MAX_REVIEW_COMMENTS,
-    });
+    const [issueRes, reviewRes, checksRes] = await Promise.all([
+      octokit.rest.issues.listComments({
+        owner: repo.owner,
+        repo: repo.name,
+        issue_number: args.prNumber,
+        per_page: MAX_ISSUE_COMMENTS,
+      }),
+      octokit.rest.pulls.listReviewComments({
+        owner: repo.owner,
+        repo: repo.name,
+        pull_number: args.prNumber,
+        per_page: MAX_REVIEW_COMMENTS,
+      }),
+      octokit.rest.checks
+        .listForRef({
+          owner: repo.owner,
+          repo: repo.name,
+          ref: pr.head.sha,
+          per_page: MAX_CHECKS,
+        })
+        .catch(() => ({ data: { check_runs: [], total_count: 0 } })),
+    ]);
+
+    const checkRuns = checksRes.data.check_runs;
+    const checks: PullRequestCheck[] = checkRuns
+      .slice(0, MAX_CHECKS)
+      .map((run) => ({
+        name: run.name,
+        status: run.status,
+        conclusion: run.conclusion,
+        htmlUrl: run.html_url,
+      }));
 
     const comments: PullRequestComment[] = [
       ...issueRes.data.map(
@@ -208,7 +266,7 @@ export const getPullRequestOverview = action({
     return {
       number: pr.number,
       title: pr.title,
-      state: pr.state === "open" ? "open" : "closed",
+      status: derivePrStatus(pr.state, pr.merged),
       draft: pr.draft === true,
       body: pr.body ?? null,
       authorLogin: pr.user?.login ?? null,
@@ -216,6 +274,11 @@ export const getPullRequestOverview = action({
       htmlUrl: pr.html_url,
       createdAt: pr.created_at,
       updatedAt: pr.updated_at,
+      changedFiles: pr.changed_files,
+      additions: pr.additions,
+      deletions: pr.deletions,
+      checks,
+      checksTruncated: checksRes.data.total_count > MAX_CHECKS,
       comments,
       commentsTruncated:
         issueRes.data.length >= MAX_ISSUE_COMMENTS ||

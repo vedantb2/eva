@@ -646,7 +646,9 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
 }
 
 function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
-  drainAndLogBufferedMessages(agentRunner);
+  // Do not drain the agent pump here: buffered post-result / background-agent
+  // messages must stay queued so the main loop can open a synthetic turn (or
+  // attribute them into this real turn once it is live).
   resetTurnState();
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
@@ -818,7 +820,9 @@ async function runDaemonMessagePump(
       );
       daemonTurn = null;
     }
-    drainAndLogBufferedMessages(agentRunner);
+    // Leave any already-queued SDK messages in the pump. The next loop
+    // iteration will ensureSyntheticTurn() / handle them — draining here
+    // orphaned background-agent "report back" continuations (session 43).
 
     if (pendingClaimedTurn !== null && daemonTurn === null) {
       const parked = pendingClaimedTurn;
@@ -1077,14 +1081,6 @@ function createWarmAgentRunner(
   const hasPending = (): boolean => pending.length > 0;
 
   return { push, waitMessage, drainPending, hasPending };
-}
-
-/** Logs pump messages buffered between turns without attributing them. */
-function drainAndLogBufferedMessages(runner: WarmRunner): void {
-  for (const message of runner.drainPending()) {
-    const messageType = typeof message.type === "string" ? message.type : "?";
-    log("daemon: post-result message buffered type=" + messageType);
-  }
 }
 
 /** Drops post-assistant SDK messages until the turn's result line is consumed. */

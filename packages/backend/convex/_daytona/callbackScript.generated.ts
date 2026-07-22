@@ -22,6 +22,10 @@ var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+var CLAIM_MUTATION = process.env.CLAIM_MUTATION;
+var OPEN_SYNTHETIC_TURN_MUTATION = process.env.OPEN_SYNTHETIC_TURN_MUTATION;
+var COMPLETE_SYNTHETIC_TURN_MUTATION = process.env.COMPLETE_SYNTHETIC_TURN_MUTATION;
+var UPDATE_BACKGROUND_AGENTS_MUTATION = process.env.UPDATE_BACKGROUND_AGENTS_MUTATION;
 function isProofCompletionMutation(mutation = COMPLETION_MUTATION) {
   return (mutation ?? "").includes("handleProofCompletion");
 }
@@ -247,6 +251,28 @@ var completedLabels = {
 
 // callback-src/providers/claudeSdkDaemon.ts
 import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+
+// callback-src/providers/daemonPaths.ts
+var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
+var LEGACY_DAEMON_ENTITY = "/tmp/eva-daemon.entity";
+var LEGACY_DAEMON_OPTS = "/tmp/eva-daemon.opts";
+function resolveDaemonPaths(entityIdField = ENTITY_ID_FIELD, entityId = ENTITY_ID) {
+  const field = entityIdField ?? "sessionId";
+  const id = entityId ?? "";
+  const suffix = \`\${field}-\${id}\`;
+  return {
+    pid: \`/tmp/eva-daemon.\${suffix}.pid\`,
+    entity: \`/tmp/eva-daemon.\${suffix}.entity\`,
+    opts: \`/tmp/eva-daemon.\${suffix}.opts\`
+  };
+}
+function resolveLegacySessionDaemonPaths() {
+  return {
+    pid: LEGACY_DAEMON_PID,
+    entity: LEGACY_DAEMON_ENTITY,
+    opts: LEGACY_DAEMON_OPTS
+  };
+}
 
 // callback-src/utils.ts
 import { spawnSync } from "child_process";
@@ -4450,13 +4476,10 @@ function readStopTaskToolUseIds(result) {
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
-var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
-var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
-var OPEN_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:openSyntheticTurn";
-var COMPLETE_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:completeSyntheticTurn";
-var UPDATE_BACKGROUND_AGENTS_MUTATION = "sessionWorkflow:updateBackgroundAgents";
+var daemonPaths = resolveDaemonPaths();
+var DAEMON_PID_FILE = daemonPaths.pid;
+var DAEMON_ENTITY_FILE = daemonPaths.entity;
+var DAEMON_OPTS_FILE = daemonPaths.opts;
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
@@ -4478,6 +4501,12 @@ var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
 var unsettledBackgroundAgents = /* @__PURE__ */ new Map();
 var pendingAgentStops = /* @__PURE__ */ new Set();
 var currentAgentRunner = null;
+function entityMutationArgs(fields) {
+  return {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    ...fields
+  };
+}
 function beginWatchedTurn() {
   turnActive = true;
   turnStartedAtMs = Date.now();
@@ -4808,10 +4837,13 @@ async function syncBackgroundAgentsToConvex(agents) {
     return;
   }
   try {
-    await callConvexWithRetry("mutation", UPDATE_BACKGROUND_AGENTS_MUTATION, {
-      sessionId: ENTITY_ID ?? "",
-      agents: agents.map(toConvexBackgroundAgent)
-    });
+    await callConvexWithRetry(
+      "mutation",
+      UPDATE_BACKGROUND_AGENTS_MUTATION ?? "",
+      entityMutationArgs({
+        agents: agents.map(toConvexBackgroundAgent)
+      })
+    );
   } catch {
   }
 }
@@ -4924,14 +4956,17 @@ async function failSyntheticTurn(error) {
     for (const step of callbackState.accumulatedSteps) {
       step.status = "complete";
     }
-    await callConvexWithRetry("mutation", COMPLETE_SYNTHETIC_TURN_MUTATION, {
-      sessionId: ENTITY_ID ?? "",
-      messageId,
-      success: false,
-      result: null,
-      error,
-      activityLog: serializeSteps(callbackState.accumulatedSteps)
-    });
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({
+        messageId,
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(callbackState.accumulatedSteps)
+      })
+    );
   } catch {
   }
   endWatchedTurn();
@@ -4947,8 +4982,8 @@ async function ensureSyntheticTurn() {
   try {
     const result = await callConvexWithRetry(
       "mutation",
-      OPEN_SYNTHETIC_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" }
+      OPEN_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({})
     );
     const messageId = readSyntheticTurnMessageId(result);
     if (messageId === null) {
@@ -4979,20 +5014,19 @@ async function finalizeSyntheticTurn(output) {
   }
   const activityLog = serializeSteps(callbackState.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs = {
-    sessionId: ENTITY_ID ?? "",
+  const completionArgs = entityMutationArgs({
     messageId,
     success,
     result: resultEvent?.result ?? callbackState.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog
-  };
+  });
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   await callConvexWithRetry(
     "mutation",
-    COMPLETE_SYNTHETIC_TURN_MUTATION,
+    COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
     completionArgs
   );
   syncClaudeStateToPersist("daemon-synthetic-turn");
@@ -5025,8 +5059,8 @@ function startClaimWatcher(agentRunner, _convRunner) {
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
-          CLAIM_PENDING_TURN_MUTATION,
-          { sessionId: ENTITY_ID ?? "", model: MODEL }
+          CLAIM_MUTATION ?? "",
+          entityMutationArgs({ model: MODEL })
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -5544,6 +5578,14 @@ The user attached the following file(s). Read them with your file-reading tool b
 \${list}\`;
 }
 async function runSdkDaemon() {
+  if (!CLAIM_MUTATION) {
+    log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
+    process.exit(1);
+  }
+  if (!OPEN_SYNTHETIC_TURN_MUTATION || !COMPLETE_SYNTHETIC_TURN_MUTATION) {
+    log("daemon: synthetic turn mutation env vars are required in sdk-daemon mode");
+    process.exit(1);
+  }
   writeFileSync10(DAEMON_PID_FILE, String(process.pid));
   writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
@@ -5584,6 +5626,23 @@ async function runSdkDaemon() {
   } finally {
     try {
       unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync2(DAEMON_ENTITY_FILE);
+      unlinkSync2(DAEMON_OPTS_FILE);
+      if (ENTITY_ID_FIELD === "sessionId") {
+        const legacy = resolveLegacySessionDaemonPaths();
+        try {
+          unlinkSync2(legacy.pid);
+        } catch {
+        }
+        try {
+          unlinkSync2(legacy.entity);
+        } catch {
+        }
+        try {
+          unlinkSync2(legacy.opts);
+        } catch {
+        }
+      }
     } catch {
     }
     await stopStreamingLoops();
@@ -5710,7 +5769,7 @@ try {
 } catch {
 }
 callbackState.lastStepType = "thinking";
-if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && ENTITY_ID_FIELD === "sessionId") {
+if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && CLAIM_MUTATION) {
   await runSdkDaemon();
 }
 var preflightOk = await runPreflightHeartbeat();

@@ -1,5 +1,7 @@
 import { unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
+  CLAIM_MUTATION,
+  COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -10,9 +12,15 @@ import {
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
+  OPEN_SYNTHETIC_TURN_MUTATION,
   REPO_ID,
   RUN_ID,
+  UPDATE_BACKGROUND_AGENTS_MUTATION,
 } from "../config.js";
+import {
+  resolveDaemonPaths,
+  resolveLegacySessionDaemonPaths,
+} from "./daemonPaths.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
@@ -58,25 +66,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The daemon writes its pid + entity so the backend's prewarm alive-check can
-// confirm a live, matching daemon (and skip respawning one). Prompts are no
-// longer delivered by file: the daemon PULLS each turn from Convex via
-// claimPendingTurn (daemon-pull), so there is no prompt/ready file to poll.
-export const DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
-export const DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-// Model+tools signature this daemon booted with. The prewarm alive-check reads
-// it to detect a model/tools change and respawn rather than reuse the daemon.
-export const DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
-
-// Public Convex mutation the daemon polls to atomically claim the next staged
-// turn's prompt for THIS session (ENTITY_ID). Mirrors how COMPLETION_MUTATION is
-// invoked over /api/mutation with the sandbox CONVEX_TOKEN identity.
-const CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
-const OPEN_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:openSyntheticTurn";
-const COMPLETE_SYNTHETIC_TURN_MUTATION =
-  "sessionWorkflow:completeSyntheticTurn";
-const UPDATE_BACKGROUND_AGENTS_MUTATION =
-  "sessionWorkflow:updateBackgroundAgents";
+// Entity-scoped daemon marker paths (see daemonPaths.ts). Legacy session paths
+// are cleaned up on exit when this daemon is session-scoped.
+const daemonPaths = resolveDaemonPaths();
+export const DAEMON_PID_FILE = daemonPaths.pid;
+export const DAEMON_ENTITY_FILE = daemonPaths.entity;
+export const DAEMON_OPTS_FILE = daemonPaths.opts;
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the
@@ -148,6 +143,15 @@ const settledSubagentToolUseIds = new Set<string>();
 const unsettledBackgroundAgents = new Map<string, BackgroundAgentEntry>();
 const pendingAgentStops = new Set<string>();
 let currentAgentRunner: WarmRunner | null = null;
+
+function entityMutationArgs(
+  fields: Record<string, JsonValue>,
+): Record<string, JsonValue> {
+  return {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    ...fields,
+  };
+}
 
 function beginWatchedTurn(): void {
   turnActive = true;
@@ -598,10 +602,13 @@ async function syncBackgroundAgentsToConvex(
     return;
   }
   try {
-    await callConvexWithRetry("mutation", UPDATE_BACKGROUND_AGENTS_MUTATION, {
-      sessionId: ENTITY_ID ?? "",
-      agents: agents.map(toConvexBackgroundAgent),
-    });
+    await callConvexWithRetry(
+      "mutation",
+      UPDATE_BACKGROUND_AGENTS_MUTATION ?? "",
+      entityMutationArgs({
+        agents: agents.map(toConvexBackgroundAgent),
+      }),
+    );
   } catch {
     /* best-effort */
   }
@@ -739,14 +746,17 @@ async function failSyntheticTurn(error: string): Promise<void> {
     for (const step of S.accumulatedSteps) {
       step.status = "complete";
     }
-    await callConvexWithRetry("mutation", COMPLETE_SYNTHETIC_TURN_MUTATION, {
-      sessionId: ENTITY_ID ?? "",
-      messageId,
-      success: false,
-      result: null,
-      error,
-      activityLog: serializeSteps(S.accumulatedSteps),
-    });
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({
+        messageId,
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(S.accumulatedSteps),
+      }),
+    );
   } catch {
     /* best-effort */
   }
@@ -764,8 +774,8 @@ async function ensureSyntheticTurn(): Promise<void> {
   try {
     const result = await callConvexWithRetry(
       "mutation",
-      OPEN_SYNTHETIC_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "" },
+      OPEN_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({}),
     );
     const messageId = readSyntheticTurnMessageId(result);
     if (messageId === null) {
@@ -797,20 +807,19 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   }
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, string | boolean | null> = {
-    sessionId: ENTITY_ID ?? "",
+  const completionArgs: Record<string, JsonValue> = entityMutationArgs({
     messageId,
     success,
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
-  };
+  });
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
   await callConvexWithRetry(
     "mutation",
-    COMPLETE_SYNTHETIC_TURN_MUTATION,
+    COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
     completionArgs,
   );
   syncClaudeStateToPersist("daemon-synthetic-turn");
@@ -851,8 +860,8 @@ function startClaimWatcher(
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
-          CLAIM_PENDING_TURN_MUTATION,
-          { sessionId: ENTITY_ID ?? "", model: MODEL },
+          CLAIM_MUTATION ?? "",
+          entityMutationArgs({ model: MODEL }),
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -1542,6 +1551,17 @@ async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
  * launchOnExistingSandbox respawn) if this process dies.
  */
 export async function runSdkDaemon(): Promise<void> {
+  if (!CLAIM_MUTATION) {
+    log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
+    process.exit(1);
+  }
+  if (!OPEN_SYNTHETIC_TURN_MUTATION || !COMPLETE_SYNTHETIC_TURN_MUTATION) {
+    log(
+      "daemon: synthetic turn mutation env vars are required in sdk-daemon mode",
+    );
+    process.exit(1);
+  }
+
   writeFileSync(DAEMON_PID_FILE, String(process.pid));
   writeFileSync(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
@@ -1596,6 +1616,26 @@ export async function runSdkDaemon(): Promise<void> {
   } finally {
     try {
       unlinkSync(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_ENTITY_FILE);
+      unlinkSync(DAEMON_OPTS_FILE);
+      if (ENTITY_ID_FIELD === "sessionId") {
+        const legacy = resolveLegacySessionDaemonPaths();
+        try {
+          unlinkSync(legacy.pid);
+        } catch {
+          /* ignore */
+        }
+        try {
+          unlinkSync(legacy.entity);
+        } catch {
+          /* ignore */
+        }
+        try {
+          unlinkSync(legacy.opts);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }

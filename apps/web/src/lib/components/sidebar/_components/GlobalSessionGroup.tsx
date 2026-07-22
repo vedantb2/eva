@@ -84,16 +84,18 @@ export function GlobalSessionGroup({
                 </span>
               }
             />
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
-              {label}
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-xs font-medium text-muted-foreground">
+                {label}
+              </span>
+              <IconChevronDown
+                size={14}
+                className={cn(
+                  "shrink-0 text-muted-foreground transition-transform duration-200",
+                  !open && "-rotate-90",
+                )}
+              />
             </span>
-            <IconChevronDown
-              size={14}
-              className={cn(
-                "shrink-0 text-muted-foreground transition-transform duration-200",
-                !open && "-rotate-90",
-              )}
-            />
           </button>
         </CollapsibleTrigger>
         <button

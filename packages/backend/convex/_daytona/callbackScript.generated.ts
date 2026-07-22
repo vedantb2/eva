@@ -5583,7 +5583,9 @@ async function runSdkDaemon() {
     process.exit(1);
   }
   if (!OPEN_SYNTHETIC_TURN_MUTATION || !COMPLETE_SYNTHETIC_TURN_MUTATION) {
-    log("daemon: synthetic turn mutation env vars are required in sdk-daemon mode");
+    log(
+      "daemon: synthetic turn mutation env vars are required in sdk-daemon mode"
+    );
     process.exit(1);
   }
   writeFileSync10(DAEMON_PID_FILE, String(process.pid));

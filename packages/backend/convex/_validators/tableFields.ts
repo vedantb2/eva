@@ -97,6 +97,43 @@ export const entityNumIdFields = {
   deletedAt: v.optional(v.number()),
 };
 
+import type { Infer } from "convex/values";
+
+export const backgroundAgentEntryFields = {
+  toolUseId: v.string(),
+  taskId: v.optional(v.string()),
+  description: v.optional(v.string()),
+  status: v.string(),
+  backgrounded: v.optional(v.boolean()),
+  startedAt: v.number(),
+  settledAt: v.optional(v.number()),
+};
+
+export const backgroundAgentEntryValidator = v.object(
+  backgroundAgentEntryFields,
+);
+
+export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
+
+export const pendingTurnFields = {
+  prompt: v.string(),
+  requestedAt: v.number(),
+  turnKind: v.optional(
+    v.union(v.literal("conversational"), v.literal("agent")),
+  ),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: v.optional(aiModelValidator),
+};
+
+export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
+
+export const chatDaemonEntityFields = {
+  pendingTurn: pendingTurnValidator,
+  syntheticTurnMessageId: v.optional(v.id("messages")),
+  backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
+  pendingTaskStops: v.optional(v.array(v.string())),
+};
+
 export const agentTaskFields = {
   ...entityNumIdFields,
   title: v.string(),
@@ -160,6 +197,9 @@ export const agentTaskFields = {
   // `triggeringCommentId` when the run is created, then cleared. Lets the
   // timeline label project re-runs "made changes" like quick-task re-runs.
   pendingChangeRequestCommentId: v.optional(v.id("taskComments")),
+  ...chatDaemonEntityFields,
+  // Last model used in sandbox chat; page-open prewarm matches the composer.
+  lastChatModel: v.optional(aiModelValidator),
 };
 
 export const agentRunFields = {
@@ -203,24 +243,6 @@ export const agentRunFields = {
   screenshotsVideosEnabled: v.optional(v.boolean()),
   runAuditEnabled: v.optional(v.boolean()),
 };
-
-import type { Infer } from "convex/values";
-
-export const backgroundAgentEntryFields = {
-  toolUseId: v.string(),
-  taskId: v.optional(v.string()),
-  description: v.optional(v.string()),
-  status: v.string(),
-  backgrounded: v.optional(v.boolean()),
-  startedAt: v.number(),
-  settledAt: v.optional(v.number()),
-};
-
-export const backgroundAgentEntryValidator = v.object(
-  backgroundAgentEntryFields,
-);
-
-export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
 export const sessionFields = {
   ...entityNumIdFields,
@@ -266,35 +288,9 @@ export const sessionFields = {
   // prompt; runAuditEnabled fires an audit after each successful agent turn.
   captureProofEnabled: v.optional(v.boolean()),
   runAuditEnabled: v.optional(v.boolean()),
-  // Daemon-pull turn dispatch: startExecute writes the built prompt here and the
-  // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
-  // the workflow's durable step queue. Absent between turns.
-  pendingTurn: v.optional(
-    v.object({
-      prompt: v.string(),
-      requestedAt: v.number(),
-      turnKind: v.optional(
-        v.union(v.literal("conversational"), v.literal("agent")),
-      ),
-      // Input image attachments for this turn; the daemon downloads these and
-      // hands the agent local file paths when it claims the turn.
-      attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-      // Model this turn targets. When set, only a daemon booted for that model
-      // may claim it. Absent on in-flight turns staged before this field existed.
-      model: v.optional(aiModelValidator),
-    }),
-  ),
+  ...chatDaemonEntityFields,
   // Soft UX lock while the agent drives the shared desktop Chrome via
-  // agent-browser CDP. Set/cleared by MCP browser_lock / browser_unlock;
-  // cleared on turn end. Drives Browser-tab auto-switch + takeover overlay.
   agentBrowsingAt: v.optional(v.number()),
-  // Daemon-minted continuation turn (background subagent report-back). Cleared
-  // when completeSyntheticTurn finalizes the placeholder by messageId.
-  syntheticTurnMessageId: v.optional(v.id("messages")),
-  // Background Agent/Task runs tracked for the composer chip (start/settle only).
-  backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
-  // User-requested stops drained by claimPendingTurn for the warm daemon.
-  pendingTaskStops: v.optional(v.array(v.string())),
 };
 
 export const syncSettingFields = {
@@ -459,6 +455,9 @@ export const projectFields = {
   // Whose credential this project's model preference is tied to (null/absent =
   // team). Mirrors agentTasks.providerAccountId for the project metadata picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  ...chatDaemonEntityFields,
+  // Last model used in sandbox chat; page-open prewarm matches the composer.
+  lastChatModel: v.optional(aiModelValidator),
 };
 
 export const projectDetailsFields = {

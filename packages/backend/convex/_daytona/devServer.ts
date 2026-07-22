@@ -165,10 +165,14 @@ export async function restoreSeededRuntimeState(
       "cd /tmp/repo",
       "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
       '  echo "supabase_db_web already running"',
-      "elif docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
-      "  docker start supabase_db_web >/dev/null",
+      "elif docker ps -a --filter name=supabase_db_web -q | grep -q . && docker start supabase_db_web >/dev/null 2>&1; then",
       '  echo "started existing supabase_db_web"',
       "else",
+      // `docker start` fails when the snapshot captured a half-cleaned docker
+      // state (e.g. `supabase stop` pruned the network but a stopped container
+      // survived). Wipe any leftover supabase containers so `pnpm start-db`
+      // recreates the network + containers from scratch.
+      "  docker ps -aq --filter name=supabase | xargs -r docker rm -f",
       "  pnpm start-db",
       "fi",
       "for i in $(seq 1 240); do",

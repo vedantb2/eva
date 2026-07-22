@@ -66,9 +66,11 @@ function seededRuntimeStateCaptureLines(
     'if [ "$REQUIRE_SUPABASE_DUMP" != "1" ]; then',
     '  echo "repo does not require Supabase state capture; skipping"',
     "elif ! docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
-    "  if docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
-    "    docker start supabase_db_web >/dev/null",
-    "  else",
+    // Fall back to a from-scratch start when `docker start` fails — a warm
+    // prep sandbox can carry a half-cleaned docker state (stopped container
+    // whose network was pruned by a prior `supabase stop`).
+    "  if ! { docker ps -a --filter name=supabase_db_web -q | grep -q . && docker start supabase_db_web >/dev/null 2>&1; }; then",
+    "    docker ps -aq --filter name=supabase | xargs -r docker rm -f",
     "    ( cd /tmp/repo && pnpm start-db ) || true",
     "  fi",
     "fi",

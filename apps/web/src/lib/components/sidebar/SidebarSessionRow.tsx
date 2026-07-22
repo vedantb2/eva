@@ -46,6 +46,8 @@ interface SidebarSessionRowProps<T extends SessionItem> {
   onArchiveRequest: (session: T) => void;
   onDuplicateNavigate: (pathSegment: string) => void;
   onRenameRequest: (session: T) => void;
+  /** Tighter padding for dense lists (e.g. global Sessions sidebar). */
+  compact?: boolean;
 }
 
 /**
@@ -63,6 +65,7 @@ export function SidebarSessionRow<T extends SessionItem>({
   onArchiveRequest,
   onDuplicateNavigate,
   onRenameRequest,
+  compact = false,
 }: SidebarSessionRowProps<T>) {
   const pathSegment = entityPathSegment(session);
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
@@ -71,15 +74,19 @@ export function SidebarSessionRow<T extends SessionItem>({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: compact ? 4 : 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
+          exit={{ opacity: 0, y: compact ? -4 : -8 }}
           transition={{ duration: 0.18 }}
         >
           <SharedLayoutNavSurface
             itemId={session._id}
             isActive={isSelected}
-            className="group mx-1 rounded-menu-item"
+            className={
+              compact
+                ? "group mx-0.5 rounded-menu-item"
+                : "group mx-1 rounded-menu-item"
+            }
           >
             <SidebarSessionItem
               href={href}
@@ -92,6 +99,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               prUrl={session.prUrl}
               prState={session.prState}
               firstMessagePreview={session.firstMessagePreview}
+              compact={compact}
             />
           </SharedLayoutNavSurface>
         </motion.div>

@@ -17,6 +17,17 @@ Reason: product surface for background subagents — users see lifecycle telemet
 Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
 
 Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
+## Global Sessions rail + cross-app sidebar - 2026-07-22
+
+Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.
+
+## Cache session Preview across sidebar switches - 2026-07-22
+
+Switching between sessions remounted each detail shell, so Preview iframes always cold-loaded again. The sessions layout now keeps the last three opened session shells mounted (hidden), freezes inactive sandbox tabs / preview polling, and only bumps the iframe when the preview URL actually changes.
+
+## Cache sandbox tabs across switches - 2026-07-22
+
+Switching Preview ↔ Review (or any other sandbox tab) remounted the whole session/project shell, wiping iframes, Console PTY scrollback, and editor state. Session and project layouts now stay mounted across tab URL changes; pane slots keep Files / PRD / custom tabs hidden instead of unmounting, and a default preview pane is created up front so the running app can stay cached.
 
 ## Quick-task activity model + composer picker - 2026-07-22
 

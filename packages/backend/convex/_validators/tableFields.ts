@@ -538,6 +538,10 @@ export const messageFields = {
   // Snapshot of which credential powered this chat turn ("Team" or the
   // account label). Set on user messages at send/dequeue time.
   credentialSourceLabel: v.optional(v.string()),
+  // Model + effort chosen in the composer for this user turn. Snapshotted at
+  // send/dequeue so the chat can show a provider icon + tooltip later.
+  model: v.optional(aiModelValidator),
+  reasoningLevel: v.optional(reasoningLevelValidator),
 };
 
 export const queuedMessageFields = {

@@ -22,8 +22,8 @@ function SessionsLayout() {
       ? params.numId
       : undefined;
 
-  const [cachedNumIds, setCachedNumIds] = useState<ReadonlyArray<string>>(
-    () => (activeNumId !== undefined ? [activeNumId] : []),
+  const [cachedNumIds, setCachedNumIds] = useState<ReadonlyArray<string>>(() =>
+    activeNumId !== undefined ? [activeNumId] : [],
   );
 
   useEffect(() => {
@@ -37,11 +37,7 @@ function SessionsLayout() {
 
   return (
     <div className="h-full min-h-0">
-      <div
-        className={
-          activeNumId === undefined ? "h-full min-h-0" : "hidden"
-        }
-      >
+      <div className={activeNumId === undefined ? "h-full min-h-0" : "hidden"}>
         <Outlet />
       </div>
       {cachedNumIds.map((numId) => {

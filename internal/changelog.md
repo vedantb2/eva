@@ -1,5 +1,13 @@
 # Changelog
 
+## Queue row uses provider icon - 2026-07-22
+
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.
+
+## Sandbox chat model + effort on messages - 2026-07-22
+
+Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.
+
 ## Session synthetic turns (Tranche C) - 2026-07-22
 
 Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
@@ -17,6 +25,7 @@ Reason: product surface for background subagents — users see lifecycle telemet
 Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
 
 Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
+
 ## Global Sessions rail + cross-app sidebar - 2026-07-22
 
 Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.

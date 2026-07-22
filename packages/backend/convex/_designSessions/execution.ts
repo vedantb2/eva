@@ -45,6 +45,8 @@ export const executeMessage = authMutation({
         args.providerAccountId,
         session.userId,
       ),
+      model: args.model,
+      reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.insert("messages", {
       parentId: args.id,

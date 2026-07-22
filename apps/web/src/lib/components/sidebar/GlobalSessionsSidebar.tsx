@@ -40,9 +40,7 @@ export function GlobalSessionsSidebar({
   const navigate = useNavigate();
   const repos = useQuery(api.githubRepos.list, {});
   const [searchQuery, setSearchQuery] = useState("");
-  const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
   const [sessionToRename, setSessionToRename] = useState<{
     session: SessionListItem;
     repo: RepoRow;

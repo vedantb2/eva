@@ -170,9 +170,7 @@ export function Sidebar() {
   }, [isGlobalSessionsLanding, setSessionsNavMode]);
 
   const showContextSidebar =
-    isRepoRoute &&
-    !showGlobalSessionsPanel &&
-    contextSidebarMode !== "main";
+    isRepoRoute && !showGlobalSessionsPanel && contextSidebarMode !== "main";
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
@@ -211,24 +209,23 @@ export function Sidebar() {
     closeMobileSidebar();
   };
 
-  const contextSidebarTitle =
-    showGlobalSessionsPanel
-      ? "Sessions"
-      : contextSidebarMode === "designs"
-        ? "Designs"
-        : contextSidebarMode === "sessions"
-          ? "Sessions"
-          : contextSidebarMode === "settings"
-            ? "Settings"
-            : contextSidebarMode === "docs"
-              ? "Documents"
-              : contextSidebarMode === "reviews"
-                ? "Reviews"
-                : contextSidebarMode === "testing-arena"
-                  ? "Testing Arena"
-                  : contextSidebarMode === "automations"
-                    ? "Automations"
-                    : "";
+  const contextSidebarTitle = showGlobalSessionsPanel
+    ? "Sessions"
+    : contextSidebarMode === "designs"
+      ? "Designs"
+      : contextSidebarMode === "sessions"
+        ? "Sessions"
+        : contextSidebarMode === "settings"
+          ? "Settings"
+          : contextSidebarMode === "docs"
+            ? "Documents"
+            : contextSidebarMode === "reviews"
+              ? "Reviews"
+              : contextSidebarMode === "testing-arena"
+                ? "Testing Arena"
+                : contextSidebarMode === "automations"
+                  ? "Automations"
+                  : "";
 
   return (
     <>
@@ -513,9 +510,7 @@ export function Sidebar() {
               )}
             >
               <div
-                className={
-                  showGlobalSessionsPanel ? "space-y-0" : "space-y-4"
-                }
+                className={showGlobalSessionsPanel ? "space-y-0" : "space-y-4"}
               >
                 <motion.div
                   key={

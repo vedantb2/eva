@@ -22,10 +22,7 @@ import {
   repoSessionsIndexPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
-import {
-  repoDisplayLabel,
-  type RepoWithLogo,
-} from "@/lib/utils/repoGrouping";
+import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 

@@ -127,6 +127,8 @@ export const addMessage = authMutation({
     content: v.string(),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    model: v.optional(aiModelValidator),
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -150,6 +152,8 @@ export const addMessage = authMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: args.model,
+      reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;

@@ -218,9 +218,11 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 - [x] `npx convex codegen --typecheck enable`
 - [x] `npx tsc -p callback-src` (callback daemon)
 - [x] Changelog entry
-- [ ] Manual replay: session-43 background-agent scenario (not run in this session)
-- [ ] Manual: AskUserQuestion inside synthetic turn round-trip (not run in this session)
-- [ ] Manual: kill daemon mid-synthetic → stale handler (~12 min) (not run in this session)
+- [x] Regenerated `callbackScript.generated.ts` (required for sandbox daemons)
+- [x] Fix: do not drain agent pump after finalize / before real turn (would orphan continuations)
+- [ ] Manual replay: session-43 background-agent scenario
+- [ ] Manual: AskUserQuestion inside synthetic turn round-trip
+- [ ] Manual: kill daemon mid-synthetic → stale handler (~12 min)
 
 ### Explicitly deferred (Tranche B / C)
 

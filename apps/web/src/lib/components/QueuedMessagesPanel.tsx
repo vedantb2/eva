@@ -86,9 +86,10 @@ function QueueRowHandle({
   listeners: ReturnType<typeof useSortable>["listeners"];
 }) {
   const dragProps = draggable ? { ...attributes, ...listeners } : {};
+  // Share one line-box with the text (`leading-4` / 16px) so the mark sits centered.
   const buttonClass = draggable
-    ? "mt-0.5 shrink-0 cursor-grab touch-none rounded-full border-0 bg-transparent p-0"
-    : "mt-0.5 shrink-0 border-0 bg-transparent p-0";
+    ? "inline-flex size-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm border-0 bg-transparent p-0"
+    : "inline-flex size-4 shrink-0 items-center justify-center border-0 bg-transparent p-0";
 
   if (!item.model) {
     return (
@@ -99,7 +100,7 @@ function QueueRowHandle({
         disabled={!draggable}
         {...dragProps}
       >
-        <QueueItemIndicator />
+        <QueueItemIndicator className="mt-0" />
       </button>
     );
   }
@@ -113,10 +114,10 @@ function QueueRowHandle({
         <button
           type="button"
           aria-label={draggable ? `Drag to reorder · ${tooltip}` : tooltip}
-          className={`${buttonClass} inline-flex size-4 items-center justify-center text-muted-foreground/70`}
+          className={`${buttonClass} text-muted-foreground/70`}
           {...dragProps}
         >
-          <ProviderIcon provider={option.provider} size={12} />
+          <ProviderIcon provider={option.provider} size={14} />
         </button>
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
@@ -162,17 +163,17 @@ function SortableQueuedItem({
       style={style}
       className={isDragging ? "opacity-50" : undefined}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
         <QueueRowHandle
           item={item}
           draggable={draggable}
           attributes={attributes}
           listeners={listeners}
         />
-        <QueueItemContent className="text-xs">
+        <QueueItemContent className="text-xs leading-4">
           {renderContent ? renderContent(item.content) : item.content}
         </QueueItemContent>
-        <QueueItemActions>
+        <QueueItemActions className="items-center">
           {onEditClick ? (
             <QueueItemAction
               aria-label="Edit queued message"

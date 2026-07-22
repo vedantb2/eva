@@ -186,7 +186,7 @@ export function ChatComposer({
               as="span"
               text={`${display}${suffix}`}
               repoBasePath={repoBasePath}
-              className="text-xs leading-snug text-foreground/90"
+              className="text-xs leading-4 text-foreground/90"
             />
           );
         }}

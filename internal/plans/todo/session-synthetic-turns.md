@@ -220,7 +220,7 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 - [x] Changelog entry
 - [x] Regenerated `callbackScript.generated.ts` (required for sandbox daemons)
 - [x] Fix: do not drain agent pump after finalize / before real turn (would orphan continuations)
-- [x] Manual replay: session-43 background-agent scenario (session 41 on `vvedantb/eva` / good-mule-506 — interim “I'll follow up” then synthetic bubble with `isSyntheticTurn: true`)
+- [x] Manual replay: session-43 background-agent scenario (session 41 + **session 42** on `vvedantb/eva` / good-mule-506 — interim reply then 2× `isSyntheticTurn: true` bubbles)
 - [ ] Manual: AskUserQuestion inside synthetic turn round-trip
 - [ ] Manual: kill daemon mid-synthetic → stale handler (~12 min)
 
@@ -245,7 +245,8 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 #### Phase 7 — Verify + docs
 
 - [x] Changelog entry
-- [ ] Manual: chip lifecycle + stop round-trip
+- [x] Manual: chip lifecycle (session 42 / good-mule-506 — `backgroundAgents` started+settled for both Task agents; chip gone after settle as expected; stop round-trip still unchecked)
+- [ ] Manual: chip stop round-trip
 - [ ] `/ship`
 
 ### Tranche C implementation status (2026-07-22)

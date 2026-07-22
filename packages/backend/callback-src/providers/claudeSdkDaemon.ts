@@ -57,7 +57,6 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
-import { diffNewBackgroundTaskIds } from "../parse/sdkTaxonomy.js";
 import { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
 
 export { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
@@ -688,8 +687,12 @@ function handleBackgroundTasksChanged(message: DaemonMessage): void {
       taskIds.push(taskId);
     }
   }
-  const newly = diffNewBackgroundTaskIds(taskIds);
-  markAgentsBackgrounded(newly);
+  // Mark backgrounded idempotently from the full roster (markAgentsBackgrounded
+  // skips already-marked entries). Do NOT consume diffNewBackgroundTaskIds here:
+  // the parse layer owns that dedup set and diffs it to push the "Agent moved to
+  // background" notice step — consuming it first leaves that diff empty and
+  // the notice never renders.
+  markAgentsBackgrounded(taskIds);
 }
 
 function handleSystemTaskMessage(message: DaemonMessage): void {
@@ -728,9 +731,7 @@ function handleSystemTaskMessage(message: DaemonMessage): void {
       status === "stopped" ||
       subtype === "task_notification";
     if (terminal) {
-      const terminalStatus =
-        status ?? (subtype === "task_notification" ? "completed" : "completed");
-      settleSubagent(toolUseId, terminalStatus);
+      settleSubagent(toolUseId, status ?? "completed");
     }
   }
 }

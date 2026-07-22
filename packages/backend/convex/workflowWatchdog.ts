@@ -411,6 +411,26 @@ export const handleStaleProjectChat = internalMutation({
       `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`,
     ]);
 
+    if (project.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(project.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq(
+              "entityId",
+              `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`,
+            ),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(
       ctx,
       args.projectId,
@@ -419,6 +439,7 @@ export const handleStaleProjectChat = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       activeChatWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 
@@ -442,6 +463,26 @@ export const handleStaleAgentTaskChat = internalMutation({
       `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
     ]);
 
+    if (task.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(task.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq(
+              "entityId",
+              `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
+            ),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(
       ctx,
       args.taskId,
@@ -450,6 +491,7 @@ export const handleStaleAgentTaskChat = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 

@@ -54,15 +54,18 @@ export const claimPendingTurn = authMutation({
     ) {
       throw new Error("Not authorized");
     }
-    // Chat daemon only — never claim while the main PR run workflow is the only
-    // active consumer. Stops drain only during an active chat workflow.
-    if (!task.activeChatWorkflowId) {
-      return emptyClaimReturn;
-    }
-
+    // Stops must drain unconditionally: a backgrounded agent outlives the chat
+    // turn, and saveResult clears activeChatWorkflowId the moment the visible
+    // turn finishes — gating the drain there would strand stop requests.
     const stopTaskToolUseIds = task.pendingTaskStops ?? [];
     if (stopTaskToolUseIds.length > 0) {
       await ctx.db.patch(args.taskId, { pendingTaskStops: undefined });
+    }
+
+    // Chat daemon only — never claim a turn while the main PR run workflow is
+    // the only active consumer.
+    if (!task.activeChatWorkflowId) {
+      return { ...emptyClaimReturn, stopTaskToolUseIds };
     }
 
     if (!task.pendingTurn) {

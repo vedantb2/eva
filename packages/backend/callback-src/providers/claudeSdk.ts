@@ -3,7 +3,9 @@ import { existsSync, readFileSync } from "fs";
 import {
   ALLOWED_TOOLS,
   BLOCKING_QUESTIONS_ENABLED,
+  CLAIM_MUTATION,
   CLAUDE_RUNTIME_CONFIG_DIR,
+  ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
@@ -248,8 +250,10 @@ function buildSdkOptionsFromParts(
   // that delays turn completion after the visible reply.
   // Policy A: delete CLAUDE_CODE_DISABLE_BACKGROUND_TASKS so session SDK
   // children can Bash-background (panel tracks/kills). Do not set the key to
-  // undefined — some spawn paths stringify it. launch.ts still sets =1 for
-  // tasks/projects/CLI; Agent/Task bg is stripped in buildCanUseTool.
+  // undefined — some spawn paths stringify it. Only warm daemons (CLAIM_MUTATION
+  // set) and session attempts may background — one-shot task/project runs exit
+  // after `result`, which would kill any backgrounded child, so launch.ts's =1
+  // must survive for them.
   const env: Record<string, string | undefined> = {
     ...process.env,
     CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
@@ -261,7 +265,9 @@ function buildSdkOptionsFromParts(
     // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
     ENABLE_TOOL_SEARCH: "auto",
   };
-  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  if (CLAIM_MUTATION || ENTITY_ID_FIELD === "sessionId") {
+    delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  }
 
   const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
     claudeEffort === "low" ||

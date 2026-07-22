@@ -4320,7 +4320,9 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
     ENABLE_TOOL_SEARCH: "auto"
   };
-  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  if (CLAIM_MUTATION || ENTITY_ID_FIELD === "sessionId") {
+    delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  }
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
   return {
     cwd: WORK_DIR,
@@ -4909,8 +4911,7 @@ function handleBackgroundTasksChanged(message) {
       taskIds.push(taskId);
     }
   }
-  const newly = diffNewBackgroundTaskIds(taskIds);
-  markAgentsBackgrounded(newly);
+  markAgentsBackgrounded(taskIds);
 }
 function handleSystemTaskMessage(message) {
   if (message.type !== "system") {
@@ -4940,8 +4941,7 @@ function handleSystemTaskMessage(message) {
     const status = readStringField2(message, "status");
     const terminal = status === "completed" || status === "failed" || status === "killed" || status === "stopped" || subtype === "task_notification";
     if (terminal) {
-      const terminalStatus = status ?? (subtype === "task_notification" ? "completed" : "completed");
-      settleSubagent(toolUseId, terminalStatus);
+      settleSubagent(toolUseId, status ?? "completed");
     }
   }
 }

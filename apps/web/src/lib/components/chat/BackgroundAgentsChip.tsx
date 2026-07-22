@@ -7,11 +7,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@conductor/ui";
-import type { Doc } from "@conductor/backend";
+import type { BackgroundAgentEntry } from "@conductor/backend";
 import { IconLoader2, IconPlayerStop, IconRobot } from "@tabler/icons-react";
 import { useState } from "react";
 
-type BackgroundAgent = NonNullable<Doc<"sessions">["backgroundAgents"]>[number];
+type BackgroundAgent = BackgroundAgentEntry;
 
 function isRunningAgent(agent: BackgroundAgent): boolean {
   return agent.status === "running";

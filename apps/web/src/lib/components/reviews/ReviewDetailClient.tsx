@@ -1,9 +1,9 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import { cn, Spinner } from "@conductor/ui";
+import { Spinner, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { githubPrUrl } from "@/lib/githubPr";
 import {
@@ -16,12 +16,6 @@ import { PrRecapPanel } from "@/lib/components/sandbox/PrRecapPanel";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ReviewOverviewPanel } from "./ReviewOverviewPanel";
 
-const TABS: Array<{ value: ReviewTab; label: string }> = [
-  { value: "overview", label: "Overview" },
-  { value: "recap", label: "Recap" },
-  { value: "diff", label: "Diff" },
-];
-
 export function ReviewDetailClient({
   prNumberParam,
   reviewTabParam,
@@ -29,6 +23,7 @@ export function ReviewDetailClient({
   prNumberParam: string;
   reviewTabParam: string;
 }) {
+  const navigate = useNavigate();
   const { basePath, repoId, owner, name } = useRepo();
   const prNumber = Number(prNumberParam);
   const isValidPrNumber = Number.isFinite(prNumber) && prNumber > 0;
@@ -54,27 +49,29 @@ export function ReviewDetailClient({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1.5">
-        {TABS.map((t) => {
-          const href = `${basePath}/reviews/${prNumber}/${t.value}`;
-          const isActive = tab === t.value;
-          return (
-            <Link
-              key={t.value}
-              to={href}
-              search={(prev) => prev}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                isActive
-                  ? "border-border bg-secondary text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-            >
-              {t.label}
-            </Link>
-          );
-        })}
+    <Tabs
+      value={tab}
+      onValueChange={(value) => {
+        if (!isReviewTab(value)) return;
+        void navigate({
+          to: `${basePath}/reviews/${prNumber}/${value}`,
+          search: (prev) => prev,
+        });
+      }}
+      className="flex h-full min-h-0 flex-col"
+    >
+      <div className="flex shrink-0 items-center border-b border-border px-3 py-1.5">
+        <TabsList className="h-8">
+          <TabsTrigger value="overview" className="px-2.5 py-1 text-xs">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
+            Recap
+          </TabsTrigger>
+          <TabsTrigger value="diff" className="px-2.5 py-1 text-xs">
+            Diff
+          </TabsTrigger>
+        </TabsList>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -94,6 +91,6 @@ export function ReviewDetailClient({
           <DiffsPanel prUrl={prUrl} repoId={repoId} />
         ) : null}
       </div>
-    </div>
+    </Tabs>
   );
 }

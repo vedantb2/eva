@@ -76,7 +76,7 @@ export function ReviewOverviewPanel({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
         <header className="space-y-2 border-b border-border pb-4">
           <div className="flex flex-wrap items-start gap-2">
             <h1 className="min-w-0 flex-1 text-xl font-semibold tracking-tight">
@@ -98,12 +98,11 @@ export function ReviewOverviewPanel({
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span
               className={
-                overview.state === "open"
+                overview.state === "open" && !overview.draft
                   ? "rounded-md border border-border bg-emerald-500/10 px-1.5 py-0.5 text-emerald-700 dark:text-emerald-300"
                   : "rounded-md border border-border px-1.5 py-0.5"
               }
             >
-              {overview.draft ? "Draft · " : ""}
               {overview.state}
             </span>
             {overview.authorLogin ? <span>{overview.authorLogin}</span> : null}

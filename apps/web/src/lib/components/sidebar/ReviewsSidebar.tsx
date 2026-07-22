@@ -186,9 +186,9 @@ export function ReviewsSidebar({
                         size={14}
                         className={cn(
                           "shrink-0",
-                          pr.state === "open"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-muted-foreground",
+                          pr.draft || pr.state !== "open"
+                            ? "text-muted-foreground"
+                            : "text-emerald-600 dark:text-emerald-400",
                         )}
                       />
                       <span className="truncate text-sm font-medium">
@@ -197,11 +197,6 @@ export function ReviewsSidebar({
                     </span>
                     <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
                       <span className="shrink-0">#{pr.number}</span>
-                      {pr.draft ? (
-                        <span className="shrink-0 rounded border border-border px-1">
-                          draft
-                        </span>
-                      ) : null}
                       {pr.authorLogin ? (
                         <span className="truncate">{pr.authorLogin}</span>
                       ) : null}

@@ -6,7 +6,14 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { api, type Id } from "@conductor/backend";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { ActivityTasks, Button, Spinner, cn } from "@conductor/ui";
+import {
+  ActivityTasks,
+  Button,
+  Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@conductor/ui";
 import {
   IconAlertTriangle,
   IconExternalLink,
@@ -126,32 +133,22 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
     recapDoc.headSha !== undefined ? recapDoc.headSha.slice(0, 7) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <Tabs
+      value={view}
+      onValueChange={(value) => {
+        if (value === "recap" || value === "summary") setView(value);
+      }}
+      className="flex h-full min-h-0 flex-col"
+    >
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
-        <div className="inline-flex rounded-md border border-border p-0.5">
-          {(
-            [
-              { value: "recap" as const, label: "Recap" },
-              { value: "summary" as const, label: "Summary" },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setView(tab.value);
-              }}
-              className={cn(
-                "rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                view === tab.value
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <TabsList className="h-8">
+          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
+            Recap
+          </TabsTrigger>
+          <TabsTrigger value="summary" className="px-2.5 py-1 text-xs">
+            Summary
+          </TabsTrigger>
+        </TabsList>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {shortSha ? <span className="font-mono">{shortSha}</span> : null}
           <a
@@ -245,6 +242,6 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
           </div>
         )}
       </div>
-    </div>
+    </Tabs>
   );
 }

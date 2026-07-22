@@ -7,6 +7,7 @@ import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveTaskWorkflowBaseBranchForTask } from "./resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { normalizeAIModel } from "../validators";
 
 /** Schedules an automatic retry for a failed quick task if the failure looks transient. */
 export const maybeScheduleQuickTaskRetry = internalMutation({
@@ -145,6 +146,7 @@ export const executeScheduledTask = internalMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {

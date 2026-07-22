@@ -122,8 +122,14 @@ export const update = authMutation({
       );
       updates.providerAccountId = nextProviderAccountId;
     }
-    // Owner changes model → keep matching personal account or re-default.
-    if (args.model !== undefined && ctx.userId === task.createdBy) {
+    // Owner changes model alone → keep matching personal account or re-default.
+    // When providerAccountId is also in this update (picker chose Team/personal
+    // with the model), the explicit account wins — do not reconcile over it.
+    if (
+      args.model !== undefined &&
+      args.providerAccountId === undefined &&
+      ctx.userId === task.createdBy
+    ) {
       nextProviderAccountId = await reconcileProviderAccountForModel(
         ctx.db,
         task.createdBy,

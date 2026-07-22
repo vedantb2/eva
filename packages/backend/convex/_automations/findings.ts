@@ -9,6 +9,7 @@ import type { Id } from "../_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { normalizeAIModel } from "../validators";
 
 /** Creates agent tasks from selected automation findings and optionally auto-starts them. */
 export const createTasksFromFindings = authMutation({
@@ -117,6 +118,7 @@ export const autoStartTask = internalMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {

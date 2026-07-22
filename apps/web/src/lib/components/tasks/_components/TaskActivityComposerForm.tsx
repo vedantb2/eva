@@ -12,9 +12,10 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
+  ModelSelect,
 } from "@conductor/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import { api } from "@conductor/backend";
+import { api, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
@@ -27,6 +28,11 @@ import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
 import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
+import {
+  useAvailableAiModels,
+  useTaskOwnerProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
+import { canEditTaskModel } from "./task-detail-constants";
 
 export interface TaskActivityComposerFormProps {
   taskId: Id<"agentTasks">;
@@ -74,8 +80,22 @@ export function TaskActivityComposerForm({
   const createComment = useMutation(api.taskComments.create);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const updateTask = useMutation(api.agentTasks.update);
 
   const currentUserId = useQuery(api.auth.me);
+  const task = useQuery(api.agentTasks.get, { id: taskId });
+  const currentModel = normalizeAIModel(task?.model);
+  const { options: modelOptions } = useAvailableAiModels(
+    task?.repoId,
+    currentModel,
+  );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useTaskOwnerProviderAccounts(isProjectTask ? undefined : taskId);
+  const isOwner =
+    currentUserId !== undefined &&
+    task?.createdBy !== undefined &&
+    currentUserId === task.createdBy;
+  const canEditModel = canEditTaskModel(task?.status);
   const { typingUsers, onActivity, stopTyping } = useTypingPresence(
     `typing:task:${taskId}`,
     currentUserId,
@@ -261,72 +281,116 @@ export function TaskActivityComposerForm({
             </Tooltip>
             {/* Always visible for quick tasks; disabled until Make changes is on. */}
             {!isProjectTask && (
-              <DropdownMenu>
+              <>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex">
-                      <DropdownMenuTrigger
-                        asChild
-                        disabled={!effectiveRequestingChanges}
-                      >
-                        <button
-                          type="button"
-                          disabled={!effectiveRequestingChanges}
-                          className={cn(
-                            "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
-                            !effectiveRequestingChanges
-                              ? "cursor-not-allowed text-muted-foreground opacity-50"
-                              : "hover:bg-muted hover:text-foreground",
-                            effectiveRequestingChanges &&
-                              (captureProof || runAudit)
-                              ? "text-foreground"
-                              : effectiveRequestingChanges
-                                ? "text-muted-foreground"
-                                : null,
-                          )}
-                          aria-label={
-                            changeRequestOptionCount > 0
-                              ? `Change-request options, ${changeRequestOptionCount} enabled`
-                              : "Change-request options"
+                      <ModelSelect
+                        value={currentModel}
+                        options={modelOptions}
+                        onValueChange={() => undefined}
+                        accounts={accounts}
+                        accountId={task?.providerAccountId ?? null}
+                        onSelectionChange={(nextModel, nextAccountId) => {
+                          if (!canEditModel) return;
+                          if (isOwner) {
+                            updateTask({
+                              id: taskId,
+                              model: nextModel,
+                              providerAccountId:
+                                resolveAccountId(nextAccountId) ?? null,
+                            });
+                            return;
                           }
-                        >
-                          <IconAdjustmentsHorizontal className="size-3.5" />
-                          Options
-                          {changeRequestOptionCount > 0 ? (
-                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
-                              {changeRequestOptionCount}
-                            </span>
-                          ) : null}
-                        </button>
-                      </DropdownMenuTrigger>
+                          updateTask({ id: taskId, model: nextModel });
+                        }}
+                        canSelectTeamWhilePersonal={isOwner}
+                        disabled={!effectiveRequestingChanges || !canEditModel}
+                        className={cn(
+                          "h-6 max-w-44",
+                          (!effectiveRequestingChanges || !canEditModel) &&
+                            "opacity-50",
+                        )}
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {effectiveRequestingChanges
-                      ? "Extra steps for this change request"
-                      : "Turn on Make changes to set proof/audit"}
+                    {!canEditModel
+                      ? "Locked when the task is done or cancelled"
+                      : effectiveRequestingChanges
+                        ? "Model for this task (saved on change)"
+                        : "Turn on Make changes to pick a model"}
                   </TooltipContent>
                 </Tooltip>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>Extra steps this run</DropdownMenuLabel>
-                  <DropdownMenuCheckboxItem
-                    checked={captureProof}
-                    onCheckedChange={(checked) =>
-                      setCaptureProof(checked === true)
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Capture proof
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={runAudit}
-                    onCheckedChange={(checked) => setRunAudit(checked === true)}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Run audit
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <DropdownMenuTrigger
+                          asChild
+                          disabled={!effectiveRequestingChanges}
+                        >
+                          <button
+                            type="button"
+                            disabled={!effectiveRequestingChanges}
+                            className={cn(
+                              "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+                              !effectiveRequestingChanges
+                                ? "cursor-not-allowed text-muted-foreground opacity-50"
+                                : "hover:bg-muted hover:text-foreground",
+                              effectiveRequestingChanges &&
+                                (captureProof || runAudit)
+                                ? "text-foreground"
+                                : effectiveRequestingChanges
+                                  ? "text-muted-foreground"
+                                  : null,
+                            )}
+                            aria-label={
+                              changeRequestOptionCount > 0
+                                ? `Change-request options, ${changeRequestOptionCount} enabled`
+                                : "Change-request options"
+                            }
+                          >
+                            <IconAdjustmentsHorizontal className="size-3.5" />
+                            Options
+                            {changeRequestOptionCount > 0 ? (
+                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                                {changeRequestOptionCount}
+                              </span>
+                            ) : null}
+                          </button>
+                        </DropdownMenuTrigger>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {effectiveRequestingChanges
+                        ? "Extra steps for this change request"
+                        : "Turn on Make changes to set proof/audit"}
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>Extra steps this run</DropdownMenuLabel>
+                    <DropdownMenuCheckboxItem
+                      checked={captureProof}
+                      onCheckedChange={(checked) =>
+                        setCaptureProof(checked === true)
+                      }
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      Capture proof
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={runAudit}
+                      onCheckedChange={(checked) =>
+                        setRunAudit(checked === true)
+                      }
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      Run audit
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </div>
           <Tooltip>

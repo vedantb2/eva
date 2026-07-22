@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
-import { evaluationReportFields } from "./validators";
+import { evaluationReportFields, normalizeAIModel } from "./validators";
 import { allocateNumId } from "./numId";
 import { ensureSubscribed } from "./taskSubscribers";
 import { workflow } from "./workflowManager";
@@ -140,6 +140,7 @@ export const autoStartTask = internalMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {

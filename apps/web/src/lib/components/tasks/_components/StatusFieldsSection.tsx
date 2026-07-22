@@ -3,7 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, getAIModelProvider, normalizeAIModel } from "@conductor/backend";
+import { api, normalizeAIModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -61,7 +61,7 @@ import {
 } from "./task-detail-constants";
 import {
   useAvailableAiModels,
-  useProviderAccounts,
+  useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 
@@ -239,32 +239,14 @@ export function StatusFieldsSection({
     currentModel,
   );
   const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+    useTaskOwnerProviderAccounts(taskId);
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
-  const ownerProfile = useQuery(
-    api.users.get,
-    task?.createdBy ? { id: task.createdBy } : "skip",
-  );
-  const ownerAccountLabel =
-    ownerProfile?.firstName?.trim() ||
-    ownerProfile?.fullName?.trim() ||
-    "Personal";
-  const displayAccounts =
-    isOwner || !task?.providerAccountId
-      ? accounts
-      : [
-          {
-            id: task.providerAccountId,
-            provider: getAIModelProvider(currentModel),
-            label: ownerAccountLabel,
-          },
-          ...accounts,
-        ];
   const canEditModel = canEditTaskModel(status);
+  const isQuickTask = task?.projectId === undefined;
 
   return (
     <div className="space-y-4">
@@ -413,39 +395,45 @@ export function StatusFieldsSection({
           </SelectContent>
         </Select>
 
-        <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
-          <ModelSelect
-            value={currentModel}
-            options={modelOptions}
-            onValueChange={(nextModel) =>
-              updateTask({ id: taskId, model: nextModel })
-            }
-            accounts={displayAccounts}
-            accountId={task?.providerAccountId ?? null}
-            onAccountChange={(nextAccountId) => {
-              if (!isOwner) return;
-              updateTask({
-                id: taskId,
-                providerAccountId: resolveAccountId(nextAccountId) ?? null,
-              });
-            }}
-            disabled={!canEditModel}
-            className="px-0"
-          />
-          {!canEditModel ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconInfoCircle
-                  size={12}
-                  className="cursor-help text-muted-foreground"
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                Locked when the task is done or cancelled
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-        </div>
+        {/* Quick tasks: model lives in the Make-changes composer. */}
+        {!isQuickTask ? (
+          <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
+            <ModelSelect
+              value={currentModel}
+              options={modelOptions}
+              onValueChange={() => undefined}
+              accounts={accounts}
+              accountId={task?.providerAccountId ?? null}
+              onSelectionChange={(nextModel, nextAccountId) => {
+                if (isOwner) {
+                  updateTask({
+                    id: taskId,
+                    model: nextModel,
+                    providerAccountId: resolveAccountId(nextAccountId) ?? null,
+                  });
+                  return;
+                }
+                updateTask({ id: taskId, model: nextModel });
+              }}
+              canSelectTeamWhilePersonal={isOwner}
+              disabled={!canEditModel}
+              className="px-0"
+            />
+            {!canEditModel ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <IconInfoCircle
+                    size={12}
+                    className="cursor-help text-muted-foreground"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Locked when the task is done or cancelled
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
 
         {!task?.projectId && (
           <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">

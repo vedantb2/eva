@@ -38,12 +38,21 @@ export function useAvailableAiModels(
  * typed id to mutations without a cast. Unknown ids (e.g. a deleted account)
  * resolve to undefined — the run falls back to the team credential.
  */
-export function useProviderAccounts(): {
+function toModelAccounts(
+  accounts:
+    | ReadonlyArray<{
+        _id: Id<"userProviderAccounts">;
+        provider: ModelAccount["provider"];
+        label: string;
+        accentColor?: string;
+        updatedAt: number;
+      }>
+    | undefined,
+): {
   options: ReadonlyArray<ModelAccount>;
   resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
   ready: boolean;
 } {
-  const accounts = useQuery(api.userProviderAccounts.list, {});
   // Most recently updated first so create-time defaults prefer the latest.
   const sorted = (accounts ?? []).toSorted((a, b) => b.updatedAt - a.updatedAt);
   const options: ReadonlyArray<ModelAccount> = sorted.map((account) => ({
@@ -57,4 +66,31 @@ export function useProviderAccounts(): {
   ): Id<"userProviderAccounts"> | undefined =>
     id ? accounts?.find((account) => account._id === id)?._id : undefined;
   return { options, resolveId, ready: accounts !== undefined };
+}
+
+export function useProviderAccounts(): {
+  options: ReadonlyArray<ModelAccount>;
+  resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
+  ready: boolean;
+} {
+  const accounts = useQuery(api.userProviderAccounts.list, {});
+  return toModelAccounts(accounts);
+}
+
+/**
+ * Task owner's personal accounts for the model picker (same shape as
+ * `useProviderAccounts`). Used so teammates see the sticky owner's groups.
+ */
+export function useTaskOwnerProviderAccounts(
+  taskId: Id<"agentTasks"> | null | undefined,
+): {
+  options: ReadonlyArray<ModelAccount>;
+  resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
+  ready: boolean;
+} {
+  const accounts = useQuery(
+    api.userProviderAccounts.listForTaskOwner,
+    taskId ? { taskId } : "skip",
+  );
+  return toModelAccounts(accounts);
 }

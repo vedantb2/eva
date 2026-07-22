@@ -15,6 +15,9 @@ import {
   ReasoningContent,
   ActivityTasks,
   formatElapsed,
+  ProviderIcon,
+  formatModelDisplayLabel,
+  findModelOption,
 } from "@conductor/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
 import dayjs, { formatExactDateTime } from "@conductor/shared/dates";
@@ -22,6 +25,7 @@ import { UserInitials } from "@conductor/shared";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
+import { AI_MODEL_OPTIONS, getAIModelProvider } from "@conductor/backend";
 import type { api } from "@conductor/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -151,6 +155,21 @@ export function RunTimelineItem({
                   >
                     {getRunStatusLabel(run, hasRunComment)}
                   </Badge>
+                  {run.model ? (
+                    <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                      <ProviderIcon
+                        provider={getAIModelProvider(run.model)}
+                        size={12}
+                      />
+                      <span className="truncate">
+                        {formatModelDisplayLabel(
+                          getAIModelProvider(run.model),
+                          findModelOption(run.model, AI_MODEL_OPTIONS)?.label ??
+                            run.model,
+                        )}
+                      </span>
+                    </span>
+                  ) : null}
                   {run.credentialSourceLabel ? (
                     <Badge variant="secondary">
                       {run.credentialSourceLabel}

@@ -11,6 +11,7 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { normalizeAIModel } from "../validators";
 
 const PREVIEW_ALLOWED_PHASES = [
   "in_progress",
@@ -254,6 +255,7 @@ export const resolveProjectConflicts = authMutation({
         carrier.providerAccountId,
         carrier.createdBy,
       ),
+      model: normalizeAIModel(carrier.model),
     });
     await ctx.db.patch(carrier._id, {
       status: "in_progress",

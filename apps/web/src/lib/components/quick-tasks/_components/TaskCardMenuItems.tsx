@@ -47,7 +47,7 @@ import {
 import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
 import {
   useAvailableAiModels,
-  useProviderAccounts,
+  useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 
 type GroupedCodebase = FunctionReturnType<
@@ -165,7 +165,7 @@ export function TaskCardMenuItems({
     normalizedModel,
   );
   const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+    useTaskOwnerProviderAccounts(id);
   const hasAccounts = accounts.length > 0;
   const selectedComposite = toComposite(
     providerAccountId ?? null,

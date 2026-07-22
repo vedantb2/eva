@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { aiModelValidator, runModeValidator } from "../validators";
+import {
+  aiModelValidator,
+  normalizeAIModel,
+  runModeValidator,
+} from "../validators";
 import {
   authMutation,
   hasTaskAccess,
@@ -125,6 +129,7 @@ export const startExecution = authMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
     });

@@ -173,7 +173,12 @@ export const update = authMutation({
       );
       updates.providerAccountId = nextProviderAccountId;
     }
-    if (model !== undefined && ctx.userId === project.userId) {
+    // Explicit account in this update wins; only reconcile when model alone changes.
+    if (
+      model !== undefined &&
+      providerAccountId === undefined &&
+      ctx.userId === project.userId
+    ) {
       nextProviderAccountId = await reconcileProviderAccountForModel(
         ctx.db,
         project.userId,

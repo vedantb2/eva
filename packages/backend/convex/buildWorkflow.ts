@@ -12,6 +12,7 @@ import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
+import { normalizeAIModel } from "./validators";
 
 // --- Workflow ---
 
@@ -155,6 +156,7 @@ export const startTaskForBuild = internalMutation({
         task.providerAccountId,
         task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {

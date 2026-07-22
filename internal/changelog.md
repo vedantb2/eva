@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick-task activity model + composer picker - 2026-07-22
+
+Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.
+
 ## Owner-sticky personal AI accounts - 2026-07-22
 
 Personal provider accounts used to fall back to Team whenever someone other than the account owner ran a task (e.g. Make changes). Credentials now follow the entity owner (`createdBy` / project `userId`): creates default to that owner's matching personal account for the model provider (else Team), labels are the owner's first name, and only the owner can change the sticky account.

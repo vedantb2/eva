@@ -38,6 +38,17 @@ export interface ModelSelectProps<TModel extends string = string> {
   accountId?: string | null;
   /** Fired alongside a model change with the chosen account (null = team). */
   onAccountChange?: (accountId: string | null) => void;
+  /**
+   * When set, called once per pick instead of separate model/account
+   * callbacks — use this to persist both fields in a single mutation.
+   */
+  onSelectionChange?: (model: TModel, accountId: string | null) => void;
+  /**
+   * When a personal account is selected, Team for that provider is shown
+   * disabled. Set false when the viewer cannot switch the sticky account
+   * (e.g. non-owner on a task) so Team stays unselectable.
+   */
+  canSelectTeamWhilePersonal?: boolean;
 }
 
 export function ModelSelect<TModel extends string>({
@@ -49,6 +60,8 @@ export function ModelSelect<TModel extends string>({
   accounts,
   accountId = null,
   onAccountChange,
+  onSelectionChange,
+  canSelectTeamWhilePersonal = true,
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
   const selectedModel = findModelOption(value, options);
@@ -146,9 +159,14 @@ export function ModelSelect<TModel extends string>({
           accountId={accountId}
           options={options}
           accounts={accounts}
+          canSelectTeamWhilePersonal={canSelectTeamWhilePersonal}
           onSelect={(modelId, nextAccountId) => {
-            onValueChange(modelId);
-            onAccountChange?.(nextAccountId);
+            if (onSelectionChange) {
+              onSelectionChange(modelId, nextAccountId);
+            } else {
+              onValueChange(modelId);
+              onAccountChange?.(nextAccountId);
+            }
             setOpen(false);
           }}
         />

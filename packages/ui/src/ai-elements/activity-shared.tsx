@@ -15,6 +15,9 @@ import {
   WrenchIcon,
   MessageSquareIcon,
   ListTodoIcon,
+  InfoIcon,
+  AnchorIcon,
+  LoaderCircleIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -52,7 +55,10 @@ export interface ActivityStep {
     | "response"
     | "question"
     | "todos"
-    | "tool";
+    | "tool"
+    | "notice"
+    | "hook"
+    | "status";
   label: string;
   detail?: string;
   /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
@@ -120,6 +126,9 @@ export const stepConfig = {
   question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
   todos: { icon: ListTodoIcon, defaultLabel: "Task list" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
+  notice: { icon: InfoIcon, defaultLabel: "Notice" },
+  hook: { icon: AnchorIcon, defaultLabel: "Hook" },
+  status: { icon: LoaderCircleIcon, defaultLabel: "Status" },
 };
 
 const SPINNER_VERBS = [

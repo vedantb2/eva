@@ -171,6 +171,7 @@ export function SessionDetailClient({
               onSandboxTabChange("prd");
               setExpandRightSignal((n) => n + 1);
             }}
+            backgroundAgents={session.backgroundAgents}
           />
         )}
         rightPanel={

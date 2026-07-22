@@ -22,6 +22,10 @@ var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+var CLAIM_MUTATION = process.env.CLAIM_MUTATION;
+var OPEN_SYNTHETIC_TURN_MUTATION = process.env.OPEN_SYNTHETIC_TURN_MUTATION;
+var COMPLETE_SYNTHETIC_TURN_MUTATION = process.env.COMPLETE_SYNTHETIC_TURN_MUTATION;
+var UPDATE_BACKGROUND_AGENTS_MUTATION = process.env.UPDATE_BACKGROUND_AGENTS_MUTATION;
 function isProofCompletionMutation(mutation = COMPLETION_MUTATION) {
   return (mutation ?? "").includes("handleProofCompletion");
 }
@@ -247,6 +251,28 @@ var completedLabels = {
 
 // callback-src/providers/claudeSdkDaemon.ts
 import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+
+// callback-src/providers/daemonPaths.ts
+var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
+var LEGACY_DAEMON_ENTITY = "/tmp/eva-daemon.entity";
+var LEGACY_DAEMON_OPTS = "/tmp/eva-daemon.opts";
+function resolveDaemonPaths(entityIdField = ENTITY_ID_FIELD, entityId = ENTITY_ID) {
+  const field = entityIdField ?? "sessionId";
+  const id = entityId ?? "";
+  const suffix = \`\${field}-\${id}\`;
+  return {
+    pid: \`/tmp/eva-daemon.\${suffix}.pid\`,
+    entity: \`/tmp/eva-daemon.\${suffix}.entity\`,
+    opts: \`/tmp/eva-daemon.\${suffix}.opts\`
+  };
+}
+function resolveLegacySessionDaemonPaths() {
+  return {
+    pid: LEGACY_DAEMON_PID,
+    entity: LEGACY_DAEMON_ENTITY,
+    opts: LEGACY_DAEMON_OPTS
+  };
+}
 
 // callback-src/utils.ts
 import { spawnSync } from "child_process";
@@ -2390,6 +2416,289 @@ async function flushBackgroundShellQueue() {
   }
 }
 
+// callback-src/parse/sdkTaxonomy.ts
+var loggedUnknownKinds = /* @__PURE__ */ new Set();
+var knownBackgroundTaskIds = /* @__PURE__ */ new Set();
+function readString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function readStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const item of value) {
+    const s = readString(item);
+    if (s) out.push(s);
+  }
+  return out;
+}
+function pushNoticeStep(label, detail) {
+  return [
+    {
+      kind: "push_step",
+      step: {
+        type: "notice",
+        label,
+        detail,
+        status: "complete"
+      }
+    }
+  ];
+}
+function completeActiveStatusStep() {
+  for (let i = callbackState.accumulatedSteps.length - 1; i >= 0; i--) {
+    const step = callbackState.accumulatedSteps[i];
+    if (step.type === "status" && step.status === "active") {
+      step.status = "complete";
+      return;
+    }
+  }
+}
+function patchStepDetailByToolUseId(toolUseId, detail) {
+  for (let i = callbackState.accumulatedSteps.length - 1; i >= 0; i--) {
+    const step = callbackState.accumulatedSteps[i];
+    if (step.toolUseId === toolUseId && step.status === "active") {
+      step.detail = detail;
+      return;
+    }
+  }
+  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  if (last?.status === "active") {
+    last.detail = detail;
+  }
+}
+function patchStepsWithSummary(toolUseIds, summary) {
+  const idSet = new Set(toolUseIds);
+  for (const step of callbackState.accumulatedSteps) {
+    if (step.toolUseId && idSet.has(step.toolUseId)) {
+      step.detail = summary;
+    }
+  }
+}
+function appendHookDetail(hookId, detail) {
+  for (let i = callbackState.accumulatedSteps.length - 1; i >= 0; i--) {
+    const step = callbackState.accumulatedSteps[i];
+    if (step.type === "hook" && step.toolUseId === hookId) {
+      const trimmed = detail.trim();
+      if (!trimmed) return;
+      step.detail = step.detail ? \`\${step.detail}
+\${trimmed}\` : trimmed;
+      return;
+    }
+  }
+}
+function readFileNamesFromPersisted(event) {
+  const filesField = event.files;
+  if (!Array.isArray(filesField)) return "";
+  const names = [];
+  for (const entry of filesField) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const filename = readString(entry.filename);
+    if (filename) names.push(filename);
+  }
+  return names.join(", ");
+}
+function readBackgroundTaskIds(event) {
+  const tasksField = event.tasks;
+  if (!Array.isArray(tasksField)) return [];
+  const ids = [];
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskId = readString(task.task_id);
+    if (taskId) ids.push(taskId);
+  }
+  return ids;
+}
+function readBackgroundTaskDescriptions(event) {
+  const tasksField = event.tasks;
+  const descriptions = /* @__PURE__ */ new Map();
+  if (!Array.isArray(tasksField)) return descriptions;
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskId = readString(task.task_id);
+    const description = readString(task.description);
+    if (taskId && description) {
+      descriptions.set(taskId, description);
+    }
+  }
+  return descriptions;
+}
+function diffNewBackgroundTaskIds(taskIds) {
+  const newly = [];
+  for (const id of taskIds) {
+    if (!knownBackgroundTaskIds.has(id)) {
+      newly.push(id);
+    }
+  }
+  for (const id of taskIds) {
+    knownBackgroundTaskIds.add(id);
+  }
+  return newly;
+}
+function logUnknownSdkKind(kind) {
+  if (loggedUnknownKinds.has(kind)) return;
+  loggedUnknownKinds.add(kind);
+  log("unhandled sdk kind: " + kind);
+}
+function parseModelReroute(event) {
+  const subtype = readString(event.subtype);
+  if (subtype === "model_reroute" || subtype === "model_fallback") {
+    const reason = readString(event.reason) ?? readString(event.message) ?? readString(event.content);
+    return pushNoticeStep("Model rerouted", reason);
+  }
+  if (subtype === "informational") {
+    const content = readString(event.content);
+    if (content && (content.toLowerCase().includes("rerouted") || content.toLowerCase().includes("fallback model"))) {
+      return pushNoticeStep("Model rerouted", content);
+    }
+  }
+  return null;
+}
+function isTaskSystemSubtype(subtype) {
+  return subtype === "task_started" || subtype === "task_updated" || subtype === "task_notification" || subtype === "task_progress";
+}
+function consumesClaudeSdkTaxonomyMessage(event) {
+  const messageType = typeof event.type === "string" ? event.type.trim() : void 0;
+  if (!messageType) return false;
+  if (messageType === "tool_progress" || messageType === "tool_use_summary" || messageType === "auth_status" || messageType === "rate_limit_event") {
+    return true;
+  }
+  if (messageType !== "system") return false;
+  const subtype = typeof event.subtype === "string" ? event.subtype.trim() : void 0;
+  if (!subtype || subtype === "init" || isTaskSystemSubtype(subtype)) {
+    return false;
+  }
+  return true;
+}
+function parseClaudeSdkTaxonomy(event) {
+  const messageType = readString(event.type);
+  if (!messageType) return [];
+  if (messageType !== "system" && messageType !== "tool_progress" && messageType !== "tool_use_summary" && messageType !== "auth_status" && messageType !== "rate_limit_event") {
+    return [];
+  }
+  if (messageType === "auth_status" || messageType === "rate_limit_event") {
+    return [];
+  }
+  if (messageType === "tool_progress") {
+    completeActiveStatusStep();
+    const toolUseId = readString(event.tool_use_id);
+    const elapsed = event.elapsed_time_seconds;
+    if (toolUseId && typeof elapsed === "number" && Number.isFinite(elapsed)) {
+      const seconds = Math.max(0, Math.floor(elapsed));
+      patchStepDetailByToolUseId(toolUseId, \`\${seconds}s elapsed\`);
+    }
+    return [];
+  }
+  if (messageType === "tool_use_summary") {
+    completeActiveStatusStep();
+    const summary = readString(event.summary);
+    const ids = readStringArray(event.preceding_tool_use_ids);
+    if (summary && ids.length > 0) {
+      patchStepsWithSummary(ids, summary);
+    }
+    return [];
+  }
+  const subtype = readString(event.subtype);
+  if (!subtype) {
+    logUnknownSdkKind(\`\${messageType}:?\`);
+    return [];
+  }
+  if (subtype === "thinking_tokens") {
+    return [];
+  }
+  if (subtype === "status") {
+    if (event.status === "compacting") {
+      return [
+        { kind: "mark_last_complete" },
+        {
+          kind: "push_step",
+          step: {
+            type: "status",
+            label: "Compacting context...",
+            status: "active"
+          }
+        }
+      ];
+    }
+    return [];
+  }
+  completeActiveStatusStep();
+  if (subtype === "compact_boundary") {
+    return pushNoticeStep("Context compacted");
+  }
+  if (subtype === "files_persisted") {
+    const names = readFileNamesFromPersisted(event);
+    return pushNoticeStep(
+      "Files persisted",
+      names.length > 0 ? names : void 0
+    );
+  }
+  if (subtype === "hook_started") {
+    const hookId = readString(event.hook_id);
+    const hookName = readString(event.hook_name) ?? "Hook";
+    if (!hookId) return [];
+    return [
+      { kind: "mark_last_complete" },
+      {
+        kind: "push_step",
+        step: {
+          type: "hook",
+          label: hookName,
+          toolUseId: hookId,
+          status: "active"
+        },
+        trackingId: hookId
+      }
+    ];
+  }
+  if (subtype === "hook_progress") {
+    const hookId = readString(event.hook_id);
+    const output = readString(event.output) ?? readString(event.stdout) ?? readString(event.stderr);
+    if (hookId && output) {
+      appendHookDetail(hookId, output);
+    }
+    return [];
+  }
+  if (subtype === "hook_response") {
+    const hookId = readString(event.hook_id);
+    if (!hookId) return [];
+    return [{ kind: "complete_tool", trackingId: hookId }];
+  }
+  if (subtype === "background_tasks_changed") {
+    const taskIds = readBackgroundTaskIds(event);
+    const descriptions = readBackgroundTaskDescriptions(event);
+    const newly = diffNewBackgroundTaskIds(taskIds);
+    const events = [];
+    for (const taskId of newly) {
+      const description = descriptions.get(taskId);
+      events.push(
+        ...pushNoticeStep("Agent moved to background", description ?? taskId)
+      );
+    }
+    return events;
+  }
+  const reroute = parseModelReroute(event);
+  if (reroute) {
+    return reroute;
+  }
+  if (subtype !== "init" && subtype !== "task_started" && subtype !== "task_updated" && subtype !== "task_notification" && subtype !== "task_progress") {
+    logUnknownSdkKind(\`\${messageType}:\${subtype}\`);
+  }
+  return [];
+}
+function completeStatusOnNonStatusMessage(event) {
+  const messageType = readString(event.type);
+  if (messageType === "system" && event.subtype === "status") {
+    return;
+  }
+  completeActiveStatusStep();
+}
+
 // callback-src/providers/claude.ts
 function claudeToolCompleteResult(resultText, isError) {
   const output = buildStepOutput(resultText);
@@ -2471,6 +2780,9 @@ function parseClaudeStreamEvent(event) {
   return events;
 }
 function claudeParseLine(event) {
+  if (consumesClaudeSdkTaxonomyMessage(event)) {
+    return parseClaudeSdkTaxonomy(event);
+  }
   const events = [];
   if (event.type === "stream_event") {
     return parseClaudeStreamEvent(event);
@@ -3330,6 +3642,11 @@ function parseStreamEvent(line) {
     return false;
   }
   try {
+    completeStatusOnNonStatusMessage(event);
+    if (consumesClaudeSdkTaxonomyMessage(event)) {
+      applyCanonicalEvents(parseClaudeSdkTaxonomy(event));
+      return true;
+    }
     return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
   } catch {
     return false;
@@ -3869,7 +4186,7 @@ function parseAnswers(answerJson) {
 }
 function buildCanUseTool() {
   return async (toolName, input, options) => {
-    if ((toolName === "Agent" || toolName === "Task") && input.run_in_background === true) {
+    if (CLAUDE_ATTEMPT_MODE !== "sdk-daemon" && (toolName === "Agent" || toolName === "Task") && input.run_in_background === true) {
       return {
         behavior: "allow",
         updatedInput: { ...input, run_in_background: false }
@@ -4003,7 +4320,9 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
     ENABLE_TOOL_SEARCH: "auto"
   };
-  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  if (CLAIM_MUTATION || ENTITY_ID_FIELD === "sessionId") {
+    delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  }
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
   return {
     cwd: WORK_DIR,
@@ -4141,14 +4460,28 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
+// callback-src/providers/claimPendingTurnParse.ts
+function readStopTaskToolUseIds(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return [];
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const field = payload.stopTaskToolUseIds;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((id) => typeof id === "string");
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
-var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
-var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
+var daemonPaths = resolveDaemonPaths();
+var DAEMON_PID_FILE = daemonPaths.pid;
+var DAEMON_ENTITY_FILE = daemonPaths.entity;
+var DAEMON_OPTS_FILE = daemonPaths.opts;
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
@@ -4156,6 +4489,26 @@ var WATCHDOG_TICK_MS = 5e3;
 var turnActive = false;
 var turnStartedAtMs = 0;
 var lastMessageAtMs = 0;
+var daemonTurn = null;
+var pendingClaimedTurn = null;
+var daemonExiting = false;
+var openingSyntheticTurn = false;
+var lastIdleActivityAtMs = Date.now();
+var agentTurnOutput = "";
+var agentTurnStartedAt = 0;
+var sawFirstMessageThisTurn = { value: false };
+var sawAssistantThisTurn = { value: false };
+var recognisedSubagentToolUseIds = /* @__PURE__ */ new Set();
+var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
+var unsettledBackgroundAgents = /* @__PURE__ */ new Map();
+var pendingAgentStops = /* @__PURE__ */ new Set();
+var currentAgentRunner = null;
+function entityMutationArgs(fields) {
+  return {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    ...fields
+  };
+}
 function beginWatchedTurn() {
   turnActive = true;
   turnStartedAtMs = Date.now();
@@ -4198,12 +4551,26 @@ function startTurnWatchdog() {
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
-      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+      if (daemonTurn?.kind === "synthetic") {
+        void failSyntheticTurn(
+          "The assistant exceeded the maximum turn runtime."
+        );
+      } else {
+        void failTurnAndExit(
+          "The assistant exceeded the maximum turn runtime."
+        );
+      }
     } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
       turnActive = false;
-      void failTurnAndExit(
-        "The assistant stopped responding. Please try again."
-      );
+      if (daemonTurn?.kind === "synthetic") {
+        void failSyntheticTurn(
+          "The assistant stopped responding. Please try again."
+        );
+      } else {
+        void failTurnAndExit(
+          "The assistant stopped responding. Please try again."
+        );
+      }
     }
   }, WATCHDOG_TICK_MS);
   timer.unref?.();
@@ -4359,16 +4726,488 @@ function readClaimedTurn(result) {
     attachmentUrls: readClaimedAttachmentUrls(payload)
   };
 }
-function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn, sawAssistantThisTurn) {
+function readSyntheticTurnMessageId(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const messageId = payload.messageId;
+  return typeof messageId === "string" ? messageId : null;
+}
+function readParentToolUseId(message) {
+  const parentField = message.parent_tool_use_id;
+  if (typeof parentField === "string" && parentField.trim()) {
+    return parentField.trim();
+  }
+  return null;
+}
+function readStringField2(message, field) {
+  const value = message[field];
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function recogniseSubagentToolUses(message) {
+  if (message.type !== "assistant") {
+    return;
+  }
+  const nested = message.message;
+  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+    return;
+  }
+  const content = nested.content;
+  if (!Array.isArray(content)) {
+    return;
+  }
+  for (const block of content) {
+    if (typeof block !== "object" || block === null || Array.isArray(block)) {
+      continue;
+    }
+    if (block.type !== "tool_use") {
+      continue;
+    }
+    const name = block.name;
+    if (name !== "Agent" && name !== "Task") {
+      continue;
+    }
+    const id = block.id;
+    if (typeof id === "string" && id.trim()) {
+      recognisedSubagentToolUseIds.add(id.trim());
+    }
+  }
+}
+function shouldDropSubagentMessage(message) {
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return settledSubagentToolUseIds.has(parentId);
+}
+function shouldMintSyntheticTurn(message) {
+  if (message.type === "assistant" || message.type === "stream_event") {
+    return true;
+  }
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return recognisedSubagentToolUseIds.has(parentId);
+}
+function completeSubtaskStep(toolUseId) {
+  for (const step of callbackState.accumulatedSteps) {
+    if (step.type === "subtask" && step.toolUseId === toolUseId) {
+      step.status = "complete";
+    }
+  }
+}
+function settleSubagent(toolUseId, terminalStatus) {
+  settledSubagentToolUseIds.add(toolUseId);
+  const entry = unsettledBackgroundAgents.get(toolUseId);
+  unsettledBackgroundAgents.delete(toolUseId);
+  completeSubtaskStep(toolUseId);
+  if (entry) {
+    void syncBackgroundAgentsToConvex([
+      {
+        ...entry,
+        status: terminalStatus,
+        settledAt: Date.now()
+      }
+    ]);
+  }
+}
+function toConvexBackgroundAgent(entry) {
+  const payload = {
+    toolUseId: entry.toolUseId,
+    status: entry.status,
+    startedAt: entry.startedAt
+  };
+  if (entry.taskId) {
+    payload.taskId = entry.taskId;
+  }
+  if (entry.description) {
+    payload.description = entry.description;
+  }
+  if (entry.backgrounded === true) {
+    payload.backgrounded = true;
+  }
+  if (entry.settledAt !== void 0) {
+    payload.settledAt = entry.settledAt;
+  }
+  return payload;
+}
+async function syncBackgroundAgentsToConvex(agents) {
+  if (agents.length === 0) {
+    return;
+  }
+  try {
+    await callConvexWithRetry(
+      "mutation",
+      UPDATE_BACKGROUND_AGENTS_MUTATION ?? "",
+      entityMutationArgs({
+        agents: agents.map(toConvexBackgroundAgent)
+      })
+    );
+  } catch {
+  }
+}
+function findAgentByTaskId(taskId) {
+  for (const entry of unsettledBackgroundAgents.values()) {
+    if (entry.taskId === taskId) {
+      return entry;
+    }
+  }
+  return void 0;
+}
+function markAgentsBackgrounded(taskIds) {
+  const patches = [];
+  for (const taskId of taskIds) {
+    const entry = findAgentByTaskId(taskId);
+    if (!entry || entry.backgrounded === true) {
+      continue;
+    }
+    entry.backgrounded = true;
+    patches.push({ ...entry });
+  }
+  if (patches.length > 0) {
+    void syncBackgroundAgentsToConvex(patches);
+  }
+}
+async function dispatchPendingAgentStops(agentRunner) {
+  const pendingStops = [];
+  pendingAgentStops.forEach((toolUseId) => {
+    pendingStops.push(toolUseId);
+  });
+  for (const toolUseId of pendingStops) {
+    const entry = unsettledBackgroundAgents.get(toolUseId);
+    if (!entry?.taskId) {
+      continue;
+    }
+    pendingAgentStops.delete(toolUseId);
+    try {
+      await agentRunner.stopTask(entry.taskId);
+      log("daemon: stopTask dispatched taskId=" + entry.taskId);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("daemon: stopTask failed \\u2014 " + messageText);
+      pendingAgentStops.add(toolUseId);
+    }
+  }
+}
+function handleBackgroundTasksChanged(message) {
+  if (message.type !== "system" || message.subtype !== "background_tasks_changed") {
+    return;
+  }
+  const tasksField = message.tasks;
+  if (!Array.isArray(tasksField)) {
+    return;
+  }
+  const taskIds = [];
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskIdField = task.task_id;
+    const taskId = typeof taskIdField === "string" && taskIdField.trim() ? taskIdField.trim() : void 0;
+    if (taskId) {
+      taskIds.push(taskId);
+    }
+  }
+  markAgentsBackgrounded(taskIds);
+}
+function handleSystemTaskMessage(message) {
+  if (message.type !== "system") {
+    return;
+  }
+  const subtype = message.subtype;
+  if (typeof subtype !== "string") {
+    return;
+  }
+  const toolUseId = readStringField2(message, "tool_use_id");
+  if (subtype === "task_started" && toolUseId) {
+    const entry = {
+      toolUseId,
+      taskId: readStringField2(message, "task_id"),
+      description: readStringField2(message, "description"),
+      status: "running",
+      startedAt: Date.now()
+    };
+    unsettledBackgroundAgents.set(toolUseId, entry);
+    void syncBackgroundAgentsToConvex([entry]);
+    if (currentAgentRunner) {
+      void dispatchPendingAgentStops(currentAgentRunner);
+    }
+    return;
+  }
+  if ((subtype === "task_updated" || subtype === "task_notification") && toolUseId) {
+    const status = readStringField2(message, "status");
+    const terminal = status === "completed" || status === "failed" || status === "killed" || status === "stopped" || subtype === "task_notification";
+    if (terminal) {
+      settleSubagent(toolUseId, status ?? "completed");
+    }
+  }
+}
+async function failSyntheticTurn(error) {
+  if (daemonTurn?.kind !== "synthetic") {
+    return;
+  }
+  log("daemon: failing synthetic turn \\u2014 " + error);
+  const messageId = daemonTurn.messageId;
+  try {
+    await flushStreaming();
+    for (const step of callbackState.accumulatedSteps) {
+      step.status = "complete";
+    }
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({
+        messageId,
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(callbackState.accumulatedSteps)
+      })
+    );
+  } catch {
+  }
+  endWatchedTurn();
+  resetTurnState();
+  daemonTurn = null;
+  agentTurnOutput = "";
+}
+async function ensureSyntheticTurn() {
+  if (daemonTurn !== null || openingSyntheticTurn) {
+    return;
+  }
+  openingSyntheticTurn = true;
+  try {
+    const result = await callConvexWithRetry(
+      "mutation",
+      OPEN_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({})
+    );
+    const messageId = readSyntheticTurnMessageId(result);
+    if (messageId === null) {
+      log("daemon: openSyntheticTurn returned no messageId");
+      return;
+    }
+    resetTurnState();
+    daemonTurn = { kind: "synthetic", messageId };
+    agentTurnStartedAt = Date.now();
+    sawFirstMessageThisTurn = { value: false };
+    sawAssistantThisTurn = { value: false };
+    callbackState.activeAttemptStartedAt = agentTurnStartedAt;
+    beginWatchedTurn();
+    log("daemon: synthetic turn opened messageId=" + messageId);
+  } finally {
+    openingSyntheticTurn = false;
+  }
+}
+async function finalizeSyntheticTurn(output) {
+  if (daemonTurn?.kind !== "synthetic") {
+    return;
+  }
+  const messageId = daemonTurn.messageId;
+  await flushStreaming();
+  const resultEvent = extractResultEvent(output);
+  for (const step of callbackState.accumulatedSteps) {
+    step.status = "complete";
+  }
+  const activityLog = serializeSteps(callbackState.accumulatedSteps);
+  const success = resultEvent ? !resultEvent.isError : false;
+  const completionArgs = entityMutationArgs({
+    messageId,
+    success,
+    result: resultEvent?.result ?? callbackState.rawOutput,
+    error: resultEvent?.isError ? resultEvent.result : null,
+    activityLog
+  });
+  if (callbackState.pendingQuestionData) {
+    completionArgs.pendingQuestion = callbackState.pendingQuestionData;
+  }
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+    completionArgs
+  );
+  syncClaudeStateToPersist("daemon-synthetic-turn");
+  endWatchedTurn();
+  resetTurnState();
+  daemonTurn = null;
+  agentTurnOutput = "";
+  log("daemon: synthetic turn finalized success=" + success);
+}
+function startRealAgentTurn(turn, agentRunner) {
+  resetTurnState();
+  daemonTurn = { kind: "real" };
+  agentTurnStartedAt = Date.now();
+  sawFirstMessageThisTurn = { value: false };
+  sawAssistantThisTurn = { value: false };
+  beginWatchedTurn();
+  agentRunner.push(turn.prompt);
+  callbackState.activeAttemptStartedAt = agentTurnStartedAt;
+  agentTurnOutput = "";
+  log("daemon: real turn started");
+}
+function startClaimWatcher(agentRunner, _convRunner) {
+  void (async () => {
+    while (!daemonExiting) {
+      if (callbackScriptWentStaleOnDisk()) {
+        log("daemon: callback script updated on disk \\u2014 exiting for respawn");
+        daemonExiting = true;
+        return;
+      }
+      try {
+        const claimed = await callConvexWithRetry(
+          "mutation",
+          CLAIM_MUTATION ?? "",
+          entityMutationArgs({ model: MODEL })
+        );
+        const stopIds = readStopTaskToolUseIds(claimed);
+        for (const toolUseId of stopIds) {
+          pendingAgentStops.add(toolUseId);
+        }
+        await dispatchPendingAgentStops(agentRunner);
+        const turn = readClaimedTurn(claimed);
+        if (turn !== null) {
+          await materializeTurnAttachments(turn);
+          lastIdleActivityAtMs = Date.now();
+          if (turn.turnKind === "conversational") {
+            if (daemonTurn === null && pendingClaimedTurn === null) {
+              pendingClaimedTurn = turn;
+            } else if (daemonTurn?.kind === "synthetic" && pendingClaimedTurn === null) {
+              pendingClaimedTurn = turn;
+            } else {
+              log(
+                "daemon: conversational claim discarded \\u2014 turn already active (prompt lost; pendingTurn was already cleared)"
+              );
+            }
+          } else if (daemonTurn === null) {
+            pendingClaimedTurn = turn;
+          } else if (daemonTurn.kind === "synthetic") {
+            pendingClaimedTurn = turn;
+          } else {
+            log(
+              "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
+            );
+          }
+        }
+      } catch {
+      }
+      await sleep2(PROMPT_POLL_INTERVAL_MS);
+    }
+  })();
+}
+async function handleClaimedTurn(turn, agentRunner, convRunner) {
+  if (turn.turnKind === "conversational") {
+    const outcome = await runConversationalWarmTurn(convRunner, turn.prompt);
+    if (outcome === "escalated") {
+      startRealAgentTurn({ ...turn, turnKind: "agent" }, agentRunner);
+    }
+    return;
+  }
+  startRealAgentTurn(turn, agentRunner);
+}
+async function runDaemonMessagePump(agentRunner, convRunner) {
+  while (!daemonExiting) {
+    if (daemonTurn === null && pendingClaimedTurn !== null) {
+      const turn = pendingClaimedTurn;
+      pendingClaimedTurn = null;
+      await handleClaimedTurn(turn, agentRunner, convRunner);
+      continue;
+    }
+    if (daemonTurn === null && pendingClaimedTurn === null && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
+      log("daemon: idle timeout \\u2014 exiting");
+      return;
+    }
+    if (daemonTurn === null && !agentRunner.hasPending()) {
+      await sleep2(PROMPT_POLL_INTERVAL_MS);
+      continue;
+    }
+    const message = await agentRunner.waitMessage();
+    if (message === null) {
+      if (turnActive) {
+        if (daemonTurn?.kind === "synthetic") {
+          await failSyntheticTurn(
+            "The assistant ended without a reply. Please try again."
+          );
+        } else {
+          await failTurnAndExit(
+            "The assistant ended without a reply. Please try again."
+          );
+        }
+      }
+      return;
+    }
+    lastIdleActivityAtMs = Date.now();
+    if (shouldDropSubagentMessage(message)) {
+      const messageType = typeof message.type === "string" ? message.type : "?";
+      log("daemon: dropped settled subagent message type=" + messageType);
+      continue;
+    }
+    recogniseSubagentToolUses(message);
+    handleSystemTaskMessage(message);
+    handleBackgroundTasksChanged(message);
+    if (message.type === "result" && daemonTurn === null) {
+      log("daemon: result with no live turn \\u2014 ignored");
+      continue;
+    }
+    if (daemonTurn === null) {
+      if (!shouldMintSyntheticTurn(message)) {
+        const messageType = typeof message.type === "string" ? message.type : "?";
+        log(
+          "daemon: between-turn " + messageType + " consumed without minting a synthetic turn"
+        );
+        continue;
+      }
+      await ensureSyntheticTurn();
+      if (daemonTurn === null) {
+        continue;
+      }
+      agentTurnOutput = "";
+    }
+    noteWatchedMessage();
+    const processed = handleDaemonMessage(
+      message,
+      agentTurnOutput,
+      agentTurnStartedAt,
+      sawFirstMessageThisTurn,
+      sawAssistantThisTurn
+    );
+    agentTurnOutput = processed.output;
+    if (!processed.isResult) {
+      continue;
+    }
+    endWatchedTurn();
+    const resultAt = Date.now();
+    log(
+      "daemon[timing]: result message +" + (resultAt - agentTurnStartedAt) + "ms after turn start"
+    );
+    if (daemonTurn?.kind === "synthetic") {
+      await finalizeSyntheticTurn(agentTurnOutput);
+    } else {
+      await finalizeTurn(agentTurnOutput);
+      log(
+        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
+      );
+      daemonTurn = null;
+    }
+    if (pendingClaimedTurn !== null && daemonTurn === null) {
+      const parked = pendingClaimedTurn;
+      pendingClaimedTurn = null;
+      await handleClaimedTurn(parked, agentRunner, convRunner);
+    }
+  }
+}
+function handleDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn2, sawAssistantThisTurn2) {
   const messageType = typeof message.type === "string" ? message.type : "?";
-  if (!sawFirstMessageThisTurn.value) {
-    sawFirstMessageThisTurn.value = true;
+  if (!sawFirstMessageThisTurn2.value) {
+    sawFirstMessageThisTurn2.value = true;
     log(
       "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
     );
   }
-  if (!sawAssistantThisTurn.value && messageType === "assistant") {
-    sawAssistantThisTurn.value = true;
+  if (!sawAssistantThisTurn2.value && messageType === "assistant") {
+    sawAssistantThisTurn2.value = true;
     log(
       "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
     );
@@ -4487,7 +5326,71 @@ function createWarmConversationalRunner(sdk) {
     const message = pending.shift();
     return message ?? null;
   };
-  return { push, waitMessage };
+  const drainPending = () => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+  const hasPending = () => pending.length > 0;
+  const stopTask = async (_taskId) => {
+    log("daemon: stopTask ignored on conversational runner");
+  };
+  return { push, waitMessage, drainPending, hasPending, stopTask };
+}
+function createWarmAgentRunner(sdk, options) {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm agent query()");
+  const query = sdk.query({ prompt: iterable, options });
+  const pending = [];
+  let notify = null;
+  let pumpFinished = false;
+  const wakeWaiters = () => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("daemon: agent query pump failed \\u2014 " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+  const waitMessage = async () => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+  const drainPending = () => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+  const hasPending = () => pending.length > 0;
+  const stopTask = async (taskId) => {
+    if (typeof query.stopTask === "function") {
+      await query.stopTask(taskId);
+      return;
+    }
+    log("daemon: stopTask unavailable on SDK query handle");
+  };
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 async function drainUntilConversationalResult(runner) {
   while (true) {
@@ -4508,8 +5411,8 @@ async function runConversationalWarmTurn(runner, prompt) {
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
-  const sawFirstMessageThisTurn = { value: false };
-  const sawAssistantThisTurn = { value: false };
+  const sawFirstMessageThisTurn2 = { value: false };
+  const sawAssistantThisTurn2 = { value: false };
   let holdStreaming = true;
   const heldLines = [];
   let streamedText = "";
@@ -4531,14 +5434,14 @@ async function runConversationalWarmTurn(runner, prompt) {
   };
   const processConversationalMessage = (message) => {
     const messageType = typeof message.type === "string" ? message.type : "?";
-    if (!sawFirstMessageThisTurn.value) {
-      sawFirstMessageThisTurn.value = true;
+    if (!sawFirstMessageThisTurn2.value) {
+      sawFirstMessageThisTurn2.value = true;
       log(
         "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
       );
     }
-    if (!sawAssistantThisTurn.value && messageType === "assistant") {
-      sawAssistantThisTurn.value = true;
+    if (!sawAssistantThisTurn2.value && messageType === "assistant") {
+      sawAssistantThisTurn2.value = true;
       log(
         "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
       );
@@ -4674,28 +5577,17 @@ async function materializeTurnAttachments(turn) {
 The user attached the following file(s). Read them with your file-reading tool before responding:
 \${list}\`;
 }
-async function waitForNextTurn() {
-  const idleDeadline = Date.now() + IDLE_EXIT_MS;
-  while (Date.now() < idleDeadline) {
-    if (callbackScriptWentStaleOnDisk()) {
-      log("daemon: callback script updated on disk \\u2014 exiting for respawn");
-      return null;
-    }
-    const claimed = await callConvexWithRetry(
-      "mutation",
-      CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "", model: MODEL }
-    );
-    const turn = readClaimedTurn(claimed);
-    if (turn !== null) {
-      await materializeTurnAttachments(turn);
-      return turn;
-    }
-    await sleep2(PROMPT_POLL_INTERVAL_MS);
-  }
-  return null;
-}
 async function runSdkDaemon() {
+  if (!CLAIM_MUTATION) {
+    log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
+    process.exit(1);
+  }
+  if (!OPEN_SYNTHETIC_TURN_MUTATION || !COMPLETE_SYNTHETIC_TURN_MUTATION) {
+    log(
+      "daemon: synthetic turn mutation env vars are required in sdk-daemon mode"
+    );
+    process.exit(1);
+  }
   writeFileSync10(DAEMON_PID_FILE, String(process.pid));
   writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
@@ -4710,102 +5602,16 @@ async function runSdkDaemon() {
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
   const convRunner = createWarmConversationalRunner(sdk);
-  const { push, iterable } = createPromptStream();
-  const query = sdk.query({ prompt: iterable, options });
+  const agentRunner = createWarmAgentRunner(sdk, options);
+  currentAgentRunner = agentRunner;
   log(
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
-  log("daemon: warm query() live, waiting for first prompt (pull)");
+  log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  let nextTurn = await waitForNextTurn();
-  if (nextTurn === null) {
-    log("daemon: idle timeout before first prompt \\u2014 exiting");
-    try {
-      unlinkSync2(DAEMON_PID_FILE);
-    } catch {
-    }
-    await stopStreamingLoops();
-    process.exit(0);
-  }
+  startClaimWatcher(agentRunner, convRunner);
   try {
-    while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      const outcome = await runConversationalWarmTurn(
-        convRunner,
-        nextTurn.prompt
-      );
-      if (outcome === "escalated") {
-        nextTurn = { ...nextTurn, turnKind: "agent" };
-        break;
-      }
-      nextTurn = await waitForNextTurn();
-    }
-    if (nextTurn === null) {
-      log("daemon: idle timeout after conversational turns \\u2014 exiting");
-    } else {
-      let turnStartedAt = Date.now();
-      const sawFirstMessageThisTurn = { value: false };
-      const sawAssistantThisTurn = { value: false };
-      beginWatchedTurn();
-      push(nextTurn.prompt);
-      callbackState.activeAttemptStartedAt = turnStartedAt;
-      let output = "";
-      for await (const message of query) {
-        if (typeof message !== "object" || message === null || Array.isArray(message)) {
-          continue;
-        }
-        noteWatchedMessage();
-        const processed = processDaemonMessage(
-          message,
-          output,
-          turnStartedAt,
-          sawFirstMessageThisTurn,
-          sawAssistantThisTurn
-        );
-        output = processed.output;
-        if (!processed.isResult) {
-          continue;
-        }
-        endWatchedTurn();
-        const resultAt = Date.now();
-        log(
-          "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
-        );
-        await finalizeTurn(output);
-        log(
-          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
-        );
-        resetTurnState();
-        output = "";
-        let upcoming = await waitForNextTurn();
-        while (upcoming !== null && upcoming.turnKind === "conversational") {
-          const outcome = await runConversationalWarmTurn(
-            convRunner,
-            upcoming.prompt
-          );
-          if (outcome === "escalated") {
-            upcoming = { ...upcoming, turnKind: "agent" };
-            break;
-          }
-          upcoming = await waitForNextTurn();
-        }
-        if (upcoming === null) {
-          log("daemon: idle timeout \\u2014 exiting");
-          break;
-        }
-        log("daemon: next agent turn received");
-        turnStartedAt = Date.now();
-        sawFirstMessageThisTurn.value = false;
-        sawAssistantThisTurn.value = false;
-        callbackState.activeAttemptStartedAt = turnStartedAt;
-        beginWatchedTurn();
-        push(upcoming.prompt);
-      }
-      if (turnActive) {
-        return failTurnAndExit(
-          "The assistant ended without a reply. Please try again."
-        );
-      }
-    }
+    await runDaemonMessagePump(agentRunner, convRunner);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed \\u2014 " + messageText);
@@ -4822,6 +5628,23 @@ async function runSdkDaemon() {
   } finally {
     try {
       unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync2(DAEMON_ENTITY_FILE);
+      unlinkSync2(DAEMON_OPTS_FILE);
+      if (ENTITY_ID_FIELD === "sessionId") {
+        const legacy = resolveLegacySessionDaemonPaths();
+        try {
+          unlinkSync2(legacy.pid);
+        } catch {
+        }
+        try {
+          unlinkSync2(legacy.entity);
+        } catch {
+        }
+        try {
+          unlinkSync2(legacy.opts);
+        } catch {
+        }
+      }
     } catch {
     }
     await stopStreamingLoops();
@@ -4948,7 +5771,7 @@ try {
 } catch {
 }
 callbackState.lastStepType = "thinking";
-if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && ENTITY_ID_FIELD === "sessionId") {
+if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && CLAIM_MUTATION) {
   await runSdkDaemon();
 }
 var preflightOk = await runPreflightHeartbeat();

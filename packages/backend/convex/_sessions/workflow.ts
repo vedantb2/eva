@@ -28,8 +28,11 @@ import {
   buildConversationalPrompt,
 } from "./prompts";
 import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
-import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { finalizeCancelledAssistantMessage } from "../streaming";
+import { backgroundAgentEntryValidator } from "../_validators/tableFields";
+import { mergeBackgroundAgents } from "./backgroundAgents";
 
 // --- Completion event ---
 
@@ -47,6 +50,24 @@ export const MODE_TOOLS: Record<"edit" | "plan", string> = {
 
 const WORKSPACE_DIR = "/tmp/repo";
 const LEGACY_WORKSPACE_DIR = "/workspace/repo";
+
+/** Finalizes and clears an open synthetic-turn placeholder on session hygiene paths. */
+async function finalizeOpenSyntheticTurn(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+  syntheticTurnMessageId: Id<"messages"> | undefined,
+): Promise<void> {
+  if (syntheticTurnMessageId === undefined) return;
+  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
+  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(sessionId)))
+      .first();
+    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+  }
+  await ctx.db.patch(sessionId, { syntheticTurnMessageId: undefined });
+}
 
 // Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
 export const sessionModeArgValidator = v.union(
@@ -576,10 +597,19 @@ export const clearStuckWorkingState = internalMutation({
         deletedPlaceholders += 1;
       }
     }
+    const session = await ctx.db.get(args.sessionId);
+    if (session?.syntheticTurnMessageId) {
+      await finalizeOpenSyntheticTurn(
+        ctx,
+        args.sessionId,
+        session.syntheticTurnMessageId,
+      );
+    }
     await clearStreamingActivity(ctx, String(args.sessionId));
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,
       pendingTurn: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
     return { deletedPlaceholders, clearedStreaming: true };
@@ -616,7 +646,8 @@ export const addAssistantPlaceholder = internalMutation({
       lastTurnMessage &&
       lastTurnMessage.role === "assistant" &&
       lastTurnMessage.content === "" &&
-      lastTurnMessage.finishedAt === undefined
+      lastTurnMessage.finishedAt === undefined &&
+      lastTurnMessage.isSyntheticTurn !== true
     ) {
       return null;
     }
@@ -765,7 +796,9 @@ export const saveResult = internalMutation({
     // next saveResult, leaving errorDetail on the real reply.
     const last = recent.find(
       (message) =>
-        message.role === "assistant" && message.isSystemAlert !== true,
+        message.role === "assistant" &&
+        message.isSystemAlert !== true &&
+        message.isSyntheticTurn !== true,
     );
     if (!last) return null;
 
@@ -806,6 +839,7 @@ export const saveResult = internalMutation({
         message._id !== last._id &&
         message.role === "assistant" &&
         message.isSystemAlert !== true &&
+        message.isSyntheticTurn !== true &&
         message.content === "" &&
         message.finishedAt === undefined
       ) {
@@ -834,7 +868,7 @@ export const saveResult = internalMutation({
 });
 
 /**
- * Daemon-pull turn claim. The warm sandbox daemon polls this every ~200ms; when
+ * Daemon-pull turn claim. The warm sandbox daemon polls this every ~50ms; when
  * `startExecute` has staged a prompt in `session.pendingTurn`, this atomically
  * hands it over and clears the field so the same prompt is never claimed twice
  * (which would double-execute the turn). Returns `{ prompt: null }` when nothing
@@ -853,19 +887,33 @@ export const claimPendingTurn = authMutation({
     // Resolved download URLs for this turn's input image attachments. The daemon
     // fetches these and hands the agent local file paths before running the turn.
     attachmentUrls: v.array(v.string()),
+    stopTaskToolUseIds: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
       turnKind: "agent",
       attachmentUrls: [],
-    } satisfies { prompt: null; turnKind: SessionTurnKind; attachmentUrls: [] };
+      stopTaskToolUseIds: [],
+    } satisfies {
+      prompt: null;
+      turnKind: SessionTurnKind;
+      attachmentUrls: string[];
+      stopTaskToolUseIds: string[];
+    };
     const session = await ctx.db.get(args.sessionId);
     if (!session) return emptyClaim;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (!session.pendingTurn) return emptyClaim;
+    const stopTaskToolUseIds = session.pendingTaskStops ?? [];
+    if (stopTaskToolUseIds.length > 0) {
+      await ctx.db.patch(args.sessionId, { pendingTaskStops: undefined });
+    }
+
+    if (!session.pendingTurn) {
+      return { ...emptyClaim, stopTaskToolUseIds };
+    }
 
     const pendingModel = session.pendingTurn.model;
     if (pendingModel !== undefined) {
@@ -874,7 +922,7 @@ export const claimPendingTurn = authMutation({
         console.log(
           `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
         );
-        return emptyClaim;
+        return { ...emptyClaim, stopTaskToolUseIds };
       }
     }
 
@@ -893,7 +941,56 @@ export const claimPendingTurn = authMutation({
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, turnKind, attachmentUrls };
+    return { prompt, turnKind, attachmentUrls, stopTaskToolUseIds };
+  },
+});
+
+/** Daemon patches background Agent/Task lifecycle entries (start/settle only). */
+export const updateBackgroundAgents = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    agents: v.array(backgroundAgentEntryValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    if (args.agents.length === 0) return null;
+
+    await ctx.db.patch(args.sessionId, {
+      backgroundAgents: mergeBackgroundAgents(
+        session.backgroundAgents,
+        args.agents,
+      ),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/** User-facing stop request for a background agent; drained via claimPendingTurn. */
+export const requestStopBackgroundAgent = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    toolUseId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    const pending = session.pendingTaskStops ?? [];
+    if (pending.includes(args.toolUseId)) return null;
+
+    await ctx.db.patch(args.sessionId, {
+      pendingTaskStops: [...pending, args.toolUseId],
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 
@@ -929,7 +1026,12 @@ export const ensurePendingTurn = internalMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
       .first();
-    if (!last || last.role !== "assistant" || last.finishedAt !== undefined) {
+    if (
+      !last ||
+      last.role !== "assistant" ||
+      last.finishedAt !== undefined ||
+      last.isSyntheticTurn === true
+    ) {
       return null;
     }
 
@@ -978,7 +1080,8 @@ export const restageOpenTurn = internalMutation({
     if (
       !lastAssistant ||
       lastAssistant.finishedAt !== undefined ||
-      lastAssistant.content !== ""
+      lastAssistant.content !== "" ||
+      lastAssistant.isSyntheticTurn === true
     ) {
       return {
         restaged: false as const,
@@ -1039,6 +1142,148 @@ export const restageOpenTurn = internalMutation({
       `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId} turnKind=${turnKind}`,
     );
     return { restaged: true as const, turnKind };
+  },
+});
+
+/**
+ * Daemon-minted continuation turn. Inserts an assistant placeholder and arms a
+ * stale handler so a crashed daemon cannot leave an empty bubble forever.
+ */
+export const openSyntheticTurn = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.object({ messageId: v.id("messages") }),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    const messageId = await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      activityLog: "",
+      isSyntheticTurn: true,
+    });
+    await ctx.db.patch(args.sessionId, {
+      syntheticTurnMessageId: messageId,
+      updatedAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(
+      10 * 60 * 1000,
+      internal.sessionWorkflow.handleStaleSyntheticTurn,
+      { sessionId: args.sessionId, messageId },
+    );
+    return { messageId };
+  },
+});
+
+/** Finalizes a synthetic continuation turn by messageId (never recency). */
+export const completeSyntheticTurn = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    messageId: v.id("messages"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+    pendingQuestion: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await clearStreamingActivity(ctx, String(args.sessionId));
+
+    const message = await ctx.db.get(args.messageId);
+    if (
+      !message ||
+      message.parentId !== args.sessionId ||
+      message.finishedAt !== undefined
+    ) {
+      await ctx.db.patch(args.sessionId, {
+        syntheticTurnMessageId: undefined,
+        updatedAt: Date.now(),
+      });
+      await startNextQueuedSessionMessage(ctx, args.sessionId);
+      return null;
+    }
+
+    const patch: {
+      content: string;
+      activityLog?: string;
+      finishedAt: number;
+      pendingQuestion?: string;
+    } = {
+      content: args.success
+        ? args.result || "I couldn't process your message."
+        : `Error: ${args.error || "Unknown error during execution."}`,
+      finishedAt: Date.now(),
+    };
+    if (args.activityLog) {
+      patch.activityLog = args.activityLog;
+    }
+    if (args.pendingQuestion) {
+      patch.pendingQuestion = args.pendingQuestion;
+    }
+    await ctx.db.patch(args.messageId, patch);
+
+    await ctx.db.patch(args.sessionId, {
+      syntheticTurnMessageId: undefined,
+      updatedAt: Date.now(),
+      agentBrowsingAt: undefined,
+    });
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
+    return null;
+  },
+});
+
+/** Crash hygiene for daemon-minted continuations left open after daemon death. */
+export const handleStaleSyntheticTurn = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    messageId: v.id("messages"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.syntheticTurnMessageId !== args.messageId) {
+      return null;
+    }
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message || message.finishedAt !== undefined) {
+      await ctx.db.patch(args.sessionId, {
+        syntheticTurnMessageId: undefined,
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
+
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+    const streamingStale =
+      streaming === null ||
+      Date.now() - (streaming.lastUpdatedAt ?? 0) > 2 * 60 * 1000;
+    if (!streamingStale) {
+      // Still live — re-arm so a later daemon death is still cleaned up.
+      await ctx.scheduler.runAfter(
+        10 * 60 * 1000,
+        internal.sessionWorkflow.handleStaleSyntheticTurn,
+        { sessionId: args.sessionId, messageId: args.messageId },
+      );
+      return null;
+    }
+
+    await finalizeCancelledAssistantMessage(ctx, message, streaming);
+    await clearStreamingActivity(ctx, String(args.sessionId));
+    await ctx.db.patch(args.sessionId, {
+      syntheticTurnMessageId: undefined,
+      updatedAt: Date.now(),
+    });
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
+    return null;
   },
 });
 

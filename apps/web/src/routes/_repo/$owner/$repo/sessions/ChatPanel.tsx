@@ -1,4 +1,4 @@
-import { api, normalizeAIModel, type Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -13,6 +13,7 @@ import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
+import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionModeDropdown } from "./_components/SessionModeDropdown";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
@@ -71,6 +72,7 @@ interface ChatPanelProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
+  backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -102,6 +104,7 @@ export function ChatPanel({
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
+  backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -251,6 +254,11 @@ export function ChatPanel({
 
   const preInputContent = (
     <>
+      <BackgroundAgentsChip
+        sessionId={sessionId}
+        backgroundAgents={backgroundAgents}
+        isReadOnly={isReadOnly}
+      />
       <BackgroundProcessesPanel sessionId={sessionId} />
       <PendingReviewCommentChips />
       {showCompactPlanCard && planContent ? (

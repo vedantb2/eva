@@ -1,5 +1,13 @@
 # Changelog
 
+## Cache session Preview across sidebar switches - 2026-07-22
+
+Switching between sessions remounted each detail shell, so Preview iframes always cold-loaded again. The sessions layout now keeps the last three opened session shells mounted (hidden), freezes inactive sandbox tabs / preview polling, and only bumps the iframe when the preview URL actually changes.
+
+## Cache sandbox tabs across switches - 2026-07-22
+
+Switching Preview ↔ Review (or any other sandbox tab) remounted the whole session/project shell, wiping iframes, Console PTY scrollback, and editor state. Session and project layouts now stay mounted across tab URL changes; pane slots keep Files / PRD / custom tabs hidden instead of unmounting, and a default preview pane is created up front so the running app can stay cached.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

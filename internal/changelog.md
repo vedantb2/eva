@@ -1,5 +1,9 @@
 # Changelog
 
+## Pin Convex local backend for Vercel sandbox glibc - 2026-07-22
+
+CarePulse seeded snapshot builds started failing when `version.convex.dev` began serving `precompiled-2026-07-21-82d5e9f`, which needs GLIBC_2.35 that Vercel sandboxes do not have — `npx convex dev` died and startups saw `No CONVEX_DEPLOYMENT set`. Background/seed launches now pin `--local-backend-version precompiled-2026-07-20-c4dfbcf` and align `.convex` config to that pin (instead of "newest cached").
+
 ## Proof upload before completion (no double capture) - 2026-07-22
 
 Proof completion used to wake the task workflow before the screenshot was saved, so `hasMediaForRun` often failed and a full second proof turn ran — two real images on one run. Proof callbacks now persist media first; the workflow also waits briefly before retrying.

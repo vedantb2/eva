@@ -26,6 +26,10 @@ import {
 } from "./_daytona/snapshots";
 import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
+import {
+  buildConvexBackgroundScriptBody,
+  isConvexBackendCommand,
+} from "./_daytona/convexLocalBackend";
 import { Image } from "@daytonaio/sdk";
 import { Sandbox, Snapshot } from "@vercel/sandbox";
 import type { Id } from "./_generated/dataModel";
@@ -1009,7 +1013,13 @@ export const launchSeedRun = internalAction({
     // so quoting inside user commands can never break the script) ----
     lines.push('echo "SEEDRUN-STAGE:daemons"');
     (backgroundCommands ?? []).forEach((command, i) => {
-      const cb64 = Buffer.from(command, "utf8").toString("base64");
+      // Convex daemons need the same pin/agent-mode wrapper as
+      // runBackgroundCommands — seedrun used to launch the raw command and
+      // downloaded a GLIBC_2.35 backend that Vercel sandboxes cannot run.
+      const scriptBody = isConvexBackendCommand(command)
+        ? buildConvexBackgroundScriptBody(command)
+        : command;
+      const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       lines.push(
         `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
       );

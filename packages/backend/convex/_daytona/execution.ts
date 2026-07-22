@@ -35,6 +35,10 @@ import {
 } from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
+  buildConvexBackgroundScriptBody,
+  isConvexBackendCommand,
+} from "./convexLocalBackend";
+import {
   detectPackageManager,
   launchDevServerInBackground,
   isDevServerBooting,
@@ -335,7 +339,7 @@ export const runBackgroundCommands = internalAction({
     let launched = 0;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
-      const isConvexCommand = /\bconvex\b/i.test(command);
+      const isConvexCommand = isConvexBackendCommand(command);
       if (args.onlyRestartDead) {
         // `kill -0` is true for zombies (state Z). After `npx convex dev`
         // dies, a defunct bash PID left heal permanently skipping relaunch.
@@ -387,41 +391,11 @@ export const runBackgroundCommands = internalAction({
       // the daemon. With a script file the cmdline is just the file path.
       // Base64 transport also makes user quoting unbreakable.
       //
-      // CarePulse local backends break when non-TTY `npx convex dev` auto-
-      // upgrades the binary: it snapshot-exports the whole DB (answersHistory
-      // ~325k docs), dies mid-export, then every boot fails with
-      // ExportInProgress and :3210 never returns. Also seeded images export
-      // CONVEX_AGENT_MODE=anonymous from the login profile (`env -u` before
-      // `bash -l` is useless). Before launch: unset agent mode, and align
-      // `.convex/**/config.json` backendVersion with the newest cached
-      // binary so the CLI takes the no-upgrade path.
+      // CarePulse local backends: pin binary + unset agent mode before launch.
+      // See convexLocalBackend.ts — "newest cached" alignment was wrong once
+      // latest required GLIBC_2.35 that Vercel sandboxes do not have.
       const scriptBody = isConvexCommand
-        ? [
-            "unset CONVEX_AGENT_MODE",
-            "python3 - <<'PY'",
-            "import glob, json, os",
-            "caches=[]",
-            "for root in (",
-            "  os.path.expanduser('~/.cache/convex/binaries'),",
-            "  '/home/vercel-sandbox/.cache/convex/binaries',",
-            "  '/tmp/cursor-home/.cache/convex/binaries',",
-            "):",
-            "  if os.path.isdir(root):",
-            "    caches += [n for n in os.listdir(root) if n.startswith('precompiled-')]",
-            "newest=sorted(set(caches))[-1] if caches else None",
-            "if newest:",
-            "  for p in glob.glob('/tmp/repo/**/.convex/**/config.json', recursive=True):",
-            "    try:",
-            "      with open(p) as f: cfg=json.load(f)",
-            "      if cfg.get('backendVersion') == newest: continue",
-            "      cfg['backendVersion']=newest",
-            "      with open(p,'w') as f: json.dump(cfg,f)",
-            "      print(f'aligned {p} -> {newest}')",
-            "    except Exception as e:",
-            "      print(f'skip {p}: {e}')",
-            "PY",
-            command,
-          ].join("\n")
+        ? buildConvexBackgroundScriptBody(command)
         : command;
       const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       // setsid + </dev/null fully detaches the daemon into its own session, so

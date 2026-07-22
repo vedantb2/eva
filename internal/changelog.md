@@ -4,9 +4,9 @@
 
 PR review lived awkwardly under Documents (recap filter) and only inside sandbox Review once a surface already had a prUrl. Reviews is now a sibling nav item with a PR list and Overview / Recap / Diff tabs keyed by GitHub PR number, shared across monorepo apps. Documents no longer lists recaps; sticky GitHub recap comments link to Reviews.
 
-## Pin Convex local backend for Vercel sandbox glibc - 2026-07-22
+## Pin Convex local backend to Jul 14 for AL2023 glibc - 2026-07-22
 
-CarePulse seeded snapshot builds started failing when `version.convex.dev` began serving `precompiled-2026-07-21-82d5e9f`, which needs GLIBC_2.35 that Vercel sandboxes do not have — `npx convex dev` died and startups saw `No CONVEX_DEPLOYMENT set`. Anonymous mode rejects `--local-backend-version`, so we plant a known-good binary (`precompiled-2026-07-20-c4dfbcf`) into the CLI cache under the expected latest label (sandbox version API often 403s) and align `.convex` config so non-TTY auto-upgrade is skipped.
+Vercel Sandbox is Amazon Linux 2023 (glibc 2.34). Convex linux-gnu builds from `2026-07-15` onward need GLIBC_2.35 via `libm`, so pinning `07-20` still failed. We now plant `precompiled-2026-07-14-7b3d1a5` (last verified ≤2.34 binary) under the CLI's latest cache label so anonymous `npx convex dev` can start on seeded CarePulse snapshots.
 
 ## Proof upload before completion (no double capture) - 2026-07-22
 

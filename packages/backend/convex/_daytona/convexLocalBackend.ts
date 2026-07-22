@@ -1,9 +1,10 @@
 /**
  * Pin local Convex backend binaries for Vercel sandboxes.
  *
- * `version.convex.dev` serves `precompiled-2026-07-21-82d5e9f`, which requires
- * GLIBC_2.35. Vercel sandbox images ship an older glibc, so `npx convex dev`
- * dies before writing `CONVEX_DEPLOYMENT`.
+ * Vercel Sandbox is Amazon Linux 2023 (glibc 2.34). Convex linux-gnu
+ * precompiles from `precompiled-2026-07-15-*` onward require GLIBC_2.35
+ * (`libm.so.6`), so `npx convex dev` dies before writing `CONVEX_DEPLOYMENT`.
+ * Pin binary must be ≤ 2026-07-14 (ELF VERNEED max GLIBC_2.34).
  *
  * CarePulse uses anonymous mode, which rejects `--local-backend-version`. We
  * download a known-good binary and plant it into the CLI cache directory named
@@ -13,7 +14,7 @@
  * EXPECTED_LATEST_CONVEX_LOCAL_BACKEND_VERSION.
  */
 export const PINNED_CONVEX_LOCAL_BACKEND_VERSION =
-  "precompiled-2026-07-20-c4dfbcf";
+  "precompiled-2026-07-14-7b3d1a5";
 
 /** Cache label the CLI currently treats as latest (from version.convex.dev). */
 export const EXPECTED_LATEST_CONVEX_LOCAL_BACKEND_VERSION =

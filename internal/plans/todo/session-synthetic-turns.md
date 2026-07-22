@@ -248,6 +248,39 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 - [ ] Manual: chip lifecycle + stop round-trip
 - [ ] `/ship`
 
+### Tranche C implementation status (2026-07-22)
+
+#### Phase 8 — Generalize daemon contract
+
+- [x] `CLAIM_MUTATION`, `OPEN_SYNTHETIC_TURN_MUTATION`, `COMPLETE_SYNTHETIC_TURN_MUTATION`, `UPDATE_BACKGROUND_AGENTS_MUTATION` env vars
+- [x] Entity-scoped daemon files (`/tmp/eva-daemon.${ENTITY_ID_FIELD}-${ENTITY_ID}.*`)
+- [x] `prewarmEntityDaemon` + `killEntityDaemon`; `prewarmSessionDaemon` delegates
+- [x] Daemon entry gated on `CLAIM_MUTATION` (not `sessionId` only)
+- [x] `build:callback` + `typecheck:callback`
+
+#### Phase 9 — Convex per-entity plumbing
+
+- [x] `chatDaemonEntityFields` on `agentTaskFields` + `projectFields` (`pendingTurn`, `syntheticTurnMessageId`, `backgroundAgents`, `pendingTaskStops`, `lastChatModel`)
+- [x] `_chat/taskChatDaemon.ts` + `_chat/projectChatDaemon.ts` (claim gated on `activeChatWorkflowId`)
+- [x] `agentTaskChatWorkflow` + `projectChatWorkflow`: synthetic hygiene, `prewarmChatDaemon`, daemon mutation re-exports
+- [x] `readDaemonEntitySnapshot` for optsmismatch deferral across entity tables
+- [x] `npx convex codegen --typecheck enable`
+
+#### Phase 10 — Daemon-pull + chip
+
+- [x] `startExecute` stages `pendingTurn` + schedules `prewarmEntityDaemon` (Claude sdk-daemon only)
+- [x] Execute workflows: Claude → prewarm + `ensurePendingTurn` + `awaitEvent`; non-Claude → one-shot `launchOnExistingSandbox`
+- [x] Shared `BackgroundAgentsChip` + mount on task/project sandbox chat; page-open `prewarmChatDaemon`
+- [x] `cancelExecution`: `killEntityDaemon` when main run/build active (avoid killing sandbox runner)
+- [ ] Manual: task sandbox chat + project chat replay (session-43 scenario)
+- [ ] Manual: task main run still one-shot; chat daemon + main run coexist without claim cross-talk
+
+#### Phase 11 — Verify + docs
+
+- [x] Changelog entry
+- [x] Plan checklist updated
+- [ ] `/ship`
+
 ### Explicitly deferred (Tranche C)
 
-- [ ] Task sandbox chat + project chat daemon migration
+- [x] Task sandbox chat + project chat daemon migration (code landed; manual E2E pending)

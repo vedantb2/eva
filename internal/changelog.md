@@ -1,5 +1,11 @@
 # Changelog
 
+## Session synthetic turns (Tranche C) - 2026-07-22
+
+Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
+
+Reason: extend Tranche A/B architecture to the other in-sandbox chat surfaces without double-executing turns or killing the main run on chat cancel.
+
 ## Session synthetic turns (Tranche B) - 2026-07-22
 
 Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.

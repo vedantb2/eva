@@ -142,13 +142,11 @@ export function ProjectSandboxPanel({
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
-          {activeTab === "files" ? (
-            <FileViewerPanel
-              sandboxId={sandboxId}
-              repoId={repoId}
-              isActive={isActive}
-            />
-          ) : null}
+          <FileViewerPanel
+            sandboxId={sandboxId}
+            repoId={repoId}
+            isActive={isActive}
+          />
         </div>
         <SandboxPaneSlots
           activeTab={activeTab}

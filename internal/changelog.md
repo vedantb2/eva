@@ -2,7 +2,7 @@
 
 ## Queue row uses provider icon - 2026-07-22
 
-Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone.
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.
 
 ## Sandbox chat model + effort on messages - 2026-07-22
 

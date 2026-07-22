@@ -12,6 +12,9 @@ export {
   claimPendingTurn,
   ensurePendingTurn,
   restageOpenTurn,
+  openSyntheticTurn,
+  completeSyntheticTurn,
+  handleStaleSyntheticTurn,
 } from "./_sessions/workflow";
 
 export {

@@ -270,6 +270,9 @@ export const sessionFields = {
   // agent-browser CDP. Set/cleared by MCP browser_lock / browser_unlock;
   // cleared on turn end. Drives Browser-tab auto-switch + takeover overlay.
   agentBrowsingAt: v.optional(v.number()),
+  // Daemon-minted continuation turn (background subagent report-back). Cleared
+  // when completeSyntheticTurn finalizes the placeholder by messageId.
+  syntheticTurnMessageId: v.optional(v.id("messages")),
 };
 
 export const syncSettingFields = {
@@ -508,6 +511,9 @@ export const messageFields = {
   // Convex file storage. Delivered to the agent as files it can read.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   pendingQuestion: v.optional(v.string()),
+  // Convex-side guard only — synthetic continuations are rendered like normal
+  // turns; the UI does not read this flag.
+  isSyntheticTurn: v.optional(v.boolean()),
   // Snapshot of which credential powered this chat turn ("Team" or the
   // account label). Set on user messages at send/dequeue time.
   credentialSourceLabel: v.optional(v.string()),

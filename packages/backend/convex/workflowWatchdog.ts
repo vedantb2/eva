@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { cancelTrackedWorkflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "./streaming";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -213,10 +214,28 @@ export const handleStaleSession = internalMutation({
       `summary:${String(args.sessionId)}`,
     ]);
 
+    if (session.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq("entityId", String(args.sessionId)),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(ctx, args.sessionId, "Execution timed out.");
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 

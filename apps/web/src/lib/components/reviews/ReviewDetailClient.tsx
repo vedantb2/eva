@@ -61,16 +61,10 @@ export function ReviewDetailClient({
       className="flex h-full min-h-0 flex-col"
     >
       <div className="flex shrink-0 items-center border-b border-border px-3 py-1.5">
-        <TabsList className="h-8">
-          <TabsTrigger value="overview" className="px-2.5 py-1 text-xs">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
-            Recap
-          </TabsTrigger>
-          <TabsTrigger value="diff" className="px-2.5 py-1 text-xs">
-            Diff
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="recap">Recap</TabsTrigger>
+          <TabsTrigger value="diff">Diff</TabsTrigger>
         </TabsList>
       </div>
 

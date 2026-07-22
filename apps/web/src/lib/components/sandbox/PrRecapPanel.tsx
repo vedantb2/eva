@@ -141,13 +141,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
       className="flex h-full min-h-0 flex-col"
     >
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
-        <TabsList className="h-8">
-          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
-            Recap
-          </TabsTrigger>
-          <TabsTrigger value="summary" className="px-2.5 py-1 text-xs">
-            Summary
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="recap">Recap</TabsTrigger>
+          <TabsTrigger value="summary">Summary</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {shortSha ? <span className="font-mono">{shortSha}</span> : null}

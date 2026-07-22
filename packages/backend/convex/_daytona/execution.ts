@@ -1336,7 +1336,9 @@ export const prewarmSessionDaemon = internalAction({
         });
         const pending = fresh?.pendingTurn;
         const midTurnNoPending =
-          pending === undefined && fresh?.activeWorkflowId !== undefined;
+          pending === undefined &&
+          (fresh?.activeWorkflowId !== undefined ||
+            fresh?.syntheticTurnMessageId !== undefined);
         if (midTurnNoPending) {
           console.log(
             `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but mid-turn — deferring respawn sessionId=${args.sessionId}`,

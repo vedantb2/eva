@@ -164,6 +164,7 @@ export function TaskActivityComposerForm({
   const canRequestChanges = disabledReason === undefined;
   const effectiveRequestingChanges = canRequestChanges && requestingChanges;
   const isMakeChangesGated = requestingChanges && !canRequestChanges;
+  const changeRequestOptionCount = (captureProof ? 1 : 0) + (runAudit ? 1 : 0);
 
   // Mirror the sessions/sandbox chat composer (PromptInput): a bordered card
   // wraps a borderless input with a footer row of controls, rather than
@@ -258,22 +259,43 @@ export function TaskActivityComposerForm({
                 <TooltipContent>{disabledReason}</TooltipContent>
               )}
             </Tooltip>
-            {effectiveRequestingChanges && !isProjectTask && (
+            {/* Always visible for quick tasks — applies only when Make changes
+                submits a re-run. Was gated on Make changes and easy to miss. */}
+            {!isProjectTask && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground",
-                      captureProof || runAudit
-                        ? "text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <IconAdjustmentsHorizontal className="size-3.5" />
-                    Options
-                  </button>
-                </DropdownMenuTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground",
+                          captureProof || runAudit
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                        aria-label={
+                          changeRequestOptionCount > 0
+                            ? `Change-request options, ${changeRequestOptionCount} enabled`
+                            : "Change-request options"
+                        }
+                      >
+                        <IconAdjustmentsHorizontal className="size-3.5" />
+                        Options
+                        {changeRequestOptionCount > 0 ? (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                            {changeRequestOptionCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {effectiveRequestingChanges
+                      ? "Extra steps for this change request"
+                      : "Extra steps when you Make changes"}
+                  </TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="start">
                   <DropdownMenuLabel>Extra steps this run</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem

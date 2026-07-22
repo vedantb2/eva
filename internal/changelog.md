@@ -1,5 +1,9 @@
 # Changelog
 
+## Comment Options always visible on quick tasks - 2026-07-22
+
+Proof/audit for a change-request run lived behind Make changes, so the Options control was easy to miss. It now sits next to Make changes whenever the composer is shown for a quick task (still only applies when that request starts a run).
+
 ## Vercel Preview proxy on 3000; leave 54321 for Supabase - 2026-07-22
 
 CarePulse web Preview showed Kong's "no Route matched" because Eva's auth proxy shared 54321 with local Supabase, while eprocurement (no Supabase) worked. Public Preview proxy is now always on exposed port 3000; 54321 stays for Kong. When the UI port is 3000 the app listens on 13000; otherwise it listens on the UI port (e.g. 3001). Eva launches `pnpm exec next|vite -p <listen>` in the sandbox Console so customer package.json `-p` flags are not used — no repo edits required.

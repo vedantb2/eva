@@ -505,6 +505,24 @@ function shouldDropSubagentMessage(message: DaemonMessage): boolean {
   return settledSubagentToolUseIds.has(parentId);
 }
 
+/**
+ * Synara-compatible mint gate: only open a synthetic turn for main-context
+ * assistant/stream traffic, or messages routed under a recognised Agent/Task
+ * tool_use id. Between-turn system/task/telemetry noise must not mint — a
+ * background Bash exit would otherwise open an empty bubble that the watchdog
+ * fails as "The assistant stopped responding".
+ */
+function shouldMintSyntheticTurn(message: DaemonMessage): boolean {
+  if (message.type === "assistant" || message.type === "stream_event") {
+    return true;
+  }
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return recognisedSubagentToolUseIds.has(parentId);
+}
+
 function completeSubtaskStep(toolUseId: string): void {
   for (const step of S.accumulatedSteps) {
     if (step.type === "subtask" && step.toolUseId === toolUseId) {
@@ -679,6 +697,10 @@ function startClaimWatcher(_convRunner: WarmConversationalRunner): void {
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
+          // claimPendingTurn already cleared session.pendingTurn atomically, so
+          // any branch that does not park/start the claim loses that prompt.
+          // Normal startExecute queues while a real turn/workflow is active, so
+          // the discard paths below should stay unreachable — log clearly if not.
           if (turn.turnKind === "conversational") {
             if (daemonTurn === null && pendingClaimedTurn === null) {
               pendingClaimedTurn = turn;
@@ -689,7 +711,7 @@ function startClaimWatcher(_convRunner: WarmConversationalRunner): void {
               pendingClaimedTurn = turn;
             } else {
               log(
-                "daemon: conversational claim deferred — turn already active",
+                "daemon: conversational claim discarded — turn already active (prompt lost; pendingTurn was already cleared)",
               );
             }
           } else if (daemonTurn === null) {
@@ -697,7 +719,9 @@ function startClaimWatcher(_convRunner: WarmConversationalRunner): void {
           } else if (daemonTurn.kind === "synthetic") {
             pendingClaimedTurn = turn;
           } else {
-            log("daemon: claim while real turn active — unexpected");
+            log(
+              "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)",
+            );
           }
         }
       } catch {
@@ -783,6 +807,16 @@ async function runDaemonMessagePump(
     }
 
     if (daemonTurn === null) {
+      if (!shouldMintSyntheticTurn(message)) {
+        const messageType =
+          typeof message.type === "string" ? message.type : "?";
+        log(
+          "daemon: between-turn " +
+            messageType +
+            " consumed without minting a synthetic turn",
+        );
+        continue;
+      }
       await ensureSyntheticTurn();
       if (daemonTurn === null) {
         continue;

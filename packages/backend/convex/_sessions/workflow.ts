@@ -1202,6 +1202,12 @@ export const handleStaleSyntheticTurn = internalMutation({
       streaming === null ||
       Date.now() - (streaming.lastUpdatedAt ?? 0) > 2 * 60 * 1000;
     if (!streamingStale) {
+      // Still live — re-arm so a later daemon death is still cleaned up.
+      await ctx.scheduler.runAfter(
+        10 * 60 * 1000,
+        internal.sessionWorkflow.handleStaleSyntheticTurn,
+        { sessionId: args.sessionId, messageId: args.messageId },
+      );
       return null;
     }
 

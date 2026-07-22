@@ -4443,6 +4443,16 @@ function shouldDropSubagentMessage(message) {
   }
   return settledSubagentToolUseIds.has(parentId);
 }
+function shouldMintSyntheticTurn(message) {
+  if (message.type === "assistant" || message.type === "stream_event") {
+    return true;
+  }
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return recognisedSubagentToolUseIds.has(parentId);
+}
 function completeSubtaskStep(toolUseId) {
   for (const step of callbackState.accumulatedSteps) {
     if (step.type === "subtask" && step.toolUseId === toolUseId) {
@@ -4606,7 +4616,7 @@ function startClaimWatcher(_convRunner) {
               pendingClaimedTurn = turn;
             } else {
               log(
-                "daemon: conversational claim deferred \\u2014 turn already active"
+                "daemon: conversational claim discarded \\u2014 turn already active (prompt lost; pendingTurn was already cleared)"
               );
             }
           } else if (daemonTurn === null) {
@@ -4614,7 +4624,9 @@ function startClaimWatcher(_convRunner) {
           } else if (daemonTurn.kind === "synthetic") {
             pendingClaimedTurn = turn;
           } else {
-            log("daemon: claim while real turn active \\u2014 unexpected");
+            log(
+              "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
+            );
           }
         }
       } catch {
@@ -4677,6 +4689,13 @@ async function runDaemonMessagePump(agentRunner, convRunner) {
       continue;
     }
     if (daemonTurn === null) {
+      if (!shouldMintSyntheticTurn(message)) {
+        const messageType = typeof message.type === "string" ? message.type : "?";
+        log(
+          "daemon: between-turn " + messageType + " consumed without minting a synthetic turn"
+        );
+        continue;
+      }
       await ensureSyntheticTurn();
       if (daemonTurn === null) {
         continue;

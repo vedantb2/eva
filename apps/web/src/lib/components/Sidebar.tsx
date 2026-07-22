@@ -507,9 +507,16 @@ export function Sidebar() {
 
             <nav
               ref={sidebarScrollRef}
-              className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2"
+              className={cn(
+                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto",
+                showGlobalSessionsPanel ? "px-1 py-1" : "px-2 py-3",
+              )}
             >
-              <div className="space-y-4">
+              <div
+                className={
+                  showGlobalSessionsPanel ? "space-y-0" : "space-y-4"
+                }
+              >
                 <motion.div
                   key={
                     showGlobalSessionsPanel

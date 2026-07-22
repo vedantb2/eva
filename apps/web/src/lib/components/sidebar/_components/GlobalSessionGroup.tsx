@@ -69,17 +69,17 @@ export function GlobalSessionGroup({
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="flex items-center gap-0.5 px-0.5">
+      <div className="flex items-center gap-0.5 px-1">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-menu-item px-1.5 py-1 text-left transition-colors hover:bg-sidebar-accent/50"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
           >
             <RepoLogo
               logoUrl={repo.logoUrl}
-              size={16}
+              size={18}
               fallback={
-                <span className="flex size-4 items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
                   {label.charAt(0).toUpperCase()}
                 </span>
               }
@@ -88,7 +88,7 @@ export function GlobalSessionGroup({
               {label}
             </span>
             <IconChevronDown
-              size={12}
+              size={14}
               className={cn(
                 "shrink-0 text-muted-foreground transition-transform duration-200",
                 !open && "-rotate-90",
@@ -100,7 +100,7 @@ export function GlobalSessionGroup({
           type="button"
           aria-label={`New session in ${label}`}
           title={`New session in ${label}`}
-          className="flex size-6 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
+          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -108,17 +108,17 @@ export function GlobalSessionGroup({
             onNavigate?.();
           }}
         >
-          <IconPlus size={13} />
+          <IconPlus size={14} />
         </button>
       </div>
       <CollapsibleContent>
-        <div className="pb-0.5 pl-0.5">
+        <div className="pb-1 pl-1">
           {filtered === undefined ? (
-            <div className="flex items-center justify-center py-2">
+            <div className="flex items-center justify-center py-3">
               <Spinner size="sm" />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="px-2 py-1 text-xs text-muted-foreground">
+            <p className="px-3 py-2 text-xs text-muted-foreground">
               {sessions !== undefined && sessions.length === 0
                 ? "No sessions yet"
                 : "No matches"}
@@ -126,7 +126,7 @@ export function GlobalSessionGroup({
           ) : (
             <SharedLayoutNav
               layoutId={`global-sessions-${repo._id}`}
-              className="space-y-0"
+              className="space-y-1"
             >
               <AnimatePresence initial={false}>
                 {filtered.map((session) => {
@@ -142,7 +142,6 @@ export function GlobalSessionGroup({
                       session={session}
                       isSelected={isSelected}
                       baseUrl={baseUrl}
-                      compact
                       onNavigate={onNavigate}
                       onRename={async () => {}}
                       onDuplicate={async (s) => {

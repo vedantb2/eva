@@ -71,7 +71,7 @@ export function GlobalSessionsSidebar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 px-1.5 py-1">
+      <div className="flex items-center gap-1.5 px-1 py-1">
         <SearchInput
           placeholder="Search sessions..."
           value={searchQuery}
@@ -82,7 +82,7 @@ export function GlobalSessionsSidebar({
         />
       </div>
 
-      <div className="flex-1 space-y-0 px-0.5 pb-1">
+      <div className="flex-1 space-y-1 px-0 pb-1">
         {repos === undefined ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />

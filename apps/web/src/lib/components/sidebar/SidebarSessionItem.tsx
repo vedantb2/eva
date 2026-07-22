@@ -44,8 +44,6 @@ interface SidebarSessionItemProps {
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
   firstMessagePreview?: string | null;
-  /** Tighter padding for dense lists (e.g. global Sessions sidebar). */
-  compact?: boolean;
 }
 
 export function SidebarSessionItem({
@@ -59,7 +57,6 @@ export function SidebarSessionItem({
   prUrl,
   prState,
   firstMessagePreview,
-  compact = false,
 }: SidebarSessionItemProps) {
   const statusStyle = SANDBOX_STATUS_STYLES[status];
 
@@ -69,10 +66,7 @@ export function SidebarSessionItem({
         <DynamicLink
           to={href}
           onClick={onNavigate}
-          className={cn(
-            "block rounded-menu-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
-            compact ? "px-2 py-1" : "px-3 py-1.5",
-          )}
+          className="block rounded-menu-item px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex items-center justify-between gap-2">
             <MarqueeOnHover

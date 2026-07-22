@@ -1,5 +1,22 @@
 # Changelog
 
+## Session synthetic turns (Tranche C) - 2026-07-22
+
+Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
+
+Reason: extend Tranche A/B architecture to the other in-sandbox chat surfaces without double-executing turns or killing the main run on chat cancel.
+
+## Session synthetic turns (Tranche B) - 2026-07-22
+
+Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.
+
+Reason: product surface for background subagents — users see lifecycle telemetry and can stop in-flight agents without hunting the timeline.
+
+## Session synthetic turns (Tranche A) - 2026-07-22
+
+Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
+
+Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
 ## Global Sessions rail + cross-app sidebar - 2026-07-22
 
 Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.

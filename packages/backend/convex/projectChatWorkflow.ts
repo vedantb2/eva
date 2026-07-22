@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
@@ -12,6 +12,7 @@ import {
   workflowCompleteValidator,
   normalizeAIModel,
   taskSandboxStatusValidator,
+  getAIModelProvider,
 } from "./validators";
 import {
   recordCompletionLog,
@@ -32,9 +33,86 @@ import {
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
+import type { Doc, Id } from "./_generated/dataModel";
+import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_daytona/daemonPaths";
 
-// Full read/write + Bash for local commits; Eva pushes after success.
+async function finalizeOpenSyntheticTurnOnCancel(
+  ctx: MutationCtx,
+  syntheticTurnMessageId: Id<"messages"> | undefined,
+  streaming: Doc<"streamingActivity"> | null,
+): Promise<void> {
+  if (syntheticTurnMessageId === undefined) return;
+  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
+  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+  }
+}
+
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
+
+async function buildProjectChatTurnPrompt(
+  ctx: QueryCtx,
+  args: {
+    projectId: Id<"projects">;
+    message: string;
+    userId: Id<"users">;
+  },
+): Promise<{
+  prompt: string;
+  attachmentStorageIds: Id<"_storage">[] | undefined;
+}> {
+  const project = await ctx.db.get(args.projectId);
+  if (!project) throw new Error("Project not found");
+
+  const repo = await ctx.db.get(project.repoId);
+  if (!repo) throw new Error("Repository not found");
+
+  const triggeringUserMessage = await ctx.db
+    .query("messages")
+    .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+    .order("desc")
+    .filter((q) => q.eq(q.field("role"), "user"))
+    .first();
+
+  const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
+  const user = await ctx.db.get(args.userId);
+  const customInstructionsBlock = buildCustomInstructionsBlock(
+    user?.role ?? undefined,
+    user?.customInstructions ?? undefined,
+  );
+
+  const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+    ctx,
+    args.message,
+    project.repoId,
+  );
+
+  const branchName =
+    project.branchName ??
+    buildProjectBranchName(args.projectId, project.branchVersion);
+
+  let prompt = buildProjectChatPrompt({
+    repoOwner: repo.owner,
+    repoName: repo.name,
+    branchName,
+    title: project.title,
+    description: project.description,
+    generatedSpec,
+    message: resolvedMessage,
+    rootDirectory: repo.rootDirectory ?? "",
+    customInstructionsBlock,
+    systemPrompt: repo.systemPrompt,
+    captureProof: project.chatCaptureProofEnabled === true,
+  });
+  if (prefixBlock) {
+    prompt = `${prefixBlock}\n\n${prompt}`;
+  }
+
+  return {
+    prompt,
+    attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
+  };
+}
 
 /** Streaming-activity entity id for a project chat. */
 function chatStreamEntityId(projectId: Id<"projects">): string {
@@ -103,6 +181,64 @@ export const startExecute = authMutation({
     }
 
     void args.providerAccountId;
+
+    await ctx.db.insert("messages", {
+      parentId: args.projectId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      activityLog: "",
+    });
+
+    const { prompt, attachmentStorageIds } = await buildProjectChatTurnPrompt(
+      ctx,
+      {
+        projectId: args.projectId,
+        message: args.message,
+        userId: ctx.userId,
+      },
+    );
+
+    const normalizedModel = normalizeAIModel(args.model);
+    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    await ctx.db.patch(args.projectId, {
+      ...(usesDaemonPull
+        ? {
+            pendingTurn: {
+              prompt,
+              requestedAt: Date.now(),
+              turnKind: "agent",
+              attachmentStorageIds,
+              model: normalizedModel,
+            },
+          }
+        : { pendingTurn: undefined }),
+      lastChatModel: normalizedModel,
+      updatedAt: Date.now(),
+    });
+
+    if (usesDaemonPull && project.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+        sandboxId: project.sandboxId,
+        repoId: project.repoId,
+        userId: ctx.userId,
+        entityId: String(args.projectId),
+        entityIdField: "projectId",
+        completionMutation: "projectChatWorkflow:handleCompletion",
+        ...PROJECT_CHAT_DAEMON_MUTATIONS,
+        model: normalizedModel,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        allowedTools: CHAT_ALLOWED_TOOLS,
+        providerAccountId: project.providerAccountId,
+        credentialOwnerUserId: project.userId,
+        sessionPersistenceId: args.projectId,
+        activeWorkflowField: "activeChatWorkflowId",
+        skipPrewarm: false,
+        entityTable: "projects",
+      });
+    }
 
     const workflowId = await workflow.start(
       ctx,
@@ -182,11 +318,23 @@ export const cancelExecution = authMutation({
 
     await cancelTrackedWorkflow(ctx, project.activeChatWorkflowId);
 
+    const workflowIdToCancel = project.activeChatWorkflowId;
+    const pendingRequestedAt = project.pendingTurn?.requestedAt;
+
     if (project.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
-        sandboxId: project.sandboxId,
-        repoId: project.repoId,
-      });
+      if (project.activeWorkflowId || project.activeBuildWorkflowId) {
+        await ctx.scheduler.runAfter(0, internal.daytona.killEntityDaemon, {
+          sandboxId: project.sandboxId,
+          repoId: project.repoId,
+          entityIdField: "projectId",
+          entityId: String(args.projectId),
+        });
+      } else {
+        await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+          sandboxId: project.sandboxId,
+          repoId: project.repoId,
+        });
+      }
     }
 
     const streamingEntityId = chatStreamEntityId(args.projectId);
@@ -195,21 +343,64 @@ export const cancelExecution = authMutation({
       .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
       .first();
 
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant" && last.finishedAt === undefined) {
-      await finalizeCancelledAssistantMessage(ctx, last, streaming);
+    const latest = await ctx.db.get(args.projectId);
+    if (!latest) return null;
+
+    const newerTurnStaged =
+      latest.pendingTurn !== undefined &&
+      latest.pendingTurn.requestedAt !== pendingRequestedAt;
+    const newerWorkflowTracked =
+      latest.activeChatWorkflowId !== undefined &&
+      latest.activeChatWorkflowId !== workflowIdToCancel;
+
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      const syntheticTurnMessageId = latest.syntheticTurnMessageId;
+      const last = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+        .order("desc")
+        .first();
+      if (
+        last &&
+        last.role === "assistant" &&
+        last.finishedAt === undefined &&
+        last._id !== syntheticTurnMessageId
+      ) {
+        await finalizeCancelledAssistantMessage(ctx, last, streaming);
+      }
+      await finalizeOpenSyntheticTurnOnCancel(
+        ctx,
+        syntheticTurnMessageId,
+        streaming,
+      );
     }
 
     await clearStreamingActivity(ctx, streamingEntityId);
 
-    await ctx.db.patch(args.projectId, {
-      activeChatWorkflowId: undefined,
-      updatedAt: Date.now(),
-    });
+    const projectPatch: {
+      activeChatWorkflowId?: undefined;
+      pendingTurn?: undefined;
+      syntheticTurnMessageId?: undefined;
+      updatedAt: number;
+    } = { updatedAt: Date.now() };
+
+    if (
+      workflowIdToCancel !== undefined &&
+      latest.activeChatWorkflowId === workflowIdToCancel
+    ) {
+      projectPatch.activeChatWorkflowId = undefined;
+    }
+    if (
+      pendingRequestedAt !== undefined &&
+      latest.pendingTurn?.requestedAt === pendingRequestedAt
+    ) {
+      projectPatch.pendingTurn = undefined;
+    }
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      projectPatch.syntheticTurnMessageId = undefined;
+    }
+
+    await ctx.db.patch(args.projectId, projectPatch);
 
     await startNextQueuedProjectChatMessage(ctx, args.projectId);
     return null;
@@ -306,25 +497,56 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId: activeSandboxId,
-      entityId: args.projectId,
-      prompt: data.prompt,
-      userId: args.userId,
-      completionMutation: "projectChatWorkflow:handleCompletion",
-      entityIdField: "projectId",
-      model: data.model,
-      reasoningLevel: args.reasoningLevel,
-      thinkingEnabled: args.thinkingEnabled,
-      use1mContext: args.use1mContext,
-      providerAccountId: args.providerAccountId,
-      credentialOwnerUserId: args.credentialOwnerUserId,
-      allowedTools: CHAT_ALLOWED_TOOLS,
-      repoId: data.repoId,
-      sessionPersistenceId: args.projectId,
-      streamingEntityId,
-      attachmentStorageIds: data.attachmentStorageIds,
-    });
+    if (getAIModelProvider(data.model) === "claude") {
+      await step.runMutation(internal.projectChatWorkflow.ensurePendingTurn, {
+        projectId: args.projectId,
+        prompt: data.prompt,
+        turnKind: "agent",
+        attachmentStorageIds: data.attachmentStorageIds,
+        model: args.model,
+      });
+
+      await step.runAction(internal.daytona.prewarmEntityDaemon, {
+        sandboxId: activeSandboxId,
+        repoId: data.repoId,
+        userId: args.userId,
+        entityId: String(args.projectId),
+        entityIdField: "projectId",
+        completionMutation: "projectChatWorkflow:handleCompletion",
+        ...PROJECT_CHAT_DAEMON_MUTATIONS,
+        model: data.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        allowedTools: CHAT_ALLOWED_TOOLS,
+        providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
+        sessionPersistenceId: args.projectId,
+        activeWorkflowField: "activeChatWorkflowId",
+        skipPrewarm: false,
+        entityTable: "projects",
+      });
+    } else {
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId: activeSandboxId,
+        entityId: args.projectId,
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "projectChatWorkflow:handleCompletion",
+        entityIdField: "projectId",
+        model: data.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
+        allowedTools: CHAT_ALLOWED_TOOLS,
+        repoId: data.repoId,
+        sessionPersistenceId: args.projectId,
+        streamingEntityId,
+        attachmentStorageIds: data.attachmentStorageIds,
+      });
+    }
 
     const result = await step.awaitEvent(projectChatCompleteEvent);
 
@@ -386,6 +608,22 @@ export const addAssistantPlaceholder = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
+    const recent = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+      .order("desc")
+      .take(5);
+    const lastTurnMessage = recent[0];
+    if (
+      lastTurnMessage &&
+      lastTurnMessage.role === "assistant" &&
+      lastTurnMessage.content === "" &&
+      lastTurnMessage.finishedAt === undefined &&
+      lastTurnMessage.isSyntheticTurn !== true
+    ) {
+      return null;
+    }
+
     await ctx.db.insert("messages", {
       parentId: args.projectId,
       role: "assistant",
@@ -426,47 +664,18 @@ export const getChatData = internalQuery({
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    // Input images the composer attached to the triggering user message.
-    const triggeringUserMessage = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
-      .order("desc")
-      .filter((q) => q.eq(q.field("role"), "user"))
-      .first();
-
-    const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
-    const user = await ctx.db.get(args.userId);
-    const customInstructionsBlock = buildCustomInstructionsBlock(
-      user?.role ?? undefined,
-      user?.customInstructions ?? undefined,
-    );
-
-    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+    const { prompt, attachmentStorageIds } = await buildProjectChatTurnPrompt(
       ctx,
-      args.message,
-      project.repoId,
+      {
+        projectId: args.projectId,
+        message: args.message,
+        userId: args.userId,
+      },
     );
 
     const branchName =
       project.branchName ??
       buildProjectBranchName(args.projectId, project.branchVersion);
-
-    let prompt = buildProjectChatPrompt({
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      branchName,
-      title: project.title,
-      description: project.description,
-      generatedSpec,
-      message: resolvedMessage,
-      rootDirectory: repo.rootDirectory ?? "",
-      customInstructionsBlock,
-      systemPrompt: repo.systemPrompt,
-      captureProof: project.chatCaptureProofEnabled === true,
-    });
-    if (prefixBlock) {
-      prompt = `${prefixBlock}\n\n${prompt}`;
-    }
 
     return {
       sandboxId: project.sandboxId,
@@ -479,7 +688,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
-      attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
+      attachmentStorageIds,
     };
   },
 });
@@ -507,7 +716,7 @@ export const saveResult = internalMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant") {
+    if (last && last.role === "assistant" && last.isSyntheticTurn !== true) {
       const patch: {
         content: string;
         activityLog?: string;
@@ -554,6 +763,10 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
+    if (project.pendingTurn !== undefined) {
+      await ctx.db.patch(args.projectId, { pendingTurn: undefined });
+    }
+
     await sendCompletionEvent(
       ctx,
       projectChatCompleteEvent,
@@ -579,3 +792,44 @@ export const handleCompletion = authMutation({
     return null;
   },
 });
+
+/** Fired when the project sandbox chat view opens to warm the chat daemon. */
+export const prewarmChatDaemon = authMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project?.sandboxId) return null;
+    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+      sandboxId: project.sandboxId,
+      repoId: project.repoId,
+      userId: project.userId,
+      entityId: String(args.projectId),
+      entityIdField: "projectId",
+      completionMutation: "projectChatWorkflow:handleCompletion",
+      ...PROJECT_CHAT_DAEMON_MUTATIONS,
+      model: normalizeAIModel(project.lastChatModel ?? project.model),
+      allowedTools: CHAT_ALLOWED_TOOLS,
+      providerAccountId: project.providerAccountId,
+      credentialOwnerUserId: project.userId,
+      sessionPersistenceId: args.projectId,
+      activeWorkflowField: "activeChatWorkflowId",
+      skipPrewarm: false,
+      entityTable: "projects",
+    });
+    return null;
+  },
+});
+
+export {
+  claimPendingTurn,
+  completeSyntheticTurn,
+  ensurePendingTurn,
+  handleStaleSyntheticTurn,
+  openSyntheticTurn,
+  requestStopBackgroundAgent,
+  updateBackgroundAgents,
+} from "./_chat/projectChatDaemon";

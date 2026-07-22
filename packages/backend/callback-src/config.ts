@@ -13,6 +13,15 @@ export const TASK_PROOF_CAPTURE_ENABLED =
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */
 export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 export const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+/** Public mutation the warm daemon polls to claim staged turns. */
+export const CLAIM_MUTATION = process.env.CLAIM_MUTATION;
+/** Daemon-minted synthetic continuation turn open/complete mutations. */
+export const OPEN_SYNTHETIC_TURN_MUTATION =
+  process.env.OPEN_SYNTHETIC_TURN_MUTATION;
+export const COMPLETE_SYNTHETIC_TURN_MUTATION =
+  process.env.COMPLETE_SYNTHETIC_TURN_MUTATION;
+export const UPDATE_BACKGROUND_AGENTS_MUTATION =
+  process.env.UPDATE_BACKGROUND_AGENTS_MUTATION;
 /** Proof workflow resumes on completion — media must be saved before that mutation. */
 export function isProofCompletionMutation(
   mutation: string | undefined = COMPLETION_MUTATION,

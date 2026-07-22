@@ -23,6 +23,7 @@ import {
 import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -70,6 +71,9 @@ export function ProjectSandboxChatPanel({
   const startExecute = useMutation(api.projectChatWorkflow.startExecute);
   const enqueueMessage = useMutation(api.projectChatWorkflow.enqueueMessage);
   const cancelExecution = useMutation(api.projectChatWorkflow.cancelExecution);
+  const requestStopBackgroundAgent = useMutation(
+    api.projectChatWorkflow.requestStopBackgroundAgent,
+  );
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
@@ -216,6 +220,12 @@ export function ProjectSandboxChatPanel({
           />
         </div>
       ) : null}
+      <BackgroundAgentsChip
+        backgroundAgents={project?.backgroundAgents}
+        onRequestStop={async (toolUseId) => {
+          await requestStopBackgroundAgent({ projectId, toolUseId });
+        }}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}

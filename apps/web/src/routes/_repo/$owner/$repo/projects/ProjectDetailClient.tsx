@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -127,6 +127,14 @@ export function ProjectDetailClient({
     project?.sandboxId,
     project?.reviewProjectSandboxStatus,
   );
+
+  const prewarmChatDaemon = useMutation(
+    api.projectChatWorkflow.prewarmChatDaemon,
+  );
+  useEffect(() => {
+    if (!isSandboxActive || !projectSandboxId) return;
+    void prewarmChatDaemon({ projectId });
+  }, [projectId, isSandboxActive, projectSandboxId, prewarmChatDaemon]);
 
   const isSandboxSurface = surface === "sandbox";
 

@@ -84,7 +84,6 @@ interface ChatComposerProps {
   toolsBefore?: React.ReactNode;
   /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: ReactNode;
-  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
@@ -115,7 +114,6 @@ export function ChatComposer({
   preInputContent,
   toolsBefore,
   optionsSubmenu,
-  formatQueuedInfo,
   draft,
   isDraftLoading,
   hasPendingContext = false,
@@ -156,7 +154,6 @@ export function ChatComposer({
   const queuedMessageItems = queuedMessages.map((message) => ({
     id: message._id,
     content: message.displayContent ?? message.content,
-    info: formatQueuedInfo?.(message),
     model: message.model,
     reasoningLevel: message.reasoningLevel,
   }));

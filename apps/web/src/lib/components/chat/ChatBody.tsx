@@ -99,8 +99,6 @@ interface ChatBodyProps {
   optionsSubmenu?: React.ReactNode;
   /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
-  /** Optional formatter for queued message info tooltips. Falls back to none. */
-  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   /**
    * Draft seed to restore. When provided, the PromptInputProvider is seeded
    * with the stored draft text and mention maps, and a ChatDraftSync child
@@ -163,7 +161,6 @@ export function ChatBody({
   toolsBefore,
   optionsSubmenu,
   emptyStateOverride,
-  formatQueuedInfo,
   draft,
   isDraftLoading,
   onOpenFile,
@@ -305,7 +302,6 @@ export function ChatBody({
           preInputContent={preInputContent}
           toolsBefore={toolsBefore}
           optionsSubmenu={optionsSubmenu}
-          formatQueuedInfo={formatQueuedInfo}
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}

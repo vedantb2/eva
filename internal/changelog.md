@@ -1,5 +1,9 @@
 # Changelog
 
+## Queue row uses provider icon - 2026-07-22
+
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone.
+
 ## Sandbox chat model + effort on messages - 2026-07-22
 
 Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.

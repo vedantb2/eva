@@ -1,9 +1,4 @@
-import {
-  api,
-  findAIModelOption,
-  normalizeAIModel,
-  type Id,
-} from "@conductor/backend";
+import { api, normalizeAIModel, type Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,10 +7,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
-import {
-  ChatBody,
-  type ChatBodyQueuedMessage,
-} from "@/lib/components/chat/ChatBody";
+import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
@@ -196,17 +188,6 @@ export function ChatPanel({
     });
   };
 
-  const formatQueuedInfo = (
-    message: ChatBodyQueuedMessage,
-  ): string | undefined => {
-    const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
-    const detailParts = [
-      modeLabel,
-      message.model ? findAIModelOption(message.model).label : null,
-    ].filter((part): part is string => Boolean(part));
-    return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
-  };
-
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
@@ -372,7 +353,6 @@ export function ChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

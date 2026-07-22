@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Id } from "@conductor/backend";
+import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
 import {
   Button,
   Dialog,
@@ -7,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ProviderIcon,
   Queue,
   QueueItem,
   QueueItemAction,
@@ -22,6 +24,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  formatModelDisplayLabel,
 } from "@conductor/ui";
 import {
   IconArrowUp,
@@ -51,6 +54,8 @@ interface QueuedMessageItem {
   id: Id<"queuedMessages">;
   content: string;
   info?: string;
+  model?: string;
+  reasoningLevel?: string;
 }
 
 interface QueuedMessagesPanelProps {
@@ -61,6 +66,36 @@ interface QueuedMessagesPanelProps {
   onDelete?: (id: Id<"queuedMessages">) => Promise<void>;
   /** When provided, items become reorderable; receives the new top-to-bottom id order. */
   onReorder?: (orderedIds: Id<"queuedMessages">[]) => Promise<void>;
+}
+
+/** Provider mark for a queued row; tooltip lists model + effort when known. */
+function QueueModelIcon({
+  model,
+  reasoningLevel,
+}: {
+  model: string;
+  reasoningLevel?: string;
+}) {
+  const option = findAIModelOption(model);
+  const modelLabel = formatModelDisplayLabel(option.provider, option.label);
+  const effortLabel = reasoningLevel
+    ? getReasoningLevelLabel(reasoningLevel)
+    : null;
+  const tooltip = effortLabel ? `${modelLabel} · ${effortLabel}` : modelLabel;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/70"
+          aria-label={tooltip}
+        >
+          <ProviderIcon provider={option.provider} size={12} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /** A single sortable queue row (Cursor-style card: indicator + 2-line text + actions). */
@@ -115,6 +150,12 @@ function SortableQueuedItem({
         >
           <QueueItemIndicator />
         </button>
+        {item.model ? (
+          <QueueModelIcon
+            model={item.model}
+            reasoningLevel={item.reasoningLevel}
+          />
+        ) : null}
         <QueueItemContent className="text-xs">
           {renderContent ? renderContent(item.content) : item.content}
         </QueueItemContent>

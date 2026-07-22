@@ -284,6 +284,8 @@ export function DesignChatPanel({
         id: message._id,
         content: message.content,
         info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        model: message.model,
+        reasoningLevel: message.reasoningLevel,
       };
     },
   );

@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox chat model + effort on messages - 2026-07-22
+
+Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

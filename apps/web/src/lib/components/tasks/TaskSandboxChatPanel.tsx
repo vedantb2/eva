@@ -177,6 +177,8 @@ export function TaskSandboxChatPanel({
         message: content,
         model,
         ...executionTraits,
+        reasoningLevel:
+          displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
@@ -188,6 +190,8 @@ export function TaskSandboxChatPanel({
       content,
       attachmentStorageIds,
       providerAccountId: accountId,
+      model,
+      reasoningLevel: displayTraits.effortLevel,
     });
     await startExecute({
       taskId,

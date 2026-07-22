@@ -174,6 +174,8 @@ export function ProjectSandboxChatPanel({
         message: content,
         model,
         ...executionTraits,
+        reasoningLevel:
+          displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
@@ -185,6 +187,8 @@ export function ProjectSandboxChatPanel({
       content,
       attachmentStorageIds,
       providerAccountId: accountId,
+      model,
+      reasoningLevel: displayTraits.effortLevel,
     });
     await startExecute({
       projectId,

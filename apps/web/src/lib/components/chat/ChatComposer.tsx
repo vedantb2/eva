@@ -157,6 +157,8 @@ export function ChatComposer({
     id: message._id,
     content: message.displayContent ?? message.content,
     info: formatQueuedInfo?.(message),
+    model: message.model,
+    reasoningLevel: message.reasoningLevel,
   }));
 
   return (

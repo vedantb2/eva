@@ -174,6 +174,7 @@ export function ChatPanel({
     mode,
     model,
     executionTraits,
+    reasoningLevel: displayTraits.effortLevel,
     providerAccountId,
     resolveAccountId,
     accounts,

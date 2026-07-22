@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconFileText,
@@ -144,9 +145,21 @@ export function QuickTaskModal({
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
     null,
   );
+  const [accountDefaulted, setAccountDefaulted] = useState(false);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+  const {
+    options: accounts,
+    resolveId: resolveAccountId,
+    ready: accountsReady,
+  } = useProviderAccounts();
+
+  // Once accounts load, default to the creator's personal account for the
+  // selected model provider (Team when none match).
+  useEffect(() => {
+    if (!accountsReady || accountDefaulted) return;
+    setProviderAccountId(defaultProviderAccountId(accounts, model));
+    setAccountDefaulted(true);
+  }, [accountsReady, accounts, model, accountDefaulted]);
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(
@@ -166,7 +179,8 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
-    setProviderAccountId(null);
+    setProviderAccountId(defaultProviderAccountId(accounts, defaultModel));
+    setAccountDefaulted(accounts.length > 0);
     setActiveDraftId(null);
     setSelectedProjectId(projectId);
     setAssignedTo(undefined);
@@ -207,7 +221,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId),
+          providerAccountId: resolveAccountId(providerAccountId) ?? null,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           screenshotsVideosEnabled,
@@ -220,7 +234,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId),
+          providerAccountId: resolveAccountId(providerAccountId) ?? null,
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
@@ -325,7 +339,12 @@ export function QuickTaskModal({
                 <ModelSelect
                   value={model}
                   options={modelOptions}
-                  onValueChange={setModel}
+                  onValueChange={(next) => {
+                    setModel(next);
+                    setProviderAccountId(
+                      defaultProviderAccountId(accounts, next),
+                    );
+                  }}
                   accounts={accounts}
                   accountId={providerAccountId}
                   onAccountChange={setProviderAccountId}

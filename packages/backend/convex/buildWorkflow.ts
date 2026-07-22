@@ -153,7 +153,7 @@ export const startTaskForBuild = internalMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
-        args.userId,
+        task.createdBy,
       ),
     });
 
@@ -182,6 +182,8 @@ export const startTaskForBuild = internalMutation({
           FALLBACK_GIT_BASE_BRANCH,
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: args.userId,
       },
     );

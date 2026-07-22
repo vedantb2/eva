@@ -14,6 +14,10 @@ import {
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import {
+  assertProviderAccountOwnedBy,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
 
@@ -40,7 +44,9 @@ export const create = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.object({
@@ -55,6 +61,15 @@ export const create = authMutation({
     if (!repo) throw new Error("Repository not found");
     const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
     const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
+    const model = args.model ?? repo.defaultModel;
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -63,6 +78,8 @@ export const create = authMutation({
       createdBy: ctx.userId,
       updatedAt: Date.now(),
       numId,
+      providerAccountId,
+      lastModel: model,
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -97,7 +114,7 @@ export const create = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId,
         attachmentStorageIds: args.attachmentStorageIds,
       });
       if (title === DEFAULT_SESSION_TITLE) {
@@ -126,13 +143,13 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionOrThrow(ctx.db, args.id);
     const credentialSourceLabel =
       args.role === "user"
         ? await resolveCredentialSourceLabel(
             ctx.db,
-            args.providerAccountId,
-            ctx.userId,
+            args.providerAccountId ?? session.providerAccountId,
+            session.createdBy ?? session.userId,
           )
         : undefined;
     await ctx.db.insert("messages", {

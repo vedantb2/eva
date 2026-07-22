@@ -194,6 +194,7 @@ export const sessionExecuteWorkflow = workflow.define({
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -324,6 +325,7 @@ export const sessionExecuteWorkflow = workflow.define({
         use1mContext: args.use1mContext,
         allowedTools: data.allowedTools,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
       });
     } else {
@@ -343,6 +345,7 @@ export const sessionExecuteWorkflow = workflow.define({
         streamingEntityId: String(args.sessionId),
         sessionPersistenceId: args.sessionId,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
         attachmentStorageIds: data.attachmentStorageIds,
       });
     }

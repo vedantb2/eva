@@ -67,8 +67,8 @@ export const addMessage = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        args.providerAccountId,
-        ctx.userId,
+        task.providerAccountId,
+        task.createdBy,
       ),
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
@@ -98,6 +98,10 @@ export const startExecute = authMutation({
       throw new Error("Not authorized");
     }
 
+    // Owner-sticky: always bill the task owner's account, ignoring per-message
+    // picker overrides from collaborators (and from localStorage).
+    void args.providerAccountId;
+
     const workflowId = await workflow.start(
       ctx,
       internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
@@ -108,7 +112,8 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: ctx.userId,
       },
     );
@@ -154,7 +159,7 @@ export const enqueueMessage = authMutation({
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
-      providerAccountId: args.providerAccountId,
+      providerAccountId: task.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
@@ -226,6 +231,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -327,6 +333,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       providerAccountId: args.providerAccountId,
+      credentialOwnerUserId: args.credentialOwnerUserId,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,

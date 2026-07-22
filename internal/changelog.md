@@ -1,5 +1,9 @@
 # Changelog
 
+## Owner-sticky personal AI accounts - 2026-07-22
+
+Personal provider accounts used to fall back to Team whenever someone other than the account owner ran a task (e.g. Make changes). Credentials now follow the entity owner (`createdBy` / project `userId`): creates default to that owner's matching personal account for the model provider (else Team), labels are the owner's first name, and only the owner can change the sticky account.
+
 ## Reviews PR title above tabs - 2026-07-22
 
 PR title lived inside Overview only, so Recap/Diff had no shared chrome. Title, author, and GitHub link now sit above the tab row for every review tab.

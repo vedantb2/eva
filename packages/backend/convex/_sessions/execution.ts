@@ -14,6 +14,10 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
+import {
+  assertProviderAccountOwnedBy,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
@@ -43,6 +47,32 @@ export const startExecute = authMutation({
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
+    const isOwner = ctx.userId === credentialOwnerUserId;
+    // Owner-sticky: only the session owner may change the personal account.
+    // Collaborators always use the sticky account already on the session.
+    let stickyProviderAccountId = session.providerAccountId;
+    if (isOwner) {
+      stickyProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        args.providerAccountId,
+        credentialOwnerUserId,
+      );
+      // If the chosen account no longer matches the model provider, fall back
+      // to the owner's default for that provider (or Team). Explicit Team
+      // (undefined) stays Team.
+      if (stickyProviderAccountId) {
+        const account = await ctx.db.get(stickyProviderAccountId);
+        if (!account || account.provider !== getAIModelProvider(args.model)) {
+          stickyProviderAccountId = await resolveDefaultProviderAccountId(
+            ctx.db,
+            credentialOwnerUserId,
+            args.model,
+          );
+        }
+      }
+    }
 
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
     // poll instead of waiting on the workflow's durable step queue. We must
@@ -87,10 +117,8 @@ export const startExecute = authMutation({
             },
           }
         : { pendingTurn: undefined }),
-      // Persist the session's chosen account so the page-open prewarm (which has
-      // no per-message context) injects the same credential. Undefined clears
-      // back to the team credential.
-      providerAccountId: args.providerAccountId,
+      // Persist the session owner's sticky account for page-open prewarm.
+      providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
       updatedAt: Date.now(),
     });
@@ -111,7 +139,8 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         allowedTools: MODE_TOOLS[effectiveMode],
-        providerAccountId: args.providerAccountId,
+        providerAccountId: stickyProviderAccountId,
+        credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
       });
     }
@@ -127,7 +156,8 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId: stickyProviderAccountId,
+        credentialOwnerUserId,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -164,6 +194,7 @@ export const prewarmDaemon = authMutation({
     // Match edit-mode defaults so the first real message does not immediately
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
     // leaves the chat stuck on Working).
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
     await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
@@ -172,6 +203,7 @@ export const prewarmDaemon = authMutation({
       model: normalizeAIModel(session.lastModel),
       allowedTools: MODE_TOOLS.edit,
       providerAccountId: session.providerAccountId,
+      credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
     });
     return null;

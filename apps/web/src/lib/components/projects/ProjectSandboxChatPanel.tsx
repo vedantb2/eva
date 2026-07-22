@@ -8,6 +8,7 @@ import {
   buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
   findAIModelOption,
+  getAIModelProvider,
   normalizeAIModel,
   resolveTraitsForDisplay,
   type AIModel,
@@ -33,7 +34,6 @@ interface StoredSettings {
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
-  providerAccountId?: string | null;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -84,10 +84,35 @@ export function ProjectSandboxChatPanel({
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
-  const providerAccountId = settings.providerAccountId ?? null;
+  const providerAccountId = project?.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner =
+    currentUserId !== undefined &&
+    project?.userId !== undefined &&
+    currentUserId === project.userId;
+  const ownerProfile = useQuery(
+    api.users.get,
+    project?.userId ? { id: project.userId } : "skip",
+  );
+  const updateProject = useMutation(api.projects.update);
+  const ownerAccountLabel =
+    ownerProfile?.firstName?.trim() ||
+    ownerProfile?.fullName?.trim() ||
+    "Personal";
+  const displayAccounts =
+    isOwner || !providerAccountId
+      ? accounts
+      : [
+          {
+            id: providerAccountId,
+            provider: getAIModelProvider(model),
+            label: ownerAccountLabel,
+          },
+          ...accounts,
+        ];
 
   const draftSeed = useChatDraftSeed({
     kind: "projectChat" as const,
@@ -125,8 +150,13 @@ export function ProjectSandboxChatPanel({
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const setProviderAccountId = (next: string | null) =>
-    setSettings((prev) => ({ ...prev, providerAccountId: next }));
+  const setProviderAccountId = (next: string | null) => {
+    if (!isOwner) return;
+    void updateProject({
+      id: projectId,
+      providerAccountId: resolveAccountId(next) ?? null,
+    });
+  };
 
   const lastMessage = messages?.[messages.length - 1];
   const lastAssistantHasNoContent =
@@ -212,7 +242,7 @@ export function ProjectSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
-        accounts={accounts}
+        accounts={displayAccounts}
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}

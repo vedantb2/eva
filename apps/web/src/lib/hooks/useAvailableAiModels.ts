@@ -41,19 +41,20 @@ export function useAvailableAiModels(
 export function useProviderAccounts(): {
   options: ReadonlyArray<ModelAccount>;
   resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
+  ready: boolean;
 } {
   const accounts = useQuery(api.userProviderAccounts.list, {});
-  const options: ReadonlyArray<ModelAccount> = (accounts ?? []).map(
-    (account) => ({
-      id: account._id,
-      provider: account.provider,
-      label: account.label,
-      accentColor: account.accentColor,
-    }),
-  );
+  // Most recently updated first so create-time defaults prefer the latest.
+  const sorted = (accounts ?? []).toSorted((a, b) => b.updatedAt - a.updatedAt);
+  const options: ReadonlyArray<ModelAccount> = sorted.map((account) => ({
+    id: account._id,
+    provider: account.provider,
+    label: account.label,
+    accentColor: account.accentColor,
+  }));
   const resolveId = (
     id: string | null,
   ): Id<"userProviderAccounts"> | undefined =>
     id ? accounts?.find((account) => account._id === id)?._id : undefined;
-  return { options, resolveId };
+  return { options, resolveId, ready: accounts !== undefined };
 }

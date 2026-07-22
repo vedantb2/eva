@@ -45,9 +45,8 @@ interface AddAccountDialogProps {
 }
 
 /**
- * Create or edit a provider account. On edit the provider is fixed and existing
- * credential values are revealed (decrypted) to prefill the form, so a save
- * replaces the full credential set without silently wiping untouched fields.
+ * Create or edit a provider account. Label is derived from the user's first
+ * name server-side — this dialog only collects provider, accent, and secrets.
  */
 export function AddAccountDialog({
   open,
@@ -58,25 +57,20 @@ export function AddAccountDialog({
   const revealValue = useAction(api.userProviderAccountsActions.revealValue);
 
   const [provider, setProvider] = useState<AIProvider>("claude");
-  const [label, setLabel] = useState("");
   const [accentColor, setAccentColor] = useState<string>("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [prefilling, setPrefilling] = useState(false);
 
-  // Seed the form when the dialog opens: reset for create, or load the editing
-  // account's fields (revealing each credential value) for edit.
   useEffect(() => {
     if (!open) return;
     if (!editing) {
       setProvider("claude");
-      setLabel("");
       setAccentColor("");
       setValues({});
       return;
     }
     setProvider(editing.provider);
-    setLabel(editing.label);
     setAccentColor(editing.accentColor ?? "");
     setValues({});
     setPrefilling(true);
@@ -98,11 +92,9 @@ export function AddAccountDialog({
   }, [open, editing, revealValue]);
 
   const fields = PROVIDER_CREDENTIAL_FIELDS[provider];
-  const canSave =
-    label.trim().length > 0 &&
-    fields.every(
-      (field) => !field.required || (values[field.key]?.trim().length ?? 0) > 0,
-    );
+  const canSave = fields.every(
+    (field) => !field.required || (values[field.key]?.trim().length ?? 0) > 0,
+  );
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -113,7 +105,6 @@ export function AddAccountDialog({
     await upsert({
       accountId: editing?._id,
       provider,
-      label: label.trim(),
       accentColor: accentColor || undefined,
       credentials,
     });
@@ -153,19 +144,9 @@ export function AddAccountDialog({
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Label
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Shown as your first name with this provider&apos;s icon.
             </p>
-            <Input
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder="e.g. Personal"
-              className="h-8 text-sm"
-              autoFocus
-            />
           </div>
 
           <div>
@@ -217,9 +198,6 @@ export function AddAccountDialog({
                   />
                 ) : (
                   <Input
-                    // Plain text (not password): password managers / some
-                    // browsers block paste into type=password; these are API
-                    // tokens, not login passwords.
                     type="text"
                     autoComplete="off"
                     data-1p-ignore
@@ -234,6 +212,7 @@ export function AddAccountDialog({
                     }
                     placeholder={field.placeholder}
                     className="h-8 font-mono text-xs"
+                    autoFocus={field === fields[0]}
                   />
                 )}
               </div>

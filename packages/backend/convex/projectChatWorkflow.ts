@@ -74,8 +74,8 @@ export const addMessage = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        args.providerAccountId,
-        ctx.userId,
+        project.providerAccountId,
+        project.userId,
       ),
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
@@ -102,6 +102,8 @@ export const startExecute = authMutation({
       throw new Error("Not authorized");
     }
 
+    void args.providerAccountId;
+
     const workflowId = await workflow.start(
       ctx,
       internal.projectChatWorkflow.projectChatExecuteWorkflow,
@@ -112,7 +114,8 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId: project.providerAccountId,
+        credentialOwnerUserId: project.userId,
         userId: ctx.userId,
       },
     );
@@ -156,7 +159,7 @@ export const enqueueMessage = authMutation({
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
-      providerAccountId: args.providerAccountId,
+      providerAccountId: project.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
@@ -225,6 +228,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -314,6 +318,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       providerAccountId: args.providerAccountId,
+      credentialOwnerUserId: args.credentialOwnerUserId,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.projectId,

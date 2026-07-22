@@ -2,12 +2,14 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 import { aiProviderValidator } from "./validators";
+import { resolveUserDisplayFirstName } from "./_userProviderAccounts/defaults";
 
 const credentialValidator = v.object({ key: v.string(), value: v.string() });
 
 /**
  * Lists the authenticated user's provider accounts, masking credential values.
  * Powers both the Accounts settings page and the model picker's account groups.
+ * `label` is always the user's first name (derived), not a free-text field.
  */
 export const list = authQuery({
   args: {},
@@ -23,6 +25,8 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx) => {
+    const displayName =
+      (await resolveUserDisplayFirstName(ctx.db, ctx.userId)) ?? "Personal";
     const rows = await ctx.db
       .query("userProviderAccounts")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -31,7 +35,7 @@ export const list = authQuery({
       _id: row._id,
       _creationTime: row._creationTime,
       provider: row.provider,
-      label: row.label,
+      label: displayName,
       accentColor: row.accentColor,
       credentials: row.credentials.map((entry) => ({
         key: entry.key,
@@ -93,9 +97,9 @@ export const createInternal = internalMutation({
 });
 
 /**
- * Updates an existing account's label, accent, and pre-encrypted credentials.
- * Asserts ownership. Provider is immutable (it determines which credential keys
- * apply). Internal only.
+ * Updates an existing account's accent and pre-encrypted credentials.
+ * Asserts ownership. Provider is immutable. Label is always overwritten from
+ * the owner's first name. Internal only.
  */
 export const updateInternal = internalMutation({
   args: {

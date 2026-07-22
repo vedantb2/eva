@@ -22,6 +22,11 @@ import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { logTaskActivity } from "../taskActivity";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
+import {
+  assertProviderAccountOwnedBy,
+  reconcileProviderAccountForModel,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -104,8 +109,29 @@ export const update = authMutation({
     if (args.assignedTo !== undefined)
       updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
-    if (args.providerAccountId !== undefined)
-      updates.providerAccountId = args.providerAccountId ?? undefined;
+    // Only the task owner may set a personal account; must be their own.
+    let nextProviderAccountId = task.providerAccountId;
+    if (args.providerAccountId !== undefined) {
+      if (ctx.userId !== task.createdBy) {
+        throw new Error("Only the task owner can change the provider account");
+      }
+      nextProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        args.providerAccountId,
+        task.createdBy,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
+    // Owner changes model → keep matching personal account or re-default.
+    if (args.model !== undefined && ctx.userId === task.createdBy) {
+      nextProviderAccountId = await reconcileProviderAccountForModel(
+        ctx.db,
+        task.createdBy,
+        args.model,
+        nextProviderAccountId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
@@ -437,7 +463,10 @@ export const createQuickTask = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    // null = Team; omitted = default to creator's personal account for model.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     projectId: v.optional(v.id("projects")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
@@ -462,6 +491,15 @@ export const createQuickTask = authMutation({
     }
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;
     const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
+    const model = args.model ?? repo.defaultModel;
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
     const taskId = await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -471,8 +509,8 @@ export const createQuickTask = authMutation({
       updatedAt: now,
       createdBy: ctx.userId,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
-      model: args.model ?? repo.defaultModel,
-      providerAccountId: args.providerAccountId,
+      model,
+      providerAccountId,
       projectId: args.projectId,
       taskNumber,
       tags: normalizeTaskTags(args.tags),

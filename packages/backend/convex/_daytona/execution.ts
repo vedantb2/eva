@@ -1244,6 +1244,7 @@ export const prewarmSessionDaemon = internalAction({
     use1mContext: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
   },
   returns: v.object({ prewarmed: v.boolean() }),
@@ -1398,6 +1399,7 @@ export const prewarmSessionDaemon = internalAction({
           },
           claudeSessionId,
           providerAccountId: args.providerAccountId,
+          credentialOwnerUserId: args.credentialOwnerUserId,
           enableMcp: true,
         },
       );
@@ -1436,6 +1438,8 @@ export const launchOnExistingSandbox = internalAction({
     taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    /** Entity owner for personal-credential decrypt; defaults to `userId`. */
+    credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -1520,6 +1524,7 @@ export const launchOnExistingSandbox = internalAction({
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
         enableMcp: true,
       },
     );

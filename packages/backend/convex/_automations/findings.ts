@@ -115,7 +115,7 @@ export const autoStartTask = internalMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
-        args.userId,
+        task.createdBy,
       ),
     });
 
@@ -140,6 +140,8 @@ export const autoStartTask = internalMutation({
           ),
           isFirstTaskOnBranch: true,
           model: task.model ?? repo.defaultModel,
+          providerAccountId: task.providerAccountId,
+          credentialOwnerUserId: task.createdBy,
           userId: args.userId,
         },
       );

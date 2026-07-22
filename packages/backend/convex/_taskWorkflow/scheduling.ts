@@ -182,6 +182,8 @@ export const executeScheduledTask = internalMutation({
         baseBranch,
         isFirstTaskOnBranch: firstOnBranch,
         model: task.model,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: task.createdBy,
       },
     );

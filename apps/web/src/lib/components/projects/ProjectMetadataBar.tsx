@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel } from "@conductor/backend";
+import { api, getAIModelProvider, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import {
   Select,
@@ -130,10 +130,26 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
   );
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
 
   if (!project) return null;
 
+  const isOwner =
+    currentUserId !== undefined && currentUserId === project.userId;
   const creator = (users ?? []).find((user) => user._id === project.userId);
+  const ownerAccountLabel =
+    creator?.firstName?.trim() || creator?.fullName?.trim() || "Personal";
+  const displayAccounts =
+    isOwner || !project.providerAccountId
+      ? accounts
+      : [
+          {
+            id: project.providerAccountId,
+            provider: getAIModelProvider(currentModel),
+            label: ownerAccountLabel,
+          },
+          ...accounts,
+        ];
   const displayBaseBranch =
     project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
@@ -319,14 +335,15 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           onValueChange={(nextModel) =>
             updateProject({ id: projectId, model: nextModel })
           }
-          accounts={accounts}
+          accounts={displayAccounts}
           accountId={project.providerAccountId ?? null}
-          onAccountChange={(nextAccountId) =>
+          onAccountChange={(nextAccountId) => {
+            if (!isOwner) return;
             updateProject({
               id: projectId,
               providerAccountId: resolveAccountId(nextAccountId) ?? null,
-            })
-          }
+            });
+          }}
           className="px-0"
         />
       </div>

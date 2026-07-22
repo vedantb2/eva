@@ -252,7 +252,7 @@ export const resolveProjectConflicts = authMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         carrier.providerAccountId,
-        ctx.userId,
+        carrier.createdBy,
       ),
     });
     await ctx.db.patch(carrier._id, {
@@ -275,6 +275,8 @@ export const resolveProjectConflicts = authMutation({
           baseBranch,
           isFirstTaskOnBranch: false,
           model: carrier.model ?? repo.defaultModel,
+          providerAccountId: carrier.providerAccountId,
+          credentialOwnerUserId: carrier.createdBy,
           userId: ctx.userId,
           mode: "resolve_conflicts",
         },

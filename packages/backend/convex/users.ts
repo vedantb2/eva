@@ -15,6 +15,23 @@ export const getInternal = internalQuery({
   },
 });
 
+/** First/full name for derived personal-account labels (node actions). */
+export const getDisplayNameInternal = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(
+    v.object({
+      firstName: v.optional(v.string()),
+      fullName: v.optional(v.string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+    return { firstName: user.firstName, fullName: user.fullName };
+  },
+});
+
 /** Fetches a user's public profile (name, last seen) by their ID. */
 export const get = authQuery({
   args: { id: v.id("users") },

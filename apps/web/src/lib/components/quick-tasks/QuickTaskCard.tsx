@@ -141,6 +141,7 @@ export function QuickTaskCard({
     assignedTo,
     model,
     providerAccountId,
+    createdBy: createdByUser?._id,
     projectId,
     repoId,
     groupedCodebases,

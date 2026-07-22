@@ -5,7 +5,7 @@ import {
   type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -132,6 +132,19 @@ export function ChatPanel({
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const session = useQuery(api.sessions.get, { id: sessionId });
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner =
+    currentUserId !== undefined &&
+    session !== undefined &&
+    session !== null &&
+    currentUserId === (session.createdBy ?? session.userId);
+
+  // Hydrate sticky account from the session doc (owner-sticky source of truth).
+  useEffect(() => {
+    if (!session) return;
+    setProviderAccountId(session.providerAccountId ?? null);
+  }, [session, setProviderAccountId]);
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,
@@ -350,7 +363,10 @@ export function ChatPanel({
         modelOptions={modelOptions}
         accounts={accounts}
         accountId={providerAccountId}
-        onAccountChange={setProviderAccountId}
+        onAccountChange={(next) => {
+          if (!isOwner) return;
+          setProviderAccountId(next);
+        }}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
         onSend={handleSend}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -15,6 +15,7 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import { SessionModeDropdown } from "./SessionModeDropdown";
 
@@ -44,8 +45,18 @@ export function NewSessionComposer() {
     defaultModel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+  const {
+    options: accounts,
+    resolveId: resolveAccountId,
+    ready: accountsReady,
+  } = useProviderAccounts();
+  const [accountDefaulted, setAccountDefaulted] = useState(false);
+
+  useEffect(() => {
+    if (!accountsReady || accountDefaulted) return;
+    setProviderAccountId(defaultProviderAccountId(accounts, model));
+    setAccountDefaulted(true);
+  }, [accountsReady, accounts, model, accountDefaulted, setProviderAccountId]);
 
   const handleSend = async (
     content: string,
@@ -59,7 +70,7 @@ export function NewSessionComposer() {
         mode,
         model,
         ...executionTraits,
-        providerAccountId: resolveAccountId(providerAccountId),
+        providerAccountId: resolveAccountId(providerAccountId) ?? null,
         attachmentStorageIds,
       });
       await navigate({ to: `${basePath}/sessions/${numId}` });
@@ -110,7 +121,10 @@ export function NewSessionComposer() {
               : "Ask Eva anything... / for skills · @ for docs · attach images or HTML"
           }
           model={model}
-          setModel={setModel}
+          setModel={(next) => {
+            setModel(next);
+            setProviderAccountId(defaultProviderAccountId(accounts, next));
+          }}
           modelOptions={modelOptions}
           accounts={accounts}
           accountId={providerAccountId}

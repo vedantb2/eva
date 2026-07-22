@@ -42,6 +42,8 @@ export const taskExecutionWorkflow = workflow.define({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(aiModelValidator),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    /** Entity owner for personal-credential decrypt (task.createdBy). */
+    credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
     mode: v.optional(runModeValidator),
   },
@@ -128,6 +130,7 @@ export const taskExecutionWorkflow = workflow.define({
         taskProofCaptureEnabled: false,
         requireTaskCommit: true,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {

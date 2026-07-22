@@ -23,6 +23,11 @@ import {
 } from "./helpers";
 import { scheduleProjectPrSync } from "./prSync";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
+import {
+  assertProviderAccountOwnedBy,
+  reconcileProviderAccountForModel,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
@@ -38,6 +43,10 @@ export const create = authMutation({
     baseBranch: v.optional(v.string()),
     priority: v.optional(priorityValidator),
     skipPlanning: v.optional(v.boolean()),
+    model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
@@ -46,6 +55,16 @@ export const create = authMutation({
     }
     const skipPlanning = args.skipPlanning ?? false;
     const numId = await allocateNumId(ctx.db, args.repoId, "projects");
+    const repo = await ctx.db.get(args.repoId);
+    const model = args.model ?? repo?.defaultModel;
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -58,6 +77,8 @@ export const create = authMutation({
       projectStartDate: Date.now(),
       priority: args.priority,
       numId,
+      model,
+      providerAccountId,
     });
     if (skipPlanning) {
       await ctx.db.patch(projectId, {
@@ -138,8 +159,29 @@ export const update = authMutation({
     if (codeReviewer !== undefined)
       updates.codeReviewer = codeReviewer ?? undefined;
     if (model !== undefined) updates.model = model ?? undefined;
-    if (providerAccountId !== undefined)
-      updates.providerAccountId = providerAccountId ?? undefined;
+    let nextProviderAccountId = project.providerAccountId;
+    if (providerAccountId !== undefined) {
+      if (ctx.userId !== project.userId) {
+        throw new Error(
+          "Only the project owner can change the provider account",
+        );
+      }
+      nextProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        providerAccountId,
+        project.userId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
+    if (model !== undefined && ctx.userId === project.userId) {
+      nextProviderAccountId = await reconcileProviderAccountForModel(
+        ctx.db,
+        project.userId,
+        model ?? undefined,
+        nextProviderAccountId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
     if (phase !== undefined) updates.phase = phase;
     // null -> undefined: these must not flow through the generic spread, which
     // would write null into the doc instead of clearing the field.

@@ -86,6 +86,7 @@ export interface TaskCardMenuItemsProps {
   assignedTo?: Id<"users">;
   model?: string;
   providerAccountId?: Id<"userProviderAccounts">;
+  createdBy?: Id<"users">;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
   groupedCodebases?: GroupedCodebase[];
@@ -105,6 +106,7 @@ export function TaskCardMenuItems({
   assignedTo,
   model,
   providerAccountId,
+  createdBy,
   projectId,
   repoId,
   groupedCodebases,
@@ -170,6 +172,11 @@ export function TaskCardMenuItems({
     normalizedModel,
   );
 
+  const isOwner =
+    currentUserId !== undefined &&
+    createdBy !== undefined &&
+    currentUserId === createdBy;
+
   const applyModelSelection = (compositeOrModelId: string) => {
     if (compositeOrModelId.includes("::")) {
       const separator = compositeOrModelId.indexOf("::");
@@ -179,6 +186,10 @@ export function TaskCardMenuItems({
         modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
       ).find((option) => option.id === modelId);
       if (!matched) return;
+      if (!isOwner) {
+        updateTask({ id, model: matched.id });
+        return;
+      }
       updateTask({
         id,
         model: matched.id,

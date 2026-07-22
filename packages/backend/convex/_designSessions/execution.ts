@@ -43,7 +43,7 @@ export const executeMessage = authMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         args.providerAccountId,
-        ctx.userId,
+        session.userId,
       ),
     });
     await ctx.db.insert("messages", {
@@ -66,6 +66,7 @@ export const executeMessage = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: session.userId,
         personaId: args.personaId,
         userId: ctx.userId,
         numDesigns: args.numDesigns ?? 3,

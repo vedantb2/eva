@@ -8,6 +8,7 @@ import {
   buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
   findAIModelOption,
+  getAIModelProvider,
   normalizeAIModel,
   resolveTraitsForDisplay,
   type AIModel,
@@ -33,7 +34,6 @@ interface StoredSettings {
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
-  providerAccountId?: string | null;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -86,10 +86,36 @@ export function TaskSandboxChatPanel({
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
-  const providerAccountId = settings.providerAccountId ?? null;
+  // Owner-sticky: chat always shows/uses the task's provider account.
+  const providerAccountId = task?.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner =
+    currentUserId !== undefined &&
+    task?.createdBy !== undefined &&
+    currentUserId === task.createdBy;
+  const ownerProfile = useQuery(
+    api.users.get,
+    task?.createdBy ? { id: task.createdBy } : "skip",
+  );
+  const updateTask = useMutation(api.agentTasks.update);
+  const ownerAccountLabel =
+    ownerProfile?.firstName?.trim() ||
+    ownerProfile?.fullName?.trim() ||
+    "Personal";
+  const displayAccounts =
+    isOwner || !providerAccountId
+      ? accounts
+      : [
+          {
+            id: providerAccountId,
+            provider: getAIModelProvider(model),
+            label: ownerAccountLabel,
+          },
+          ...accounts,
+        ];
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -127,8 +153,13 @@ export function TaskSandboxChatPanel({
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const setProviderAccountId = (next: string | null) =>
-    setSettings((prev) => ({ ...prev, providerAccountId: next }));
+  const setProviderAccountId = (next: string | null) => {
+    if (!isOwner || !task) return;
+    void updateTask({
+      id: taskId,
+      providerAccountId: resolveAccountId(next) ?? null,
+    });
+  };
 
   const lastMessage = messages?.[messages.length - 1];
   const lastAssistantHasNoContent =
@@ -214,7 +245,7 @@ export function TaskSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
-        accounts={accounts}
+        accounts={displayAccounts}
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}

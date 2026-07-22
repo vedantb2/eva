@@ -519,11 +519,14 @@ export async function signAndLaunchScript(
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
     enableMcp?: boolean;
-    // When set, the user's own provider account credentials are decrypted and
-    // layered over `extraEnvVars`, overriding the shared team credential so the
-    // run bills to the user's account. Resolved here — the single launch choke
-    // point — so every caller only threads the id.
+    // When set, the entity owner's provider account credentials are decrypted
+    // and layered over `extraEnvVars`, overriding the shared team credential.
+    // Resolved here — the single launch choke point — so every caller only
+    // threads the id. Ownership is checked against credentialOwnerUserId
+    // (entity createdBy), not the launcher `userId` (MCP/auth).
     providerAccountId?: Id<"userProviderAccounts">;
+    /** Entity owner (`createdBy`); defaults to `userId` when omitted. */
+    credentialOwnerUserId?: Id<"users">;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -531,16 +534,17 @@ export async function signAndLaunchScript(
     `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
 
-  // Layer the selected user account's credentials last so they win over the
+  // Layer the selected owner account's credentials last so they win over the
   // team credential baked into the sandbox env. resolveProviderAccountCredentials
-  // returns {} (no override) if the account is missing, not owned by this user,
-  // or the wrong provider for the model.
+  // returns {} (no override) if the account is missing, not owned by the entity
+  // owner, or the wrong provider for the model.
+  const credentialOwnerUserId = opts.credentialOwnerUserId ?? userId;
   let extraEnvVars = opts.extraEnvVars;
   if (opts.providerAccountId) {
     const accountEnv = await resolveProviderAccountCredentials(
       ctx,
       opts.providerAccountId,
-      userId,
+      credentialOwnerUserId,
       opts.model,
     );
     if (Object.keys(accountEnv).length > 0) {

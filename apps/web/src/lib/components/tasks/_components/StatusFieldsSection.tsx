@@ -2,7 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel } from "@conductor/backend";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api, getAIModelProvider, normalizeAIModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -239,6 +240,30 @@ export function StatusFieldsSection({
   );
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner =
+    currentUserId !== undefined &&
+    task?.createdBy !== undefined &&
+    currentUserId === task.createdBy;
+  const ownerProfile = useQuery(
+    api.users.get,
+    task?.createdBy ? { id: task.createdBy } : "skip",
+  );
+  const ownerAccountLabel =
+    ownerProfile?.firstName?.trim() ||
+    ownerProfile?.fullName?.trim() ||
+    "Personal";
+  const displayAccounts =
+    isOwner || !task?.providerAccountId
+      ? accounts
+      : [
+          {
+            id: task.providerAccountId,
+            provider: getAIModelProvider(currentModel),
+            label: ownerAccountLabel,
+          },
+          ...accounts,
+        ];
   const canEditModel = canEditTaskModel(status);
 
   return (
@@ -395,14 +420,15 @@ export function StatusFieldsSection({
             onValueChange={(nextModel) =>
               updateTask({ id: taskId, model: nextModel })
             }
-            accounts={accounts}
+            accounts={displayAccounts}
             accountId={task?.providerAccountId ?? null}
-            onAccountChange={(nextAccountId) =>
+            onAccountChange={(nextAccountId) => {
+              if (!isOwner) return;
               updateTask({
                 id: taskId,
                 providerAccountId: resolveAccountId(nextAccountId) ?? null,
-              })
-            }
+              });
+            }}
             disabled={!canEditModel}
             className="px-0"
           />

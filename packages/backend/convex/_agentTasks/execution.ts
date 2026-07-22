@@ -123,7 +123,7 @@ export const startExecution = authMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
-        ctx.userId,
+        task.createdBy,
       ),
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
@@ -149,6 +149,7 @@ export const startExecution = authMutation({
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           providerAccountId: task.providerAccountId,
+          credentialOwnerUserId: task.createdBy,
           userId: ctx.userId,
           mode: args.mode,
         },

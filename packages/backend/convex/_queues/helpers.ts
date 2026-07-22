@@ -68,12 +68,13 @@ export async function startNextQueuedSessionMessage(
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      session.providerAccountId,
+      session.createdBy ?? session.userId,
     ),
   });
 
   try {
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
     const workflowId = await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionExecuteWorkflow,
@@ -85,17 +86,15 @@ export async function startNextQueuedSessionMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: session.providerAccountId,
+        credentialOwnerUserId,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
     );
 
-    // Keep the session's persisted account in step with the dequeued message so
-    // a concurrent page-open prewarm injects the same credential.
     await ctx.db.patch(sessionId, {
       updatedAt: now,
-      providerAccountId: nextMessage.providerAccountId,
     });
     await trackSessionWorkflow(
       ctx,
@@ -154,7 +153,7 @@ export async function startNextQueuedDesignMessage(
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
       nextMessage.providerAccountId,
-      nextMessage.userId,
+      session.userId,
     ),
   });
 
@@ -178,6 +177,7 @@ export async function startNextQueuedDesignMessage(
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
         providerAccountId: nextMessage.providerAccountId,
+        credentialOwnerUserId: session.userId,
         personaId: nextMessage.personaId,
         userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,
@@ -235,8 +235,8 @@ export async function startNextQueuedProjectChatMessage(
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      project.providerAccountId,
+      project.userId,
     ),
   });
 
@@ -251,7 +251,8 @@ export async function startNextQueuedProjectChatMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: project.providerAccountId,
+        credentialOwnerUserId: project.userId,
         userId: nextMessage.userId,
       },
     );
@@ -311,8 +312,8 @@ export async function startNextQueuedTaskChatMessage(
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      task.providerAccountId,
+      task.createdBy,
     ),
   });
 
@@ -327,7 +328,8 @@ export async function startNextQueuedTaskChatMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: nextMessage.userId,
       },
     );

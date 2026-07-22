@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import {
   buildEvaDocUrl,
   buildEvaProjectUrl,
+  buildEvaReviewUrl,
   buildEvaSessionUrl,
   buildEvaTaskUrl,
 } from "../convex/_taskWorkflow/urls";
@@ -25,6 +26,14 @@ test("buildEvaDocUrl uses numeric doc id and monorepo app segment", () => {
   expect(
     buildEvaDocUrl("evalucom", "carepulse-ts", 42, "content", "apps/web"),
   ).toBe("https://eva.example.com/evalucom/carepulse-ts--web/docs/42/content");
+});
+
+test("buildEvaReviewUrl uses GitHub PR number under Reviews", () => {
+  expect(
+    buildEvaReviewUrl("evalucom", "carepulse-ts", 138, "recap", "apps/web"),
+  ).toBe(
+    "https://eva.example.com/evalucom/carepulse-ts--web/reviews/138/recap",
+  );
 });
 
 test("buildEvaTaskUrl routes project tasks to project URL", () => {

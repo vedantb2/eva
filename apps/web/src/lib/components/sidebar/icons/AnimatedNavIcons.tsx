@@ -242,6 +242,16 @@ export function DocumentsIcon({ size = 24, className }: IconProps) {
   );
 }
 
+export function ReviewsIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg {...baseSvgProps(size, className)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 12.5 11.2 14.2 14.8 10" className="nav-icon-doc-line-1" />
+      <path d="M8 7.5h8" className="nav-icon-doc-line-2" />
+    </svg>
+  );
+}
+
 export function TestingArenaIcon({ size = 24, className }: IconProps) {
   return (
     <svg {...baseSvgProps(size, className)}>

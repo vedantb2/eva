@@ -8,6 +8,7 @@ import {
   AutomationsIcon,
   DesignsIcon,
   DocumentsIcon,
+  ReviewsIcon,
   ProjectsIcon,
   QuickTasksIcon,
   SessionsIcon,
@@ -139,6 +140,11 @@ export function RepoNavSections({
             name: "Documents",
             href: `${repoBasePath}/docs`,
             icon: DocumentsIcon,
+          },
+          {
+            name: "Reviews",
+            href: `${repoBasePath}/reviews`,
+            icon: ReviewsIcon,
           },
           {
             name: "Testing Arena",

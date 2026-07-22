@@ -24,6 +24,7 @@ import { Button, Spinner, cn } from "@conductor/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
+import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
@@ -41,6 +42,7 @@ const KNOWN_SUB_PAGES = new Set([
   "projects",
   "designs",
   "docs",
+  "reviews",
   "sessions",
   "quick-tasks",
   "settings",
@@ -60,6 +62,7 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
       s === "sessions" ||
       s === "settings" ||
       s === "docs" ||
+      s === "reviews" ||
       s === "testing-arena" ||
       s === "automations"
     ) {
@@ -196,11 +199,13 @@ export function Sidebar() {
           ? "Settings"
           : contextSidebarMode === "docs"
             ? "Documents"
-            : contextSidebarMode === "testing-arena"
-              ? "Testing Arena"
-              : contextSidebarMode === "automations"
-                ? "Automations"
-                : "";
+            : contextSidebarMode === "reviews"
+              ? "Reviews"
+              : contextSidebarMode === "testing-arena"
+                ? "Testing Arena"
+                : contextSidebarMode === "automations"
+                  ? "Automations"
+                  : "";
 
   return (
     <>
@@ -480,6 +485,13 @@ export function Sidebar() {
                         />
                       ) : contextSidebarMode === "docs" ? (
                         <DocsSidebar
+                          repoId={repo._id}
+                          basePath={repoBasePath}
+                          pathname={pathname}
+                          onNavigate={closeMobileSidebar}
+                        />
+                      ) : contextSidebarMode === "reviews" ? (
+                        <ReviewsSidebar
                           repoId={repo._id}
                           basePath={repoBasePath}
                           pathname={pathname}

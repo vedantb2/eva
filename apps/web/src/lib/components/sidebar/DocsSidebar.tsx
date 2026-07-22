@@ -21,22 +21,10 @@ import {
   SearchInput,
   Spinner,
   Textarea,
-  cn,
 } from "@conductor/ui";
-import {
-  IconFile,
-  IconGitMerge,
-  IconPlus,
-  IconTrash,
-  IconUpload,
-} from "@tabler/icons-react";
+import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import {
-  searchParser,
-  DOC_VIEWER_DEFAULT_TAB,
-  DOC_RECAP_DEFAULT_TAB,
-  docListFilterParser,
-} from "@/lib/search-params";
+import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -86,10 +74,6 @@ export function DocsSidebar({
     },
   );
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
-  const [docListFilter, setDocListFilter] = useQueryState(
-    "docFilter",
-    docListFilterParser,
-  );
   const [docToDelete, setDocToDelete] = useState<{
     id: Id<"docs">;
     title: string;
@@ -113,17 +97,11 @@ export function DocsSidebar({
 
   const filteredDocs = (() => {
     if (!docs) return [];
-    const byKind = docs.filter((doc) =>
-      docListFilter === "reviews"
-        ? doc.kind === "pr-recap"
-        : doc.kind !== "pr-recap",
-    );
+    // PR recaps live under Reviews now — Documents is non-recap only.
+    const byKind = docs.filter((doc) => doc.kind !== "pr-recap");
     const q = searchQuery.toLowerCase().trim();
     return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
   })();
-
-  const defaultDocTab = (kind: string | undefined) =>
-    kind === "pr-recap" ? DOC_RECAP_DEFAULT_TAB : DOC_VIEWER_DEFAULT_TAB;
 
   const handleCreateDoc = async () => {
     if (!newDocTitle.trim()) return;
@@ -272,36 +250,15 @@ export function DocsSidebar({
           className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
-        {docListFilter !== "reviews" ? (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0 text-sidebar-primary"
-            onClick={() => setIsCreateDialogOpen(true)}
-            title="New document"
-          >
-            <IconPlus size={16} />
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="flex gap-1 px-2 pb-2">
-        {(
-          [
-            ["documents", "Documents"],
-            ["reviews", "Reviews"],
-          ] as const
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={docListFilter === value ? "secondary" : "ghost"}
-            className="h-7 flex-1 px-2 text-xs"
-            onClick={() => setDocListFilter(value)}
-          >
-            {label}
-          </Button>
-        ))}
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateDialogOpen(true)}
+          title="New document"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">
@@ -309,17 +266,13 @@ export function DocsSidebar({
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : docs.length === 0 ? (
+        ) : filteredDocs.length === 0 && !searchQuery.trim() ? (
           <div className="p-4 text-center">
             <IconFile
               size={28}
               className="mx-auto mb-2 text-muted-foreground"
             />
-            <p className="text-sm text-muted-foreground">
-              {docListFilter === "reviews"
-                ? "No reviews yet"
-                : "No documents yet"}
-            </p>
+            <p className="text-sm text-muted-foreground">No documents yet</p>
           </div>
         ) : filteredDocs.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
@@ -330,7 +283,7 @@ export function DocsSidebar({
             {filteredDocs.map((doc) => {
               const segment = entityPathSegment(doc);
               if (!segment) return null;
-              const href = `${basePath}/docs/${segment}/${defaultDocTab(doc.kind)}`;
+              const href = `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`;
               const isSelected = pathname.startsWith(
                 `${basePath}/docs/${segment}`,
               );
@@ -358,17 +311,6 @@ export function DocsSidebar({
                           onClick={onNavigate}
                           className={sidebarNavLinkClass(isSelected)}
                         >
-                          {doc.kind === "pr-recap" ? (
-                            <IconGitMerge
-                              size={16}
-                              className={cn(
-                                "shrink-0",
-                                isSelected
-                                  ? "text-sidebar-primary"
-                                  : "text-muted-foreground",
-                              )}
-                            />
-                          ) : null}
                           <span className="min-w-0 flex-1 truncate">
                             {doc.title}
                           </span>

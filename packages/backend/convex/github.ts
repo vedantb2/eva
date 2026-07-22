@@ -12,4 +12,9 @@ export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";
 
 export { getPrDiff } from "./_github/prDiff";
 
+export {
+  listPullRequests,
+  getPullRequestOverview,
+} from "./_github/pullRequests";
+
 export { syncRepos } from "./_github/sync";

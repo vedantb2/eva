@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Navigate, redirect } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import {
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/docs/$numId/$docTab")(
 );
 
 function DocDetailTabPage() {
-  const { numId, docTab } = Route.useParams();
+  const { owner, repo, numId, docTab } = Route.useParams();
   const { basePath, repoId } = useRepo();
   const parsedNumId = parseRouteNumId(numId);
   const doc = useQuery(
@@ -61,6 +61,23 @@ function DocDetailTabPage() {
   if (doc === null) {
     return (
       <EntityNotFound entityLabel="document" backTo={`${basePath}/docs`} />
+    );
+  }
+
+  // PR recaps moved to Reviews — keep old /docs/$numId links working.
+  if (doc.kind === "pr-recap" && doc.prNumber !== undefined) {
+    return (
+      <Navigate
+        to="/$owner/$repo/reviews/$prNumber/$reviewTab"
+        params={{
+          owner,
+          repo,
+          prNumber: String(doc.prNumber),
+          reviewTab: "recap",
+        }}
+        search={(prev) => prev}
+        replace
+      />
     );
   }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Repo Reviews tab for GitHub PRs - 2026-07-22
+
+PR review lived awkwardly under Documents (recap filter) and only inside sandbox Review once a surface already had a prUrl. Reviews is now a sibling nav item with a PR list and Overview / Recap / Diff tabs keyed by GitHub PR number, shared across monorepo apps. Documents no longer lists recaps; sticky GitHub recap comments link to Reviews.
+
 ## Pin Convex local backend for Vercel sandbox glibc - 2026-07-22
 
 CarePulse seeded snapshot builds started failing when `version.convex.dev` began serving `precompiled-2026-07-21-82d5e9f`, which needs GLIBC_2.35 that Vercel sandboxes do not have — `npx convex dev` died and startups saw `No CONVEX_DEPLOYMENT set`. Background/seed launches now pin `--local-backend-version precompiled-2026-07-20-c4dfbcf` and align `.convex` config to that pin (instead of "newest cached").

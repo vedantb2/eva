@@ -10,6 +10,7 @@ export type ContextSidebarMode =
   | "sessions"
   | "settings"
   | "docs"
+  | "reviews"
   | "testing-arena"
   | "automations";
 
@@ -19,6 +20,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = new Map<string, ContextSidebarMode>([
   ["Sessions", "sessions"],
   ["Settings", "settings"],
   ["Documents", "docs"],
+  ["Reviews", "reviews"],
   ["Testing Arena", "testing-arena"],
   ["Automations", "automations"],
 ]);

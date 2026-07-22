@@ -19,7 +19,10 @@ const MAX_DIFF_BYTES = 500_000;
 export const getPrDiff = action({
   args: {
     repoId: v.id("githubRepos"),
-    prUrl: v.string(),
+    /** Preferred when the caller already has a PR number (Reviews routes). */
+    prNumber: v.optional(v.number()),
+    /** Sandbox Review still passes the full PR URL. */
+    prUrl: v.optional(v.string()),
   },
   returns: v.object({
     diff: v.string(),
@@ -30,9 +33,18 @@ export const getPrDiff = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const prNumber = extractPrNumber(args.prUrl);
+    const prNumber =
+      args.prNumber !== undefined
+        ? args.prNumber
+        : args.prUrl !== undefined
+          ? extractPrNumber(args.prUrl)
+          : null;
     if (prNumber === null) {
-      throw new Error(`Could not parse a PR number from URL: ${args.prUrl}`);
+      throw new Error(
+        args.prUrl !== undefined
+          ? `Could not parse a PR number from URL: ${args.prUrl}`
+          : "prNumber or prUrl is required",
+      );
     }
 
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {

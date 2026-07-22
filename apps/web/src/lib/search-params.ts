@@ -293,6 +293,22 @@ export const docListFilterParser = createParser({
 
 export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "recap";
 
+const reviewTabs = ["overview", "recap", "diff"] as const;
+export type ReviewTab = (typeof reviewTabs)[number];
+export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
+
+export function isReviewTab(s: string): s is ReviewTab {
+  return reviewTabs.some((tab) => tab === s);
+}
+
+const pullRequestListStates = ["open", "closed", "all"] as const;
+export type PullRequestListState = (typeof pullRequestListStates)[number];
+export const pullRequestListStateParser = parseAsStringLiteral(
+  pullRequestListStates,
+)
+  .withDefault("open")
+  .withOptions(searchOptions);
+
 const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")

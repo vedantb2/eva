@@ -1,0 +1,99 @@
+"use client";
+
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api } from "@conductor/backend";
+import { cn, Spinner } from "@conductor/ui";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { githubPrUrl } from "@/lib/githubPr";
+import {
+  REVIEW_DEFAULT_TAB,
+  isReviewTab,
+  type ReviewTab,
+} from "@/lib/search-params";
+import { DiffsPanel } from "@/lib/components/sandbox/DiffsPanel";
+import { PrRecapPanel } from "@/lib/components/sandbox/PrRecapPanel";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import { ReviewOverviewPanel } from "./ReviewOverviewPanel";
+
+const TABS: Array<{ value: ReviewTab; label: string }> = [
+  { value: "overview", label: "Overview" },
+  { value: "recap", label: "Recap" },
+  { value: "diff", label: "Diff" },
+];
+
+export function ReviewDetailClient({
+  prNumberParam,
+  reviewTabParam,
+}: {
+  prNumberParam: string;
+  reviewTabParam: string;
+}) {
+  const { basePath, repoId, owner, name } = useRepo();
+  const prNumber = Number(prNumberParam);
+  const isValidPrNumber = Number.isFinite(prNumber) && prNumber > 0;
+  const tab: ReviewTab = isReviewTab(reviewTabParam)
+    ? reviewTabParam
+    : REVIEW_DEFAULT_TAB;
+
+  const prUrl = isValidPrNumber
+    ? githubPrUrl(owner, name, prNumber)
+    : undefined;
+  const recapDoc = useQuery(
+    api.docs.getRecapByPrUrl,
+    prUrl ? { repoId, prUrl } : "skip",
+  );
+
+  if (!isValidPrNumber) {
+    return (
+      <EntityNotFound
+        entityLabel="pull request"
+        backTo={`${basePath}/reviews`}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1.5">
+        {TABS.map((t) => {
+          const href = `${basePath}/reviews/${prNumber}/${t.value}`;
+          const isActive = tab === t.value;
+          return (
+            <Link
+              key={t.value}
+              to={href}
+              search={(prev) => prev}
+              className={cn(
+                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                isActive
+                  ? "border-border bg-secondary text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tab === "overview" ? (
+          <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
+        ) : null}
+        {tab === "recap" ? (
+          recapDoc === undefined || prUrl === undefined ? (
+            <div className="flex h-full items-center justify-center">
+              <Spinner size="sm" />
+            </div>
+          ) : (
+            <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
+          )
+        ) : null}
+        {tab === "diff" && prUrl !== undefined ? (
+          <DiffsPanel prUrl={prUrl} repoId={repoId} />
+        ) : null}
+      </div>
+    </div>
+  );
+}

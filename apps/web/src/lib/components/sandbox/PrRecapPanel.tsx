@@ -163,7 +163,14 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             View on GitHub
             <IconExternalLink size={12} />
           </a>
-          {docPath ? (
+          {recapDoc.prNumber !== undefined ? (
+            <DynamicLink
+              to={`${basePath}/reviews/${recapDoc.prNumber}/recap`}
+              className="hover:text-foreground"
+            >
+              Open in Reviews
+            </DynamicLink>
+          ) : docPath ? (
             <DynamicLink
               to={`${basePath}/docs/${docPath}/recap`}
               className="hover:text-foreground"

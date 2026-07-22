@@ -4,8 +4,8 @@ import {
   diffNewBackgroundTaskIds,
   parseClaudeSdkTaxonomy,
   resetSdkTaxonomyStateForTest,
-} from "./sdkTaxonomy.js";
-import { applyCanonicalEvents } from "./canonical.js";
+} from "../parse/sdkTaxonomy.js";
+import { applyCanonicalEvents } from "../parse/canonical.js";
 
 beforeEach(() => {
   resetStateForTests();

@@ -49,6 +49,10 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
+import { diffNewBackgroundTaskIds } from "../parse/sdkTaxonomy.js";
+import { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
+
+export { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -71,6 +75,8 @@ const CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 const OPEN_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:openSyntheticTurn";
 const COMPLETE_SYNTHETIC_TURN_MUTATION =
   "sessionWorkflow:completeSyntheticTurn";
+const UPDATE_BACKGROUND_AGENTS_MUTATION =
+  "sessionWorkflow:updateBackgroundAgents";
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the
@@ -107,10 +113,24 @@ type DaemonMessage = Record<string, JsonValue>;
 
 type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
 
+type WarmRunner = {
+  push: (text: string) => void;
+  waitMessage: () => Promise<DaemonMessage | null>;
+  drainPending: () => DaemonMessage[];
+  hasPending: () => boolean;
+  stopTask: (taskId: string) => Promise<void>;
+};
+
+type WarmConversationalRunner = WarmRunner;
+
 type BackgroundAgentEntry = {
   toolUseId: string;
   taskId?: string;
   description?: string;
+  status: string;
+  backgrounded?: boolean;
+  startedAt: number;
+  settledAt?: number;
 };
 
 let daemonTurn: DaemonTurn | null = null;
@@ -126,6 +146,8 @@ let sawAssistantThisTurn = { value: false };
 const recognisedSubagentToolUseIds = new Set<string>();
 const settledSubagentToolUseIds = new Set<string>();
 const unsettledBackgroundAgents = new Map<string, BackgroundAgentEntry>();
+const pendingAgentStops = new Set<string>();
+let currentAgentRunner: WarmRunner | null = null;
 
 function beginWatchedTurn(): void {
   turnActive = true;
@@ -414,7 +436,6 @@ function readClaimedAttachmentUrls(payload: {
   }
   return field.filter((url): url is string => typeof url === "string");
 }
-
 function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
@@ -531,10 +552,137 @@ function completeSubtaskStep(toolUseId: string): void {
   }
 }
 
-function settleSubagent(toolUseId: string): void {
+function settleSubagent(toolUseId: string, terminalStatus: string): void {
   settledSubagentToolUseIds.add(toolUseId);
+  const entry = unsettledBackgroundAgents.get(toolUseId);
   unsettledBackgroundAgents.delete(toolUseId);
   completeSubtaskStep(toolUseId);
+  if (entry) {
+    void syncBackgroundAgentsToConvex([
+      {
+        ...entry,
+        status: terminalStatus,
+        settledAt: Date.now(),
+      },
+    ]);
+  }
+}
+
+function toConvexBackgroundAgent(
+  entry: BackgroundAgentEntry,
+): Record<string, string | number | boolean> {
+  const payload: Record<string, string | number | boolean> = {
+    toolUseId: entry.toolUseId,
+    status: entry.status,
+    startedAt: entry.startedAt,
+  };
+  if (entry.taskId) {
+    payload.taskId = entry.taskId;
+  }
+  if (entry.description) {
+    payload.description = entry.description;
+  }
+  if (entry.backgrounded === true) {
+    payload.backgrounded = true;
+  }
+  if (entry.settledAt !== undefined) {
+    payload.settledAt = entry.settledAt;
+  }
+  return payload;
+}
+
+async function syncBackgroundAgentsToConvex(
+  agents: BackgroundAgentEntry[],
+): Promise<void> {
+  if (agents.length === 0) {
+    return;
+  }
+  try {
+    await callConvexWithRetry("mutation", UPDATE_BACKGROUND_AGENTS_MUTATION, {
+      sessionId: ENTITY_ID ?? "",
+      agents: agents.map(toConvexBackgroundAgent),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
+function findAgentByTaskId(taskId: string): BackgroundAgentEntry | undefined {
+  for (const entry of unsettledBackgroundAgents.values()) {
+    if (entry.taskId === taskId) {
+      return entry;
+    }
+  }
+  return undefined;
+}
+
+function markAgentsBackgrounded(taskIds: string[]): void {
+  const patches: BackgroundAgentEntry[] = [];
+  for (const taskId of taskIds) {
+    const entry = findAgentByTaskId(taskId);
+    if (!entry || entry.backgrounded === true) {
+      continue;
+    }
+    entry.backgrounded = true;
+    patches.push({ ...entry });
+  }
+  if (patches.length > 0) {
+    void syncBackgroundAgentsToConvex(patches);
+  }
+}
+
+async function dispatchPendingAgentStops(
+  agentRunner: WarmRunner,
+): Promise<void> {
+  const pendingStops: string[] = [];
+  pendingAgentStops.forEach((toolUseId) => {
+    pendingStops.push(toolUseId);
+  });
+  for (const toolUseId of pendingStops) {
+    const entry = unsettledBackgroundAgents.get(toolUseId);
+    if (!entry?.taskId) {
+      continue;
+    }
+    pendingAgentStops.delete(toolUseId);
+    try {
+      await agentRunner.stopTask(entry.taskId);
+      log("daemon: stopTask dispatched taskId=" + entry.taskId);
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log("daemon: stopTask failed — " + messageText);
+      pendingAgentStops.add(toolUseId);
+    }
+  }
+}
+
+function handleBackgroundTasksChanged(message: DaemonMessage): void {
+  if (
+    message.type !== "system" ||
+    message.subtype !== "background_tasks_changed"
+  ) {
+    return;
+  }
+  const tasksField = message.tasks;
+  if (!Array.isArray(tasksField)) {
+    return;
+  }
+  const taskIds: string[] = [];
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskIdField = task.task_id;
+    const taskId =
+      typeof taskIdField === "string" && taskIdField.trim()
+        ? taskIdField.trim()
+        : undefined;
+    if (taskId) {
+      taskIds.push(taskId);
+    }
+  }
+  const newly = diffNewBackgroundTaskIds(taskIds);
+  markAgentsBackgrounded(newly);
 }
 
 function handleSystemTaskMessage(message: DaemonMessage): void {
@@ -547,11 +695,18 @@ function handleSystemTaskMessage(message: DaemonMessage): void {
   }
   const toolUseId = readStringField(message, "tool_use_id");
   if (subtype === "task_started" && toolUseId) {
-    unsettledBackgroundAgents.set(toolUseId, {
+    const entry: BackgroundAgentEntry = {
       toolUseId,
       taskId: readStringField(message, "task_id"),
       description: readStringField(message, "description"),
-    });
+      status: "running",
+      startedAt: Date.now(),
+    };
+    unsettledBackgroundAgents.set(toolUseId, entry);
+    void syncBackgroundAgentsToConvex([entry]);
+    if (currentAgentRunner) {
+      void dispatchPendingAgentStops(currentAgentRunner);
+    }
     return;
   }
   if (
@@ -563,9 +718,12 @@ function handleSystemTaskMessage(message: DaemonMessage): void {
       status === "completed" ||
       status === "failed" ||
       status === "killed" ||
+      status === "stopped" ||
       subtype === "task_notification";
     if (terminal) {
-      settleSubagent(toolUseId);
+      const terminalStatus =
+        status ?? (subtype === "task_notification" ? "completed" : "completed");
+      settleSubagent(toolUseId, terminalStatus);
     }
   }
 }
@@ -679,7 +837,10 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   log("daemon: real turn started");
 }
 
-function startClaimWatcher(_convRunner: WarmConversationalRunner): void {
+function startClaimWatcher(
+  agentRunner: WarmRunner,
+  _convRunner: WarmConversationalRunner,
+): void {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
@@ -693,6 +854,11 @@ function startClaimWatcher(_convRunner: WarmConversationalRunner): void {
           CLAIM_PENDING_TURN_MUTATION,
           { sessionId: ENTITY_ID ?? "", model: MODEL },
         );
+        const stopIds = readStopTaskToolUseIds(claimed);
+        for (const toolUseId of stopIds) {
+          pendingAgentStops.add(toolUseId);
+        }
+        await dispatchPendingAgentStops(agentRunner);
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
@@ -800,6 +966,7 @@ async function runDaemonMessagePump(
 
     recogniseSubagentToolUses(message);
     handleSystemTaskMessage(message);
+    handleBackgroundTasksChanged(message);
 
     if (message.type === "result" && daemonTurn === null) {
       log("daemon: result with no live turn — ignored");
@@ -978,15 +1145,6 @@ function appendSyntheticResultLine(output: string, replyText: string): string {
   return trimBufferHead(output + line);
 }
 
-type WarmRunner = {
-  push: (text: string) => void;
-  waitMessage: () => Promise<DaemonMessage | null>;
-  drainPending: () => DaemonMessage[];
-  hasPending: () => boolean;
-};
-
-type WarmConversationalRunner = WarmRunner;
-
 /**
  * Persistent conversational query (Haiku, no tools/MCP/resume). Booted once at
  * daemon start so conversational turns only pay model time, not CLI spawn.
@@ -1050,7 +1208,11 @@ function createWarmConversationalRunner(
 
   const hasPending = (): boolean => pending.length > 0;
 
-  return { push, waitMessage, drainPending, hasPending };
+  const stopTask = async (_taskId: string): Promise<void> => {
+    log("daemon: stopTask ignored on conversational runner");
+  };
+
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 
 /**
@@ -1114,7 +1276,15 @@ function createWarmAgentRunner(
 
   const hasPending = (): boolean => pending.length > 0;
 
-  return { push, waitMessage, drainPending, hasPending };
+  const stopTask = async (taskId: string): Promise<void> => {
+    if (typeof query.stopTask === "function") {
+      await query.stopTask(taskId);
+      return;
+    }
+    log("daemon: stopTask unavailable on SDK query handle");
+  };
+
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 
 /** Drops post-assistant SDK messages until the turn's result line is consumed. */
@@ -1390,6 +1560,7 @@ export async function runSdkDaemon(): Promise<void> {
   const sdk = await loadSdk();
   const convRunner = createWarmConversationalRunner(sdk);
   const agentRunner = createWarmAgentRunner(sdk, options);
+  currentAgentRunner = agentRunner;
 
   log(
     "runSdkDaemon started (entityId=" +
@@ -1404,7 +1575,7 @@ export async function runSdkDaemon(): Promise<void> {
   // continuations between real turns).
   log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  startClaimWatcher(convRunner);
+  startClaimWatcher(agentRunner, convRunner);
 
   try {
     await runDaemonMessagePump(agentRunner, convRunner);

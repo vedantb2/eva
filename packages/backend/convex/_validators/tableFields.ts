@@ -204,6 +204,24 @@ export const agentRunFields = {
   runAuditEnabled: v.optional(v.boolean()),
 };
 
+import type { Infer } from "convex/values";
+
+export const backgroundAgentEntryFields = {
+  toolUseId: v.string(),
+  taskId: v.optional(v.string()),
+  description: v.optional(v.string()),
+  status: v.string(),
+  backgrounded: v.optional(v.boolean()),
+  startedAt: v.number(),
+  settledAt: v.optional(v.number()),
+};
+
+export const backgroundAgentEntryValidator = v.object(
+  backgroundAgentEntryFields,
+);
+
+export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
+
 export const sessionFields = {
   ...entityNumIdFields,
   repoId: v.id("githubRepos"),
@@ -273,6 +291,10 @@ export const sessionFields = {
   // Daemon-minted continuation turn (background subagent report-back). Cleared
   // when completeSyntheticTurn finalizes the placeholder by messageId.
   syntheticTurnMessageId: v.optional(v.id("messages")),
+  // Background Agent/Task runs tracked for the composer chip (start/settle only).
+  backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
+  // User-requested stops drained by claimPendingTurn for the warm daemon.
+  pendingTaskStops: v.optional(v.array(v.string())),
 };
 
 export const syncSettingFields = {

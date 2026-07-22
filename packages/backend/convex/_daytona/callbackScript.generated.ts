@@ -2651,10 +2651,7 @@ function parseClaudeSdkTaxonomy(event) {
     for (const taskId of newly) {
       const description = descriptions.get(taskId);
       events.push(
-        ...pushNoticeStep(
-          "Agent moved to background",
-          description ?? taskId
-        )
+        ...pushNoticeStep("Agent moved to background", description ?? taskId)
       );
     }
     return events;
@@ -4435,6 +4432,20 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
+// callback-src/providers/claimPendingTurnParse.ts
+function readStopTaskToolUseIds(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return [];
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const field = payload.stopTaskToolUseIds;
+  if (!Array.isArray(field)) {
+    return [];
+  }
+  return field.filter((id) => typeof id === "string");
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -4445,6 +4456,7 @@ var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var OPEN_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:openSyntheticTurn";
 var COMPLETE_SYNTHETIC_TURN_MUTATION = "sessionWorkflow:completeSyntheticTurn";
+var UPDATE_BACKGROUND_AGENTS_MUTATION = "sessionWorkflow:updateBackgroundAgents";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
@@ -4464,6 +4476,8 @@ var sawAssistantThisTurn = { value: false };
 var recognisedSubagentToolUseIds = /* @__PURE__ */ new Set();
 var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
 var unsettledBackgroundAgents = /* @__PURE__ */ new Map();
+var pendingAgentStops = /* @__PURE__ */ new Set();
+var currentAgentRunner = null;
 function beginWatchedTurn() {
   turnActive = true;
   turnStartedAtMs = Date.now();
@@ -4754,10 +4768,117 @@ function completeSubtaskStep(toolUseId) {
     }
   }
 }
-function settleSubagent(toolUseId) {
+function settleSubagent(toolUseId, terminalStatus) {
   settledSubagentToolUseIds.add(toolUseId);
+  const entry = unsettledBackgroundAgents.get(toolUseId);
   unsettledBackgroundAgents.delete(toolUseId);
   completeSubtaskStep(toolUseId);
+  if (entry) {
+    void syncBackgroundAgentsToConvex([
+      {
+        ...entry,
+        status: terminalStatus,
+        settledAt: Date.now()
+      }
+    ]);
+  }
+}
+function toConvexBackgroundAgent(entry) {
+  const payload = {
+    toolUseId: entry.toolUseId,
+    status: entry.status,
+    startedAt: entry.startedAt
+  };
+  if (entry.taskId) {
+    payload.taskId = entry.taskId;
+  }
+  if (entry.description) {
+    payload.description = entry.description;
+  }
+  if (entry.backgrounded === true) {
+    payload.backgrounded = true;
+  }
+  if (entry.settledAt !== void 0) {
+    payload.settledAt = entry.settledAt;
+  }
+  return payload;
+}
+async function syncBackgroundAgentsToConvex(agents) {
+  if (agents.length === 0) {
+    return;
+  }
+  try {
+    await callConvexWithRetry("mutation", UPDATE_BACKGROUND_AGENTS_MUTATION, {
+      sessionId: ENTITY_ID ?? "",
+      agents: agents.map(toConvexBackgroundAgent)
+    });
+  } catch {
+  }
+}
+function findAgentByTaskId(taskId) {
+  for (const entry of unsettledBackgroundAgents.values()) {
+    if (entry.taskId === taskId) {
+      return entry;
+    }
+  }
+  return void 0;
+}
+function markAgentsBackgrounded(taskIds) {
+  const patches = [];
+  for (const taskId of taskIds) {
+    const entry = findAgentByTaskId(taskId);
+    if (!entry || entry.backgrounded === true) {
+      continue;
+    }
+    entry.backgrounded = true;
+    patches.push({ ...entry });
+  }
+  if (patches.length > 0) {
+    void syncBackgroundAgentsToConvex(patches);
+  }
+}
+async function dispatchPendingAgentStops(agentRunner) {
+  const pendingStops = [];
+  pendingAgentStops.forEach((toolUseId) => {
+    pendingStops.push(toolUseId);
+  });
+  for (const toolUseId of pendingStops) {
+    const entry = unsettledBackgroundAgents.get(toolUseId);
+    if (!entry?.taskId) {
+      continue;
+    }
+    pendingAgentStops.delete(toolUseId);
+    try {
+      await agentRunner.stopTask(entry.taskId);
+      log("daemon: stopTask dispatched taskId=" + entry.taskId);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("daemon: stopTask failed \\u2014 " + messageText);
+      pendingAgentStops.add(toolUseId);
+    }
+  }
+}
+function handleBackgroundTasksChanged(message) {
+  if (message.type !== "system" || message.subtype !== "background_tasks_changed") {
+    return;
+  }
+  const tasksField = message.tasks;
+  if (!Array.isArray(tasksField)) {
+    return;
+  }
+  const taskIds = [];
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskIdField = task.task_id;
+    const taskId = typeof taskIdField === "string" && taskIdField.trim() ? taskIdField.trim() : void 0;
+    if (taskId) {
+      taskIds.push(taskId);
+    }
+  }
+  const newly = diffNewBackgroundTaskIds(taskIds);
+  markAgentsBackgrounded(newly);
 }
 function handleSystemTaskMessage(message) {
   if (message.type !== "system") {
@@ -4769,18 +4890,26 @@ function handleSystemTaskMessage(message) {
   }
   const toolUseId = readStringField2(message, "tool_use_id");
   if (subtype === "task_started" && toolUseId) {
-    unsettledBackgroundAgents.set(toolUseId, {
+    const entry = {
       toolUseId,
       taskId: readStringField2(message, "task_id"),
-      description: readStringField2(message, "description")
-    });
+      description: readStringField2(message, "description"),
+      status: "running",
+      startedAt: Date.now()
+    };
+    unsettledBackgroundAgents.set(toolUseId, entry);
+    void syncBackgroundAgentsToConvex([entry]);
+    if (currentAgentRunner) {
+      void dispatchPendingAgentStops(currentAgentRunner);
+    }
     return;
   }
   if ((subtype === "task_updated" || subtype === "task_notification") && toolUseId) {
     const status = readStringField2(message, "status");
-    const terminal = status === "completed" || status === "failed" || status === "killed" || subtype === "task_notification";
+    const terminal = status === "completed" || status === "failed" || status === "killed" || status === "stopped" || subtype === "task_notification";
     if (terminal) {
-      settleSubagent(toolUseId);
+      const terminalStatus = status ?? (subtype === "task_notification" ? "completed" : "completed");
+      settleSubagent(toolUseId, terminalStatus);
     }
   }
 }
@@ -4885,7 +5014,7 @@ function startRealAgentTurn(turn, agentRunner) {
   agentTurnOutput = "";
   log("daemon: real turn started");
 }
-function startClaimWatcher(_convRunner) {
+function startClaimWatcher(agentRunner, _convRunner) {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
@@ -4899,6 +5028,11 @@ function startClaimWatcher(_convRunner) {
           CLAIM_PENDING_TURN_MUTATION,
           { sessionId: ENTITY_ID ?? "", model: MODEL }
         );
+        const stopIds = readStopTaskToolUseIds(claimed);
+        for (const toolUseId of stopIds) {
+          pendingAgentStops.add(toolUseId);
+        }
+        await dispatchPendingAgentStops(agentRunner);
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
@@ -4978,6 +5112,7 @@ async function runDaemonMessagePump(agentRunner, convRunner) {
     }
     recogniseSubagentToolUses(message);
     handleSystemTaskMessage(message);
+    handleBackgroundTasksChanged(message);
     if (message.type === "result" && daemonTurn === null) {
       log("daemon: result with no live turn \\u2014 ignored");
       continue;
@@ -5163,7 +5298,10 @@ function createWarmConversationalRunner(sdk) {
     return drained;
   };
   const hasPending = () => pending.length > 0;
-  return { push, waitMessage, drainPending, hasPending };
+  const stopTask = async (_taskId) => {
+    log("daemon: stopTask ignored on conversational runner");
+  };
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 function createWarmAgentRunner(sdk, options) {
   const { push, iterable } = createPromptStream();
@@ -5211,7 +5349,14 @@ function createWarmAgentRunner(sdk, options) {
     return drained;
   };
   const hasPending = () => pending.length > 0;
-  return { push, waitMessage, drainPending, hasPending };
+  const stopTask = async (taskId) => {
+    if (typeof query.stopTask === "function") {
+      await query.stopTask(taskId);
+      return;
+    }
+    log("daemon: stopTask unavailable on SDK query handle");
+  };
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 async function drainUntilConversationalResult(runner) {
   while (true) {
@@ -5414,12 +5559,13 @@ async function runSdkDaemon() {
   const sdk = await loadSdk();
   const convRunner = createWarmConversationalRunner(sdk);
   const agentRunner = createWarmAgentRunner(sdk, options);
+  currentAgentRunner = agentRunner;
   log(
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
   log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  startClaimWatcher(convRunner);
+  startClaimWatcher(agentRunner, convRunner);
   try {
     await runDaemonMessagePump(agentRunner, convRunner);
   } catch (error) {

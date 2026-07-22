@@ -31,6 +31,8 @@ import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
+import { backgroundAgentEntryValidator } from "../_validators/tableFields";
+import { mergeBackgroundAgents } from "./backgroundAgents";
 
 // --- Completion event ---
 
@@ -885,19 +887,33 @@ export const claimPendingTurn = authMutation({
     // Resolved download URLs for this turn's input image attachments. The daemon
     // fetches these and hands the agent local file paths before running the turn.
     attachmentUrls: v.array(v.string()),
+    stopTaskToolUseIds: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
       turnKind: "agent",
       attachmentUrls: [],
-    } satisfies { prompt: null; turnKind: SessionTurnKind; attachmentUrls: [] };
+      stopTaskToolUseIds: [],
+    } satisfies {
+      prompt: null;
+      turnKind: SessionTurnKind;
+      attachmentUrls: string[];
+      stopTaskToolUseIds: string[];
+    };
     const session = await ctx.db.get(args.sessionId);
     if (!session) return emptyClaim;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (!session.pendingTurn) return emptyClaim;
+    const stopTaskToolUseIds = session.pendingTaskStops ?? [];
+    if (stopTaskToolUseIds.length > 0) {
+      await ctx.db.patch(args.sessionId, { pendingTaskStops: undefined });
+    }
+
+    if (!session.pendingTurn) {
+      return { ...emptyClaim, stopTaskToolUseIds };
+    }
 
     const pendingModel = session.pendingTurn.model;
     if (pendingModel !== undefined) {
@@ -906,7 +922,7 @@ export const claimPendingTurn = authMutation({
         console.log(
           `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
         );
-        return emptyClaim;
+        return { ...emptyClaim, stopTaskToolUseIds };
       }
     }
 
@@ -925,7 +941,56 @@ export const claimPendingTurn = authMutation({
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, turnKind, attachmentUrls };
+    return { prompt, turnKind, attachmentUrls, stopTaskToolUseIds };
+  },
+});
+
+/** Daemon patches background Agent/Task lifecycle entries (start/settle only). */
+export const updateBackgroundAgents = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    agents: v.array(backgroundAgentEntryValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    if (args.agents.length === 0) return null;
+
+    await ctx.db.patch(args.sessionId, {
+      backgroundAgents: mergeBackgroundAgents(
+        session.backgroundAgents,
+        args.agents,
+      ),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/** User-facing stop request for a background agent; drained via claimPendingTurn. */
+export const requestStopBackgroundAgent = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    toolUseId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    const pending = session.pendingTaskStops ?? [];
+    if (pending.includes(args.toolUseId)) return null;
+
+    await ctx.db.patch(args.sessionId, {
+      pendingTaskStops: [...pending, args.toolUseId],
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

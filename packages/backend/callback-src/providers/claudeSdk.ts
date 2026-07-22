@@ -39,6 +39,7 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
  */
 export type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
   interrupt?: () => Promise<void>;
+  stopTask?: (taskId: string) => Promise<void>;
 };
 
 export type JsonLike =

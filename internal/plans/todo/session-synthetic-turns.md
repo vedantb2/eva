@@ -220,7 +220,7 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 - [x] Changelog entry
 - [x] Regenerated `callbackScript.generated.ts` (required for sandbox daemons)
 - [x] Fix: do not drain agent pump after finalize / before real turn (would orphan continuations)
-- [ ] Manual replay: session-43 background-agent scenario
+- [x] Manual replay: session-43 background-agent scenario (session 41 on `vvedantb/eva` / good-mule-506 — interim “I'll follow up” then synthetic bubble with `isSyntheticTurn: true`)
 - [ ] Manual: AskUserQuestion inside synthetic turn round-trip
 - [ ] Manual: kill daemon mid-synthetic → stale handler (~12 min)
 

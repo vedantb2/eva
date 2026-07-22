@@ -1,5 +1,11 @@
 # Changelog
 
+## Session synthetic turns (Tranche B) - 2026-07-22
+
+Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.
+
+Reason: product surface for background subagents — users see lifecycle telemetry and can stop in-flight agents without hunting the timeline.
+
 ## Session synthetic turns (Tranche A) - 2026-07-22
 
 Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.

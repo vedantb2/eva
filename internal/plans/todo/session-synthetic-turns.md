@@ -224,8 +224,30 @@ New step type strings (`notice`, `hook`, `status`) need icon/label handling in `
 - [ ] Manual: AskUserQuestion inside synthetic turn round-trip
 - [ ] Manual: kill daemon mid-synthetic → stale handler (~12 min)
 
-### Explicitly deferred (Tranche B / C)
+### Tranche B implementation status (2026-07-22)
 
-- [ ] `backgroundAgents` session doc + chip UI + stop path
-- [ ] Remaining SDK taxonomy rows (notice/hook/status steps, `tool_progress`, etc.)
+#### Phase 5 — Taxonomy completion
+
+- [x] `parse/sdkTaxonomy.ts` — notice/hook/status steps, compaction, hooks, files persisted, background_tasks_changed notice, tool_progress/summary patches, model reroute, unknown-kind logging
+- [x] `activity-shared.tsx` — notice/hook/status step icons
+- [x] `callback-src/tests/sdkTaxonomy.test.ts`
+- [x] `build:callback` + `typecheck:callback`
+
+#### Phase 6 — Background agents surface
+
+- [x] `sessionFields.backgroundAgents` + `pendingTaskStops`
+- [x] `updateBackgroundAgents` + `requestStopBackgroundAgent`; `claimPendingTurn.stopTaskToolUseIds` drain
+- [x] Daemon: start/settle doc writes, `backgrounded` patch, `query.stopTask` dispatch, pending stop queue
+- [x] `BackgroundAgentsChip.tsx` mounted in session chat composer region
+- [x] `tests/sessionBackgroundAgents.test.ts`
+- [x] `npx convex codegen --typecheck enable`
+
+#### Phase 7 — Verify + docs
+
+- [x] Changelog entry
+- [ ] Manual: chip lifecycle + stop round-trip
+- [ ] `/ship`
+
+### Explicitly deferred (Tranche C)
+
 - [ ] Task sandbox chat + project chat daemon migration

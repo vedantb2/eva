@@ -1013,9 +1013,8 @@ export const launchSeedRun = internalAction({
     // so quoting inside user commands can never break the script) ----
     lines.push('echo "SEEDRUN-STAGE:daemons"');
     (backgroundCommands ?? []).forEach((command, i) => {
-      // Convex daemons need the same pin/agent-mode wrapper as
-      // runBackgroundCommands — seedrun used to launch the raw command and
-      // downloaded a GLIBC_2.35 backend that Vercel sandboxes cannot run.
+      // Convex daemons need the same plant/agent-mode wrapper as
+      // runBackgroundCommands (anonymous CLI rejects --local-backend-version).
       const scriptBody = isConvexBackendCommand(command)
         ? buildConvexBackgroundScriptBody(command)
         : command;

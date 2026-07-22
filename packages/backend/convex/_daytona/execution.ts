@@ -391,9 +391,8 @@ export const runBackgroundCommands = internalAction({
       // the daemon. With a script file the cmdline is just the file path.
       // Base64 transport also makes user quoting unbreakable.
       //
-      // CarePulse local backends: pin binary + unset agent mode before launch.
-      // See convexLocalBackend.ts — "newest cached" alignment was wrong once
-      // latest required GLIBC_2.35 that Vercel sandboxes do not have.
+      // CarePulse local backends: plant glibc-safe binary + unset agent mode.
+      // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
       const scriptBody = isConvexCommand
         ? buildConvexBackgroundScriptBody(command)
         : command;

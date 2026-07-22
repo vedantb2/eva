@@ -81,8 +81,11 @@ export async function launchDevServerInVercelConsole(
   }
   // mouse off always — tmux mouse mode breaks Console into history/copy-mode.
   // alternate-screen off keeps output in xterm scrollback (visible scrollbar).
+  // status off: the status bar shrinks tmux's scroll region by one row, and
+  // xterm only pushes scrolled lines into scrollback when the scroll spans the
+  // full viewport — with the bar on, the Console scrollbar never appears.
   await handle.exec(
-    `tmux set-option -g mouse off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} history-limit 50000`,
+    `tmux set-option -g mouse off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} status off; tmux set-option -t ${sessionName} history-limit 50000`,
     { cwd: "/", timeoutSeconds: 5 },
   );
 

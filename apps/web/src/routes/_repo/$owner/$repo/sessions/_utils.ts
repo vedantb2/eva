@@ -125,6 +125,9 @@ export function startVercelPty(
   // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
   // existing session so reconnects don't thrash create/destroy.
   // alternate-screen off: keep output in xterm scrollback (Console scrollbar).
+  // status off: the status bar shrinks tmux's scroll region by one row, and
+  // xterm only pushes lines into scrollback when a scroll spans the FULL
+  // viewport — with the bar on, nothing ever reaches scrollback (no scrollbar).
   // mouse off (global + session): never let tmux capture the wheel.
   // New tmux sessions start bash with sandbox env sourced so typed commands
   // (e.g. pnpm run dev) see the same secrets as agent exec / auto-launch.
@@ -140,6 +143,7 @@ export function startVercelPty(
         `  tmux set-option -g mouse off`,
         `  tmux set-option -t ${sessionName} mouse off`,
         `  tmux set-option -t ${sessionName} alternate-screen off`,
+        `  tmux set-option -t ${sessionName} status off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,

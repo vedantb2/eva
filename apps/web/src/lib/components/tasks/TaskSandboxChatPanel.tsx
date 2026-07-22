@@ -23,6 +23,7 @@ import {
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -71,6 +72,9 @@ export function TaskSandboxChatPanel({
   const enqueueMessage = useMutation(api.agentTaskChatWorkflow.enqueueMessage);
   const cancelExecution = useMutation(
     api.agentTaskChatWorkflow.cancelExecution,
+  );
+  const requestStopBackgroundAgent = useMutation(
+    api.agentTaskChatWorkflow.requestStopBackgroundAgent,
   );
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
@@ -219,6 +223,12 @@ export function TaskSandboxChatPanel({
           />
         </div>
       ) : null}
+      <BackgroundAgentsChip
+        backgroundAgents={task?.backgroundAgents}
+        onRequestStop={async (toolUseId) => {
+          await requestStopBackgroundAgent({ taskId, toolUseId });
+        }}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}

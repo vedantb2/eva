@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
-import type { Id } from "@conductor/backend";
+import { useMutation } from "convex/react";
+import { api, type Id } from "@conductor/backend";
 import { Badge } from "@conductor/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
@@ -48,6 +49,9 @@ export function TaskDetailInline({
     useState<SandboxTab>("preview");
   const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
+  const prewarmChatDaemon = useMutation(
+    api.agentTaskChatWorkflow.prewarmChatDaemon,
+  );
 
   const {
     isLoading,
@@ -120,6 +124,11 @@ export function TaskDetailInline({
     isCreatingPr,
     handleCreatePr,
   } = useTaskDetail(taskId, routing);
+
+  useEffect(() => {
+    if (!isSandboxActive || !sandboxId) return;
+    void prewarmChatDaemon({ taskId });
+  }, [taskId, isSandboxActive, sandboxId, prewarmChatDaemon]);
 
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   // Must stay above early returns so hooks order is stable.

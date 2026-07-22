@@ -46,13 +46,13 @@ function ProofMediaViewer({ proof }: { proof: TaskProof }) {
       <img
         src={proof.url}
         alt={proof.fileName ?? "Eva attached proof"}
-        className="media-outline mx-auto block h-auto w-auto max-w-none"
+        className="media-outline mx-auto block max-h-[calc(90vh-3rem)] max-w-full object-contain"
       />
     );
   }
   return (
-    <div className="p-4">
-      <VideoPreview url={proof.url} />
+    <div className="flex max-h-[calc(90vh-3rem)] max-w-full items-center justify-center p-4">
+      <VideoPreview url={proof.url} className="max-h-full max-w-full" />
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function ProofCaptureGallery({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-[90vw] overflow-hidden p-0">
+      <DialogContent className="flex max-h-[90vh] max-w-[90vw] flex-col overflow-hidden p-0">
         <DialogTitle className="sr-only">
           {proofs.length > 1
             ? `Eva attached proofs (${safeIndex + 1} of ${proofs.length})`
@@ -103,7 +103,7 @@ export function ProofCaptureGallery({
             Open in new tab
           </a>
         </DialogHeader>
-        <div className="relative">
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {proofs.length > 1 ? (
             <>
               <Button
@@ -132,10 +132,8 @@ export function ProofCaptureGallery({
               </Button>
             </>
           ) : null}
-          <div className="max-h-[90vh] overflow-auto scrollbar">
-            <div className="flex min-h-[50vh] min-w-full items-start justify-center p-4 pt-10">
-              <ProofMediaViewer key={current._id} proof={current} />
-            </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4 pt-10">
+            <ProofMediaViewer key={current._id} proof={current} />
           </div>
         </div>
       </DialogContent>

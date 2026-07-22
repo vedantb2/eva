@@ -84,7 +84,7 @@ export function GlobalSessionGroup({
                 </span>
               }
             />
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-sidebar-foreground">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
               {label}
             </span>
             <IconChevronDown

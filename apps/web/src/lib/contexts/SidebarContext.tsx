@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
+import { useSessionStorage } from "usehooks-ts";
 
 const COOKIE_NAME = "sidebar-collapsed";
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -17,18 +18,6 @@ function writeCookie(collapsed: boolean) {
   document.cookie = `${COOKIE_NAME}=${collapsed}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`;
 }
 
-function readSessionsNavMode(): SessionsNavMode {
-  if (typeof sessionStorage === "undefined") return "repo";
-  return sessionStorage.getItem(SESSIONS_NAV_MODE_KEY) === "global"
-    ? "global"
-    : "repo";
-}
-
-function writeSessionsNavMode(mode: SessionsNavMode) {
-  if (typeof sessionStorage === "undefined") return;
-  sessionStorage.setItem(SESSIONS_NAV_MODE_KEY, mode);
-}
-
 interface SidebarContextType {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
@@ -41,17 +30,12 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsedState] = useState(readCookie);
-  const [sessionsNavMode, setSessionsNavModeState] =
-    useState<SessionsNavMode>(readSessionsNavMode);
+  const [sessionsNavMode, setSessionsNavMode] =
+    useSessionStorage<SessionsNavMode>(SESSIONS_NAV_MODE_KEY, "repo");
 
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value);
     writeCookie(value);
-  };
-
-  const setSessionsNavMode = (mode: SessionsNavMode) => {
-    setSessionsNavModeState(mode);
-    writeSessionsNavMode(mode);
   };
 
   return (

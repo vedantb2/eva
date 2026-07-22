@@ -259,41 +259,52 @@ export function TaskActivityComposerForm({
                 <TooltipContent>{disabledReason}</TooltipContent>
               )}
             </Tooltip>
-            {/* Always visible for quick tasks — applies only when Make changes
-                submits a re-run. Was gated on Make changes and easy to miss. */}
+            {/* Always visible for quick tasks; disabled until Make changes is on. */}
             {!isProjectTask && (
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={cn(
-                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-muted hover:text-foreground",
-                          captureProof || runAudit
-                            ? "text-foreground"
-                            : "text-muted-foreground",
-                        )}
-                        aria-label={
-                          changeRequestOptionCount > 0
-                            ? `Change-request options, ${changeRequestOptionCount} enabled`
-                            : "Change-request options"
-                        }
+                    <span className="inline-flex">
+                      <DropdownMenuTrigger
+                        asChild
+                        disabled={!effectiveRequestingChanges}
                       >
-                        <IconAdjustmentsHorizontal className="size-3.5" />
-                        Options
-                        {changeRequestOptionCount > 0 ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
-                            {changeRequestOptionCount}
-                          </span>
-                        ) : null}
-                      </button>
-                    </DropdownMenuTrigger>
+                        <button
+                          type="button"
+                          disabled={!effectiveRequestingChanges}
+                          className={cn(
+                            "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+                            !effectiveRequestingChanges
+                              ? "cursor-not-allowed text-muted-foreground opacity-50"
+                              : "hover:bg-muted hover:text-foreground",
+                            effectiveRequestingChanges &&
+                              (captureProof || runAudit)
+                              ? "text-foreground"
+                              : effectiveRequestingChanges
+                                ? "text-muted-foreground"
+                                : null,
+                          )}
+                          aria-label={
+                            changeRequestOptionCount > 0
+                              ? `Change-request options, ${changeRequestOptionCount} enabled`
+                              : "Change-request options"
+                          }
+                        >
+                          <IconAdjustmentsHorizontal className="size-3.5" />
+                          Options
+                          {changeRequestOptionCount > 0 ? (
+                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                              {changeRequestOptionCount}
+                            </span>
+                          ) : null}
+                        </button>
+                      </DropdownMenuTrigger>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     {effectiveRequestingChanges
                       ? "Extra steps for this change request"
-                      : "Extra steps when you Make changes"}
+                      : "Turn on Make changes to set proof/audit"}
                   </TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="start">

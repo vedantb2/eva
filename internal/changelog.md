@@ -1,5 +1,9 @@
 # Changelog
 
+## Comment Options disabled until Make changes - 2026-07-22
+
+Quick-task comment Options stays visible next to Make changes but is disabled (with a short tooltip) until Make changes is on, so the control is discoverable without looking active for plain comments.
+
 ## Comment Options always visible on quick tasks - 2026-07-22
 
 Proof/audit for a change-request run lived behind Make changes, so the Options control was easy to miss. It now sits next to Make changes whenever the composer is shown for a quick task (still only applies when that request starts a run).

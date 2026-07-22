@@ -87,21 +87,28 @@ export const waitForProofMedia = internalAction({
     timeoutMs: v.optional(v.number()),
   },
   returns: v.boolean(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<boolean> => {
     const timeoutMs = args.timeoutMs ?? 20_000;
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const hasMedia = await ctx.runQuery(internal.taskProof.hasMediaForRun, {
-        taskId: args.taskId,
-        runId: args.runId,
-      });
+      const hasMedia: boolean = await ctx.runQuery(
+        internal.taskProof.hasMediaForRun,
+        {
+          taskId: args.taskId,
+          runId: args.runId,
+        },
+      );
       if (hasMedia) return true;
       await sleep(2_000);
     }
-    return await ctx.runQuery(internal.taskProof.hasMediaForRun, {
-      taskId: args.taskId,
-      runId: args.runId,
-    });
+    const finalHasMedia: boolean = await ctx.runQuery(
+      internal.taskProof.hasMediaForRun,
+      {
+        taskId: args.taskId,
+        runId: args.runId,
+      },
+    );
+    return finalHasMedia;
   },
 });
 

@@ -400,7 +400,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
 type DaemonMessage = Record<string, JsonValue>;
 
 /** Processes one SDK message through the streaming pipeline. */
-function processDaemonMessage(
+function handleDaemonMessage(
   message: DaemonMessage,
   output: string,
   turnStartedAt: number,
@@ -511,10 +511,13 @@ function appendSyntheticResultLine(output: string, replyText: string): string {
   return trimBufferHead(output + line);
 }
 
-type WarmConversationalRunner = {
+type WarmRunner = {
   push: (text: string) => void;
   waitMessage: () => Promise<DaemonMessage | null>;
+  drainPending: () => DaemonMessage[];
 };
+
+type WarmConversationalRunner = WarmRunner;
 
 /**
  * Persistent conversational query (Haiku, no tools/MCP/resume). Booted once at
@@ -571,7 +574,83 @@ function createWarmConversationalRunner(
     return message ?? null;
   };
 
-  return { push, waitMessage };
+  const drainPending = (): DaemonMessage[] => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+
+  return { push, waitMessage, drainPending };
+}
+
+/**
+ * Session-lifetime agent query pump. Same queue-backed shape as the
+ * conversational runner so turn boundaries are state changes, not loop exits.
+ */
+function createWarmAgentRunner(
+  sdk: Awaited<ReturnType<typeof loadSdk>>,
+  options: ReturnType<typeof buildSdkOptions>,
+): WarmRunner {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm agent query()");
+  const query = sdk.query({ prompt: iterable, options });
+
+  const pending: DaemonMessage[] = [];
+  let notify: (() => void) | null = null;
+  let pumpFinished = false;
+
+  const wakeWaiters = (): void => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log("daemon: agent query pump failed — " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+
+  const waitMessage = async (): Promise<DaemonMessage | null> => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise<void>((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+
+  const drainPending = (): DaemonMessage[] => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+
+  return { push, waitMessage, drainPending };
+}
+
+/** Logs pump messages buffered between turns without attributing them. */
+function drainAndLogBufferedMessages(runner: WarmRunner): void {
+  for (const message of runner.drainPending()) {
+    const messageType = typeof message.type === "string" ? message.type : "?";
+    log("daemon: post-result message buffered type=" + messageType);
+  }
 }
 
 /** Drops post-assistant SDK messages until the turn's result line is consumed. */
@@ -868,8 +947,7 @@ export async function runSdkDaemon(): Promise<void> {
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
   const convRunner = createWarmConversationalRunner(sdk);
-  const { push, iterable } = createPromptStream();
-  const query = sdk.query({ prompt: iterable, options });
+  const agentRunner = createWarmAgentRunner(sdk, options);
 
   log(
     "runSdkDaemon started (entityId=" +
@@ -915,79 +993,107 @@ export async function runSdkDaemon(): Promise<void> {
     if (nextTurn === null) {
       log("daemon: idle timeout after conversational turns — exiting");
     } else {
-      let turnStartedAt = Date.now();
-      const sawFirstMessageThisTurn = { value: false };
-      const sawAssistantThisTurn = { value: false };
-      beginWatchedTurn();
-      push(nextTurn.prompt);
-      S.activeAttemptStartedAt = turnStartedAt;
+      let exiting = false;
 
-      let output = "";
-      for await (const message of query) {
-        if (
-          typeof message !== "object" ||
-          message === null ||
-          Array.isArray(message)
-        ) {
-          continue;
+      const runAgentTurn = async (turn: ClaimedTurn): Promise<boolean> => {
+        drainAndLogBufferedMessages(agentRunner);
+        const turnStartedAt = Date.now();
+        const sawFirstMessageThisTurn = { value: false };
+        const sawAssistantThisTurn = { value: false };
+        beginWatchedTurn();
+        agentRunner.push(turn.prompt);
+        S.activeAttemptStartedAt = turnStartedAt;
+
+        let output = "";
+        while (true) {
+          const message = await agentRunner.waitMessage();
+          if (message === null) {
+            if (turnActive) {
+              await failTurnAndExit(
+                "The assistant ended without a reply. Please try again.",
+              );
+            }
+            return false;
+          }
+          noteWatchedMessage();
+          const processed = handleDaemonMessage(
+            message,
+            output,
+            turnStartedAt,
+            sawFirstMessageThisTurn,
+            sawAssistantThisTurn,
+          );
+          output = processed.output;
+          if (!processed.isResult) {
+            continue;
+          }
+
+          endWatchedTurn();
+          const resultAt = Date.now();
+          log(
+            "daemon[timing]: result message +" +
+              (resultAt - turnStartedAt) +
+              "ms after push",
+          );
+          await finalizeTurn(output);
+          log(
+            "daemon[timing]: finalizeTurn took " +
+              (Date.now() - resultAt) +
+              "ms",
+          );
+          resetTurnState();
+          drainAndLogBufferedMessages(agentRunner);
+          return true;
         }
-        noteWatchedMessage();
-        const processed = processDaemonMessage(
-          message,
-          output,
-          turnStartedAt,
-          sawFirstMessageThisTurn,
-          sawAssistantThisTurn,
-        );
-        output = processed.output;
-        if (!processed.isResult) {
-          continue;
-        }
+      };
 
-        endWatchedTurn();
-        const resultAt = Date.now();
-        log(
-          "daemon[timing]: result message +" +
-            (resultAt - turnStartedAt) +
-            "ms after push",
-        );
-        await finalizeTurn(output);
-        log(
-          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
-        );
-        resetTurnState();
-        output = "";
+      const advancePastConversationalTurns =
+        async (): Promise<ClaimedTurn | null> => {
+          let upcoming = await waitForNextTurn();
+          while (upcoming !== null && upcoming.turnKind === "conversational") {
+            const outcome = await runConversationalWarmTurn(
+              convRunner,
+              upcoming.prompt,
+            );
+            if (outcome === "escalated") {
+              return { ...upcoming, turnKind: "agent" };
+            }
+            upcoming = await waitForNextTurn();
+          }
+          return upcoming;
+        };
 
-        let upcoming = await waitForNextTurn();
-        while (upcoming !== null && upcoming.turnKind === "conversational") {
+      let currentTurn: ClaimedTurn | null = nextTurn;
+      while (!exiting && currentTurn !== null) {
+        if (currentTurn.turnKind === "conversational") {
           const outcome = await runConversationalWarmTurn(
             convRunner,
-            upcoming.prompt,
+            currentTurn.prompt,
           );
           if (outcome === "escalated") {
-            upcoming = { ...upcoming, turnKind: "agent" };
-            break;
+            currentTurn = { ...currentTurn, turnKind: "agent" };
+            continue;
           }
-          upcoming = await waitForNextTurn();
+          currentTurn = await advancePastConversationalTurns();
+          if (currentTurn === null) {
+            log("daemon: idle timeout — exiting");
+          }
+          continue;
         }
-        if (upcoming === null) {
-          log("daemon: idle timeout — exiting");
+
+        log("daemon: agent turn started");
+        const completed = await runAgentTurn(currentTurn);
+        if (!completed) {
+          exiting = true;
           break;
         }
-        log("daemon: next agent turn received");
-        turnStartedAt = Date.now();
-        sawFirstMessageThisTurn.value = false;
-        sawAssistantThisTurn.value = false;
-        S.activeAttemptStartedAt = turnStartedAt;
-        beginWatchedTurn();
-        push(upcoming.prompt);
-      }
-      // The agent query stream closed. If a turn was still in flight (no result
-      // emitted), surface a failure so the workflow's awaitEvent resolves.
-      if (turnActive) {
-        return failTurnAndExit(
-          "The assistant ended without a reply. Please try again.",
-        );
+
+        currentTurn = await advancePastConversationalTurns();
+        if (currentTurn === null) {
+          log("daemon: idle timeout — exiting");
+        } else {
+          log("daemon: next agent turn received");
+        }
       }
     }
   } catch (error) {

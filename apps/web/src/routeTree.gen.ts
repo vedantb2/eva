@@ -15,6 +15,7 @@ import { Route as RepoRouteImport } from './routes/_repo'
 import { Route as GlobalRouteImport } from './routes/_global'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
+import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
@@ -140,6 +141,11 @@ const IndexRoute = IndexRouteImport.update({
 const GlobalTestingRoute = GlobalTestingRouteImport.update({
   id: '/testing',
   path: '/testing',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const GlobalSessionsRoute = GlobalSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
@@ -724,6 +730,7 @@ export interface FileRoutesByFullPath {
   '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
@@ -828,6 +835,7 @@ export interface FileRoutesByTo {
   '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/settings/accounts': typeof GlobalSettingsAccountsRoute
@@ -914,6 +922,7 @@ export interface FileRoutesById {
   '/preview-auth': typeof PreviewAuthRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
+  '/_global/sessions': typeof GlobalSessionsRoute
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/_global/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
@@ -1020,6 +1029,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/home'
     | '/inbox'
+    | '/sessions'
     | '/testing'
     | '/teams/$teamId'
     | '/artifacts/$artifactId'
@@ -1124,6 +1134,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/home'
     | '/inbox'
+    | '/sessions'
     | '/testing'
     | '/artifacts/$artifactId'
     | '/settings/accounts'
@@ -1209,6 +1220,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/_global/home'
     | '/_global/inbox'
+    | '/_global/sessions'
     | '/_global/testing'
     | '/_global/teams/$teamId'
     | '/_global/artifacts/$artifactId'
@@ -1359,6 +1371,13 @@ declare module '@tanstack/react-router' {
       path: '/testing'
       fullPath: '/testing'
       preLoaderRoute: typeof GlobalTestingRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/sessions': {
+      id: '/_global/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof GlobalSessionsRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/inbox': {
@@ -2069,6 +2088,7 @@ const GlobalTeamsTeamIdRouteRouteWithChildren =
 interface GlobalRouteChildren {
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
+  GlobalSessionsRoute: typeof GlobalSessionsRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
   GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute
@@ -2086,6 +2106,7 @@ interface GlobalRouteChildren {
 const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
+  GlobalSessionsRoute: GlobalSessionsRoute,
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,
   GlobalArtifactsArtifactIdRoute: GlobalArtifactsArtifactIdRoute,

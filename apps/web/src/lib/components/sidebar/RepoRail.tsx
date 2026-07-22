@@ -20,12 +20,16 @@ import {
   IconPencil,
   IconUsers,
 } from "@tabler/icons-react";
-import { InboxIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import {
+  InboxIcon,
+  SessionsIcon,
+} from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
 import {
   appLeafName,
   appMatchesLabel,
@@ -90,9 +94,9 @@ function railTileActive(active: boolean): string {
 }
 
 /**
- * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts), then
- * repos, then Testing (dev) / account / settings at the bottom. Clicking a repo
- * switches the active app and routes to its root via onSelect.
+ * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
+ * Sessions), then repos, then Testing (dev) / account / settings at the bottom.
+ * Clicking a repo switches the active app and routes to its root via onSelect.
  */
 export function RepoRail({
   repos,
@@ -106,6 +110,7 @@ export function RepoRail({
   userEmail,
   showSearch,
 }: RepoRailProps) {
+  const { sessionsNavMode, setSessionsNavMode } = useSidebar();
   const unreadCount = useQuery(api.notifications.countUnread);
   const activeSandboxRepoIds = useQuery(
     api.githubRepos.listReposWithActiveSandboxes,
@@ -117,6 +122,13 @@ export function RepoRail({
   const teamsActive = pathname === "/teams" || pathname.startsWith("/teams/");
   const artifactsActive =
     pathname === "/artifacts" || pathname.startsWith("/artifacts/");
+  const pathParts = pathname.split("/").filter(Boolean);
+  const onRepoSessionsPath =
+    pathParts.includes("sessions") && pathParts[0] !== "sessions";
+  const sessionsActive =
+    pathname === "/sessions" ||
+    pathname.startsWith("/sessions/") ||
+    (sessionsNavMode === "global" && onRepoSessionsPath);
   const testingActive =
     pathname === "/testing" || pathname.startsWith("/testing/");
   const unreadLabel =
@@ -198,6 +210,23 @@ export function RepoRail({
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">Artifacts</TooltipContent>
+        </Tooltip>
+        <div className="h-px w-8 bg-sidebar-border" aria-hidden />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/sessions"
+              onClick={() => {
+                setSessionsNavMode("global");
+                onNavigate();
+              }}
+              aria-label="Sessions"
+              className={cn(RAIL_TILE_CLASS, railTileActive(sessionsActive))}
+            >
+              <SessionsIcon size={22} className="shrink-0" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Sessions</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>

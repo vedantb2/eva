@@ -25,6 +25,7 @@ import {
   buildJumpRailTicks,
   buildMessageHistory,
   findLastUserMessageIndex,
+  findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
   parsePendingQuestion,
@@ -243,6 +244,10 @@ export function ChatBody({
       isOtherUser && message.userId
         ? firstNameByUserId.get(message.userId)
         : undefined;
+    const precedingUser =
+      message.role === "assistant"
+        ? findPrecedingUserTurn(messages, message._id)
+        : undefined;
 
     return (
       <ChatMessage
@@ -252,6 +257,9 @@ export function ChatBody({
         isLast={isLast}
         isOtherUser={isOtherUser}
         senderFirstName={senderFirstName}
+        turnModel={precedingUser?.model}
+        turnReasoningLevel={precedingUser?.reasoningLevel}
+        turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
         streamingActivity={
           isStreamingPlaceholder ? streamingActivity : undefined
         }

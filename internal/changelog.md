@@ -1,5 +1,9 @@
 # Changelog
 
+## Auto-stop session sandbox when PR merges/closes - 2026-07-23
+
+Merged/closed sessions became read-only but the webhook only patched `prState`, so Vercel VMs could stay active with no clean teardown. GitHub PR terminal events now request the same stop path as the Stop button; opening an already-stuck merged session also triggers stop (and skips daemon prewarm that would resume the VM).
+
 ## Sandbox chat model follows task.model - 2026-07-23
 
 Quick-task sandbox chat kept its model in localStorage (often the repo default), so switching between `/quick-tasks/$id` and `/sandbox/preview` could show Claude on the activity page and Grok in the sandbox. Sandbox now binds to and persists `task.model` / owner accounts like the activity composer; only traits stay local.

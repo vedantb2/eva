@@ -1,5 +1,9 @@
 # Changelog
 
+## Snapshot seed commands split from startup commands - 2026-07-23
+
+Startup commands served two lifecycles at once: one-time data seeding (env set, convex import) and per-boot work (readiness gates, docker restarts). Seed steps consume their inputs at snapshot build, so the forced per-boot re-run failed on every fresh sandbox and wasted 1-2 minutes re-applying baked env vars. New `repoSnapshots.seedCommands` run once per seeded build in the post-daemon phase (services up) and never on boot; the Snapshots settings page gains the field, startup-command copy now states the real build-and-every-boot contract, and eva/eprocurement/staging configs were migrated in prod (eva boots with 2 commands instead of 31). Startup-command failures now also surface on the session as a startup warning instead of vanishing into transient console logs, and message-less startup errors persist their constructor and stack so the recurring anonymous ~5-minute failure can identify itself.
+
 ## Chat renders all agent media via mediaStorageIds - 2026-07-23
 
 Task chat recordings were stranded in the sandbox: the stub-spam fix disabled proof capture for chat, which also gated media upload, and task-chat media routed to the proof timeline instead of the chat message. The capture flag now only gates RUN_ID runs, task chat attaches via `attachMedia`, and messages hold an ordered `mediaStorageIds` array (legacy single image/video fields resolve as fallback) so multiple recordings/screenshots per turn all render inline instead of only the last one.

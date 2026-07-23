@@ -1,5 +1,9 @@
 # Changelog
 
+## Live notification toasts animate in - 2026-07-23
+
+New notifications already streamed into a top-right toast stack, but they teleported on arrive/dismiss. Enter/exit now slide from that same corner (opacity + slight y/x) via Motion `AnimatePresence`, with a gentler opacity-only path when reduced motion is preferred.
+
 ## Global Sessions sidebar shows Archived again - 2026-07-23
 
 The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.

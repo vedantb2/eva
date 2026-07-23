@@ -6,6 +6,7 @@ import {
   phaseValidator,
   priorityValidator,
   aiModelValidator,
+  reasoningLevelValidator,
 } from "../validators";
 import {
   authMutation,
@@ -444,6 +445,60 @@ export const setTerminalHistoryTail = authMutation({
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, {
       terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat model (`lastChatModel`). No `updatedAt` bump — picker
+ * changes are not conversation activity. Distinct from `projects.model`
+ * (metadata / build prefs).
+ */
+export const setChatModel = authMutation({
+  args: {
+    id: v.id("projects"),
+    model: aiModelValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, { lastChatModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat traits (effort / thinking / 1M). No `updatedAt` bump.
+ * Only provided fields are patched.
+ */
+export const setTraits = authMutation({
+  args: {
+    id: v.id("projects"),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
     });
     return null;
   },

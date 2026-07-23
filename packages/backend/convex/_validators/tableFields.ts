@@ -205,6 +205,10 @@ export const agentTaskFields = {
   ...chatDaemonEntityFields,
   // Last model used in sandbox chat; page-open prewarm matches the composer.
   lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const agentRunFields = {
@@ -488,6 +492,10 @@ export const projectFields = {
   ...chatDaemonEntityFields,
   // Last model used in sandbox chat; page-open prewarm matches the composer.
   lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const projectDetailsFields = {

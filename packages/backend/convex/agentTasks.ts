@@ -20,6 +20,7 @@ export {
   setPreviewPath,
   setPreviewPort,
   setTerminalHistoryTail,
+  setTraits,
 } from "./_agentTasks/mutations";
 
 export {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Task/project sticky chat traits + project chat model - 2026-07-23
+
+Sandbox chat effort/thinking/1M lived in localStorage, and project chat model did too, so picks reset across devices unlike sessions. Traits now stick on `agentTasks` / `projects` (`lastReasoningLevel` / …) via `setTraits` (and on send/enqueue); project composer model uses sticky `lastChatModel` via `setChatModel`. Task model stays on shared `agentTasks.model`.
+
 ## Task/project sticky Preview path/port + console tail - 2026-07-23
 
 Quick-task and project sandboxes still kept Preview path and console scrollback in sessionStorage (and never wrote user port changes back to `devPort`), so they reset across devices unlike sessions. Same Convex sticky contract now: `previewPath`, port via `devPort`, and a debounced 500-line `terminalHistoryTail` on `agentTasks` / `projects` (no `updatedAt` bump).

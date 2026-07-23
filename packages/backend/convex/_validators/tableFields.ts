@@ -285,6 +285,8 @@ export const sessionFields = {
   // Sticky thinking / 1M context toggles (same contract as lastReasoningLevel).
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  // Sticky composer mode (edit / plan). Absent → client default "edit".
+  lastMode: v.optional(sessionModeValidator),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),

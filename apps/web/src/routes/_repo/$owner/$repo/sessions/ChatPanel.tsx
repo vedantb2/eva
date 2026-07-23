@@ -113,11 +113,15 @@ export function ChatPanel({
 
   const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model + traits are owned by Convex; mode stays local.
-  const { model, setModel, traits, setTraits } = useSessionModel(
-    sessionId,
-    defaultModel,
-  );
+  // Model + mode + traits are owned by Convex.
+  const {
+    model,
+    setModel,
+    mode: stickyMode,
+    setMode: setStickyMode,
+    traits,
+    setTraits,
+  } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
     setMode,
@@ -130,6 +134,8 @@ export function ChatPanel({
     defaultModel,
     model,
     onModelChange: setModel,
+    mode: stickyMode,
+    onModeChange: setStickyMode,
     traits,
     onTraitsPersist: setTraits,
   });

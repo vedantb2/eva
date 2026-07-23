@@ -134,6 +134,7 @@ export const startExecute = authMutation({
       // Persist the session owner's sticky account for page-open prewarm.
       providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
+      lastMode: args.mode,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -276,6 +277,7 @@ export const enqueueMessage = authMutation({
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,
+      lastMode: args.mode,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),

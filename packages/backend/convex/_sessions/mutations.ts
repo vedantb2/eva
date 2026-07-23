@@ -80,6 +80,7 @@ export const create = authMutation({
       numId,
       providerAccountId,
       lastModel: model,
+      ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -205,6 +206,26 @@ export const setModel = authMutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { lastModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sets the sticky composer mode for a session. Same contract as `setModel`:
+ * write on change (optimistic on the client), do not bump `updatedAt`.
+ */
+export const setMode = authMutation({
+  args: {
+    id: v.id("sessions"),
+    mode: sessionModeValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { lastMode: args.mode });
     return null;
   },
 });

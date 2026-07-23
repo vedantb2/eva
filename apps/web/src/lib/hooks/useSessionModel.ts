@@ -10,16 +10,20 @@ import {
 } from "@conductor/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import {
+  normalizeMode,
+  type SessionMode,
+} from "@/lib/hooks/useSessionSettings";
 
 /**
- * Session composer model + traits backed by Convex (`sessions.lastModel`,
- * `lastReasoningLevel`, `lastThinkingEnabled`, `lastUse1mContext`) as the
- * source of truth. Read straight off the live `sessions.get` query — no
- * mirrored `useState` — so picks stay sticky across reloads, tabs, and devices.
+ * Session composer model, mode, and traits backed by Convex
+ * (`sessions.lastModel` / `lastMode` / trait fields) as the source of truth.
+ * Read straight off the live `sessions.get` query — no mirrored `useState` —
+ * so picks stay sticky across reloads, tabs, and devices.
  *
- * Changes go through `sessions.setModel` / `sessions.setTraits` with optimistic
- * patches of the cached query. While the session query is still loading the
- * picker shows `defaultModel` and model-default traits.
+ * Changes go through `sessions.setModel` / `setMode` / `setTraits` with
+ * optimistic patches. While the session query is still loading the picker
+ * shows `defaultModel`, mode `"edit"`, and model-default traits.
  */
 export function useSessionModel(
   sessionId: Id<"sessions">,
@@ -27,6 +31,8 @@ export function useSessionModel(
 ): {
   model: AIModel;
   setModel: (model: AIModel) => void;
+  mode: SessionMode | undefined;
+  setMode: (mode: SessionMode) => void;
   /** Sticky traits from Convex; undefined fields fall back to localStorage. */
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
@@ -41,6 +47,17 @@ export function useSessionModel(
       api.sessions.get,
       { id: args.id },
       { ...current, lastModel: args.model },
+    );
+  });
+  const setModeMutation = useMutation(
+    api.sessions.setMode,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      { ...current, lastMode: args.mode },
     );
   });
   const setTraitsMutation = useMutation(
@@ -75,6 +92,10 @@ export function useSessionModel(
     });
   };
 
+  const setMode = (mode: SessionMode) => {
+    void setModeMutation({ id: sessionId, mode });
+  };
+
   const setTraits = (partial: Partial<StoredModelTraits>) => {
     const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
     void setTraitsMutation({
@@ -92,6 +113,11 @@ export function useSessionModel(
   return {
     model,
     setModel,
+    mode:
+      session?.lastMode !== undefined
+        ? normalizeMode(session.lastMode)
+        : undefined,
+    setMode,
     traits: {
       effortLevel: session?.lastReasoningLevel,
       thinkingEnabled: session?.lastThinkingEnabled,

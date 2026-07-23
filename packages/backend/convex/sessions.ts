@@ -12,6 +12,7 @@ export {
   updateStatus,
   update,
   setModel,
+  setMode,
   setTraits,
   updateSummary,
   archive,

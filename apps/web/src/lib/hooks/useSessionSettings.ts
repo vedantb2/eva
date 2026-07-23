@@ -15,7 +15,7 @@ const SESSION_MODES = ["edit", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
 
 /** Migrates old stored mode values ("ask"/"execute") to "edit". */
-function normalizeMode(mode: string): SessionMode {
+export function normalizeMode(mode: string): SessionMode {
   if (mode === "ask" || mode === "execute") return "edit";
   if (mode === "plan") return "plan";
   return "edit";
@@ -50,6 +50,9 @@ export function useSessionSettings(
     // model. New-session composers omit these and keep the local-storage model.
     model?: AIModel;
     onModelChange?: (model: AIModel) => void;
+    // Same pattern for composer mode (`sessions.lastMode`).
+    mode?: SessionMode;
+    onModeChange?: (mode: SessionMode) => void;
     /**
      * Sticky traits from Convex. Undefined fields fall back to localStorage
      * (migration / first paint). When `onTraitsPersist` is set, trait edits
@@ -69,6 +72,7 @@ export function useSessionSettings(
   );
 
   const model = overrides?.model ?? normalizeAIModel(settings.model);
+  const mode = normalizeMode(overrides?.mode ?? settings.mode);
 
   const storedTraits: StoredModelTraits = {
     effortLevel: overrides?.traits?.effortLevel ?? settings.effortLevel,
@@ -89,8 +93,12 @@ export function useSessionSettings(
     setSettings((prev) => ({ ...prev, model: normalized }));
   };
 
-  const setMode = (mode: SessionMode) => {
-    setSettings((prev) => ({ ...prev, mode }));
+  const setMode = (nextMode: SessionMode) => {
+    if (overrides?.onModeChange) {
+      overrides.onModeChange(nextMode);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, mode: nextMode }));
   };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
@@ -107,7 +115,7 @@ export function useSessionSettings(
 
   return {
     model,
-    mode: normalizeMode(settings.mode),
+    mode,
     storedTraits,
     displayTraits,
     executionTraits,

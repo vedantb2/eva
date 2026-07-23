@@ -43,6 +43,9 @@ const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 // Image toolchain baked in). Matches the version baked into the Daytona
 // Image (buildSnapshotImage) so seed behaviour is identical across providers.
 const SUPABASE_CLI_VERSION = "2.90.0";
+// Pinned GitHub CLI for Vercel seeds. Daytona Image gets `gh` from apt; Amazon
+// Linux dnf repos don't ship it, so we install the official release tarball.
+const GH_CLI_VERSION = "2.72.0";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -915,6 +918,9 @@ export const launchSeedRun = internalAction({
         "git config --global --add safe.directory '*'",
         // Pinned Supabase CLI (tarball — same pinned version as the Daytona Image's .deb install).
         `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+        // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
+        // release tarball (dnf has no `gh` package by default).
+        `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
         'sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
         'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
         'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',

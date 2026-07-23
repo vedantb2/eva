@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sticky thinking + 1M toggles on Convex - 2026-07-23
+
+Effort was already session-sticky via `lastReasoningLevel`, but thinking / 1M still lived in localStorage and reset across devices. Sessions now store `lastThinkingEnabled` / `lastUse1mContext` through a unified `setTraits` mutation (replacing effort-only `setReasoningLevel`), written on change and on create/send/enqueue.
+
 ## Session sticky reasoning effort on Convex - 2026-07-23
 
 `lastModel` was moved to Convex but composer effort stayed in localStorage, so a Medium pick silently reset to the Claude model default (High) on reload / another device. Sessions now store `lastReasoningLevel` (set on change + create/send/enqueue), wired like `lastModel`.

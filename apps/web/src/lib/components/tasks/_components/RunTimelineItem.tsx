@@ -121,6 +121,15 @@ export function RunTimelineItem({
       </Tooltip>
     ) : null;
 
+  const modelProvider = run.model ? getAIModelProvider(run.model) : null;
+  const modelDisplayLabel =
+    run.model && modelProvider
+      ? formatModelDisplayLabel(
+          modelProvider,
+          findModelOption(run.model, AI_MODEL_OPTIONS)?.label ?? run.model,
+        )
+      : null;
+
   return (
     <Accordion type="multiple" defaultValue={[]}>
       <AccordionItem value={run._id} className="border-none">
@@ -155,22 +164,20 @@ export function RunTimelineItem({
                   >
                     {getRunStatusLabel(run, hasRunComment)}
                   </Badge>
-                  {run.model ? (
-                    <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                      <ProviderIcon
-                        provider={getAIModelProvider(run.model)}
-                        size={12}
-                      />
-                      <span className="truncate">
-                        {formatModelDisplayLabel(
-                          getAIModelProvider(run.model),
-                          findModelOption(run.model, AI_MODEL_OPTIONS)?.label ??
-                            run.model,
-                        )}
-                      </span>
-                    </span>
-                  ) : null}
-                  {run.credentialSourceLabel ? (
+                  {modelProvider && modelDisplayLabel ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex shrink-0 text-muted-foreground">
+                          <ProviderIcon provider={modelProvider} size={12} />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {run.credentialSourceLabel
+                          ? `${modelDisplayLabel} · ${run.credentialSourceLabel}`
+                          : modelDisplayLabel}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : run.credentialSourceLabel ? (
                     <Badge variant="secondary">
                       {run.credentialSourceLabel}
                     </Badge>

@@ -133,6 +133,22 @@ function parseClaudeStreamEvent(event: JsonObject): CanonicalEvent[] {
     events.push({ kind: "mark_message_start" });
     return events;
   }
+  if (inner.type === "content_block_start") {
+    // A new text block opening mid-message (interleaved thinking emits
+    // text → thinking → text with no message_start between) needs a paragraph
+    // break so the blocks do not clump. Only text blocks — thinking/tool blocks
+    // are not appended to the streamed content.
+    const contentBlock =
+      inner.content_block &&
+      typeof inner.content_block === "object" &&
+      !Array.isArray(inner.content_block)
+        ? inner.content_block
+        : null;
+    if (contentBlock && contentBlock.type === "text") {
+      events.push({ kind: "mark_text_block_start" });
+    }
+    return events;
+  }
   if (inner.type !== "content_block_delta") return events;
   const delta =
     inner.delta &&

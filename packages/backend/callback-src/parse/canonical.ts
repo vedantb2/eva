@@ -200,19 +200,33 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         markLastComplete();
         break;
       case "append_text":
-        appendStreamedContent(ev.text);
+        // A whole (non-streamed) assistant text block — always a boundary, so a
+        // paragraph break separates it from any prior block.
+        appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
         // Live token delta from an Anthropic partial message. Appends exactly
         // like append_text but marks the flag so the FINAL assistant message's
-        // duplicate text block is skipped (see claudeParseLine dedup).
-        appendStreamedContent(ev.text);
+        // duplicate text block is skipped (see claudeParseLine dedup). The break
+        // is applied only on the first delta after a message boundary.
+        appendStreamedContent(ev.text, S.pendingParagraphBreak);
+        S.pendingParagraphBreak = false;
         S.streamedAssistantTextThisMessage = true;
         break;
       case "mark_message_start":
         // A new assistant message is beginning; clear the per-message dedup flag
-        // so its text blocks stream fresh.
+        // so its text blocks stream fresh, and request a paragraph break before
+        // this message's first streamed text.
         S.streamedAssistantTextThisMessage = false;
+        S.pendingParagraphBreak = true;
+        break;
+      case "mark_text_block_start":
+        // A new text content block is opening inside the current message. With
+        // interleaved thinking the model emits text → thinking → text within one
+        // message (no message_start between them), so request a paragraph break
+        // here too — otherwise consecutive text blocks butt together. The break
+        // itself only lands when there is prior content (see appendStreamedContent).
+        S.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
         S.lastStepType = "thinking";
@@ -253,14 +267,29 @@ export function parseStreamEvent(line: string): boolean {
 }
 
 /** Appends new text to the current streamed content buffer. */
-export function appendStreamedContent(text: string): void {
+export function appendStreamedContent(
+  text: string,
+  isBlockBoundary = false,
+): void {
   const nextText = String(text);
   if (!nextText) {
     return;
   }
   if (nextText.startsWith(S.currentStreamedContent)) {
+    // A full snapshot supersedes the accumulated streamed text (dedup); never a
+    // boundary, so no separator is inserted.
     S.currentStreamedContent = nextText;
     return;
+  }
+  if (
+    isBlockBoundary &&
+    S.currentStreamedContent.length > 0 &&
+    !S.currentStreamedContent.endsWith("\n") &&
+    !nextText.startsWith("\n")
+  ) {
+    // Distinct assistant message/block — keep a paragraph break so the end of
+    // one block does not butt against the start of the next.
+    S.currentStreamedContent += "\n\n";
   }
   S.currentStreamedContent += nextText;
 }

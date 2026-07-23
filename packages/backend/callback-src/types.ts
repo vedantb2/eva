@@ -86,6 +86,7 @@ export type CanonicalEvent =
   | { kind: "append_text"; text: string }
   | { kind: "stream_text_delta"; text: string }
   | { kind: "mark_message_start" }
+  | { kind: "mark_text_block_start" }
   | { kind: "update_reasoning"; text: string }
   | { kind: "set_pending_question"; data: string }
   | { kind: "set_todos"; todos: TodoItem[] }

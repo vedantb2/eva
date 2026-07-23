@@ -1,5 +1,11 @@
 # Changelog
 
+## Warm seed-prep from base Image - 2026-07-23
+
+Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.
+
+Reason: warm Image boots cut seed time and avoid cold-install 404s without breaking daemon-dependent startup commands.
+
 ## Queue row uses provider icon - 2026-07-22
 
 Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.

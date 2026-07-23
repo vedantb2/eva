@@ -11,13 +11,14 @@ export { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 export { UserMentionChip } from "./UserMentionChip";
 export { LinkChip } from "./LinkChip";
 export {
-  isFigmaUrl,
-  figmaLinkLabel,
+  isChipLinkUrl,
+  linkProvider,
   linkLabel,
   LINK_URL_SOURCE,
   findLinkUrls,
   countLinkUrls,
 } from "./linkChip";
+export type { LinkProvider } from "./linkChip";
 export { UserMentionText } from "./UserMentionText";
 export { DocMentionChip } from "./DocMentionChip";
 export { SkillMentionChip } from "./SkillMentionChip";

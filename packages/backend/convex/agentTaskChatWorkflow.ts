@@ -218,6 +218,15 @@ export const startExecute = authMutation({
           }
         : { pendingTurn: undefined }),
       lastChatModel: normalizedModel,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
       updatedAt: Date.now(),
     });
 
@@ -304,7 +313,19 @@ export const enqueueMessage = authMutation({
       providerAccountId: task.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
-    await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
+    await ctx.db.patch(args.taskId, {
+      lastChatModel: normalizeAIModel(args.model),
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

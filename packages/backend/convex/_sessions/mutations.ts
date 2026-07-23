@@ -20,6 +20,11 @@ import {
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -80,6 +85,16 @@ export const create = authMutation({
       numId,
       providerAccountId,
       lastModel: model,
+      ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -196,6 +211,160 @@ export const setModel = authMutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { lastModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sets the sticky composer mode for a session. Same contract as `setModel`:
+ * write on change (optimistic on the client), do not bump `updatedAt`.
+ */
+export const setMode = authMutation({
+  args: {
+    id: v.id("sessions"),
+    mode: sessionModeValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { lastMode: args.mode });
+    return null;
+  },
+});
+
+/**
+ * Sets the sticky provider account for a session (owner-only). Same contract as
+ * `setModel`: write on change (optimistic on the client), do not bump
+ * `updatedAt`. Pass `null` to clear back to Team.
+ */
+export const setProviderAccountId = authMutation({
+  args: {
+    id: v.id("sessions"),
+    providerAccountId: v.union(v.id("userProviderAccounts"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    const ownerUserId = session.createdBy ?? session.userId;
+    if (ctx.userId !== ownerUserId) {
+      throw new Error("Only the session owner can change the provider account");
+    }
+    const providerAccountId = await assertProviderAccountOwnedBy(
+      ctx.db,
+      args.providerAccountId,
+      ownerUserId,
+    );
+    await ctx.db.patch(args.id, { providerAccountId });
+    return null;
+  },
+});
+
+/**
+ * Sets sticky composer traits for a session (effort / thinking / 1M). Same
+ * contract as `setModel`: write on change (optimistic on the client), do not
+ * bump `updatedAt`. Only provided fields are patched.
+ */
+export const setTraits = authMutation({
+  args: {
+    id: v.id("sessions"),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky Preview path for a session. No `updatedAt` bump — navigation is not
+ * conversation activity.
+ */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("sessions"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky Preview port for a session (stored as `devPort`). No `updatedAt` bump.
+ */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("sessions"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the session doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("sessions"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
     return null;
   },
 });

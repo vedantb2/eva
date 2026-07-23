@@ -1,6 +1,6 @@
 import { api, normalizeAIModel, type Doc, type Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -113,8 +113,19 @@ export function ChatPanel({
 
   const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model is owned by Convex (`sessions.lastModel`); traits/mode stay local.
-  const { model, setModel } = useSessionModel(sessionId, defaultModel);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
+  // Model + mode + traits + account are owned by Convex.
+  const {
+    model,
+    setModel,
+    mode: stickyMode,
+    setMode: setStickyMode,
+    traits,
+    setTraits,
+    providerAccountId: stickyProviderAccountId,
+    setProviderAccountId: setStickyProviderAccountId,
+  } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
     setMode,
@@ -127,22 +138,24 @@ export function ChatPanel({
     defaultModel,
     model,
     onModelChange: setModel,
+    mode: stickyMode,
+    onModeChange: setStickyMode,
+    traits,
+    onTraitsPersist: setTraits,
+    providerAccountId: stickyProviderAccountId,
+    onProviderAccountChange: (next) => {
+      setStickyProviderAccountId(
+        next === null ? null : (resolveAccountId(next) ?? null),
+      );
+    },
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&
     session !== undefined &&
     session !== null &&
     currentUserId === (session.createdBy ?? session.userId);
-
-  // Hydrate sticky account from the session doc (owner-sticky source of truth).
-  useEffect(() => {
-    if (!session) return;
-    setProviderAccountId(session.providerAccountId ?? null);
-  }, [session, setProviderAccountId]);
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,

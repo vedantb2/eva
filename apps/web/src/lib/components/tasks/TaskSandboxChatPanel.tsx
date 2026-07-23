@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { useLocalStorage } from "usehooks-ts";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -24,18 +23,6 @@ import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
-
-interface StoredSettings {
-  /** @deprecated Model is owned by the task doc; kept so old localStorage parses. */
-  model?: AIModel;
-  effortLevel?: ReasoningLevel;
-  thinkingEnabled?: boolean;
-  use1mContext?: boolean;
-}
-
-function chatSettingsKey(parentId: string) {
-  return `conductor:chat-settings:${parentId}`;
-}
 
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
@@ -70,23 +57,41 @@ export function TaskSandboxChatPanel({
     api.agentTaskChatWorkflow.cancelExecution,
   );
   const updateTask = useMutation(api.agentTasks.update);
+  const setTraitsMutation = useMutation(
+    api.agentTasks.setTraits,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.agentTasks.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.agentTasks.get,
+      { id: args.id },
+      {
+        ...current,
+        ...(args.reasoningLevel !== undefined
+          ? { lastReasoningLevel: args.reasoningLevel }
+          : {}),
+        ...(args.thinkingEnabled !== undefined
+          ? { lastThinkingEnabled: args.thinkingEnabled }
+          : {}),
+        ...(args.use1mContext !== undefined
+          ? { lastUse1mContext: args.use1mContext }
+          : {}),
+      },
+    );
+  });
   const requestStopBackgroundAgent = useMutation(
     api.agentTaskChatWorkflow.requestStopBackgroundAgent,
   );
 
-  // Traits stay local; model + account come from the task (same as activity
-  // composer) so detail ↔ sandbox never disagree.
-  const [settings, setSettings] = useLocalStorage<StoredSettings>(
-    chatSettingsKey(taskId),
-    {},
-  );
+  // Model + account stay on the task doc (shared with activity composer).
+  // Traits are sticky on Convex like sessions (no localStorage).
   const model = normalizeAIModel(
     task?.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
   );
   const storedTraits: StoredModelTraits = {
-    effortLevel: settings.effortLevel,
-    thinkingEnabled: settings.thinkingEnabled,
-    use1mContext: settings.use1mContext,
+    effortLevel: task?.lastReasoningLevel,
+    thinkingEnabled: task?.lastThinkingEnabled,
+    use1mContext: task?.lastUse1mContext,
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
@@ -134,7 +139,17 @@ export function TaskSandboxChatPanel({
   };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
-    setSettings((prev) => ({ ...prev, ...partial }));
+    const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
+    void setTraitsMutation({
+      id: taskId,
+      ...(reasoningLevel !== undefined ? { reasoningLevel } : {}),
+      ...(partial.thinkingEnabled !== undefined
+        ? { thinkingEnabled: partial.thinkingEnabled }
+        : {}),
+      ...(partial.use1mContext !== undefined
+        ? { use1mContext: partial.use1mContext }
+        : {}),
+    });
   };
 
   const setProviderAccountId = (next: string | null) => {

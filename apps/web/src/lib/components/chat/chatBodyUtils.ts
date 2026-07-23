@@ -123,6 +123,49 @@ export function findLastUserMessageIndex(messages: ChatBodyMessage[]): number {
   return -1;
 }
 
+/**
+ * Model / account snapshot for an assistant row: walks back to the preceding
+ * user turn (where send/dequeue stores model + credentialSourceLabel).
+ */
+export function findPrecedingUserTurn(
+  messages: ReadonlyArray<ChatBodyMessage>,
+  assistantMessageId: string,
+): ChatBodyMessage | undefined {
+  const index = messages.findIndex(
+    (message) => message._id === assistantMessageId,
+  );
+  if (index < 0) return undefined;
+  for (let i = index - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.isSystemAlert) continue;
+    if (message.role === "user") return message;
+    if (message.role === "assistant") return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a session/task chat still has an unfinished Working bubble.
+ * System alerts (`isSystemAlert`) are skipped — they can append mid-turn and
+ * must not make the composer think the reply finished.
+ */
+export function isAssistantTurnInProgress(
+  messages: ReadonlyArray<
+    Pick<ChatBodyMessage, "role" | "content" | "isSystemAlert" | "finishedAt">
+  >,
+): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.isSystemAlert) continue;
+    return (
+      message.role === "assistant" &&
+      !message.content &&
+      message.finishedAt === undefined
+    );
+  }
+  return false;
+}
+
 /** One tick per user turn for the jump rail. */
 export function buildJumpRailTicks(
   messages: ChatBodyMessage[],

@@ -30,6 +30,7 @@ import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { repoHref } from "@/lib/utils/repoUrl";
 import {
   appLeafName,
   appMatchesLabel,
@@ -63,7 +64,6 @@ interface RepoRailProps {
   currentName: string | null;
   currentAppName: string | undefined;
   pathname: string;
-  onSelect: (owner: string, name: string, rootDirectory?: string) => void;
   onNavigate: () => void;
   userName: string;
   userEmail?: string;
@@ -96,7 +96,7 @@ function railTileActive(active: boolean): string {
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
  * Sessions), then repos, then Testing (dev) / account / settings at the bottom.
- * Clicking a repo switches the active app and routes to its root via onSelect.
+ * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  */
 export function RepoRail({
   repos,
@@ -104,13 +104,12 @@ export function RepoRail({
   currentName,
   currentAppName,
   pathname,
-  onSelect,
   onNavigate,
   userName,
   userEmail,
   showSearch,
 }: RepoRailProps) {
-  const { sessionsNavMode, setSessionsNavMode } = useSidebar();
+  const { setSessionsNavMode } = useSidebar();
   const unreadCount = useQuery(api.notifications.countUnread);
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
   const activeSandboxRepoIds = useQuery(
@@ -126,10 +125,12 @@ export function RepoRail({
   const pathParts = pathname.split("/").filter(Boolean);
   const onRepoSessionsPath =
     pathParts.includes("sessions") && pathParts[0] !== "sessions";
+  // Deep session links always belong to the root Sessions rail entry (no
+  // per-app sessions sidebar), so highlight Sessions whenever the path is one.
   const sessionsActive =
     pathname === "/sessions" ||
     pathname.startsWith("/sessions/") ||
-    (sessionsNavMode === "global" && onRepoSessionsPath);
+    onRepoSessionsPath;
   const testingActive =
     pathname === "/testing" || pathname.startsWith("/testing/");
   const unreadLabel =
@@ -262,11 +263,9 @@ export function RepoRail({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ContextMenuTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onSelect(row.owner, row.name, row.rootDirectory)
-                      }
+                    <Link
+                      to={repoHref(row.owner, row.name, row.rootDirectory)}
+                      onClick={onNavigate}
                       aria-label={
                         hasActiveSandbox
                           ? `${tooltip}, sandbox active`
@@ -301,7 +300,7 @@ export function RepoRail({
                           aria-hidden
                         />
                       ) : null}
-                    </button>
+                    </Link>
                   </ContextMenuTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="right">{tooltip}</TooltipContent>

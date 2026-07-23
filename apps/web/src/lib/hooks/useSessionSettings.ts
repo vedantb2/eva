@@ -15,7 +15,7 @@ const SESSION_MODES = ["edit", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
 
 /** Migrates old stored mode values ("ask"/"execute") to "edit". */
-function normalizeMode(mode: string): SessionMode {
+export function normalizeMode(mode: string): SessionMode {
   if (mode === "ask" || mode === "execute") return "edit";
   if (mode === "plan") return "plan";
   return "edit";
@@ -50,6 +50,19 @@ export function useSessionSettings(
     // model. New-session composers omit these and keep the local-storage model.
     model?: AIModel;
     onModelChange?: (model: AIModel) => void;
+    // Same pattern for composer mode (`sessions.lastMode`).
+    mode?: SessionMode;
+    onModeChange?: (mode: SessionMode) => void;
+    /**
+     * Sticky traits from Convex. Undefined fields fall back to localStorage
+     * (migration / first paint). When `onTraitsPersist` is set, trait edits
+     * write to Convex and skip localStorage.
+     */
+    traits?: StoredModelTraits;
+    onTraitsPersist?: (partial: Partial<StoredModelTraits>) => void;
+    // Same pattern for sticky provider account (`sessions.providerAccountId`).
+    providerAccountId?: string | null;
+    onProviderAccountChange?: (providerAccountId: string | null) => void;
   },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
@@ -62,11 +75,17 @@ export function useSessionSettings(
   );
 
   const model = overrides?.model ?? normalizeAIModel(settings.model);
+  const mode = normalizeMode(overrides?.mode ?? settings.mode);
+  const providerAccountId =
+    overrides?.providerAccountId !== undefined
+      ? overrides.providerAccountId
+      : (settings.providerAccountId ?? null);
 
   const storedTraits: StoredModelTraits = {
-    effortLevel: settings.effortLevel,
-    thinkingEnabled: settings.thinkingEnabled,
-    use1mContext: settings.use1mContext,
+    effortLevel: overrides?.traits?.effortLevel ?? settings.effortLevel,
+    thinkingEnabled:
+      overrides?.traits?.thinkingEnabled ?? settings.thinkingEnabled,
+    use1mContext: overrides?.traits?.use1mContext ?? settings.use1mContext,
   };
 
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
@@ -81,26 +100,38 @@ export function useSessionSettings(
     setSettings((prev) => ({ ...prev, model: normalized }));
   };
 
-  const setMode = (mode: SessionMode) => {
-    setSettings((prev) => ({ ...prev, mode }));
+  const setMode = (nextMode: SessionMode) => {
+    if (overrides?.onModeChange) {
+      overrides.onModeChange(nextMode);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, mode: nextMode }));
   };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
+    if (overrides?.onTraitsPersist) {
+      overrides.onTraitsPersist(partial);
+      return;
+    }
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const setProviderAccountId = (providerAccountId: string | null) => {
-    setSettings((prev) => ({ ...prev, providerAccountId }));
+  const setProviderAccountId = (next: string | null) => {
+    if (overrides?.onProviderAccountChange) {
+      overrides.onProviderAccountChange(next);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, providerAccountId: next }));
   };
 
   return {
     model,
-    mode: normalizeMode(settings.mode),
+    mode,
     storedTraits,
     displayTraits,
     executionTraits,
     onTraitsChange,
-    providerAccountId: settings.providerAccountId ?? null,
+    providerAccountId,
     setModel,
     setMode,
     setProviderAccountId,

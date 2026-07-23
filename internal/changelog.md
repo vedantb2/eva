@@ -1,5 +1,9 @@
 # Changelog
 
+## Run accordion: account as provider-icon tooltip - 2026-07-23
+
+Activity run headers showed the credential account as a text badge next to the model chip, which crowded the row. The chip is now icon-only; hover shows model + account (e.g. Claude Opus · Vedant).
+
 ## Drop app Sessions sidebar + nav tab - 2026-07-23
 
 Repo home already owns session create/list entry, so the per-app Sessions drill-down sidebar and SHIP nav tab were redundant. Sessions routes stay for deep links; Designs and other context sidebars are unchanged.

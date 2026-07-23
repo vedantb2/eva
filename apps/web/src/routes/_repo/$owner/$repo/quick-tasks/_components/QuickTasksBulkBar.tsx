@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   Tooltip,
   TooltipContent,
@@ -131,7 +131,7 @@ export function QuickTasksBulkBar({
   return (
     <AnimatePresence initial={false}>
       {isSelecting && (
-        <motion.div
+        <m.div
           key="quick-tasks-bulk-bar"
           className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]"
           initial={{ opacity: 0, y: 20 }}
@@ -229,7 +229,7 @@ export function QuickTasksBulkBar({
               </Tooltip>
             </div>
           </TooltipProvider>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

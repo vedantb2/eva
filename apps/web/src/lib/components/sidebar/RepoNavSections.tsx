@@ -11,7 +11,6 @@ import {
   ReviewsIcon,
   ProjectsIcon,
   QuickTasksIcon,
-  SessionsIcon,
   SettingsIcon,
   StatsIcon,
   TestingArenaIcon,
@@ -126,11 +125,6 @@ export function RepoNavSections({
             href: `${repoBasePath}/quick-tasks`,
             icon: QuickTasksIcon,
           },
-          {
-            name: "Sessions",
-            href: `${repoBasePath}/sessions`,
-            icon: SessionsIcon,
-          },
         ],
       },
       {
@@ -175,13 +169,12 @@ export function RepoNavSections({
       },
     ];
     if (isDev) return allGroups;
-    return allGroups
-      .filter((g) => !g.devOnly)
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((i) => !i.devOnly),
-      }))
-      .filter((g) => g.items.length > 0);
+    return allGroups.flatMap((g) => {
+      if (g.devOnly) return [];
+      const items = g.items.filter((i) => !i.devOnly);
+      if (items.length === 0) return [];
+      return [{ ...g, items }];
+    });
   })();
 
   const navItemClass = (isActive: boolean) =>
@@ -192,8 +185,7 @@ export function RepoNavSections({
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {
-      const showActiveCount =
-        (item.name === "Sessions" || item.name === "Designs") && repo;
+      const showActiveCount = item.name === "Designs" && repo;
       return (
         <SharedLayoutNavSurface
           key={item.name}
@@ -216,12 +208,7 @@ export function RepoNavSections({
               )}
             />
             <span className="truncate">{item.name}</span>
-            {showActiveCount && repo && (
-              <ActiveCountBadge
-                repoId={repo._id}
-                type={item.name === "Sessions" ? "sessions" : "designs"}
-              />
-            )}
+            {showActiveCount && repo && <ActiveCountBadge repoId={repo._id} />}
             {item.name === "Automations" && repo && (
               <UnreadAutomationsBadge repoId={repo._id} />
             )}

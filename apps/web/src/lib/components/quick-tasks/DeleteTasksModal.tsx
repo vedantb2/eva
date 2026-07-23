@@ -54,9 +54,11 @@ export function DeleteTasksModal({
       await Promise.all([...selectedTaskIds].map((id) => removeTask({ id })));
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   return (

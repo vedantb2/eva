@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
@@ -64,7 +64,9 @@ export function DesignPreviewPanel({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
   const activeIframeRef = useRef<HTMLIFrameElement | null>(null);
-  activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
+  useEffect(() => {
+    activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
+  }, [activeTabIndex]);
 
   if (latestVariations.length === 0) {
     return (

@@ -70,9 +70,11 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
         autoRun,
       });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   if (issues.length === 0) {

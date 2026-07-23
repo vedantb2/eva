@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   Button,
   Tooltip,
@@ -247,7 +247,7 @@ export function QuickTasksToolbar({
       )}
       <AnimatePresence initial={false} mode="popLayout">
         {hasQuickTasks && !isSelecting ? (
-          <motion.div
+          <m.div
             key="quick-task-select-action"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -268,7 +268,7 @@ export function QuickTasksToolbar({
               </TooltipTrigger>
               <TooltipContent className="sm:hidden">Select</TooltipContent>
             </Tooltip>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       {hasQuickTasks && (

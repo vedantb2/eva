@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { repoHref } from "@/lib/utils/repoUrl";
@@ -60,7 +60,7 @@ export function RepoCard({
     if (file) uploadLogo(repo._id, file);
   };
   return (
-    <motion.div
+    <m.div
       key={repo._id}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -155,6 +155,6 @@ export function RepoCard({
         label={repo.label}
         fallbackName={appLeafName(repo)}
       />
-    </motion.div>
+    </m.div>
   );
 }

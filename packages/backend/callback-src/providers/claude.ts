@@ -21,6 +21,10 @@ import type {
 } from "../types.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
+import {
+  parseClaudeSdkTaxonomy,
+  consumesClaudeSdkTaxonomyMessage,
+} from "../parse/sdkTaxonomy.js";
 
 function claudeToolCompleteResult(
   resultText: string,
@@ -152,6 +156,9 @@ function parseClaudeStreamEvent(event: JsonObject): CanonicalEvent[] {
 }
 
 export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
+  if (consumesClaudeSdkTaxonomyMessage(event)) {
+    return parseClaudeSdkTaxonomy(event);
+  }
   const events: CanonicalEvent[] = [];
   if (event.type === "stream_event") {
     return parseClaudeStreamEvent(event);

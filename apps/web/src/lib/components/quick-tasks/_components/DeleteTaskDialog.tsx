@@ -42,9 +42,8 @@ export function DeleteTaskDialog({
       onClose();
     } catch (err) {
       console.error("Failed to delete task:", err);
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   };
 
   return (

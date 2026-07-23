@@ -1,7 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRepo } from "@/lib/contexts/RepoContext";
-import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
-import { useProjectByNumId } from "@/lib/useResolveByNumId";
 import {
   isDiffView,
   isLegacyDesktopSandboxTab,
@@ -11,7 +8,6 @@ import {
   reviewPathFromSearch,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
-import { ProjectDetailClient } from "../../ProjectDetailClient";
 
 function redirectToProjectReview(args: {
   owner: string;
@@ -159,34 +155,6 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: ProjectSandboxRoute,
+  // Shell is rendered by the `sandbox` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-function ProjectSandboxRoute() {
-  const { numId, sandboxTab } = Route.useParams();
-  const { basePath, repoId } = useRepo();
-  const {
-    status,
-    convexId,
-    numId: projectNumId,
-  } = useProjectByNumId(numId, repoId);
-  const tab = isTaskRouteSandboxTab(sandboxTab) ? sandboxTab : "preview";
-
-  return (
-    <EntityNumIdGate
-      status={status}
-      convexId={convexId}
-      entityLabel="project"
-      backTo={`${basePath}/projects`}
-    >
-      {(projectId) => (
-        <ProjectDetailClient
-          projectId={projectId}
-          projectNumId={projectNumId ?? undefined}
-          surface="sandbox"
-          sandboxTab={tab}
-        />
-      )}
-    </EntityNumIdGate>
-  );
-}

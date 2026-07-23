@@ -30,7 +30,7 @@ import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -84,7 +84,6 @@ interface ChatComposerProps {
   toolsBefore?: React.ReactNode;
   /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: ReactNode;
-  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
@@ -115,7 +114,6 @@ export function ChatComposer({
   preInputContent,
   toolsBefore,
   optionsSubmenu,
-  formatQueuedInfo,
   draft,
   isDraftLoading,
   hasPendingContext = false,
@@ -156,21 +154,22 @@ export function ChatComposer({
   const queuedMessageItems = queuedMessages.map((message) => ({
     id: message._id,
     content: message.displayContent ?? message.content,
-    info: formatQueuedInfo?.(message),
+    model: message.model,
+    reasoningLevel: message.reasoningLevel,
   }));
 
   return (
     <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
             {beforeQueuedContent}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       <QueuedMessagesPanel
@@ -187,7 +186,7 @@ export function ChatComposer({
               as="span"
               text={`${display}${suffix}`}
               repoBasePath={repoBasePath}
-              className="text-xs leading-snug text-foreground/90"
+              className="text-xs leading-4 text-foreground/90"
             />
           );
         }}

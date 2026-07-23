@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@conductor/backend";
 import {
@@ -52,19 +52,18 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   const prNumber =
     prUrl !== undefined ? prNumberFromGithubUrl(prUrl) : undefined;
 
-  useEffect(() => {
-    if (!isActive || resolvedDefault !== null) return;
+  // Resolve the default tab once recap query settles (adjust during render).
+  if (isActive && resolvedDefault === null) {
     if (!prUrl) {
       setResolvedDefault("diffs");
-      return;
+    } else if (recapDoc !== undefined) {
+      setResolvedDefault(
+        recapDoc !== null && recapDoc.prRecapStatus === "ready"
+          ? "recap"
+          : "diffs",
+      );
     }
-    if (recapDoc === undefined) return;
-    setResolvedDefault(
-      recapDoc !== null && recapDoc.prRecapStatus === "ready"
-        ? "recap"
-        : "diffs",
-    );
-  }, [isActive, prUrl, recapDoc, resolvedDefault]);
+  }
 
   const activeSubTab: PrPanelTab = prTab ?? resolvedDefault ?? "diffs";
   const showDiffChrome = activeSubTab === "diffs" && prUrl !== undefined;

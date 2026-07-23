@@ -1,18 +1,38 @@
-import { useNavigate } from "@tanstack/react-router";
+"use client";
 
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
-import { SessionDetailClient } from "../../SessionDetailClient";
+import { SessionDetailClient } from "../SessionDetailClient";
+import { useSessionRouteSandboxTab } from "../_utils/useSessionRouteSandboxTab";
+
+interface CachedSessionShellProps {
+  numId: string;
+  /** True when this shell matches the URL `$numId` (visible). */
+  isActiveRoute: boolean;
+}
 
 /**
- * Shared session page for `/review/overview`, `/review/recap`, and
- * `/review/diffs/$diffView` — same shell, Review sandbox tab active.
+ * One kept-alive session detail tree. While `isActiveRoute` is false the shell
+ * stays mounted (parent uses `hidden`) and freezes its sandbox tab so the
+ * active session's URL does not rewrite sibling caches.
  */
-export function SessionReviewPage({ numId }: { numId: string }) {
+export function CachedSessionShell({
+  numId,
+  isActiveRoute,
+}: CachedSessionShellProps) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
+  const urlSandboxTab = useSessionRouteSandboxTab();
+  const [sandboxTab, setSandboxTab] = useState(urlSandboxTab);
+
+  useEffect(() => {
+    if (!isActiveRoute) return;
+    setSandboxTab(urlSandboxTab);
+  }, [isActiveRoute, urlSandboxTab]);
 
   const openFile = (path: string) => {
     void navigate({
@@ -55,10 +75,11 @@ export function SessionReviewPage({ numId }: { numId: string }) {
       {(sessionId) => (
         <SessionDetailClient
           sessionId={sessionId}
-          activeSandboxTab="review"
+          activeSandboxTab={sandboxTab}
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
           onViewDiff={openDiffs}
+          isRouteActive={isActiveRoute}
         />
       )}
     </EntityNumIdGate>

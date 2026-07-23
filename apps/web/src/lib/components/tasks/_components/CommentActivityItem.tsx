@@ -141,9 +141,8 @@ export function CommentActivityItem({
       setEditText("");
     } catch (err) {
       console.error("Failed to update comment:", err);
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
 
   return (

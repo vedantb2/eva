@@ -34,9 +34,12 @@ export function ChatTypeToFocus({
   // composer is unfocused its value is effectively static, but a restored draft
   // means it may be non-empty — appending keeps that draft intact.
   const valueRef = useRef(controller.textInput.value);
-  valueRef.current = controller.textInput.value;
-
+  const inputValue = controller.textInput.value;
   const setInput = controller.textInput.setInput;
+
+  useEffect(() => {
+    valueRef.current = inputValue;
+  }, [inputValue]);
 
   useEffect(() => {
     if (disabled) return;

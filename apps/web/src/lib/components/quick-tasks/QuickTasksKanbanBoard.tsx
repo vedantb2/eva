@@ -122,9 +122,8 @@ export function QuickTasksKanbanBoard({
       }
     } catch (err) {
       console.error("Failed to run all:", err);
-    } finally {
-      setIsRunningAll(false);
     }
+    setIsRunningAll(false);
   };
 
   return (

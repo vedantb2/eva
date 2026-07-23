@@ -1,13 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ProjectSandboxReviewPage } from "./-ProjectSandboxReviewPage";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/projects/$numId/sandbox/review/recap",
 )({
-  component: ProjectSandboxReviewRecapRoute,
+  // Shell is rendered by the `sandbox` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-function ProjectSandboxReviewRecapRoute() {
-  const { numId } = Route.useParams();
-  return <ProjectSandboxReviewPage numId={numId} />;
-}

@@ -1,13 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SessionReviewPage } from "./-SessionReviewPage";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/review/overview",
 )({
-  component: SessionReviewOverviewRoute,
+  // Shell is rendered by the `$numId` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-function SessionReviewOverviewRoute() {
-  const { numId } = Route.useParams();
-  return <SessionReviewPage numId={numId} />;
-}

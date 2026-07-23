@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -52,11 +52,15 @@ export function NewSessionComposer() {
   } = useProviderAccounts();
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
-  // Default account once provider list is ready (adjust during render).
-  if (accountsReady && !accountDefaulted) {
-    setProviderAccountId(defaultProviderAccountId(accounts, model));
-    setAccountDefaulted(true);
-  }
+  // Default account once the provider list is ready. Runs in an effect because
+  // setProviderAccountId writes to localStorage, which dispatches a sync event —
+  // doing that during render triggers React's event-handler-in-render error.
+  useEffect(() => {
+    if (accountsReady && !accountDefaulted) {
+      setProviderAccountId(defaultProviderAccountId(accounts, model));
+      setAccountDefaulted(true);
+    }
+  }, [accountsReady, accountDefaulted, accounts, model, setProviderAccountId]);
 
   const handleSend = async (
     content: string,

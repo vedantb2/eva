@@ -99,9 +99,10 @@ export function AddAccountDialog({
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
-    const credentials = fields
-      .filter((field) => (values[field.key]?.trim().length ?? 0) > 0)
-      .map((field) => ({ key: field.key, value: values[field.key].trim() }));
+    const credentials = fields.flatMap((field) => {
+      const value = values[field.key]?.trim() ?? "";
+      return value.length > 0 ? [{ key: field.key, value }] : [];
+    });
     await upsert({
       accountId: editing?._id,
       provider,

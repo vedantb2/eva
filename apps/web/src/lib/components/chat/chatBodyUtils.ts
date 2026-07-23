@@ -102,12 +102,13 @@ export function getAssistantTurnState(
 /** Previously sent user messages as editable display text, newest-first. */
 export function buildMessageHistory(messages: ChatBodyMessage[]): string[] {
   return messages
-    .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-    .map(
-      (m) =>
-        tokenizedToEditable(stripReviewCommentBlocks(m.content ?? "").text)
+    .flatMap((m) => {
+      if (m.role !== "user" || m.isSystemAlert || !m.content) return [];
+      return [
+        tokenizedToEditable(stripReviewCommentBlocks(m.content).text)
           .displayText,
-    )
+      ];
+    })
     .reverse();
 }
 

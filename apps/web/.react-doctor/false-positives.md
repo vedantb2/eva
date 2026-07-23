@@ -21,7 +21,11 @@ TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"`
 - `ResizablePanelLayout`: `usePanelRef()` + render-prop `leftPanel(ctx)` where `ctx.onToggleRightPanel` closes over panel ref APIs. Ref is only read in the toggle event handler; compiler still flags the render-prop call sites.
 - `DocContentTab`: TipTap extension `configure({ getUserId: () => userIdRef.current })` / `onAnchorClick` must close over a stable ref so the editor is not recreated when auth resolves. Reads happen in editor callbacks, not React render.
 
-## js-set-map-lookups on tiny arrays
+## js-combine-iterations on tiny fixed enums
+
+`TASK_STATUSES` / `KANBAN_STATUSES` / `PROJECT_PHASES` `.filter().map()` chains over a handful of constant enum values — second pass cost is negligible per rule validation.
+
+The auditing `useEffect` schedules `setTimeout`s into a local `timers` array and returns `() => timers.forEach(clearTimeout)`. Cleanup is present; the detector's matcher misses `forEach(clearTimeout)` as a release. Do not remove the timers.
 
 - `EnvVarProviderSlots` `entry.matchKeys.includes` — matchKeys is a fixed slot list of a few strings.
 - `MultipleChoiceQuestion` answer `.includes` — multi-select answers are a handful of option labels per step.

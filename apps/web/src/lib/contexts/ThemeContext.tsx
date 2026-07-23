@@ -60,6 +60,9 @@ const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
   letterSpacing: "tight",
 };
 
+/** localStorage key for early-paint custom theme hint (read by index.html). */
+export const CUSTOM_THEME_HINT_KEY = "eva-custom-theme-hint";
+
 export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
   return {
     accentColor: custom.accentColor ?? CUSTOM_THEME_DEFAULTS.accentColor,
@@ -380,6 +383,21 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
     "--tracking-normal",
     LETTER_SPACING_VALUES[letterSpacing].value,
   );
+
+  // Persist hint so the next document paint can apply fonts/radius before React.
+  try {
+    localStorage.setItem(
+      CUSTOM_THEME_HINT_KEY,
+      JSON.stringify({
+        accentColor,
+        radius,
+        fontFamily,
+        letterSpacing,
+      }),
+    );
+  } catch {
+    // Ignore quota / private mode failures — live query still wins.
+  }
 
   // If using cyan (CSS default), remove any custom style element so base CSS applies
   if (accentColor === "cyan") {

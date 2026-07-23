@@ -10,7 +10,6 @@ import { entityPathSegment } from "@/lib/numId";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  Spinner,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -376,8 +375,19 @@ export function ProjectsClient() {
             />
           )}
           {projects === undefined ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Spinner />
+            <div
+              className="flex flex-1 min-h-[24rem] flex-col gap-3"
+              aria-busy="true"
+              aria-label="Loading projects"
+            >
+              <div className="flex flex-1 gap-3 overflow-hidden">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="min-w-[220px] flex-1 animate-pulse rounded-surface border border-border bg-muted/60"
+                  />
+                ))}
+              </div>
             </div>
           ) : projects.length === 0 ? (
             <EmptyState

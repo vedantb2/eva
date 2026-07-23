@@ -2,14 +2,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { useState } from "react";
-import { useLocalStorage } from "usehooks-ts";
 import { AnimatePresence } from "motion/react";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
   Button,
-  Spinner,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -46,10 +44,25 @@ export function ReposClient() {
   const [syncing, setSyncing] = useState(false);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
-  const [welcomeDismissed, setWelcomeDismissed] = useLocalStorage(
-    WELCOME_STORAGE_KEY,
-    false,
-  );
+  const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
+    // Sync read avoids banner mount/unmount flash after hydration (CLS).
+    try {
+      const raw = localStorage.getItem(WELCOME_STORAGE_KEY);
+      if (raw === null) return false;
+      // usehooks-ts previously JSON-serialized booleans as "true"/"false".
+      return raw === "true" || raw === '"true"';
+    } catch {
+      return false;
+    }
+  });
+  const handleDismissWelcome = () => {
+    setWelcomeDismissed(true);
+    try {
+      localStorage.setItem(WELCOME_STORAGE_KEY, "true");
+    } catch {
+      // Ignore quota / private mode failures.
+    }
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -59,10 +72,6 @@ export function ReposClient() {
       console.error("Sync failed:", err);
     }
     setSyncing(false);
-  };
-
-  const handleDismissWelcome = () => {
-    setWelcomeDismissed(true);
   };
 
   const connectUrl = appSlug ? buildConnectUrl(appSlug) : undefined;
@@ -200,8 +209,20 @@ export function ReposClient() {
       }
     >
       {repos === undefined || appSlug === undefined ? (
-        <div className="flex items-center justify-center py-20">
-          <Spinner size="md" />
+        <div
+          className="min-h-[28rem] space-y-6"
+          aria-busy="true"
+          aria-label="Loading repositories"
+        >
+          <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))}
+          </div>
         </div>
       ) : repos.length === 0 ? (
         <EmptyOnboarding connectUrl={buildConnectUrl(appSlug)} />

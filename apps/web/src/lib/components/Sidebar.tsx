@@ -293,10 +293,10 @@ export function Sidebar() {
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
+                // Always reserve tall header on main repo panel so team
+                // background resolving later does not shift the nav list (CLS).
                 "relative flex items-center overflow-hidden",
-                teamBackgroundUrl &&
-                  !showContextSidebar &&
-                  !showGlobalSessionsPanel
+                !showContextSidebar && !showGlobalSessionsPanel
                   ? "h-24"
                   : "h-16",
                 collapsed ? "px-2" : "px-3",

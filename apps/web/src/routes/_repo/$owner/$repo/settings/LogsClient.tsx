@@ -13,7 +13,6 @@ import {
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Kpi } from "@/lib/components/analytics/Kpi";
-import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
 import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
@@ -203,8 +202,20 @@ export function LogsClient() {
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[28rem] space-y-5"
+          aria-busy="true"
+          aria-label="Loading logs"
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-20 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))}
+          </div>
+          <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">

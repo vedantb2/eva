@@ -525,25 +525,28 @@ export async function uploadMediaFile(
 }
 
 export async function persistTaskProofIfNeeded(
-  videoStorageId: string | null,
-  imageStorageId: string | null,
-  lastFileName: string | null,
+  uploaded: { storageId: string; fileName: string }[],
 ): Promise<void> {
-  if (videoStorageId || imageStorageId) {
-    if (ENTITY_ID_FIELD === "taskId") {
-      const storageId = videoStorageId || imageStorageId;
-      const saveArgs: JsonObject = {
-        taskId: ENTITY_ID ?? "",
-        storageId: storageId ?? "",
-        fileName: lastFileName ?? "",
-      };
-      if (RUN_ID) saveArgs.runId = RUN_ID;
-      await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
+  if (uploaded.length > 0) {
+    // Only formal proof/coding runs (RUN_ID set) persist to the task proof
+    // timeline. Task chat turns fall through to attachMedia so recordings
+    // render inline on the last chat message, like session chat.
+    if (ENTITY_ID_FIELD === "taskId" && RUN_ID) {
+      for (const item of uploaded) {
+        const saveArgs: JsonObject = {
+          taskId: ENTITY_ID ?? "",
+          storageId: item.storageId,
+          fileName: item.fileName,
+        };
+        if (RUN_ID) saveArgs.runId = RUN_ID;
+        await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
+      }
       return;
     }
-    const mediaArgs: JsonObject = { parentId: ENTITY_ID ?? "" };
-    if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
-    if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
+    const mediaArgs: JsonObject = {
+      parentId: ENTITY_ID ?? "",
+      mediaStorageIds: uploaded.map((item) => item.storageId),
+    };
     await callConvexWithRetry(
       "action",
       "screenshots:attachMedia",
@@ -602,20 +605,23 @@ export async function deliverCompletionWithMedia(
 
 /**
  * Scans sandbox `recordings/` then `screenshots/` under the repo root and the
- * app rootDirectory, uploads the newest media, and attaches it to the last
- * session message (or task proof). Shared by the one-shot callback and the
- * Claude sdk-daemon finalize path — daemon turns previously skipped this, so
- * chat never showed agent recordings.
+ * app rootDirectory, uploads all captured media (videos first, in capture
+ * order), and attaches it to the last session message (or task proof).
+ * Shared by the one-shot callback and the Claude sdk-daemon finalize path —
+ * daemon turns previously skipped this, so chat never showed agent
+ * recordings.
  *
  * Prefer calling via `deliverCompletionWithMedia` so proof runs persist media
  * before the workflow resumes; chat still completes first for attachMedia.
  */
 export async function uploadAndAttachSandboxMedia(): Promise<void> {
-  if (!TASK_PROOF_CAPTURE_ENABLED) return;
+  // The capture flag only gates formal proof/coding runs (RUN_ID set). Chat
+  // turns always attach media: task daemons inherit env from whichever run
+  // launched them (the coding run sets the flag false), so gating chat on the
+  // flag silently stranded recordings in the sandbox.
+  if (RUN_ID && !TASK_PROOF_CAPTURE_ENABLED) return;
 
-  let videoStorageId: string | null = null;
-  let imageStorageId: string | null = null;
-  let lastFileName: string | null = null;
+  const uploaded: { storageId: string; fileName: string }[] = [];
 
   const { recordings, screenshots } = proofMediaSearchDirs(
     WORK_DIR,
@@ -629,8 +635,8 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
       const fp = recDir + "/" + file;
       const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
       try {
-        videoStorageId = await uploadMediaFile(fp, mimeType);
-        lastFileName = file;
+        const storageId = await uploadMediaFile(fp, mimeType);
+        uploaded.push({ storageId, fileName: file });
       } catch {
         /* ignore upload errors */
       }
@@ -640,46 +646,38 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
         /* ignore */
       }
     }
-    if (videoStorageId) break;
   }
 
-  if (!videoStorageId) {
-    const mimeMap: Record<string, string> = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      gif: "image/gif",
-      webp: "image/webp",
-    };
-    for (const ssDir of screenshots) {
-      if (!existsSync(ssDir)) continue;
-      for (const file of readdirSync(ssDir)) {
-        if (!/\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
-        const fp = ssDir + "/" + file;
-        const ext = file.split(".").pop()?.toLowerCase() ?? "png";
-        const mimeType = mimeMap[ext] || "image/png";
-        try {
-          imageStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {
-          /* ignore upload errors */
-        }
-        try {
-          unlinkSync(fp);
-        } catch {
-          /* ignore */
-        }
+  const mimeMap: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+  };
+  for (const ssDir of screenshots) {
+    if (!existsSync(ssDir)) continue;
+    for (const file of readdirSync(ssDir)) {
+      if (!/\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+      const fp = ssDir + "/" + file;
+      const ext = file.split(".").pop()?.toLowerCase() ?? "png";
+      const mimeType = mimeMap[ext] || "image/png";
+      try {
+        const storageId = await uploadMediaFile(fp, mimeType);
+        uploaded.push({ storageId, fileName: file });
+      } catch {
+        /* ignore upload errors */
       }
-      if (imageStorageId) break;
+      try {
+        unlinkSync(fp);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
   try {
-    await persistTaskProofIfNeeded(
-      videoStorageId,
-      imageStorageId,
-      lastFileName,
-    );
+    await persistTaskProofIfNeeded(uploaded);
   } catch (e) {
     console.error("Failed to persist task proof:", e);
     const proofError = e instanceof Error ? e.message : String(e);
@@ -694,6 +692,8 @@ export async function saveProofFailureMessageIfNeeded(
 ): Promise<void> {
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
+  // Chat turns (no RUN_ID) never write to the proof timeline, including failures.
+  if (!RUN_ID) return;
   try {
     const failureArgs: JsonObject = {
       taskId: ENTITY_ID ?? "",

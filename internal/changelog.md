@@ -1,5 +1,9 @@
 # Changelog
 
+## Chat renders all agent media via mediaStorageIds - 2026-07-23
+
+Task chat recordings were stranded in the sandbox: the stub-spam fix disabled proof capture for chat, which also gated media upload, and task-chat media routed to the proof timeline instead of the chat message. The capture flag now only gates RUN_ID runs, task chat attaches via `attachMedia`, and messages hold an ordered `mediaStorageIds` array (legacy single image/video fields resolve as fallback) so multiple recordings/screenshots per turn all render inline instead of only the last one.
+
 ## Task/project Files tab uses repo tree - 2026-07-23
 
 Quick-task and project sandbox Files tabs only mounted the bare file viewer (usable via `?file=` chips), so they lacked the searchable tree sessions already had. Both now mount the same `FilesPanel` as sessions.

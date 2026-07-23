@@ -566,6 +566,10 @@ export const messageFields = {
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  // Agent-captured proof media (recordings/screenshots), in capture order.
+  // Supersedes imageStorageId/videoStorageId, which remain only for
+  // pre-migration docs.
+  mediaStorageIds: v.optional(v.array(v.id("_storage"))),
   // User-attached input images (pasted/dropped in the composer), stored via
   // Convex file storage. Delivered to the agent as files it can read.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),

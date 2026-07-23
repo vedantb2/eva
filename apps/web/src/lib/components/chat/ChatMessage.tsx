@@ -235,10 +235,15 @@ export const ChatMessage = memo(function ChatMessage({
                       onViewDiff={onViewDiff}
                     />
                   ) : null}
-                  {message.imageUrl && (
-                    <ScreenshotPreview url={message.imageUrl} />
+                  {(message.media ?? []).map((entry, index) =>
+                    entry.url ? (
+                      entry.contentType?.startsWith("video/") ? (
+                        <VideoPreview key={index} url={entry.url} />
+                      ) : (
+                        <ScreenshotPreview key={index} url={entry.url} />
+                      )
+                    ) : null,
                   )}
-                  {message.videoUrl && <VideoPreview url={message.videoUrl} />}
                   {showQuestions && activePendingQuestion ? (
                     <div className="mt-3">
                       <MultipleChoiceQuestion

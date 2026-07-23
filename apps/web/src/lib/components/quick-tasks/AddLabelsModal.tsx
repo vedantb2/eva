@@ -83,9 +83,11 @@ export function AddLabelsModal({
       setLabelsInput("");
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   return (

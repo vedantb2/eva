@@ -181,9 +181,8 @@ export function QuickTasksListView({
       }
     } catch (err) {
       console.error("Failed to run all:", err);
-    } finally {
-      setIsRunningAll(false);
     }
+    setIsRunningAll(false);
   };
 
   const { scrollParent, scrollRef } = usePersistedScrollParent(

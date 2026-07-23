@@ -76,9 +76,11 @@ export function SandboxProviderToggle({
     try {
       await onUpsert(SANDBOX_PROVIDER_KEY, next, true);
       setRevealed(next);
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
+    setSaving(false);
   };
 
   const scopeHint =

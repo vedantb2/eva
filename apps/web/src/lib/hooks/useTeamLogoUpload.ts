@@ -33,9 +33,11 @@ export function useTeamLogoUpload() {
         throw new Error("Invalid response from storage");
       }
       await setLogo({ teamId, storageId });
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
     }
+    setUploading(false);
   };
 
   const removeLogo = async (teamId: Id<"teams">) => {

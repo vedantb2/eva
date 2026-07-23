@@ -18,6 +18,11 @@ interface CustomTabRowProps {
   takenSlugs: ReadonlySet<string>;
 }
 
+function CustomTabIcon({ icon }: { icon: string }) {
+  const Icon = resolveTablerIcon(icon);
+  return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />;
+}
+
 /**
  * One editable custom-tab row. Fields are uncontrolled (defaultValue + onBlur):
  * each blur patches its own field while sourcing the untouched fields from the
@@ -29,7 +34,6 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
   const remove = useMutation(api.appTabs.remove);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const Icon = resolveTablerIcon(tab.icon);
   const ownSlug = slugifyAppTabName(tab.name);
 
   const handleNameBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
@@ -83,7 +87,7 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 rounded-surface border border-border bg-card p-2">
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <CustomTabIcon icon={tab.icon} />
         <Input
           key={`name-${tab._id}-${tab.name}`}
           defaultValue={tab.name}

@@ -52,9 +52,10 @@ export function RepoLabelDialog({
       onOpenChange(false);
     } catch (err) {
       console.error("Failed to update repo label:", err);
-    } finally {
       setSaving(false);
+      return;
     }
+    setSaving(false);
   };
 
   return (

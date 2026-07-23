@@ -164,9 +164,8 @@ export function ActivityTimeline({
       setDeletingCommentId(null);
     } catch (err) {
       console.error("Failed to delete comment:", err);
-    } finally {
-      setIsDeletingComment(false);
     }
+    setIsDeletingComment(false);
   };
 
   const userComments = comments?.filter((c) => c.authorId) ?? [];

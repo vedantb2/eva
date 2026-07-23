@@ -157,6 +157,7 @@ export function QuickTasksTableView({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
+  "use no memo";
   const { basePath, owner, name } = useRepo();
   const users = useQuery(api.users.listAll);
   const { scrollParent, scrollRef } = usePersistedScrollParent(

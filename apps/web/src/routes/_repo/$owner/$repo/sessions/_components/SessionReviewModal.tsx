@@ -70,9 +70,8 @@ export function SessionReviewModal({
       }
     } catch {
       setReviewStep("confirm");
-    } finally {
-      setIsCreatingPr(false);
     }
+    setIsCreatingPr(false);
   };
 
   useEffect(() => {

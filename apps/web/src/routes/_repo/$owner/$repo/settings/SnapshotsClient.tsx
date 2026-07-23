@@ -116,9 +116,8 @@ export function SnapshotsClient({
       await startBuild({ repoSnapshotId: snapshot._id, appRepoId: repoId });
     } catch {
       // Error already shown in UI via build status
-    } finally {
-      setBuilding(false);
     }
+    setBuilding(false);
   };
 
   const isRunning =
@@ -635,16 +634,24 @@ function ConfigFilesSection({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message);
-    } finally {
       setUploading(false);
       setUploadedBytes(0);
       setTotalBytes(0);
       setChunkIndex(0);
       setChunkCount(0);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      return;
+    }
+    setUploading(false);
+    setUploadedBytes(0);
+    setTotalBytes(0);
+    setChunkIndex(0);
+    setChunkCount(0);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 

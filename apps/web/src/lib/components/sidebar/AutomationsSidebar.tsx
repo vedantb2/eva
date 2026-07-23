@@ -75,9 +75,11 @@ export function AutomationsSidebar({
       setIsCreateOpen(false);
       navigate({ to: `${basePath}/automations/${segment}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   return (

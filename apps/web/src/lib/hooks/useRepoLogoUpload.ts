@@ -35,9 +35,11 @@ export function useRepoLogoUpload() {
         throw new Error("Invalid response from storage");
       }
       await setLogo({ repoId, storageId });
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
     }
+    setUploading(false);
   };
 
   const removeLogo = async (repoId: Id<"githubRepos">) => {

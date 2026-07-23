@@ -117,9 +117,11 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
       );
       await runFixes({ auditId: auditData._id, selectedFailures });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsRunning(false);
+      throw error;
     }
+    setIsRunning(false);
   }
 
   return (

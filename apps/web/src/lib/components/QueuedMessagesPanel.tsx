@@ -288,9 +288,11 @@ export function QueuedMessagesPanel({
                 try {
                   await onEdit(editingItem.id, draftContent);
                   setEditingItem(null);
-                } finally {
+                } catch (error) {
                   setIsSaving(false);
+                  throw error;
                 }
+                setIsSaving(false);
               }}
             >
               Save
@@ -329,9 +331,11 @@ export function QueuedMessagesPanel({
                 try {
                   await onDelete(deletingItem.id);
                   setDeletingItem(null);
-                } finally {
+                } catch (error) {
                   setIsDeleting(false);
+                  throw error;
                 }
+                setIsDeleting(false);
               }}
             >
               Delete

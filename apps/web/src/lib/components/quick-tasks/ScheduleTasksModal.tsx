@@ -66,6 +66,7 @@ export function ScheduleTasksModal({
       );
       const scheduledCount = results.filter(Boolean).length;
       if (scheduledCount === count) {
+        setIsLoading(false);
         onSuccess();
         handleClose();
         return;
@@ -82,9 +83,8 @@ export function ScheduleTasksModal({
     } catch (err) {
       console.error("Failed to schedule tasks:", err);
       setError("Failed to schedule selected tasks.");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   function handleClose() {

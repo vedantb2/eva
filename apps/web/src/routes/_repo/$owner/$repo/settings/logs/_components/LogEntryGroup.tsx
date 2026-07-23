@@ -57,8 +57,12 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
   );
 }
 
-export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
+function LogTypeIcon({ type }: { type: string }) {
   const Icon = iconFor(type);
+  return <Icon size={16} className="shrink-0 text-muted-foreground" />;
+}
+
+export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
@@ -66,7 +70,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
           size={14}
           className="chevron-icon shrink-0 text-muted-foreground transition-transform"
         />
-        <Icon size={16} className="shrink-0 text-muted-foreground" />
+        <LogTypeIcon type={type} />
         <span className="tracking-[-0.01em]">{labelFor(type)}</span>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
           {formatCost(total)}

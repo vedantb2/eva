@@ -50,9 +50,8 @@ export function TeamsClient() {
       setDeleteTarget(null);
     } catch {
       setDeleteTarget(null);
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   };
 
   const [createDialog, setCreateDialog] = useState({

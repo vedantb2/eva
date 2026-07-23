@@ -245,9 +245,11 @@ export function QuickTaskModal({
       }
       resetForm();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const loadDraft = (draft: QuickTaskDraft) => {

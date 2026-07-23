@@ -375,11 +375,11 @@ export function TerminalPanel({
               ? err.message
               : "Failed to initialize terminal",
           );
-        }
-      } finally {
-        if (mounted.current) {
           setIsLoading(false);
         }
+      }
+      if (mounted.current) {
+        setIsLoading(false);
       }
     };
 

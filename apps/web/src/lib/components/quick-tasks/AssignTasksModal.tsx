@@ -84,9 +84,11 @@ export function AssignTasksModal({
       setSelectedUserId("");
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const getUserLabel = (user: {

@@ -122,9 +122,11 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   const readFileContent = (file: File): Promise<string> =>
@@ -177,9 +179,8 @@ export function DocsSidebar({
       onNavigate?.();
     } catch (error) {
       console.error("PRD upload failed", error);
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleUploadSelect = async (
@@ -226,9 +227,11 @@ export function DocsSidebar({
         navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   return (

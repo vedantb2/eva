@@ -163,9 +163,11 @@ export function ProjectsClient() {
     try {
       await deleteProject({ id: projectToDelete.id });
       setProjectToDelete(null);
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   const handlePhaseToggle = (phase: ProjectPhase) => {

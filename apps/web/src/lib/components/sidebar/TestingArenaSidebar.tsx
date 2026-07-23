@@ -86,9 +86,11 @@ export function TestingArenaSidebar({
           // Skip this doc and continue with the rest.
         }
       }
-    } finally {
+    } catch (error) {
       setIsTestingAll(false);
+      throw error;
     }
+    setIsTestingAll(false);
   };
 
   return (

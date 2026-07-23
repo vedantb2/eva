@@ -165,9 +165,11 @@ export function SessionListSidebar<T extends SessionItem>({
         navigate({ to: baseUrl });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsArchiving(false);
+      throw error;
     }
+    setIsArchiving(false);
   };
 
   const handleCreate = async () => {
@@ -179,9 +181,11 @@ export function SessionListSidebar<T extends SessionItem>({
       setIsCreateModalOpen(false);
       navigate({ to: `${baseUrl}/${id}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   const handleCreateClick = () => {

@@ -33,9 +33,11 @@ export function useTeamBackgroundUpload() {
         throw new Error("Invalid response from storage");
       }
       await setBackground({ teamId, storageId });
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
     }
+    setUploading(false);
   };
 
   const removeBackground = async (teamId: Id<"teams">) => {

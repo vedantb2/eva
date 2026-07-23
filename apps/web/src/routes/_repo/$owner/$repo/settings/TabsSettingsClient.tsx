@@ -13,6 +13,11 @@ import {
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import { CustomTabRow } from "./_components/CustomTabRow";
 
+function TabIconPreview({ icon }: { icon: string }) {
+  const Icon = resolveTablerIcon(icon);
+  return <Icon className="mb-2 h-4 w-4 shrink-0 text-muted-foreground" />;
+}
+
 function nameError(
   name: string,
   takenSlugs: ReadonlySet<string>,
@@ -78,7 +83,6 @@ export function TabsSettingsClient() {
     }
   }
 
-  const PreviewIcon = resolveTablerIcon(icon.trim());
   const formError = validationError ?? submitError;
 
   return (
@@ -107,7 +111,7 @@ export function TabsSettingsClient() {
           </div>
 
           <div className="flex items-end gap-2">
-            <PreviewIcon className="mb-2 h-4 w-4 shrink-0 text-muted-foreground" />
+            <TabIconPreview icon={icon.trim()} />
             <div className="flex-1">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Name

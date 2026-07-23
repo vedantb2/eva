@@ -50,13 +50,6 @@ export function RepoSetupClient({
       });
   }, [installationId, fetchRepos]);
 
-  useEffect(() => {
-    if (!loading && repos.length > 0 && autoSync && !syncedRef.current) {
-      syncedRef.current = true;
-      handleAddAll();
-    }
-  }, [loading, repos, autoSync]);
-
   const handleAddAll = async () => {
     if (syncing) return;
     setSyncing(true);
@@ -78,6 +71,13 @@ export function RepoSetupClient({
     setSyncing(false);
     navigate({ to: "/home" });
   };
+
+  useEffect(() => {
+    if (!loading && repos.length > 0 && autoSync && !syncedRef.current) {
+      syncedRef.current = true;
+      handleAddAll();
+    }
+  }, [loading, repos, autoSync]);
 
   const handleDetectMonorepo = async (repo: GitHubRepo) => {
     if (expandedRepo === repo.fullName) {

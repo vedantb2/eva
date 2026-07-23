@@ -155,9 +155,11 @@ export function GroupTasksModal({
       if (segment) {
         navigate({ to: `${basePath}/projects/${segment}` });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const handleAddToProject = async () => {
@@ -171,9 +173,11 @@ export function GroupTasksModal({
       setSelectedProjectId(null);
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   return (

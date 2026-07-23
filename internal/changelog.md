@@ -1,5 +1,9 @@
 # Changelog
 
+## ActionCache for PR Overview + Diffs - 2026-07-23
+
+Overview and Diffs always re-hit GitHub on every open (multi-call Octokit), so repeat visits felt slow. Both now use `@convex-dev/action-cache` (60s / 120s TTL); Refresh and Retry pass `force` to bypass.
+
 ## Sandbox Review Overview tab - 2026-07-23
 
 Reviews already had Overview (description, conversation, checks); sandbox Review only offered Diffs/Recap, so users left the surface to inspect PR status. Overview is now a third Review sub-tab (path-backed like Recap) for sessions, projects, and quick tasks, reusing `ReviewOverviewPanel`.

@@ -65,7 +65,8 @@ export function DiffsPanel({
     if (!prUrl) return;
     let cancelled = false;
     setState({ status: "loading" });
-    getPrDiff({ repoId, prUrl })
+    // reloadKey > 0 means Refresh — bypass ActionCache TTL.
+    getPrDiff({ repoId, prUrl, force: reloadKey > 0 })
       .then((res) => {
         if (cancelled) return;
         setState({

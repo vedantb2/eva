@@ -88,13 +88,19 @@ export function PreviewNavBar({
   // notifications for the same path.
   const lastNotifiedPathRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  // Adjust draft inputs during render when external port/path props change
+  // (React-recommended alternative to setState-in-effect).
+  const [prevPort, setPrevPort] = useState(port);
+  if (port !== prevPort) {
+    setPrevPort(port);
     setPortInput(String(port));
-  }, [port]);
-
-  useEffect(() => {
-    setPathInput(path ?? defaultPath);
-  }, [path, defaultPath]);
+  }
+  const resolvedPath = path ?? defaultPath;
+  const [prevPath, setPrevPath] = useState(resolvedPath);
+  if (resolvedPath !== prevPath) {
+    setPrevPath(resolvedPath);
+    setPathInput(resolvedPath);
+  }
 
   function notifyPathChange(nextPath: string) {
     if (lastNotifiedPathRef.current === nextPath) return;

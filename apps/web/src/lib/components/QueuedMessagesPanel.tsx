@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Id } from "@conductor/backend";
 import {
   Button,
@@ -180,8 +180,17 @@ export function QueuedMessagesPanel({
     null,
   );
   const [draftContent, setDraftContent] = useState("");
+  const [draftForId, setDraftForId] = useState<Id<"queuedMessages"> | null>(
+    null,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const editingId = editingItem?.id ?? null;
+  if (editingId !== draftForId) {
+    setDraftForId(editingId);
+    setDraftContent(editingItem?.content ?? "");
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -189,10 +198,6 @@ export function QueuedMessagesPanel({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-
-  useEffect(() => {
-    setDraftContent(editingItem?.content ?? "");
-  }, [editingItem]);
 
   if (items.length === 0) {
     return null;

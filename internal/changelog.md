@@ -1,5 +1,9 @@
 # Changelog
 
+## System alerts no longer clear "turn executing" UI - 2026-07-23
+
+Mid-turn system messages (`isSystemAlert`) append after the empty Working bubble, so `isExecuting` (last-message-only) flipped false and the composer offered a fresh send while the agent was still running. Executing state now skips system alerts; streamed tokens stay on the live Working bubble even when an alert is newest.
+
 ## Session chat model icon under assistant reply - 2026-07-23
 
 The provider icon sat under the user bubble (with account as plain text), which read as "who asked" rather than "what answered". It now sits under the assistant turn; tooltip is `model · effort · account` using the preceding user message's snapshot (`userProviderAccounts` label / "Team"), matching the run-accordion pattern.

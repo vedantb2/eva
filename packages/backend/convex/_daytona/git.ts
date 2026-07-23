@@ -1265,6 +1265,9 @@ async function tryResumeSandbox(
       const sandbox = await client.get(existingSandboxId);
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        // Explicit user start (Start clicked / new run on a reused sandbox):
+        // wait out a stop still snapshotting and resume, instead of refusing.
+        resumeAfterStop: true,
         onRestoring: onProgress
           ? () =>
               onProgress(

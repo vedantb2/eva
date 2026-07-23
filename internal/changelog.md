@@ -3,6 +3,15 @@
 ## Diffs tab file accordion + Viewed - 2026-07-23
 
 Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.
+
+## Sandbox start survives trailing stops; in-sandbox Convex self-heals - 2026-07-23
+
+Clicking Start right after a run finished failed with "was stopped while a start was in progress": the Vercel provider let any in-flight stop win, even against an explicit user start. `start()` now takes `resumeAfterStop` — explicit start paths (session/task/project reuse, design reuse, Start-clicked resume) wait the snapshotting stop out and resume; background paths (prewarm, watchdog) still refuse so they cannot resurrect a just-stopped sandbox.
+
+Separately, `convex dev` wedges permanently if the local backend misses its 240s startup window on a busy resume (retries :3210 forever, never respawns — dead preview backend, session 29). Convex background commands now run under a bash supervisor that health-checks `127.0.0.1:3210/version`, confirms the wedge signature in the log (so cloud-mode `convex dev` is never touched), and kills + relaunches the tree, up to 3 attempts.
+
+Reason: both bugs left users with sandboxes that looked started but were not, with no recovery short of manual surgery.
+
 ## Warm seed-prep from base Image - 2026-07-23
 
 Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.

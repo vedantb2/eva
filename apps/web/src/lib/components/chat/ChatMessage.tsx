@@ -86,7 +86,12 @@ interface ChatMessageProps {
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
   activePendingQuestion?: ParsedQuestion[] | null;
-  isExecuting: boolean;
+  /**
+   * True only while an answer mutation/send is in flight. Must NOT mirror
+   * turn `isExecuting` — AskUserQuestion keeps the turn executing while it
+   * waits for the user, which would permanently disable the card.
+   */
+  isQuestionLoading?: boolean;
   onQuestionAnswer: (answer: string) => Promise<void>;
   onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
@@ -103,7 +108,7 @@ export const ChatMessage = memo(function ChatMessage({
   streamingContent,
   blockingQuestions,
   activePendingQuestion,
-  isExecuting,
+  isQuestionLoading = false,
   onQuestionAnswer,
   onBlockingAnswer,
   onOpenFile,
@@ -176,7 +181,7 @@ export const ChatMessage = memo(function ChatMessage({
                     questions={blockingQuestions}
                     onAnswer={onQuestionAnswer}
                     onAnswerStructured={onBlockingAnswer}
-                    isLoading={isExecuting}
+                    isLoading={isQuestionLoading}
                   />
                 </div>
               ) : showQuestions && activePendingQuestion ? (
@@ -184,7 +189,7 @@ export const ChatMessage = memo(function ChatMessage({
                   <MultipleChoiceQuestion
                     questions={activePendingQuestion}
                     onAnswer={onQuestionAnswer}
-                    isLoading={isExecuting}
+                    isLoading={isQuestionLoading}
                   />
                 </div>
               ) : null}
@@ -223,6 +228,7 @@ export const ChatMessage = memo(function ChatMessage({
                       <MultipleChoiceQuestion
                         questions={activePendingQuestion}
                         onAnswer={onQuestionAnswer}
+                        isLoading={isQuestionLoading}
                       />
                     </div>
                   ) : null}

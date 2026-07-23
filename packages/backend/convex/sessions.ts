@@ -12,7 +12,7 @@ export {
   updateStatus,
   update,
   setModel,
-  setReasoningLevel,
+  setTraits,
   updateSummary,
   archive,
   unarchive,

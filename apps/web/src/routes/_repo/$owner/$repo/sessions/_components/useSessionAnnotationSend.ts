@@ -18,15 +18,15 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model + effort are owned by Convex (`sessions.lastModel` /
-  // `lastReasoningLevel`); read them here so annotation sends use the
-  // session's actual picks, not a stale localStorage fallback.
-  const { model, effortLevel } = useSessionModel(sessionId, defaultModel);
+  // Model + traits are owned by Convex (`sessions.lastModel` /
+  // `lastReasoningLevel` / thinking / 1M); read them here so annotation
+  // sends use the session's actual picks, not a stale localStorage fallback.
+  const { model, traits } = useSessionModel(sessionId, defaultModel);
   const { mode, displayTraits, executionTraits, providerAccountId } =
     useSessionSettings(String(sessionId), {
       defaultModel,
       model,
-      effortLevel,
+      traits,
     });
   const { resolveId: resolveAccountId } = useProviderAccounts();
 

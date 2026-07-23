@@ -83,6 +83,12 @@ export const create = authMutation({
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -204,14 +210,16 @@ export const setModel = authMutation({
 });
 
 /**
- * Sets the sticky composer reasoning effort for a session. Same contract as
- * `setModel`: write on change (optimistic on the client), do not bump
- * `updatedAt`.
+ * Sets sticky composer traits for a session (effort / thinking / 1M). Same
+ * contract as `setModel`: write on change (optimistic on the client), do not
+ * bump `updatedAt`. Only provided fields are patched.
  */
-export const setReasoningLevel = authMutation({
+export const setTraits = authMutation({
   args: {
     id: v.id("sessions"),
-    reasoningLevel: reasoningLevelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -219,7 +227,24 @@ export const setReasoningLevel = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    await ctx.db.patch(args.id, { lastReasoningLevel: args.reasoningLevel });
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
     return null;
   },
 });

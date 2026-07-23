@@ -50,9 +50,13 @@ export function useSessionSettings(
     // model. New-session composers omit these and keep the local-storage model.
     model?: AIModel;
     onModelChange?: (model: AIModel) => void;
-    // Same pattern for reasoning effort (`sessions.lastReasoningLevel`).
-    effortLevel?: ReasoningLevel;
-    onEffortLevelChange?: (effortLevel: ReasoningLevel) => void;
+    /**
+     * Sticky traits from Convex. Undefined fields fall back to localStorage
+     * (migration / first paint). When `onTraitsPersist` is set, trait edits
+     * write to Convex and skip localStorage.
+     */
+    traits?: StoredModelTraits;
+    onTraitsPersist?: (partial: Partial<StoredModelTraits>) => void;
   },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
@@ -67,9 +71,10 @@ export function useSessionSettings(
   const model = overrides?.model ?? normalizeAIModel(settings.model);
 
   const storedTraits: StoredModelTraits = {
-    effortLevel: overrides?.effortLevel ?? settings.effortLevel,
-    thinkingEnabled: settings.thinkingEnabled,
-    use1mContext: settings.use1mContext,
+    effortLevel: overrides?.traits?.effortLevel ?? settings.effortLevel,
+    thinkingEnabled:
+      overrides?.traits?.thinkingEnabled ?? settings.thinkingEnabled,
+    use1mContext: overrides?.traits?.use1mContext ?? settings.use1mContext,
   };
 
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
@@ -89,26 +94,11 @@ export function useSessionSettings(
   };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
-    if (
-      partial.effortLevel !== undefined &&
-      overrides?.onEffortLevelChange !== undefined
-    ) {
-      overrides.onEffortLevelChange(partial.effortLevel);
+    if (overrides?.onTraitsPersist) {
+      overrides.onTraitsPersist(partial);
+      return;
     }
-    setSettings((prev) => ({
-      ...prev,
-      ...(partial.thinkingEnabled !== undefined
-        ? { thinkingEnabled: partial.thinkingEnabled }
-        : {}),
-      ...(partial.use1mContext !== undefined
-        ? { use1mContext: partial.use1mContext }
-        : {}),
-      // When effort is Convex-backed, skip writing it to localStorage.
-      ...(partial.effortLevel !== undefined &&
-      overrides?.onEffortLevelChange === undefined
-        ? { effortLevel: partial.effortLevel }
-        : {}),
-    }));
+    setSettings((prev) => ({ ...prev, ...partial }));
   };
 
   const setProviderAccountId = (providerAccountId: string | null) => {

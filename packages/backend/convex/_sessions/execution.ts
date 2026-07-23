@@ -137,6 +137,12 @@ export const startExecute = authMutation({
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
       updatedAt: Date.now(),
     });
 
@@ -272,6 +278,12 @@ export const enqueueMessage = authMutation({
       lastModel: args.model,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
         : {}),
       updatedAt: Date.now(),
     });

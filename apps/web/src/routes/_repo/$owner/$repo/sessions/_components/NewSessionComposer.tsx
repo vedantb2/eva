@@ -74,9 +74,11 @@ export function NewSessionComposer() {
         mode,
         model,
         ...executionTraits,
-        // Always snapshot the resolved display effort (even model default) so
-        // the new session's sticky lastReasoningLevel matches the composer.
+        // Snapshot resolved display traits (including model defaults) so the
+        // new session's sticky Convex fields match the landing composer.
         reasoningLevel: displayTraits.effortLevel,
+        thinkingEnabled: displayTraits.thinkingEnabled,
+        use1mContext: displayTraits.use1mContext,
         providerAccountId: resolveAccountId(providerAccountId) ?? null,
         attachmentStorageIds,
       });

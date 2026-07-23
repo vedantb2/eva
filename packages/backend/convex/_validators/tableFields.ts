@@ -282,6 +282,9 @@ export const sessionFields = {
   // effort only lived in localStorage and reloads fell back to the model
   // default (Claude → high), silently undoing a Medium pick.
   lastReasoningLevel: v.optional(reasoningLevelValidator),
+  // Sticky thinking / 1M context toggles (same contract as lastReasoningLevel).
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),

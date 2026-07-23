@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox chat model follows task.model - 2026-07-23
+
+Quick-task sandbox chat kept its model in localStorage (often the repo default), so switching between `/quick-tasks/$id` and `/sandbox/preview` could show Claude on the activity page and Grok in the sandbox. Sandbox now binds to and persists `task.model` / owner accounts like the activity composer; only traits stay local.
+
 ## Run accordion: account as provider-icon tooltip - 2026-07-23
 
 Activity run headers showed the credential account as a text badge next to the model chip, which crowded the row. The chip is now icon-only; hover shows model + account (e.g. Claude Opus · Vedant).

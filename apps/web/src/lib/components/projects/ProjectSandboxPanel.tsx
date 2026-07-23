@@ -184,7 +184,7 @@ export function ProjectSandboxPanel({
           stickyTerminalHistoryTail={
             project === undefined
               ? undefined
-              : (project.terminalHistoryTail ?? "")
+              : (project?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
             void setTerminalHistoryTail({ id: projectId, tail });

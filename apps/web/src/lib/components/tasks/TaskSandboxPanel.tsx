@@ -175,7 +175,7 @@ export function TaskSandboxPanel({
             void setPreviewPath({ id: taskId, path });
           }}
           stickyTerminalHistoryTail={
-            task === undefined ? undefined : (task.terminalHistoryTail ?? "")
+            task === undefined ? undefined : (task?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
             void setTerminalHistoryTail({ id: taskId, tail });

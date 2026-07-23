@@ -226,7 +226,7 @@ export function SandboxPanel({
           stickyTerminalHistoryTail={
             session === undefined
               ? undefined
-              : (session.terminalHistoryTail ?? "")
+              : (session?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
             void setTerminalHistoryTail({ id: sessionId, tail });

@@ -1,5 +1,5 @@
 import { EDITOR_CHIP_CLICKABLE_CLASS } from "./mentionChipStyles";
-import { LINK_URL_SOURCE, linkLabel } from "./linkChip";
+import { LINK_URL_SOURCE, linkLabel } from "./linkChipUtils";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

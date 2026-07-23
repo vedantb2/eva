@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { MENTION_TOKEN_REGEX } from "./mentionToken";
 import { SKILL_TOKEN_REGEX } from "./skillToken";
-import { LINK_URL_SOURCE } from "./linkChip";
+import { LINK_URL_SOURCE } from "./linkChipUtils";
 import { LinkChip } from "./LinkChip";
 
 export interface MentionMatch {

@@ -22,7 +22,7 @@ import {
   renderEditorChipHtml,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
-import { countLinkUrls } from "./linkChip";
+import { countLinkUrls } from "./linkChipUtils";
 import { MentionPickerPopup } from "./MentionPickerPopup";
 import {
   computeMentionPopupPlacement,

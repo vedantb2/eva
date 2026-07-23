@@ -151,7 +151,7 @@ export function useSessionModel(
     },
     setTraits,
     providerAccountId:
-      session === undefined ? undefined : (session.providerAccountId ?? null),
+      session === undefined ? undefined : (session?.providerAccountId ?? null),
     setProviderAccountId,
   };
 }

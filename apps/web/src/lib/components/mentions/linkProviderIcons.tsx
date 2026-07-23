@@ -1,5 +1,5 @@
 import { IconBrandGithub } from "@tabler/icons-react";
-import type { LinkProvider } from "./linkChip";
+import type { LinkProvider } from "./linkChipUtils";
 
 /**
  * Brand marks for link-chip providers, sourced from svgl.app. Rendered as

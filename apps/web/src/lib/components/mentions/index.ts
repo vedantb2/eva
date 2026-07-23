@@ -17,8 +17,8 @@ export {
   LINK_URL_SOURCE,
   findLinkUrls,
   countLinkUrls,
-} from "./linkChip";
-export type { LinkProvider } from "./linkChip";
+} from "./linkChipUtils";
+export type { LinkProvider } from "./linkChipUtils";
 export { UserMentionText } from "./UserMentionText";
 export { DocMentionChip } from "./DocMentionChip";
 export { SkillMentionChip } from "./SkillMentionChip";

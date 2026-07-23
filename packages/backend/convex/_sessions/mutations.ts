@@ -169,6 +169,29 @@ export const addMessage = authMutation({
   },
 });
 
+/**
+ * Sets the sticky composer model for a session. `lastModel` is the single
+ * source of truth for the picker, so this is called directly on change (with a
+ * client-side optimistic update) rather than only when a message is sent. Does
+ * not touch `updatedAt` — changing the model is not conversation activity and
+ * must not reorder the session list.
+ */
+export const setModel = authMutation({
+  args: {
+    id: v.id("sessions"),
+    model: aiModelValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { lastModel: args.model });
+    return null;
+  },
+});
+
 /** Updates the status of a session. */
 export const updateStatus = authMutation({
   args: {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   DEFAULT_AI_MODEL,
@@ -43,7 +42,15 @@ function storageKey(sessionId: string) {
 
 export function useSessionSettings(
   sessionId: string,
-  overrides?: { defaultModel?: string | null; seedModel?: string | null },
+  overrides?: {
+    defaultModel?: string | null;
+    // When provided, the model becomes a controlled value owned by the caller
+    // (Convex `sessions.lastModel` for an existing session) instead of being
+    // persisted in localStorage. Trait resolution still runs against this
+    // model. New-session composers omit these and keep the local-storage model.
+    model?: AIModel;
+    onModelChange?: (model: AIModel) => void;
+  },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
     ? { ...DEFAULT_SETTINGS, model: normalizeAIModel(overrides.defaultModel) }
@@ -54,23 +61,7 @@ export function useSessionSettings(
     defaults,
   );
 
-  // Seed the model once per session from the session's persisted `lastModel`
-  // (server source of truth) when the user has no local override yet. Without
-  // this, a freshly created session has no localStorage entry and the picker
-  // falls back to the repo default, so follow-up prompts silently switch off
-  // the model the session was started with. Guarded per sessionId so later
-  // reactive session updates never clobber an unsent in-session pick.
-  const seededForSession = useRef<string | null>(null);
-  useEffect(() => {
-    if (seededForSession.current === sessionId) return;
-    const seed = overrides?.seedModel;
-    if (seed == null) return;
-    seededForSession.current = sessionId;
-    if (window.localStorage.getItem(storageKey(sessionId)) !== null) return;
-    setSettings((prev) => ({ ...prev, model: normalizeAIModel(seed) }));
-  }, [overrides?.seedModel, sessionId, setSettings]);
-
-  const model = normalizeAIModel(settings.model);
+  const model = overrides?.model ?? normalizeAIModel(settings.model);
 
   const storedTraits: StoredModelTraits = {
     effortLevel: settings.effortLevel,
@@ -82,10 +73,12 @@ export function useSessionSettings(
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
 
   const setModel = (nextModel: AIModel) => {
-    setSettings((prev) => ({
-      ...prev,
-      model: normalizeAIModel(nextModel),
-    }));
+    const normalized = normalizeAIModel(nextModel);
+    if (overrides?.onModelChange) {
+      overrides.onModelChange(normalized);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, model: normalized }));
   };
 
   const setMode = (mode: SessionMode) => {

@@ -34,6 +34,7 @@ import {
   useSessionSettings,
   type SessionMode,
 } from "@/lib/hooks/useSessionSettings";
+import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import {
   useAvailableAiModels,
   useProviderAccounts,
@@ -117,11 +118,11 @@ export function ChatPanel({
 
   const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
+  // Model is owned by Convex (`sessions.lastModel`); traits/mode stay local.
+  const { model, setModel } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
     setMode,
-    model,
-    setModel,
     displayTraits,
     executionTraits,
     onTraitsChange,
@@ -129,7 +130,8 @@ export function ChatPanel({
     setProviderAccountId,
   } = useSessionSettings(sessionId, {
     defaultModel,
-    seedModel: session?.lastModel ?? null,
+    model,
+    onModelChange: setModel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =

@@ -25,7 +25,6 @@ import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
-import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
@@ -59,7 +58,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
     const s = segments[i];
     if (
       s === "designs" ||
-      s === "sessions" ||
       s === "settings" ||
       s === "docs" ||
       s === "reviews" ||
@@ -193,19 +191,17 @@ export function Sidebar() {
   const contextSidebarTitle =
     contextSidebarMode === "designs"
       ? "Designs"
-      : contextSidebarMode === "sessions"
-        ? "Sessions"
-        : contextSidebarMode === "settings"
-          ? "Settings"
-          : contextSidebarMode === "docs"
-            ? "Documents"
-            : contextSidebarMode === "reviews"
-              ? "Reviews"
-              : contextSidebarMode === "testing-arena"
-                ? "Testing Arena"
-                : contextSidebarMode === "automations"
-                  ? "Automations"
-                  : "";
+      : contextSidebarMode === "settings"
+        ? "Settings"
+        : contextSidebarMode === "docs"
+          ? "Documents"
+          : contextSidebarMode === "reviews"
+            ? "Reviews"
+            : contextSidebarMode === "testing-arena"
+              ? "Testing Arena"
+              : contextSidebarMode === "automations"
+                ? "Automations"
+                : "";
 
   return (
     <>
@@ -471,13 +467,6 @@ export function Sidebar() {
                     ) : repo ? (
                       contextSidebarMode === "designs" ? (
                         <DesignSessionsSidebar
-                          repoId={repo._id}
-                          basePath={repoBasePath}
-                          pathname={pathname}
-                          onNavigate={closeMobileSidebar}
-                        />
-                      ) : contextSidebarMode === "sessions" ? (
-                        <SessionsSidebar
                           repoId={repo._id}
                           basePath={repoBasePath}
                           pathname={pathname}

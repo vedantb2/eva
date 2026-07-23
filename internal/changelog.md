@@ -1,5 +1,9 @@
 # Changelog
 
+## Drop app Sessions sidebar + nav tab - 2026-07-23
+
+Repo home already owns session create/list entry, so the per-app Sessions drill-down sidebar and SHIP nav tab were redundant. Sessions routes stay for deep links; Designs and other context sidebars are unchanged.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

@@ -6,6 +6,22 @@ export const Route = createFileRoute(
 )({
   beforeLoad: ({ params, search }) => {
     const dest = reviewPathFromSearch(search);
+    if (dest.kind === "overview") {
+      throw redirect({
+        to: "/$owner/$repo/projects/$numId/sandbox/review/overview",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+        },
+        search: (prev) => ({
+          ...prev,
+          prTab: undefined,
+          diffView: undefined,
+        }),
+        replace: true,
+      });
+    }
     if (dest.kind === "recap") {
       throw redirect({
         to: "/$owner/$repo/projects/$numId/sandbox/review/recap",

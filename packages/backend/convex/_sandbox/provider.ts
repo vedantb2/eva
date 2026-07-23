@@ -193,8 +193,20 @@ export interface SandboxHandle {
    */
   writeFile(path: string, content: string | Uint8Array): Promise<void>;
 
-  /** Start/resume the sandbox, waiting up to `timeoutSeconds` for readiness. */
-  start(timeoutSeconds: number): Promise<void>;
+  /**
+   * Start/resume the sandbox, waiting up to `timeoutSeconds` for readiness.
+   *
+   * `resumeAfterStop` encodes caller intent when a stop is still in flight
+   * (Vercel: `stopping`/`snapshotting` while the snapshot is written).
+   * Explicit user-initiated starts pass true: wait the stop out, then resume
+   * from the fresh snapshot. Background callers (prewarm, watchdog, lazy
+   * resume) omit it: the start is refused so a stale in-flight resume cannot
+   * resurrect a sandbox the user just stopped. No-op on Daytona.
+   */
+  start(
+    timeoutSeconds: number,
+    opts?: { resumeAfterStop?: boolean },
+  ): Promise<void>;
   stop(): Promise<void>;
   archive(): Promise<void>;
   /**

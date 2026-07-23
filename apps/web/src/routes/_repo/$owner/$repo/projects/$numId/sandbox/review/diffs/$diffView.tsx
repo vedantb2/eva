@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isDiffView, reviewPathFromSearch } from "@/lib/search-params";
-import { ProjectSandboxReviewPage } from "../-ProjectSandboxReviewPage";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView",
@@ -22,10 +21,6 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: ProjectSandboxReviewDiffViewRoute,
+  // Shell is rendered by the `sandbox` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-function ProjectSandboxReviewDiffViewRoute() {
-  const { numId } = Route.useParams();
-  return <ProjectSandboxReviewPage numId={numId} />;
-}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -128,6 +128,14 @@ export function ProjectDetailClient({
     project?.reviewProjectSandboxStatus,
   );
 
+  const prewarmChatDaemon = useMutation(
+    api.projectChatWorkflow.prewarmChatDaemon,
+  );
+  useEffect(() => {
+    if (!isSandboxActive || !projectSandboxId) return;
+    void prewarmChatDaemon({ projectId });
+  }, [projectId, isSandboxActive, projectSandboxId, prewarmChatDaemon]);
+
   const isSandboxSurface = surface === "sandbox";
 
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
@@ -159,9 +167,8 @@ export function ProjectDetailClient({
       await cancelBuild({ projectId: projectId });
     } catch (err) {
       console.error("Failed to stop build:", err);
-    } finally {
-      setIsStoppingBuild(false);
     }
+    setIsStoppingBuild(false);
   };
 
   const handleCreatePr = async () => {
@@ -173,9 +180,8 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
       setPrError(message);
-    } finally {
-      setIsCreatingPr(false);
     }
+    setIsCreatingPr(false);
   };
 
   const handleResolveConflicts = async () => {
@@ -187,9 +193,8 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to resolve conflicts";
       setPrError(message);
-    } finally {
-      setIsResolvingConflicts(false);
     }
+    setIsResolvingConflicts(false);
   };
 
   if (project === undefined) {
@@ -575,9 +580,11 @@ export function ProjectDetailClient({
                     projectId: projectId,
                   });
                   setIsBuildModalOpen(false);
-                } finally {
+                } catch (error) {
                   setIsStartingBuild(false);
+                  throw error;
                 }
+                setIsStartingBuild(false);
               }}
             >
               <IconHammer size={16} />

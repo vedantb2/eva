@@ -42,7 +42,7 @@ export function DiffFileTree({
   const { model } = useFileTree({
     paths: files,
     gitStatus,
-    density: "compact",
+    density: "default",
     flattenEmptyDirectories: true,
     initialExpansion: "open",
     initialSelectedPaths: initialSelectedPath ? [initialSelectedPath] : [],

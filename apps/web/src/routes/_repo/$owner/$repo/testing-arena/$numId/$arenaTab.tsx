@@ -54,9 +54,11 @@ function ReportCard({
     setIsStartingFix(true);
     try {
       await startFix({ reportId: report._id });
-    } finally {
+    } catch (error) {
       setIsStartingFix(false);
+      throw error;
     }
+    setIsStartingFix(false);
   };
 
   if (report.status === "running") {
@@ -355,9 +357,11 @@ function TestingArenaDetailRoute() {
         repoId: repo._id,
         branchName: branch !== "main" ? branch : undefined,
       });
-    } finally {
+    } catch (error) {
       setIsRunning(false);
+      throw error;
     }
+    setIsRunning(false);
   };
 
   if (parsedNumId === null) {

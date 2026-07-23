@@ -106,7 +106,7 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return taskRouteSandboxTabs.some((tab) => tab === s);
 }
 
-const prPanelTabs = ["diffs", "recap"] as const;
+const prPanelTabs = ["overview", "diffs", "recap"] as const;
 export type PrPanelTab = (typeof prPanelTabs)[number];
 
 export function isPrPanelTab(s: string): s is PrPanelTab {
@@ -120,6 +120,11 @@ export function isDiffView(s: string): s is DiffView {
   return s === "unified" || s === "split";
 }
 
+export type ReviewPathTarget =
+  | { kind: "overview" }
+  | { kind: "recap" }
+  | { kind: "diffs"; diffView: DiffView };
+
 /**
  * Map legacy `?prTab=` / `?diffView=` (or defaults) onto a Review path target.
  * Used when redirecting bare `/review` and old query-backed URLs.
@@ -127,13 +132,10 @@ export function isDiffView(s: string): s is DiffView {
 export function reviewPathFromSearch(search: {
   prTab?: unknown;
   diffView?: unknown;
-}): { kind: "recap" } | { kind: "diffs"; diffView: DiffView } {
-  if (
-    typeof search.prTab === "string" &&
-    isPrPanelTab(search.prTab) &&
-    search.prTab === "recap"
-  ) {
-    return { kind: "recap" };
+}): ReviewPathTarget {
+  if (typeof search.prTab === "string" && isPrPanelTab(search.prTab)) {
+    if (search.prTab === "overview") return { kind: "overview" };
+    if (search.prTab === "recap") return { kind: "recap" };
   }
   const diffView =
     typeof search.diffView === "string" && isDiffView(search.diffView)

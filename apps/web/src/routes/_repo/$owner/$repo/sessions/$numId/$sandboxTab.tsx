@@ -1,8 +1,5 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { useRepo } from "@/lib/contexts/RepoContext";
-import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
-import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import {
   isDiffView,
   isLegacyDesktopSandboxTab,
@@ -11,7 +8,6 @@ import {
   isPrPanelTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
-import { SessionDetailClient } from "../SessionDetailClient";
 
 function redirectToReviewDiffs(args: {
   owner: string;
@@ -116,6 +112,18 @@ export const Route = createFileRoute(
         isPrPanelTab(search.prTab)
           ? search.prTab
           : "diffs";
+      if (fromSearch === "overview") {
+        throw redirect({
+          to: "/$owner/$repo/sessions/$numId/review/overview",
+          params: {
+            owner: params.owner,
+            repo: params.repo,
+            numId: params.numId,
+          },
+          search: { ...search, prTab: undefined, diffView: undefined },
+          replace: true,
+        });
+      }
       if (fromSearch === "recap") {
         throw redirect({
           to: "/$owner/$repo/sessions/$numId/review/recap",
@@ -136,69 +144,6 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: SessionSandboxRoute,
+  // Shell is rendered by the `$numId` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-// The tab segment is a builtin SandboxTab or a custom tab's name slug (e.g.
-// "supabase"). Custom slugs can't be validated synchronously here (they live
-// in Convex), so the raw segment is passed through and SandboxPanel falls back
-// to "preview" if it resolves to no known tab.
-function SessionSandboxRoute() {
-  const { numId, sandboxTab } = Route.useParams();
-  const navigate = useNavigate();
-  const { basePath, repoId } = useRepo();
-  const { status, convexId } = useSessionByNumId(numId, repoId);
-
-  // Opening a file from a chat chip both switches to the Files tab and sets the
-  // `?file=` param the File Viewer reads. Stable so the memoised activity
-  // renderer that ultimately calls it is not invalidated each render.
-  const openFile = (path: string) => {
-    void navigate({
-      to: `${basePath}/sessions/${numId}/files`,
-      search: (prev) => ({ ...prev, file: path }),
-    });
-  };
-
-  const openDiffs = (repoRelativePath?: string) => {
-    void navigate({
-      to: `${basePath}/sessions/${numId}/review/diffs/unified`,
-      search: (prev) => ({
-        ...prev,
-        ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
-      }),
-    });
-  };
-
-  const onSandboxTabChange = (next: string) => {
-    if (next === "review") {
-      void navigate({
-        to: `${basePath}/sessions/${numId}/review/diffs/unified`,
-        search: true,
-      });
-      return;
-    }
-    void navigate({
-      to: `${basePath}/sessions/${numId}/${next}`,
-      search: true,
-    });
-  };
-
-  return (
-    <EntityNumIdGate
-      status={status}
-      convexId={convexId}
-      entityLabel="session"
-      backTo={`${basePath}/sessions`}
-    >
-      {(sessionId) => (
-        <SessionDetailClient
-          sessionId={sessionId}
-          activeSandboxTab={sandboxTab}
-          onSandboxTabChange={onSandboxTabChange}
-          onOpenFile={openFile}
-          onViewDiff={openDiffs}
-        />
-      )}
-    </EntityNumIdGate>
-  );
-}

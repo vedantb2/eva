@@ -18,6 +18,7 @@ export function SessionDetailClient({
   onSandboxTabChange,
   onOpenFile,
   onViewDiff,
+  isRouteActive = true,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -27,6 +28,11 @@ export function SessionDetailClient({
   onOpenFile: (path: string) => void;
   /** Opens the PR tab (Diffs sub-tab); optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
+  /**
+   * False while this session shell is kept mounted but another session is
+   * shown — Preview must not clear/refetch from sibling URL churn.
+   */
+  isRouteActive?: boolean;
 }) {
   const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -59,8 +65,35 @@ export function SessionDetailClient({
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
+    // Don't prewarm (which resumes the VM) when the PR is already terminal —
+    // auto-stop below owns teardown for merged/closed sessions.
+    if (
+      session !== null &&
+      session !== undefined &&
+      isSessionPrReadOnly(session.prState)
+    ) {
+      return;
+    }
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
+  }, [sessionId, sandboxId, sandboxStatus, session, prewarmDaemon]);
+
+  // Recover sandboxes left running after a PR merge/close (webhook may have
+  // only patched prState before auto-stop existed, or the stop raced).
+  const prAutoStopKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (session === null || session === undefined) return;
+    if (!isSessionPrReadOnly(session.prState)) {
+      prAutoStopKey.current = null;
+      return;
+    }
+    if (session.status !== "active" && session.status !== "starting") {
+      return;
+    }
+    const key = `${sessionId}:${session.prState}:${session.status}`;
+    if (prAutoStopKey.current === key) return;
+    prAutoStopKey.current = key;
+    void stopSandboxMutation({ sessionId });
+  }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once Daytona's stop call completes (~10s). Showing the spinner
@@ -77,9 +110,11 @@ export function SessionDetailClient({
       setIsStopPending(true);
       try {
         await stopSandboxMutation({ sessionId });
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 
@@ -104,10 +139,11 @@ export function SessionDetailClient({
   useEffect(() => {
     const prev = prevAgentBrowsingAt.current;
     prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (!isRouteActive) return;
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     onSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-  }, [agentBrowsingAt, onSandboxTabChange]);
+  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive]);
 
   if (session === undefined) {
     return (
@@ -164,6 +200,7 @@ export function SessionDetailClient({
               onSandboxTabChange("prd");
               setExpandRightSignal((n) => n + 1);
             }}
+            backgroundAgents={session.backgroundAgents}
           />
         )}
         rightPanel={
@@ -172,6 +209,7 @@ export function SessionDetailClient({
             sandboxId={session.sandboxId}
             vercelSandboxId={session.vercelSandboxId}
             isActive={isSandboxActive}
+            isRouteActive={isRouteActive}
             repoId={session.repoId}
             prUrl={session.prUrl}
             // Prefer session (set after services start); fall back to app

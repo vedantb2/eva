@@ -3,7 +3,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import type { Id } from "@conductor/backend";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import {
@@ -165,9 +165,11 @@ export function SessionListSidebar<T extends SessionItem>({
         navigate({ to: baseUrl });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsArchiving(false);
+      throw error;
     }
+    setIsArchiving(false);
   };
 
   const handleCreate = async () => {
@@ -179,9 +181,11 @@ export function SessionListSidebar<T extends SessionItem>({
       setIsCreateModalOpen(false);
       navigate({ to: `${baseUrl}/${id}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   const handleCreateClick = () => {
@@ -295,7 +299,7 @@ export function SessionListSidebar<T extends SessionItem>({
                       return (
                         <ContextMenu key={session._id}>
                           <ContextMenuTrigger asChild>
-                            <motion.div
+                            <m.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
@@ -331,7 +335,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                   />
                                 </DynamicLink>
                               </SharedLayoutNavSurface>
-                            </motion.div>
+                            </m.div>
                           </ContextMenuTrigger>
                           <ContextMenuContent
                             onClick={(e) => e.stopPropagation()}

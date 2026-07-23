@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Id } from "@conductor/backend";
 import {
   Button,
@@ -35,15 +35,41 @@ export function RepoLabelDialog({
   fallbackName,
   teamId,
 }: RepoLabelDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        {/* Remount when opened so the draft resets from the latest label. */}
+        {open ? (
+          <RepoLabelForm
+            key={`${repoId}:${label ?? ""}`}
+            repoId={repoId}
+            label={label}
+            fallbackName={fallbackName}
+            teamId={teamId}
+            onOpenChange={onOpenChange}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RepoLabelForm({
+  repoId,
+  label,
+  fallbackName,
+  teamId,
+  onOpenChange,
+}: {
+  repoId: Id<"githubRepos">;
+  label: string | undefined;
+  fallbackName: string;
+  teamId?: Id<"teams">;
+  onOpenChange: (open: boolean) => void;
+}) {
   const setLabel = useSetRepoLabel(teamId);
   const [value, setValue] = useState(label ?? "");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setValue(label ?? "");
-    }
-  }, [open, label]);
 
   const save = async () => {
     setSaving(true);
@@ -52,52 +78,49 @@ export function RepoLabelDialog({
       onOpenChange(false);
     } catch (err) {
       console.error("Failed to update repo label:", err);
-    } finally {
       setSaving(false);
+      return;
     }
+    setSaving(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Rename</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Display name</label>
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={fallbackName}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void save();
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            Shown in the sidebar instead of{" "}
-            <span className="font-medium text-foreground/80">
-              {fallbackName}
-            </span>
-            . Leave empty to use the default.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button onClick={() => void save()} disabled={saving}>
-            {saving ? <Spinner size="sm" /> : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <DialogHeader>
+        <DialogTitle>Rename</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Display name</label>
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={fallbackName}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void save();
+            }
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Shown in the sidebar instead of{" "}
+          <span className="font-medium text-foreground/80">{fallbackName}</span>
+          . Leave empty to use the default.
+        </p>
+      </div>
+      <DialogFooter>
+        <Button
+          variant="ghost"
+          onClick={() => onOpenChange(false)}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        <Button onClick={() => void save()} disabled={saving}>
+          {saving ? <Spinner size="sm" /> : "Save"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

@@ -301,25 +301,28 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {(users ?? []).map((user) => {
-            const isMember = project.members?.includes(user._id) ?? false;
-            return (
-              <DropdownMenuCheckboxItem
-                key={user._id}
-                checked={isMember}
-                onCheckedChange={() => {
-                  const current = project.members ?? [];
-                  const next = isMember
-                    ? current.filter((id) => id !== user._id)
-                    : [...current, user._id];
-                  updateProject({ id: projectId, members: next });
-                }}
-                onSelect={(e) => e.preventDefault()}
-              >
-                {displayName(user)}
-              </DropdownMenuCheckboxItem>
-            );
-          })}
+          {(() => {
+            const memberIds = new Set(project.members ?? []);
+            return (users ?? []).map((user) => {
+              const isMember = memberIds.has(user._id);
+              return (
+                <DropdownMenuCheckboxItem
+                  key={user._id}
+                  checked={isMember}
+                  onCheckedChange={() => {
+                    const current = project.members ?? [];
+                    const next = isMember
+                      ? current.filter((id) => id !== user._id)
+                      : [...current, user._id];
+                    updateProject({ id: projectId, members: next });
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {displayName(user)}
+                </DropdownMenuCheckboxItem>
+              );
+            });
+          })()}
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -52,6 +52,7 @@ export function RunTasksModal({
       );
       const startedCount = results.filter((started) => started).length;
       if (startedCount === count) {
+        setIsLoading(false);
         onSuccess();
         onClose();
         return;
@@ -68,9 +69,8 @@ export function RunTasksModal({
     } catch (err) {
       console.error("Failed to run tasks:", err);
       setRunError("Failed to run selected tasks.");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (

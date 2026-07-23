@@ -8,7 +8,7 @@ import {
   type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -44,7 +44,7 @@ import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { EvaIcon } from "@/lib/components/EvaIcon";
@@ -196,15 +196,16 @@ export function DesignChatPanel({
   // Previously sent messages as editable display text, newest-first, for
   // ArrowUp/ArrowDown history recall in the composer.
   const messageHistory = (messages ?? [])
-    .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-    .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+    .flatMap((m) =>
+      m.role === "user" && !m.isSystemAlert && m.content
+        ? [tokenizedToEditable(m.content).displayText]
+        : [],
+    )
     .reverse();
 
-  useEffect(() => {
-    if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
-      setIsSending(false);
-    }
-  }, [isSending, lastMessage]);
+  if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
+    setIsSending(false);
+  }
 
   const personaMap = new Map(personas?.map((p) => [p._id, p]) ?? []);
 
@@ -272,18 +273,11 @@ export function DesignChatPanel({
 
   const queuedMessageItems = (queuedMessages ?? []).map(
     (message: QueuedDesignMessage) => {
-      const detailParts = [
-        message.personaId
-          ? (personaMap.get(message.personaId)?.name ?? "Persona")
-          : null,
-        typeof message.numDesigns === "number"
-          ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
-          : null,
-      ].filter((part): part is string => Boolean(part));
       return {
         id: message._id,
         content: message.content,
-        info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        model: message.model,
+        reasoningLevel: message.reasoningLevel,
       };
     },
   );
@@ -357,7 +351,7 @@ export function DesignChatPanel({
                     timestamp={message.timestamp}
                   />
                 ) : (
-                  <motion.div
+                  <m.div
                     key={message._id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -443,7 +437,7 @@ export function DesignChatPanel({
                         </div>
                       )}
                     </AIMessage>
-                  </motion.div>
+                  </m.div>
                 ),
               )
             )}

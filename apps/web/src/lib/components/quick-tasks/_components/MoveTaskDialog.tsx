@@ -50,9 +50,8 @@ export function MoveTaskDialog({
       onClose();
     } catch (err) {
       console.error("Failed to move task:", err);
-    } finally {
-      setIsMoving(false);
     }
+    setIsMoving(false);
   };
 
   return (

@@ -34,8 +34,8 @@ export function downloadPlanAsMarkdownFile(
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
-  window.setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 0);
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }

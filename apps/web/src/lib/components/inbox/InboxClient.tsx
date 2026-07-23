@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";
@@ -230,7 +230,7 @@ export function InboxClient() {
         <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
           <AnimatePresence initial={false}>
             {groups.map((group) => (
-              <motion.div
+              <m.div
                 key={group.label}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -246,7 +246,7 @@ export function InboxClient() {
                   const repo = n.repoId ? repoById.get(n.repoId) : undefined;
                   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
                   return (
-                    <motion.div
+                    <m.div
                       key={n._id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -304,10 +304,10 @@ export function InboxClient() {
                           </Button>
                         )}
                       </div>
-                    </motion.div>
+                    </m.div>
                   );
                 })}
-              </motion.div>
+              </m.div>
             ))}
           </AnimatePresence>
         </div>

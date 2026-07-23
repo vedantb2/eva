@@ -106,7 +106,8 @@ export function ReviewOverviewPanel({
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    getOverview({ repoId, prNumber })
+    // reloadKey > 0 means Retry — bypass ActionCache TTL.
+    getOverview({ repoId, prNumber, force: reloadKey > 0 })
       .then((overview) => {
         if (!cancelled) setState({ status: "ready", overview });
       })

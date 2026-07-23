@@ -1,5 +1,13 @@
 # Changelog
 
+## ActionCache for PR Overview + Diffs - 2026-07-23
+
+Overview and Diffs always re-hit GitHub on every open (multi-call Octokit), so repeat visits felt slow. Both now use `@convex-dev/action-cache` (60s / 120s TTL); Refresh and Retry pass `force` to bypass.
+
+## Sandbox Review Overview tab - 2026-07-23
+
+Reviews already had Overview (description, conversation, checks); sandbox Review only offered Diffs/Recap, so users left the surface to inspect PR status. Overview is now a third Review sub-tab (path-backed like Recap) for sessions, projects, and quick tasks, reusing `ReviewOverviewPanel`.
+
 ## AskUserQuestion no longer stuck loading - 2026-07-23
 
 Blocking AskUserQuestion keeps the turn `isExecuting` while waiting for the user, but the MCQ card used that flag as `isLoading` — options greyed out and Next spun forever from first paint. Loading now tracks only the answer submit in flight.
@@ -11,6 +19,7 @@ Session sandboxes were lighting the left-rail repo/app dot even when nothing els
 ## Project tasks share Make-changes model + Options - 2026-07-23
 
 Project tasks still hid the composer model picker and Options behind `!isProjectTask`, while Properties kept a duplicate model field — so the same shared components looked different by surface. Both now use the quick-task Make-changes controls; project Options persist proof/audit on the task for the next build. Create-from-project also gets the same assignee/tags/projects props as the quick-task modal.
+
 ## More space between Global Sessions app groups - 2026-07-23
 
 App collapsibles in the root Sessions sidebar sat too tight (`space-y-1`), so related groups felt like one block. Spacing between app groups is now `space-y-3` for clearer separation when scanning across codebases.

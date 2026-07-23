@@ -10,6 +10,23 @@ export const Route = createFileRoute(
       "diffFile" in search && typeof search.diffFile === "string"
         ? search.diffFile
         : undefined;
+    if (dest.kind === "overview") {
+      throw redirect({
+        to: "/$owner/$repo/quick-tasks/$numId/sandbox/review/overview",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+        },
+        search: {
+          draft: undefined,
+          diffFile,
+          diffView: undefined,
+          prTab: undefined,
+        },
+        replace: true,
+      });
+    }
     if (dest.kind === "recap") {
       throw redirect({
         to: "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap",

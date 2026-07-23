@@ -12,6 +12,23 @@ export const Route = createFileRoute(
         ? search.prTab
         : "diffs";
 
+    if (prTab === "overview") {
+      throw redirect({
+        to: "/$owner/$repo/sessions/$numId/review/overview",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+        },
+        search: (prev) => ({
+          ...prev,
+          prTab: undefined,
+          diffView: undefined,
+        }),
+        replace: true,
+      });
+    }
+
     if (prTab === "recap") {
       throw redirect({
         to: "/$owner/$repo/sessions/$numId/review/recap",

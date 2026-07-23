@@ -148,7 +148,7 @@ export function LogsClient() {
     const query = (searchQuery ?? "").toLowerCase().trim();
 
     return projectLogs
-      .map((group) => {
+      .flatMap((group) => {
         const filtered = query
           ? group.logs.filter(
               (log) =>
@@ -156,20 +156,22 @@ export function LogsClient() {
                 group.projectTitle.toLowerCase().includes(query),
             )
           : group.logs;
+        if (filtered.length === 0) return [];
 
         let totalCostForProject = 0;
         for (const log of filtered) {
           totalCostForProject += parseResultEvent(log.rawResultEvent).costUsd;
         }
 
-        return {
-          projectId: group.projectId,
-          projectTitle: group.projectTitle,
-          logs: filtered,
-          totalCost: totalCostForProject,
-        };
+        return [
+          {
+            projectId: group.projectId,
+            projectTitle: group.projectTitle,
+            logs: filtered,
+            totalCost: totalCostForProject,
+          },
+        ];
       })
-      .filter((g) => g.logs.length > 0)
       .sort((a, b) => b.totalCost - a.totalCost);
   })();
 

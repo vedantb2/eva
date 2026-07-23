@@ -204,9 +204,9 @@ export function EnvVarsTable({
     const parsed = parseEnvVars(bulkText);
     if (parsed.length === 0) return;
     setBulkSaving(true);
-    for (const { key, value } of parsed) {
-      await onUpsert(key, value, false);
-    }
+    await Promise.all(
+      parsed.map(({ key, value }) => onUpsert(key, value, false)),
+    );
     setBulkSaving(false);
     setShowBulkPaste(false);
     setBulkText("");

@@ -140,14 +140,6 @@ export function DocInterviewDialog({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (!open || readOnly || hasTriggeredRef.current) return;
-    if (messages.length === 0) {
-      hasTriggeredRef.current = true;
-      askQuestion([]);
-    }
-  }, [open]);
-
   const askQuestion = async (currentAnswers: AnswerRecord[]) => {
     setIsLoading(true);
     await startDocInterview({
@@ -156,6 +148,14 @@ export function DocInterviewDialog({
       previousAnswers: currentAnswers,
     });
   };
+
+  useEffect(() => {
+    if (!open || readOnly || hasTriggeredRef.current) return;
+    if (messages.length === 0) {
+      hasTriggeredRef.current = true;
+      askQuestion([]);
+    }
+  }, [open]);
 
   const handleAnswer = async (answer: string) => {
     const lastAssistantMsg = [...messages]

@@ -136,13 +136,17 @@ export const MentionTextarea = forwardRef<
     description: docDescriptionPreview(doc),
   }));
 
-  const slashItems: SlashItem[] = skills
-    .filter((skill) => skill.available)
-    .map((skill) => ({
-      id: skill._id,
-      label: skill.title,
-      description: skill.description,
-    }));
+  const slashItems: SlashItem[] = skills.flatMap((skill) =>
+    skill.available
+      ? [
+          {
+            id: skill._id,
+            label: skill.title,
+            description: skill.description,
+          },
+        ]
+      : [],
+  );
 
   return (
     <MentionEditor

@@ -1,21 +1,54 @@
 "use client";
 
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-} from "chart.js";
+import { Suspense, use } from "react";
 import { Widget } from "@/lib/components/Widget";
 import dayjs from "@conductor/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+/** Lazy chart.js + react-chartjs-2 so stats pages don't pay the cost up front. */
+const barChartModules = Promise.all([
+  import("react-chartjs-2"),
+  import("chart.js"),
+]).then(([reactChart, chartJs]) => {
+  const {
+    Chart: ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Tooltip,
+  } = chartJs;
+  ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+  return { Bar: reactChart.Bar };
+});
 
 interface PRsOverTimeChartProps {
   timeline: Array<{ date: number; prsShipped: number }>;
+}
+
+function PRsBarChart({
+  chartData,
+  options,
+}: {
+  chartData: {
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string;
+      borderColor: string;
+      borderWidth: number;
+      borderRadius: number;
+    }>;
+  };
+  options: {
+    responsive: boolean;
+    maintainAspectRatio: boolean;
+    plugins: { legend: { display: boolean } };
+    scales: { y: { beginAtZero: boolean; ticks: { stepSize: number } } };
+  };
+}) {
+  const { Bar } = use(barChartModules);
+  return <Bar data={chartData} options={options} />;
 }
 
 export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
@@ -43,7 +76,9 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
   return (
     <Widget title="PRs Shipped Over Time">
       <div className="h-48 sm:h-64">
-        <Bar data={chartData} options={options} />
+        <Suspense fallback={null}>
+          <PRsBarChart chartData={chartData} options={options} />
+        </Suspense>
       </div>
     </Widget>
   );

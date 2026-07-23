@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -44,6 +44,7 @@ export function DiffsPanel({
   repoId,
   onToolbarStateChange,
 }: DiffsPanelProps) {
+  "use no memo";
   const getPrDiff = useAction(api.github.getPrDiff);
   const { resolvedTheme } = useThemeMode();
   const { diffView, diffFile, setDiffFile } = useDiffSearchParams();
@@ -115,7 +116,7 @@ export function DiffsPanel({
   );
   // Stable identity for the current file set: remounts the tree (whose model is
   // created once) whenever the changed files change.
-  const filesKey = useMemo(() => filePaths.join("\n"), [filePaths]);
+  const filesKey = filePaths.join("\n");
 
   // Re-seed open files when the changed set changes: open everything not yet
   // Viewed so returning reviewers land on collapsed progress.

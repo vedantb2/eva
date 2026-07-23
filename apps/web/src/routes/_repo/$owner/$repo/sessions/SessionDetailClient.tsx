@@ -83,9 +83,11 @@ export function SessionDetailClient({
       setIsStopPending(true);
       try {
         await stopSandboxMutation({ sessionId });
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 

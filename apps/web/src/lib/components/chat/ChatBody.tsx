@@ -11,7 +11,7 @@ import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -171,9 +171,16 @@ export function ChatBody({
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
 
-  const [questionDismissed, setQuestionDismissed] = useState(false);
+  const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
+    string | null
+  >(null);
   const pendingQuestionRaw =
     streamingPendingQuestion ?? lastMessage?.pendingQuestion;
+  const questionDismissed =
+    pendingQuestionRaw !== undefined &&
+    pendingQuestionRaw !== null &&
+    pendingQuestionRaw !== "" &&
+    dismissedQuestionKey === pendingQuestionRaw;
   const activePendingQuestion = questionDismissed
     ? null
     : parsePendingQuestion(pendingQuestionRaw);
@@ -183,14 +190,10 @@ export function ChatBody({
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
 
-  useEffect(() => {
-    if (pendingQuestionRaw) {
-      setQuestionDismissed(false);
-    }
-  }, [pendingQuestionRaw]);
-
   const handleQuestionAnswer = async (answer: string) => {
-    setQuestionDismissed(true);
+    if (pendingQuestionRaw) {
+      setDismissedQuestionKey(pendingQuestionRaw);
+    }
     await onSend(answer);
   };
 

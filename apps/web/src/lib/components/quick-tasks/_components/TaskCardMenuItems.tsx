@@ -314,13 +314,15 @@ export function TaskCardMenuItems({
             )}
             <MenuSeparator />
             <RadioItem value="unassigned">Unassigned</RadioItem>
-            {(users ?? [])
-              .filter((user) => user.role === "dev")
-              .map((user) => (
-                <RadioItem key={user._id} value={user._id}>
-                  {user.fullName ?? user.firstName ?? "Unknown"}
-                </RadioItem>
-              ))}
+            {(users ?? []).flatMap((user) =>
+              user.role === "dev"
+                ? [
+                    <RadioItem key={user._id} value={user._id}>
+                      {user.fullName ?? user.firstName ?? "Unknown"}
+                    </RadioItem>,
+                  ]
+                : [],
+            )}
           </RadioGroup>
         </SubContent>
       </Sub>
@@ -433,13 +435,15 @@ export function TaskCardMenuItems({
                     value={normalizedModel}
                     onValueChange={applyModelSelection}
                   >
-                    {opts
-                      .filter((o) => getAIModelProvider(o.id) === provider)
-                      .map((option) => (
-                        <RadioItem key={option.id} value={option.id}>
-                          {option.label}
-                        </RadioItem>
-                      ))}
+                    {opts.flatMap((option) =>
+                      getAIModelProvider(option.id) === provider
+                        ? [
+                            <RadioItem key={option.id} value={option.id}>
+                              {option.label}
+                            </RadioItem>,
+                          ]
+                        : [],
+                    )}
                   </RadioGroup>
                 </SubContent>
               </Sub>

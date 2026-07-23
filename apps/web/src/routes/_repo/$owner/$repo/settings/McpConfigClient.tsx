@@ -42,9 +42,11 @@ export function McpConfigClient() {
         mcpRootPrompt: draft.trim() || undefined,
       });
       setOpen(false);
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
+    setSaving(false);
   };
 
   const isDirty = draft !== prompt;

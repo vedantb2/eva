@@ -42,9 +42,8 @@ export function SkillsClient() {
           ? syncError.message
           : "Failed to sync skills from GitHub.",
       );
-    } finally {
-      setSyncing(false);
     }
+    setSyncing(false);
   };
 
   return (

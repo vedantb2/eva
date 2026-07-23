@@ -6,7 +6,7 @@ import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   IconChevronLeft,
   IconLayoutSidebarLeftCollapse,
@@ -272,7 +272,7 @@ export function Sidebar() {
 
       <AnimatePresence initial={false}>
         {mobileOpen && (
-          <motion.div
+          <m.div
             className="fixed inset-0 z-40 bg-background/62  lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
@@ -333,7 +333,7 @@ export function Sidebar() {
                   <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
                 </>
               ) : null}
-              <motion.div
+              <m.div
                 key={
                   showGlobalSessionsPanel
                     ? "global-sessions-header"
@@ -499,7 +499,7 @@ export function Sidebar() {
                     </div>
                   </>
                 )}
-              </motion.div>
+              </m.div>
             </div>
 
             <nav
@@ -512,7 +512,7 @@ export function Sidebar() {
               <div
                 className={showGlobalSessionsPanel ? "space-y-0" : "space-y-4"}
               >
-                <motion.div
+                <m.div
                   key={
                     showGlobalSessionsPanel
                       ? "global-sessions-nav"
@@ -611,7 +611,7 @@ export function Sidebar() {
                       />
                     </div>
                   ) : null}
-                </motion.div>
+                </m.div>
               </div>
             </nav>
 

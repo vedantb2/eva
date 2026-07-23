@@ -118,6 +118,7 @@ function PresenceInner({ userId }: { userId: Id<"users"> }) {
 }
 
 export function ClientProvider({ children }: { children: React.ReactNode }) {
+  "use no memo";
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useStableAuth}>
       <ConvexQueryCacheProvider>

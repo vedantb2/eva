@@ -11,7 +11,7 @@ import {
 } from "@conductor/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
@@ -124,7 +124,7 @@ export const ChatMessage = memo(function ChatMessage({
     getAssistantTurnState(message, isLast);
 
   return (
-    <motion.div
+    <m.div
       key={message._id}
       data-message-id={message._id}
       initial={{ opacity: 0, y: 10 }}
@@ -315,6 +315,6 @@ export const ChatMessage = memo(function ChatMessage({
           </div>
         )}
       </AIMessage>
-    </motion.div>
+    </m.div>
   );
 });

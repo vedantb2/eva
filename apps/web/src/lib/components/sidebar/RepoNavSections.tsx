@@ -175,13 +175,12 @@ export function RepoNavSections({
       },
     ];
     if (isDev) return allGroups;
-    return allGroups
-      .filter((g) => !g.devOnly)
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((i) => !i.devOnly),
-      }))
-      .filter((g) => g.items.length > 0);
+    return allGroups.flatMap((g) => {
+      if (g.devOnly) return [];
+      const items = g.items.filter((i) => !i.devOnly);
+      if (items.length === 0) return [];
+      return [{ ...g, items }];
+    });
   })();
 
   const navItemClass = (isActive: boolean) =>

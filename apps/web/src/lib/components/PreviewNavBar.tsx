@@ -88,13 +88,19 @@ export function PreviewNavBar({
   // notifications for the same path.
   const lastNotifiedPathRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  // Adjust draft inputs during render when external port/path props change
+  // (React-recommended alternative to setState-in-effect).
+  const [prevPort, setPrevPort] = useState(port);
+  if (port !== prevPort) {
+    setPrevPort(port);
     setPortInput(String(port));
-  }, [port]);
-
-  useEffect(() => {
-    setPathInput(path ?? defaultPath);
-  }, [path, defaultPath]);
+  }
+  const resolvedPath = path ?? defaultPath;
+  const [prevPath, setPrevPath] = useState(resolvedPath);
+  if (resolvedPath !== prevPath) {
+    setPrevPath(resolvedPath);
+    setPathInput(resolvedPath);
+  }
 
   function notifyPathChange(nextPath: string) {
     if (lastNotifiedPathRef.current === nextPath) return;
@@ -117,6 +123,11 @@ export function PreviewNavBar({
     }
   }
 
+  const syncPathFromIframeRef = useRef(syncPathFromIframe);
+  syncPathFromIframeRef.current = syncPathFromIframe;
+  const notifyPathChangeRef = useRef(notifyPathChange);
+  notifyPathChangeRef.current = notifyPathChange;
+
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");
   }
@@ -124,7 +135,10 @@ export function PreviewNavBar({
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
-    iframe.addEventListener("load", syncPathFromIframe);
+    const onLoad = () => {
+      syncPathFromIframeRef.current();
+    };
+    iframe.addEventListener("load", onLoad);
 
     function handleMessage(event: MessageEvent) {
       if (
@@ -138,16 +152,16 @@ export function PreviewNavBar({
       ) {
         const nextPath = getPathFromUrl(event.data.url);
         setPathInput(nextPath);
-        notifyPathChange(nextPath);
+        notifyPathChangeRef.current(nextPath);
       }
     }
 
     window.addEventListener("message", handleMessage);
     return () => {
-      iframe.removeEventListener("load", syncPathFromIframe);
+      iframe.removeEventListener("load", onLoad);
       window.removeEventListener("message", handleMessage);
     };
-  }, [iframeRef, syncPathFromIframe, notifyPathChange]);
+  }, [iframeRef]);
 
   function goBack() {
     let handled = false;

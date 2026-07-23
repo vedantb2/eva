@@ -167,9 +167,8 @@ export function ProjectDetailClient({
       await cancelBuild({ projectId: projectId });
     } catch (err) {
       console.error("Failed to stop build:", err);
-    } finally {
-      setIsStoppingBuild(false);
     }
+    setIsStoppingBuild(false);
   };
 
   const handleCreatePr = async () => {
@@ -181,9 +180,8 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
       setPrError(message);
-    } finally {
-      setIsCreatingPr(false);
     }
+    setIsCreatingPr(false);
   };
 
   const handleResolveConflicts = async () => {
@@ -195,9 +193,8 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to resolve conflicts";
       setPrError(message);
-    } finally {
-      setIsResolvingConflicts(false);
     }
+    setIsResolvingConflicts(false);
   };
 
   if (project === undefined) {
@@ -583,9 +580,11 @@ export function ProjectDetailClient({
                     projectId: projectId,
                   });
                   setIsBuildModalOpen(false);
-                } finally {
+                } catch (error) {
                   setIsStartingBuild(false);
+                  throw error;
                 }
+                setIsStartingBuild(false);
               }}
             >
               <IconHammer size={16} />

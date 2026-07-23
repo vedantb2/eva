@@ -456,22 +456,25 @@ export function QuickTaskModal({
                         )}
                       </CommandEmpty>
                       <CommandGroup>
-                        {(allTags ?? []).map((tag) => (
-                          <CommandItem
-                            key={tag}
-                            value={tag}
-                            onSelect={() => toggleTag(tag)}
-                          >
-                            <IconTag
-                              size={14}
-                              className="text-muted-foreground"
-                            />
-                            {tag}
-                            {selectedTags.includes(tag) && (
-                              <IconCheck size={14} className="ml-auto" />
-                            )}
-                          </CommandItem>
-                        ))}
+                        {(() => {
+                          const selected = new Set(selectedTags);
+                          return (allTags ?? []).map((tag) => (
+                            <CommandItem
+                              key={tag}
+                              value={tag}
+                              onSelect={() => toggleTag(tag)}
+                            >
+                              <IconTag
+                                size={14}
+                                className="text-muted-foreground"
+                              />
+                              {tag}
+                              {selected.has(tag) && (
+                                <IconCheck size={14} className="ml-auto" />
+                              )}
+                            </CommandItem>
+                          ));
+                        })()}
                       </CommandGroup>
                     </CommandList>
                   </Command>

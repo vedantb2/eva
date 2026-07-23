@@ -399,6 +399,7 @@ var callbackState = {
   firstTextBlockAt: 0,
   currentStreamedContent: "",
   streamedAssistantTextThisMessage: false,
+  pendingParagraphBreak: false,
   activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
@@ -2763,6 +2764,13 @@ function parseClaudeStreamEvent(event) {
     events.push({ kind: "mark_message_start" });
     return events;
   }
+  if (inner.type === "content_block_start") {
+    const contentBlock = inner.content_block && typeof inner.content_block === "object" && !Array.isArray(inner.content_block) ? inner.content_block : null;
+    if (contentBlock && contentBlock.type === "text") {
+      events.push({ kind: "mark_text_block_start" });
+    }
+    return events;
+  }
   if (inner.type !== "content_block_delta") return events;
   const delta = inner.delta && typeof inner.delta === "object" && !Array.isArray(inner.delta) ? inner.delta : null;
   if (!delta) return events;
@@ -3608,14 +3616,19 @@ function applyCanonicalEvents(events) {
         markLastComplete();
         break;
       case "append_text":
-        appendStreamedContent(ev.text);
+        appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
-        appendStreamedContent(ev.text);
+        appendStreamedContent(ev.text, callbackState.pendingParagraphBreak);
+        callbackState.pendingParagraphBreak = false;
         callbackState.streamedAssistantTextThisMessage = true;
         break;
       case "mark_message_start":
         callbackState.streamedAssistantTextThisMessage = false;
+        callbackState.pendingParagraphBreak = true;
+        break;
+      case "mark_text_block_start":
+        callbackState.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
         callbackState.lastStepType = "thinking";
@@ -3652,7 +3665,7 @@ function parseStreamEvent(line) {
     return false;
   }
 }
-function appendStreamedContent(text) {
+function appendStreamedContent(text, isBlockBoundary = false) {
   const nextText = String(text);
   if (!nextText) {
     return;
@@ -3660,6 +3673,9 @@ function appendStreamedContent(text) {
   if (nextText.startsWith(callbackState.currentStreamedContent)) {
     callbackState.currentStreamedContent = nextText;
     return;
+  }
+  if (isBlockBoundary && callbackState.currentStreamedContent.length > 0 && !callbackState.currentStreamedContent.endsWith("\\n") && !nextText.startsWith("\\n")) {
+    callbackState.currentStreamedContent += "\\n\\n";
   }
   callbackState.currentStreamedContent += nextText;
 }

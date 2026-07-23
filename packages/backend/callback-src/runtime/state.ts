@@ -139,6 +139,10 @@ type CallbackState = {
   firstTextBlockAt: number;
   currentStreamedContent: string;
   streamedAssistantTextThisMessage: boolean;
+  /** Set at each assistant message boundary (message_start) so the next text
+   * append inserts a paragraph break instead of butting one message's last
+   * sentence against the next's first word ("design.Design settled."). */
+  pendingParagraphBreak: boolean;
   activeAttemptChild: ChildProcess | null;
   fatalHeartbeatErrorMessage: string;
   consecutiveHeartbeatFailures: number;
@@ -190,6 +194,7 @@ export const callbackState: CallbackState = {
   firstTextBlockAt: 0,
   currentStreamedContent: "",
   streamedAssistantTextThisMessage: false,
+  pendingParagraphBreak: false,
   activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
@@ -266,6 +271,7 @@ export function resetStateForTests(): void {
   callbackState.parsedStreamEventCount = 0;
   callbackState.currentStreamedContent = "";
   callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.pendingParagraphBreak = false;
   callbackState.todoState.length = 0;
   callbackState.awaitingQuestionAnswer = false;
 }

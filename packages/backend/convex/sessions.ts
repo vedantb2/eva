@@ -11,6 +11,7 @@ export {
   addMessage,
   updateStatus,
   update,
+  setModel,
   updateSummary,
   archive,
   unarchive,

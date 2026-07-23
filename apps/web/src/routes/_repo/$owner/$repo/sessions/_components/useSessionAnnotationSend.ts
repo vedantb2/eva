@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
+import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 
 /**
@@ -16,8 +17,13 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  const { mode, model, executionTraits, providerAccountId } =
-    useSessionSettings(String(sessionId), { defaultModel });
+  // Model is owned by Convex (`sessions.lastModel`); read it here so annotation
+  // sends use the session's actual model, not a stale localStorage fallback.
+  const { model } = useSessionModel(sessionId, defaultModel);
+  const { mode, executionTraits, providerAccountId } = useSessionSettings(
+    String(sessionId),
+    { defaultModel, model },
+  );
   const { resolveId: resolveAccountId } = useProviderAccounts();
 
   const messages = useQuery(api.messages.listByParent, {

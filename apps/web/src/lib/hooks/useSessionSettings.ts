@@ -42,7 +42,15 @@ function storageKey(sessionId: string) {
 
 export function useSessionSettings(
   sessionId: string,
-  overrides?: { defaultModel?: string | null },
+  overrides?: {
+    defaultModel?: string | null;
+    // When provided, the model becomes a controlled value owned by the caller
+    // (Convex `sessions.lastModel` for an existing session) instead of being
+    // persisted in localStorage. Trait resolution still runs against this
+    // model. New-session composers omit these and keep the local-storage model.
+    model?: AIModel;
+    onModelChange?: (model: AIModel) => void;
+  },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
     ? { ...DEFAULT_SETTINGS, model: normalizeAIModel(overrides.defaultModel) }
@@ -53,7 +61,7 @@ export function useSessionSettings(
     defaults,
   );
 
-  const model = normalizeAIModel(settings.model);
+  const model = overrides?.model ?? normalizeAIModel(settings.model);
 
   const storedTraits: StoredModelTraits = {
     effortLevel: settings.effortLevel,
@@ -65,10 +73,12 @@ export function useSessionSettings(
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
 
   const setModel = (nextModel: AIModel) => {
-    setSettings((prev) => ({
-      ...prev,
-      model: normalizeAIModel(nextModel),
-    }));
+    const normalized = normalizeAIModel(nextModel);
+    if (overrides?.onModelChange) {
+      overrides.onModelChange(normalized);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, model: normalized }));
   };
 
   const setMode = (mode: SessionMode) => {

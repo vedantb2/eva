@@ -9,6 +9,7 @@ import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 export type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
@@ -111,10 +112,7 @@ export function useSessionSend({
     api.sessionWorkflow.cancelExecution,
   );
 
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting = lastAssistantHasNoContent;
+  const isExecuting = isAssistantTurnInProgress(messages);
 
   const handleSend = async (
     content: string,

@@ -7,6 +7,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 
 /**
  * Sends an annotation as chat display text + rich agent prompt.
@@ -33,10 +34,7 @@ export function useSessionAnnotationSend(
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
 
-  const lastMessage = messages?.[messages.length - 1];
-  const isExecuting = Boolean(
-    lastMessage && lastMessage.role === "assistant" && !lastMessage.content,
-  );
+  const isExecuting = isAssistantTurnInProgress(messages ?? []);
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);

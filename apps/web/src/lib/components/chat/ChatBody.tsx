@@ -171,6 +171,24 @@ export function ChatBody({
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
+  // Prefer the unfinished Working bubble over a newer system alert so streamed
+  // tokens / pending questions stay attached to the live turn.
+  const activeAssistantTurn = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (!message || message.isSystemAlert) continue;
+      if (
+        message.role === "assistant" &&
+        !message.content &&
+        message.finishedAt === undefined
+      ) {
+        return message;
+      }
+      return undefined;
+    }
+    return undefined;
+  })();
+  const activeAssistantTurnId = activeAssistantTurn?._id;
 
   const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
     string | null
@@ -179,7 +197,9 @@ export function ChatBody({
   // the turn executing while waiting for the user; mirroring that would lock the UI.
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const pendingQuestionRaw =
-    streamingPendingQuestion ?? lastMessage?.pendingQuestion;
+    streamingPendingQuestion ??
+    activeAssistantTurn?.pendingQuestion ??
+    lastMessage?.pendingQuestion;
   const questionDismissed =
     pendingQuestionRaw !== undefined &&
     pendingQuestionRaw !== null &&
@@ -235,6 +255,7 @@ export function ChatBody({
 
   const renderMessage = (message: ChatBodyMessage) => {
     const isLast = message._id === lastMessageId;
+    const isActiveAssistantTurn = message._id === activeAssistantTurnId;
     const isStreamingPlaceholder =
       message.role === "assistant" &&
       !message.content &&
@@ -263,12 +284,16 @@ export function ChatBody({
         streamingActivity={
           isStreamingPlaceholder ? streamingActivity : undefined
         }
-        streamingContent={isLast ? streamingContent : undefined}
+        streamingContent={
+          isActiveAssistantTurn || isLast ? streamingContent : undefined
+        }
         blockingQuestions={
           isStreamingPlaceholder ? blockingQuestions : undefined
         }
         activePendingQuestion={
-          isStreamingPlaceholder || isLast ? activePendingQuestion : undefined
+          isStreamingPlaceholder || isActiveAssistantTurn || isLast
+            ? activePendingQuestion
+            : undefined
         }
         isQuestionLoading={isAnsweringQuestion}
         onQuestionAnswer={handleQuestionAnswer}

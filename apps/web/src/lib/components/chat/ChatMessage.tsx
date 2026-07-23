@@ -186,7 +186,7 @@ export const ChatMessage = memo(function ChatMessage({
                 startedAt={message.timestamp}
                 onOpenFile={onOpenFile}
               />
-              {isLast && streamingContent ? (
+              {streamingContent ? (
                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
                   {streamingContent}
                 </MessageResponse>

@@ -1,5 +1,9 @@
 # Changelog
 
+## AskUserQuestion no longer stuck loading - 2026-07-23
+
+Blocking AskUserQuestion keeps the turn `isExecuting` while waiting for the user, but the MCQ card used that flag as `isLoading` — options greyed out and Next spun forever from first paint. Loading now tracks only the answer submit in flight.
+
 ## Rail active badge ignores sessions - 2026-07-23
 
 Session sandboxes were lighting the left-rail repo/app dot even when nothing else was running, which made the indicator noisy. The badge now only reflects active quick-task or project sandboxes.

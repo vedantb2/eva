@@ -1,5 +1,8 @@
 # Changelog
 
+## Diffs tab file accordion + Viewed - 2026-07-23
+
+Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.
 ## Warm seed-prep from base Image - 2026-07-23
 
 Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.

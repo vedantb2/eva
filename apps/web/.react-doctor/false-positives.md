@@ -21,7 +21,9 @@ TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"`
 - `ResizablePanelLayout`: `usePanelRef()` + render-prop `leftPanel(ctx)` where `ctx.onToggleRightPanel` closes over panel ref APIs. Ref is only read in the toggle event handler; compiler still flags the render-prop call sites.
 - `DocContentTab`: TipTap extension `configure({ getUserId: () => userIdRef.current })` / `onAnchorClick` must close over a stable ref so the editor is not recreated when auth resolves. Reads happen in editor callbacks, not React render.
 
-## no-layout-property-animation
+## no-transition-all on `animate-in`
+
+Findings on `animate-in fade-in duration-300` (tailwindcss-animate enter animations) are false positives: those classes drive CSS `@keyframes` animations, not `transition: all`. The rule's own validation prompt says Tailwind class names are not in scope for this check.
 
 The following flags are false positives: they are `motion`/`AnimatePresence` enter/exit
 transitions using `height: 0 <-> "auto"` (or `width: 0 <-> "auto"`) to collapse/expand an

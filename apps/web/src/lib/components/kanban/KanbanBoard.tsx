@@ -12,7 +12,7 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import {
   KanbanProvider,
@@ -188,7 +188,7 @@ export function KanbanBoard<T extends BaseTask>({
             {KANBAN_STATUSES.filter((status) =>
               visibleStatuses.has(status),
             ).map((status) => (
-              <motion.div
+              <m.div
                 key={status}
                 layout
                 className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
@@ -205,7 +205,7 @@ export function KanbanBoard<T extends BaseTask>({
                   renderCard={renderCard}
                   onItemClick={onItemClick}
                 />
-              </motion.div>
+              </m.div>
             ))}
           </AnimatePresence>
         </div>

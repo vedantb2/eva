@@ -10,6 +10,7 @@ import { clientEnv } from "./env/client";
 import { convex } from "./lib/components/ClientProvider";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
+import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import "./fonts";
@@ -87,13 +88,15 @@ const rootElement = document.getElementById("root");
 if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
-      <ClerkProvider
-        publishableKey={clientEnv.VITE_CLERK_PUBLISHABLE_KEY}
-        signInFallbackRedirectUrl="/home"
-        signUpFallbackRedirectUrl="/home"
-      >
-        <InnerApp />
-      </ClerkProvider>
+      <MotionProvider>
+        <ClerkProvider
+          publishableKey={clientEnv.VITE_CLERK_PUBLISHABLE_KEY}
+          signInFallbackRedirectUrl="/home"
+          signUpFallbackRedirectUrl="/home"
+        >
+          <InnerApp />
+        </ClerkProvider>
+      </MotionProvider>
     </StrictMode>,
   );
 }

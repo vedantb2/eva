@@ -30,7 +30,7 @@ import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -163,14 +163,14 @@ export function ChatComposer({
     <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
             {beforeQueuedContent}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       <QueuedMessagesPanel

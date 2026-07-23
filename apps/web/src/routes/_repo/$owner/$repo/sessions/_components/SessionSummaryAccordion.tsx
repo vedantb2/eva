@@ -7,7 +7,7 @@ import {
   AccordionTrigger,
 } from "@conductor/ui";
 import { IconSparkles } from "@tabler/icons-react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 
 interface SessionSummaryAccordionProps {
@@ -26,7 +26,7 @@ export function SessionSummaryAccordion({
 
   return (
     <AnimatePresence initial={false}>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
@@ -58,7 +58,7 @@ export function SessionSummaryAccordion({
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 }

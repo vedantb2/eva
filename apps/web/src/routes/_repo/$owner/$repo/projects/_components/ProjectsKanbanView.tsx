@@ -1,6 +1,6 @@
 import type { FunctionReturnType } from "convex/server";
 import type { Id, api } from "@conductor/backend";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import { entityPathSegment } from "@/lib/numId";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
@@ -37,7 +37,7 @@ export function ProjectsKanbanView({
     <AnimatePresence initial={false}>
       {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
         (phase) => (
-          <motion.div
+          <m.div
             key={phase}
             layout
             className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch"
@@ -55,7 +55,7 @@ export function ProjectsKanbanView({
               onOpenProject={onOpenProject}
               onDelete={onDelete}
             />
-          </motion.div>
+          </m.div>
         ),
       )}
     </AnimatePresence>

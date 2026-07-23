@@ -6,7 +6,7 @@ import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   IconChevronLeft,
   IconLayoutSidebarLeftCollapse,
@@ -252,7 +252,7 @@ export function Sidebar() {
 
       <AnimatePresence initial={false}>
         {mobileOpen && (
-          <motion.div
+          <m.div
             className="fixed inset-0 z-40 bg-background/62  lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
@@ -307,7 +307,7 @@ export function Sidebar() {
                   <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
                 </>
               ) : null}
-              <motion.div
+              <m.div
                 key={
                   showContextSidebar
                     ? `${contextSidebarMode}-header`
@@ -443,7 +443,7 @@ export function Sidebar() {
                     </div>
                   </>
                 )}
-              </motion.div>
+              </m.div>
             </div>
 
             <nav
@@ -451,7 +451,7 @@ export function Sidebar() {
               className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2"
             >
               <div className="space-y-4">
-                <motion.div
+                <m.div
                   key={
                     showContextSidebar
                       ? `${contextSidebarMode}-nav`
@@ -536,7 +536,7 @@ export function Sidebar() {
                       />
                     </div>
                   )}
-                </motion.div>
+                </m.div>
               </div>
             </nav>
 

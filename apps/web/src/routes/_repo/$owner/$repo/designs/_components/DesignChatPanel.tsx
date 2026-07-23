@@ -44,7 +44,7 @@ import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { EvaIcon } from "@/lib/components/EvaIcon";
@@ -357,7 +357,7 @@ export function DesignChatPanel({
                     timestamp={message.timestamp}
                   />
                 ) : (
-                  <motion.div
+                  <m.div
                     key={message._id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -443,7 +443,7 @@ export function DesignChatPanel({
                         </div>
                       )}
                     </AIMessage>
-                  </motion.div>
+                  </m.div>
                 ),
               )
             )}

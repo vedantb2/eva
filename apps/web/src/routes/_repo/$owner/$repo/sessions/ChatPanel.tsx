@@ -6,7 +6,7 @@ import {
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -273,7 +273,7 @@ export function ChatPanel({
       <PendingReviewCommentChips />
       {showCompactPlanCard && planContent ? (
         <AnimatePresence initial={false}>
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -286,7 +286,7 @@ export function ChatPanel({
               variant="compact"
               isArchived={isReadOnly}
             />
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       ) : null}
       {showPlanReadyBanner && planContent ? (

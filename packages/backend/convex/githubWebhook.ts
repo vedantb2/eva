@@ -11,6 +11,7 @@ import {
   isProjectReviewPhase,
 } from "./_projects/prSync";
 import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
+import { requestSessionSandboxStop } from "./_sessions/sandbox";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -132,6 +133,18 @@ export const handleSessionPrEvent = internalMutation({
       prState: nextState,
       updatedAt: Date.now(),
     });
+
+    // Merged/closed sessions are read-only — stop any live sandbox so VMs
+    // aren't left running forever after the PR terminal event.
+    if (
+      (nextState === "merged" || nextState === "closed") &&
+      (session.status === "active" ||
+        session.status === "starting" ||
+        session.status === "stopping" ||
+        session.sandboxId !== undefined)
+    ) {
+      await requestSessionSandboxStop(ctx, session._id);
+    }
     return null;
   },
 });

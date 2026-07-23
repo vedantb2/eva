@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isDiffView } from "@/lib/search-params";
-import { SessionReviewPage } from "../-SessionReviewPage";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView",
@@ -26,10 +25,6 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: SessionReviewDiffViewRoute,
+  // Shell is rendered by the `$numId` layout so Preview/Console stay mounted.
+  component: () => null,
 });
-
-function SessionReviewDiffViewRoute() {
-  const { numId } = Route.useParams();
-  return <SessionReviewPage numId={numId} />;
-}

@@ -45,10 +45,11 @@ export function useAnnotationBridge({
       type: "eva-preview-annotate-mode",
       active: mode,
     });
-    if (!mode) {
-      setPending(null);
-    }
   }, [iframeRef, mode]);
+
+  if (!mode && pending !== null) {
+    setPending(null);
+  }
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {

@@ -70,14 +70,19 @@ export function AutomationsSidebar({
       const id = await createAutomation({ repoId, title: newTitle.trim() });
       const created = await convex.query(api.automations.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsCreating(false);
+        return;
+      }
       setNewTitle("");
       setIsCreateOpen(false);
       navigate({ to: `${basePath}/automations/${segment}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   return (

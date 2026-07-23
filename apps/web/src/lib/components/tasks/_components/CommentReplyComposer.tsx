@@ -84,9 +84,8 @@ function CommentReplyComposerForm({
       mentionRef.current?.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   return (

@@ -135,13 +135,11 @@ export function TaskSandboxPanel({
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
-          {tabBarValue === "files" ? (
-            <FileViewerPanel
-              sandboxId={sandboxId}
-              repoId={repoId}
-              isActive={isActive}
-            />
-          ) : null}
+          <FileViewerPanel
+            sandboxId={sandboxId}
+            repoId={repoId}
+            isActive={isActive}
+          />
         </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}

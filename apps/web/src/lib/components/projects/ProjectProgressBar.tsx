@@ -58,16 +58,17 @@ export function ProjectProgressBar({
       </TooltipTrigger>
       <TooltipContent>
         <div className="flex flex-col gap-1">
-          {TASK_STATUSES.filter((s) => progress[s] > 0).map((s) => {
+          {TASK_STATUSES.flatMap((s) => {
+            if (progress[s] <= 0) return [];
             const Icon = statusConfig[s].icon;
-            return (
+            return [
               <span
                 key={s}
                 className={`flex items-center gap-1.5 ${statusConfig[s].text}`}
               >
                 <Icon size={12} /> {progress[s]} {statusConfig[s].label}
-              </span>
-            );
+              </span>,
+            ];
           })}
         </div>
       </TooltipContent>

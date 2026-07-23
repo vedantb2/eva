@@ -38,9 +38,11 @@ export function DocNewCommentComposer({
       });
       setContent("");
       onCreated();
-    } finally {
+    } catch (error) {
       setIsSubmitting(false);
+      throw error;
     }
+    setIsSubmitting(false);
   };
 
   return (

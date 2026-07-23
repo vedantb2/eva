@@ -168,13 +168,14 @@ export function ProjectTaskListPanel({
   let todoTasks = groupedTasks.todo;
   if (localTodoOrder) {
     const taskMap = new Map(groupedTasks.todo.map((t) => [t._id, t]));
+    const orderSet = new Set(localTodoOrder);
     const ordered: Task[] = [];
     for (const id of localTodoOrder) {
       const task = taskMap.get(id);
       if (task) ordered.push(task);
     }
     for (const task of groupedTasks.todo) {
-      if (!localTodoOrder.includes(task._id)) ordered.push(task);
+      if (!orderSet.has(task._id)) ordered.push(task);
     }
     todoTasks = ordered;
   }

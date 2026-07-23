@@ -1,4 +1,4 @@
-import { ENTITY_ID } from "../config.js";
+import { ENTITY_ID, CLAUDE_ATTEMPT_MODE } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
@@ -90,6 +90,7 @@ export function buildCanUseTool(): SdkCanUseTool {
     // covers their work. Named `Agent` since Claude Code v2.1.63; older CLIs
     // still emit `Task`.
     if (
+      CLAUDE_ATTEMPT_MODE !== "sdk-daemon" &&
       (toolName === "Agent" || toolName === "Task") &&
       input.run_in_background === true
     ) {

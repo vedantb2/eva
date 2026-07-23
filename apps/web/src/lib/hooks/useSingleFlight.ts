@@ -21,6 +21,16 @@ export function useSingleFlight<TArgs, TRet>(
   const pending = useRef<Pending<TArgs>>(NO_PENDING);
 
   const invoke = async (args: TArgs): Promise<TRet | undefined> => {
+    const runPending = (): void => {
+      const next: Pending<TArgs> = pending.current;
+      pending.current = NO_PENDING;
+      if (next.has) {
+        // Recurse with the latest coalesced args — return value discarded
+        // intentionally since the original caller already received undefined.
+        void invoke(next.args);
+      }
+    };
+
     if (inFlight.current) {
       pending.current = { has: true, args };
       return undefined;
@@ -31,7 +41,7 @@ export function useSingleFlight<TArgs, TRet>(
 
     // Avoid `finally` here: TypeScript narrows discriminated unions to `never`
     // inside `finally` blocks when the try body is async, making `next.args`
-    // inaccessible. Use explicit try/catch/then instead.
+    // inaccessible. Use explicit try/catch instead.
     let result: TRet | undefined;
     try {
       result = await fn(args);
@@ -43,16 +53,6 @@ export function useSingleFlight<TArgs, TRet>(
     inFlight.current = false;
     runPending();
     return result;
-
-    function runPending(): void {
-      const next: Pending<TArgs> = pending.current;
-      pending.current = NO_PENDING;
-      if (next.has) {
-        // Recurse with the latest coalesced args — return value discarded
-        // intentionally since the original caller already received undefined.
-        void invoke(next.args);
-      }
-    }
   };
 
   return invoke;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -107,21 +107,23 @@ export function QuickTasksClient() {
     return set;
   })();
 
-  useEffect(() => {
-    if (!isSelecting) return;
-    setSelectedIds((prev) => {
-      let changed = false;
-      const next = new Set<Id<"agentTasks">>();
-      for (const id of prev) {
-        if (taskIdSet.has(id)) {
-          next.add(id);
-        } else {
-          changed = true;
-        }
+  // Drop selections for tasks that disappeared (adjust during render).
+  if (isSelecting) {
+    let needsPrune = false;
+    for (const id of selectedIds) {
+      if (!taskIdSet.has(id)) {
+        needsPrune = true;
+        break;
       }
-      return changed ? next : prev;
-    });
-  }, [taskIdSet, isSelecting]);
+    }
+    if (needsPrune) {
+      const next = new Set<Id<"agentTasks">>();
+      for (const id of selectedIds) {
+        if (taskIdSet.has(id)) next.add(id);
+      }
+      setSelectedIds(next);
+    }
+  }
 
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
@@ -362,7 +364,7 @@ export function QuickTasksClient() {
           )}
           <AnimatePresence mode="wait" initial={false}>
             {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -381,9 +383,9 @@ export function QuickTasksClient() {
                   actionLabel="Create Quick Task"
                   onAction={() => setIsCreating(true)}
                 />
-              </motion.div>
+              </m.div>
             ) : view === "kanban" ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-board"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -399,9 +401,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                 />
-              </motion.div>
+              </m.div>
             ) : view === "table" ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-table"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -417,9 +419,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                 />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 key="quick-tasks-list"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -443,7 +445,7 @@ export function QuickTasksClient() {
                   }
                   navSurface={routeState?.surface ?? "detail"}
                 />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
           {hasQuickTasks && (

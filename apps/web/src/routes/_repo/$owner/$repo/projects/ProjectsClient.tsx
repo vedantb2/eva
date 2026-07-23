@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -117,8 +117,8 @@ export function ProjectsClient() {
     if (!projects) return [];
     const query = searchQuery.toLowerCase().trim();
     return projects
-      .filter((p) => visiblePhases.has(p.phase))
       .filter((p) => {
+        if (!visiblePhases.has(p.phase)) return false;
         if (!query) return true;
         return (
           p.title.toLowerCase().includes(query) ||
@@ -163,9 +163,11 @@ export function ProjectsClient() {
     try {
       await deleteProject({ id: projectToDelete.id });
       setProjectToDelete(null);
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   const handlePhaseToggle = (phase: ProjectPhase) => {
@@ -390,7 +392,7 @@ export function ProjectsClient() {
           ) : (
             <AnimatePresence initial={false} mode="wait">
               {view === "kanban" ? (
-                <motion.div
+                <m.div
                   key="projects-kanban-view"
                   className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar [&>*]:min-w-[220px] sm:[&>*]:min-w-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -407,9 +409,9 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               ) : view === "timeline" ? (
-                <motion.div
+                <m.div
                   key="projects-timeline-view"
                   className="flex flex-1 min-h-0 min-w-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -425,9 +427,9 @@ export function ProjectsClient() {
                     onRangeChange={(r) => setParams({ timelineRange: r })}
                     onZoomChange={(z) => setParams({ timelineZoom: z })}
                   />
-                </motion.div>
+                </m.div>
               ) : view === "table" ? (
-                <motion.div
+                <m.div
                   key="projects-table-view"
                   className="flex flex-1 min-h-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -440,9 +442,9 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               ) : (
-                <motion.div
+                <m.div
                   key="projects-list-view"
                   className="flex flex-1 min-h-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -456,7 +458,7 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           )}

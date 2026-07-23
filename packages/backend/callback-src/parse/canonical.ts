@@ -12,6 +12,11 @@ import type {
   ToolCompleteResult,
 } from "../types.js";
 import { tryParseJson } from "../utils.js";
+import {
+  completeStatusOnNonStatusMessage,
+  consumesClaudeSdkTaxonomyMessage,
+  parseClaudeSdkTaxonomy,
+} from "./sdkTaxonomy.js";
 
 export {
   codexItemToStep,
@@ -236,6 +241,11 @@ export function parseStreamEvent(line: string): boolean {
     return false;
   }
   try {
+    completeStatusOnNonStatusMessage(event);
+    if (consumesClaudeSdkTaxonomyMessage(event)) {
+      applyCanonicalEvents(parseClaudeSdkTaxonomy(event));
+      return true;
+    }
     return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
   } catch {
     return false;

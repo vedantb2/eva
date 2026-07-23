@@ -162,6 +162,7 @@ export const snapshotBuildWorkflow = workflow.define({
               repoId: appRepoId,
               branch,
               buildCommands: config.buildCommands ?? [],
+              seedCommands: config.seedCommands ?? [],
             },
             { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
           );
@@ -435,6 +436,7 @@ export const snapshotBuildWorkflow = workflow.define({
           repoId: appRepoId,
           branch,
           buildCommands: config.buildCommands ?? [],
+          seedCommands: config.seedCommands ?? [],
         },
         { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
       );

@@ -67,6 +67,7 @@ export function SnapshotsClient({
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
   const buildCommandsText = snapshot?.buildCommands?.join("\n") ?? "";
+  const seedCommandsText = snapshot?.seedCommands?.join("\n") ?? "";
   const isEnabled = snapshot?.enabled === true;
 
   // Save on change for schedule
@@ -76,6 +77,7 @@ export function SnapshotsClient({
       schedule: newSchedule,
       workflowRef: workflowRef.trim() || undefined,
       buildCommands: snapshot?.buildCommands,
+      seedCommands: snapshot?.seedCommands,
     });
   };
 
@@ -86,6 +88,7 @@ export function SnapshotsClient({
       schedule,
       workflowRef: newBranch.trim() || undefined,
       buildCommands: snapshot?.buildCommands,
+      seedCommands: snapshot?.seedCommands,
     });
   };
 
@@ -101,6 +104,21 @@ export function SnapshotsClient({
       schedule,
       workflowRef: workflowRef.trim() || undefined,
       buildCommands: parsed.length > 0 ? parsed : undefined,
+      seedCommands: snapshot?.seedCommands,
+    });
+  };
+
+  // Save on blur for seed commands
+  const handleSeedCommandsBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    if (next === seedCommandsText) return;
+    const parsed = parseCommandLines(next);
+    saveRepoSnapshot({
+      repoId,
+      schedule,
+      workflowRef: workflowRef.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
+      seedCommands: parsed.length > 0 ? parsed : undefined,
     });
   };
 
@@ -257,9 +275,32 @@ export function SnapshotsClient({
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 One command per line. Runs as user <code>eva</code> in{" "}
-                <code>/tmp/repo</code> after <code>pnpm install</code>, baked
-                permanently into the snapshot. Use for codegen, build steps, or
-                anything that should not re-run on every sandbox boot.
+                <code>/tmp/repo</code> after <code>pnpm install</code>, before
+                services start, baked permanently into the snapshot. Use for
+                codegen and build steps.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+            <h3 className="text-sm font-medium">Seed Commands</h3>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                One-time data seeding, run with services up
+              </label>
+              <textarea
+                key={`seed-${snapshot?._id ?? "none"}`}
+                defaultValue={seedCommandsText}
+                onBlur={handleSeedCommandsBlur}
+                className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="cd packages/backend && npx convex env set MY_KEY 'value'&#10;cd packages/backend && npx convex import seed.zip --yes"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                One command per line. Runs once per seeded snapshot build, after
+                background daemons and startup commands, so services like{" "}
+                <code>convex dev</code> are ready. Never re-runs on sandbox boot
+                — unlike startup commands (repo settings), which run here and on
+                every boot.
               </p>
             </div>
           </div>

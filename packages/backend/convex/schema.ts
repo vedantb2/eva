@@ -290,6 +290,11 @@ const schema = defineSchema(
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      // Seed-once commands run ONLY during seeded-snapshot builds, in the
+      // post-daemon phase (services like `convex dev` are up). For one-time
+      // data seeding (env set, convex import). Never re-run on sandbox boot,
+      // unlike githubRepos.startupCommands. Not part of the image fingerprint.
+      seedCommands: v.optional(v.array(v.string())),
       // Fingerprint of the image inputs (lockfile sha on the build branch,
       // buildCommands, config-file blobs, image definition version) stored at the
       // last successful Image build. When unchanged, the build workflow skips the

@@ -64,6 +64,7 @@ export const getRepoSnapshot = authQuery({
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      seedCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
       baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
@@ -394,6 +395,7 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: v.string(),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      seedCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
       baseSnapshotId: v.optional(v.string()),
     }),
@@ -407,6 +409,7 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: doc.snapshotName,
       workflowRef: doc.workflowRef,
       buildCommands: doc.buildCommands,
+      seedCommands: doc.seedCommands,
       imageFingerprint: doc.imageFingerprint,
       baseSnapshotId: doc.baseSnapshotId,
     };
@@ -490,6 +493,7 @@ export const saveRepoSnapshot = authMutation({
     schedule: snapshotScheduleValidator,
     workflowRef: v.optional(v.string()),
     buildCommands: v.optional(v.array(v.string())),
+    seedCommands: v.optional(v.array(v.string())),
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
@@ -517,6 +521,7 @@ export const saveRepoSnapshot = authMutation({
         cronJobId,
         workflowRef: args.workflowRef,
         buildCommands: args.buildCommands,
+        seedCommands: args.seedCommands,
         updatedAt: Date.now(),
       });
       return appSpecific._id;
@@ -549,6 +554,7 @@ export const saveRepoSnapshot = authMutation({
             enabled: true,
             workflowRef: args.workflowRef,
             buildCommands: args.buildCommands,
+            seedCommands: args.seedCommands,
             baseSnapshotId: siblingSnapshot.baseSnapshotId,
             createdAt: now,
             updatedAt: now,
@@ -578,6 +584,7 @@ export const saveRepoSnapshot = authMutation({
       enabled: true,
       workflowRef: args.workflowRef,
       buildCommands: args.buildCommands,
+      seedCommands: args.seedCommands,
       createdAt: now,
       updatedAt: now,
     });
@@ -593,6 +600,32 @@ export const saveRepoSnapshot = authMutation({
     }
 
     return id;
+  },
+});
+
+/**
+ * Sets a repo's snapshot seed commands directly (internal, CLI/ops use) —
+ * mirrors githubRepos:setRepoCommandsInternal for the repoSnapshots row.
+ * An empty array clears the field. Fails if the repo has no snapshot config.
+ */
+export const setSeedCommandsInternal = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    seedCommands: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const config = await ctx.db
+      .query("repoSnapshots")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+    if (!config) throw new Error("No snapshot config found for this repo");
+    await ctx.db.patch(config._id, {
+      seedCommands:
+        args.seedCommands.length > 0 ? args.seedCommands : undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

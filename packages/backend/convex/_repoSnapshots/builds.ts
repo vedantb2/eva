@@ -310,6 +310,7 @@ export const startBuild = authMutation({
           enabled: sharedConfig.enabled ?? true,
           workflowRef: sharedConfig.workflowRef,
           buildCommands: sharedConfig.buildCommands,
+          seedCommands: sharedConfig.seedCommands,
           // Do not copy baseSnapshotId — that may be another app's Vercel snap.
           createdAt: now,
           updatedAt: now,
@@ -395,6 +396,7 @@ export const startBuildForRepo = internalMutation({
         enabled: shared.enabled ?? true,
         workflowRef: shared.workflowRef,
         buildCommands: shared.buildCommands,
+        seedCommands: shared.seedCommands,
         createdAt: now,
         updatedAt: now,
       });

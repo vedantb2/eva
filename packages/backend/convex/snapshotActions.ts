@@ -875,6 +875,10 @@ export const launchSeedRun = internalAction({
     // Repo build commands (pnpm install / codegen etc), run after the reset so
     // the captured snapshot carries fresh node_modules and build artifacts.
     buildCommands: v.array(v.string()),
+    // Seed-once commands (env set, convex import) run in the post-daemon phase
+    // so services like `convex dev` are up. Build-time only — sandbox boots
+    // never re-run these, unlike startup commands.
+    seedCommands: v.array(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
@@ -1055,6 +1059,14 @@ export const launchSeedRun = internalAction({
     postDaemonStartup.forEach((command, i) => {
       lines.push(
         `( ${command} ) || { echo "SEEDRUN-FAILED:startup-post-${i}"; exit 1; }`,
+      );
+    });
+    // Seed-once commands run last, after the per-boot startup commands (whose
+    // readiness gates guarantee services are actually up for env set / import).
+    lines.push('echo "SEEDRUN-STAGE:seed-commands"');
+    args.seedCommands.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:seed-${i}"; exit 1; }`,
       );
     });
     lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));

@@ -1,5 +1,6 @@
 import { EDITOR_CHIP_CLICKABLE_CLASS } from "./mentionChipStyles";
-import { LINK_URL_SOURCE, linkLabel } from "./linkChipUtils";
+import { LINK_URL_SOURCE, linkLabel, linkProvider } from "./linkChipUtils";
+import { linkProviderIconHtml } from "./linkProviderIcons";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -166,8 +167,12 @@ export function renderEditorChipHtml(
     .map((segment) => {
       if (segment.type === "link") {
         const url = segment.value;
-        const className = `${mentionChipClassName} ${EDITOR_CHIP_CLICKABLE_CLASS}`;
-        return `​<span data-link-url="${escapeHtml(url)}" contenteditable="false" class="${escapeHtml(className)}">${escapeHtml(linkLabel(url))}</span>​`;
+        const provider = linkProvider(url);
+        // gap-1 matches React LinkChip; icon must be inline SVG because the
+        // composer chips links via innerHTML (no React tree for the chip).
+        const className = `${mentionChipClassName} gap-1 ${EDITOR_CHIP_CLICKABLE_CLASS}`;
+        const icon = provider !== null ? linkProviderIconHtml(provider) : "";
+        return `​<span data-link-url="${escapeHtml(url)}" contenteditable="false" class="${escapeHtml(className)}">${icon}${escapeHtml(linkLabel(url))}</span>​`;
       }
       if (segment.type === "mention") {
         const label = chipLabelFromToken(segment.value);

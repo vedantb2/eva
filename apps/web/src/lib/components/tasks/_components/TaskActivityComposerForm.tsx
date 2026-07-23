@@ -90,7 +90,7 @@ export function TaskActivityComposerForm({
     currentModel,
   );
   const { options: accounts, resolveId: resolveAccountId } =
-    useTaskOwnerProviderAccounts(isProjectTask ? undefined : taskId);
+    useTaskOwnerProviderAccounts(taskId);
   const isOwner =
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
@@ -155,6 +155,14 @@ export function TaskActivityComposerForm({
         requestsChanges: true,
       });
       if (isProjectTask) {
+        // No immediate run — persist proof/audit on the task so the next
+        // Build Project / ordered run picks them up (same resolution as
+        // TaskRunOptionsMenu defaults).
+        await updateTask({
+          id: taskId,
+          screenshotsVideosEnabled: captureProof,
+          runAuditEnabled: runAudit,
+        });
         await updateStatus({ id: taskId, status: "todo" });
       } else {
         await startExecution({
@@ -279,119 +287,119 @@ export function TaskActivityComposerForm({
                 <TooltipContent>{disabledReason}</TooltipContent>
               )}
             </Tooltip>
-            {/* Always visible for quick tasks; disabled until Make changes is on. */}
-            {!isProjectTask && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <ModelSelect
-                        value={currentModel}
-                        options={modelOptions}
-                        onValueChange={() => undefined}
-                        accounts={accounts}
-                        accountId={task?.providerAccountId ?? null}
-                        onSelectionChange={(nextModel, nextAccountId) => {
-                          if (!canEditModel) return;
-                          if (isOwner) {
-                            updateTask({
-                              id: taskId,
-                              model: nextModel,
-                              providerAccountId:
-                                resolveAccountId(nextAccountId) ?? null,
-                            });
-                            return;
-                          }
-                          updateTask({ id: taskId, model: nextModel });
-                        }}
-                        canSelectTeamWhilePersonal={isOwner}
-                        disabled={!effectiveRequestingChanges || !canEditModel}
+            {/* Model + Options: same for quick and project tasks; disabled until Make changes. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <ModelSelect
+                    value={currentModel}
+                    options={modelOptions}
+                    onValueChange={() => undefined}
+                    accounts={accounts}
+                    accountId={task?.providerAccountId ?? null}
+                    onSelectionChange={(nextModel, nextAccountId) => {
+                      if (!canEditModel) return;
+                      if (isOwner) {
+                        updateTask({
+                          id: taskId,
+                          model: nextModel,
+                          providerAccountId:
+                            resolveAccountId(nextAccountId) ?? null,
+                        });
+                        return;
+                      }
+                      updateTask({ id: taskId, model: nextModel });
+                    }}
+                    canSelectTeamWhilePersonal={isOwner}
+                    disabled={!effectiveRequestingChanges || !canEditModel}
+                    className={cn(
+                      "h-6 max-w-44",
+                      (!effectiveRequestingChanges || !canEditModel) &&
+                        "opacity-50",
+                    )}
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {!canEditModel
+                  ? "Locked when the task is done or cancelled"
+                  : effectiveRequestingChanges
+                    ? "Model for this task (saved on change)"
+                    : "Turn on Make changes to pick a model"}
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <DropdownMenuTrigger
+                      asChild
+                      disabled={!effectiveRequestingChanges}
+                    >
+                      <button
+                        type="button"
+                        disabled={!effectiveRequestingChanges}
                         className={cn(
-                          "h-6 max-w-44",
-                          (!effectiveRequestingChanges || !canEditModel) &&
-                            "opacity-50",
+                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+                          !effectiveRequestingChanges
+                            ? "cursor-not-allowed text-muted-foreground opacity-50"
+                            : "hover:bg-muted hover:text-foreground",
+                          effectiveRequestingChanges &&
+                            (captureProof || runAudit)
+                            ? "text-foreground"
+                            : effectiveRequestingChanges
+                              ? "text-muted-foreground"
+                              : null,
                         )}
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {!canEditModel
-                      ? "Locked when the task is done or cancelled"
-                      : effectiveRequestingChanges
-                        ? "Model for this task (saved on change)"
-                        : "Turn on Make changes to pick a model"}
-                  </TooltipContent>
-                </Tooltip>
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex">
-                        <DropdownMenuTrigger
-                          asChild
-                          disabled={!effectiveRequestingChanges}
-                        >
-                          <button
-                            type="button"
-                            disabled={!effectiveRequestingChanges}
-                            className={cn(
-                              "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
-                              !effectiveRequestingChanges
-                                ? "cursor-not-allowed text-muted-foreground opacity-50"
-                                : "hover:bg-muted hover:text-foreground",
-                              effectiveRequestingChanges &&
-                                (captureProof || runAudit)
-                                ? "text-foreground"
-                                : effectiveRequestingChanges
-                                  ? "text-muted-foreground"
-                                  : null,
-                            )}
-                            aria-label={
-                              changeRequestOptionCount > 0
-                                ? `Change-request options, ${changeRequestOptionCount} enabled`
-                                : "Change-request options"
-                            }
-                          >
-                            <IconAdjustmentsHorizontal className="size-3.5" />
-                            Options
-                            {changeRequestOptionCount > 0 ? (
-                              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
-                                {changeRequestOptionCount}
-                              </span>
-                            ) : null}
-                          </button>
-                        </DropdownMenuTrigger>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {effectiveRequestingChanges
-                        ? "Extra steps for this change request"
-                        : "Turn on Make changes to set proof/audit"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>Extra steps this run</DropdownMenuLabel>
-                    <DropdownMenuCheckboxItem
-                      checked={captureProof}
-                      onCheckedChange={(checked) =>
-                        setCaptureProof(checked === true)
-                      }
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      Capture proof
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={runAudit}
-                      onCheckedChange={(checked) =>
-                        setRunAudit(checked === true)
-                      }
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      Run audit
-                    </DropdownMenuCheckboxItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
+                        aria-label={
+                          changeRequestOptionCount > 0
+                            ? `Change-request options, ${changeRequestOptionCount} enabled`
+                            : "Change-request options"
+                        }
+                      >
+                        <IconAdjustmentsHorizontal className="size-3.5" />
+                        Options
+                        {changeRequestOptionCount > 0 ? (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                            {changeRequestOptionCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    </DropdownMenuTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {effectiveRequestingChanges
+                    ? isProjectTask
+                      ? "Extra steps for the next project build of this task"
+                      : "Extra steps for this change request"
+                    : "Turn on Make changes to set proof/audit"}
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>
+                  {isProjectTask
+                    ? "Extra steps on next build"
+                    : "Extra steps this run"}
+                </DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={captureProof}
+                  onCheckedChange={(checked) =>
+                    setCaptureProof(checked === true)
+                  }
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Capture proof
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={runAudit}
+                  onCheckedChange={(checked) => setRunAudit(checked === true)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Run audit
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>

@@ -16,6 +16,7 @@ import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { ProjectPhase } from "./ProjectPhaseBadge";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface Project {
   _id: Id<"projects">;
@@ -44,11 +45,14 @@ export function ProjectActiveLayout({
   detailTab,
 }: ProjectActiveLayoutProps) {
   const navigate = useNavigate();
+  const { repo } = useRepo();
   const cleanupTriggeredRef = useRef(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const projectPathSegment = entityPathSegment(project);
 
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
+  const users = useQuery(api.users.listAll);
+  const projects = useQuery(api.projects.list, { repoId: repo._id });
   const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
 
   let selectedTaskId: Id<"agentTasks"> | null = null;
@@ -168,6 +172,9 @@ export function ProjectActiveLayout({
         isOpen={createTaskOpen}
         onClose={() => setCreateTaskOpen(false)}
         projectId={projectId}
+        users={users ?? undefined}
+        projects={projects ?? undefined}
+        allTags={allTags}
       />
     </div>
   );

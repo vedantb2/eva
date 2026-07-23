@@ -1,5 +1,9 @@
 # Changelog
 
+## Project tasks share Make-changes model + Options - 2026-07-23
+
+Project tasks still hid the composer model picker and Options behind `!isProjectTask`, while Properties kept a duplicate model field — so the same shared components looked different by surface. Both now use the quick-task Make-changes controls; project Options persist proof/audit on the task for the next build. Create-from-project also gets the same assignee/tags/projects props as the quick-task modal.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

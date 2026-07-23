@@ -11,7 +11,6 @@ import {
   ReviewsIcon,
   ProjectsIcon,
   QuickTasksIcon,
-  SessionsIcon,
   SettingsIcon,
   StatsIcon,
   TestingArenaIcon,
@@ -126,11 +125,6 @@ export function RepoNavSections({
             href: `${repoBasePath}/quick-tasks`,
             icon: QuickTasksIcon,
           },
-          {
-            name: "Sessions",
-            href: `${repoBasePath}/sessions`,
-            icon: SessionsIcon,
-          },
         ],
       },
       {
@@ -191,8 +185,7 @@ export function RepoNavSections({
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {
-      const showActiveCount =
-        (item.name === "Sessions" || item.name === "Designs") && repo;
+      const showActiveCount = item.name === "Designs" && repo;
       return (
         <SharedLayoutNavSurface
           key={item.name}
@@ -215,12 +208,7 @@ export function RepoNavSections({
               )}
             />
             <span className="truncate">{item.name}</span>
-            {showActiveCount && repo && (
-              <ActiveCountBadge
-                repoId={repo._id}
-                type={item.name === "Sessions" ? "sessions" : "designs"}
-              />
-            )}
+            {showActiveCount && repo && <ActiveCountBadge repoId={repo._id} />}
             {item.name === "Automations" && repo && (
               <UnreadAutomationsBadge repoId={repo._id} />
             )}

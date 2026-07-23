@@ -25,7 +25,6 @@ import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
-import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
@@ -60,7 +59,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
     const s = segments[i];
     if (
       s === "designs" ||
-      s === "sessions" ||
       s === "settings" ||
       s === "docs" ||
       s === "reviews" ||
@@ -213,19 +211,17 @@ export function Sidebar() {
     ? "Sessions"
     : contextSidebarMode === "designs"
       ? "Designs"
-      : contextSidebarMode === "sessions"
-        ? "Sessions"
-        : contextSidebarMode === "settings"
-          ? "Settings"
-          : contextSidebarMode === "docs"
-            ? "Documents"
-            : contextSidebarMode === "reviews"
-              ? "Reviews"
-              : contextSidebarMode === "testing-arena"
-                ? "Testing Arena"
-                : contextSidebarMode === "automations"
-                  ? "Automations"
-                  : "";
+      : contextSidebarMode === "settings"
+        ? "Settings"
+        : contextSidebarMode === "docs"
+          ? "Documents"
+          : contextSidebarMode === "reviews"
+            ? "Reviews"
+            : contextSidebarMode === "testing-arena"
+              ? "Testing Arena"
+              : contextSidebarMode === "automations"
+                ? "Automations"
+                : "";
 
   return (
     <>
@@ -546,13 +542,6 @@ export function Sidebar() {
                           pathname={pathname}
                           onNavigate={closeMobileSidebar}
                         />
-                      ) : contextSidebarMode === "sessions" ? (
-                        <SessionsSidebar
-                          repoId={repo._id}
-                          basePath={repoBasePath}
-                          pathname={pathname}
-                          onNavigate={closeMobileSidebar}
-                        />
                       ) : contextSidebarMode === "docs" ? (
                         <DocsSidebar
                           repoId={repo._id}
@@ -602,9 +591,6 @@ export function Sidebar() {
                         collapsed={collapsed}
                         repo={repo}
                         onOpenContextSidebar={(mode) => {
-                          if (mode === "sessions") {
-                            setSessionsNavMode("repo");
-                          }
                           setContextSidebarMode(mode);
                         }}
                         onNavigate={closeMobileSidebar}

@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalAction, internalMutation } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+} from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
@@ -120,103 +125,107 @@ export const startSandbox = authMutation({
 });
 
 /**
- * Stops the sandbox in Daytona and closes the session.
- *
- * Marks the session as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
- * The wrapping `finalizeStopSandbox` action does the actual stop and then
- * flips the status to `"closed"`. Without the transient `"stopping"` state,
- * a quick Start click during the stop window would race with `getOrCreateSandbox`
- * and silently spawn an orphan sandbox.
+ * Shared stop path for the user Stop button and PR-terminal webhook auto-stop.
+ * Marks the session `"stopping"` then schedules provider teardown.
  */
+export async function requestSessionSandboxStop(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+): Promise<void> {
+  const session = await ctx.db.get(sessionId);
+  if (!session) return;
+
+  // Allow stop from closed when a sandboxId remains — start can early-ready
+  // then fail and leave a live Vercel VM while UI shows inactive.
+  if (session.status === "stopping") {
+    // Already stopping — but a previous finalize may have stalled (e.g. its
+    // action was killed while a racing resume held the VM). Re-issue the
+    // idempotent finalize so clicking Stop again recovers a stuck `stopping`
+    // row instead of being a no-op that leaves it wedged forever.
+    if (session.sandboxId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal._sessions.sandbox.finalizeStopSandbox,
+        {
+          sessionId,
+          sandboxId: session.sandboxId,
+          repoId: session.repoId,
+        },
+      );
+    } else {
+      await ctx.db.patch(sessionId, {
+        status: "closed",
+        updatedAt: Date.now(),
+      });
+    }
+    return;
+  }
+
+  if (session.sandboxId) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal._sessions.sandbox.finalizeStopSandbox,
+      {
+        sessionId,
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      },
+    );
+  } else {
+    // No sandbox to stop — close immediately.
+    await ctx.db.patch(sessionId, {
+      ptySessionId: undefined,
+      status: "closed",
+      updatedAt: Date.now(),
+    });
+    return;
+  }
+
+  // Clear leftover start steps so the chat does not re-show "Starting
+  // sandbox..." / cold-storage copy while status is stopping.
+  await clearSandboxStartupActivity(ctx.db, `session-startup-${sessionId}`);
+
+  if (session.syntheticTurnMessageId) {
+    const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
+    if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+      const streaming = await ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) => q.eq("entityId", String(sessionId)))
+        .first();
+      await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+    }
+    await clearStreamingActivity(ctx, String(sessionId));
+  }
+
+  // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
+  // `markSandboxClosed` once Daytona's stop call settles, so the divider
+  // matches the actual outcome rather than being optimistic.
+  await ctx.db.patch(sessionId, {
+    // Keep sandboxId so we can resume the stopped sandbox later.
+    ptySessionId: undefined,
+    status: "stopping",
+    syntheticTurnMessageId: undefined,
+    updatedAt: Date.now(),
+  });
+}
+
 export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
+    await requestSessionSandboxStop(ctx, args.sessionId);
+    return null;
+  },
+});
 
-    // Allow stop from closed when a sandboxId remains — start can early-ready
-    // then fail and leave a live Vercel VM while UI shows inactive.
-    if (session.status === "stopping") {
-      // Already stopping — but a previous finalize may have stalled (e.g. its
-      // action was killed while a racing resume held the VM). Re-issue the
-      // idempotent finalize so clicking Stop again recovers a stuck `stopping`
-      // row instead of being a no-op that leaves it wedged forever.
-      if (session.sandboxId) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal._sessions.sandbox.finalizeStopSandbox,
-          {
-            sessionId: args.sessionId,
-            sandboxId: session.sandboxId,
-            repoId: session.repoId,
-          },
-        );
-      } else {
-        await ctx.db.patch(args.sessionId, {
-          status: "closed",
-          updatedAt: Date.now(),
-        });
-      }
-      return null;
-    }
-
-    if (session.sandboxId) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal._sessions.sandbox.finalizeStopSandbox,
-        {
-          sessionId: args.sessionId,
-          sandboxId: session.sandboxId,
-          repoId: session.repoId,
-        },
-      );
-    } else {
-      // No sandbox to stop — close immediately.
-      await ctx.db.patch(args.sessionId, {
-        ptySessionId: undefined,
-        status: "closed",
-        updatedAt: Date.now(),
-      });
-      return null;
-    }
-
-    // Clear leftover start steps so the chat does not re-show "Starting
-    // sandbox..." / cold-storage copy while status is stopping.
-    await clearSandboxStartupActivity(
-      ctx.db,
-      `session-startup-${args.sessionId}`,
-    );
-
-    if (session.syntheticTurnMessageId) {
-      const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
-      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
-        const streaming = await ctx.db
-          .query("streamingActivity")
-          .withIndex("by_entity", (q) =>
-            q.eq("entityId", String(args.sessionId)),
-          )
-          .first();
-        await finalizeCancelledAssistantMessage(
-          ctx,
-          syntheticMessage,
-          streaming,
-        );
-      }
-      await clearStreamingActivity(ctx, String(args.sessionId));
-    }
-
-    // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
-    // `markSandboxClosed` once Daytona's stop call settles, so the divider
-    // matches the actual outcome rather than being optimistic.
-    await ctx.db.patch(args.sessionId, {
-      // Keep sandboxId so we can resume the stopped sandbox later.
-      ptySessionId: undefined,
-      status: "stopping",
-      syntheticTurnMessageId: undefined,
-      updatedAt: Date.now(),
-    });
+/** Internal stop used by PR merge/close webhooks (no user auth context). */
+export const requestStopSandbox = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requestSessionSandboxStop(ctx, args.sessionId);
     return null;
   },
 });

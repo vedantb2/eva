@@ -1,5 +1,29 @@
 # Changelog
 
+## More space between Global Sessions app groups - 2026-07-23
+
+App collapsibles in the root Sessions sidebar sat too tight (`space-y-1`), so related groups felt like one block. Spacing between app groups is now `space-y-3` for clearer separation when scanning across codebases.
+
+## Install gh CLI in Vercel snapshot seeds - 2026-07-23
+
+Daytona base images already apt-install `gh`, but Vercel seed-prep (Amazon Linux dnf) did not, so agents in Vercel sandboxes lacked GitHub CLI. Seed toolchain now installs a pinned `gh` release tarball into `/usr/local/bin` before snapshot capture.
+
+## Auto-stop session sandbox when PR merges/closes - 2026-07-23
+
+Merged/closed sessions became read-only but the webhook only patched `prState`, so Vercel VMs could stay active with no clean teardown. GitHub PR terminal events now request the same stop path as the Stop button; opening an already-stuck merged session also triggers stop (and skips daemon prewarm that would resume the VM).
+
+## Sandbox chat model follows task.model - 2026-07-23
+
+Quick-task sandbox chat kept its model in localStorage (often the repo default), so switching between `/quick-tasks/$id` and `/sandbox/preview` could show Claude on the activity page and Grok in the sandbox. Sandbox now binds to and persists `task.model` / owner accounts like the activity composer; only traits stay local.
+
+## Run accordion: account as provider-icon tooltip - 2026-07-23
+
+Activity run headers showed the credential account as a text badge next to the model chip, which crowded the row. The chip is now icon-only; hover shows model + account (e.g. Claude Opus · Vedant).
+
+## Drop app Sessions sidebar + nav tab - 2026-07-23
+
+Repo home already owns session create/list entry, so the per-app Sessions drill-down sidebar and SHIP nav tab were redundant. Sessions routes stay for deep links; Designs and other context sidebars are unchanged.
+
 ## Prewarm stops resurrecting stopped Vercel sandboxes; stale "active" self-heals - 2026-07-23
 
 An auto-stopped Vercel VM whose DB status still read "active" was silently rebooted by the page-open daemon prewarm (any exec lazily resumes a stopped VM) — leaving a running sandbox with no dev server, no Convex backend, and an empty Console, since services only launch in the startup workflow. Prewarm now checks live provider state before any exec and skips non-running sandboxes; on definitely-dead states it flips the stale "active" status to "closed" (sessions, agent tasks, projects) so the UI offers Start — the one path that relaunches services — and the terminal-attach guard stops resurrecting the VM too.

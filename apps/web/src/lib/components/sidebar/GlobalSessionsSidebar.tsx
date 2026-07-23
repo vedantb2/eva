@@ -80,7 +80,7 @@ export function GlobalSessionsSidebar({
         />
       </div>
 
-      <div className="flex-1 space-y-1 px-0 pb-1">
+      <div className="flex-1 space-y-3 px-0 pb-1">
         {repos === undefined ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />

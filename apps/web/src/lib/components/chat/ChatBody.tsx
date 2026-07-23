@@ -175,6 +175,9 @@ export function ChatBody({
   const lastMessageId = lastMessage?._id;
 
   const [questionDismissed, setQuestionDismissed] = useState(false);
+  // Submit-in-flight only — not turn execution. Blocking AskUserQuestion leaves
+  // the turn executing while waiting for the user; mirroring that would lock the UI.
+  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const pendingQuestionRaw =
     streamingPendingQuestion ?? lastMessage?.pendingQuestion;
   const activePendingQuestion = questionDismissed
@@ -194,12 +197,22 @@ export function ChatBody({
 
   const handleQuestionAnswer = async (answer: string) => {
     setQuestionDismissed(true);
-    await onSend(answer);
+    setIsAnsweringQuestion(true);
+    try {
+      await onSend(answer);
+    } finally {
+      setIsAnsweringQuestion(false);
+    }
   };
 
   const handleBlockingAnswer = async (answers: Record<string, string>) => {
     if (!blockingQuestion || !onAnswerBlockingQuestion) return;
-    await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+    setIsAnsweringQuestion(true);
+    try {
+      await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+    } finally {
+      setIsAnsweringQuestion(false);
+    }
   };
 
   const messageHistory = buildMessageHistory(messages);
@@ -249,7 +262,7 @@ export function ChatBody({
         activePendingQuestion={
           isStreamingPlaceholder || isLast ? activePendingQuestion : undefined
         }
-        isExecuting={isExecuting}
+        isQuestionLoading={isAnsweringQuestion}
         onQuestionAnswer={handleQuestionAnswer}
         onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}

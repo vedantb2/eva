@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sticky provider account on change - 2026-07-23
+
+Account picker still only patched `sessions.providerAccountId` on send, so a pre-send switch stayed in localStorage and did not sync across devices. Owner changes now write through `setProviderAccountId` (optimistic, no `updatedAt`), matching model/mode/traits.
+
 ## Session sticky edit/plan mode on Convex - 2026-07-23
 
 Composer mode still lived in localStorage after model/traits moved to Convex, so Plan↔Edit resets across devices. Sessions now store `lastMode` via `setMode` (same optimistic sticky contract), written on change and on create/send/enqueue; legacy ask/execute values normalize to edit on read.

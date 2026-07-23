@@ -20,6 +20,11 @@ import {
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -300,32 +305,6 @@ export const setTraits = authMutation({
   },
 });
 
-/** Max lines kept in `sessions.terminalHistoryTail` (client also truncates). */
-const TERMINAL_HISTORY_TAIL_LINES = 500;
-const TERMINAL_HISTORY_TAIL_MAX_CHARS = 100_000;
-
-/** Returns the last `maxLines` newline-delimited lines of `text`. */
-function lastNLines(text: string, maxLines: number): string {
-  if (maxLines <= 0 || text.length === 0) return "";
-  let linesFound = 0;
-  for (let i = text.length - 1; i >= 0; i--) {
-    if (text[i] === "\n") {
-      linesFound += 1;
-      if (linesFound === maxLines) {
-        return text.slice(i + 1);
-      }
-    }
-  }
-  return text;
-}
-
-function truncateTerminalHistoryTail(text: string): string {
-  const byLines = lastNLines(text, TERMINAL_HISTORY_TAIL_LINES);
-  return byLines.length > TERMINAL_HISTORY_TAIL_MAX_CHARS
-    ? byLines.slice(-TERMINAL_HISTORY_TAIL_MAX_CHARS)
-    : byLines;
-}
-
 /**
  * Sticky Preview path for a session. No `updatedAt` bump — navigation is not
  * conversation activity.
@@ -341,14 +320,9 @@ export const setPreviewPath = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    const trimmed = args.path.trim();
-    const path =
-      trimmed.length === 0
-        ? "/"
-        : trimmed.startsWith("/")
-          ? trimmed
-          : `/${trimmed}`;
-    await ctx.db.patch(args.id, { previewPath: path });
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
     return null;
   },
 });
@@ -367,9 +341,7 @@ export const setPreviewPort = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    if (!Number.isInteger(args.port) || args.port < 1 || args.port > 65535) {
-      throw new Error("Invalid port");
-    }
+    assertStickyPreviewPort(args.port);
     await ctx.db.patch(args.id, { devPort: args.port });
     return null;
   },

@@ -1,5 +1,9 @@
 # Changelog
 
+## Task/project sticky Preview path/port + console tail - 2026-07-23
+
+Quick-task and project sandboxes still kept Preview path and console scrollback in sessionStorage (and never wrote user port changes back to `devPort`), so they reset across devices unlike sessions. Same Convex sticky contract now: `previewPath`, port via `devPort`, and a debounced 500-line `terminalHistoryTail` on `agentTasks` / `projects` (no `updatedAt` bump).
+
 ## Session sticky Preview path/port + console tail - 2026-07-23
 
 Preview path and port (via `devPort`) and the last ~500 lines of Preview Console scrollback reset across devices when they only lived in sessionStorage. Sessions now persist path/port and a debounced console tail on the session doc (no `updatedAt` bump); device viewport stays tab-local, and full scrollback still uses sessionStorage.

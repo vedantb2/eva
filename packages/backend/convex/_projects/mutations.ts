@@ -28,6 +28,11 @@ import {
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
@@ -390,6 +395,56 @@ export const updateLastConversationMessage = authMutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     await setProjectConversation(ctx.db, args.id, messages);
+    return null;
+  },
+});
+
+/** Sticky Preview path for a project sandbox. No `updatedAt` bump. */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("projects"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/** Sticky Preview port for a project sandbox (`devPort`). No `updatedAt` bump. */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("projects"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the project doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("projects"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
     return null;
   },
 });

@@ -23,6 +23,9 @@ export {
   clearProjectSandbox,
   updateLastSandboxActivity,
   updateLastConversationMessage,
+  setPreviewPath,
+  setPreviewPort,
+  setTerminalHistoryTail,
 } from "./_projects/mutations";
 
 export { startDevelopment, createFromTasks } from "./_projects/development";

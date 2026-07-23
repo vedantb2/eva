@@ -27,6 +27,11 @@ import {
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -780,6 +785,65 @@ export const deleteCascade = authMutation({
     for (const taskId of tasksToDelete) {
       await softDeleteAgentTask(ctx, taskId);
     }
+    return null;
+  },
+});
+
+/** Sticky Preview path for a task sandbox. No `updatedAt` bump. */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/** Sticky Preview port for a task sandbox (`devPort`). No `updatedAt` bump. */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the task doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
     return null;
   },
 });

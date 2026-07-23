@@ -121,7 +121,11 @@ async function runLoggedSessionStep<T>(
       error instanceof Error &&
       !(error instanceof SandboxStartAbortedError)
     ) {
-      error.message = `${label}: ${errorMessage(error, "failed with no error message")}`;
+      // Message-less errors keep recurring here (~5min into startup) with no
+      // identifying info; persist the constructor and top stack frames so the
+      // next occurrence tells us which layer threw.
+      const anonymousDetail = `failed with no error message (constructor=${error.constructor.name}, stack: ${(error.stack ?? "none").split("\n").slice(0, 4).join(" | ").slice(0, 400)})`;
+      error.message = `${label}: ${errorMessage(error, anonymousDetail)}`;
     }
     throw error;
   }
@@ -1463,6 +1467,7 @@ async function prepareSessionSandboxInternal(
       completedSteps,
       "Running startup commands...",
     );
+    let startupCommandErrors: string[] = [];
     await runLoggedSessionStep(
       "newSessionSandbox.runStartupCommands",
       sandboxDetails,
@@ -1478,6 +1483,7 @@ async function prepareSessionSandboxInternal(
             force: prepared.usedSnapshot ? true : undefined,
           },
         );
+        startupCommandErrors = result.errors;
         if (result.ran && result.commandCount > 0) {
           logSession(
             `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -1485,6 +1491,18 @@ async function prepareSessionSandboxInternal(
         }
       },
     );
+    // runStartupCommands collects per-command failures instead of throwing, so
+    // without this they only reach transient console logs — surface them on the
+    // session so the user can see why services are missing.
+    if (startupCommandErrors.length > 0) {
+      await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
+        sessionId: args.sessionId,
+        error: startupCommandErrors
+          .map((e) => (e.length > 500 ? `${e.slice(0, 500)}…` : e))
+          .join("\n")
+          .slice(0, 4000),
+      });
+    }
     completedSteps.push({
       type: "tool",
       label: "Running startup commands...",

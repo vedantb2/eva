@@ -90,6 +90,7 @@ export function parseSegments(
   let lastIndex = 0;
   for (const match of value.matchAll(pattern)) {
     const start = match.index;
+    if (start === undefined) continue;
     if (start > lastIndex) {
       segments.push({ type: "text", value: value.slice(lastIndex, start) });
     }

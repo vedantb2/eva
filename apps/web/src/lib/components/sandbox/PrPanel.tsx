@@ -77,17 +77,11 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <TabsList className="h-8">
-          <TabsTrigger value="overview" className="px-2.5 py-1 text-xs">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="diffs" className="px-2.5 py-1 text-xs">
-            Diffs
-          </TabsTrigger>
-          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
-            Recap
-          </TabsTrigger>
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="diffs">Diffs</TabsTrigger>
+          <TabsTrigger value="recap">Recap</TabsTrigger>
         </TabsList>
         {showDiffChrome ? (
           <div className="ml-auto flex items-center gap-2">

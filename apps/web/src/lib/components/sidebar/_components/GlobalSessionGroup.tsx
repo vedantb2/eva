@@ -6,6 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
+  Badge,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -80,6 +81,10 @@ export function GlobalSessionGroup({
 
   const isLoading = filtered === undefined || filteredArchived === undefined;
   const activeCount = filtered?.length ?? 0;
+  // Sessions currently running (status "active"), independent of the search
+  // filter — the badge reflects the app's live session count, not matches.
+  const runningCount =
+    sessions?.filter((s) => s.status === "active").length ?? 0;
   const archivedCount = filteredArchived?.length ?? 0;
   const hasNoResults = !isLoading && activeCount === 0 && archivedCount === 0;
 
@@ -104,6 +109,17 @@ export function GlobalSessionGroup({
               <span className="truncate text-xs font-medium text-muted-foreground">
                 {label}
               </span>
+              {runningCount > 0 ? (
+                <Badge
+                  variant="secondary"
+                  className="shrink-0 gap-1 border-none bg-sidebar-accent/50 px-1.5 py-0"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                  <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                    {runningCount}
+                  </span>
+                </Badge>
+              ) : null}
               <IconChevronDown
                 size={14}
                 className={cn(

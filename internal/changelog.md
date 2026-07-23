@@ -1,5 +1,9 @@
 # Changelog
 
+## Session title gen uses AI Gateway flex tier - 2026-07-23
+
+Session titles are background work (placeholder until the LLM returns), so paying default Gateway latency rates was waste. `textGen.generateSessionTitle` now requests `providerOptions.gateway.serviceTier: "flex"` (~0.5x cost; higher latency acceptable). Invalid tiers fail; unavailable flex best-effort-falls back to default billing.
+
 ## Session deep links show root Sessions sidebar - 2026-07-23
 
 After dropping the per-app Sessions sidebar, cold loads of `/$owner/$repo/.../sessions/$id/...` still defaulted `sessionsNavMode` to `"repo"`, so the app nav appeared instead of the cross-app Sessions list. Session routes now always open the root Sessions sidebar (and highlight the Sessions rail tile).

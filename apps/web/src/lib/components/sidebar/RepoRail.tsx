@@ -110,7 +110,7 @@ export function RepoRail({
   userEmail,
   showSearch,
 }: RepoRailProps) {
-  const { sessionsNavMode, setSessionsNavMode } = useSidebar();
+  const { setSessionsNavMode } = useSidebar();
   const unreadCount = useQuery(api.notifications.countUnread);
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
   const activeSandboxRepoIds = useQuery(
@@ -126,10 +126,12 @@ export function RepoRail({
   const pathParts = pathname.split("/").filter(Boolean);
   const onRepoSessionsPath =
     pathParts.includes("sessions") && pathParts[0] !== "sessions";
+  // Deep session links always belong to the root Sessions rail entry (no
+  // per-app sessions sidebar), so highlight Sessions whenever the path is one.
   const sessionsActive =
     pathname === "/sessions" ||
     pathname.startsWith("/sessions/") ||
-    (sessionsNavMode === "global" && onRepoSessionsPath);
+    onRepoSessionsPath;
   const testingActive =
     pathname === "/testing" || pathname.startsWith("/testing/");
   const unreadLabel =

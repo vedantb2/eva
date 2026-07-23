@@ -75,8 +75,7 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user } = useUser();
-  const { collapsed, setCollapsed, sessionsNavMode, setSessionsNavMode } =
-    useSidebar();
+  const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -155,17 +154,17 @@ export function Sidebar() {
   const pathParts = pathname.split("/").filter(Boolean);
   const isGlobalSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
+  // Per-app Sessions sidebar was removed; any sessions URL (landing or deep
+  // link like /$owner/$repo/.../sessions/$numId/preview) uses the root list.
   const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
-  const showGlobalSessionsPanel =
-    isGlobalSessionsLanding ||
-    (isRepoSessionsPath && sessionsNavMode === "global");
+  const showGlobalSessionsPanel = isGlobalSessionsLanding || isRepoSessionsPath;
   const showSidePanel = isRepoRoute || isGlobalSessionsLanding;
 
   useEffect(() => {
-    if (isGlobalSessionsLanding) {
+    if (isGlobalSessionsLanding || isRepoSessionsPath) {
       setSessionsNavMode("global");
     }
-  }, [isGlobalSessionsLanding, setSessionsNavMode]);
+  }, [isGlobalSessionsLanding, isRepoSessionsPath, setSessionsNavMode]);
 
   const showContextSidebar =
     isRepoRoute && !showGlobalSessionsPanel && contextSidebarMode !== "main";

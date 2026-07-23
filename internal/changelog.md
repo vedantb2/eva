@@ -1,5 +1,9 @@
 # Changelog
 
+## Session deep links show root Sessions sidebar - 2026-07-23
+
+After dropping the per-app Sessions sidebar, cold loads of `/$owner/$repo/.../sessions/$id/...` still defaulted `sessionsNavMode` to `"repo"`, so the app nav appeared instead of the cross-app Sessions list. Session routes now always open the root Sessions sidebar (and highlight the Sessions rail tile).
+
 ## Global Sessions sidebar shows Archived again - 2026-07-23
 
 The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.

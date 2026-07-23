@@ -1,5 +1,9 @@
 # Changelog
 
+## Task/project Files tab uses repo tree - 2026-07-23
+
+Quick-task and project sandbox Files tabs only mounted the bare file viewer (usable via `?file=` chips), so they lacked the searchable tree sessions already had. Both now mount the same `FilesPanel` as sessions.
+
 ## Restraint UI motion pass - 2026-07-23
 
 A few surfaces still teleported (mobile sandbox panel, task prev/next, empty states, log raw reveal, panel toggle icons). Wired enter/exit + soft icon swaps using existing Motion tokens so occasional state changes feel spatially consistent without slowing high-frequency chrome.
@@ -7,6 +11,7 @@ A few surfaces still teleported (mobile sandbox panel, task prev/next, empty sta
 ## Live notification toasts animate in - 2026-07-23
 
 New notifications already streamed into a top-right toast stack, but they teleported on arrive/dismiss. Enter/exit now slide from that same top edge (`opacity` + `translateY(-8px)`) via Motion `AnimatePresence`, with a gentler opacity-only path when reduced motion is preferred.
+
 ## Task/project sticky chat traits + project chat model - 2026-07-23
 
 Sandbox chat effort/thinking/1M lived in localStorage, and project chat model did too, so picks reset across devices unlike sessions. Traits now stick on `agentTasks` / `projects` (`lastReasoningLevel` / …) via `setTraits` (and on send/enqueue); project composer model uses sticky `lastChatModel` via `setChatModel`. Task model stays on shared `agentTasks.model`.

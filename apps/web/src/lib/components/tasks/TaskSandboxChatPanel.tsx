@@ -7,7 +7,6 @@ import {
   api,
   buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
-  findAIModelOption,
   normalizeAIModel,
   resolveTraitsForDisplay,
   type AIModel,
@@ -15,13 +14,11 @@ import {
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@conductor/backend";
-import {
-  ChatBody,
-  type ChatBodyQueuedMessage,
-} from "@/lib/components/chat/ChatBody";
+import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -73,6 +70,9 @@ export function TaskSandboxChatPanel({
     api.agentTaskChatWorkflow.cancelExecution,
   );
   const updateTask = useMutation(api.agentTasks.update);
+  const requestStopBackgroundAgent = useMutation(
+    api.agentTaskChatWorkflow.requestStopBackgroundAgent,
+  );
 
   // Traits stay local; model + account come from the task (same as activity
   // composer) so detail ↔ sandbox never disagree.
@@ -161,6 +161,8 @@ export function TaskSandboxChatPanel({
         message: content,
         model,
         ...executionTraits,
+        reasoningLevel:
+          displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
@@ -172,6 +174,8 @@ export function TaskSandboxChatPanel({
       content,
       attachmentStorageIds,
       providerAccountId: accountId,
+      model,
+      reasoningLevel: displayTraits.effortLevel,
     });
     await startExecute({
       taskId,
@@ -186,13 +190,6 @@ export function TaskSandboxChatPanel({
     await cancelExecution({ taskId });
   };
 
-  const formatQueuedInfo = (msg: ChatBodyQueuedMessage) => {
-    const parts = [
-      msg.model ? findAIModelOption(msg.model).label : null,
-    ].filter((part): part is string => Boolean(part));
-    return parts.length > 0 ? parts.join(" / ") : undefined;
-  };
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {onToggleSandbox ? (
@@ -203,6 +200,12 @@ export function TaskSandboxChatPanel({
           />
         </div>
       ) : null}
+      <BackgroundAgentsChip
+        backgroundAgents={task?.backgroundAgents}
+        onRequestStop={async (toolUseId) => {
+          await requestStopBackgroundAgent({ taskId, toolUseId });
+        }}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
@@ -236,7 +239,6 @@ export function TaskSandboxChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -51,7 +51,9 @@ function stepDescription(step: number): string {
 
 export function WelcomeSetupDialog() {
   const navigate = useNavigate();
-  const [forceDismissed, setForceDismissed] = useState(false);
+  const [dismissedPreviewKey, setDismissedPreviewKey] = useState<string | null>(
+    null,
+  );
   const [step, setStep] = useState(1);
   const onboarding = useQuery(api.auth.getOnboardingStatus);
   const personalisation = useQuery(api.auth.getPersonalisation);
@@ -79,15 +81,14 @@ export function WelcomeSetupDialog() {
 
   const previewSearchKey = useDevPreviewSearchKey();
   const isPreview = useDevWelcomeSetupPreview();
-  const forceShow = isPreview && !forceDismissed;
+  const [stepResetKey, setStepResetKey] = useState(previewSearchKey);
+  // Reset wizard when preview search key changes (no setState-in-effect).
+  if (isPreview && previewSearchKey !== stepResetKey) {
+    setStepResetKey(previewSearchKey);
+    setStep(1);
+  }
+  const forceShow = isPreview && dismissedPreviewKey !== previewSearchKey;
   const shouldShow = forceShow || onboarding?.show;
-
-  useEffect(() => {
-    if (isPreview) {
-      setForceDismissed(false);
-      setStep(1);
-    }
-  }, [isPreview, previewSearchKey]);
 
   if (!shouldShow || !personalisation || !mounted) {
     return null;
@@ -128,7 +129,7 @@ export function WelcomeSetupDialog() {
 
   const handleFinish = () => {
     if (isPreview) {
-      setForceDismissed(true);
+      setDismissedPreviewKey(previewSearchKey);
       return;
     }
     void completeOnboarding({});

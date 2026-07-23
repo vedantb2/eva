@@ -29,6 +29,8 @@ export {
   pushSandboxBranch,
   launchOnExistingSandbox,
   prewarmSessionDaemon,
+  prewarmEntityDaemon,
+  killEntityDaemon,
   validateSandbox,
 } from "./_daytona/execution";
 

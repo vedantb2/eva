@@ -133,9 +133,11 @@ export function NewProjectModal({
       } else {
         navigate({ to: basePath + "/projects/" + projectId });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   useHotkey(

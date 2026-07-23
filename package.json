@@ -12,7 +12,8 @@
     "lint": "oxlint -c .oxlintrc.json .",
     "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
     "deadcode": "knip",
-    "prepare": "husky"
+    "prepare": "husky",
+    "doctor": "npx react-doctor@latest"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",

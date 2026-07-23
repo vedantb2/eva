@@ -114,9 +114,8 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to list files",
       });
-    } finally {
-      setIsRefreshing(false);
     }
+    setIsRefreshing(false);
   };
 
   useEffect(() => {

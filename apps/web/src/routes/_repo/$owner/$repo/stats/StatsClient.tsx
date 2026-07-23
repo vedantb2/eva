@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@conductor/backend";
@@ -75,15 +75,15 @@ export function StatsClient() {
         </div>
       ) : (
         <div className="space-y-6">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
             <ActivityHeatmap data={heatmap} />
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
@@ -130,9 +130,9 @@ export function StatsClient() {
                 }
               />
             </KpiGroup>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -145,9 +145,9 @@ export function StatsClient() {
               totalSessions={impactStats.totalSessions}
               sessionsWithPr={impactStats.sessionsWithPr}
             />
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -157,7 +157,7 @@ export function StatsClient() {
               <ActivityTimelineChart timeline={timeline} />
             </div>
             <Leaderboard entries={leaderboard} />
-          </motion.div>
+          </m.div>
         </div>
       )}
     </PageWrapper>

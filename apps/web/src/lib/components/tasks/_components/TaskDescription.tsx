@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -45,7 +45,6 @@ export function TaskDescription({
   const { basePath } = useRepo();
   const { groups, toggle } = useReactions("description", taskId);
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(stripHtml(description ?? ""));
   const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
 
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
@@ -96,12 +95,12 @@ export function TaskDescription({
   );
 
   const desc = stripHtml(description ?? "");
+  const [editValue, setEditValue] = useState(desc);
 
-  useEffect(() => {
-    if (!isEditing) {
-      setEditValue(desc);
-    }
-  }, [desc, isEditing]);
+  // Keep the draft synced to the server text while not editing.
+  if (!isEditing && editValue !== desc) {
+    setEditValue(desc);
+  }
 
   const handleSave = () => {
     const tokenized = mentionRef.current?.tokenize(editValue) ?? editValue;

@@ -58,6 +58,18 @@ function shouldCaptureSupabaseState(commands: string[]): boolean {
   });
 }
 
+/**
+ * Startup cmds that must run after background daemons.
+ * Only a pure filesystem move (the ENTIRE command is one `mv` of a
+ * sandbox-config file into the repo, nothing chained) can run before daemons.
+ * Chained commands (e.g. `mv …data.sql … && pnpm seed:sql && rm …`) must stay
+ * post-daemon: the chained work needs daemon-started services (Postgres,
+ * `convex dev`'s CONVEX_DEPLOYMENT bootstrap for `npx convex env/import`).
+ */
+function startupCommandNeedsDaemon(command: string): boolean {
+  return !/^\s*mv\s+\S*sandbox-config\/\S+\s+\S+\s*$/.test(command);
+}
+
 function seededRuntimeStateCaptureLines(
   requireSupabaseDump: boolean,
 ): string[] {
@@ -904,54 +916,42 @@ export const launchSeedRun = internalAction({
     // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
     // — this is expected, not a bug; see getRepoSnapshotName.
     if (credentials.kind === "vercel") {
+      // Every install below must be idempotent: seed-prep often boots from a
+      // warm base Image snap that already has the toolchain, and re-running
+      // rpm/git-clone must skip (not fail) when the artifact is present.
       lines.push(
         'echo "SEEDRUN-STAGE:toolchain"',
-        // Staging dirs eva's commands hardcode as /home/eva/... — the Vercel
-        // sandbox user is not literally "eva", so pre-create + open them up.
         "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
         'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
         "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
-        // Start dockerd detached and wait for it to come up.
-        'sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+        'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
         'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
         'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
         "git config --global --add safe.directory '*'",
-        // Pinned Supabase CLI (tarball — same pinned version as the Daytona Image's .deb install).
         `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
         // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
         // release tarball (dnf has no `gh` package by default).
         `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
-        'sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-        'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
-        'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
-        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
+        'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+        'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+        'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
+        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
         // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
-        // Amazon Linux has no openbox/fluxbox packages — Chrome runs on Xvnc
-        // without a WM (same as the GUI reference).
-        'sudo rm -rf /opt/novnc /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+        '[ -d /opt/novnc ] || { sudo rm -rf /opt/noVNC; sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc; } || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
         "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
-        'sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
-        'curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1 || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
+        'command -v google-chrome-stable >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1 || sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
+        '[ -x /home/eva/.local/bin/cursor-agent ] || [ -x /home/eva/.local/bin/agent ] || { curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1; } || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
         "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
         "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
         "mkdir -p /home/eva/.claude/plugins/marketplaces",
-        'git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
-        'git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
-        'git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
+        '[ -d /home/eva/.claude/plugins/marketplaces/claude-plugins-official/.git ] || git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
+        '[ -d /home/eva/.claude/plugins/marketplaces/Dammyjay93/.git ] || git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
+        '[ -d /home/eva/.claude/plugins/marketplaces/maister-plugins/.git ] || git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
         `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
-        // Persist PATH additions into the sandbox filesystem itself (not just
-        // the current shell) so agent CLIs survive into the captured snap_*
-        // and are found by every later session exec:
-        //   - /etc/profile.d runs for every `bash -lc` login-shell exec (see
-        //     SOURCE_ENV / exec() in vercelProvider.ts) — the durable fix.
-        //   - .bashrc/.eva-env.sh are best-effort belt-and-suspenders; note
-        //     .eva-env.sh gets fully REWRITTEN by every session create() with
-        //     that session's env vars (vercelProvider.ts renderEnvFile), so
-        //     /etc/profile.d is what actually has to carry this across boots.
         'echo "SEEDRUN-STAGE:path-setup"',
         "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /home/eva/.bashrc",
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /vercel/sandbox/.eva-env.sh",
+        'grep -qF "/home/eva/.local/bin" /home/eva/.bashrc 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /home/eva/.bashrc',
+        'grep -qF "/home/eva/.local/bin" /vercel/sandbox/.eva-env.sh 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /vercel/sandbox/.eva-env.sh',
       );
 
       // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
@@ -1017,6 +1017,25 @@ export const launchSeedRun = internalAction({
         `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
       );
     });
+    // Split startup around daemons: pure sandbox-config file moves run before
+    // daemons so the files are in place when `convex dev` boots; everything
+    // else (env set, imports, readiness waits) runs after the daemons start.
+    const startup = startupCommands ?? [];
+    const preDaemonStartup: string[] = [];
+    const postDaemonStartup: string[] = [];
+    for (const command of startup) {
+      if (startupCommandNeedsDaemon(command)) {
+        postDaemonStartup.push(command);
+      } else {
+        preDaemonStartup.push(command);
+      }
+    }
+    lines.push('echo "SEEDRUN-STAGE:startup-pre-daemon"');
+    preDaemonStartup.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-pre-${i}"; exit 1; }`,
+      );
+    });
     // ---- daemons: launch each background command detached (b64 per command
     // so quoting inside user commands can never break the script) ----
     lines.push('echo "SEEDRUN-STAGE:daemons"');
@@ -1031,13 +1050,11 @@ export const launchSeedRun = internalAction({
         `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
       );
     });
-    // ---- seed ----
-    lines.push('echo "SEEDRUN-STAGE:startup"');
-    (startupCommands ?? []).forEach((command, i) => {
-      // Subshell so `cd`/env in one command can't leak into the next, matching
-      // how runSandboxCommand executed them as separate execs.
+    // ---- seed (post-daemon) ----
+    lines.push('echo "SEEDRUN-STAGE:startup-post-daemon"');
+    postDaemonStartup.forEach((command, i) => {
       lines.push(
-        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-post-${i}"; exit 1; }`,
       );
     });
     lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));

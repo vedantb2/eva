@@ -8,6 +8,7 @@ import {
 import {
   ALLOWED_TOOLS,
   CLAUDE_ATTEMPT_MODE,
+  CLAIM_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -84,14 +85,12 @@ try {
 
 S.lastStepType = "thinking";
 
-// Persistent warm-session daemon path (Claude, sessions only). Keeps one warm
-// query() across turns instead of respawning per turn. Self-contained — it runs
-// its own preflight/streaming/completion loop and never returns (process.exit),
-// so the one-shot flow below is left completely untouched for every other case.
+// Persistent warm-session daemon path (Claude, any entity with CLAIM_MUTATION).
+// Keeps one warm query() across turns instead of respawning per turn.
 if (
   CLAUDE_ATTEMPT_MODE === "sdk-daemon" &&
   PROVIDER === "claude" &&
-  ENTITY_ID_FIELD === "sessionId"
+  CLAIM_MUTATION
 ) {
   await runSdkDaemon();
 }

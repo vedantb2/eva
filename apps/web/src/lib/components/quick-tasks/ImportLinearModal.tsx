@@ -72,6 +72,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
         setError(
           "No issues found. Check that the identifiers are correct and you have access to them.",
         );
+        setIsLoading(false);
         return;
       }
 
@@ -90,9 +91,8 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleClose = () => {

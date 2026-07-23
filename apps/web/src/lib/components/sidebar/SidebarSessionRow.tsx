@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { Id } from "@conductor/backend";
 import {
   ContextMenu,
@@ -70,7 +70,7 @@ export function SidebarSessionRow<T extends SessionItem>({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
@@ -94,7 +94,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               firstMessagePreview={session.firstMessagePreview}
             />
           </SharedLayoutNavSurface>
-        </motion.div>
+        </m.div>
       </ContextMenuTrigger>
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         {onRename && (

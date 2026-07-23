@@ -35,9 +35,11 @@ export function SessionSummaryModal({
     try {
       await startSummarize({ sessionId });
       onClose();
-    } finally {
+    } catch (error) {
       setIsSummarizing(false);
+      throw error;
     }
+    setIsSummarizing(false);
   };
 
   return (

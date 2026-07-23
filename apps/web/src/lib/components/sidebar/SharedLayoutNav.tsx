@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@conductor/ui";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { createContext, use, useState, type ReactNode } from "react";
 
 const sharedLayoutTransition = {
@@ -71,7 +71,7 @@ export function SharedLayoutNavSurface({
       onMouseEnter={() => setHoveredId(itemId)}
     >
       {highlighted ? (
-        <motion.div
+        <m.div
           layoutId={layoutId}
           transition={sharedLayoutTransition}
           className="pointer-events-none absolute inset-0 rounded-lg bg-sidebar-accent"

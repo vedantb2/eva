@@ -539,22 +539,25 @@ export function StatusFieldsSection({
                 align="end"
                 className="max-h-56 overflow-y-auto"
               >
-                {allTags.map((tag) => (
-                  <DropdownMenuCheckboxItem
-                    key={tag}
-                    checked={(task?.tags ?? []).includes(tag)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        void addTag(tag);
-                      } else {
-                        void removeTag(tag);
-                      }
-                    }}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    {tag}
-                  </DropdownMenuCheckboxItem>
-                ))}
+                {(() => {
+                  const tagSet = new Set(task?.tags ?? []);
+                  return allTags.map((tag) => (
+                    <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={tagSet.has(tag)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          void addTag(tag);
+                        } else {
+                          void removeTag(tag);
+                        }
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {tag}
+                    </DropdownMenuCheckboxItem>
+                  ));
+                })()}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

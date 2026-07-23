@@ -15,6 +15,8 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { markAllRunningExited } from "../backgroundProcesses";
+import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
@@ -183,6 +185,18 @@ export async function requestSessionSandboxStop(
   // sandbox..." / cold-storage copy while status is stopping.
   await clearSandboxStartupActivity(ctx.db, `session-startup-${sessionId}`);
 
+  if (session.syntheticTurnMessageId) {
+    const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
+    if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+      const streaming = await ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) => q.eq("entityId", String(sessionId)))
+        .first();
+      await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+    }
+    await clearStreamingActivity(ctx, String(sessionId));
+  }
+
   // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
   // `markSandboxClosed` once Daytona's stop call settles, so the divider
   // matches the actual outcome rather than being optimistic.
@@ -190,6 +204,7 @@ export async function requestSessionSandboxStop(
     // Keep sandboxId so we can resume the stopped sandbox later.
     ptySessionId: undefined,
     status: "stopping",
+    syntheticTurnMessageId: undefined,
     updatedAt: Date.now(),
   });
 }

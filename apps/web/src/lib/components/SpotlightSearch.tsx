@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Command } from "cmdk";
 import { Dialog, DialogContent } from "@conductor/ui";
 import { useNavigate } from "@tanstack/react-router";
@@ -39,17 +39,19 @@ export function SpotlightSearch() {
   const docs = useQuery(api.docs.list, { repoId: repo._id });
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
-  useEffect(() => {
-    if (!isOpen) setSearch("");
-  }, [isOpen]);
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) setSearch("");
+  };
 
   const handleSelect = (href: string) => {
     navigate({ to: href });
     setIsOpen(false);
+    setSearch("");
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         hideCloseButton
         className="top-[28%] max-w-xl translate-y-0 gap-0 p-0"

@@ -127,14 +127,6 @@ export function ProjectChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialMessages]);
 
-  useEffect(() => {
-    if (isLocked || isLoading) return;
-    const hasAssistant = initialMessages.some((m) => m.role === "assistant");
-    if (initialMessages.length > 0 && !hasAssistant) {
-      void askQuestion();
-    }
-  }, []);
-
   const askQuestion = async () => {
     setIsLoading(true);
     await startProjectInterview({
@@ -143,6 +135,14 @@ export function ProjectChatTab({
       previousAnswers: [], // Session persistence provides context
     });
   };
+
+  useEffect(() => {
+    if (isLocked || isLoading) return;
+    const hasAssistant = initialMessages.some((m) => m.role === "assistant");
+    if (initialMessages.length > 0 && !hasAssistant) {
+      void askQuestion();
+    }
+  }, []);
 
   const handleStartInterview = () => {
     void askQuestion();
@@ -160,9 +160,11 @@ export function ProjectChatTab({
       setIsLoading(false);
       onClear?.();
       setConfirmClearOpen(false);
-    } finally {
+    } catch (error) {
       setIsClearing(false);
+      throw error;
     }
+    setIsClearing(false);
   };
 
   const currentQuestion: ParsedQuestion | null = (() => {

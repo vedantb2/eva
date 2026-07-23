@@ -27,12 +27,89 @@ export function isConvexBackendCommand(command: string): boolean {
   return /\bconvex\b/i.test(command);
 }
 
+/** Local backend health endpoint (anonymous mode serves the cloud API here). */
+export const CONVEX_LOCAL_BACKEND_HEALTH_URL = "http://127.0.0.1:3210/version";
+
+/**
+ * Wedge signature `convex dev` prints while it cannot reach the local backend.
+ * Cloud-mode `convex dev` never prints this, so its presence in the bg log
+ * confirms the command runs a LOCAL backend before the supervisor kills it.
+ */
+const CONVEX_LOCAL_BACKEND_WEDGE_LOG_LINE =
+  "Unable to pull deployment config from http://127.0.0.1:3210";
+
+/**
+ * Self-heal supervisor around a `convex dev` background command.
+ *
+ * `convex dev` wedges permanently when convex-local-backend misses its startup
+ * window (CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS, 240s for CarePulse) on a
+ * busy resume: it stops respawning the backend and retries HTTP against :3210
+ * forever, leaving the preview with a dead backend (observed 2026-07-23,
+ * sandbox plum-serious-fowl-oA1Ym4). The supervisor launches the command in
+ * its own process group, waits for the health endpoint, and on a confirmed
+ * wedge kills the whole tree and relaunches — up to 3 attempts.
+ *
+ * Exit conditions mirror the pre-supervisor behaviour so the /tmp/bg-<i>.pid
+ * liveness contract is unchanged: once healthy (or on any non-wedge outcome)
+ * the wrapper just `wait`s on the command, and exits when it exits.
+ */
+function buildConvexSupervisorLines(command: string): string[] {
+  return [
+    // The command goes through a file (not inline quoting) so any user quoting
+    // survives, and `setsid` can give it a killable process group of its own.
+    `cat > "/tmp/eva-convex-bg-cmd-$$.sh" <<'EVA_CONVEX_BG_CMD'`,
+    command,
+    "EVA_CONVEX_BG_CMD",
+    // Wrapper stdout is the /tmp/bg-<i>.log the launcher redirected us into.
+    `eva_bg_log=$(readlink "/proc/$$/fd/1" 2>/dev/null || echo /dev/null)`,
+    "eva_attempt=1",
+    "while true; do",
+    `  setsid bash -l "/tmp/eva-convex-bg-cmd-$$.sh" &`,
+    "  eva_child=$!",
+    '  eva_verdict=""',
+    "  eva_waited=0",
+    "  while [ $eva_waited -lt 300 ]; do",
+    "    sleep 5; eva_waited=$((eva_waited+5))",
+    '    kill -0 "$eva_child" 2>/dev/null || { eva_verdict=exited; break; }',
+    `    curl -sf -m 3 ${CONVEX_LOCAL_BACKEND_HEALTH_URL} >/dev/null 2>&1 && { eva_verdict=healthy; break; }`,
+    "  done",
+    // Healthy or exited on its own: behave exactly like the unsupervised
+    // launch — babysit the pid and end with it.
+    '  if [ -n "$eva_verdict" ]; then',
+    '    [ "$eva_verdict" = healthy ] && echo "[eva-supervisor] local backend healthy after ${eva_waited}s"',
+    '    wait "$eva_child" 2>/dev/null',
+    "    exit 0",
+    "  fi",
+    // Grace elapsed, still running, :3210 down. Only a LOCAL backend command
+    // that logged the wedge signature is restarted; anything else (cloud-mode
+    // convex dev, non-backend convex tooling) is left alone.
+    `  if ! grep -q "${CONVEX_LOCAL_BACKEND_WEDGE_LOG_LINE}" "$eva_bg_log" 2>/dev/null; then`,
+    '    wait "$eva_child" 2>/dev/null',
+    "    exit 0",
+    "  fi",
+    "  if [ $eva_attempt -ge 3 ]; then",
+    '    echo "[eva-supervisor] local backend still down after 3 attempts; leaving convex dev running"',
+    '    wait "$eva_child" 2>/dev/null',
+    "    exit 0",
+    "  fi",
+    '  echo "[eva-supervisor] local backend not healthy after ${eva_waited}s — restarting convex dev (attempt $eva_attempt/3)"',
+    '  kill -TERM -- "-$eva_child" 2>/dev/null || true',
+    "  sleep 2",
+    '  kill -KILL -- "-$eva_child" 2>/dev/null || true',
+    "  pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true",
+    "  eva_attempt=$((eva_attempt+1))",
+    "  sleep 3",
+    "done",
+  ];
+}
+
 /**
  * Shell script body for launching a Convex-related background command.
  *
  * Unsets CONVEX_AGENT_MODE, plants a glibc-compatible backend binary under the
  * CLI's "latest" cache label(s), aligns .convex config.json so non-TTY convex
- * dev skips auto-upgrade, then runs the original command unchanged.
+ * dev skips auto-upgrade, then runs the original command under the self-heal
+ * supervisor (see buildConvexSupervisorLines).
  */
 export function buildConvexBackgroundScriptBody(command: string): string {
   const pinLiteral = JSON.stringify(PINNED_CONVEX_LOCAL_BACKEND_VERSION);
@@ -118,6 +195,6 @@ export function buildConvexBackgroundScriptBody(command: string): string {
     "  except Exception as e:",
     "    print(f'skip {p}: {e}')",
     "PY",
-    command,
+    ...buildConvexSupervisorLines(command),
   ].join("\n");
 }

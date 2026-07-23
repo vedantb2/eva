@@ -17,6 +17,7 @@ export function useRepoLogoUpload() {
 
   const uploadLogo = async (repoId: Id<"githubRepos">, file: File) => {
     setUploading(true);
+    let uploadError: Error | undefined;
     try {
       const uploadUrl = await generateUploadUrl({ repoId });
       const result = await fetch(uploadUrl, {
@@ -26,17 +27,24 @@ export function useRepoLogoUpload() {
       });
       const responseText = await result.text();
       if (!result.ok) {
-        throw new Error(
+        uploadError = new Error(
           `Logo upload failed (status ${result.status}): ${responseText}`,
         );
+      } else {
+        const storageId = parseStorageId(responseText);
+        if (!storageId) {
+          uploadError = new Error("Invalid response from storage");
+        } else {
+          await setLogo({ repoId, storageId });
+        }
       }
-      const storageId = parseStorageId(responseText);
-      if (!storageId) {
-        throw new Error("Invalid response from storage");
-      }
-      await setLogo({ repoId, storageId });
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
+    }
+    setUploading(false);
+    if (uploadError) {
+      throw uploadError;
     }
   };
 

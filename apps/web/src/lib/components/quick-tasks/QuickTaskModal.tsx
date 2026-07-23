@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -154,12 +154,11 @@ export function QuickTaskModal({
   } = useProviderAccounts();
 
   // Once accounts load, default to the creator's personal account for the
-  // selected model provider (Team when none match).
-  useEffect(() => {
-    if (!accountsReady || accountDefaulted) return;
+  // selected model provider (Team when none match). Adjust during render.
+  if (accountsReady && !accountDefaulted) {
     setProviderAccountId(defaultProviderAccountId(accounts, model));
     setAccountDefaulted(true);
-  }, [accountsReady, accounts, model, accountDefaulted]);
+  }
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(
@@ -245,9 +244,11 @@ export function QuickTaskModal({
       }
       resetForm();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const loadDraft = (draft: QuickTaskDraft) => {
@@ -454,22 +455,25 @@ export function QuickTaskModal({
                         )}
                       </CommandEmpty>
                       <CommandGroup>
-                        {(allTags ?? []).map((tag) => (
-                          <CommandItem
-                            key={tag}
-                            value={tag}
-                            onSelect={() => toggleTag(tag)}
-                          >
-                            <IconTag
-                              size={14}
-                              className="text-muted-foreground"
-                            />
-                            {tag}
-                            {selectedTags.includes(tag) && (
-                              <IconCheck size={14} className="ml-auto" />
-                            )}
-                          </CommandItem>
-                        ))}
+                        {(() => {
+                          const selected = new Set(selectedTags);
+                          return (allTags ?? []).map((tag) => (
+                            <CommandItem
+                              key={tag}
+                              value={tag}
+                              onSelect={() => toggleTag(tag)}
+                            >
+                              <IconTag
+                                size={14}
+                                className="text-muted-foreground"
+                              />
+                              {tag}
+                              {selected.has(tag) && (
+                                <IconCheck size={14} className="ml-auto" />
+                              )}
+                            </CommandItem>
+                          ));
+                        })()}
                       </CommandGroup>
                     </CommandList>
                   </Command>

@@ -292,6 +292,13 @@ export async function ensureSandboxRunning(
      * commands (git checkout, services) get equivalent failure surfacing.
      */
     skipExecProbe?: boolean;
+    /**
+     * When true (explicit user-initiated starts), a Vercel stop still in
+     * flight is waited out and the sandbox resumed from the fresh snapshot,
+     * instead of the start being refused. Leave unset on background paths
+     * (prewarm, watchdog) so they cannot resurrect a just-stopped sandbox.
+     */
+    resumeAfterStop?: boolean;
   } = {},
 ): Promise<void> {
   const defaultTimeout =
@@ -362,7 +369,9 @@ export async function ensureSandboxRunning(
   }
 
   const startStartedAt = Date.now();
-  await sandbox.start(startTimeout);
+  await sandbox.start(startTimeout, {
+    resumeAfterStop: options.resumeAfterStop,
+  });
   console.log(
     `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
   );
@@ -527,6 +536,10 @@ export async function signAndLaunchScript(
     providerAccountId?: Id<"userProviderAccounts">;
     /** Entity owner (`createdBy`); defaults to `userId` when omitted. */
     credentialOwnerUserId?: Id<"users">;
+    claimMutation?: string;
+    openSyntheticTurnMutation?: string;
+    completeSyntheticTurnMutation?: string;
+    updateBackgroundAgentsMutation?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();

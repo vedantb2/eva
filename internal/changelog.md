@@ -1,5 +1,9 @@
 # Changelog
 
+## More space between Global Sessions app groups - 2026-07-23
+
+App collapsibles in the root Sessions sidebar sat too tight (`space-y-1`), so related groups felt like one block. Spacing between app groups is now `space-y-3` for clearer separation when scanning across codebases.
+
 ## Install gh CLI in Vercel snapshot seeds - 2026-07-23
 
 Daytona base images already apt-install `gh`, but Vercel seed-prep (Amazon Linux dnf) did not, so agents in Vercel sandboxes lacked GitHub CLI. Seed toolchain now installs a pinned `gh` release tarball into `/usr/local/bin` before snapshot capture.
@@ -19,6 +23,68 @@ Activity run headers showed the credential account as a text badge next to the m
 ## Drop app Sessions sidebar + nav tab - 2026-07-23
 
 Repo home already owns session create/list entry, so the per-app Sessions drill-down sidebar and SHIP nav tab were redundant. Sessions routes stay for deep links; Designs and other context sidebars are unchanged.
+
+## Prewarm stops resurrecting stopped Vercel sandboxes; stale "active" self-heals - 2026-07-23
+
+An auto-stopped Vercel VM whose DB status still read "active" was silently rebooted by the page-open daemon prewarm (any exec lazily resumes a stopped VM) — leaving a running sandbox with no dev server, no Convex backend, and an empty Console, since services only launch in the startup workflow. Prewarm now checks live provider state before any exec and skips non-running sandboxes; on definitely-dead states it flips the stale "active" status to "closed" (sessions, agent tasks, projects) so the UI offers Start — the one path that relaunches services — and the terminal-attach guard stops resurrecting the VM too.
+
+Reason: "active" must mean the VM and its services are actually up; hidden resurrection produced sandboxes that looked alive but could never serve a preview.
+
+## Diffs tab file accordion + Viewed - 2026-07-23
+
+Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.
+
+## Sandbox start survives trailing stops; in-sandbox Convex self-heals - 2026-07-23
+
+Clicking Start right after a run finished failed with "was stopped while a start was in progress": the Vercel provider let any in-flight stop win, even against an explicit user start. `start()` now takes `resumeAfterStop` — explicit start paths (session/task/project reuse, design reuse, Start-clicked resume) wait the snapshotting stop out and resume; background paths (prewarm, watchdog) still refuse so they cannot resurrect a just-stopped sandbox.
+
+Separately, `convex dev` wedges permanently if the local backend misses its 240s startup window on a busy resume (retries :3210 forever, never respawns — dead preview backend, session 29). Convex background commands now run under a bash supervisor that health-checks `127.0.0.1:3210/version`, confirms the wedge signature in the log (so cloud-mode `convex dev` is never touched), and kills + relaunches the tree, up to 3 attempts.
+
+Reason: both bugs left users with sandboxes that looked started but were not, with no recovery short of manual surgery.
+
+## Warm seed-prep from base Image - 2026-07-23
+
+Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.
+
+Reason: warm Image boots cut seed time and avoid cold-install 404s without breaking daemon-dependent startup commands.
+
+## Queue row uses provider icon - 2026-07-22
+
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.
+
+## Sandbox chat model + effort on messages - 2026-07-22
+
+Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.
+
+## Session synthetic turns (Tranche C) - 2026-07-22
+
+Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
+
+Reason: extend Tranche A/B architecture to the other in-sandbox chat surfaces without double-executing turns or killing the main run on chat cancel.
+
+## Session synthetic turns (Tranche B) - 2026-07-22
+
+Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.
+
+Reason: product surface for background subagents — users see lifecycle telemetry and can stop in-flight agents without hunting the timeline.
+
+## Session synthetic turns (Tranche A) - 2026-07-22
+
+Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
+
+Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
+
+## Global Sessions rail + cross-app sidebar - 2026-07-22
+
+Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.
+
+## Cache session Preview across sidebar switches - 2026-07-22
+
+Switching between sessions remounted each detail shell, so Preview iframes always cold-loaded again. The sessions layout now keeps the last three opened session shells mounted (hidden), freezes inactive sandbox tabs / preview polling, and only bumps the iframe when the preview URL actually changes.
+
+## Cache sandbox tabs across switches - 2026-07-22
+
+Switching Preview ↔ Review (or any other sandbox tab) remounted the whole session/project shell, wiping iframes, Console PTY scrollback, and editor state. Session and project layouts now stay mounted across tab URL changes; pane slots keep Files / PRD / custom tabs hidden instead of unmounting, and a default preview pane is created up front so the running app can stay cached.
 
 ## Quick-task activity model + composer picker - 2026-07-22
 

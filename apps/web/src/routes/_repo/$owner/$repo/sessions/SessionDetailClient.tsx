@@ -18,6 +18,7 @@ export function SessionDetailClient({
   onSandboxTabChange,
   onOpenFile,
   onViewDiff,
+  isRouteActive = true,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -27,6 +28,11 @@ export function SessionDetailClient({
   onOpenFile: (path: string) => void;
   /** Opens the PR tab (Diffs sub-tab); optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
+  /**
+   * False while this session shell is kept mounted but another session is
+   * shown — Preview must not clear/refetch from sibling URL churn.
+   */
+  isRouteActive?: boolean;
 }) {
   const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -104,9 +110,11 @@ export function SessionDetailClient({
       setIsStopPending(true);
       try {
         await stopSandboxMutation({ sessionId });
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 
@@ -131,10 +139,11 @@ export function SessionDetailClient({
   useEffect(() => {
     const prev = prevAgentBrowsingAt.current;
     prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (!isRouteActive) return;
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     onSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-  }, [agentBrowsingAt, onSandboxTabChange]);
+  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive]);
 
   if (session === undefined) {
     return (
@@ -191,6 +200,7 @@ export function SessionDetailClient({
               onSandboxTabChange("prd");
               setExpandRightSignal((n) => n + 1);
             }}
+            backgroundAgents={session.backgroundAgents}
           />
         )}
         rightPanel={
@@ -199,6 +209,7 @@ export function SessionDetailClient({
             sandboxId={session.sandboxId}
             vercelSandboxId={session.vercelSandboxId}
             isActive={isSandboxActive}
+            isRouteActive={isRouteActive}
             repoId={session.repoId}
             prUrl={session.prUrl}
             // Prefer session (set after services start); fall back to app

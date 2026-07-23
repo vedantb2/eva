@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -26,6 +26,7 @@ import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSi
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
+import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
@@ -76,7 +77,8 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user } = useUser();
-  const { collapsed, setCollapsed } = useSidebar();
+  const { collapsed, setCollapsed, sessionsNavMode, setSessionsNavMode } =
+    useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -116,6 +118,7 @@ export function Sidebar() {
       "teams",
       "inbox",
       "artifacts",
+      "sessions",
       "api",
       "settings",
       "testing",
@@ -151,7 +154,23 @@ export function Sidebar() {
     };
   })();
 
-  const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
+  const pathParts = pathname.split("/").filter(Boolean);
+  const isGlobalSessionsLanding =
+    pathname === "/sessions" || pathname === "/sessions/";
+  const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
+  const showGlobalSessionsPanel =
+    isGlobalSessionsLanding ||
+    (isRepoSessionsPath && sessionsNavMode === "global");
+  const showSidePanel = isRepoRoute || isGlobalSessionsLanding;
+
+  useEffect(() => {
+    if (isGlobalSessionsLanding) {
+      setSessionsNavMode("global");
+    }
+  }, [isGlobalSessionsLanding, setSessionsNavMode]);
+
+  const showContextSidebar =
+    isRepoRoute && !showGlobalSessionsPanel && contextSidebarMode !== "main";
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
@@ -190,8 +209,9 @@ export function Sidebar() {
     closeMobileSidebar();
   };
 
-  const contextSidebarTitle =
-    contextSidebarMode === "designs"
+  const contextSidebarTitle = showGlobalSessionsPanel
+    ? "Sessions"
+    : contextSidebarMode === "designs"
       ? "Designs"
       : contextSidebarMode === "sessions"
         ? "Sessions"
@@ -267,8 +287,8 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          // Global pages are rail-only; repo pages keep the wider nav panel.
-          isRepoRoute
+          // Global pages are rail-only except Sessions (grouped cross-repo list).
+          showSidePanel
             ? cn(
                 "w-[min(20rem,calc(100vw-1.5rem))]",
                 collapsed ? "lg:w-36" : "lg:w-80",
@@ -288,16 +308,22 @@ export function Sidebar() {
           userEmail={user?.primaryEmailAddress?.emailAddress}
           showSearch={isRepoRoute}
         />
-        {isRepoRoute && repoBasePath ? (
+        {showSidePanel ? (
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
                 "relative flex items-center overflow-hidden",
-                teamBackgroundUrl && !showContextSidebar ? "h-24" : "h-16",
+                teamBackgroundUrl &&
+                  !showContextSidebar &&
+                  !showGlobalSessionsPanel
+                  ? "h-24"
+                  : "h-16",
                 collapsed ? "px-2" : "px-3",
               )}
             >
-              {teamBackgroundUrl && !showContextSidebar ? (
+              {teamBackgroundUrl &&
+              !showContextSidebar &&
+              !showGlobalSessionsPanel ? (
                 <>
                   <img
                     src={teamBackgroundUrl}
@@ -309,22 +335,52 @@ export function Sidebar() {
               ) : null}
               <motion.div
                 key={
-                  showContextSidebar
-                    ? `${contextSidebarMode}-header`
-                    : "main-header"
+                  showGlobalSessionsPanel
+                    ? "global-sessions-header"
+                    : showContextSidebar
+                      ? `${contextSidebarMode}-header`
+                      : "main-header"
                 }
                 className={cn(
                   "relative z-10 flex w-full items-center",
                   collapsed ? "justify-center" : "justify-between",
                   teamBackgroundUrl &&
                     !showContextSidebar &&
+                    !showGlobalSessionsPanel &&
                     "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-sm",
                 )}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {showContextSidebar ? (
+                {showGlobalSessionsPanel ? (
+                  <>
+                    {!collapsed && (
+                      <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                        Sessions
+                      </span>
+                    )}
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setCollapsed(!collapsed)}
+                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                      {collapsed ? (
+                        <IconLayoutSidebarLeftCollapseFilled
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      ) : (
+                        <IconLayoutSidebarLeftCollapse
+                          size={16}
+                          className="text-sidebar-primary"
+                        />
+                      )}
+                    </Button>
+                  </>
+                ) : showContextSidebar ? (
                   <>
                     {!collapsed && (
                       <Button
@@ -448,27 +504,41 @@ export function Sidebar() {
 
             <nav
               ref={sidebarScrollRef}
-              className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2"
+              className={cn(
+                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto",
+                showGlobalSessionsPanel ? "px-1 py-1" : "px-2 py-3",
+              )}
             >
-              <div className="space-y-4">
+              <div
+                className={showGlobalSessionsPanel ? "space-y-0" : "space-y-4"}
+              >
                 <motion.div
                   key={
-                    showContextSidebar
-                      ? `${contextSidebarMode}-nav`
-                      : "main-nav"
+                    showGlobalSessionsPanel
+                      ? "global-sessions-nav"
+                      : showContextSidebar
+                        ? `${contextSidebarMode}-nav`
+                        : "main-nav"
                   }
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {showContextSidebar ? (
-                    collapsed ? null : contextSidebarMode === "settings" ? (
-                      <SettingsSidebar
-                        basePath={repoBasePath}
+                  {showGlobalSessionsPanel ? (
+                    collapsed ? null : (
+                      <GlobalSessionsSidebar
                         pathname={pathname}
                         onNavigate={closeMobileSidebar}
                       />
-                    ) : repo ? (
+                    )
+                  ) : showContextSidebar ? (
+                    collapsed ? null : contextSidebarMode === "settings" ? (
+                      <SettingsSidebar
+                        basePath={repoBasePath ?? ""}
+                        pathname={pathname}
+                        onNavigate={closeMobileSidebar}
+                      />
+                    ) : repo && repoBasePath ? (
                       contextSidebarMode === "designs" ? (
                         <DesignSessionsSidebar
                           repoId={repo._id}
@@ -517,7 +587,7 @@ export function Sidebar() {
                         <Spinner size="sm" />
                       </div>
                     )
-                  ) : (
+                  ) : repoBasePath ? (
                     <div className="space-y-4">
                       <RepoTopNav
                         repoBasePath={repoBasePath}
@@ -531,22 +601,29 @@ export function Sidebar() {
                         pathname={pathname}
                         collapsed={collapsed}
                         repo={repo}
-                        onOpenContextSidebar={setContextSidebarMode}
+                        onOpenContextSidebar={(mode) => {
+                          if (mode === "sessions") {
+                            setSessionsNavMode("repo");
+                          }
+                          setContextSidebarMode(mode);
+                        }}
                         onNavigate={closeMobileSidebar}
                       />
                     </div>
-                  )}
+                  ) : null}
                 </motion.div>
               </div>
             </nav>
 
-            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
-              <RepoStatsSummary
-                repo={repo}
-                repoBasePath={repoBasePath}
-                collapsed={collapsed}
-              />
-            </div>
+            {isRepoRoute && repoBasePath && !showGlobalSessionsPanel ? (
+              <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
+                <RepoStatsSummary
+                  repo={repo}
+                  repoBasePath={repoBasePath}
+                  collapsed={collapsed}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
       </aside>

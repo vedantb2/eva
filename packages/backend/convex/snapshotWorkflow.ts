@@ -398,12 +398,15 @@ export const snapshotBuildWorkflow = workflow.define({
         seededSnapshotName: null,
       });
 
-      // One fresh seed-prep sandbox for the whole build (Vercel maps a
-      // non-`snap_` source to a fresh sandbox; Daytona would map onto its
-      // Image snapshot the same way the old per-app flow did).
+      // Prefer the Vercel base Image (`snap_*`) when present so seed-prep does
+      // not create a blank sandbox. `snapshotName` is the Daytona-style label
+      // (`snapshot-<repoId>`) and is treated as "no source" on Vercel, which
+      // races toolchain install from scratch and can 404 on flaky project
+      // lookups. Daytona still accepts snapshotName as the Image name.
+      const seedImageSnapshot = config.baseSnapshotId ?? config.snapshotName;
       const created = await step.runAction(
         internal.snapshotActions.createSeedPrepSandbox,
-        { repoId: appRepoId, imageSnapshot: config.snapshotName },
+        { repoId: appRepoId, imageSnapshot: seedImageSnapshot },
         { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
       );
       prepSandboxId = created.sandboxId;

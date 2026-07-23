@@ -26,6 +26,11 @@ interface SandboxPanelProps {
   sandboxId: string | undefined;
   vercelSandboxId: string | undefined;
   isActive: boolean;
+  /**
+   * False while another session is shown but this shell stays mounted.
+   * Preview freezes instead of clearing on shared URL search churn.
+   */
+  isRouteActive?: boolean;
   repoId: Id<"githubRepos">;
   prUrl?: string;
   devPort?: number;
@@ -46,6 +51,7 @@ export function SandboxPanel({
   sandboxId,
   vercelSandboxId,
   isActive,
+  isRouteActive = true,
   repoId,
   prUrl,
   devPort,
@@ -77,6 +83,7 @@ export function SandboxPanel({
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
+    isRouteActive,
     repoId,
     devPort,
   });
@@ -152,37 +159,33 @@ export function SandboxPanel({
               : "hidden"
           }
         >
-          {activeTab === "prd" ? (
-            planContent ? (
-              <SessionPrdPlanView
-                sessionId={sessionId}
-                planContent={planContent}
-                onApprovePlan={() => setMode("edit")}
-                variant="panel"
-                isArchived={isArchived}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-                <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
-                <div className="max-w-md space-y-1">
-                  <p className="text-sm font-medium">No PRD or plan yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Ask Eva to create a PRD or plan for a feature, and it will
-                    appear here once generated.
-                  </p>
-                </div>
+          {planContent ? (
+            <SessionPrdPlanView
+              sessionId={sessionId}
+              planContent={planContent}
+              onApprovePlan={() => setMode("edit")}
+              variant="panel"
+              isArchived={isArchived}
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
+              <div className="max-w-md space-y-1">
+                <p className="text-sm font-medium">No PRD or plan yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Ask Eva to create a PRD or plan for a feature, and it will
+                  appear here once generated.
+                </p>
               </div>
-            )
-          ) : null}
+            </div>
+          )}
         </div>
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
-          {activeTab === "files" ? (
-            <FilesPanel
-              sandboxId={sandboxId}
-              repoId={repoId}
-              isActive={isActive}
-            />
-          ) : null}
+          <FilesPanel
+            sandboxId={sandboxId}
+            repoId={repoId}
+            isActive={isActive}
+          />
         </div>
         <SandboxPaneSlots
           activeTab={activeTab}

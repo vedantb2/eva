@@ -1,5 +1,9 @@
 # Changelog
 
+## Session chat model icon under assistant reply - 2026-07-23
+
+The provider icon sat under the user bubble (with account as plain text), which read as "who asked" rather than "what answered". It now sits under the assistant turn; tooltip is `model · effort · account` using the preceding user message's snapshot (`userProviderAccounts` label / "Team"), matching the run-accordion pattern.
+
 ## Rail app tiles support middle-click new tab - 2026-07-23
 
 App icons on the left RepoRail were `<button onClick={navigate}>`, so middle-click / cmd-click had no `href` and could not open another tab. They are now `Link`s to `repoHref(...)` (same destination as before); left-click still SPA-navigates and closes the mobile drawer.

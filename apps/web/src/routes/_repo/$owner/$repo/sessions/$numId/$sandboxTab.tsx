@@ -112,6 +112,18 @@ export const Route = createFileRoute(
         isPrPanelTab(search.prTab)
           ? search.prTab
           : "diffs";
+      if (fromSearch === "overview") {
+        throw redirect({
+          to: "/$owner/$repo/sessions/$numId/review/overview",
+          params: {
+            owner: params.owner,
+            repo: params.repo,
+            numId: params.numId,
+          },
+          search: { ...search, prTab: undefined, diffView: undefined },
+          replace: true,
+        });
+      }
       if (fromSearch === "recap") {
         throw redirect({
           to: "/$owner/$repo/sessions/$numId/review/recap",

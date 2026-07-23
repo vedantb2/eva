@@ -11,8 +11,10 @@ import {
   TabsTrigger,
   cn,
 } from "@conductor/ui";
-import { IconRefresh } from "@tabler/icons-react";
+import { IconGitPullRequest, IconRefresh } from "@tabler/icons-react";
 import { isDiffView, isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
+import { prNumberFromGithubUrl } from "@/lib/githubPr";
+import { ReviewOverviewPanel } from "@/lib/components/reviews/ReviewOverviewPanel";
 import { DiffsPanel } from "./DiffsPanel";
 import { PrRecapPanel } from "./PrRecapPanel";
 import { useDiffSearchParams } from "./useDiffSearchParams";
@@ -30,9 +32,9 @@ interface DiffToolbarState {
 }
 
 /**
- * Sandbox Review tab: Diffs + Recap via `@conductor/ui` Tabs. Path segments
- * (`…/review/diffs/…`, `…/review/recap`) are preferred; `?prTab=` remains a
- * redirect/fallback.
+ * Sandbox Review tab: Overview + Diffs + Recap via `@conductor/ui` Tabs. Path
+ * segments (`…/review/overview`, `…/review/diffs/…`, `…/review/recap`) are
+ * preferred; `?prTab=` remains a redirect/fallback.
  * Defaults to Recap when a ready recap exists and no tab is in the URL yet.
  * Unified/Split + Refresh sit on the same header row and only show for Diffs.
  */
@@ -47,6 +49,8 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
     null,
   );
   const [diffToolbar, setDiffToolbar] = useState<DiffToolbarState | null>(null);
+  const prNumber =
+    prUrl !== undefined ? prNumberFromGithubUrl(prUrl) : undefined;
 
   // Resolve the default tab once recap query settles (adjust during render).
   if (isActive && resolvedDefault === null) {
@@ -72,14 +76,11 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <TabsList className="h-8">
-          <TabsTrigger value="diffs" className="px-2.5 py-1 text-xs">
-            Diffs
-          </TabsTrigger>
-          <TabsTrigger value="recap" className="px-2.5 py-1 text-xs">
-            Recap
-          </TabsTrigger>
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="diffs">Diffs</TabsTrigger>
+          <TabsTrigger value="recap">Recap</TabsTrigger>
         </TabsList>
         {showDiffChrome ? (
           <div className="ml-auto flex items-center gap-2">
@@ -115,6 +116,29 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
           </div>
         ) : null}
       </div>
+      <TabsContent
+        value="overview"
+        forceMount
+        className={cn(
+          "mt-0 min-h-0 flex-1 focus-visible:ring-0",
+          activeSubTab !== "overview" && "hidden",
+        )}
+      >
+        {prNumber !== undefined ? (
+          <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
+            <div className="max-w-md space-y-1">
+              <p className="text-sm font-medium">No pull request yet</p>
+              <p className="text-sm text-muted-foreground">
+                Once a pull request is opened for this work, its overview will
+                appear here.
+              </p>
+            </div>
+          </div>
+        )}
+      </TabsContent>
       <TabsContent
         value="diffs"
         forceMount

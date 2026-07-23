@@ -1,8 +1,9 @@
 "use node";
 
+import { ActionCache } from "@convex-dev/action-cache";
 import { v } from "convex/values";
-import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { action, internalAction } from "../_generated/server";
+import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 import type { Id } from "../_generated/dataModel";
 
@@ -10,6 +11,9 @@ const MAX_LIST_PAGES = 3;
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
 const MAX_CHECKS = 40;
+
+/** Overview GitHub payload is moderately volatile (checks/comments). */
+const PR_OVERVIEW_CACHE_TTL_MS = 60_000;
 
 const pullRequestListItemValidator = v.object({
   number: v.number(),
@@ -40,6 +44,26 @@ const pullRequestCheckValidator = v.object({
   status: v.string(),
   conclusion: v.union(v.string(), v.null()),
   htmlUrl: v.union(v.string(), v.null()),
+});
+
+const pullRequestOverviewValidator = v.object({
+  number: v.number(),
+  title: v.string(),
+  status: v.union(v.literal("open"), v.literal("closed"), v.literal("merged")),
+  draft: v.boolean(),
+  body: v.union(v.string(), v.null()),
+  authorLogin: v.union(v.string(), v.null()),
+  authorAvatarUrl: v.union(v.string(), v.null()),
+  htmlUrl: v.string(),
+  createdAt: v.string(),
+  updatedAt: v.string(),
+  changedFiles: v.number(),
+  additions: v.number(),
+  deletions: v.number(),
+  checks: v.array(pullRequestCheckValidator),
+  checksTruncated: v.boolean(),
+  comments: v.array(pullRequestCommentValidator),
+  commentsTruncated: v.boolean(),
 });
 
 type PullRequestListItem = {
@@ -193,41 +217,16 @@ export const getPullRequestHeader = action({
 });
 
 /**
- * PR description plus issue comments and review comments for the Reviews
- * Overview tab. Soft-capped to keep action payloads bounded.
+ * Uncached GitHub Overview fetch — wrapped by ActionCache. Auth is enforced by
+ * the public `getPullRequestOverview` wrapper before `fetch`.
  */
-export const getPullRequestOverview = action({
+export const fetchPullRequestOverview = internalAction({
   args: {
     repoId: v.id("githubRepos"),
     prNumber: v.number(),
   },
-  returns: v.object({
-    number: v.number(),
-    title: v.string(),
-    status: v.union(
-      v.literal("open"),
-      v.literal("closed"),
-      v.literal("merged"),
-    ),
-    draft: v.boolean(),
-    body: v.union(v.string(), v.null()),
-    authorLogin: v.union(v.string(), v.null()),
-    authorAvatarUrl: v.union(v.string(), v.null()),
-    htmlUrl: v.string(),
-    createdAt: v.string(),
-    updatedAt: v.string(),
-    changedFiles: v.number(),
-    additions: v.number(),
-    deletions: v.number(),
-    checks: v.array(pullRequestCheckValidator),
-    checksTruncated: v.boolean(),
-    comments: v.array(pullRequestCommentValidator),
-    commentsTruncated: v.boolean(),
-  }),
+  returns: pullRequestOverviewValidator,
   handler: async (ctx, args): Promise<PullRequestOverview> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const repoId: Id<"githubRepos"> = args.repoId;
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: repoId,
@@ -325,5 +324,35 @@ export const getPullRequestOverview = action({
         issueRes.data.length >= MAX_ISSUE_COMMENTS ||
         reviewRes.data.length >= MAX_REVIEW_COMMENTS,
     };
+  },
+});
+
+const prOverviewCache = new ActionCache(components.actionCache, {
+  action: internal._github.pullRequests.fetchPullRequestOverview,
+  name: "prOverviewV1",
+  ttl: PR_OVERVIEW_CACHE_TTL_MS,
+});
+
+/**
+ * PR description plus issue comments and review comments for the Reviews
+ * Overview tab. Soft-capped to keep action payloads bounded. Results are
+ * ActionCache-backed (60s TTL); pass `force` to bypass (Retry).
+ */
+export const getPullRequestOverview = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+    force: v.optional(v.boolean()),
+  },
+  returns: pullRequestOverviewValidator,
+  handler: async (ctx, args): Promise<PullRequestOverview> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await prOverviewCache.fetch(
+      ctx,
+      { repoId: args.repoId, prNumber: args.prNumber },
+      { force: args.force === true },
+    );
   },
 });

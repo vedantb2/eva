@@ -68,6 +68,16 @@ describe("parseDiffSearchFields", () => {
       prTab: "recap",
     });
 
+    expect(
+      parseDiffSearchFields({
+        prTab: "overview",
+      }),
+    ).toEqual({
+      diffFile: undefined,
+      diffView: undefined,
+      prTab: "overview",
+    });
+
     expect(parseDiffSearchFields({ diffView: "nope", prTab: "junk" })).toEqual({
       diffFile: undefined,
       diffView: undefined,

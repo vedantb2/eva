@@ -4,6 +4,18 @@
 
 The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.
 
+## ActionCache for PR Overview + Diffs - 2026-07-23
+
+Overview and Diffs always re-hit GitHub on every open (multi-call Octokit), so repeat visits felt slow. Both now use `@convex-dev/action-cache` (60s / 120s TTL); Refresh and Retry pass `force` to bypass.
+
+## Sandbox Review Overview tab - 2026-07-23
+
+Reviews already had Overview (description, conversation, checks); sandbox Review only offered Diffs/Recap, so users left the surface to inspect PR status. Overview is now a third Review sub-tab (path-backed like Recap) for sessions, projects, and quick tasks, reusing `ReviewOverviewPanel`.
+
+## AskUserQuestion no longer stuck loading - 2026-07-23
+
+Blocking AskUserQuestion keeps the turn `isExecuting` while waiting for the user, but the MCQ card used that flag as `isLoading` — options greyed out and Next spun forever from first paint. Loading now tracks only the answer submit in flight.
+
 ## Rail active badge ignores sessions - 2026-07-23
 
 Session sandboxes were lighting the left-rail repo/app dot even when nothing else was running, which made the indicator noisy. The badge now only reflects active quick-task or project sandboxes.

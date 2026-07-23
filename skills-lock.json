@@ -7,6 +7,18 @@
       "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "ecc7641aea05f85ca3b11e7759d32aaf52fe05946ab4b63739c7bf78a41237a2"
     },
+    "animation-vocabulary": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/animation-vocabulary/SKILL.md",
+      "computedHash": "39319fc9a33c15be08666b3685f58666f042ff36bb902b7814c0834a5ba99df4"
+    },
+    "apple-design": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apple-design/SKILL.md",
+      "computedHash": "8b94db67cb9edaad5f1501010804caa610131f1d2dfda0a27664b2e858deade3"
+    },
     "brandkit": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
@@ -121,11 +133,23 @@
       "skillPath": "skills/taste-skill-v1/SKILL.md",
       "computedHash": "0a226c13d69639553cf8a7c40aa5527b026820f8ddaf7a6b263988e32ab44a27"
     },
+    "emil-design-eng": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/emil-design-eng/SKILL.md",
+      "computedHash": "41b0a4dc1a27164fe297845a6c6850a39e9242c42c9be999967fcee9df2c5974"
+    },
     "eva-product-video": {
       "source": "vvedantb/skills",
       "sourceType": "github",
       "skillPath": "skills/eva-product-video/SKILL.md",
       "computedHash": "2ef84ffdf0e64c3bd3a12005b8e46084ae08760ea6e3b244a3fbf6a01de3c041"
+    },
+    "find-animation-opportunities": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-animation-opportunities/SKILL.md",
+      "computedHash": "8fb8492eb8fbed1313cb430b5831d925d9b8964ca24f3c41a6244cbd1fd98732"
     },
     "full-output-enforcement": {
       "source": "Leonxlnx/taste-skill",
@@ -169,6 +193,12 @@
       "skillPath": "skills/imagegen-frontend-web/SKILL.md",
       "computedHash": "27255c7c50181e58add156b2aa2bd5325285b85f04027e4c8b73742d98d7be0a"
     },
+    "improve-animations": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/improve-animations/SKILL.md",
+      "computedHash": "eeb219a407e325b687af88db25771cc3018e3148245604112f5ac6990b6fd79c"
+    },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -199,6 +229,12 @@
       "skillPath": "skills/no-ui-flash/SKILL.md",
       "computedHash": "02d9a4a17e1220d6312a64628977e172792b29505c20e2747e1eb046c3d18b2e"
     },
+    "pick-ui-library": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pick-ui-library/SKILL.md",
+      "computedHash": "f8d4d2cf4677bf54b14f35f62a741add93541bfcb67863315a40164365161b49"
+    },
     "push": {
       "source": "vvedantb/skills",
       "sourceType": "github",
@@ -216,6 +252,12 @@
       "sourceType": "github",
       "skillPath": "skills/redesign-skill/SKILL.md",
       "computedHash": "47eced3e960a2c961d3cbee11fa1216264f589344b586a5cbd03967cd6b9c54b"
+    },
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/review-animations/SKILL.md",
+      "computedHash": "b9f669af5ae280c19a592a94611520335a81de25c88f225bf60ae4b2d66c8c7c"
     },
     "ship": {
       "source": "vvedantb/skills",

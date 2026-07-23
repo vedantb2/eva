@@ -38,18 +38,14 @@ import {
   ChatAttachmentPreview,
   UserMessageAttachments,
 } from "@/lib/components/chat/imageAttachments";
-import {
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
-} from "@tabler/icons-react";
+import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { m } from "motion/react";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
@@ -312,21 +308,12 @@ export function DesignChatPanel({
               onClearPersona={() => setSelectedPersonaId(undefined)}
             />
             {onTogglePreview && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
-                onClick={onTogglePreview}
-                title={
-                  previewCollapsed ? "Show preview panel" : "Hide preview panel"
-                }
-              >
-                {previewCollapsed ? (
-                  <IconLayoutSidebarRightExpand className="size-4" />
-                ) : (
-                  <IconLayoutSidebarRightCollapse className="size-4" />
-                )}
-              </Button>
+              <SandboxPanelToggleButton
+                collapsed={previewCollapsed === true}
+                onToggle={onTogglePreview}
+                expandLabel="Show preview panel"
+                collapseLabel="Hide preview panel"
+              />
             )}
           </>
         }

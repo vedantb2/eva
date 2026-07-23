@@ -382,6 +382,7 @@ export function QuickTasksClient() {
                   description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
                   actionLabel="Create Quick Task"
                   onAction={() => setIsCreating(true)}
+                  animate={!hasAnyTasks}
                 />
               </m.div>
             ) : view === "kanban" ? (

@@ -16,8 +16,6 @@ import {
   IconBrandVercel,
   IconDots,
   IconGitPullRequest,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
   IconPlayerPlay,
   IconPlayerStop,
   IconSend,
@@ -26,6 +24,7 @@ import {
 import type { Id } from "@conductor/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
@@ -149,19 +148,10 @@ export function SessionChatHeader({
         </DropdownMenuContent>
       </DropdownMenu>
       {onToggleSandbox && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
-          onClick={onToggleSandbox}
-          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
-        >
-          {sandboxCollapsed ? (
-            <IconLayoutSidebarRightExpand className="size-4" />
-          ) : (
-            <IconLayoutSidebarRightCollapse className="size-4" />
-          )}
-        </Button>
+        <SandboxPanelToggleButton
+          collapsed={sandboxCollapsed === true}
+          onToggle={onToggleSandbox}
+        />
       )}
     </>
   );

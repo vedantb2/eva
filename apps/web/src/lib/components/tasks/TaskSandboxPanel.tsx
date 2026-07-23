@@ -15,7 +15,7 @@ import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import { FileViewerPanel } from "@/routes/_repo/$owner/$repo/sessions/FileViewerPanel";
+import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -147,7 +147,7 @@ export function TaskSandboxPanel({
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
-          <FileViewerPanel
+          <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
@@ -72,6 +72,14 @@ export function SandboxPanel({
   });
   const submitAnnotation = useSessionAnnotationSend(sessionId);
 
+  // Sticky Preview path/port + console tail (same sessions.get as the shell).
+  const session = useQuery(api.sessions.get, { id: sessionId });
+  const setPreviewPath = useMutation(api.sessions.setPreviewPath);
+  const setPreviewPort = useMutation(api.sessions.setPreviewPort);
+  const setTerminalHistoryTail = useMutation(
+    api.sessions.setTerminalHistoryTail,
+  );
+
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
   // (the reconnect sees an existing PTY, so isNewPty is false).
@@ -86,6 +94,9 @@ export function SandboxPanel({
     isRouteActive,
     repoId,
     devPort,
+    onPortPersist: (port) => {
+      void setPreviewPort({ id: sessionId, port });
+    },
   });
 
   const panes = useSandboxPanes({
@@ -208,6 +219,18 @@ export function SandboxPanel({
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}
+          stickyPreviewPath={session?.previewPath}
+          onStickyPreviewPathChange={(path) => {
+            void setPreviewPath({ id: sessionId, path });
+          }}
+          stickyTerminalHistoryTail={
+            session === undefined
+              ? undefined
+              : (session?.terminalHistoryTail ?? "")
+          }
+          onStickyTerminalHistoryTailChange={(tail) => {
+            void setTerminalHistoryTail({ id: sessionId, tail });
+          }}
         />
       </div>
     </div>

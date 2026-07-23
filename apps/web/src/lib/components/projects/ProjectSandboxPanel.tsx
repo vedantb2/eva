@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import {
   isSessionSandboxTab,
@@ -58,6 +60,13 @@ export function ProjectSandboxPanel({
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
   const projectIdStr = String(projectId);
 
+  const project = useQuery(api.projects.get, { id: projectId });
+  const setPreviewPath = useMutation(api.projects.setPreviewPath);
+  const setPreviewPort = useMutation(api.projects.setPreviewPort);
+  const setTerminalHistoryTail = useMutation(
+    api.projects.setTerminalHistoryTail,
+  );
+
   const activeTab: SandboxTab = sandboxTab;
 
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
@@ -89,6 +98,9 @@ export function ProjectSandboxPanel({
     isActive,
     repoId,
     devPort,
+    onPortPersist: (port) => {
+      void setPreviewPort({ id: projectId, port });
+    },
   });
 
   const panes = useSandboxPanes({
@@ -165,6 +177,18 @@ export function ProjectSandboxPanel({
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
+          stickyPreviewPath={project?.previewPath}
+          onStickyPreviewPathChange={(path) => {
+            void setPreviewPath({ id: projectId, path });
+          }}
+          stickyTerminalHistoryTail={
+            project === undefined
+              ? undefined
+              : (project?.terminalHistoryTail ?? "")
+          }
+          onStickyTerminalHistoryTailChange={(tail) => {
+            void setTerminalHistoryTail({ id: projectId, tail });
+          }}
         />
       </div>
     </div>

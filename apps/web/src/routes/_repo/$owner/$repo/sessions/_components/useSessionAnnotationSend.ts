@@ -7,6 +7,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 
 /**
  * Sends an annotation as chat display text + rich agent prompt.
@@ -17,13 +18,22 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model is owned by Convex (`sessions.lastModel`); read it here so annotation
-  // sends use the session's actual model, not a stale localStorage fallback.
-  const { model } = useSessionModel(sessionId, defaultModel);
-  const { mode, executionTraits, providerAccountId } = useSessionSettings(
-    String(sessionId),
-    { defaultModel, model },
-  );
+  // Model + mode + traits + account are owned by Convex; read them here so
+  // annotation sends use the session's actual picks, not a stale localStorage fallback.
+  const {
+    model,
+    mode: stickyMode,
+    traits,
+    providerAccountId: stickyProviderAccountId,
+  } = useSessionModel(sessionId, defaultModel);
+  const { mode, displayTraits, executionTraits, providerAccountId } =
+    useSessionSettings(String(sessionId), {
+      defaultModel,
+      model,
+      mode: stickyMode,
+      traits,
+      providerAccountId: stickyProviderAccountId,
+    });
   const { resolveId: resolveAccountId } = useProviderAccounts();
 
   const messages = useQuery(api.messages.listByParent, {
@@ -33,13 +43,11 @@ export function useSessionAnnotationSend(
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
 
-  const lastMessage = messages?.[messages.length - 1];
-  const isExecuting = Boolean(
-    lastMessage && lastMessage.role === "assistant" && !lastMessage.content,
-  );
+  const isExecuting = isAssistantTurnInProgress(messages ?? []);
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);
+    const reasoningLevel = displayTraits.effortLevel;
     if (isExecuting) {
       await enqueueMessage({
         sessionId,
@@ -48,6 +56,7 @@ export function useSessionAnnotationSend(
         mode,
         model,
         ...executionTraits,
+        reasoningLevel,
         providerAccountId: accountId,
       });
       return;
@@ -59,6 +68,8 @@ export function useSessionAnnotationSend(
         content: display,
         mode,
         providerAccountId: accountId,
+        model,
+        reasoningLevel,
       }),
       startExecution({
         sessionId,
@@ -66,6 +77,7 @@ export function useSessionAnnotationSend(
         mode,
         model,
         ...executionTraits,
+        reasoningLevel,
         providerAccountId: accountId,
       }),
     ]).catch(async (error) => {

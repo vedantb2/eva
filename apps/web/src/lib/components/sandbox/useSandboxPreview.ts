@@ -33,6 +33,8 @@ interface UseSandboxPreviewArgs {
   isRouteActive?: boolean;
   repoId: Id<"githubRepos">;
   devPort?: number;
+  /** Fired when the user changes Preview port (sessions → Convex sticky). */
+  onPortPersist?: (port: number) => void;
 }
 
 function clearLegacyPreviewUrlCache(): void {
@@ -60,13 +62,22 @@ export function useSandboxPreview({
   isRouteActive = true,
   repoId,
   devPort,
+  onPortPersist,
 }: UseSandboxPreviewArgs): SandboxPreviewApi {
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
-  const [port, setPort] = useQueryState("port", previewPortParser);
+  const [port, setPortQuery] = useQueryState("port", previewPortParser);
   const effectivePort = port ?? devPort ?? 3000;
+
+  const setPort = async (next: number | null) => {
+    const params = await setPortQuery(next);
+    if (next !== null) {
+      onPortPersist?.(next);
+    }
+    return params;
+  };
 
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);

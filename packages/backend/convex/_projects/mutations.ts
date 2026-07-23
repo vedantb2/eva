@@ -6,6 +6,7 @@ import {
   phaseValidator,
   priorityValidator,
   aiModelValidator,
+  reasoningLevelValidator,
 } from "../validators";
 import {
   authMutation,
@@ -28,6 +29,11 @@ import {
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
@@ -390,6 +396,110 @@ export const updateLastConversationMessage = authMutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     await setProjectConversation(ctx.db, args.id, messages);
+    return null;
+  },
+});
+
+/** Sticky Preview path for a project sandbox. No `updatedAt` bump. */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("projects"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/** Sticky Preview port for a project sandbox (`devPort`). No `updatedAt` bump. */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("projects"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the project doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("projects"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat model (`lastChatModel`). No `updatedAt` bump — picker
+ * changes are not conversation activity. Distinct from `projects.model`
+ * (metadata / build prefs).
+ */
+export const setChatModel = authMutation({
+  args: {
+    id: v.id("projects"),
+    model: aiModelValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, { lastChatModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat traits (effort / thinking / 1M). No `updatedAt` bump.
+ * Only provided fields are patched.
+ */
+export const setTraits = authMutation({
+  args: {
+    id: v.id("projects"),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
     return null;
   },
 });

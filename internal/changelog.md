@@ -7,6 +7,53 @@ A few surfaces still teleported (mobile sandbox panel, task prev/next, empty sta
 ## Live notification toasts animate in - 2026-07-23
 
 New notifications already streamed into a top-right toast stack, but they teleported on arrive/dismiss. Enter/exit now slide from that same top edge (`opacity` + `translateY(-8px)`) via Motion `AnimatePresence`, with a gentler opacity-only path when reduced motion is preferred.
+## Task/project sticky chat traits + project chat model - 2026-07-23
+
+Sandbox chat effort/thinking/1M lived in localStorage, and project chat model did too, so picks reset across devices unlike sessions. Traits now stick on `agentTasks` / `projects` (`lastReasoningLevel` / …) via `setTraits` (and on send/enqueue); project composer model uses sticky `lastChatModel` via `setChatModel`. Task model stays on shared `agentTasks.model`.
+
+## Task/project sticky Preview path/port + console tail - 2026-07-23
+
+Quick-task and project sandboxes still kept Preview path and console scrollback in sessionStorage (and never wrote user port changes back to `devPort`), so they reset across devices unlike sessions. Same Convex sticky contract now: `previewPath`, port via `devPort`, and a debounced 500-line `terminalHistoryTail` on `agentTasks` / `projects` (no `updatedAt` bump).
+
+## Session sticky Preview path/port + console tail - 2026-07-23
+
+Preview path and port (via `devPort`) and the last ~500 lines of Preview Console scrollback reset across devices when they only lived in sessionStorage. Sessions now persist path/port and a debounced console tail on the session doc (no `updatedAt` bump); device viewport stays tab-local, and full scrollback still uses sessionStorage.
+
+## Session sticky provider account on change - 2026-07-23
+
+Account picker still only patched `sessions.providerAccountId` on send, so a pre-send switch stayed in localStorage and did not sync across devices. Owner changes now write through `setProviderAccountId` (optimistic, no `updatedAt`), matching model/mode/traits.
+
+## Session sticky edit/plan mode on Convex - 2026-07-23
+
+Composer mode still lived in localStorage after model/traits moved to Convex, so Plan↔Edit resets across devices. Sessions now store `lastMode` via `setMode` (same optimistic sticky contract), written on change and on create/send/enqueue; legacy ask/execute values normalize to edit on read.
+
+## Session sticky thinking + 1M toggles on Convex - 2026-07-23
+
+Effort was already session-sticky via `lastReasoningLevel`, but thinking / 1M still lived in localStorage and reset across devices. Sessions now store `lastThinkingEnabled` / `lastUse1mContext` through a unified `setTraits` mutation (replacing effort-only `setReasoningLevel`), written on change and on create/send/enqueue.
+
+## Session sticky reasoning effort on Convex - 2026-07-23
+
+`lastModel` was moved to Convex but composer effort stayed in localStorage, so a Medium pick silently reset to the Claude model default (High) on reload / another device. Sessions now store `lastReasoningLevel` (set on change + create/send/enqueue), wired like `lastModel`.
+
+## System alerts no longer clear "turn executing" UI - 2026-07-23
+
+Mid-turn system messages (`isSystemAlert`) append after the empty Working bubble, so `isExecuting` (last-message-only) flipped false and the composer offered a fresh send while the agent was still running. Executing state now skips system alerts; streamed tokens stay on the live Working bubble even when an alert is newest.
+
+## Session chat model icon under assistant reply - 2026-07-23
+
+The provider icon sat under the user bubble (with account as plain text), which read as "who asked" rather than "what answered". It now sits under the assistant turn; tooltip is `model · effort · account` using the preceding user message's snapshot (`userProviderAccounts` label / "Team"), matching the run-accordion pattern.
+
+## Rail app tiles support middle-click new tab - 2026-07-23
+
+App icons on the left RepoRail were `<button onClick={navigate}>`, so middle-click / cmd-click had no `href` and could not open another tab. They are now `Link`s to `repoHref(...)` (same destination as before); left-click still SPA-navigates and closes the mobile drawer.
+
+## Session title gen uses AI Gateway flex tier - 2026-07-23
+
+Session titles are background work (placeholder until the LLM returns), so paying default Gateway latency rates was waste. `textGen.generateSessionTitle` now requests `providerOptions.gateway.serviceTier: "flex"` (~0.5x cost; higher latency acceptable). Invalid tiers fail; unavailable flex best-effort-falls back to default billing.
+
+## Session deep links show root Sessions sidebar - 2026-07-23
+
+After dropping the per-app Sessions sidebar, cold loads of `/$owner/$repo/.../sessions/$id/...` still defaulted `sessionsNavMode` to `"repo"`, so the app nav appeared instead of the cross-app Sessions list. Session routes now always open the root Sessions sidebar (and highlight the Sessions rail tile).
 
 ## Global Sessions sidebar shows Archived again - 2026-07-23
 

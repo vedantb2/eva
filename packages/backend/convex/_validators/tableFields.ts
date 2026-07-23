@@ -187,9 +187,14 @@ export const agentTaskFields = {
   // Resolved dev server port + full command for the current sandbox. Stored
   // so the task panel can route the preview iframe to the right port and
   // auto-run the dev server in the first terminal pane. Populated by
-  // taskSandboxReady from startSessionServices() output.
+  // taskSandboxReady from startSessionServices() output. User Preview port
+  // changes also patch `devPort` (sticky, mirrors sessions).
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  // Sticky Preview URL path for this task sandbox (e.g. "/dashboard").
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes).
+  terminalHistoryTail: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   // The change-request comment that put this task back to "todo" via "Make
   // changes". Project-task change runs start later (Build Project), decoupled
@@ -200,6 +205,10 @@ export const agentTaskFields = {
   ...chatDaemonEntityFields,
   // Last model used in sandbox chat; page-open prewarm matches the composer.
   lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const agentRunFields = {
@@ -278,6 +287,21 @@ export const sessionFields = {
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
   lastModel: v.optional(aiModelValidator),
+  // Sticky composer effort for this session (mirrors lastModel). Without this,
+  // effort only lived in localStorage and reloads fell back to the model
+  // default (Claude → high), silently undoing a Medium pick.
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  // Sticky thinking / 1M context toggles (same contract as lastReasoningLevel).
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  // Sticky composer mode (edit / plan). Absent → client default "edit".
+  lastMode: v.optional(sessionModeValidator),
+  // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
+  // viewport stays tab-local; port reuses `devPort` below.
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes). Cap
+  // keeps sessions.get reads small; full scrollback stays in sessionStorage.
+  terminalHistoryTail: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
@@ -420,8 +444,13 @@ export const projectFields = {
   reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
   // Dev port + full command for the active project preview sandbox.
   // Populated by `projectSandboxReady` from `startSessionServices` output.
+  // User Preview port changes also patch `devPort` (sticky, mirrors sessions).
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  // Sticky Preview URL path for this project sandbox (e.g. "/dashboard").
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes).
+  terminalHistoryTail: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   phase: phaseValidator,
   /** How the project was created: AI interview/plan vs tasks-only container. */
@@ -463,6 +492,10 @@ export const projectFields = {
   ...chatDaemonEntityFields,
   // Last model used in sandbox chat; page-open prewarm matches the composer.
   lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const projectDetailsFields = {

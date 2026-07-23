@@ -44,20 +44,25 @@ function userBubbleRadius(isOtherUser: boolean): string {
   return isOtherUser ? `${r} ${r} ${r} 0` : `${r} ${r} 0 ${r}`;
 }
 
-/** Provider mark under a user bubble; tooltip lists model + effort when known. */
+/** Provider mark under an assistant turn; tooltip lists model, effort, account. */
 function MessageModelIcon({
   model,
   reasoningLevel,
+  credentialSourceLabel,
 }: {
   model: string;
   reasoningLevel?: string;
+  credentialSourceLabel?: string;
 }) {
   const option = findAIModelOption(model);
   const modelLabel = formatModelDisplayLabel(option.provider, option.label);
   const effortLabel = reasoningLevel
     ? getReasoningLevelLabel(reasoningLevel)
     : null;
-  const tooltip = effortLabel ? `${modelLabel} · ${effortLabel}` : modelLabel;
+  const parts = [modelLabel];
+  if (effortLabel) parts.push(effortLabel);
+  if (credentialSourceLabel) parts.push(credentialSourceLabel);
+  const tooltip = parts.join(" · ");
 
   return (
     <Tooltip>
@@ -82,6 +87,14 @@ interface ChatMessageProps {
   isOtherUser?: boolean;
   /** First name shown above teammate bubbles. */
   senderFirstName?: string;
+  /**
+   * Preceding user turn's model snapshot — shown under the assistant reply
+   * (model lives on the user message at send/dequeue time).
+   */
+  turnModel?: string;
+  turnReasoningLevel?: string;
+  /** "Team" or the selected userProviderAccounts label/first name. */
+  turnCredentialSourceLabel?: string;
   streamingActivity?: string;
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
@@ -104,6 +117,9 @@ export const ChatMessage = memo(function ChatMessage({
   isLast,
   isOtherUser = false,
   senderFirstName,
+  turnModel,
+  turnReasoningLevel,
+  turnCredentialSourceLabel,
   streamingActivity,
   streamingContent,
   blockingQuestions,
@@ -170,7 +186,7 @@ export const ChatMessage = memo(function ChatMessage({
                 startedAt={message.timestamp}
                 onOpenFile={onOpenFile}
               />
-              {isLast && streamingContent ? (
+              {streamingContent ? (
                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
                   {streamingContent}
                 </MessageResponse>
@@ -257,18 +273,29 @@ export const ChatMessage = memo(function ChatMessage({
             </>
           )}
         </MessageContent>
-        {message.role === "assistant" && message.content ? (
-          <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-            <ChatMessageActions
-              copyText={message.content}
-              className="ml-0.5"
-              revealOnHover={false}
-            />
-            {message.finishedAt && message.timestamp ? (
-              <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                {formatDuration(message.timestamp, message.finishedAt)}
-              </span>
+        {message.role === "assistant" ? (
+          <div className="mt-0.5 flex items-center gap-2">
+            {turnModel ? (
+              <MessageModelIcon
+                model={turnModel}
+                reasoningLevel={turnReasoningLevel}
+                credentialSourceLabel={turnCredentialSourceLabel}
+              />
+            ) : null}
+            {message.content ? (
+              <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                <ChatMessageActions
+                  copyText={message.content}
+                  className="ml-0.5"
+                  revealOnHover={false}
+                />
+                {message.finishedAt && message.timestamp ? (
+                  <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                    {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                    {formatDuration(message.timestamp, message.finishedAt)}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -300,23 +327,12 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                 </div>
               )}
-              {message.credentialSourceLabel ? (
-                <span className="text-[11px] text-muted-foreground/60">
-                  {message.credentialSourceLabel}
-                </span>
-              ) : null}
               {message.timestamp && (
                 <span className="text-[11px] text-muted-foreground/60">
                   {dayjs(message.timestamp).format("h:mm A")}
                 </span>
               )}
             </div>
-            {message.model ? (
-              <MessageModelIcon
-                model={message.model}
-                reasoningLevel={message.reasoningLevel}
-              />
-            ) : null}
             {isOtherUser ? null : <UserMessageAvatar userId={message.userId} />}
           </div>
         )}

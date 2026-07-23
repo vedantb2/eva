@@ -17,6 +17,7 @@ import {
   parseTerminalControlMessage,
   parseVercelExitMessage,
   sendVercelPtyControl,
+  terminalHistoryTail,
   type PtyProtocol,
   type TerminalHistoryWriter,
 } from "./_utils";
@@ -39,6 +40,12 @@ interface TerminalPanelProps {
   isForeground: boolean;
   runDevCommandOnConnect: boolean;
   devCommand?: string;
+  /**
+   * Session Preview Console only: Convex-backed scrollback seed (last ~500
+   * lines). Tab-local sessionStorage still caches a larger buffer.
+   */
+  stickyHistoryTail?: string;
+  onStickyHistoryTailChange?: (tail: string) => void;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -73,6 +80,8 @@ export function TerminalPanel({
   isForeground,
   runDevCommandOnConnect,
   devCommand,
+  stickyHistoryTail,
+  onStickyHistoryTailChange,
 }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,10 +110,59 @@ export function TerminalPanel({
     terminalHistoryKey,
     "",
   );
+  // Prefer Convex sticky seed when this tab has no local scrollback yet.
+  const seededHistoryRef = useRef(false);
+  useEffect(() => {
+    if (seededHistoryRef.current) return;
+    if (stickyHistoryTail === undefined) return;
+    seededHistoryRef.current = true;
+    if (terminalHistory.length === 0 && stickyHistoryTail.length > 0) {
+      setTerminalHistory(stickyHistoryTail);
+    }
+  }, [stickyHistoryTail, terminalHistory.length, setTerminalHistory]);
+
   const terminalHistoryRef = useRef(terminalHistory);
   useEffect(() => {
     terminalHistoryRef.current = terminalHistory;
   }, [terminalHistory]);
+
+  // Debounced Convex persist of last 500 lines (sessions console only).
+  const stickyPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const onStickyHistoryTailChangeRef = useRef(onStickyHistoryTailChange);
+  useEffect(() => {
+    onStickyHistoryTailChangeRef.current = onStickyHistoryTailChange;
+  }, [onStickyHistoryTailChange]);
+
+  const setTerminalHistoryWithSticky = (
+    updater: string | ((current: string) => string),
+  ) => {
+    setTerminalHistory((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      if (onStickyHistoryTailChangeRef.current) {
+        if (stickyPersistTimerRef.current !== null) {
+          clearTimeout(stickyPersistTimerRef.current);
+        }
+        stickyPersistTimerRef.current = setTimeout(() => {
+          stickyPersistTimerRef.current = null;
+          onStickyHistoryTailChangeRef.current?.(terminalHistoryTail(next));
+        }, 2000);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (stickyPersistTimerRef.current === null) return;
+      clearTimeout(stickyPersistTimerRef.current);
+      stickyPersistTimerRef.current = null;
+      onStickyHistoryTailChangeRef.current?.(
+        terminalHistoryTail(terminalHistoryRef.current),
+      );
+    };
+  }, []);
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
@@ -291,7 +349,9 @@ export function TerminalPanel({
 
     const mounted = { current: true };
     const containerEl = terminalRef.current;
-    const historyWriter = createTerminalHistoryWriter(setTerminalHistory);
+    const historyWriter = createTerminalHistoryWriter(
+      setTerminalHistoryWithSticky,
+    );
     let detachWheelScroll = () => {};
 
     const initTerminal = async () => {

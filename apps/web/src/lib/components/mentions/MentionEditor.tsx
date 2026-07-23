@@ -22,6 +22,7 @@ import {
   renderEditorChipHtml,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
+import { countLinkUrls } from "./linkChipUtils";
 import { MentionPickerPopup } from "./MentionPickerPopup";
 import {
   computeMentionPopupPlacement,
@@ -368,7 +369,12 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   useEffect(() => {
     const el = editorRef.current;
     if (!el) return;
-    if (normalizeMentionText(extractEditableText(el)) !== value) {
+    const domText = normalizeMentionText(extractEditableText(el));
+    // A pasted/typed link URL leaves DOM text already equal to `value`, so also
+    // re-render when the link-chip count is out of sync — this chips a fresh URL
+    // exactly once, then stays stable during normal editing.
+    const linkChipCount = el.querySelectorAll("[data-link-url]").length;
+    if (domText !== value || linkChipCount !== countLinkUrls(value)) {
       el.innerHTML = renderEditorChipHtml(
         value,
         mentionMap,
@@ -700,6 +706,19 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const target = e.target;
     if (!(target instanceof Element)) return;
 
+    // Link chips open externally and are always clickable, independent of the
+    // mention/skill click handlers.
+    const linkChip = target.closest("[data-link-url]");
+    if (linkChip instanceof HTMLElement) {
+      const url = linkChip.dataset.linkUrl;
+      if (url) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+
     const mentionChip = target.closest("[data-mention-label]");
     if (mentionChip instanceof HTMLElement && onMentionChipClick) {
       const label = mentionChip.dataset.mentionLabel;
@@ -842,9 +861,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         }
         onInput={disabled ? undefined : handleInput}
         onKeyDown={disabled ? undefined : handleKeyDown}
-        onClick={
-          disabled ? undefined : chipsClickable ? handleChipClick : undefined
-        }
+        onClick={disabled ? undefined : handleChipClick}
         onMouseOver={chipHoverEnabled ? handleEditorMouseOver : undefined}
         onMouseOut={chipHoverEnabled ? handleEditorMouseOut : undefined}
         onBlur={disabled ? undefined : handleBlur}

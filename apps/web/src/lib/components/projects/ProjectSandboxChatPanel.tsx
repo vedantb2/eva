@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { useLocalStorage } from "usehooks-ts";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -25,17 +24,6 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
-
-interface StoredSettings {
-  model: AIModel;
-  effortLevel?: ReasoningLevel;
-  thinkingEnabled?: boolean;
-  use1mContext?: boolean;
-}
-
-function chatSettingsKey(parentId: string) {
-  return `conductor:chat-settings:${parentId}`;
-}
 
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
@@ -70,17 +58,51 @@ export function ProjectSandboxChatPanel({
   const requestStopBackgroundAgent = useMutation(
     api.projectChatWorkflow.requestStopBackgroundAgent,
   );
+  const updateProject = useMutation(api.projects.update);
+  const setChatModelMutation = useMutation(
+    api.projects.setChatModel,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.projects.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.projects.get,
+      { id: args.id },
+      { ...current, lastChatModel: args.model },
+    );
+  });
+  const setTraitsMutation = useMutation(
+    api.projects.setTraits,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.projects.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.projects.get,
+      { id: args.id },
+      {
+        ...current,
+        ...(args.reasoningLevel !== undefined
+          ? { lastReasoningLevel: args.reasoningLevel }
+          : {}),
+        ...(args.thinkingEnabled !== undefined
+          ? { lastThinkingEnabled: args.thinkingEnabled }
+          : {}),
+        ...(args.use1mContext !== undefined
+          ? { lastUse1mContext: args.use1mContext }
+          : {}),
+      },
+    );
+  });
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
-  const [settings, setSettings] = useLocalStorage<StoredSettings>(
-    chatSettingsKey(projectId),
-    { model: defaultModel },
+  // Sandbox chat model is `lastChatModel` (sticky); falls back to metadata
+  // `model` then repo default. Distinct from projects.model build prefs.
+  const model = normalizeAIModel(
+    project?.lastChatModel ?? project?.model ?? defaultModel,
   );
-  const model = normalizeAIModel(settings.model);
   const storedTraits: StoredModelTraits = {
-    effortLevel: settings.effortLevel,
-    thinkingEnabled: settings.thinkingEnabled,
-    use1mContext: settings.use1mContext,
+    effortLevel: project?.lastReasoningLevel,
+    thinkingEnabled: project?.lastThinkingEnabled,
+    use1mContext: project?.lastUse1mContext,
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
@@ -97,7 +119,6 @@ export function ProjectSandboxChatPanel({
     api.users.get,
     project?.userId ? { id: project.userId } : "skip",
   );
-  const updateProject = useMutation(api.projects.update);
   const ownerAccountLabel =
     ownerProfile?.firstName?.trim() ||
     ownerProfile?.fullName?.trim() ||
@@ -143,11 +164,25 @@ export function ProjectSandboxChatPanel({
     });
   };
 
-  const setModel = (next: AIModel) =>
-    setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) }));
+  const setModel = (next: AIModel) => {
+    void setChatModelMutation({
+      id: projectId,
+      model: normalizeAIModel(next),
+    });
+  };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
-    setSettings((prev) => ({ ...prev, ...partial }));
+    const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
+    void setTraitsMutation({
+      id: projectId,
+      ...(reasoningLevel !== undefined ? { reasoningLevel } : {}),
+      ...(partial.thinkingEnabled !== undefined
+        ? { thinkingEnabled: partial.thinkingEnabled }
+        : {}),
+      ...(partial.use1mContext !== undefined
+        ? { use1mContext: partial.use1mContext }
+        : {}),
+    });
   };
 
   const setProviderAccountId = (next: string | null) => {

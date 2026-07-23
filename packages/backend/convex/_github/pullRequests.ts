@@ -77,6 +77,14 @@ type PullRequestListItem = {
   htmlUrl: string;
 };
 
+type PullRequestHeader = {
+  number: number;
+  title: string;
+  authorLogin: string | null;
+  htmlUrl: string;
+  updatedAt: string;
+};
+
 type PullRequestComment = {
   id: number;
   kind: "issue" | "review";
@@ -190,7 +198,7 @@ export const getPullRequestHeader = action({
     htmlUrl: v.string(),
     updatedAt: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<PullRequestHeader> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 

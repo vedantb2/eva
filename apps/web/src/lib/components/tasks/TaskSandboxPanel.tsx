@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
@@ -65,6 +67,13 @@ export function TaskSandboxPanel({
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
 
+  const task = useQuery(api.agentTasks.get, { id: taskId });
+  const setPreviewPath = useMutation(api.agentTasks.setPreviewPath);
+  const setPreviewPort = useMutation(api.agentTasks.setPreviewPort);
+  const setTerminalHistoryTail = useMutation(
+    api.agentTasks.setTerminalHistoryTail,
+  );
+
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
   // (the reconnect sees an existing PTY, so isNewPty is false).
@@ -75,6 +84,9 @@ export function TaskSandboxPanel({
     isActive,
     repoId,
     devPort,
+    onPortPersist: (port) => {
+      void setPreviewPort({ id: taskId, port });
+    },
   });
 
   const panes = useSandboxPanes({
@@ -158,6 +170,16 @@ export function TaskSandboxPanel({
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
+          stickyPreviewPath={task?.previewPath}
+          onStickyPreviewPathChange={(path) => {
+            void setPreviewPath({ id: taskId, path });
+          }}
+          stickyTerminalHistoryTail={
+            task === undefined ? undefined : (task?.terminalHistoryTail ?? "")
+          }
+          onStickyTerminalHistoryTailChange={(tail) => {
+            void setTerminalHistoryTail({ id: taskId, tail });
+          }}
         />
       </div>
     </div>

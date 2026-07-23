@@ -41,7 +41,13 @@ interface WebPreviewPanelProps {
   port: number;
   onPortChange: (port: number) => void;
   pathStorageKey: string;
-  /** When set, inactive empty state shows a Start sandbox button (tasks/projects/sessions). */
+  /**
+   * When set (sessions), Preview path is sticky on Convex. `undefined` while
+   * the session query loads — falls back to sessionStorage until then.
+   */
+  stickyPath?: string;
+  onStickyPathChange?: (path: string) => void;
+  /** When set (sessions), Preview empty state shows a Start sandbox button. */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
   /**
@@ -63,6 +69,8 @@ export function WebPreviewPanel({
   port,
   onPortChange,
   pathStorageKey,
+  stickyPath,
+  onStickyPathChange,
   onStartSandbox,
   isSandboxStarting = false,
   onAnnotationSubmit,
@@ -70,7 +78,7 @@ export function WebPreviewPanel({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [warningHintDismissed, setWarningHintDismissed] = useState(false);
   const [annotationMode, setAnnotationMode] = useState(false);
-  const [previewPath, setPreviewPath] = useSessionStorage(pathStorageKey, "/", {
+  const [localPath, setLocalPath] = useSessionStorage(pathStorageKey, "/", {
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
   });
@@ -78,6 +86,7 @@ export function WebPreviewPanel({
     `${pathStorageKey}:device`,
     "desktop",
   );
+  const previewPath = stickyPath ?? localPath;
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is
@@ -91,7 +100,9 @@ export function WebPreviewPanel({
   }, [previewInfo, pathStorageKey, iframeKey]);
 
   function handlePathChange(path: string) {
-    setPreviewPath(normalizePreviewPath(path));
+    const next = normalizePreviewPath(path);
+    setLocalPath(next);
+    onStickyPathChange?.(next);
   }
 
   if (!isActive || !sandboxId) {

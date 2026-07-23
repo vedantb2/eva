@@ -5,26 +5,43 @@ import {
   normalizeAIModel,
   type AIModel,
   type Id,
+  type ReasoningLevel,
+  type StoredModelTraits,
 } from "@conductor/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import {
+  normalizeMode,
+  type SessionMode,
+} from "@/lib/hooks/useSessionSettings";
 
 /**
- * Session composer model backed by Convex (`sessions.lastModel`) as the single
- * source of truth. The value is read straight off the live `sessions.get`
- * query — no localStorage, no mirrored `useState` — so it stays sticky across
- * reloads, tabs, and devices and never silently falls back to the repo default
- * on a follow-up prompt.
+ * Session composer prefs backed by Convex (`sessions.lastModel` / `lastMode` /
+ * trait fields / `providerAccountId`) as the source of truth. Read straight
+ * off the live `sessions.get` query — no mirrored `useState` — so picks stay
+ * sticky across reloads, tabs, and devices.
  *
- * Changes are written through the `sessions.setModel` mutation with an
- * optimistic patch of the cached query, giving instant picker feedback without
- * waiting for the server round-trip. While the session query is still loading
- * (or inaccessible) the picker shows `defaultModel`.
+ * Changes go through sticky setters with optimistic patches. While the session
+ * query is still loading the picker shows `defaultModel`, mode `"edit"`,
+ * model-default traits, and Team account.
  */
 export function useSessionModel(
   sessionId: Id<"sessions">,
   defaultModel: AIModel,
-): { model: AIModel; setModel: (model: AIModel) => void } {
+): {
+  model: AIModel;
+  setModel: (model: AIModel) => void;
+  mode: SessionMode | undefined;
+  setMode: (mode: SessionMode) => void;
+  /** Sticky traits from Convex; undefined fields fall back to localStorage. */
+  traits: StoredModelTraits;
+  setTraits: (partial: Partial<StoredModelTraits>) => void;
+  /** undefined while session loading — fall back to localStorage. */
+  providerAccountId: string | null | undefined;
+  setProviderAccountId: (
+    providerAccountId: Id<"userProviderAccounts"> | null,
+  ) => void;
+} {
   const session = useQuery(api.sessions.get, { id: sessionId });
   const setModelMutation = useMutation(
     api.sessions.setModel,
@@ -37,6 +54,54 @@ export function useSessionModel(
       { ...current, lastModel: args.model },
     );
   });
+  const setModeMutation = useMutation(
+    api.sessions.setMode,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      { ...current, lastMode: args.mode },
+    );
+  });
+  const setProviderAccountIdMutation = useMutation(
+    api.sessions.setProviderAccountId,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      {
+        ...current,
+        providerAccountId:
+          args.providerAccountId === null ? undefined : args.providerAccountId,
+      },
+    );
+  });
+  const setTraitsMutation = useMutation(
+    api.sessions.setTraits,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      {
+        ...current,
+        ...(args.reasoningLevel !== undefined
+          ? { lastReasoningLevel: args.reasoningLevel }
+          : {}),
+        ...(args.thinkingEnabled !== undefined
+          ? { lastThinkingEnabled: args.thinkingEnabled }
+          : {}),
+        ...(args.use1mContext !== undefined
+          ? { lastUse1mContext: args.use1mContext }
+          : {}),
+      },
+    );
+  });
 
   const model = normalizeAIModel(session?.lastModel ?? defaultModel);
 
@@ -47,5 +112,46 @@ export function useSessionModel(
     });
   };
 
-  return { model, setModel };
+  const setMode = (mode: SessionMode) => {
+    void setModeMutation({ id: sessionId, mode });
+  };
+
+  const setTraits = (partial: Partial<StoredModelTraits>) => {
+    const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
+    void setTraitsMutation({
+      id: sessionId,
+      ...(reasoningLevel !== undefined ? { reasoningLevel } : {}),
+      ...(partial.thinkingEnabled !== undefined
+        ? { thinkingEnabled: partial.thinkingEnabled }
+        : {}),
+      ...(partial.use1mContext !== undefined
+        ? { use1mContext: partial.use1mContext }
+        : {}),
+    });
+  };
+
+  const setProviderAccountId = (
+    providerAccountId: Id<"userProviderAccounts"> | null,
+  ) => {
+    void setProviderAccountIdMutation({ id: sessionId, providerAccountId });
+  };
+
+  return {
+    model,
+    setModel,
+    mode:
+      session?.lastMode !== undefined
+        ? normalizeMode(session.lastMode)
+        : undefined,
+    setMode,
+    traits: {
+      effortLevel: session?.lastReasoningLevel,
+      thinkingEnabled: session?.lastThinkingEnabled,
+      use1mContext: session?.lastUse1mContext,
+    },
+    setTraits,
+    providerAccountId:
+      session === undefined ? undefined : (session?.providerAccountId ?? null),
+    setProviderAccountId,
+  };
 }

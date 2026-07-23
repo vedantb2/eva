@@ -6,8 +6,8 @@ import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../../SessionDetailClient";
 
 /**
- * Shared session page for `/review/recap` and `/review/diffs/$diffView` — same
- * shell, Review sandbox tab active.
+ * Shared session page for `/review/overview`, `/review/recap`, and
+ * `/review/diffs/$diffView` — same shell, Review sandbox tab active.
  */
 export function SessionReviewPage({ numId }: { numId: string }) {
   const navigate = useNavigate();

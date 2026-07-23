@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox Review Overview tab - 2026-07-23
+
+Reviews already had Overview (description, conversation, checks); sandbox Review only offered Diffs/Recap, so users left the surface to inspect PR status. Overview is now a third Review sub-tab (path-backed like Recap) for sessions, projects, and quick tasks, reusing `ReviewOverviewPanel`.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

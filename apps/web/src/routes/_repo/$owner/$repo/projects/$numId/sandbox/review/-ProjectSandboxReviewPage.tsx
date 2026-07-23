@@ -3,7 +3,7 @@ import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useProjectByNumId } from "@/lib/useResolveByNumId";
 import { ProjectDetailClient } from "../../../ProjectDetailClient";
 
-/** Shared project page for `/sandbox/review/recap` and `/sandbox/review/diffs/$diffView`. */
+/** Shared project page for `/sandbox/review/overview`, `/sandbox/review/recap`, and `/sandbox/review/diffs/$diffView`. */
 export function ProjectSandboxReviewPage({ numId }: { numId: string }) {
   const { basePath, repoId } = useRepo();
   const {

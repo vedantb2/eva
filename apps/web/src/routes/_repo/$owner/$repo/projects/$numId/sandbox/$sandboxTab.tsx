@@ -29,6 +29,24 @@ function redirectToProjectReview(args: {
         : args.search.diffView,
   });
 
+  if (dest.kind === "overview") {
+    throw redirect({
+      to: "/$owner/$repo/projects/$numId/sandbox/review/overview",
+      params: {
+        owner: args.owner,
+        repo: args.repo,
+        numId: args.numId,
+      },
+      search: {
+        ...args.search,
+        prTab: undefined,
+        diffView: undefined,
+        ...(args.diffFile !== undefined ? { diffFile: args.diffFile } : {}),
+      },
+      replace: true,
+    });
+  }
+
   if (dest.kind === "recap") {
     throw redirect({
       to: "/$owner/$repo/projects/$numId/sandbox/review/recap",

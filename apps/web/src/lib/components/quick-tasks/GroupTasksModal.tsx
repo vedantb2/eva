@@ -256,38 +256,37 @@ export function GroupTasksModal({
                   No active projects
                 </p>
               )}
-              {projects
-                ?.filter(
-                  (p) =>
-                    p.phase === "in_progress" ||
-                    p.phase === "business_review" ||
-                    p.phase === "code_review" ||
-                    p.phase === "completed",
-                )
-                .map((project) => (
-                  <button
-                    key={project._id}
-                    type="button"
-                    onClick={() => setSelectedProjectId(project._id)}
-                    className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
-                      selectedProjectId === project._id
-                        ? "ring-2 ring-primary bg-accent"
-                        : "bg-muted hover:bg-muted/70"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">
-                        {project.title}
-                      </span>
-                      <ProjectPhaseBadge phase={project.phase} />
-                    </div>
-                    {project.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                        {project.description}
-                      </p>
-                    )}
-                  </button>
-                ))}
+              {projects?.flatMap((project) =>
+                project.phase === "in_progress" ||
+                project.phase === "business_review" ||
+                project.phase === "code_review" ||
+                project.phase === "completed"
+                  ? [
+                      <button
+                        key={project._id}
+                        type="button"
+                        onClick={() => setSelectedProjectId(project._id)}
+                        className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
+                          selectedProjectId === project._id
+                            ? "ring-2 ring-primary bg-accent"
+                            : "bg-muted hover:bg-muted/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 justify-between">
+                          <span className="text-sm font-medium truncate">
+                            {project.title}
+                          </span>
+                          <ProjectPhaseBadge phase={project.phase} />
+                        </div>
+                        {project.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                            {project.description}
+                          </p>
+                        )}
+                      </button>,
+                    ]
+                  : [],
+              )}
             </div>
           </TabsContent>
         </Tabs>

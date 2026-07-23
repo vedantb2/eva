@@ -181,8 +181,8 @@ export function SessionReviewModal({
                       <div className="flex h-5 w-5 items-center justify-center">
                         {isComplete ? (
                           <m.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
                             transition={{
                               type: "spring",
                               stiffness: 300,

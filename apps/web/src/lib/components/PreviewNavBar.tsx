@@ -123,6 +123,11 @@ export function PreviewNavBar({
     }
   }
 
+  const syncPathFromIframeRef = useRef(syncPathFromIframe);
+  syncPathFromIframeRef.current = syncPathFromIframe;
+  const notifyPathChangeRef = useRef(notifyPathChange);
+  notifyPathChangeRef.current = notifyPathChange;
+
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");
   }
@@ -130,7 +135,10 @@ export function PreviewNavBar({
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
-    iframe.addEventListener("load", syncPathFromIframe);
+    const onLoad = () => {
+      syncPathFromIframeRef.current();
+    };
+    iframe.addEventListener("load", onLoad);
 
     function handleMessage(event: MessageEvent) {
       if (
@@ -144,16 +152,16 @@ export function PreviewNavBar({
       ) {
         const nextPath = getPathFromUrl(event.data.url);
         setPathInput(nextPath);
-        notifyPathChange(nextPath);
+        notifyPathChangeRef.current(nextPath);
       }
     }
 
     window.addEventListener("message", handleMessage);
     return () => {
-      iframe.removeEventListener("load", syncPathFromIframe);
+      iframe.removeEventListener("load", onLoad);
       window.removeEventListener("message", handleMessage);
     };
-  }, [iframeRef, syncPathFromIframe, notifyPathChange]);
+  }, [iframeRef]);
 
   function goBack() {
     let handled = false;

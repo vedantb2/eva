@@ -271,7 +271,6 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const [skillMap, setSkillMap] = useState<Map<string, string>>(() =>
     initialSkillMap ? new Map(initialSkillMap) : new Map(),
   );
-  const [isComposing, setIsComposing] = useState(false);
   const [mentionHover, setMentionHover] = useState<{
     userId: string;
   } | null>(null);
@@ -575,7 +574,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           return;
         }
         if (e.key === "Enter") {
-          if (isComposing || e.nativeEvent.isComposing) return;
+          if (e.nativeEvent.isComposing) return;
           e.preventDefault();
           e.stopPropagation();
           insertActiveItem();
@@ -620,7 +619,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     }
 
     if (e.key === "Enter" && onEnterSubmit) {
-      if (isComposing || e.nativeEvent.isComposing) return;
+      if (e.nativeEvent.isComposing) return;
       if (e.shiftKey) return;
       e.preventDefault();
       onEnterSubmit(e);
@@ -850,8 +849,6 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         onMouseOut={chipHoverEnabled ? handleEditorMouseOut : undefined}
         onBlur={disabled ? undefined : handleBlur}
         onPaste={disabled ? undefined : handlePaste}
-        onCompositionStart={disabled ? undefined : () => setIsComposing(true)}
-        onCompositionEnd={disabled ? undefined : () => setIsComposing(false)}
       />
       {pickerPopup && typeof document !== "undefined"
         ? createPortal(pickerPopup, document.body)

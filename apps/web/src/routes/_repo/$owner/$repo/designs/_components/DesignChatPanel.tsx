@@ -8,7 +8,7 @@ import {
   type Id,
 } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -196,15 +196,16 @@ export function DesignChatPanel({
   // Previously sent messages as editable display text, newest-first, for
   // ArrowUp/ArrowDown history recall in the composer.
   const messageHistory = (messages ?? [])
-    .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-    .map((m) => tokenizedToEditable(m.content ?? "").displayText)
+    .flatMap((m) =>
+      m.role === "user" && !m.isSystemAlert && m.content
+        ? [tokenizedToEditable(m.content).displayText]
+        : [],
+    )
     .reverse();
 
-  useEffect(() => {
-    if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
-      setIsSending(false);
-    }
-  }, [isSending, lastMessage]);
+  if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
+    setIsSending(false);
+  }
 
   const personaMap = new Map(personas?.map((p) => [p._id, p]) ?? []);
 

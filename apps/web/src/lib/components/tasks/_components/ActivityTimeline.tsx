@@ -232,13 +232,17 @@ export function ActivityTimeline({
       timestamp: Math.max(...group.map((p) => p.createdAt)),
       proofs: group,
     })),
-    ...topLevelComments
-      .filter((comment) => !commentsShownWithRuns.has(comment._id))
-      .map((comment) => ({
-        kind: "comment" as const,
-        timestamp: comment.createdAt,
-        comment,
-      })),
+    ...topLevelComments.flatMap((comment) =>
+      commentsShownWithRuns.has(comment._id)
+        ? []
+        : [
+            {
+              kind: "comment" as const,
+              timestamp: comment.createdAt,
+              comment,
+            },
+          ],
+    ),
   ].sort((a, b) => a.timestamp - b.timestamp);
 
   // Comments sit in cards off the rail; contiguous non-comment events share a line.

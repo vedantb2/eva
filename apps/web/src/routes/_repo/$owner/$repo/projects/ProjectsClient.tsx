@@ -117,8 +117,8 @@ export function ProjectsClient() {
     if (!projects) return [];
     const query = searchQuery.toLowerCase().trim();
     return projects
-      .filter((p) => visiblePhases.has(p.phase))
       .filter((p) => {
+        if (!visiblePhases.has(p.phase)) return false;
         if (!query) return true;
         return (
           p.title.toLowerCase().includes(query) ||

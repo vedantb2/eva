@@ -1,4 +1,5 @@
 import { EDITOR_CHIP_CLICKABLE_CLASS } from "./mentionChipStyles";
+import { LINK_URL_SOURCE, linkLabel } from "./linkChip";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -20,23 +21,32 @@ export function buildSkillPattern(labels: string[]): RegExp {
 }
 
 export interface EditorChipSegment {
-  type: "text" | "mention" | "skill";
+  type: "text" | "mention" | "skill" | "link";
   value: string;
 }
 
+/**
+ * Link source is listed first so a full URL is consumed as one match before an
+ * `@`/`/` label alternative could match a fragment inside it (e.g. the `/design`
+ * segment of a Figma URL). Always includes the link source, so it is never null.
+ */
 function buildEditorChipPattern(
   mentionLabels: string[],
   skillLabels: string[],
-): RegExp | null {
-  const parts: string[] = [];
+): RegExp {
+  const parts: string[] = [LINK_URL_SOURCE];
   for (const label of [...mentionLabels].sort((a, b) => b.length - a.length)) {
     parts.push(`@${escapeRegex(label)}`);
   }
   for (const label of [...skillLabels].sort((a, b) => b.length - a.length)) {
     parts.push(`\\/${escapeRegex(label)}`);
   }
-  if (parts.length === 0) return null;
   return new RegExp(parts.join("|"), "g");
+}
+
+function editorChipTypeFor(token: string): EditorChipSegment["type"] {
+  if (/^https?:\/\//.test(token)) return "link";
+  return token.startsWith("/") ? "skill" : "mention";
 }
 
 export function parseEditorChipSegments(
@@ -44,10 +54,7 @@ export function parseEditorChipSegments(
   mentionLabels: Iterable<string>,
   skillLabels: Iterable<string>,
 ): EditorChipSegment[] {
-  const mentionArray = [...mentionLabels];
-  const skillArray = [...skillLabels];
-  const pattern = buildEditorChipPattern(mentionArray, skillArray);
-  if (!pattern) return [{ type: "text", value }];
+  const pattern = buildEditorChipPattern([...mentionLabels], [...skillLabels]);
 
   const segments: EditorChipSegment[] = [];
   let lastIndex = 0;
@@ -58,10 +65,7 @@ export function parseEditorChipSegments(
       segments.push({ type: "text", value: value.slice(lastIndex, start) });
     }
     const token = match[0];
-    segments.push({
-      type: token.startsWith("/") ? "skill" : "mention",
-      value: token,
-    });
+    segments.push({ type: editorChipTypeFor(token), value: token });
     lastIndex = start + token.length;
   }
   if (lastIndex < value.length) {
@@ -159,6 +163,11 @@ export function renderEditorChipHtml(
   );
   return segments
     .map((segment) => {
+      if (segment.type === "link") {
+        const url = segment.value;
+        const className = `${mentionChipClassName} ${EDITOR_CHIP_CLICKABLE_CLASS}`;
+        return `​<span data-link-url="${escapeHtml(url)}" contenteditable="false" class="${escapeHtml(className)}">${escapeHtml(linkLabel(url))}</span>​`;
+      }
       if (segment.type === "mention") {
         const label = chipLabelFromToken(segment.value);
         return renderEditorChipSpan(
@@ -198,7 +207,12 @@ export function extractEditableText(el: Element): string {
     if (node.nodeType === Node.TEXT_NODE) {
       out += node.textContent ?? "";
     } else if (node instanceof Element) {
-      if (node.tagName === "BR") {
+      const linkUrl = node.getAttribute("data-link-url");
+      if (linkUrl !== null) {
+        // Link chips display a friendly label but round-trip to the raw URL,
+        // keeping the editor value in sync with what was pasted/persisted.
+        out += linkUrl;
+      } else if (node.tagName === "BR") {
         out += "\n";
       } else if (node.tagName === "DIV" || node.tagName === "P") {
         if (out !== "" && !out.endsWith("\n")) out += "\n";

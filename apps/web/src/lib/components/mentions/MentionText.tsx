@@ -2,6 +2,8 @@ import { Fragment, type ReactNode } from "react";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { MENTION_TOKEN_REGEX } from "./mentionToken";
 import { SKILL_TOKEN_REGEX } from "./skillToken";
+import { LINK_URL_SOURCE } from "./linkChip";
+import { LinkChip } from "./LinkChip";
 
 export interface MentionMatch {
   label: string;
@@ -24,6 +26,7 @@ interface MentionTextProps {
   as?: "p" | "span";
   renderMention?: (match: MentionMatch, key: number) => ReactNode;
   renderSkill?: (match: SkillMatch, key: number) => ReactNode;
+  renderLink?: (url: string, key: number) => ReactNode;
 }
 
 interface PlainSegment {
@@ -41,11 +44,20 @@ interface SkillSegmentMatch {
   match: SkillMatch;
 }
 
-type Segment = PlainSegment | MentionSegmentMatch | SkillSegmentMatch;
+interface LinkSegmentMatch {
+  kind: "link";
+  url: string;
+}
+
+type Segment =
+  | PlainSegment
+  | MentionSegmentMatch
+  | SkillSegmentMatch
+  | LinkSegmentMatch;
 
 function parseSegments(text: string): Segment[] {
   const combined = new RegExp(
-    `${MENTION_TOKEN_REGEX.source}|${SKILL_TOKEN_REGEX.source}`,
+    `${MENTION_TOKEN_REGEX.source}|${SKILL_TOKEN_REGEX.source}|${LINK_URL_SOURCE}`,
     "g",
   );
 
@@ -59,7 +71,10 @@ function parseSegments(text: string): Segment[] {
       segments.push({ kind: "text", value: text.slice(cursor, start) });
     }
 
-    if (match[0].startsWith("@")) {
+    const token = match[0];
+    if (/^https?:\/\//.test(token)) {
+      segments.push({ kind: "link", url: token });
+    } else if (token.startsWith("@")) {
       segments.push({
         kind: "mention",
         match: { label: match[1], id: match[2] },
@@ -71,7 +86,7 @@ function parseSegments(text: string): Segment[] {
       });
     }
 
-    cursor = start + match[0].length;
+    cursor = start + token.length;
   }
 
   if (cursor < text.length) {
@@ -93,12 +108,17 @@ const defaultRenderSkill = (match: SkillMatch, key: number): ReactNode => (
   </span>
 );
 
+const defaultRenderLink = (url: string, key: number): ReactNode => (
+  <LinkChip key={key} url={url} />
+);
+
 export function MentionText({
   text,
   className,
   as: Tag = "p",
   renderMention = defaultRenderMention,
   renderSkill = defaultRenderSkill,
+  renderLink = defaultRenderLink,
 }: MentionTextProps) {
   const segments = parseSegments(text);
 
@@ -115,7 +135,10 @@ export function MentionText({
         if (segment.kind === "mention") {
           return renderMention(segment.match, i);
         }
-        return renderSkill(segment.match, i);
+        if (segment.kind === "skill") {
+          return renderSkill(segment.match, i);
+        }
+        return renderLink(segment.url, i);
       })}
     </Tag>
   );

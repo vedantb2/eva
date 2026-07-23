@@ -272,34 +272,38 @@ export function QuickTasksClient() {
 
   if (tasks === undefined) {
     return (
-      <div
-        className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
-        aria-busy="true"
-        aria-label="Loading quick tasks"
-      >
-        <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
-        <div className="flex flex-1 gap-3">
-          <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
-          <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <div
+          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          aria-busy="true"
+          aria-label="Loading quick tasks"
+        >
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-1 gap-3">
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+          </div>
         </div>
-      </div>
+      </PageWrapper>
     );
   }
 
   // URL points at a task that is still resolving or no longer exists.
   if (numIdParam !== undefined && taskResolve.status === "loading") {
     return (
-      <div
-        className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
-        aria-busy="true"
-        aria-label="Loading task"
-      >
-        <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
-        <div className="flex flex-1 gap-3">
-          <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
-          <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <div
+          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          aria-busy="true"
+          aria-label="Loading task"
+        >
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-1 gap-3">
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+          </div>
         </div>
-      </div>
+      </PageWrapper>
     );
   }
 

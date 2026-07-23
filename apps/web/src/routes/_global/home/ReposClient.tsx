@@ -105,14 +105,15 @@ export function ReposClient() {
     <PageWrapper
       title="Codebases"
       headerRight={
-        <div className="flex items-center gap-2">
-          {hasRepos && (
+        <div className="flex min-w-[11rem] items-center justify-end gap-2">
+          {(repos === undefined || hasRepos) && (
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={repos === undefined}
                     className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
                   >
                     <IconDots size={16} />

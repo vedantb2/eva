@@ -36,8 +36,33 @@ export function RepoStatsSummary({
     repo ? { repoId: repo._id } : "skip",
   );
 
-  if (!repo || impactStats === undefined) {
+  // Reserve footer height while stats load so the nav list does not jump (CLS).
+  if (!repo) {
     return null;
+  }
+  if (impactStats === undefined) {
+    return collapsed ? (
+      <div
+        className="flex min-h-[4.5rem] flex-col items-center gap-1.5"
+        aria-busy="true"
+        aria-label="Loading stats"
+      >
+        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
+        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
+      </div>
+    ) : (
+      <div
+        className="ui-surface min-h-[5.5rem] animate-pulse p-2.5"
+        aria-busy="true"
+        aria-label="Loading stats"
+      >
+        <div className="mb-2 h-3 w-16 rounded bg-muted/70" />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-8 rounded bg-muted/60" />
+          <div className="h-8 rounded bg-muted/60" />
+        </div>
+      </div>
+    );
   }
 
   const items: { icon: TablerIcon; label: string; value: string | number }[] = [

@@ -8,7 +8,7 @@ import { useQueryState } from "nuqs";
 import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button, Badge, Spinner } from "@conductor/ui";
+import { Button, Badge } from "@conductor/ui";
 import { IconCheck, IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -211,8 +211,18 @@ export function InboxClient() {
       }
     >
       {filtered === undefined ? (
-        <div className="flex items-center justify-center py-20">
-          <Spinner />
+        <div
+          className="min-h-[20rem] space-y-2 rounded-surface border border-border p-3"
+          aria-busy="true"
+          aria-label="Loading inbox"
+        >
+          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-14 animate-pulse rounded-md bg-muted/60"
+            />
+          ))}
         </div>
       ) : groups === undefined || groups.length === 0 ? (
         <div className="flex items-center justify-center py-20">

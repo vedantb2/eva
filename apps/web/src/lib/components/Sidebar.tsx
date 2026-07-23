@@ -425,13 +425,21 @@ export function Sidebar() {
                               : repoName
                         }
                       >
-                        {repoLogoUrl ? (
-                          <RepoLogo
-                            logoUrl={repoLogoUrl}
-                            size={18}
-                            fallback={null}
-                          />
-                        ) : null}
+                        {/* Always reserve the logo slot so late logoUrl does not reflow the title. */}
+                        <RepoLogo
+                          logoUrl={repoLogoUrl}
+                          size={18}
+                          fallback={
+                            <span className="flex size-[18px] shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">
+                              {(repo
+                                ? repoDisplayLabel(repo)
+                                : (repoName ?? "?")
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+                          }
+                        />
                         <span className="min-w-0 truncate text-sm font-medium text-sidebar-primary">
                           {repo
                             ? repoDisplayLabel(repo)

@@ -178,7 +178,7 @@ export function ReviewsSidebar({
                     onClick={() => onNavigate?.()}
                     className={cn(
                       sidebarNavLinkClass(isActive),
-                      "flex-col items-start gap-0.5 py-2",
+                      "flex-col items-start gap-0.5 py-2.5",
                     )}
                   >
                     <span className="flex w-full min-w-0 items-center gap-1.5">

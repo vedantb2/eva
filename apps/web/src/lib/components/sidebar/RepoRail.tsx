@@ -30,6 +30,7 @@ import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { repoHref } from "@/lib/utils/repoUrl";
 import {
   appLeafName,
   appMatchesLabel,
@@ -63,7 +64,6 @@ interface RepoRailProps {
   currentName: string | null;
   currentAppName: string | undefined;
   pathname: string;
-  onSelect: (owner: string, name: string, rootDirectory?: string) => void;
   onNavigate: () => void;
   userName: string;
   userEmail?: string;
@@ -96,7 +96,7 @@ function railTileActive(active: boolean): string {
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
  * Sessions), then repos, then Testing (dev) / account / settings at the bottom.
- * Clicking a repo switches the active app and routes to its root via onSelect.
+ * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  */
 export function RepoRail({
   repos,
@@ -104,7 +104,6 @@ export function RepoRail({
   currentName,
   currentAppName,
   pathname,
-  onSelect,
   onNavigate,
   userName,
   userEmail,
@@ -264,11 +263,9 @@ export function RepoRail({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ContextMenuTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onSelect(row.owner, row.name, row.rootDirectory)
-                      }
+                    <Link
+                      to={repoHref(row.owner, row.name, row.rootDirectory)}
+                      onClick={onNavigate}
                       aria-label={
                         hasActiveSandbox
                           ? `${tooltip}, sandbox active`
@@ -303,7 +300,7 @@ export function RepoRail({
                           aria-hidden
                         />
                       ) : null}
-                    </button>
+                    </Link>
                   </ContextMenuTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="right">{tooltip}</TooltipContent>

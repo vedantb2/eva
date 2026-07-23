@@ -1,8 +1,8 @@
 "use client";
 
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
+import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -73,7 +73,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { user } = useUser();
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { pageTitle } = usePageTitle();
@@ -194,18 +193,6 @@ export function Sidebar() {
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
-  const handleRepoSwitch = (
-    selectedOwner: string,
-    selectedName: string,
-    rootDirectory?: string,
-  ) => {
-    // Clicking an app in the rail always routes to the repo root, not the
-    // current sub-page.
-    const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
-    navigate({ to: base });
-    closeMobileSidebar();
-  };
-
   const contextSidebarTitle = showGlobalSessionsPanel
     ? "Sessions"
     : contextSidebarMode === "designs"
@@ -297,7 +284,6 @@ export function Sidebar() {
           currentName={repoName}
           currentAppName={appName}
           pathname={pathname}
-          onSelect={handleRepoSwitch}
           onNavigate={closeMobileSidebar}
           userName={user?.fullName || user?.firstName || "User"}
           userEmail={user?.primaryEmailAddress?.emailAddress}

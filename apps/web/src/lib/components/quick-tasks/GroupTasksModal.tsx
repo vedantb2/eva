@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
@@ -107,13 +107,19 @@ export function GroupTasksModal({
     useState<Id<"projects"> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("new");
-  const [orderedTasks, setOrderedTasks] = useState<Task[]>([]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setOrderedTasks(selectedTasks);
-    }
-  }, [isOpen, selectedTasks]);
+  const [orderedTasks, setOrderedTasks] = useState(selectedTasks);
+  const [syncKey, setSyncKey] = useState<{ open: boolean; ids: string }>({
+    open: false,
+    ids: "",
+  });
+  const selectedIds = selectedTasks.map((task) => task._id).join(",");
+  // Reset order when the modal opens or the selection set changes.
+  if (isOpen && (!syncKey.open || syncKey.ids !== selectedIds)) {
+    setSyncKey({ open: true, ids: selectedIds });
+    setOrderedTasks(selectedTasks);
+  } else if (!isOpen && syncKey.open) {
+    setSyncKey({ open: false, ids: "" });
+  }
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const createFromTasks = useMutation(api.projects.createFromTasks);

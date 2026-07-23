@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -154,12 +154,11 @@ export function QuickTaskModal({
   } = useProviderAccounts();
 
   // Once accounts load, default to the creator's personal account for the
-  // selected model provider (Team when none match).
-  useEffect(() => {
-    if (!accountsReady || accountDefaulted) return;
+  // selected model provider (Team when none match). Adjust during render.
+  if (accountsReady && !accountDefaulted) {
     setProviderAccountId(defaultProviderAccountId(accounts, model));
     setAccountDefaulted(true);
-  }, [accountsReady, accounts, model, accountDefaulted]);
+  }
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(

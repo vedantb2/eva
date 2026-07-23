@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -52,11 +52,11 @@ export function NewSessionComposer() {
   } = useProviderAccounts();
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
-  useEffect(() => {
-    if (!accountsReady || accountDefaulted) return;
+  // Default account once provider list is ready (adjust during render).
+  if (accountsReady && !accountDefaulted) {
     setProviderAccountId(defaultProviderAccountId(accounts, model));
     setAccountDefaulted(true);
-  }, [accountsReady, accounts, model, accountDefaulted, setProviderAccountId]);
+  }
 
   const handleSend = async (
     content: string,

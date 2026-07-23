@@ -16,6 +16,12 @@ TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"`
 
 `ConvexProviderWithClerk` requires `useAuth={useStableAuth}` (passing the hook function itself). That is the documented Clerk+Convex integration; renaming/wrapping breaks auth. Not a call-site bug.
 
+## react-hooks-js/set-state-in-effect — intentional async / external triggers
+
+- `ClientProvider` `useStableAuth`: debounces unexpected Clerk signed-out blips (stale deploys) so Convex does not cascade unauth subscription errors — requires a timer-driven override flag.
+- `SessionListSidebar` create-request effect: parent bumps `createRequestId` to open the create modal (or navigate); that is an imperative cross-tree signal, not prop→state mirroring.
+- Data-load panels (`DiffsPanel`, `ReviewsSidebar`, `ReviewDetailClient`, `ReviewOverviewPanel`, `FileViewerPanel`, `FilesPanel`, `MonorepoClient`, `DesignDetailClient`, etc.): `setState` after `fetch`/Convex actions is the loading pattern; converting all to `use()` is a larger migration.
+
 ## react-hooks-js/refs — ResizablePanelLayout / DocContentTab
 
 - `ResizablePanelLayout`: `usePanelRef()` + render-prop `leftPanel(ctx)` where `ctx.onToggleRightPanel` closes over panel ref APIs. Ref is only read in the toggle event handler; compiler still flags the render-prop call sites.

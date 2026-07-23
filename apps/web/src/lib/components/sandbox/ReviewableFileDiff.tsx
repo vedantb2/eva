@@ -39,6 +39,8 @@ interface ReviewableFileDiffProps {
   path: string;
   diffView: "unified" | "split";
   resolvedTheme: ThemeTypes;
+  /** When true, hide Pierre's built-in file header (parent accordion owns chrome). */
+  hideFileHeader?: boolean;
 }
 
 function annotationSide(range: SelectedLineRange): AnnotationSide {
@@ -85,6 +87,7 @@ function PlainPatchDiff({
   patch,
   diffView,
   resolvedTheme,
+  hideFileHeader = false,
 }: Omit<ReviewableFileDiffProps, "path">) {
   return (
     <PatchDiff
@@ -94,6 +97,7 @@ function PlainPatchDiff({
         diffStyle: diffView,
         theme: { light: "github-light", dark: "github-dark" },
         themeType: resolvedTheme,
+        disableFileHeader: hideFileHeader,
       }}
     />
   );
@@ -104,6 +108,7 @@ function AnnotatablePatchDiff({
   path,
   diffView,
   resolvedTheme,
+  hideFileHeader = false,
   fileDiff,
   review,
 }: ReviewableFileDiffProps & {
@@ -201,6 +206,7 @@ function AnnotatablePatchDiff({
     diffStyle: diffView,
     theme: { light: "github-light", dark: "github-dark" },
     themeType: resolvedTheme,
+    disableFileHeader: hideFileHeader,
     enableLineSelection: !hasOpenDraft,
     onLineSelectionEnd,
     onLineSelected,

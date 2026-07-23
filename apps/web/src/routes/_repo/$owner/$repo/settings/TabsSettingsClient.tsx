@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { Button, Input } from "@conductor/ui";
@@ -14,8 +14,9 @@ import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import { CustomTabRow } from "./_components/CustomTabRow";
 
 function TabIconPreview({ icon }: { icon: string }) {
-  const Icon = resolveTablerIcon(icon);
-  return <Icon className="mb-2 h-4 w-4 shrink-0 text-muted-foreground" />;
+  return createElement(resolveTablerIcon(icon), {
+    className: "mb-2 h-4 w-4 shrink-0 text-muted-foreground",
+  });
 }
 
 function nameError(

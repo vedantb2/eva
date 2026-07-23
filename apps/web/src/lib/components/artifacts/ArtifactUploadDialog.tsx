@@ -99,7 +99,11 @@ export function ArtifactUploadDialog({
         body: html,
       });
       const storageId = parseStorageId(await res.text());
-      if (!res.ok || !storageId) throw new Error("Upload failed.");
+      if (!res.ok || !storageId) {
+        setError("Upload failed.");
+        setUploading(false);
+        return;
+      }
 
       await create({
         name: name.trim(),

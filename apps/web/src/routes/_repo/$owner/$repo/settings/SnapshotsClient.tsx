@@ -589,6 +589,7 @@ function ConfigFilesSection({
     setChunkCount(totalChunks);
     setError(null);
 
+    let uploadError: Error | undefined;
     try {
       // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
       // storage IDs. Sequential keeps memory bounded and progress monotonic;
@@ -610,27 +611,31 @@ function ConfigFilesSection({
         });
         const responseText = await result.text();
         if (!result.ok) {
-          throw new Error(
+          uploadError = new Error(
             `Upload failed at chunk ${i + 1}/${totalChunks} (status ${result.status}): ${responseText}`,
           );
+          break;
         }
         const storageId = parseStorageIdResponse(responseText);
         if (!storageId) {
-          throw new Error(
+          uploadError = new Error(
             `Invalid response from storage at chunk ${i + 1}/${totalChunks}`,
           );
+          break;
         }
         chunkIds.push(storageId);
         setUploadedBytes(end);
       }
 
-      // Save file record with all chunk IDs in order
-      await saveFile({
-        repoId,
-        chunks: chunkIds,
-        fileName: file.name,
-        fileSize: file.size,
-      });
+      if (!uploadError) {
+        // Save file record with all chunk IDs in order
+        await saveFile({
+          repoId,
+          chunks: chunkIds,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message);
@@ -643,6 +648,9 @@ function ConfigFilesSection({
         fileInputRef.current.value = "";
       }
       return;
+    }
+    if (uploadError) {
+      setError(uploadError.message);
     }
     setUploading(false);
     setUploadedBytes(0);

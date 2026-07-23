@@ -114,7 +114,10 @@ export function DocsSidebar({
       });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsCreating(false);
+        return;
+      }
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
       navigate({
@@ -167,7 +170,10 @@ export function DocsSidebar({
       const id = await createDoc({ repoId, title, content: prdContent });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsUploading(false);
+        return;
+      }
       setIsCreateDialogOpen(false);
       setShowUploadSection(false);
       setPastedPrdContent("");

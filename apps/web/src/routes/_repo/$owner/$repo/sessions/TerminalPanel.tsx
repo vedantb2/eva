@@ -102,13 +102,17 @@ export function TerminalPanel({
     "",
   );
   const terminalHistoryRef = useRef(terminalHistory);
-  terminalHistoryRef.current = terminalHistory;
+  useEffect(() => {
+    terminalHistoryRef.current = terminalHistory;
+  }, [terminalHistory]);
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
 
   const resizePtyRef = useRef(resizePtyAction);
-  resizePtyRef.current = resizePtyAction;
+  useEffect(() => {
+    resizePtyRef.current = resizePtyAction;
+  }, [resizePtyAction]);
 
   // Keep connect logic off the connect-effect dep list. Listing the function
   // itself re-ran the effect on every parent render (preview poll, Convex
@@ -122,159 +126,163 @@ export function TerminalPanel({
     ) => Promise<void>
   >(async () => {});
 
-  connectWebSocketRef.current = async (
-    terminal: Terminal,
-    mounted: { current: boolean },
-    historyWriter: TerminalHistoryWriter,
-  ) => {
-    const {
-      wsUrl,
-      isNewPty,
-      ptyProtocol,
-      sharedPtySessionName,
-      initialOutput,
-    } = await connectPty({
-      owner,
-      cols: terminal.cols,
-      rows: terminal.rows,
-      ptyInstanceId,
-    });
+  // Sync latest connect closure into a ref each commit (not during render) so
+  // the mount effect can call a stable ref without re-subscribing.
+  useEffect(() => {
+    connectWebSocketRef.current = async (
+      terminal: Terminal,
+      mounted: { current: boolean },
+      historyWriter: TerminalHistoryWriter,
+    ) => {
+      const {
+        wsUrl,
+        isNewPty,
+        ptyProtocol,
+        sharedPtySessionName,
+        initialOutput,
+      } = await connectPty({
+        owner,
+        cols: terminal.cols,
+        rows: terminal.rows,
+        ptyInstanceId,
+      });
 
-    if (!mounted.current) return;
+      if (!mounted.current) return;
 
-    ptyProtocolRef.current = ptyProtocol;
-    if (ptyProtocol === "vercel") {
-      historyWriter.clear();
-      terminal.clear();
-    }
-    const ws = new WebSocket(wsUrl);
-    ws.binaryType = "arraybuffer";
-    wsRef.current = ws;
-    if (initialOutput && initialOutput.length > 0) {
-      terminal.write(initialOutput.replace(/\n/g, "\r\n"));
-    }
-    const decoder = new TextDecoder();
-    let vercelHandshakeComplete = ptyProtocol !== "vercel";
-
-    const markConnected = () => {
-      if (!terminalInstanceRef.current) return;
-      if (vercelHandshakeComplete && ptyProtocol === "vercel") return;
+      ptyProtocolRef.current = ptyProtocol;
       if (ptyProtocol === "vercel") {
-        vercelHandshakeComplete = true;
+        historyWriter.clear();
+        terminal.clear();
       }
-      // Only clear reconnect budget after a real handshake — not on bare
-      // ws.onopen (shell can exit immediately and was resetting the counter).
-      reconnectAttemptsRef.current = 0;
-      terminalInstanceRef.current.writeln(
-        "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
-      );
-      // Vercel Console attaches via tmux; sessions usually start the server
-      // from the backend into that tmux session. Tasks/projects still auto-
-      // start here when isNewPty (no prior tmux session).
-      if (
-        isNewPty &&
-        runDevCommandOnConnect &&
-        devCommand &&
-        ws.readyState === WebSocket.OPEN
-      ) {
-        terminalInstanceRef.current.writeln(
-          "\x1b[33m* Starting dev server...\x1b[0m\r\n",
-        );
-        setTimeout(
-          () => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(devCommand + "\r");
-            }
-          },
-          ptyProtocol === "vercel" ? 500 : 300,
-        );
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = "arraybuffer";
+      wsRef.current = ws;
+      if (initialOutput && initialOutput.length > 0) {
+        terminal.write(initialOutput.replace(/\n/g, "\r\n"));
       }
-    };
+      const decoder = new TextDecoder();
+      let vercelHandshakeComplete = ptyProtocol !== "vercel";
 
-    ws.onopen = () => {
-      if (ptyProtocol === "vercel") {
-        startVercelPty(ws, {
-          cols: terminal.cols,
-          rows: terminal.rows,
-          sessionName: sharedPtySessionName,
-        });
-        // Wait for the interactive "connected" frame before clearing
-        // reconnect budget — open alone can precede an immediate shell exit.
-      } else {
+      const markConnected = () => {
+        if (!terminalInstanceRef.current) return;
+        if (vercelHandshakeComplete && ptyProtocol === "vercel") return;
+        if (ptyProtocol === "vercel") {
+          vercelHandshakeComplete = true;
+        }
+        // Only clear reconnect budget after a real handshake — not on bare
+        // ws.onopen (shell can exit immediately and was resetting the counter).
         reconnectAttemptsRef.current = 0;
-      }
-    };
+        terminalInstanceRef.current.writeln(
+          "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
+        );
+        // Vercel Console attaches via tmux; sessions usually start the server
+        // from the backend into that tmux session. Tasks/projects still auto-
+        // start here when isNewPty (no prior tmux session).
+        if (
+          isNewPty &&
+          runDevCommandOnConnect &&
+          devCommand &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          terminalInstanceRef.current.writeln(
+            "\x1b[33m* Starting dev server...\x1b[0m\r\n",
+          );
+          setTimeout(
+            () => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(devCommand + "\r");
+              }
+            },
+            ptyProtocol === "vercel" ? 500 : 300,
+          );
+        }
+      };
 
-    ws.onmessage = (event) => {
-      if (!terminalInstanceRef.current) return;
+      ws.onopen = () => {
+        if (ptyProtocol === "vercel") {
+          startVercelPty(ws, {
+            cols: terminal.cols,
+            rows: terminal.rows,
+            sessionName: sharedPtySessionName,
+          });
+          // Wait for the interactive "connected" frame before clearing
+          // reconnect budget — open alone can precede an immediate shell exit.
+        } else {
+          reconnectAttemptsRef.current = 0;
+        }
+      };
 
-      if (typeof event.data === "string") {
-        const parsed = parseTerminalControlMessage(event.data);
-        if (parsed) {
-          if (parsed.status === "connected") {
-            markConnected();
+      ws.onmessage = (event) => {
+        if (!terminalInstanceRef.current) return;
+
+        if (typeof event.data === "string") {
+          const parsed = parseTerminalControlMessage(event.data);
+          if (parsed) {
+            if (parsed.status === "connected") {
+              markConnected();
+              return;
+            }
+            if (parsed.status === "error") {
+              terminalInstanceRef.current.writeln(
+                `\x1b[31m* Error: ${parsed.error ?? "terminal error"}\x1b[0m`,
+              );
+              return;
+            }
             return;
           }
-          if (parsed.status === "error") {
+          const exitFrame = parseVercelExitMessage(event.data);
+          if (exitFrame) {
+            shellExitedRef.current = true;
             terminalInstanceRef.current.writeln(
-              `\x1b[31m* Error: ${parsed.error ?? "terminal error"}\x1b[0m`,
+              `\r\n\x1b[33m* Shell exited (${exitFrame.code ?? 0})\x1b[0m\r\n`,
             );
             return;
           }
-          return;
+          terminalInstanceRef.current.write(event.data);
+          if (ptyProtocol !== "vercel") {
+            historyWriter.append(event.data);
+          }
+        } else {
+          const text = decoder.decode(event.data, { stream: true });
+          terminalInstanceRef.current.write(text);
+          if (ptyProtocol !== "vercel") {
+            historyWriter.append(text);
+          }
         }
-        const exitFrame = parseVercelExitMessage(event.data);
-        if (exitFrame) {
-          shellExitedRef.current = true;
-          terminalInstanceRef.current.writeln(
-            `\r\n\x1b[33m* Shell exited (${exitFrame.code ?? 0})\x1b[0m\r\n`,
-          );
-          return;
-        }
-        terminalInstanceRef.current.write(event.data);
-        if (ptyProtocol !== "vercel") {
-          historyWriter.append(event.data);
-        }
-      } else {
-        const text = decoder.decode(event.data, { stream: true });
-        terminalInstanceRef.current.write(text);
-        if (ptyProtocol !== "vercel") {
-          historyWriter.append(text);
-        }
-      }
-    };
+      };
 
-    ws.onclose = () => {
-      if (
-        !mounted.current ||
-        intentionalCloseRef.current ||
-        shellExitedRef.current ||
-        reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
-      ) {
-        return;
-      }
-
-      reconnectAttemptsRef.current++;
-      if (terminalInstanceRef.current) {
-        terminalInstanceRef.current.writeln(
-          `\r\n\x1b[33m* Reconnecting (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`,
-        );
-      }
-
-      setTimeout(() => {
+      ws.onclose = () => {
         if (
-          mounted.current &&
-          terminalInstanceRef.current &&
-          !shellExitedRef.current &&
-          !intentionalCloseRef.current
+          !mounted.current ||
+          intentionalCloseRef.current ||
+          shellExitedRef.current ||
+          reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
         ) {
-          connectWebSocketRef
-            .current(terminalInstanceRef.current, mounted, historyWriter)
-            .catch(() => {});
+          return;
         }
-      }, RECONNECT_DELAY_MS);
+
+        reconnectAttemptsRef.current++;
+        if (terminalInstanceRef.current) {
+          terminalInstanceRef.current.writeln(
+            `\r\n\x1b[33m* Reconnecting (${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...\x1b[0m`,
+          );
+        }
+
+        setTimeout(() => {
+          if (
+            mounted.current &&
+            terminalInstanceRef.current &&
+            !shellExitedRef.current &&
+            !intentionalCloseRef.current
+          ) {
+            connectWebSocketRef
+              .current(terminalInstanceRef.current, mounted, historyWriter)
+              .catch(() => {});
+          }
+        }, RECONNECT_DELAY_MS);
+      };
     };
-  };
+  });
 
   useEffect(() => {
     if (!isActive || !sandboxId || !terminalRef.current) {

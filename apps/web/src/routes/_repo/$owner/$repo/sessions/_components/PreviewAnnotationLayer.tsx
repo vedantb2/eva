@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useWebPreview } from "@conductor/ui";
 import {
   buildAnnotationDisplay,
@@ -12,6 +12,8 @@ import { useAnnotationBridge } from "./useAnnotationBridge";
 const CARD_WIDTH = 320;
 const CARD_ESTIMATED_HEIGHT = 220;
 const CARD_GAP = 8;
+
+type CardPosition = { left: number; top: number };
 
 export function PreviewAnnotationLayer({
   mode,
@@ -25,15 +27,25 @@ export function PreviewAnnotationLayer({
   const { iframeRef } = useWebPreview();
   const layerRef = useRef<HTMLDivElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cardPosition, setCardPosition] = useState<CardPosition | null>(null);
   const { pending, clearPending } = useAnnotationBridge({
     iframeRef,
     mode,
   });
 
-  const cardPosition = (() => {
-    if (!pending || !layerRef.current || !iframeRef.current) return null;
-    const layerRect = layerRef.current.getBoundingClientRect();
-    const iframeRect = iframeRef.current.getBoundingClientRect();
+  useLayoutEffect(() => {
+    if (!pending) {
+      setCardPosition(null);
+      return;
+    }
+    const layer = layerRef.current;
+    const iframe = iframeRef.current;
+    if (!layer || !iframe) {
+      setCardPosition(null);
+      return;
+    }
+    const layerRect = layer.getBoundingClientRect();
+    const iframeRect = iframe.getBoundingClientRect();
     const left =
       iframeRect.left -
       layerRect.left +
@@ -47,34 +59,42 @@ export function PreviewAnnotationLayer({
       CARD_GAP;
     const maxLeft = Math.max(0, layerRect.width - CARD_WIDTH - 8);
     const maxTop = Math.max(0, layerRect.height - CARD_ESTIMATED_HEIGHT);
-    return {
-      left: Math.min(Math.max(8, left), maxLeft),
-      top: Math.min(Math.max(8, top), maxTop),
-    };
-  })();
+    setCardPosition({
+      left: Math.max(8, Math.min(left, maxLeft)),
+      top: Math.max(8, Math.min(top, maxTop)),
+    });
+  }, [pending, iframeRef]);
 
   return (
-    <div ref={layerRef} className="pointer-events-none absolute inset-0 z-10">
+    <div ref={layerRef} className="pointer-events-none absolute inset-0 z-20">
       {pending && cardPosition ? (
-        <AnnotationCommentCard
-          context={pending.context}
-          position={cardPosition}
-          isSubmitting={isSubmitting}
-          onCancel={clearPending}
-          onSubmit={(feedback) => {
-            const display = buildAnnotationDisplay(feedback, pending.context);
-            const full = buildAnnotationPrompt(feedback, pending.context);
-            setIsSubmitting(true);
-            void onSubmit(display, full)
-              .then(() => {
+        <div
+          className="pointer-events-auto absolute"
+          style={{ left: cardPosition.left, top: cardPosition.top }}
+        >
+          <AnnotationCommentCard
+            width={CARD_WIDTH}
+            isSubmitting={isSubmitting}
+            onCancel={() => {
+              clearPending();
+              onModeChange(false);
+            }}
+            onSubmit={async (comment) => {
+              setIsSubmitting(true);
+              try {
+                const display = buildAnnotationDisplay(pending, comment);
+                const full = buildAnnotationPrompt(pending, comment);
+                await onSubmit(display, full);
                 clearPending();
                 onModeChange(false);
-              })
-              .finally(() => {
+              } catch (error) {
                 setIsSubmitting(false);
-              });
-          }}
-        />
+                throw error;
+              }
+              setIsSubmitting(false);
+            }}
+          />
+        </div>
       ) : null}
     </div>
   );

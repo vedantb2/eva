@@ -10,7 +10,16 @@ React Compiler unimplemented lowering (try/finally, throw-in-try, etc.) is a com
 
 ## react-hooks-js/incompatible-library
 
-TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"` is the supported escape hatch on table view components.
+TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"` is the supported escape hatch on table view components (`ProjectsTableView`, `QuickTasksTableView`).
+
+## react-hooks-js/hooks — ClientProvider
+
+`ConvexProviderWithClerk` requires `useAuth={useStableAuth}` (passing the hook function itself). That is the documented Clerk+Convex integration; renaming/wrapping breaks auth. Not a call-site bug.
+
+## react-hooks-js/refs — ResizablePanelLayout / DocContentTab
+
+- `ResizablePanelLayout`: `usePanelRef()` + render-prop `leftPanel(ctx)` where `ctx.onToggleRightPanel` closes over panel ref APIs. Ref is only read in the toggle event handler; compiler still flags the render-prop call sites.
+- `DocContentTab`: TipTap extension `configure({ getUserId: () => userIdRef.current })` / `onAnchorClick` must close over a stable ref so the editor is not recreated when auth resolves. Reads happen in editor callbacks, not React render.
 
 ## no-layout-property-animation
 
@@ -22,14 +31,9 @@ is only ever the resting state, never a continuously-animated numeric layout pro
 There is no continuous/numeric layout thrashing here — these are one-shot enter/exit
 transitions gated by `AnimatePresence`, not per-frame layout animations.
 
-- `src/lib/components/inbox/InboxClient.tsx:253` — `exit={{ opacity: 0, height: 0 }}` on a
+- `src/lib/components/inbox/InboxClient.tsx` — `exit={{ opacity: 0, height: 0 }}` on a
   notification row inside `AnimatePresence`, collapsing the row on removal.
-- `src/lib/components/sidebar/SessionListSidebar.tsx:299-301` — archived session row
-  `initial/animate/exit` with `height: 0 <-> "auto"` inside `AnimatePresence`, used to
-  expand/collapse the archived list.
-- `src/lib/components/ui/ToggleSearch.tsx:47-49` — search input `width: 0 <-> "auto"`
-  inside `AnimatePresence mode="popLayout"`, used to expand/collapse the search box.
-
-No code changes were made for these three; suppressing per read-validation guidance since
-they are enter/exit transitions inside `AnimatePresence`, not continuous/numeric layout
-animations.
+- `src/lib/components/sidebar/SessionListSidebar.tsx` — archived session row
+  `initial/animate/exit` with `height: 0 <-> "auto"` inside `AnimatePresence`.
+- `src/lib/components/ui/ToggleSearch.tsx` — search input `width: 0 <-> "auto"`
+  inside `AnimatePresence mode="popLayout"`.

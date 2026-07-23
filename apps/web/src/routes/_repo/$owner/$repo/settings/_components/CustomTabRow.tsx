@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
@@ -19,8 +19,9 @@ interface CustomTabRowProps {
 }
 
 function CustomTabIcon({ icon }: { icon: string }) {
-  const Icon = resolveTablerIcon(icon);
-  return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />;
+  return createElement(resolveTablerIcon(icon), {
+    className: "h-4 w-4 shrink-0 text-muted-foreground",
+  });
 }
 
 /**

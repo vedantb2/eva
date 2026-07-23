@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import {
@@ -58,8 +58,10 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 }
 
 function LogTypeIcon({ type }: { type: string }) {
-  const Icon = iconFor(type);
-  return <Icon size={16} className="shrink-0 text-muted-foreground" />;
+  return createElement(iconFor(type), {
+    size: 16,
+    className: "shrink-0 text-muted-foreground",
+  });
 }
 
 export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {

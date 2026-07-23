@@ -33,6 +33,7 @@ export function ScheduleTasksModal({
   selectedTaskIds,
   onSuccess,
 }: ScheduleTasksModalProps) {
+  "use no memo";
   const schedule = useMutation(api.agentTasks.scheduleExecution);
   const updateSchedule = useMutation(api.agentTasks.updateScheduledExecution);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +42,12 @@ export function ScheduleTasksModal({
     useScheduleDateTime();
 
   const count = selectedTaskIds.size;
+
+  function handleClose() {
+    setError(null);
+    reset();
+    onClose();
+  }
 
   const handleSchedule = async () => {
     if (!timestamp) return;
@@ -86,12 +93,6 @@ export function ScheduleTasksModal({
     }
     setIsLoading(false);
   };
-
-  function handleClose() {
-    setError(null);
-    reset();
-    onClose();
-  }
 
   return (
     <Dialog

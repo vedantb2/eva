@@ -75,23 +75,29 @@ export function SessionReviewModal({
   };
 
   useEffect(() => {
-    if (reviewStep !== "auditing") return;
-    const status = sessionAudit?.status;
-    if (status !== "completed" && status !== "error") return;
-    const timers = REVIEW_AUDITS.map((_, index) =>
-      setTimeout(
-        () => setCompletedAudits((prev) => prev + 1),
-        (index + 1) * 400,
-      ),
-    );
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (reviewStep === "auditing") {
+      const status = sessionAudit?.status;
+      if (status === "completed" || status === "error") {
+        for (let index = 0; index < REVIEW_AUDITS.length; index++) {
+          timers.push(
+            setTimeout(
+              () => setCompletedAudits((prev) => prev + 1),
+              (index + 1) * 400,
+            ),
+          );
+        }
+      }
+    }
     return () => timers.forEach(clearTimeout);
   }, [sessionAudit?.status, reviewStep]);
 
   useEffect(() => {
-    if (reviewStep === "auditing" && completedAudits >= REVIEW_AUDITS.length) {
-      const timer = setTimeout(() => setReviewStep("complete"), 300);
-      return () => clearTimeout(timer);
+    if (reviewStep !== "auditing" || completedAudits < REVIEW_AUDITS.length) {
+      return;
     }
+    const timer = setTimeout(() => setReviewStep("complete"), 300);
+    return () => clearTimeout(timer);
   }, [reviewStep, completedAudits]);
 
   return (

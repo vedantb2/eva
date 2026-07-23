@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import {
@@ -33,8 +33,10 @@ interface ProjectSpendingGroupProps {
 }
 
 function EntityTypeIcon({ entityType }: { entityType: string }) {
-  const Icon = iconFor(entityType);
-  return <Icon size={14} className="shrink-0 text-muted-foreground" />;
+  return createElement(iconFor(entityType), {
+    size: 14,
+    className: "shrink-0 text-muted-foreground",
+  });
 }
 
 function LogRow({ log }: { log: LogEntry }) {

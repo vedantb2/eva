@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sticky edit/plan mode on Convex - 2026-07-23
+
+Composer mode still lived in localStorage after model/traits moved to Convex, so Plan↔Edit resets across devices. Sessions now store `lastMode` via `setMode` (same optimistic sticky contract), written on change and on create/send/enqueue; legacy ask/execute values normalize to edit on read.
+
 ## Session sticky thinking + 1M toggles on Convex - 2026-07-23
 
 Effort was already session-sticky via `lastReasoningLevel`, but thinking / 1M still lived in localStorage and reset across devices. Sessions now store `lastThinkingEnabled` / `lastUse1mContext` through a unified `setTraits` mutation (replacing effort-only `setReasoningLevel`), written on change and on create/send/enqueue.

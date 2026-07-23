@@ -341,14 +341,22 @@ async function syncSessionRefsForRestore(
   repoName: string,
   branchName: string,
   baseBranch: string,
+  // When set, also fetch the base branch so `origin/<base>` is refreshed to the
+  // latest commit before the branch is (re)created from it — otherwise a new
+  // session inherits whatever stale base the snapshot baked. Opt-in so the
+  // task/project restore callers keep their session-branch-only fetch.
+  opts?: { refreshBase?: boolean },
 ): Promise<void> {
+  const branchesToFetch = opts?.refreshBase
+    ? [baseBranch, branchName]
+    : [branchName];
   let fetchedSessionBranches: string[] = [];
   try {
     fetchedSessionBranches = await fetchBranchRefs(
       sandbox,
       repoOwner,
       repoName,
-      [branchName],
+      branchesToFetch,
       {
         prune: false,
         timeoutSeconds: 60,
@@ -454,6 +462,44 @@ async function installSnapshotDependenciesWithRetry(
       await sleep(delayMs);
     }
   }
+}
+
+/**
+ * True when the dependency lockfile content differs between the snapshot's baked
+ * commit (`bakedSha`) and the freshly checked-out branch tip (HEAD). This is the
+ * only case where the snapshot's baked `node_modules` are stale enough to
+ * warrant a reinstall — an unchanged lockfile means the baked modules still
+ * satisfy the tree, so install is skipped and the snapshot's speed is kept.
+ */
+async function lockfileDrifted(
+  sandbox: SandboxHandle,
+  rootDir: string,
+  bakedSha: string,
+): Promise<boolean> {
+  const pm = await detectPackageManager(sandbox, rootDir);
+  const lockfile =
+    pm === "pnpm"
+      ? "pnpm-lock.yaml"
+      : pm === "yarn"
+        ? "yarn.lock"
+        : "package-lock.json";
+  // pnpm resolves its lockfile at the workspace (lockfile) root; npm/yarn keep
+  // it beside the app package.json under rootDir.
+  const lockPath =
+    pm === "pnpm" || !rootDir ? lockfile : `${rootDir}/${lockfile}`;
+  const workspaceRoot = workspaceDirShell();
+  // `git diff --quiet` exits 1 on difference, which execHandle would throw on —
+  // trap both outcomes into a printed marker and read that instead.
+  const out = await execHandle(
+    sandbox,
+    `cd ${workspaceRoot} && (git diff --quiet ${bakedSha} HEAD -- ${lockPath} && printf SAME || printf DRIFT)`,
+    30,
+  );
+  const drifted = out.trim().endsWith("DRIFT");
+  logSession(
+    `lockfileDrifted pm=${pm} lockPath=${lockPath} bakedSha=${bakedSha.slice(0, 8)} drifted=${drifted}`,
+  );
+  return drifted;
 }
 
 function isSandboxGoneMessage(message: string): boolean {
@@ -1152,6 +1198,9 @@ async function prepareSessionSandboxInternal(
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
+            // Snapshot restores keep a stale checkout + baked modules; gate the
+            // queued first turn until the base pull + install below finish.
+            markSetupPending: Boolean(snapshotName),
             ...(configured?.devPort !== undefined
               ? { devPort: configured.devPort }
               : {}),
@@ -1180,6 +1229,28 @@ async function prepareSessionSandboxInternal(
       status: "complete",
     });
 
+    // Snapshot restore leaves HEAD at the (possibly stale) baked commit whose
+    // lockfile the baked node_modules were installed against. Capture it before
+    // the checkout below moves HEAD to the latest base, so we can tell whether
+    // deps drifted and an install is actually needed. Best-effort: on failure
+    // leave it null and force an install rather than skip a needed one.
+    let bakedSha: string | null = null;
+    if (prepared.usedSnapshot) {
+      try {
+        bakedSha = (
+          await execHandle(
+            handle,
+            `cd ${workspaceDirShell()} && git rev-parse HEAD`,
+            15,
+          )
+        ).trim();
+      } catch (revParseError) {
+        logSession(
+          `newSessionSandbox baked HEAD capture failed, forcing install (${sandboxDetails}): ${errorMessage(revParseError, "rev-parse failed")}`,
+        );
+      }
+    }
+
     await emitSessionProgress(
       ctx,
       args.sessionId,
@@ -1196,6 +1267,9 @@ async function prepareSessionSandboxInternal(
           args.repoName,
           args.branchName,
           args.baseBranch,
+          // Refresh origin/<base> so a brand-new session branch is created from
+          // the latest base commit, not the snapshot's stale baked base.
+          { refreshBase: true },
         ),
     );
     completedSteps.push({
@@ -1241,6 +1315,50 @@ async function prepareSessionSandboxInternal(
       type: "tool",
       label: "Preparing branch...",
       status: "complete",
+    });
+
+    // Now on the latest base: reinstall only when the lockfile actually drifted
+    // from the snapshot's baked commit, so the common no-dep-change session keeps
+    // its fast baked node_modules. Fresh-clone (non-snapshot) sessions already
+    // installed inside createSandboxAndPrepareRepo, so this is snapshot-only.
+    if (prepared.usedSnapshot) {
+      await emitSessionProgress(
+        ctx,
+        args.sessionId,
+        completedSteps,
+        "Updating dependencies...",
+      );
+      let drifted = true;
+      if (bakedSha) {
+        // Capture into a const so the closure sees a narrowed `string`, not the
+        // outer `let string | null`.
+        const sha = bakedSha;
+        drifted = await runLoggedSessionStep(
+          "newSessionSandbox.checkLockfileDrift",
+          sandboxDetails,
+          () => lockfileDrifted(handle, rootDir, sha),
+        );
+      }
+      if (drifted) {
+        await runLoggedSessionStep(
+          "newSessionSandbox.installDependencies",
+          sandboxDetails,
+          () => installSnapshotDependenciesWithRetry(handle, rootDir),
+        );
+      }
+      completedSteps.push({
+        type: "tool",
+        label: "Updating dependencies...",
+        status: "complete",
+      });
+    }
+
+    // Code is on the latest base and deps are current — release the gate so the
+    // daemon can claim the queued first turn. Dev server / background / startup
+    // commands below keep warming without blocking the agent. No-op when the
+    // gate was never set (non-snapshot path).
+    await ctx.runMutation(internal.sessions.clearSandboxSetupPending, {
+      sessionId: args.sessionId,
     });
 
     // Restore baked config files from /home/eva/sandbox-config into the workspace.
@@ -1409,6 +1527,12 @@ async function prepareSessionSandboxInternal(
       console.warn(
         `[daytona][sessions] post-ready setup failed for ${handle.id}; keeping sandbox (session already active): ${setupMessage}`,
       );
+      // Setup failed after early-ready gated the turn — release the gate so the
+      // queued first turn still runs (against baked deps) rather than hanging
+      // forever behind a flag that will never clear.
+      await ctx.runMutation(internal.sessions.clearSandboxSetupPending, {
+        sessionId: args.sessionId,
+      });
       await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
         sessionId: args.sessionId,
         error: setupMessage,

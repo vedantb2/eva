@@ -906,6 +906,15 @@ export const claimPendingTurn = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    // Withhold the turn while a new session's sandbox is still pulling the
+    // latest base branch and reinstalling drifted deps (flag set at early-ready,
+    // cleared when setup finishes). Returning an empty claim leaves pendingTurn
+    // intact; the daemon keeps polling (45m idle budget) and claims the moment
+    // the gate clears, so the agent never executes against a stale checkout.
+    if (session.sandboxSetupPending === true) {
+      return emptyClaim;
+    }
+
     const stopTaskToolUseIds = session.pendingTaskStops ?? [];
     if (stopTaskToolUseIds.length > 0) {
       await ctx.db.patch(args.sessionId, { pendingTaskStops: undefined });

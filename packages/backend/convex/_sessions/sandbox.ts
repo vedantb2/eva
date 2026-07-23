@@ -318,6 +318,10 @@ export const sandboxReady = internalMutation({
     usedSnapshot: v.optional(v.boolean()),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
+    // Set only by early-ready on a new snapshot-restored session: gate the
+    // queued first turn until the base pull + dependency install finish. Final-
+    // ready never passes it (setup has by then cleared the flag explicitly).
+    markSetupPending: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -359,10 +363,28 @@ export const sandboxReady = internalMutation({
         : {}),
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
+      ...(args.markSetupPending ? { sandboxSetupPending: true } : {}),
     });
     // Drain first-message (and any other) queued turns now that chat can run.
     // Early + final ready both call this; second no-ops while activeWorkflowId is set.
     await startNextQueuedSessionMessage(ctx, args.sessionId);
+    return null;
+  },
+});
+
+/**
+ * Releases the setup gate set by early-ready so a queued first turn can be
+ * claimed. Called once the new session's sandbox is on the latest base branch
+ * with current dependencies (or when post-ready setup failed, so the turn is
+ * never wedged behind a gate that will never clear). Idempotent.
+ */
+export const clearSandboxSetupPending = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sandboxSetupPending !== true) return null;
+    await ctx.db.patch(args.sessionId, { sandboxSetupPending: undefined });
     return null;
   },
 });

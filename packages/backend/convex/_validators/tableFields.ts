@@ -291,6 +291,11 @@ export const sessionFields = {
   ...chatDaemonEntityFields,
   // Soft UX lock while the agent drives the shared desktop Chrome via
   agentBrowsingAt: v.optional(v.number()),
+  // True while a new session's sandbox finishes pulling the latest base branch
+  // and reinstalling drifted dependencies, after early-ready already unlocked
+  // chat. `claimPendingTurn` withholds the queued first turn until this clears,
+  // so the agent never runs against a stale snapshot checkout or baked modules.
+  sandboxSetupPending: v.optional(v.boolean()),
 };
 
 export const syncSettingFields = {

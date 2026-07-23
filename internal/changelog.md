@@ -1,5 +1,9 @@
 # Changelog
 
+## Global Sessions sidebar shows Archived again - 2026-07-23
+
+The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.
+
 ## ActionCache for PR Overview + Diffs - 2026-07-23
 
 Overview and Diffs always re-hit GitHub on every open (multi-call Octokit), so repeat visits felt slow. Both now use `@convex-dev/action-cache` (60s / 120s TTL); Refresh and Retry pass `force` to bypass.

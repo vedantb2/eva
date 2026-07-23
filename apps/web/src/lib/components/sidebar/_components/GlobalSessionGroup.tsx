@@ -15,6 +15,7 @@ import {
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { AnimatePresence } from "motion/react";
 import { RepoLogo } from "@/lib/components/RepoLogo";
+import { ArchivedSessionsCollapsible } from "@/lib/components/sidebar/_components/ArchivedSessionsCollapsible";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
@@ -39,7 +40,8 @@ interface GlobalSessionGroupProps {
 
 /**
  * One collapsible app group in the global Sessions sidebar: logo + title,
- * `+` → that app's sessions composer, rows link to `/$owner/$repo/…/sessions/$numId`.
+ * `+` → that app's sessions composer, active rows, then Archived (default
+ * collapsed). Rows link to `/$owner/$repo/…/sessions/$numId`.
  */
 export function GlobalSessionGroup({
   repo,
@@ -53,16 +55,33 @@ export function GlobalSessionGroup({
 }: GlobalSessionGroupProps) {
   const navigate = useNavigate();
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
+  const archivedSessions = useQuery(api.sessions.listArchived, {
+    repoId: repo._id,
+  });
   const createSession = useMutation(api.sessions.create);
+  const unarchiveSession = useMutation(api.sessions.unarchive);
   const label = repoDisplayLabel(repo);
   const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
   const query = searchQuery.trim().toLowerCase();
+
   const filtered =
     sessions === undefined
       ? undefined
       : query.length === 0
         ? sessions
         : sessions.filter((s) => s.title.toLowerCase().includes(query));
+
+  const filteredArchived =
+    archivedSessions === undefined
+      ? undefined
+      : query.length === 0
+        ? archivedSessions
+        : archivedSessions.filter((s) => s.title.toLowerCase().includes(query));
+
+  const isLoading = filtered === undefined || filteredArchived === undefined;
+  const activeCount = filtered?.length ?? 0;
+  const archivedCount = filteredArchived?.length ?? 0;
+  const hasNoResults = !isLoading && activeCount === 0 && archivedCount === 0;
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
@@ -112,13 +131,15 @@ export function GlobalSessionGroup({
       </div>
       <CollapsibleContent>
         <div className="pb-1 pl-1">
-          {filtered === undefined ? (
+          {isLoading ? (
             <div className="flex items-center justify-center py-3">
               <Spinner size="sm" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : hasNoResults ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">
-              {sessions !== undefined && sessions.length === 0
+              {sessions !== undefined &&
+              sessions.length === 0 &&
+              (archivedSessions?.length ?? 0) === 0
                 ? "No sessions yet"
                 : "No matches"}
             </p>
@@ -128,7 +149,7 @@ export function GlobalSessionGroup({
               className="space-y-1"
             >
               <AnimatePresence initial={false}>
-                {filtered.map((session) => {
+                {(filtered ?? []).map((session) => {
                   const pathSegment = entityPathSegment(session);
                   const href = pathSegment
                     ? `${baseUrl}/${pathSegment}`
@@ -160,6 +181,18 @@ export function GlobalSessionGroup({
                   );
                 })}
               </AnimatePresence>
+              {archivedCount > 0 && filteredArchived !== undefined ? (
+                <ArchivedSessionsCollapsible
+                  sessions={filteredArchived}
+                  baseUrl={baseUrl}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                  itemIdPrefix={`global-archived-${repo._id}`}
+                  onUnarchive={async (session) => {
+                    await unarchiveSession({ id: session._id });
+                  }}
+                />
+              ) : null}
             </SharedLayoutNav>
           )}
         </div>

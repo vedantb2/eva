@@ -1,5 +1,9 @@
 # Changelog
 
+## Install gh CLI in Vercel snapshot seeds - 2026-07-23
+
+Daytona base images already apt-install `gh`, but Vercel seed-prep (Amazon Linux dnf) did not, so agents in Vercel sandboxes lacked GitHub CLI. Seed toolchain now installs a pinned `gh` release tarball into `/usr/local/bin` before snapshot capture.
+
 ## Auto-stop session sandbox when PR merges/closes - 2026-07-23
 
 Merged/closed sessions became read-only but the webhook only patched `prState`, so Vercel VMs could stay active with no clean teardown. GitHub PR terminal events now request the same stop path as the Stop button; opening an already-stuck merged session also triggers stop (and skips daemon prewarm that would resume the VM).

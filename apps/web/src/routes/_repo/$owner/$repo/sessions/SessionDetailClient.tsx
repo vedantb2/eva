@@ -59,8 +59,35 @@ export function SessionDetailClient({
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
+    // Don't prewarm (which resumes the VM) when the PR is already terminal —
+    // auto-stop below owns teardown for merged/closed sessions.
+    if (
+      session !== null &&
+      session !== undefined &&
+      isSessionPrReadOnly(session.prState)
+    ) {
+      return;
+    }
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
+  }, [sessionId, sandboxId, sandboxStatus, session, prewarmDaemon]);
+
+  // Recover sandboxes left running after a PR merge/close (webhook may have
+  // only patched prState before auto-stop existed, or the stop raced).
+  const prAutoStopKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (session === null || session === undefined) return;
+    if (!isSessionPrReadOnly(session.prState)) {
+      prAutoStopKey.current = null;
+      return;
+    }
+    if (session.status !== "active" && session.status !== "starting") {
+      return;
+    }
+    const key = `${sessionId}:${session.prState}:${session.status}`;
+    if (prAutoStopKey.current === key) return;
+    prAutoStopKey.current = key;
+    void stopSandboxMutation({ sessionId });
+  }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once Daytona's stop call completes (~10s). Showing the spinner

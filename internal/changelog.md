@@ -1,5 +1,11 @@
 # Changelog
 
+## Prewarm stops resurrecting stopped Vercel sandboxes; stale "active" self-heals - 2026-07-23
+
+An auto-stopped Vercel VM whose DB status still read "active" was silently rebooted by the page-open daemon prewarm (any exec lazily resumes a stopped VM) — leaving a running sandbox with no dev server, no Convex backend, and an empty Console, since services only launch in the startup workflow. Prewarm now checks live provider state before any exec and skips non-running sandboxes; on definitely-dead states it flips the stale "active" status to "closed" (sessions, agent tasks, projects) so the UI offers Start — the one path that relaunches services — and the terminal-attach guard stops resurrecting the VM too.
+
+Reason: "active" must mean the VM and its services are actually up; hidden resurrection produced sandboxes that looked alive but could never serve a preview.
+
 ## Diffs tab file accordion + Viewed - 2026-07-23
 
 Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.

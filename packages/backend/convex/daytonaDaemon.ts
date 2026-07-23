@@ -1,1 +1,4 @@
-export { readDaemonEntitySnapshot } from "./_daytona/daemonEntitySnapshot";
+export {
+  readDaemonEntitySnapshot,
+  reconcileStoppedSandboxStatus,
+} from "./_daytona/daemonEntitySnapshot";

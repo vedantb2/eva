@@ -1267,6 +1267,33 @@ async function runPrewarmEntityDaemon(
   }
   try {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    // Never exec on a sandbox that is not running. On Vercel, any exec — even
+    // the daemon alive-check below — lazily resumes a stopped VM, resurrecting
+    // it WITHOUT its dev server, Convex backend, or Console tmux session
+    // (services only launch in the startup workflow). Prewarm is best-effort:
+    // skip instead, and flip a stale "active" status to "closed" so the UI
+    // offers Start — which also stops connectPty from resurrecting it.
+    if (sandbox.state !== "running") {
+      console.log(
+        `[daytona][execution] prewarmEntityDaemon: sandbox ${args.sandboxId} state=${sandbox.state} — skipping prewarm entityId=${args.entityId}`,
+      );
+      if (
+        sandbox.state === "stopped" ||
+        sandbox.state === "archived" ||
+        sandbox.state === "gone" ||
+        sandbox.state === "error"
+      ) {
+        await ctx.runMutation(
+          internal.daytonaDaemon.reconcileStoppedSandboxStatus,
+          {
+            entityTable: args.entityTable,
+            entityId: args.entityId,
+            sandboxId: args.sandboxId,
+          },
+        );
+      }
+      return { prewarmed: false };
+    }
     const entityIdStr = args.entityId;
     const fp = CALLBACK_SCRIPT_FINGERPRINT;
     const normalizedModel = normalizeAIModel(args.model);

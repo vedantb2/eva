@@ -16,14 +16,14 @@ import {
 } from "@/lib/hooks/useSessionSettings";
 
 /**
- * Session composer model, mode, and traits backed by Convex
- * (`sessions.lastModel` / `lastMode` / trait fields) as the source of truth.
- * Read straight off the live `sessions.get` query — no mirrored `useState` —
- * so picks stay sticky across reloads, tabs, and devices.
+ * Session composer prefs backed by Convex (`sessions.lastModel` / `lastMode` /
+ * trait fields / `providerAccountId`) as the source of truth. Read straight
+ * off the live `sessions.get` query — no mirrored `useState` — so picks stay
+ * sticky across reloads, tabs, and devices.
  *
- * Changes go through `sessions.setModel` / `setMode` / `setTraits` with
- * optimistic patches. While the session query is still loading the picker
- * shows `defaultModel`, mode `"edit"`, and model-default traits.
+ * Changes go through sticky setters with optimistic patches. While the session
+ * query is still loading the picker shows `defaultModel`, mode `"edit"`,
+ * model-default traits, and Team account.
  */
 export function useSessionModel(
   sessionId: Id<"sessions">,
@@ -36,6 +36,11 @@ export function useSessionModel(
   /** Sticky traits from Convex; undefined fields fall back to localStorage. */
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
+  /** undefined while session loading — fall back to localStorage. */
+  providerAccountId: string | null | undefined;
+  setProviderAccountId: (
+    providerAccountId: Id<"userProviderAccounts"> | null,
+  ) => void;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
   const setModelMutation = useMutation(
@@ -58,6 +63,21 @@ export function useSessionModel(
       api.sessions.get,
       { id: args.id },
       { ...current, lastMode: args.mode },
+    );
+  });
+  const setProviderAccountIdMutation = useMutation(
+    api.sessions.setProviderAccountId,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      {
+        ...current,
+        providerAccountId:
+          args.providerAccountId === null ? undefined : args.providerAccountId,
+      },
     );
   });
   const setTraitsMutation = useMutation(
@@ -110,6 +130,12 @@ export function useSessionModel(
     });
   };
 
+  const setProviderAccountId = (
+    providerAccountId: Id<"userProviderAccounts"> | null,
+  ) => {
+    void setProviderAccountIdMutation({ id: sessionId, providerAccountId });
+  };
+
   return {
     model,
     setModel,
@@ -124,5 +150,8 @@ export function useSessionModel(
       use1mContext: session?.lastUse1mContext,
     },
     setTraits,
+    providerAccountId:
+      session === undefined ? undefined : (session.providerAccountId ?? null),
+    setProviderAccountId,
   };
 }

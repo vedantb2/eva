@@ -13,6 +13,7 @@ export {
   update,
   setModel,
   setMode,
+  setProviderAccountId,
   setTraits,
   updateSummary,
   archive,

@@ -231,6 +231,36 @@ export const setMode = authMutation({
 });
 
 /**
+ * Sets the sticky provider account for a session (owner-only). Same contract as
+ * `setModel`: write on change (optimistic on the client), do not bump
+ * `updatedAt`. Pass `null` to clear back to Team.
+ */
+export const setProviderAccountId = authMutation({
+  args: {
+    id: v.id("sessions"),
+    providerAccountId: v.union(v.id("userProviderAccounts"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    const ownerUserId = session.createdBy ?? session.userId;
+    if (ctx.userId !== ownerUserId) {
+      throw new Error("Only the session owner can change the provider account");
+    }
+    const providerAccountId = await assertProviderAccountOwnedBy(
+      ctx.db,
+      args.providerAccountId,
+      ownerUserId,
+    );
+    await ctx.db.patch(args.id, { providerAccountId });
+    return null;
+  },
+});
+
+/**
  * Sets sticky composer traits for a session (effort / thinking / 1M). Same
  * contract as `setModel`: write on change (optimistic on the client), do not
  * bump `updatedAt`. Only provided fields are patched.

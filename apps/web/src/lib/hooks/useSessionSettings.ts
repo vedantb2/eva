@@ -60,6 +60,9 @@ export function useSessionSettings(
      */
     traits?: StoredModelTraits;
     onTraitsPersist?: (partial: Partial<StoredModelTraits>) => void;
+    // Same pattern for sticky provider account (`sessions.providerAccountId`).
+    providerAccountId?: string | null;
+    onProviderAccountChange?: (providerAccountId: string | null) => void;
   },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
@@ -73,6 +76,10 @@ export function useSessionSettings(
 
   const model = overrides?.model ?? normalizeAIModel(settings.model);
   const mode = normalizeMode(overrides?.mode ?? settings.mode);
+  const providerAccountId =
+    overrides?.providerAccountId !== undefined
+      ? overrides.providerAccountId
+      : (settings.providerAccountId ?? null);
 
   const storedTraits: StoredModelTraits = {
     effortLevel: overrides?.traits?.effortLevel ?? settings.effortLevel,
@@ -109,8 +116,12 @@ export function useSessionSettings(
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const setProviderAccountId = (providerAccountId: string | null) => {
-    setSettings((prev) => ({ ...prev, providerAccountId }));
+  const setProviderAccountId = (next: string | null) => {
+    if (overrides?.onProviderAccountChange) {
+      overrides.onProviderAccountChange(next);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, providerAccountId: next }));
   };
 
   return {
@@ -120,7 +131,7 @@ export function useSessionSettings(
     displayTraits,
     executionTraits,
     onTraitsChange,
-    providerAccountId: settings.providerAccountId ?? null,
+    providerAccountId,
     setModel,
     setMode,
     setProviderAccountId,

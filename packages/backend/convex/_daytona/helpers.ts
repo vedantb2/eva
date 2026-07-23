@@ -434,7 +434,27 @@ export async function withTimeout<T>(
 
 /** Extracts the message from an error, returning a fallback if not an Error instance. */
 export function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    if (error.message.trim().length > 0) return error.message;
+    // Some errors carry an empty message (e.g. Node's AggregateError from a
+    // failed network call). Returning "" verbatim left blank errorDetail on
+    // sandboxStartupWarning messages — recover what we can from name/errors/cause.
+    const parts: string[] = [];
+    if (error.name && error.name !== "Error") parts.push(error.name);
+    if (error instanceof AggregateError) {
+      const inner = error.errors
+        .map((e) => (e instanceof Error ? e.message || e.name : String(e)))
+        .filter((m) => m.length > 0);
+      if (inner.length > 0) parts.push(inner.join("; "));
+    }
+    if (error.cause !== undefined) {
+      const cause = error.cause;
+      const causeText =
+        cause instanceof Error ? cause.message || cause.name : String(cause);
+      if (causeText.length > 0) parts.push(`cause: ${causeText}`);
+    }
+    return parts.length > 0 ? parts.join(": ") : fallback;
+  }
   return fallback;
 }
 

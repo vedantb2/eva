@@ -114,6 +114,15 @@ async function runLoggedSessionStep<T>(
     console.error(
       `[daytona][sessions] ${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
+    // Prefix the step label so downstream error surfaces (sandboxStartupWarning
+    // errorDetail) say which step failed. Mutate rather than wrap to preserve
+    // instanceof checks (e.g. SandboxStartAbortedError in startSessionSandbox).
+    if (
+      error instanceof Error &&
+      !(error instanceof SandboxStartAbortedError)
+    ) {
+      error.message = `${label}: ${errorMessage(error, "failed with no error message")}`;
+    }
     throw error;
   }
 }

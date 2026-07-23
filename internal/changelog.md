@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sticky Preview path/port + console tail - 2026-07-23
+
+Preview path and port (via `devPort`) and the last ~500 lines of Preview Console scrollback reset across devices when they only lived in sessionStorage. Sessions now persist path/port and a debounced console tail on the session doc (no `updatedAt` bump); device viewport stays tab-local, and full scrollback still uses sessionStorage.
+
 ## Session sticky provider account on change - 2026-07-23
 
 Account picker still only patched `sessions.providerAccountId` on send, so a pre-send switch stayed in localStorage and did not sync across devices. Owner changes now write through `setProviderAccountId` (optimistic, no `updatedAt`), matching model/mode/traits.

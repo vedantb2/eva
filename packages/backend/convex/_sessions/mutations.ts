@@ -300,6 +300,103 @@ export const setTraits = authMutation({
   },
 });
 
+/** Max lines kept in `sessions.terminalHistoryTail` (client also truncates). */
+const TERMINAL_HISTORY_TAIL_LINES = 500;
+const TERMINAL_HISTORY_TAIL_MAX_CHARS = 100_000;
+
+/** Returns the last `maxLines` newline-delimited lines of `text`. */
+function lastNLines(text: string, maxLines: number): string {
+  if (maxLines <= 0 || text.length === 0) return "";
+  let linesFound = 0;
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (text[i] === "\n") {
+      linesFound += 1;
+      if (linesFound === maxLines) {
+        return text.slice(i + 1);
+      }
+    }
+  }
+  return text;
+}
+
+function truncateTerminalHistoryTail(text: string): string {
+  const byLines = lastNLines(text, TERMINAL_HISTORY_TAIL_LINES);
+  return byLines.length > TERMINAL_HISTORY_TAIL_MAX_CHARS
+    ? byLines.slice(-TERMINAL_HISTORY_TAIL_MAX_CHARS)
+    : byLines;
+}
+
+/**
+ * Sticky Preview path for a session. No `updatedAt` bump — navigation is not
+ * conversation activity.
+ */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("sessions"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    const trimmed = args.path.trim();
+    const path =
+      trimmed.length === 0
+        ? "/"
+        : trimmed.startsWith("/")
+          ? trimmed
+          : `/${trimmed}`;
+    await ctx.db.patch(args.id, { previewPath: path });
+    return null;
+  },
+});
+
+/**
+ * Sticky Preview port for a session (stored as `devPort`). No `updatedAt` bump.
+ */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("sessions"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (!Number.isInteger(args.port) || args.port < 1 || args.port > 65535) {
+      throw new Error("Invalid port");
+    }
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the session doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("sessions"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
+    return null;
+  },
+});
+
 /** Updates the status of a session. */
 export const updateStatus = authMutation({
   args: {

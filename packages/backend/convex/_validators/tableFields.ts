@@ -287,6 +287,12 @@ export const sessionFields = {
   lastUse1mContext: v.optional(v.boolean()),
   // Sticky composer mode (edit / plan). Absent → client default "edit".
   lastMode: v.optional(sessionModeValidator),
+  // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
+  // viewport stays tab-local; port reuses `devPort` below.
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes). Cap
+  // keeps sessions.get reads small; full scrollback stays in sessionStorage.
+  terminalHistoryTail: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),

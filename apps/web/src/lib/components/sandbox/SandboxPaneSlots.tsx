@@ -50,6 +50,15 @@ interface SandboxPaneSlotsProps {
   isSandboxStarting?: boolean;
   /** Session-only: preview select-element → chat submit. */
   onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /** Session sticky Preview path from Convex. */
+  stickyPreviewPath?: string;
+  onStickyPreviewPathChange?: (path: string) => void;
+  /**
+   * Session sticky console history: seed + debounced persist of last ~500 lines.
+   * Only wired for the Preview Console pane.
+   */
+  stickyTerminalHistoryTail?: string;
+  onStickyTerminalHistoryTailChange?: (tail: string) => void;
 }
 
 /**
@@ -77,6 +86,10 @@ export function SandboxPaneSlots({
   onStartSandbox,
   isSandboxStarting,
   onAnnotationSubmit,
+  stickyPreviewPath,
+  onStickyPreviewPathChange,
+  stickyTerminalHistoryTail,
+  onStickyTerminalHistoryTailChange,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -142,6 +155,8 @@ export function SandboxPaneSlots({
                 id,
                 preview.effectivePort,
               ].join(":")}
+              stickyPath={stickyPreviewPath}
+              onStickyPathChange={onStickyPreviewPathChange}
               onStartSandbox={onStartSandbox}
               isSandboxStarting={isSandboxStarting}
               onAnnotationSubmit={onAnnotationSubmit}
@@ -175,6 +190,8 @@ export function SandboxPaneSlots({
                   isForeground={activeTab === "preview" && visible}
                   runDevCommandOnConnect={runConsoleDevCommandOnConnect}
                   devCommand={devCommand}
+                  stickyHistoryTail={stickyTerminalHistoryTail}
+                  onStickyHistoryTailChange={onStickyTerminalHistoryTailChange}
                 />
               </div>
             ) : null

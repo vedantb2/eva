@@ -87,7 +87,7 @@ export const startTaskSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startTaskPreviewSandbox,
+        internal.sandbox.startTaskPreviewSandbox,
         startArgs,
       );
     } else {
@@ -203,7 +203,7 @@ export const runDevServer = authMutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.daytona.runDevServerInTaskSandbox,
+      internal.sandbox.runDevServerInTaskSandbox,
       {
         taskId: args.taskId,
         sandboxId: task.sandboxId,
@@ -239,7 +239,7 @@ export const runBackgroundCommands = authMutation({
     const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
     if (!hasAccess) throw new Error("No access to repository");
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runBackgroundCommands, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
     });
@@ -267,11 +267,11 @@ export const patchTaskDevServer = internalMutation({
 });
 
 /**
- * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
+ * Stops the preview sandbox in the sandbox. Keeps `sandboxId` so the reviewer
  * can resume the same paused filesystem (DB state intact) on next start.
  *
  * Marks the task as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the real sandbox stop (~10s) completes.
  * Without the transient `"stopping"` state, a quick Start click during the
  * stop window would race with `getOrCreateSandbox` and silently spawn an
  * orphan sandbox.
@@ -338,7 +338,7 @@ export const finalizeStopTaskSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });

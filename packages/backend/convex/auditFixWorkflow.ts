@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 import { auditFailureValidator } from "./validators";
 
 /**
@@ -51,7 +51,7 @@ export const auditFixWorkflow = workflow.define({
         resumeVercelSandboxId = undefined;
       }
     }
-    await step.runAction(internal.daytona.launchSelectedAuditFixes, {
+    await step.runAction(internal.sandbox.launchSelectedAuditFixes, {
       auditId: args.auditId,
       selectedFailures: args.selectedFailures,
       sandboxId: resumeSandboxId,

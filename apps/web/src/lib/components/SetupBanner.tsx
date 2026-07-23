@@ -26,9 +26,10 @@ const REQUIRED_KEYS: Array<{
     description: "OAuth token for Claude Code CLI authentication in sandboxes",
   },
   {
-    keys: ["DAYTONA_API_KEY"],
+    keys: ["VERCEL_TOKEN", "VERCEL_TEAM_ID", "VERCEL_PROJECT_ID"],
     required: true,
-    description: "API key for provisioning and managing Daytona sandboxes",
+    description:
+      "Vercel sandbox credentials (token + team id shared at team level; project id per app repo)",
   },
   {
     keys: ["CODEX_AUTH_JSON", "CODEX_AUTH_JSON_BASE64"],

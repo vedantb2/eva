@@ -75,7 +75,7 @@ export function parseTerminalControlMessage(
   };
 }
 
-export type PtyProtocol = "daytona" | "vercel";
+export type PtyProtocol = "vercel";
 
 type VercelPtyOutboundMessage =
   | {

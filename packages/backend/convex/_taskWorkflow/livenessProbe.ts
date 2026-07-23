@@ -11,7 +11,7 @@ import { getTaskRunStreamingEntityId } from "./helpers";
  *
  * When `checkStaleRuns` detects staleness on a run that has a sandbox attached,
  * it schedules this probe instead of killing immediately. The probe asks
- * Daytona whether the sandbox is still in the `started` state AND whether the
+ * whether the sandbox is still in the `started` state AND whether the
  * callback runner PID is still alive. If both are true we re-schedule
  * `checkStaleRuns` after `STALE_RECHECK_MS` without skipping probes so the next
  * stale check re-validates liveness again instead of doing a blind kill.
@@ -34,7 +34,7 @@ export const probeStaleRunLiveness = internalAction({
   handler: async (ctx, args) => {
     const probeStartedAt = Date.now();
     const liveness = await ctx.runAction(
-      internal.daytona.verifySandboxLiveness,
+      internal.sandbox.verifySandboxLiveness,
       { sandboxId: args.sandboxId, repoId: args.repoId },
     );
     const probeDurationMs = Date.now() - probeStartedAt;

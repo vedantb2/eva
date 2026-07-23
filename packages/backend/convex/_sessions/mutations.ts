@@ -241,7 +241,7 @@ export const updateSummary = authMutation({
 });
 
 /** Archives a session so it no longer appears in the active list.
- * Also archives the Daytona sandbox (moves to cold storage for cost savings). */
+ * Also archives the sandbox (moves to cold storage for cost savings). */
 export const archive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -251,9 +251,9 @@ export const archive = authMutation({
       throw new Error("Not authorized");
     }
 
-    // Archive the Daytona sandbox (stops it first, then moves to cold storage)
+    // Archive the sandbox (stops it first, then moves to cold storage)
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.archiveSandbox, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.archiveSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

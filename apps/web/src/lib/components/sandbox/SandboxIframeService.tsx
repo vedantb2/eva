@@ -15,7 +15,6 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 export type SandboxIframeServiceState =
@@ -40,8 +39,8 @@ interface SandboxIframeServiceProps {
   cacheKey: string;
   sandboxId: string | undefined;
   /**
-   * Vercel sandbox name; when set, the Daytona preview-interstitial hint is
-   * hidden (Vercel services go through the auth proxy and never show it).
+   * Vercel sandbox name; when set, the preview-interstitial hint is hidden
+   * (Vercel services go through the auth proxy and never show it).
    */
   vercelSandboxId: string | undefined;
   isActive: boolean;
@@ -112,7 +111,7 @@ export function SandboxIframeService({
   iframeAllow,
   onStateChange,
 }: SandboxIframeServiceProps) {
-  // Scope the cache key by sandboxId — Daytona signed URLs embed the sandbox
+  // Scope the cache key by sandboxId — signed preview URLs embed the sandbox
   // ID in the subdomain, so a URL cached against a destroyed sandbox would
   // 400 with "Sandbox not found" once the sandbox is recreated for the same
   // session/task. useSessionStorage re-reads automatically when the key
@@ -142,7 +141,7 @@ export function SandboxIframeService({
     setIframeKey((k) => k + 1);
   };
 
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
   const stopPolling = () => {
     clearTimeout(pollTimer.current);
@@ -172,7 +171,6 @@ export function SandboxIframeService({
           repoId,
         });
         if (data.ready) {
-          await dismissDaytonaWarning(data.url);
           acceptReady(data.url);
           return;
         }
@@ -220,7 +218,6 @@ export function SandboxIframeService({
         repoId,
       });
       if (existing.ready) {
-        await dismissDaytonaWarning(existing.url);
         acceptReady(existing.url);
         return;
       }

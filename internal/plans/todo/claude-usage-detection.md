@@ -1,4 +1,8 @@
+> Note (2026-07-23): Daytona provider code removed — Vercel-only. Re-scope any Daytona-specific steps before executing.
+
 # Plan: Claude Usage Limit Detection + Auto-Switch + Schedule Later
+
+> **2026-07-23:** Daytona is gone — eva is Vercel-only now. `packages/backend/convex/daytona.ts` referenced below is now `packages/backend/convex/sandbox.ts`; line numbers below are stale.
 
 ## Context
 

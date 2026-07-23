@@ -1,6 +1,6 @@
 // Brand-colored provider marks for env slots. Paths sourced from svgl (OpenAI,
-// Cursor, Convex) or the vendor favicon (Daytona — not on svgl). Theme-sensitive
-// marks use currentColor so they stay visible in light and dark UI.
+// Cursor, Convex). Theme-sensitive marks use currentColor so they stay visible
+// in light and dark UI.
 
 import { cn } from "@conductor/ui";
 
@@ -103,54 +103,6 @@ export function VercelLogo({ size = 16, className }: ProviderLogoProps) {
       className={cn("text-black dark:text-white", className)}
     >
       <path d={VERCEL_PATH} />
-    </svg>
-  );
-}
-
-/** Daytona glyph from https://www.daytona.io/favicon.svg (not on svgl). */
-export function DaytonaLogo({ size = 16, className }: ProviderLogoProps) {
-  return (
-    <svg
-      viewBox="0 0 275 287"
-      width={size}
-      height={size}
-      fill="none"
-      role="img"
-      aria-label="Daytona"
-      className={cn("text-[#121212] dark:text-white", className)}
-    >
-      <path
-        fill="currentColor"
-        d="M14.5584 193.736H114.275V227.925H14.5584V193.736Z"
-      />
-      <path
-        fill="currentColor"
-        d="M148.464 74.076H262.426V108.265H148.464V74.076Z"
-      />
-      <path
-        fill="currentColor"
-        d="M88.6338 84.6127L173.246 0L197.422 24.175L112.809 108.788L88.6338 84.6127Z"
-      />
-      <path
-        fill="currentColor"
-        d="M89.157 170.084L24.175 105.102L0 129.277L64.9819 194.259L89.157 170.084Z"
-      />
-      <path
-        fill="currentColor"
-        d="M174.629 217.911L106.133 286.407L81.9577 262.232L150.454 193.736L174.629 217.911Z"
-      />
-      <path
-        fill="currentColor"
-        d="M174.106 132.44L250.66 208.994L274.835 184.819L198.281 108.265L174.106 132.44Z"
-      />
-      <path
-        fill="currentColor"
-        d="M88.6338 48.434V131.057H54.4451L54.4451 48.434H88.6338Z"
-      />
-      <path
-        fill="currentColor"
-        d="M208.294 168.094V270.66H174.106V168.094H208.294Z"
-      />
     </svg>
   );
 }

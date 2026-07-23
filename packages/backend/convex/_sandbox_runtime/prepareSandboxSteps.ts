@@ -51,7 +51,7 @@ async function emitSteps(
 
 type PrepareSandboxResult = {
   sandboxId: string;
-  /** Set to the sandbox id when the provider is Vercel; undefined for Daytona. */
+  /** Vercel sandbox id (mirrors `sandboxId` — Vercel is the only provider). */
   vercelSandboxId: string | undefined;
 };
 
@@ -66,8 +66,8 @@ export async function prepareSandboxSteps(
   // Thaw an archived/stopped existing sandbox across polling steps before the
   // create/resume action, so a multi-minute cold-storage restore doesn't blow
   // the per-action 10-minute limit inside createOrResumeSandbox →
-  // ensureSandboxRunning. On Vercel only vercelSandboxId is thawed (Daytona
-  // UUIDs must not hit Vercel get). New sandboxes have nothing to thaw.
+  // ensureSandboxRunning. Only vercelSandboxId is thawed here; new sandboxes
+  // have nothing to thaw.
   if (args.existingSandboxId || args.vercelSandboxId) {
     await ensureSandboxStartedSteps(step, {
       sandboxId: args.existingSandboxId,
@@ -81,7 +81,7 @@ export async function prepareSandboxSteps(
   // Snapshot-backed quick tasks should start from local refs instead of
   // blocking sandbox acquisition on a network fetch.
   const setupResult = await step.runAction(
-    internal.daytona.createOrResumeSandbox,
+    internal.sandbox.createOrResumeSandbox,
     {
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
@@ -112,7 +112,7 @@ export async function prepareSandboxSteps(
   ]);
   try {
     await step.runAction(
-      internal.daytona.fetchBaseBranch,
+      internal.sandbox.fetchBaseBranch,
       {
         sandboxId,
         installationId: args.installationId,
@@ -143,7 +143,7 @@ export async function prepareSandboxSteps(
     ]);
     try {
       await step.runAction(
-        internal.daytona.fetchBaseBranch,
+        internal.sandbox.fetchBaseBranch,
         {
           sandboxId,
           installationId: args.installationId,
@@ -176,7 +176,7 @@ export async function prepareSandboxSteps(
     ]);
 
     await step.runAction(
-      internal.daytona.setupSandboxBranch,
+      internal.sandbox.setupSandboxBranch,
       {
         sandboxId,
         branchName: args.branchName,
@@ -196,7 +196,7 @@ export async function prepareSandboxSteps(
     ]);
 
     await step.runAction(
-      internal.daytona.checkoutBaseBranch,
+      internal.sandbox.checkoutBaseBranch,
       {
         sandboxId,
         baseBranch: args.baseBranch,
@@ -218,7 +218,7 @@ export async function prepareSandboxSteps(
       },
     ]);
     await step.runAction(
-      internal.daytona.restoreSeededRuntimeState,
+      internal.sandbox.restoreSeededRuntimeState,
       { sandboxId, repoId: args.repoId },
       { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
     );
@@ -244,7 +244,7 @@ export async function prepareSandboxSteps(
     ]);
     try {
       const result = await step.runAction(
-        internal.daytona.runBackgroundCommands,
+        internal.sandbox.runBackgroundCommands,
         { sandboxId, repoId: args.repoId },
         { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
       );
@@ -281,7 +281,7 @@ export async function prepareSandboxSteps(
   let shouldRunStartupCommands = !args.skipStartupCommands;
   if (shouldRunStartupCommands) {
     const markerExists = await step.runAction(
-      internal.daytona.startupCommandsMarkerExists,
+      internal.sandbox.startupCommandsMarkerExists,
       { sandboxId, repoId: args.repoId },
     );
     if (markerExists) {
@@ -296,7 +296,7 @@ export async function prepareSandboxSteps(
     ]);
     try {
       const result = await step.runAction(
-        internal.daytona.runStartupCommands,
+        internal.sandbox.runStartupCommands,
         { sandboxId, repoId: args.repoId },
         { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
       );

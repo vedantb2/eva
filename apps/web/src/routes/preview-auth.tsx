@@ -7,19 +7,10 @@ import { api } from "@conductor/backend";
 // Must match PREVIEW_GRANT_PARAM in packages/backend/convex/previewGrantConfig.ts.
 const GRANT_PARAM = "__eva_grant";
 
-// Open-redirect guard: only ever redirect back to a Daytona or Vercel preview
+// Open-redirect guard: only ever redirect back to a Vercel sandbox preview
 // origin over https. The proxy builds the `return` from its own Host, but
 // this is the trust boundary on the eva side, so we re-validate rather than
 // trust input.
-const ALLOWED_RETURN_SUFFIXES = [
-  ".daytona.work",
-  ".daytona.works",
-  ".daytonaproxy01.eu",
-];
-const DAYTONA_PREVIEW_HOST_PREFIX = /^[3-9]\d{3}-/;
-// Vercel sandbox preview URLs (`https://*.vercel.run`) give each exposed port
-// its own subdomain — there's no Daytona-style `3000-xxx` port prefix to
-// validate, so those hosts skip the DAYTONA_PREVIEW_HOST_PREFIX check below.
 const VERCEL_PREVIEW_SUFFIX = ".vercel.run";
 
 const validateSearch = (search: Record<string, string>) => ({
@@ -38,22 +29,10 @@ function parseAllowedReturn(url: string): URL | null {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return null;
-
     if (parsed.hostname.endsWith(VERCEL_PREVIEW_SUFFIX)) {
       return parsed;
     }
-
-    const isAllowedDaytonaHost = ALLOWED_RETURN_SUFFIXES.some((suffix) =>
-      parsed.hostname.endsWith(suffix),
-    );
-    const firstLabel = parsed.hostname.split(".")[0] ?? "";
-    if (
-      !isAllowedDaytonaHost ||
-      !DAYTONA_PREVIEW_HOST_PREFIX.test(firstLabel)
-    ) {
-      return null;
-    }
-    return parsed;
+    return null;
   } catch {
     return null;
   }
@@ -95,7 +74,7 @@ function PreviewAuth() {
     })
       .then((grant) => {
         parsedReturn.searchParams.set(GRANT_PARAM, grant);
-        // Cross-origin navigation to the Daytona preview origin — must use the
+        // Cross-origin navigation to the preview origin — must use the
         // full-page location API, not the SPA router.
         window.location.replace(parsedReturn.toString());
       })

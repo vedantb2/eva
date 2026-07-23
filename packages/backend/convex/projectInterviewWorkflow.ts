@@ -7,7 +7,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { trackProjectWorkflow } from "./workflowWatchdog";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
 import {
   clearStreamingActivity,
@@ -135,7 +135,7 @@ export const projectInterviewWorkflow = workflow.define({
         });
       }
       const { sandboxId } = await step.runAction(
-        internal.daytona.startProjectPreviewSandbox,
+        internal.sandbox.startProjectPreviewSandbox,
         {
           projectId: args.projectId,
           existingSandboxId: projectData.sandboxId,
@@ -151,7 +151,7 @@ export const projectInterviewWorkflow = workflow.define({
         },
       );
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: args.projectId,
         prompt: fullPrompt,
@@ -529,7 +529,7 @@ Output ONLY valid JSON.`;
         });
       }
       const { sandboxId } = await step.runAction(
-        internal.daytona.startProjectPreviewSandbox,
+        internal.sandbox.startProjectPreviewSandbox,
         {
           projectId: args.projectId,
           existingSandboxId: projectData.sandboxId,
@@ -545,7 +545,7 @@ Output ONLY valid JSON.`;
         },
       );
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: args.projectId,
         prompt,

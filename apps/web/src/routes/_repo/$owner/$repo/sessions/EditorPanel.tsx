@@ -27,7 +27,7 @@ export function EditorPanel({
   isActive,
   repoId,
 }: EditorPanelProps) {
-  const toggleCodeServer = useAction(api.daytona.toggleCodeServer);
+  const toggleCodeServer = useAction(api.sandbox.toggleCodeServer);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };

@@ -28,12 +28,12 @@ This avoids:
 - Tying action time to agent turn time (would require hand-offs mid-turn or abandoning step-based architecture)
 - Long-lived sockets that must survive deployment cycles
 
-**See also:** `convex/_daytona/resumeSandboxSteps.ts`, `convex/_sessions/workflow.ts` (`awaitEvent`), `convex/workflowWatchdog.ts`, and the header comments in `convex/auditFixWorkflow.ts` for the rationale repeated across workflows.
+**See also:** `convex/_sandbox_runtime/resumeSandboxSteps.ts`, `convex/_sessions/workflow.ts` (`awaitEvent`), `convex/workflowWatchdog.ts`, and the header comments in `convex/auditFixWorkflow.ts` for the rationale repeated across workflows.
 
 ## The Callback Bundle
 
 **Source:** `callback-src/` (entry: `index.ts`)  
-**Generated artifact:** `convex/_daytona/callbackScript.generated.ts` (esbuild bundle, regenerated on `predeploy`)  
+**Generated artifact:** `convex/_sandbox_runtime/callbackScript.generated.ts` (esbuild bundle, regenerated on `predeploy`)  
 **Runtime:** Detached Node process inside the sandbox, communicates only via HTTP POSTs and polling mutations
 
 The callback owns seven core capabilities:
@@ -70,7 +70,7 @@ The callback owns seven core capabilities:
 - `/tmp/eva-mcp.json` written at launch (contains Convex-native HTTP MCP endpoint + auth token)
 - Passed to the Agent SDK via `extraArgs["mcp-config"]` as a `--mcp-config` CLI flag
 - Used because eva's MCP server is HTTP-based and requires authentication
-- **File:** `callback-src/index.ts:100`, `convex/_daytona/launch.ts:98`
+- **File:** `callback-src/index.ts:100`, `convex/_sandbox_runtime/launch.ts:98`
 
 ### 6. Background-Task Disabling
 
@@ -91,14 +91,15 @@ The same callback bundle already runs Claude, Codex, OpenCode, and Cursor. Provi
 
 ## Sandbox Provider Abstraction
 
-**File:** `convex/_sandbox/provider.ts` (contracts) + `daytonaProvider.ts` + `vercelProvider.ts` (implementations)
+**File:** `convex/_sandbox/provider.ts` (contract) + `vercelProvider.ts` (implementation)
 
-Eva abstracts away Daytona vs Vercel Sandbox differences behind a unified `SandboxClient` / `SandboxHandle` contract. The factory is selected via `SANDBOX_PROVIDER` env flag.
+Eva runs entirely on Vercel Sandbox. Sandbox operations are still expressed behind a provider-neutral `SandboxClient` / `SandboxHandle` contract (rather than calling `@vercel/sandbox` directly from every call site) so orchestration code in `_sandbox_runtime/` stays decoupled from the underlying SDK surface — the same reason a repository/adapter boundary is useful even with a single implementation.
 
-- **Daytona:** Wraps `@daytonaio/sdk`; ships git/PTY/desktop clients; uses snapshots for persistence (cold-storage thaw takes minutes).
 - **Vercel:** Wraps raw `@vercel/sandbox` ^2.4.0; name-addressed, persistent-by-default, stops auto-snapshot, restores sub-second (~0.3s regardless of size). PTY/desktop deliberately omitted (wired last).
 
 Vercel provider includes hard-won delta workarounds: `resume:false` refresh (to avoid auto-resuming stopped VMs), >4 KB env via `.eva-env.sh`, 4-port cap, IPv4-only.
+
+Eva previously supported Daytona as a second provider (dual-provider era, mid-2026). That code path has been fully removed; legacy Daytona rows/fields still in Convex data are tracked for cleanup in `internal/plans/todo/daytona-legacy-data-cleanup.md`. See `internal/sandbox-providers-research.md` for the historical provider comparison that motivated the Vercel migration.
 
 ## Evaluating the Vercel AI SDK Harness
 
@@ -140,13 +141,13 @@ Only if eva stands up a long-lived Node host tier (e.g. for sub-150 ms token str
 
 ## Related Files
 
-- `convex/_daytona/callbackScript.generated.ts` — bundled agent loop (regen'd on predeploy)
-- `convex/_daytona/launch.ts` — uploads bundle, launches detached
-- `convex/_daytona/execution.ts` — prewarm daemon, dev-server detection
-- `convex/_daytona/helpers.ts` — token minting, script signing
-- `convex/_daytona/resumeSandboxSteps.ts` — archived-sandbox thaw across durable steps
+- `convex/_sandbox_runtime/callbackScript.generated.ts` — bundled agent loop (regen'd on predeploy)
+- `convex/_sandbox_runtime/launch.ts` — uploads bundle, launches detached
+- `convex/_sandbox_runtime/execution.ts` — prewarm daemon, dev-server detection
+- `convex/_sandbox_runtime/helpers.ts` — token minting, script signing
+- `convex/_sandbox_runtime/resumeSandboxSteps.ts` — archived-sandbox thaw across durable steps
 - `convex/_sandbox/provider.ts` — abstraction contract
-- `convex/_sandbox/{daytona,vercel}Provider.ts` — implementations
+- `convex/_sandbox/vercelProvider.ts` — implementation
 - `convex/http.ts` — heartbeat + mutation endpoints
 - `convex/_sessions/workflow.ts` — durable-workflow main loop, `awaitEvent` on completion
 - `convex/_sessions/execution.ts` — prompt staging, daemon prewarm trigger
@@ -163,7 +164,7 @@ Only if eva stands up a long-lived Node host tier (e.g. for sub-150 ms token str
 ## Key Constraints
 
 - **Convex action wall-clock limit:** ~10 minutes (cited repeatedly across workflows)
-- **IPv4-only:** Daytona/Vercel sandboxes don't support IPv6; all services bind to IPv4
+- **IPv4-only:** Vercel sandboxes don't support IPv6; all services bind to IPv4
 - **Vercel port cap:** 4 exposed ports — 3000 (app Preview auth proxy), 8080 (editor), 6080 (desktop), 54321 (local Supabase Kong). App listens on the UI port (or 13000 when UI port is 3000); Eva launches `exec next|vite -p <listen>` so customer `-p` flags cannot steal the wrong port.
 - **Daemon idle-exit:** 45 minutes; next turn respawns
 - **Heartbeat flush:** 150 ms (accumulated events)

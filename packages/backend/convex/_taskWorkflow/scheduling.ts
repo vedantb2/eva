@@ -3,7 +3,7 @@ import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
-import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
+import { isSandboxNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveTaskWorkflowBaseBranchForTask } from "./resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
@@ -29,7 +29,7 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
 
     const errorMessage = args.error ?? run.error ?? "";
     const retryableFailure =
-      errorMessage.length > 0 && isDaytonaNetworkIssue(errorMessage);
+      errorMessage.length > 0 && isSandboxNetworkIssue(errorMessage);
     if (!retryableFailure) return null;
 
     if (task.scheduledFunctionId) return null;

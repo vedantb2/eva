@@ -8,2041 +8,2041 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as PreviewAuthRouteImport } from "./routes/preview-auth";
-import { Route as AgentCallbackRouteImport } from "./routes/agent-callback";
-import { Route as RepoRouteImport } from "./routes/_repo";
-import { Route as GlobalRouteImport } from "./routes/_global";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as GlobalTestingRouteImport } from "./routes/_global/testing";
-import { Route as GlobalInboxRouteImport } from "./routes/_global/inbox";
-import { Route as GlobalHomeRouteImport } from "./routes/_global/home";
-import { Route as GlobalTeamsIndexRouteImport } from "./routes/_global/teams/index";
-import { Route as GlobalArtifactsIndexRouteImport } from "./routes/_global/artifacts/index";
-import { Route as McpOauthAuthorizeRouteImport } from "./routes/mcp/oauth/authorize";
-import { Route as RepoOwnerRepoRouteImport } from "./routes/_repo/$owner/$repo";
-import { Route as GlobalSetupIdRouteImport } from "./routes/_global/setup/$id";
-import { Route as GlobalSettingsThemeRouteImport } from "./routes/_global/settings/theme";
-import { Route as GlobalSettingsSyncRouteImport } from "./routes/_global/settings/sync";
-import { Route as GlobalSettingsSandboxesRouteImport } from "./routes/_global/settings/sandboxes";
-import { Route as GlobalSettingsPersonalisationRouteImport } from "./routes/_global/settings/personalisation";
-import { Route as GlobalSettingsNotificationsRouteImport } from "./routes/_global/settings/notifications";
-import { Route as GlobalSettingsAccountsRouteImport } from "./routes/_global/settings/accounts";
-import { Route as GlobalArtifactsArtifactIdRouteImport } from "./routes/_global/artifacts/$artifactId";
-import { Route as GlobalTeamsTeamIdRouteRouteImport } from "./routes/_global/teams/$teamId/route";
-import { Route as RepoOwnerRepoIndexRouteImport } from "./routes/_repo/$owner/$repo/index";
-import { Route as GlobalTeamsTeamIdIndexRouteImport } from "./routes/_global/teams/$teamId/index";
-import { Route as RepoOwnerRepoStatsRouteImport } from "./routes/_repo/$owner/$repo/stats";
-import { Route as RepoOwnerRepoInboxRouteImport } from "./routes/_repo/$owner/$repo/inbox";
-import { Route as GlobalTeamsTeamIdTeamTabRouteImport } from "./routes/_global/teams/$teamId/$teamTab";
-import { Route as RepoOwnerRepoQuickTasksRouteRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/route";
-import { Route as RepoOwnerRepoTestingArenaIndexRouteImport } from "./routes/_repo/$owner/$repo/testing-arena/index";
-import { Route as RepoOwnerRepoSettingsIndexRouteImport } from "./routes/_repo/$owner/$repo/settings/index";
-import { Route as RepoOwnerRepoSessionsIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/index";
-import { Route as RepoOwnerRepoReviewsIndexRouteImport } from "./routes/_repo/$owner/$repo/reviews/index";
-import { Route as RepoOwnerRepoQuickTasksIndexRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/index";
-import { Route as RepoOwnerRepoProjectsIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/index";
-import { Route as RepoOwnerRepoDraftsIndexRouteImport } from "./routes/_repo/$owner/$repo/drafts/index";
-import { Route as RepoOwnerRepoDocsIndexRouteImport } from "./routes/_repo/$owner/$repo/docs/index";
-import { Route as RepoOwnerRepoDesignsIndexRouteImport } from "./routes/_repo/$owner/$repo/designs/index";
-import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from "./routes/_repo/$owner/$repo/automations/index";
-import { Route as RepoOwnerRepoSettingsThemeRouteImport } from "./routes/_repo/$owner/$repo/settings/theme";
-import { Route as RepoOwnerRepoSettingsTabsRouteImport } from "./routes/_repo/$owner/$repo/settings/tabs";
-import { Route as RepoOwnerRepoSettingsSkillsRouteImport } from "./routes/_repo/$owner/$repo/settings/skills";
-import { Route as RepoOwnerRepoSettingsPersonalisationRouteImport } from "./routes/_repo/$owner/$repo/settings/personalisation";
-import { Route as RepoOwnerRepoSettingsMonorepoRouteImport } from "./routes/_repo/$owner/$repo/settings/monorepo";
-import { Route as RepoOwnerRepoSettingsMcpConfigRouteImport } from "./routes/_repo/$owner/$repo/settings/mcp-config";
-import { Route as RepoOwnerRepoSettingsLogsRouteImport } from "./routes/_repo/$owner/$repo/settings/logs";
-import { Route as RepoOwnerRepoSettingsConfigRouteImport } from "./routes/_repo/$owner/$repo/settings/config";
-import { Route as RepoOwnerRepoSettingsAuditsRouteImport } from "./routes/_repo/$owner/$repo/settings/audits";
-import { Route as RepoOwnerRepoSettingsAppRouteImport } from "./routes/_repo/$owner/$repo/settings/app";
-import { Route as RepoOwnerRepoDesignsNumIdRouteImport } from "./routes/_repo/$owner/$repo/designs/$numId";
-import { Route as RepoOwnerRepoTestingArenaNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/testing-arena/$numId/route";
-import { Route as RepoOwnerRepoSettingsSnapshotsRouteRouteImport } from "./routes/_repo/$owner/$repo/settings/snapshots/route";
-import { Route as RepoOwnerRepoSessionsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/route";
-import { Route as RepoOwnerRepoReviewsPrNumberRouteRouteImport } from "./routes/_repo/$owner/$repo/reviews/$prNumber/route";
-import { Route as RepoOwnerRepoQuickTasksNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/route";
-import { Route as RepoOwnerRepoProjectsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/route";
-import { Route as RepoOwnerRepoDocsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/docs/$numId/route";
-import { Route as RepoOwnerRepoAutomationsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/automations/$numId/route";
-import { Route as RepoOwnerRepoTestingArenaNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/testing-arena/$numId/index";
-import { Route as RepoOwnerRepoSettingsSnapshotsIndexRouteImport } from "./routes/_repo/$owner/$repo/settings/snapshots/index";
-import { Route as RepoOwnerRepoSettingsEnvVariablesIndexRouteImport } from "./routes/_repo/$owner/$repo/settings/env-variables/index";
-import { Route as RepoOwnerRepoSessionsNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/index";
-import { Route as RepoOwnerRepoReviewsPrNumberIndexRouteImport } from "./routes/_repo/$owner/$repo/reviews/$prNumber/index";
-import { Route as RepoOwnerRepoQuickTasksNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/index";
-import { Route as RepoOwnerRepoProjectsNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/index";
-import { Route as RepoOwnerRepoDocsNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/docs/$numId/index";
-import { Route as RepoOwnerRepoAutomationsNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/automations/$numId/index";
-import { Route as RepoOwnerRepoTestingArenaNumIdArenaTabRouteImport } from "./routes/_repo/$owner/$repo/testing-arena/$numId/$arenaTab";
-import { Route as RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport } from "./routes/_repo/$owner/$repo/settings/snapshots/$snapTab";
-import { Route as RepoOwnerRepoSettingsEnvVariablesScopeRouteImport } from "./routes/_repo/$owner/$repo/settings/env-variables/$scope";
-import { Route as RepoOwnerRepoSessionsNumIdSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/$sandboxTab";
-import { Route as RepoOwnerRepoReviewsPrNumberReviewTabRouteImport } from "./routes/_repo/$owner/$repo/reviews/$prNumber/$reviewTab";
-import { Route as RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/$detailTab";
-import { Route as RepoOwnerRepoDocsNumIdDocTabRouteImport } from "./routes/_repo/$owner/$repo/docs/$numId/$docTab";
-import { Route as RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport } from "./routes/_repo/$owner/$repo/automations/$numId/$automationTab";
-import { Route as RepoOwnerRepoSessionsNumIdReviewRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/route";
-import { Route as RepoOwnerRepoSessionsNumIdPrRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/route";
-import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/$taskNumId/route";
-import { Route as RepoOwnerRepoSessionsNumIdReviewIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/index";
-import { Route as RepoOwnerRepoSessionsNumIdPrIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/index";
-import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/$taskNumId/index";
-import { Route as RepoOwnerRepoSessionsNumIdReviewRecapRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/recap";
-import { Route as RepoOwnerRepoSessionsNumIdPrRecapRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/recap";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab";
-import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab";
-import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/route";
-import { Route as RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/route";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/route";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/route";
-import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/index";
-import { Route as RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/index";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/index";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/index";
-import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView";
-import { Route as RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/recap";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/route";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/route";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/index";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/index";
-import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView";
-import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRouteImport } from "./routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as PreviewAuthRouteImport } from './routes/preview-auth'
+import { Route as AgentCallbackRouteImport } from './routes/agent-callback'
+import { Route as RepoRouteImport } from './routes/_repo'
+import { Route as GlobalRouteImport } from './routes/_global'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
+import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
+import { Route as GlobalHomeRouteImport } from './routes/_global/home'
+import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
+import { Route as GlobalArtifactsIndexRouteImport } from './routes/_global/artifacts/index'
+import { Route as McpOauthAuthorizeRouteImport } from './routes/mcp/oauth/authorize'
+import { Route as RepoOwnerRepoRouteImport } from './routes/_repo/$owner/$repo'
+import { Route as GlobalSetupIdRouteImport } from './routes/_global/setup/$id'
+import { Route as GlobalSettingsThemeRouteImport } from './routes/_global/settings/theme'
+import { Route as GlobalSettingsSyncRouteImport } from './routes/_global/settings/sync'
+import { Route as GlobalSettingsSandboxesRouteImport } from './routes/_global/settings/sandboxes'
+import { Route as GlobalSettingsPersonalisationRouteImport } from './routes/_global/settings/personalisation'
+import { Route as GlobalSettingsNotificationsRouteImport } from './routes/_global/settings/notifications'
+import { Route as GlobalSettingsAccountsRouteImport } from './routes/_global/settings/accounts'
+import { Route as GlobalArtifactsArtifactIdRouteImport } from './routes/_global/artifacts/$artifactId'
+import { Route as GlobalTeamsTeamIdRouteRouteImport } from './routes/_global/teams/$teamId/route'
+import { Route as RepoOwnerRepoIndexRouteImport } from './routes/_repo/$owner/$repo/index'
+import { Route as GlobalTeamsTeamIdIndexRouteImport } from './routes/_global/teams/$teamId/index'
+import { Route as RepoOwnerRepoStatsRouteImport } from './routes/_repo/$owner/$repo/stats'
+import { Route as RepoOwnerRepoInboxRouteImport } from './routes/_repo/$owner/$repo/inbox'
+import { Route as GlobalTeamsTeamIdTeamTabRouteImport } from './routes/_global/teams/$teamId/$teamTab'
+import { Route as RepoOwnerRepoQuickTasksRouteRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/route'
+import { Route as RepoOwnerRepoTestingArenaIndexRouteImport } from './routes/_repo/$owner/$repo/testing-arena/index'
+import { Route as RepoOwnerRepoSettingsIndexRouteImport } from './routes/_repo/$owner/$repo/settings/index'
+import { Route as RepoOwnerRepoSessionsIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/index'
+import { Route as RepoOwnerRepoReviewsIndexRouteImport } from './routes/_repo/$owner/$repo/reviews/index'
+import { Route as RepoOwnerRepoQuickTasksIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/index'
+import { Route as RepoOwnerRepoProjectsIndexRouteImport } from './routes/_repo/$owner/$repo/projects/index'
+import { Route as RepoOwnerRepoDraftsIndexRouteImport } from './routes/_repo/$owner/$repo/drafts/index'
+import { Route as RepoOwnerRepoDocsIndexRouteImport } from './routes/_repo/$owner/$repo/docs/index'
+import { Route as RepoOwnerRepoDesignsIndexRouteImport } from './routes/_repo/$owner/$repo/designs/index'
+import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from './routes/_repo/$owner/$repo/automations/index'
+import { Route as RepoOwnerRepoSettingsThemeRouteImport } from './routes/_repo/$owner/$repo/settings/theme'
+import { Route as RepoOwnerRepoSettingsTabsRouteImport } from './routes/_repo/$owner/$repo/settings/tabs'
+import { Route as RepoOwnerRepoSettingsSkillsRouteImport } from './routes/_repo/$owner/$repo/settings/skills'
+import { Route as RepoOwnerRepoSettingsPersonalisationRouteImport } from './routes/_repo/$owner/$repo/settings/personalisation'
+import { Route as RepoOwnerRepoSettingsMonorepoRouteImport } from './routes/_repo/$owner/$repo/settings/monorepo'
+import { Route as RepoOwnerRepoSettingsMcpConfigRouteImport } from './routes/_repo/$owner/$repo/settings/mcp-config'
+import { Route as RepoOwnerRepoSettingsLogsRouteImport } from './routes/_repo/$owner/$repo/settings/logs'
+import { Route as RepoOwnerRepoSettingsConfigRouteImport } from './routes/_repo/$owner/$repo/settings/config'
+import { Route as RepoOwnerRepoSettingsAuditsRouteImport } from './routes/_repo/$owner/$repo/settings/audits'
+import { Route as RepoOwnerRepoSettingsAppRouteImport } from './routes/_repo/$owner/$repo/settings/app'
+import { Route as RepoOwnerRepoDesignsNumIdRouteImport } from './routes/_repo/$owner/$repo/designs/$numId'
+import { Route as RepoOwnerRepoTestingArenaNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/testing-arena/$numId/route'
+import { Route as RepoOwnerRepoSettingsSnapshotsRouteRouteImport } from './routes/_repo/$owner/$repo/settings/snapshots/route'
+import { Route as RepoOwnerRepoSessionsNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/route'
+import { Route as RepoOwnerRepoReviewsPrNumberRouteRouteImport } from './routes/_repo/$owner/$repo/reviews/$prNumber/route'
+import { Route as RepoOwnerRepoQuickTasksNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/route'
+import { Route as RepoOwnerRepoProjectsNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/route'
+import { Route as RepoOwnerRepoDocsNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/docs/$numId/route'
+import { Route as RepoOwnerRepoAutomationsNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/automations/$numId/route'
+import { Route as RepoOwnerRepoTestingArenaNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/testing-arena/$numId/index'
+import { Route as RepoOwnerRepoSettingsSnapshotsIndexRouteImport } from './routes/_repo/$owner/$repo/settings/snapshots/index'
+import { Route as RepoOwnerRepoSettingsEnvVariablesIndexRouteImport } from './routes/_repo/$owner/$repo/settings/env-variables/index'
+import { Route as RepoOwnerRepoSessionsNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/index'
+import { Route as RepoOwnerRepoReviewsPrNumberIndexRouteImport } from './routes/_repo/$owner/$repo/reviews/$prNumber/index'
+import { Route as RepoOwnerRepoQuickTasksNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/index'
+import { Route as RepoOwnerRepoProjectsNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/index'
+import { Route as RepoOwnerRepoDocsNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/docs/$numId/index'
+import { Route as RepoOwnerRepoAutomationsNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/automations/$numId/index'
+import { Route as RepoOwnerRepoTestingArenaNumIdArenaTabRouteImport } from './routes/_repo/$owner/$repo/testing-arena/$numId/$arenaTab'
+import { Route as RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport } from './routes/_repo/$owner/$repo/settings/snapshots/$snapTab'
+import { Route as RepoOwnerRepoSettingsEnvVariablesScopeRouteImport } from './routes/_repo/$owner/$repo/settings/env-variables/$scope'
+import { Route as RepoOwnerRepoSessionsNumIdSandboxTabRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/$sandboxTab'
+import { Route as RepoOwnerRepoReviewsPrNumberReviewTabRouteImport } from './routes/_repo/$owner/$repo/reviews/$prNumber/$reviewTab'
+import { Route as RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/$detailTab'
+import { Route as RepoOwnerRepoDocsNumIdDocTabRouteImport } from './routes/_repo/$owner/$repo/docs/$numId/$docTab'
+import { Route as RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport } from './routes/_repo/$owner/$repo/automations/$numId/$automationTab'
+import { Route as RepoOwnerRepoSessionsNumIdReviewRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/route'
+import { Route as RepoOwnerRepoSessionsNumIdPrRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/route'
+import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/$taskNumId/route'
+import { Route as RepoOwnerRepoSessionsNumIdReviewIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/index'
+import { Route as RepoOwnerRepoSessionsNumIdPrIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/index'
+import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdIndexRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/$taskNumId/index'
+import { Route as RepoOwnerRepoSessionsNumIdReviewRecapRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/recap'
+import { Route as RepoOwnerRepoSessionsNumIdPrRecapRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/recap'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxSandboxTabRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+import { Route as RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/diffs/route'
+import { Route as RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/route'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/route'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/route'
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/diffs/index'
+import { Route as RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/index'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/index'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/index'
+import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+import { Route as RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/recap'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/route'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/route'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/index'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/index'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
 
 const PreviewAuthRoute = PreviewAuthRouteImport.update({
-  id: "/preview-auth",
-  path: "/preview-auth",
+  id: '/preview-auth',
+  path: '/preview-auth',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AgentCallbackRoute = AgentCallbackRouteImport.update({
-  id: "/agent-callback",
-  path: "/agent-callback",
+  id: '/agent-callback',
+  path: '/agent-callback',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RepoRoute = RepoRouteImport.update({
-  id: "/_repo",
+  id: '/_repo',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const GlobalRoute = GlobalRouteImport.update({
-  id: "/_global",
+  id: '/_global',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const GlobalTestingRoute = GlobalTestingRouteImport.update({
-  id: "/testing",
-  path: "/testing",
+  id: '/testing',
+  path: '/testing',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
-  id: "/inbox",
-  path: "/inbox",
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalHomeRoute = GlobalHomeRouteImport.update({
-  id: "/home",
-  path: "/home",
+  id: '/home',
+  path: '/home',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalTeamsIndexRoute = GlobalTeamsIndexRouteImport.update({
-  id: "/teams/",
-  path: "/teams/",
+  id: '/teams/',
+  path: '/teams/',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalArtifactsIndexRoute = GlobalArtifactsIndexRouteImport.update({
-  id: "/artifacts/",
-  path: "/artifacts/",
+  id: '/artifacts/',
+  path: '/artifacts/',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const McpOauthAuthorizeRoute = McpOauthAuthorizeRouteImport.update({
-  id: "/mcp/oauth/authorize",
-  path: "/mcp/oauth/authorize",
+  id: '/mcp/oauth/authorize',
+  path: '/mcp/oauth/authorize',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RepoOwnerRepoRoute = RepoOwnerRepoRouteImport.update({
-  id: "/$owner/$repo",
-  path: "/$owner/$repo",
+  id: '/$owner/$repo',
+  path: '/$owner/$repo',
   getParentRoute: () => RepoRoute,
-} as any);
+} as any)
 const GlobalSetupIdRoute = GlobalSetupIdRouteImport.update({
-  id: "/setup/$id",
-  path: "/setup/$id",
+  id: '/setup/$id',
+  path: '/setup/$id',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalSettingsThemeRoute = GlobalSettingsThemeRouteImport.update({
-  id: "/settings/theme",
-  path: "/settings/theme",
+  id: '/settings/theme',
+  path: '/settings/theme',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalSettingsSyncRoute = GlobalSettingsSyncRouteImport.update({
-  id: "/settings/sync",
-  path: "/settings/sync",
+  id: '/settings/sync',
+  path: '/settings/sync',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalSettingsSandboxesRoute = GlobalSettingsSandboxesRouteImport.update({
-  id: "/settings/sandboxes",
-  path: "/settings/sandboxes",
+  id: '/settings/sandboxes',
+  path: '/settings/sandboxes',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalSettingsPersonalisationRoute =
   GlobalSettingsPersonalisationRouteImport.update({
-    id: "/settings/personalisation",
-    path: "/settings/personalisation",
+    id: '/settings/personalisation',
+    path: '/settings/personalisation',
     getParentRoute: () => GlobalRoute,
-  } as any);
+  } as any)
 const GlobalSettingsNotificationsRoute =
   GlobalSettingsNotificationsRouteImport.update({
-    id: "/settings/notifications",
-    path: "/settings/notifications",
+    id: '/settings/notifications',
+    path: '/settings/notifications',
     getParentRoute: () => GlobalRoute,
-  } as any);
+  } as any)
 const GlobalSettingsAccountsRoute = GlobalSettingsAccountsRouteImport.update({
-  id: "/settings/accounts",
-  path: "/settings/accounts",
+  id: '/settings/accounts',
+  path: '/settings/accounts',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const GlobalArtifactsArtifactIdRoute =
   GlobalArtifactsArtifactIdRouteImport.update({
-    id: "/artifacts/$artifactId",
-    path: "/artifacts/$artifactId",
+    id: '/artifacts/$artifactId',
+    path: '/artifacts/$artifactId',
     getParentRoute: () => GlobalRoute,
-  } as any);
+  } as any)
 const GlobalTeamsTeamIdRouteRoute = GlobalTeamsTeamIdRouteRouteImport.update({
-  id: "/teams/$teamId",
-  path: "/teams/$teamId",
+  id: '/teams/$teamId',
+  path: '/teams/$teamId',
   getParentRoute: () => GlobalRoute,
-} as any);
+} as any)
 const RepoOwnerRepoIndexRoute = RepoOwnerRepoIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => RepoOwnerRepoRoute,
-} as any);
+} as any)
 const GlobalTeamsTeamIdIndexRoute = GlobalTeamsTeamIdIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => GlobalTeamsTeamIdRouteRoute,
-} as any);
+} as any)
 const RepoOwnerRepoStatsRoute = RepoOwnerRepoStatsRouteImport.update({
-  id: "/stats",
-  path: "/stats",
+  id: '/stats',
+  path: '/stats',
   getParentRoute: () => RepoOwnerRepoRoute,
-} as any);
+} as any)
 const RepoOwnerRepoInboxRoute = RepoOwnerRepoInboxRouteImport.update({
-  id: "/inbox",
-  path: "/inbox",
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => RepoOwnerRepoRoute,
-} as any);
+} as any)
 const GlobalTeamsTeamIdTeamTabRoute =
   GlobalTeamsTeamIdTeamTabRouteImport.update({
-    id: "/$teamTab",
-    path: "/$teamTab",
+    id: '/$teamTab',
+    path: '/$teamTab',
     getParentRoute: () => GlobalTeamsTeamIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksRouteRoute =
   RepoOwnerRepoQuickTasksRouteRouteImport.update({
-    id: "/quick-tasks",
-    path: "/quick-tasks",
+    id: '/quick-tasks',
+    path: '/quick-tasks',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoTestingArenaIndexRoute =
   RepoOwnerRepoTestingArenaIndexRouteImport.update({
-    id: "/testing-arena/",
-    path: "/testing-arena/",
+    id: '/testing-arena/',
+    path: '/testing-arena/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsIndexRoute =
   RepoOwnerRepoSettingsIndexRouteImport.update({
-    id: "/settings/",
-    path: "/settings/",
+    id: '/settings/',
+    path: '/settings/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsIndexRoute =
   RepoOwnerRepoSessionsIndexRouteImport.update({
-    id: "/sessions/",
-    path: "/sessions/",
+    id: '/sessions/',
+    path: '/sessions/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoReviewsIndexRoute =
   RepoOwnerRepoReviewsIndexRouteImport.update({
-    id: "/reviews/",
-    path: "/reviews/",
+    id: '/reviews/',
+    path: '/reviews/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksIndexRoute =
   RepoOwnerRepoQuickTasksIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoQuickTasksRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsIndexRoute =
   RepoOwnerRepoProjectsIndexRouteImport.update({
-    id: "/projects/",
-    path: "/projects/",
+    id: '/projects/',
+    path: '/projects/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDraftsIndexRoute =
   RepoOwnerRepoDraftsIndexRouteImport.update({
-    id: "/drafts/",
-    path: "/drafts/",
+    id: '/drafts/',
+    path: '/drafts/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDocsIndexRoute = RepoOwnerRepoDocsIndexRouteImport.update({
-  id: "/docs/",
-  path: "/docs/",
+  id: '/docs/',
+  path: '/docs/',
   getParentRoute: () => RepoOwnerRepoRoute,
-} as any);
+} as any)
 const RepoOwnerRepoDesignsIndexRoute =
   RepoOwnerRepoDesignsIndexRouteImport.update({
-    id: "/designs/",
-    path: "/designs/",
+    id: '/designs/',
+    path: '/designs/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoAutomationsIndexRoute =
   RepoOwnerRepoAutomationsIndexRouteImport.update({
-    id: "/automations/",
-    path: "/automations/",
+    id: '/automations/',
+    path: '/automations/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsThemeRoute =
   RepoOwnerRepoSettingsThemeRouteImport.update({
-    id: "/settings/theme",
-    path: "/settings/theme",
+    id: '/settings/theme',
+    path: '/settings/theme',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsTabsRoute =
   RepoOwnerRepoSettingsTabsRouteImport.update({
-    id: "/settings/tabs",
-    path: "/settings/tabs",
+    id: '/settings/tabs',
+    path: '/settings/tabs',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsSkillsRoute =
   RepoOwnerRepoSettingsSkillsRouteImport.update({
-    id: "/settings/skills",
-    path: "/settings/skills",
+    id: '/settings/skills',
+    path: '/settings/skills',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsPersonalisationRoute =
   RepoOwnerRepoSettingsPersonalisationRouteImport.update({
-    id: "/settings/personalisation",
-    path: "/settings/personalisation",
+    id: '/settings/personalisation',
+    path: '/settings/personalisation',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsMonorepoRoute =
   RepoOwnerRepoSettingsMonorepoRouteImport.update({
-    id: "/settings/monorepo",
-    path: "/settings/monorepo",
+    id: '/settings/monorepo',
+    path: '/settings/monorepo',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsMcpConfigRoute =
   RepoOwnerRepoSettingsMcpConfigRouteImport.update({
-    id: "/settings/mcp-config",
-    path: "/settings/mcp-config",
+    id: '/settings/mcp-config',
+    path: '/settings/mcp-config',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsLogsRoute =
   RepoOwnerRepoSettingsLogsRouteImport.update({
-    id: "/settings/logs",
-    path: "/settings/logs",
+    id: '/settings/logs',
+    path: '/settings/logs',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsConfigRoute =
   RepoOwnerRepoSettingsConfigRouteImport.update({
-    id: "/settings/config",
-    path: "/settings/config",
+    id: '/settings/config',
+    path: '/settings/config',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsAuditsRoute =
   RepoOwnerRepoSettingsAuditsRouteImport.update({
-    id: "/settings/audits",
-    path: "/settings/audits",
+    id: '/settings/audits',
+    path: '/settings/audits',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsAppRoute =
   RepoOwnerRepoSettingsAppRouteImport.update({
-    id: "/settings/app",
-    path: "/settings/app",
+    id: '/settings/app',
+    path: '/settings/app',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDesignsNumIdRoute =
   RepoOwnerRepoDesignsNumIdRouteImport.update({
-    id: "/designs/$numId",
-    path: "/designs/$numId",
+    id: '/designs/$numId',
+    path: '/designs/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoTestingArenaNumIdRouteRoute =
   RepoOwnerRepoTestingArenaNumIdRouteRouteImport.update({
-    id: "/testing-arena/$numId",
-    path: "/testing-arena/$numId",
+    id: '/testing-arena/$numId',
+    path: '/testing-arena/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsSnapshotsRouteRoute =
   RepoOwnerRepoSettingsSnapshotsRouteRouteImport.update({
-    id: "/settings/snapshots",
-    path: "/settings/snapshots",
+    id: '/settings/snapshots',
+    path: '/settings/snapshots',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdRouteRoute =
   RepoOwnerRepoSessionsNumIdRouteRouteImport.update({
-    id: "/sessions/$numId",
-    path: "/sessions/$numId",
+    id: '/sessions/$numId',
+    path: '/sessions/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoReviewsPrNumberRouteRoute =
   RepoOwnerRepoReviewsPrNumberRouteRouteImport.update({
-    id: "/reviews/$prNumber",
-    path: "/reviews/$prNumber",
+    id: '/reviews/$prNumber',
+    path: '/reviews/$prNumber',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdRouteRoute =
   RepoOwnerRepoQuickTasksNumIdRouteRouteImport.update({
-    id: "/$numId",
-    path: "/$numId",
+    id: '/$numId',
+    path: '/$numId',
     getParentRoute: () => RepoOwnerRepoQuickTasksRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdRouteRoute =
   RepoOwnerRepoProjectsNumIdRouteRouteImport.update({
-    id: "/projects/$numId",
-    path: "/projects/$numId",
+    id: '/projects/$numId',
+    path: '/projects/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDocsNumIdRouteRoute =
   RepoOwnerRepoDocsNumIdRouteRouteImport.update({
-    id: "/docs/$numId",
-    path: "/docs/$numId",
+    id: '/docs/$numId',
+    path: '/docs/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoAutomationsNumIdRouteRoute =
   RepoOwnerRepoAutomationsNumIdRouteRouteImport.update({
-    id: "/automations/$numId",
-    path: "/automations/$numId",
+    id: '/automations/$numId',
+    path: '/automations/$numId',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoTestingArenaNumIdIndexRoute =
   RepoOwnerRepoTestingArenaNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoTestingArenaNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsSnapshotsIndexRoute =
   RepoOwnerRepoSettingsSnapshotsIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSettingsSnapshotsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsEnvVariablesIndexRoute =
   RepoOwnerRepoSettingsEnvVariablesIndexRouteImport.update({
-    id: "/settings/env-variables/",
-    path: "/settings/env-variables/",
+    id: '/settings/env-variables/',
+    path: '/settings/env-variables/',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdIndexRoute =
   RepoOwnerRepoSessionsNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoReviewsPrNumberIndexRoute =
   RepoOwnerRepoReviewsPrNumberIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoReviewsPrNumberRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdIndexRoute =
   RepoOwnerRepoQuickTasksNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdIndexRoute =
   RepoOwnerRepoProjectsNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDocsNumIdIndexRoute =
   RepoOwnerRepoDocsNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoDocsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoAutomationsNumIdIndexRoute =
   RepoOwnerRepoAutomationsNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoAutomationsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoTestingArenaNumIdArenaTabRoute =
   RepoOwnerRepoTestingArenaNumIdArenaTabRouteImport.update({
-    id: "/$arenaTab",
-    path: "/$arenaTab",
+    id: '/$arenaTab',
+    path: '/$arenaTab',
     getParentRoute: () => RepoOwnerRepoTestingArenaNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsSnapshotsSnapTabRoute =
   RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport.update({
-    id: "/$snapTab",
-    path: "/$snapTab",
+    id: '/$snapTab',
+    path: '/$snapTab',
     getParentRoute: () => RepoOwnerRepoSettingsSnapshotsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSettingsEnvVariablesScopeRoute =
   RepoOwnerRepoSettingsEnvVariablesScopeRouteImport.update({
-    id: "/settings/env-variables/$scope",
-    path: "/settings/env-variables/$scope",
+    id: '/settings/env-variables/$scope',
+    path: '/settings/env-variables/$scope',
     getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdSandboxTabRoute =
   RepoOwnerRepoSessionsNumIdSandboxTabRouteImport.update({
-    id: "/$sandboxTab",
-    path: "/$sandboxTab",
+    id: '/$sandboxTab',
+    path: '/$sandboxTab',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoReviewsPrNumberReviewTabRoute =
   RepoOwnerRepoReviewsPrNumberReviewTabRouteImport.update({
-    id: "/$reviewTab",
-    path: "/$reviewTab",
+    id: '/$reviewTab',
+    path: '/$reviewTab',
     getParentRoute: () => RepoOwnerRepoReviewsPrNumberRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdDetailTabRoute =
   RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport.update({
-    id: "/$detailTab",
-    path: "/$detailTab",
+    id: '/$detailTab',
+    path: '/$detailTab',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoDocsNumIdDocTabRoute =
   RepoOwnerRepoDocsNumIdDocTabRouteImport.update({
-    id: "/$docTab",
-    path: "/$docTab",
+    id: '/$docTab',
+    path: '/$docTab',
     getParentRoute: () => RepoOwnerRepoDocsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoAutomationsNumIdAutomationTabRoute =
   RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport.update({
-    id: "/$automationTab",
-    path: "/$automationTab",
+    id: '/$automationTab',
+    path: '/$automationTab',
     getParentRoute: () => RepoOwnerRepoAutomationsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewRouteRoute =
   RepoOwnerRepoSessionsNumIdReviewRouteRouteImport.update({
-    id: "/review",
-    path: "/review",
+    id: '/review',
+    path: '/review',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrRouteRoute =
   RepoOwnerRepoSessionsNumIdPrRouteRouteImport.update({
-    id: "/pr",
-    path: "/pr",
+    id: '/pr',
+    path: '/pr',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute =
   RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteImport.update({
-    id: "/$taskNumId",
-    path: "/$taskNumId",
+    id: '/$taskNumId',
+    path: '/$taskNumId',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewIndexRoute =
   RepoOwnerRepoSessionsNumIdReviewIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrIndexRoute =
   RepoOwnerRepoSessionsNumIdPrIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute =
   RepoOwnerRepoProjectsNumIdTaskNumIdIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewRecapRoute =
   RepoOwnerRepoSessionsNumIdReviewRecapRouteImport.update({
-    id: "/recap",
-    path: "/recap",
+    id: '/recap',
+    path: '/recap',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrRecapRoute =
   RepoOwnerRepoSessionsNumIdPrRecapRouteImport.update({
-    id: "/recap",
-    path: "/recap",
+    id: '/recap',
+    path: '/recap',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport.update({
-    id: "/sandbox/$sandboxTab",
-    path: "/sandbox/$sandboxTab",
+    id: '/sandbox/$sandboxTab',
+    path: '/sandbox/$sandboxTab',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute =
   RepoOwnerRepoProjectsNumIdSandboxSandboxTabRouteImport.update({
-    id: "/sandbox/$sandboxTab",
-    path: "/sandbox/$sandboxTab",
+    id: '/sandbox/$sandboxTab',
+    path: '/sandbox/$sandboxTab',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute =
   RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRouteImport.update({
-    id: "/$detailTab",
-    path: "/$detailTab",
+    id: '/$detailTab',
+    path: '/$detailTab',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute =
   RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport.update({
-    id: "/diffs",
-    path: "/diffs",
+    id: '/diffs',
+    path: '/diffs',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute =
   RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport.update({
-    id: "/diffs",
-    path: "/diffs",
+    id: '/diffs',
+    path: '/diffs',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteImport.update({
-    id: "/sandbox/review",
-    path: "/sandbox/review",
+    id: '/sandbox/review',
+    path: '/sandbox/review',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteImport.update({
-    id: "/sandbox/review",
-    path: "/sandbox/review",
+    id: '/sandbox/review',
+    path: '/sandbox/review',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute =
   RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute =
   RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute =
   RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport.update({
-    id: "/$diffView",
-    path: "/$diffView",
+    id: '/$diffView',
+    path: '/$diffView',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute =
   RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport.update({
-    id: "/$diffView",
-    path: "/$diffView",
+    id: '/$diffView',
+    path: '/$diffView',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport.update({
-    id: "/recap",
-    path: "/recap",
+    id: '/recap',
+    path: '/recap',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport.update({
-    id: "/recap",
-    path: "/recap",
+    id: '/recap',
+    path: '/recap',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport.update({
-    id: "/diffs",
-    path: "/diffs",
+    id: '/diffs',
+    path: '/diffs',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport.update({
-    id: "/diffs",
-    path: "/diffs",
+    id: '/diffs',
+    path: '/diffs',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () =>
       RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () =>
       RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRouteImport.update({
-    id: "/$diffView",
-    path: "/$diffView",
+    id: '/$diffView',
+    path: '/$diffView',
     getParentRoute: () =>
       RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRouteImport.update({
-    id: "/$diffView",
-    path: "/$diffView",
+    id: '/$diffView',
+    path: '/$diffView',
     getParentRoute: () =>
       RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute,
-  } as any);
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/agent-callback": typeof AgentCallbackRoute;
-  "/preview-auth": typeof PreviewAuthRoute;
-  "/home": typeof GlobalHomeRoute;
-  "/inbox": typeof GlobalInboxRoute;
-  "/testing": typeof GlobalTestingRoute;
-  "/teams/$teamId": typeof GlobalTeamsTeamIdRouteRouteWithChildren;
-  "/artifacts/$artifactId": typeof GlobalArtifactsArtifactIdRoute;
-  "/settings/accounts": typeof GlobalSettingsAccountsRoute;
-  "/settings/notifications": typeof GlobalSettingsNotificationsRoute;
-  "/settings/personalisation": typeof GlobalSettingsPersonalisationRoute;
-  "/settings/sandboxes": typeof GlobalSettingsSandboxesRoute;
-  "/settings/sync": typeof GlobalSettingsSyncRoute;
-  "/settings/theme": typeof GlobalSettingsThemeRoute;
-  "/setup/$id": typeof GlobalSetupIdRoute;
-  "/$owner/$repo": typeof RepoOwnerRepoRouteWithChildren;
-  "/mcp/oauth/authorize": typeof McpOauthAuthorizeRoute;
-  "/artifacts/": typeof GlobalArtifactsIndexRoute;
-  "/teams/": typeof GlobalTeamsIndexRoute;
-  "/$owner/$repo/quick-tasks": typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren;
-  "/teams/$teamId/$teamTab": typeof GlobalTeamsTeamIdTeamTabRoute;
-  "/$owner/$repo/inbox": typeof RepoOwnerRepoInboxRoute;
-  "/$owner/$repo/stats": typeof RepoOwnerRepoStatsRoute;
-  "/teams/$teamId/": typeof GlobalTeamsTeamIdIndexRoute;
-  "/$owner/$repo/": typeof RepoOwnerRepoIndexRoute;
-  "/$owner/$repo/automations/$numId": typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren;
-  "/$owner/$repo/docs/$numId": typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren;
-  "/$owner/$repo/projects/$numId": typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren;
-  "/$owner/$repo/quick-tasks/$numId": typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren;
-  "/$owner/$repo/reviews/$prNumber": typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren;
-  "/$owner/$repo/sessions/$numId": typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren;
-  "/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
-  "/$owner/$repo/testing-arena/$numId": typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  "/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
-  "/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
-  "/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
-  "/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
-  "/$owner/$repo/settings/logs": typeof RepoOwnerRepoSettingsLogsRoute;
-  "/$owner/$repo/settings/mcp-config": typeof RepoOwnerRepoSettingsMcpConfigRoute;
-  "/$owner/$repo/settings/monorepo": typeof RepoOwnerRepoSettingsMonorepoRoute;
-  "/$owner/$repo/settings/personalisation": typeof RepoOwnerRepoSettingsPersonalisationRoute;
-  "/$owner/$repo/settings/skills": typeof RepoOwnerRepoSettingsSkillsRoute;
-  "/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
-  "/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
-  "/$owner/$repo/automations/": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/$owner/$repo/designs/": typeof RepoOwnerRepoDesignsIndexRoute;
-  "/$owner/$repo/docs/": typeof RepoOwnerRepoDocsIndexRoute;
-  "/$owner/$repo/drafts/": typeof RepoOwnerRepoDraftsIndexRoute;
-  "/$owner/$repo/projects/": typeof RepoOwnerRepoProjectsIndexRoute;
-  "/$owner/$repo/quick-tasks/": typeof RepoOwnerRepoQuickTasksIndexRoute;
-  "/$owner/$repo/reviews/": typeof RepoOwnerRepoReviewsIndexRoute;
-  "/$owner/$repo/sessions/": typeof RepoOwnerRepoSessionsIndexRoute;
-  "/$owner/$repo/settings/": typeof RepoOwnerRepoSettingsIndexRoute;
-  "/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
-  "/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren;
-  "/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
-  "/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
-  "/$owner/$repo/automations/$numId/$automationTab": typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
-  "/$owner/$repo/docs/$numId/$docTab": typeof RepoOwnerRepoDocsNumIdDocTabRoute;
-  "/$owner/$repo/quick-tasks/$numId/$detailTab": typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
-  "/$owner/$repo/reviews/$prNumber/$reviewTab": typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute;
-  "/$owner/$repo/sessions/$numId/$sandboxTab": typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute;
-  "/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
-  "/$owner/$repo/settings/snapshots/$snapTab": typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute;
-  "/$owner/$repo/testing-arena/$numId/$arenaTab": typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute;
-  "/$owner/$repo/automations/$numId/": typeof RepoOwnerRepoAutomationsNumIdIndexRoute;
-  "/$owner/$repo/docs/$numId/": typeof RepoOwnerRepoDocsNumIdIndexRoute;
-  "/$owner/$repo/projects/$numId/": typeof RepoOwnerRepoProjectsNumIdIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId/": typeof RepoOwnerRepoQuickTasksNumIdIndexRoute;
-  "/$owner/$repo/reviews/$prNumber/": typeof RepoOwnerRepoReviewsPrNumberIndexRoute;
-  "/$owner/$repo/sessions/$numId/": typeof RepoOwnerRepoSessionsNumIdIndexRoute;
-  "/$owner/$repo/settings/env-variables/": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
-  "/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
-  "/$owner/$repo/testing-arena/$numId/": typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review": typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren;
-  "/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren;
-  "/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
-  "/$owner/$repo/projects/$numId/$taskNumId/$detailTab": typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
-  "/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
-  "/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
-  "/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
-  "/$owner/$repo/projects/$numId/$taskNumId/": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
-  "/$owner/$repo/sessions/$numId/pr/": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
-  "/$owner/$repo/sessions/$numId/review/": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/diffs": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  "/$owner/$repo/projects/$numId/sandbox/review/recap": typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute;
-  "/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
-  "/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/": typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute;
-  "/$owner/$repo/sessions/$numId/pr/diffs/": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
-  "/$owner/$repo/sessions/$numId/review/diffs/": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/diffs/": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute;
+  '/': typeof IndexRoute
+  '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
+  '/home': typeof GlobalHomeRoute
+  '/inbox': typeof GlobalInboxRoute
+  '/testing': typeof GlobalTestingRoute
+  '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/settings/accounts': typeof GlobalSettingsAccountsRoute
+  '/settings/notifications': typeof GlobalSettingsNotificationsRoute
+  '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
+  '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/settings/sync': typeof GlobalSettingsSyncRoute
+  '/settings/theme': typeof GlobalSettingsThemeRoute
+  '/setup/$id': typeof GlobalSetupIdRoute
+  '/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/artifacts/': typeof GlobalArtifactsIndexRoute
+  '/teams/': typeof GlobalTeamsIndexRoute
+  '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren
+  '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
+  '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
+  '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/teams/$teamId/': typeof GlobalTeamsTeamIdIndexRoute
+  '/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
+  '/$owner/$repo/automations/$numId': typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren
+  '/$owner/$repo/docs/$numId': typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren
+  '/$owner/$repo/projects/$numId': typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren
+  '/$owner/$repo/quick-tasks/$numId': typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren
+  '/$owner/$repo/reviews/$prNumber': typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren
+  '/$owner/$repo/sessions/$numId': typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren
+  '/$owner/$repo/settings/snapshots': typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
+  '/$owner/$repo/testing-arena/$numId': typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
+  '/$owner/$repo/designs/$numId': typeof RepoOwnerRepoDesignsNumIdRoute
+  '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
+  '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
+  '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
+  '/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
+  '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
+  '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
+  '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
+  '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
+  '/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
+  '/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
+  '/$owner/$repo/docs/': typeof RepoOwnerRepoDocsIndexRoute
+  '/$owner/$repo/drafts/': typeof RepoOwnerRepoDraftsIndexRoute
+  '/$owner/$repo/projects/': typeof RepoOwnerRepoProjectsIndexRoute
+  '/$owner/$repo/quick-tasks/': typeof RepoOwnerRepoQuickTasksIndexRoute
+  '/$owner/$repo/reviews/': typeof RepoOwnerRepoReviewsIndexRoute
+  '/$owner/$repo/sessions/': typeof RepoOwnerRepoSessionsIndexRoute
+  '/$owner/$repo/settings/': typeof RepoOwnerRepoSettingsIndexRoute
+  '/$owner/$repo/testing-arena/': typeof RepoOwnerRepoTestingArenaIndexRoute
+  '/$owner/$repo/projects/$numId/$taskNumId': typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren
+  '/$owner/$repo/sessions/$numId/pr': typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren
+  '/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren
+  '/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
+  '/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
+  '/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
+  '/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
+  '/$owner/$repo/settings/env-variables/$scope': typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute
+  '/$owner/$repo/settings/snapshots/$snapTab': typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute
+  '/$owner/$repo/testing-arena/$numId/$arenaTab': typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute
+  '/$owner/$repo/automations/$numId/': typeof RepoOwnerRepoAutomationsNumIdIndexRoute
+  '/$owner/$repo/docs/$numId/': typeof RepoOwnerRepoDocsNumIdIndexRoute
+  '/$owner/$repo/projects/$numId/': typeof RepoOwnerRepoProjectsNumIdIndexRoute
+  '/$owner/$repo/quick-tasks/$numId/': typeof RepoOwnerRepoQuickTasksNumIdIndexRoute
+  '/$owner/$repo/reviews/$prNumber/': typeof RepoOwnerRepoReviewsPrNumberIndexRoute
+  '/$owner/$repo/sessions/$numId/': typeof RepoOwnerRepoSessionsNumIdIndexRoute
+  '/$owner/$repo/settings/env-variables/': typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute
+  '/$owner/$repo/settings/snapshots/': typeof RepoOwnerRepoSettingsSnapshotsIndexRoute
+  '/$owner/$repo/testing-arena/$numId/': typeof RepoOwnerRepoTestingArenaNumIdIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren
+  '/$owner/$repo/sessions/$numId/pr/diffs': typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren
+  '/$owner/$repo/sessions/$numId/review/diffs': typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren
+  '/$owner/$repo/projects/$numId/$taskNumId/$detailTab': typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute
+  '/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
+  '/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
+  '/$owner/$repo/projects/$numId/$taskNumId/': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
+  '/$owner/$repo/sessions/$numId/pr/': typeof RepoOwnerRepoSessionsNumIdPrIndexRoute
+  '/$owner/$repo/sessions/$numId/review/': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/diffs': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
+  '/$owner/$repo/sessions/$numId/review/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/': typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute
+  '/$owner/$repo/sessions/$numId/pr/diffs/': typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute
+  '/$owner/$repo/sessions/$numId/review/diffs/': typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/diffs/': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/agent-callback": typeof AgentCallbackRoute;
-  "/preview-auth": typeof PreviewAuthRoute;
-  "/home": typeof GlobalHomeRoute;
-  "/inbox": typeof GlobalInboxRoute;
-  "/testing": typeof GlobalTestingRoute;
-  "/artifacts/$artifactId": typeof GlobalArtifactsArtifactIdRoute;
-  "/settings/accounts": typeof GlobalSettingsAccountsRoute;
-  "/settings/notifications": typeof GlobalSettingsNotificationsRoute;
-  "/settings/personalisation": typeof GlobalSettingsPersonalisationRoute;
-  "/settings/sandboxes": typeof GlobalSettingsSandboxesRoute;
-  "/settings/sync": typeof GlobalSettingsSyncRoute;
-  "/settings/theme": typeof GlobalSettingsThemeRoute;
-  "/setup/$id": typeof GlobalSetupIdRoute;
-  "/mcp/oauth/authorize": typeof McpOauthAuthorizeRoute;
-  "/artifacts": typeof GlobalArtifactsIndexRoute;
-  "/teams": typeof GlobalTeamsIndexRoute;
-  "/teams/$teamId/$teamTab": typeof GlobalTeamsTeamIdTeamTabRoute;
-  "/$owner/$repo/inbox": typeof RepoOwnerRepoInboxRoute;
-  "/$owner/$repo/stats": typeof RepoOwnerRepoStatsRoute;
-  "/teams/$teamId": typeof GlobalTeamsTeamIdIndexRoute;
-  "/$owner/$repo": typeof RepoOwnerRepoIndexRoute;
-  "/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
-  "/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
-  "/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
-  "/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
-  "/$owner/$repo/settings/logs": typeof RepoOwnerRepoSettingsLogsRoute;
-  "/$owner/$repo/settings/mcp-config": typeof RepoOwnerRepoSettingsMcpConfigRoute;
-  "/$owner/$repo/settings/monorepo": typeof RepoOwnerRepoSettingsMonorepoRoute;
-  "/$owner/$repo/settings/personalisation": typeof RepoOwnerRepoSettingsPersonalisationRoute;
-  "/$owner/$repo/settings/skills": typeof RepoOwnerRepoSettingsSkillsRoute;
-  "/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
-  "/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
-  "/$owner/$repo/automations": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/$owner/$repo/designs": typeof RepoOwnerRepoDesignsIndexRoute;
-  "/$owner/$repo/docs": typeof RepoOwnerRepoDocsIndexRoute;
-  "/$owner/$repo/drafts": typeof RepoOwnerRepoDraftsIndexRoute;
-  "/$owner/$repo/projects": typeof RepoOwnerRepoProjectsIndexRoute;
-  "/$owner/$repo/quick-tasks": typeof RepoOwnerRepoQuickTasksIndexRoute;
-  "/$owner/$repo/reviews": typeof RepoOwnerRepoReviewsIndexRoute;
-  "/$owner/$repo/sessions": typeof RepoOwnerRepoSessionsIndexRoute;
-  "/$owner/$repo/settings": typeof RepoOwnerRepoSettingsIndexRoute;
-  "/$owner/$repo/testing-arena": typeof RepoOwnerRepoTestingArenaIndexRoute;
-  "/$owner/$repo/automations/$numId/$automationTab": typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
-  "/$owner/$repo/docs/$numId/$docTab": typeof RepoOwnerRepoDocsNumIdDocTabRoute;
-  "/$owner/$repo/quick-tasks/$numId/$detailTab": typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
-  "/$owner/$repo/reviews/$prNumber/$reviewTab": typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute;
-  "/$owner/$repo/sessions/$numId/$sandboxTab": typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute;
-  "/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
-  "/$owner/$repo/settings/snapshots/$snapTab": typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute;
-  "/$owner/$repo/testing-arena/$numId/$arenaTab": typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute;
-  "/$owner/$repo/automations/$numId": typeof RepoOwnerRepoAutomationsNumIdIndexRoute;
-  "/$owner/$repo/docs/$numId": typeof RepoOwnerRepoDocsNumIdIndexRoute;
-  "/$owner/$repo/projects/$numId": typeof RepoOwnerRepoProjectsNumIdIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId": typeof RepoOwnerRepoQuickTasksNumIdIndexRoute;
-  "/$owner/$repo/reviews/$prNumber": typeof RepoOwnerRepoReviewsPrNumberIndexRoute;
-  "/$owner/$repo/sessions/$numId": typeof RepoOwnerRepoSessionsNumIdIndexRoute;
-  "/$owner/$repo/settings/env-variables": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
-  "/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
-  "/$owner/$repo/testing-arena/$numId": typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
-  "/$owner/$repo/projects/$numId/$taskNumId/$detailTab": typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
-  "/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
-  "/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
-  "/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
-  "/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
-  "/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
-  "/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/recap": typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute;
-  "/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
-  "/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review": typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute;
-  "/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
-  "/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute;
-  "/$owner/$repo/projects/$numId/sandbox/review/diffs": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute;
-  "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute;
+  '/': typeof IndexRoute
+  '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
+  '/home': typeof GlobalHomeRoute
+  '/inbox': typeof GlobalInboxRoute
+  '/testing': typeof GlobalTestingRoute
+  '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/settings/accounts': typeof GlobalSettingsAccountsRoute
+  '/settings/notifications': typeof GlobalSettingsNotificationsRoute
+  '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
+  '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/settings/sync': typeof GlobalSettingsSyncRoute
+  '/settings/theme': typeof GlobalSettingsThemeRoute
+  '/setup/$id': typeof GlobalSetupIdRoute
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/artifacts': typeof GlobalArtifactsIndexRoute
+  '/teams': typeof GlobalTeamsIndexRoute
+  '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
+  '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
+  '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/teams/$teamId': typeof GlobalTeamsTeamIdIndexRoute
+  '/$owner/$repo': typeof RepoOwnerRepoIndexRoute
+  '/$owner/$repo/designs/$numId': typeof RepoOwnerRepoDesignsNumIdRoute
+  '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
+  '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
+  '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
+  '/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
+  '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
+  '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
+  '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
+  '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
+  '/$owner/$repo/automations': typeof RepoOwnerRepoAutomationsIndexRoute
+  '/$owner/$repo/designs': typeof RepoOwnerRepoDesignsIndexRoute
+  '/$owner/$repo/docs': typeof RepoOwnerRepoDocsIndexRoute
+  '/$owner/$repo/drafts': typeof RepoOwnerRepoDraftsIndexRoute
+  '/$owner/$repo/projects': typeof RepoOwnerRepoProjectsIndexRoute
+  '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksIndexRoute
+  '/$owner/$repo/reviews': typeof RepoOwnerRepoReviewsIndexRoute
+  '/$owner/$repo/sessions': typeof RepoOwnerRepoSessionsIndexRoute
+  '/$owner/$repo/settings': typeof RepoOwnerRepoSettingsIndexRoute
+  '/$owner/$repo/testing-arena': typeof RepoOwnerRepoTestingArenaIndexRoute
+  '/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
+  '/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
+  '/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
+  '/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
+  '/$owner/$repo/settings/env-variables/$scope': typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute
+  '/$owner/$repo/settings/snapshots/$snapTab': typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute
+  '/$owner/$repo/testing-arena/$numId/$arenaTab': typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute
+  '/$owner/$repo/automations/$numId': typeof RepoOwnerRepoAutomationsNumIdIndexRoute
+  '/$owner/$repo/docs/$numId': typeof RepoOwnerRepoDocsNumIdIndexRoute
+  '/$owner/$repo/projects/$numId': typeof RepoOwnerRepoProjectsNumIdIndexRoute
+  '/$owner/$repo/quick-tasks/$numId': typeof RepoOwnerRepoQuickTasksNumIdIndexRoute
+  '/$owner/$repo/reviews/$prNumber': typeof RepoOwnerRepoReviewsPrNumberIndexRoute
+  '/$owner/$repo/sessions/$numId': typeof RepoOwnerRepoSessionsNumIdIndexRoute
+  '/$owner/$repo/settings/env-variables': typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute
+  '/$owner/$repo/settings/snapshots': typeof RepoOwnerRepoSettingsSnapshotsIndexRoute
+  '/$owner/$repo/testing-arena/$numId': typeof RepoOwnerRepoTestingArenaNumIdIndexRoute
+  '/$owner/$repo/projects/$numId/$taskNumId/$detailTab': typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute
+  '/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
+  '/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
+  '/$owner/$repo/projects/$numId/$taskNumId': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
+  '/$owner/$repo/sessions/$numId/pr': typeof RepoOwnerRepoSessionsNumIdPrIndexRoute
+  '/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
+  '/$owner/$repo/sessions/$numId/review/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute
+  '/$owner/$repo/projects/$numId/sandbox/review': typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute
+  '/$owner/$repo/sessions/$numId/pr/diffs': typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute
+  '/$owner/$repo/sessions/$numId/review/diffs': typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/diffs': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/_global": typeof GlobalRouteWithChildren;
-  "/_repo": typeof RepoRouteWithChildren;
-  "/agent-callback": typeof AgentCallbackRoute;
-  "/preview-auth": typeof PreviewAuthRoute;
-  "/_global/home": typeof GlobalHomeRoute;
-  "/_global/inbox": typeof GlobalInboxRoute;
-  "/_global/testing": typeof GlobalTestingRoute;
-  "/_global/teams/$teamId": typeof GlobalTeamsTeamIdRouteRouteWithChildren;
-  "/_global/artifacts/$artifactId": typeof GlobalArtifactsArtifactIdRoute;
-  "/_global/settings/accounts": typeof GlobalSettingsAccountsRoute;
-  "/_global/settings/notifications": typeof GlobalSettingsNotificationsRoute;
-  "/_global/settings/personalisation": typeof GlobalSettingsPersonalisationRoute;
-  "/_global/settings/sandboxes": typeof GlobalSettingsSandboxesRoute;
-  "/_global/settings/sync": typeof GlobalSettingsSyncRoute;
-  "/_global/settings/theme": typeof GlobalSettingsThemeRoute;
-  "/_global/setup/$id": typeof GlobalSetupIdRoute;
-  "/_repo/$owner/$repo": typeof RepoOwnerRepoRouteWithChildren;
-  "/mcp/oauth/authorize": typeof McpOauthAuthorizeRoute;
-  "/_global/artifacts/": typeof GlobalArtifactsIndexRoute;
-  "/_global/teams/": typeof GlobalTeamsIndexRoute;
-  "/_repo/$owner/$repo/quick-tasks": typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren;
-  "/_global/teams/$teamId/$teamTab": typeof GlobalTeamsTeamIdTeamTabRoute;
-  "/_repo/$owner/$repo/inbox": typeof RepoOwnerRepoInboxRoute;
-  "/_repo/$owner/$repo/stats": typeof RepoOwnerRepoStatsRoute;
-  "/_global/teams/$teamId/": typeof GlobalTeamsTeamIdIndexRoute;
-  "/_repo/$owner/$repo/": typeof RepoOwnerRepoIndexRoute;
-  "/_repo/$owner/$repo/automations/$numId": typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/docs/$numId": typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/projects/$numId": typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/quick-tasks/$numId": typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/reviews/$prNumber": typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren;
-  "/_repo/$owner/$repo/sessions/$numId": typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
-  "/_repo/$owner/$repo/testing-arena/$numId": typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
-  "/_repo/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
-  "/_repo/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
-  "/_repo/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
-  "/_repo/$owner/$repo/settings/logs": typeof RepoOwnerRepoSettingsLogsRoute;
-  "/_repo/$owner/$repo/settings/mcp-config": typeof RepoOwnerRepoSettingsMcpConfigRoute;
-  "/_repo/$owner/$repo/settings/monorepo": typeof RepoOwnerRepoSettingsMonorepoRoute;
-  "/_repo/$owner/$repo/settings/personalisation": typeof RepoOwnerRepoSettingsPersonalisationRoute;
-  "/_repo/$owner/$repo/settings/skills": typeof RepoOwnerRepoSettingsSkillsRoute;
-  "/_repo/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
-  "/_repo/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
-  "/_repo/$owner/$repo/automations/": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/_repo/$owner/$repo/designs/": typeof RepoOwnerRepoDesignsIndexRoute;
-  "/_repo/$owner/$repo/docs/": typeof RepoOwnerRepoDocsIndexRoute;
-  "/_repo/$owner/$repo/drafts/": typeof RepoOwnerRepoDraftsIndexRoute;
-  "/_repo/$owner/$repo/projects/": typeof RepoOwnerRepoProjectsIndexRoute;
-  "/_repo/$owner/$repo/quick-tasks/": typeof RepoOwnerRepoQuickTasksIndexRoute;
-  "/_repo/$owner/$repo/reviews/": typeof RepoOwnerRepoReviewsIndexRoute;
-  "/_repo/$owner/$repo/sessions/": typeof RepoOwnerRepoSessionsIndexRoute;
-  "/_repo/$owner/$repo/settings/": typeof RepoOwnerRepoSettingsIndexRoute;
-  "/_repo/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
-  "/_repo/$owner/$repo/projects/$numId/$taskNumId": typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/sessions/$numId/pr": typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
-  "/_repo/$owner/$repo/sessions/$numId/review": typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
-  "/_repo/$owner/$repo/automations/$numId/$automationTab": typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
-  "/_repo/$owner/$repo/docs/$numId/$docTab": typeof RepoOwnerRepoDocsNumIdDocTabRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab": typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
-  "/_repo/$owner/$repo/reviews/$prNumber/$reviewTab": typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute;
-  "/_repo/$owner/$repo/sessions/$numId/$sandboxTab": typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute;
-  "/_repo/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
-  "/_repo/$owner/$repo/settings/snapshots/$snapTab": typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute;
-  "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab": typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute;
-  "/_repo/$owner/$repo/automations/$numId/": typeof RepoOwnerRepoAutomationsNumIdIndexRoute;
-  "/_repo/$owner/$repo/docs/$numId/": typeof RepoOwnerRepoDocsNumIdIndexRoute;
-  "/_repo/$owner/$repo/projects/$numId/": typeof RepoOwnerRepoProjectsNumIdIndexRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/": typeof RepoOwnerRepoQuickTasksNumIdIndexRoute;
-  "/_repo/$owner/$repo/reviews/$prNumber/": typeof RepoOwnerRepoReviewsPrNumberIndexRoute;
-  "/_repo/$owner/$repo/sessions/$numId/": typeof RepoOwnerRepoSessionsNumIdIndexRoute;
-  "/_repo/$owner/$repo/settings/env-variables/": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
-  "/_repo/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
-  "/_repo/$owner/$repo/testing-arena/$numId/": typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review": typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren;
-  "/_repo/$owner/$repo/sessions/$numId/pr/diffs": typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren;
-  "/_repo/$owner/$repo/sessions/$numId/review/diffs": typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
-  "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab": typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
-  "/_repo/$owner/$repo/sessions/$numId/pr/recap": typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
-  "/_repo/$owner/$repo/sessions/$numId/review/recap": typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
-  "/_repo/$owner/$repo/projects/$numId/$taskNumId/": typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
-  "/_repo/$owner/$repo/sessions/$numId/pr/": typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
-  "/_repo/$owner/$repo/sessions/$numId/review/": typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review/recap": typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute;
-  "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
-  "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView": typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review/": typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute;
-  "/_repo/$owner/$repo/sessions/$numId/pr/diffs/": typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
-  "/_repo/$owner/$repo/sessions/$numId/review/diffs/": typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute;
-  "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/": typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute;
-  "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/": typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_global': typeof GlobalRouteWithChildren
+  '/_repo': typeof RepoRouteWithChildren
+  '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
+  '/_global/home': typeof GlobalHomeRoute
+  '/_global/inbox': typeof GlobalInboxRoute
+  '/_global/testing': typeof GlobalTestingRoute
+  '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  '/_global/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
+  '/_global/settings/accounts': typeof GlobalSettingsAccountsRoute
+  '/_global/settings/notifications': typeof GlobalSettingsNotificationsRoute
+  '/_global/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
+  '/_global/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/_global/settings/sync': typeof GlobalSettingsSyncRoute
+  '/_global/settings/theme': typeof GlobalSettingsThemeRoute
+  '/_global/setup/$id': typeof GlobalSetupIdRoute
+  '/_repo/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/_global/artifacts/': typeof GlobalArtifactsIndexRoute
+  '/_global/teams/': typeof GlobalTeamsIndexRoute
+  '/_repo/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren
+  '/_global/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
+  '/_repo/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
+  '/_repo/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/_global/teams/$teamId/': typeof GlobalTeamsTeamIdIndexRoute
+  '/_repo/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
+  '/_repo/$owner/$repo/automations/$numId': typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/docs/$numId': typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/projects/$numId': typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/quick-tasks/$numId': typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/reviews/$prNumber': typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren
+  '/_repo/$owner/$repo/sessions/$numId': typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/settings/snapshots': typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
+  '/_repo/$owner/$repo/testing-arena/$numId': typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/designs/$numId': typeof RepoOwnerRepoDesignsNumIdRoute
+  '/_repo/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
+  '/_repo/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
+  '/_repo/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
+  '/_repo/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
+  '/_repo/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
+  '/_repo/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
+  '/_repo/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/_repo/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
+  '/_repo/$owner/$repo/settings/tabs': typeof RepoOwnerRepoSettingsTabsRoute
+  '/_repo/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
+  '/_repo/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
+  '/_repo/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
+  '/_repo/$owner/$repo/docs/': typeof RepoOwnerRepoDocsIndexRoute
+  '/_repo/$owner/$repo/drafts/': typeof RepoOwnerRepoDraftsIndexRoute
+  '/_repo/$owner/$repo/projects/': typeof RepoOwnerRepoProjectsIndexRoute
+  '/_repo/$owner/$repo/quick-tasks/': typeof RepoOwnerRepoQuickTasksIndexRoute
+  '/_repo/$owner/$repo/reviews/': typeof RepoOwnerRepoReviewsIndexRoute
+  '/_repo/$owner/$repo/sessions/': typeof RepoOwnerRepoSessionsIndexRoute
+  '/_repo/$owner/$repo/settings/': typeof RepoOwnerRepoSettingsIndexRoute
+  '/_repo/$owner/$repo/testing-arena/': typeof RepoOwnerRepoTestingArenaIndexRoute
+  '/_repo/$owner/$repo/projects/$numId/$taskNumId': typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren
+  '/_repo/$owner/$repo/sessions/$numId/pr': typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren
+  '/_repo/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren
+  '/_repo/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
+  '/_repo/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
+  '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
+  '/_repo/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
+  '/_repo/$owner/$repo/settings/env-variables/$scope': typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute
+  '/_repo/$owner/$repo/settings/snapshots/$snapTab': typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute
+  '/_repo/$owner/$repo/testing-arena/$numId/$arenaTab': typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute
+  '/_repo/$owner/$repo/automations/$numId/': typeof RepoOwnerRepoAutomationsNumIdIndexRoute
+  '/_repo/$owner/$repo/docs/$numId/': typeof RepoOwnerRepoDocsNumIdIndexRoute
+  '/_repo/$owner/$repo/projects/$numId/': typeof RepoOwnerRepoProjectsNumIdIndexRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/': typeof RepoOwnerRepoQuickTasksNumIdIndexRoute
+  '/_repo/$owner/$repo/reviews/$prNumber/': typeof RepoOwnerRepoReviewsPrNumberIndexRoute
+  '/_repo/$owner/$repo/sessions/$numId/': typeof RepoOwnerRepoSessionsNumIdIndexRoute
+  '/_repo/$owner/$repo/settings/env-variables/': typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute
+  '/_repo/$owner/$repo/settings/snapshots/': typeof RepoOwnerRepoSettingsSnapshotsIndexRoute
+  '/_repo/$owner/$repo/testing-arena/$numId/': typeof RepoOwnerRepoTestingArenaNumIdIndexRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren
+  '/_repo/$owner/$repo/sessions/$numId/pr/diffs': typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren
+  '/_repo/$owner/$repo/sessions/$numId/review/diffs': typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren
+  '/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab': typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
+  '/_repo/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
+  '/_repo/$owner/$repo/projects/$numId/$taskNumId/': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
+  '/_repo/$owner/$repo/sessions/$numId/pr/': typeof RepoOwnerRepoSessionsNumIdPrIndexRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
+  '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/': typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute
+  '/_repo/$owner/$repo/sessions/$numId/pr/diffs/': typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/diffs/': typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/agent-callback"
-    | "/preview-auth"
-    | "/home"
-    | "/inbox"
-    | "/testing"
-    | "/teams/$teamId"
-    | "/artifacts/$artifactId"
-    | "/settings/accounts"
-    | "/settings/notifications"
-    | "/settings/personalisation"
-    | "/settings/sandboxes"
-    | "/settings/sync"
-    | "/settings/theme"
-    | "/setup/$id"
-    | "/$owner/$repo"
-    | "/mcp/oauth/authorize"
-    | "/artifacts/"
-    | "/teams/"
-    | "/$owner/$repo/quick-tasks"
-    | "/teams/$teamId/$teamTab"
-    | "/$owner/$repo/inbox"
-    | "/$owner/$repo/stats"
-    | "/teams/$teamId/"
-    | "/$owner/$repo/"
-    | "/$owner/$repo/automations/$numId"
-    | "/$owner/$repo/docs/$numId"
-    | "/$owner/$repo/projects/$numId"
-    | "/$owner/$repo/quick-tasks/$numId"
-    | "/$owner/$repo/reviews/$prNumber"
-    | "/$owner/$repo/sessions/$numId"
-    | "/$owner/$repo/settings/snapshots"
-    | "/$owner/$repo/testing-arena/$numId"
-    | "/$owner/$repo/designs/$numId"
-    | "/$owner/$repo/settings/app"
-    | "/$owner/$repo/settings/audits"
-    | "/$owner/$repo/settings/config"
-    | "/$owner/$repo/settings/logs"
-    | "/$owner/$repo/settings/mcp-config"
-    | "/$owner/$repo/settings/monorepo"
-    | "/$owner/$repo/settings/personalisation"
-    | "/$owner/$repo/settings/skills"
-    | "/$owner/$repo/settings/tabs"
-    | "/$owner/$repo/settings/theme"
-    | "/$owner/$repo/automations/"
-    | "/$owner/$repo/designs/"
-    | "/$owner/$repo/docs/"
-    | "/$owner/$repo/drafts/"
-    | "/$owner/$repo/projects/"
-    | "/$owner/$repo/quick-tasks/"
-    | "/$owner/$repo/reviews/"
-    | "/$owner/$repo/sessions/"
-    | "/$owner/$repo/settings/"
-    | "/$owner/$repo/testing-arena/"
-    | "/$owner/$repo/projects/$numId/$taskNumId"
-    | "/$owner/$repo/sessions/$numId/pr"
-    | "/$owner/$repo/sessions/$numId/review"
-    | "/$owner/$repo/automations/$numId/$automationTab"
-    | "/$owner/$repo/docs/$numId/$docTab"
-    | "/$owner/$repo/quick-tasks/$numId/$detailTab"
-    | "/$owner/$repo/reviews/$prNumber/$reviewTab"
-    | "/$owner/$repo/sessions/$numId/$sandboxTab"
-    | "/$owner/$repo/settings/env-variables/$scope"
-    | "/$owner/$repo/settings/snapshots/$snapTab"
-    | "/$owner/$repo/testing-arena/$numId/$arenaTab"
-    | "/$owner/$repo/automations/$numId/"
-    | "/$owner/$repo/docs/$numId/"
-    | "/$owner/$repo/projects/$numId/"
-    | "/$owner/$repo/quick-tasks/$numId/"
-    | "/$owner/$repo/reviews/$prNumber/"
-    | "/$owner/$repo/sessions/$numId/"
-    | "/$owner/$repo/settings/env-variables/"
-    | "/$owner/$repo/settings/snapshots/"
-    | "/$owner/$repo/testing-arena/$numId/"
-    | "/$owner/$repo/projects/$numId/sandbox/review"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review"
-    | "/$owner/$repo/sessions/$numId/pr/diffs"
-    | "/$owner/$repo/sessions/$numId/review/diffs"
-    | "/$owner/$repo/projects/$numId/$taskNumId/$detailTab"
-    | "/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
-    | "/$owner/$repo/sessions/$numId/pr/recap"
-    | "/$owner/$repo/sessions/$numId/review/recap"
-    | "/$owner/$repo/projects/$numId/$taskNumId/"
-    | "/$owner/$repo/sessions/$numId/pr/"
-    | "/$owner/$repo/sessions/$numId/review/"
-    | "/$owner/$repo/projects/$numId/sandbox/review/diffs"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs"
-    | "/$owner/$repo/projects/$numId/sandbox/review/recap"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap"
-    | "/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/$owner/$repo/sessions/$numId/review/diffs/$diffView"
-    | "/$owner/$repo/projects/$numId/sandbox/review/"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/"
-    | "/$owner/$repo/sessions/$numId/pr/diffs/"
-    | "/$owner/$repo/sessions/$numId/review/diffs/"
-    | "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView"
-    | "/$owner/$repo/projects/$numId/sandbox/review/diffs/"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/agent-callback'
+    | '/preview-auth'
+    | '/home'
+    | '/inbox'
+    | '/testing'
+    | '/teams/$teamId'
+    | '/artifacts/$artifactId'
+    | '/settings/accounts'
+    | '/settings/notifications'
+    | '/settings/personalisation'
+    | '/settings/sandboxes'
+    | '/settings/sync'
+    | '/settings/theme'
+    | '/setup/$id'
+    | '/$owner/$repo'
+    | '/mcp/oauth/authorize'
+    | '/artifacts/'
+    | '/teams/'
+    | '/$owner/$repo/quick-tasks'
+    | '/teams/$teamId/$teamTab'
+    | '/$owner/$repo/inbox'
+    | '/$owner/$repo/stats'
+    | '/teams/$teamId/'
+    | '/$owner/$repo/'
+    | '/$owner/$repo/automations/$numId'
+    | '/$owner/$repo/docs/$numId'
+    | '/$owner/$repo/projects/$numId'
+    | '/$owner/$repo/quick-tasks/$numId'
+    | '/$owner/$repo/reviews/$prNumber'
+    | '/$owner/$repo/sessions/$numId'
+    | '/$owner/$repo/settings/snapshots'
+    | '/$owner/$repo/testing-arena/$numId'
+    | '/$owner/$repo/designs/$numId'
+    | '/$owner/$repo/settings/app'
+    | '/$owner/$repo/settings/audits'
+    | '/$owner/$repo/settings/config'
+    | '/$owner/$repo/settings/logs'
+    | '/$owner/$repo/settings/mcp-config'
+    | '/$owner/$repo/settings/monorepo'
+    | '/$owner/$repo/settings/personalisation'
+    | '/$owner/$repo/settings/skills'
+    | '/$owner/$repo/settings/tabs'
+    | '/$owner/$repo/settings/theme'
+    | '/$owner/$repo/automations/'
+    | '/$owner/$repo/designs/'
+    | '/$owner/$repo/docs/'
+    | '/$owner/$repo/drafts/'
+    | '/$owner/$repo/projects/'
+    | '/$owner/$repo/quick-tasks/'
+    | '/$owner/$repo/reviews/'
+    | '/$owner/$repo/sessions/'
+    | '/$owner/$repo/settings/'
+    | '/$owner/$repo/testing-arena/'
+    | '/$owner/$repo/projects/$numId/$taskNumId'
+    | '/$owner/$repo/sessions/$numId/pr'
+    | '/$owner/$repo/sessions/$numId/review'
+    | '/$owner/$repo/automations/$numId/$automationTab'
+    | '/$owner/$repo/docs/$numId/$docTab'
+    | '/$owner/$repo/quick-tasks/$numId/$detailTab'
+    | '/$owner/$repo/reviews/$prNumber/$reviewTab'
+    | '/$owner/$repo/sessions/$numId/$sandboxTab'
+    | '/$owner/$repo/settings/env-variables/$scope'
+    | '/$owner/$repo/settings/snapshots/$snapTab'
+    | '/$owner/$repo/testing-arena/$numId/$arenaTab'
+    | '/$owner/$repo/automations/$numId/'
+    | '/$owner/$repo/docs/$numId/'
+    | '/$owner/$repo/projects/$numId/'
+    | '/$owner/$repo/quick-tasks/$numId/'
+    | '/$owner/$repo/reviews/$prNumber/'
+    | '/$owner/$repo/sessions/$numId/'
+    | '/$owner/$repo/settings/env-variables/'
+    | '/$owner/$repo/settings/snapshots/'
+    | '/$owner/$repo/testing-arena/$numId/'
+    | '/$owner/$repo/projects/$numId/sandbox/review'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review'
+    | '/$owner/$repo/sessions/$numId/pr/diffs'
+    | '/$owner/$repo/sessions/$numId/review/diffs'
+    | '/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+    | '/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+    | '/$owner/$repo/sessions/$numId/pr/recap'
+    | '/$owner/$repo/sessions/$numId/review/recap'
+    | '/$owner/$repo/projects/$numId/$taskNumId/'
+    | '/$owner/$repo/sessions/$numId/pr/'
+    | '/$owner/$repo/sessions/$numId/review/'
+    | '/$owner/$repo/projects/$numId/sandbox/review/diffs'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+    | '/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+    | '/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+    | '/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+    | '/$owner/$repo/projects/$numId/sandbox/review/'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/'
+    | '/$owner/$repo/sessions/$numId/pr/diffs/'
+    | '/$owner/$repo/sessions/$numId/review/diffs/'
+    | '/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+    | '/$owner/$repo/projects/$numId/sandbox/review/diffs/'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/agent-callback"
-    | "/preview-auth"
-    | "/home"
-    | "/inbox"
-    | "/testing"
-    | "/artifacts/$artifactId"
-    | "/settings/accounts"
-    | "/settings/notifications"
-    | "/settings/personalisation"
-    | "/settings/sandboxes"
-    | "/settings/sync"
-    | "/settings/theme"
-    | "/setup/$id"
-    | "/mcp/oauth/authorize"
-    | "/artifacts"
-    | "/teams"
-    | "/teams/$teamId/$teamTab"
-    | "/$owner/$repo/inbox"
-    | "/$owner/$repo/stats"
-    | "/teams/$teamId"
-    | "/$owner/$repo"
-    | "/$owner/$repo/designs/$numId"
-    | "/$owner/$repo/settings/app"
-    | "/$owner/$repo/settings/audits"
-    | "/$owner/$repo/settings/config"
-    | "/$owner/$repo/settings/logs"
-    | "/$owner/$repo/settings/mcp-config"
-    | "/$owner/$repo/settings/monorepo"
-    | "/$owner/$repo/settings/personalisation"
-    | "/$owner/$repo/settings/skills"
-    | "/$owner/$repo/settings/tabs"
-    | "/$owner/$repo/settings/theme"
-    | "/$owner/$repo/automations"
-    | "/$owner/$repo/designs"
-    | "/$owner/$repo/docs"
-    | "/$owner/$repo/drafts"
-    | "/$owner/$repo/projects"
-    | "/$owner/$repo/quick-tasks"
-    | "/$owner/$repo/reviews"
-    | "/$owner/$repo/sessions"
-    | "/$owner/$repo/settings"
-    | "/$owner/$repo/testing-arena"
-    | "/$owner/$repo/automations/$numId/$automationTab"
-    | "/$owner/$repo/docs/$numId/$docTab"
-    | "/$owner/$repo/quick-tasks/$numId/$detailTab"
-    | "/$owner/$repo/reviews/$prNumber/$reviewTab"
-    | "/$owner/$repo/sessions/$numId/$sandboxTab"
-    | "/$owner/$repo/settings/env-variables/$scope"
-    | "/$owner/$repo/settings/snapshots/$snapTab"
-    | "/$owner/$repo/testing-arena/$numId/$arenaTab"
-    | "/$owner/$repo/automations/$numId"
-    | "/$owner/$repo/docs/$numId"
-    | "/$owner/$repo/projects/$numId"
-    | "/$owner/$repo/quick-tasks/$numId"
-    | "/$owner/$repo/reviews/$prNumber"
-    | "/$owner/$repo/sessions/$numId"
-    | "/$owner/$repo/settings/env-variables"
-    | "/$owner/$repo/settings/snapshots"
-    | "/$owner/$repo/testing-arena/$numId"
-    | "/$owner/$repo/projects/$numId/$taskNumId/$detailTab"
-    | "/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
-    | "/$owner/$repo/sessions/$numId/pr/recap"
-    | "/$owner/$repo/sessions/$numId/review/recap"
-    | "/$owner/$repo/projects/$numId/$taskNumId"
-    | "/$owner/$repo/sessions/$numId/pr"
-    | "/$owner/$repo/sessions/$numId/review"
-    | "/$owner/$repo/projects/$numId/sandbox/review/recap"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap"
-    | "/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/$owner/$repo/sessions/$numId/review/diffs/$diffView"
-    | "/$owner/$repo/projects/$numId/sandbox/review"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review"
-    | "/$owner/$repo/sessions/$numId/pr/diffs"
-    | "/$owner/$repo/sessions/$numId/review/diffs"
-    | "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView"
-    | "/$owner/$repo/projects/$numId/sandbox/review/diffs"
-    | "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs";
+    | '/'
+    | '/agent-callback'
+    | '/preview-auth'
+    | '/home'
+    | '/inbox'
+    | '/testing'
+    | '/artifacts/$artifactId'
+    | '/settings/accounts'
+    | '/settings/notifications'
+    | '/settings/personalisation'
+    | '/settings/sandboxes'
+    | '/settings/sync'
+    | '/settings/theme'
+    | '/setup/$id'
+    | '/mcp/oauth/authorize'
+    | '/artifacts'
+    | '/teams'
+    | '/teams/$teamId/$teamTab'
+    | '/$owner/$repo/inbox'
+    | '/$owner/$repo/stats'
+    | '/teams/$teamId'
+    | '/$owner/$repo'
+    | '/$owner/$repo/designs/$numId'
+    | '/$owner/$repo/settings/app'
+    | '/$owner/$repo/settings/audits'
+    | '/$owner/$repo/settings/config'
+    | '/$owner/$repo/settings/logs'
+    | '/$owner/$repo/settings/mcp-config'
+    | '/$owner/$repo/settings/monorepo'
+    | '/$owner/$repo/settings/personalisation'
+    | '/$owner/$repo/settings/skills'
+    | '/$owner/$repo/settings/tabs'
+    | '/$owner/$repo/settings/theme'
+    | '/$owner/$repo/automations'
+    | '/$owner/$repo/designs'
+    | '/$owner/$repo/docs'
+    | '/$owner/$repo/drafts'
+    | '/$owner/$repo/projects'
+    | '/$owner/$repo/quick-tasks'
+    | '/$owner/$repo/reviews'
+    | '/$owner/$repo/sessions'
+    | '/$owner/$repo/settings'
+    | '/$owner/$repo/testing-arena'
+    | '/$owner/$repo/automations/$numId/$automationTab'
+    | '/$owner/$repo/docs/$numId/$docTab'
+    | '/$owner/$repo/quick-tasks/$numId/$detailTab'
+    | '/$owner/$repo/reviews/$prNumber/$reviewTab'
+    | '/$owner/$repo/sessions/$numId/$sandboxTab'
+    | '/$owner/$repo/settings/env-variables/$scope'
+    | '/$owner/$repo/settings/snapshots/$snapTab'
+    | '/$owner/$repo/testing-arena/$numId/$arenaTab'
+    | '/$owner/$repo/automations/$numId'
+    | '/$owner/$repo/docs/$numId'
+    | '/$owner/$repo/projects/$numId'
+    | '/$owner/$repo/quick-tasks/$numId'
+    | '/$owner/$repo/reviews/$prNumber'
+    | '/$owner/$repo/sessions/$numId'
+    | '/$owner/$repo/settings/env-variables'
+    | '/$owner/$repo/settings/snapshots'
+    | '/$owner/$repo/testing-arena/$numId'
+    | '/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+    | '/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+    | '/$owner/$repo/sessions/$numId/pr/recap'
+    | '/$owner/$repo/sessions/$numId/review/recap'
+    | '/$owner/$repo/projects/$numId/$taskNumId'
+    | '/$owner/$repo/sessions/$numId/pr'
+    | '/$owner/$repo/sessions/$numId/review'
+    | '/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+    | '/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+    | '/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+    | '/$owner/$repo/projects/$numId/sandbox/review'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review'
+    | '/$owner/$repo/sessions/$numId/pr/diffs'
+    | '/$owner/$repo/sessions/$numId/review/diffs'
+    | '/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+    | '/$owner/$repo/projects/$numId/sandbox/review/diffs'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
   id:
-    | "__root__"
-    | "/"
-    | "/_global"
-    | "/_repo"
-    | "/agent-callback"
-    | "/preview-auth"
-    | "/_global/home"
-    | "/_global/inbox"
-    | "/_global/testing"
-    | "/_global/teams/$teamId"
-    | "/_global/artifacts/$artifactId"
-    | "/_global/settings/accounts"
-    | "/_global/settings/notifications"
-    | "/_global/settings/personalisation"
-    | "/_global/settings/sandboxes"
-    | "/_global/settings/sync"
-    | "/_global/settings/theme"
-    | "/_global/setup/$id"
-    | "/_repo/$owner/$repo"
-    | "/mcp/oauth/authorize"
-    | "/_global/artifacts/"
-    | "/_global/teams/"
-    | "/_repo/$owner/$repo/quick-tasks"
-    | "/_global/teams/$teamId/$teamTab"
-    | "/_repo/$owner/$repo/inbox"
-    | "/_repo/$owner/$repo/stats"
-    | "/_global/teams/$teamId/"
-    | "/_repo/$owner/$repo/"
-    | "/_repo/$owner/$repo/automations/$numId"
-    | "/_repo/$owner/$repo/docs/$numId"
-    | "/_repo/$owner/$repo/projects/$numId"
-    | "/_repo/$owner/$repo/quick-tasks/$numId"
-    | "/_repo/$owner/$repo/reviews/$prNumber"
-    | "/_repo/$owner/$repo/sessions/$numId"
-    | "/_repo/$owner/$repo/settings/snapshots"
-    | "/_repo/$owner/$repo/testing-arena/$numId"
-    | "/_repo/$owner/$repo/designs/$numId"
-    | "/_repo/$owner/$repo/settings/app"
-    | "/_repo/$owner/$repo/settings/audits"
-    | "/_repo/$owner/$repo/settings/config"
-    | "/_repo/$owner/$repo/settings/logs"
-    | "/_repo/$owner/$repo/settings/mcp-config"
-    | "/_repo/$owner/$repo/settings/monorepo"
-    | "/_repo/$owner/$repo/settings/personalisation"
-    | "/_repo/$owner/$repo/settings/skills"
-    | "/_repo/$owner/$repo/settings/tabs"
-    | "/_repo/$owner/$repo/settings/theme"
-    | "/_repo/$owner/$repo/automations/"
-    | "/_repo/$owner/$repo/designs/"
-    | "/_repo/$owner/$repo/docs/"
-    | "/_repo/$owner/$repo/drafts/"
-    | "/_repo/$owner/$repo/projects/"
-    | "/_repo/$owner/$repo/quick-tasks/"
-    | "/_repo/$owner/$repo/reviews/"
-    | "/_repo/$owner/$repo/sessions/"
-    | "/_repo/$owner/$repo/settings/"
-    | "/_repo/$owner/$repo/testing-arena/"
-    | "/_repo/$owner/$repo/projects/$numId/$taskNumId"
-    | "/_repo/$owner/$repo/sessions/$numId/pr"
-    | "/_repo/$owner/$repo/sessions/$numId/review"
-    | "/_repo/$owner/$repo/automations/$numId/$automationTab"
-    | "/_repo/$owner/$repo/docs/$numId/$docTab"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab"
-    | "/_repo/$owner/$repo/reviews/$prNumber/$reviewTab"
-    | "/_repo/$owner/$repo/sessions/$numId/$sandboxTab"
-    | "/_repo/$owner/$repo/settings/env-variables/$scope"
-    | "/_repo/$owner/$repo/settings/snapshots/$snapTab"
-    | "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab"
-    | "/_repo/$owner/$repo/automations/$numId/"
-    | "/_repo/$owner/$repo/docs/$numId/"
-    | "/_repo/$owner/$repo/projects/$numId/"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/"
-    | "/_repo/$owner/$repo/reviews/$prNumber/"
-    | "/_repo/$owner/$repo/sessions/$numId/"
-    | "/_repo/$owner/$repo/settings/env-variables/"
-    | "/_repo/$owner/$repo/settings/snapshots/"
-    | "/_repo/$owner/$repo/testing-arena/$numId/"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/diffs"
-    | "/_repo/$owner/$repo/sessions/$numId/review/diffs"
-    | "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/recap"
-    | "/_repo/$owner/$repo/sessions/$numId/review/recap"
-    | "/_repo/$owner/$repo/projects/$numId/$taskNumId/"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/"
-    | "/_repo/$owner/$repo/sessions/$numId/review/"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review/recap"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView"
-    | "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review/"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/"
-    | "/_repo/$owner/$repo/sessions/$numId/pr/diffs/"
-    | "/_repo/$owner/$repo/sessions/$numId/review/diffs/"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView"
-    | "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/"
-    | "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/_global'
+    | '/_repo'
+    | '/agent-callback'
+    | '/preview-auth'
+    | '/_global/home'
+    | '/_global/inbox'
+    | '/_global/testing'
+    | '/_global/teams/$teamId'
+    | '/_global/artifacts/$artifactId'
+    | '/_global/settings/accounts'
+    | '/_global/settings/notifications'
+    | '/_global/settings/personalisation'
+    | '/_global/settings/sandboxes'
+    | '/_global/settings/sync'
+    | '/_global/settings/theme'
+    | '/_global/setup/$id'
+    | '/_repo/$owner/$repo'
+    | '/mcp/oauth/authorize'
+    | '/_global/artifacts/'
+    | '/_global/teams/'
+    | '/_repo/$owner/$repo/quick-tasks'
+    | '/_global/teams/$teamId/$teamTab'
+    | '/_repo/$owner/$repo/inbox'
+    | '/_repo/$owner/$repo/stats'
+    | '/_global/teams/$teamId/'
+    | '/_repo/$owner/$repo/'
+    | '/_repo/$owner/$repo/automations/$numId'
+    | '/_repo/$owner/$repo/docs/$numId'
+    | '/_repo/$owner/$repo/projects/$numId'
+    | '/_repo/$owner/$repo/quick-tasks/$numId'
+    | '/_repo/$owner/$repo/reviews/$prNumber'
+    | '/_repo/$owner/$repo/sessions/$numId'
+    | '/_repo/$owner/$repo/settings/snapshots'
+    | '/_repo/$owner/$repo/testing-arena/$numId'
+    | '/_repo/$owner/$repo/designs/$numId'
+    | '/_repo/$owner/$repo/settings/app'
+    | '/_repo/$owner/$repo/settings/audits'
+    | '/_repo/$owner/$repo/settings/config'
+    | '/_repo/$owner/$repo/settings/logs'
+    | '/_repo/$owner/$repo/settings/mcp-config'
+    | '/_repo/$owner/$repo/settings/monorepo'
+    | '/_repo/$owner/$repo/settings/personalisation'
+    | '/_repo/$owner/$repo/settings/skills'
+    | '/_repo/$owner/$repo/settings/tabs'
+    | '/_repo/$owner/$repo/settings/theme'
+    | '/_repo/$owner/$repo/automations/'
+    | '/_repo/$owner/$repo/designs/'
+    | '/_repo/$owner/$repo/docs/'
+    | '/_repo/$owner/$repo/drafts/'
+    | '/_repo/$owner/$repo/projects/'
+    | '/_repo/$owner/$repo/quick-tasks/'
+    | '/_repo/$owner/$repo/reviews/'
+    | '/_repo/$owner/$repo/sessions/'
+    | '/_repo/$owner/$repo/settings/'
+    | '/_repo/$owner/$repo/testing-arena/'
+    | '/_repo/$owner/$repo/projects/$numId/$taskNumId'
+    | '/_repo/$owner/$repo/sessions/$numId/pr'
+    | '/_repo/$owner/$repo/sessions/$numId/review'
+    | '/_repo/$owner/$repo/automations/$numId/$automationTab'
+    | '/_repo/$owner/$repo/docs/$numId/$docTab'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab'
+    | '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab'
+    | '/_repo/$owner/$repo/sessions/$numId/$sandboxTab'
+    | '/_repo/$owner/$repo/settings/env-variables/$scope'
+    | '/_repo/$owner/$repo/settings/snapshots/$snapTab'
+    | '/_repo/$owner/$repo/testing-arena/$numId/$arenaTab'
+    | '/_repo/$owner/$repo/automations/$numId/'
+    | '/_repo/$owner/$repo/docs/$numId/'
+    | '/_repo/$owner/$repo/projects/$numId/'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/'
+    | '/_repo/$owner/$repo/reviews/$prNumber/'
+    | '/_repo/$owner/$repo/sessions/$numId/'
+    | '/_repo/$owner/$repo/settings/env-variables/'
+    | '/_repo/$owner/$repo/settings/snapshots/'
+    | '/_repo/$owner/$repo/testing-arena/$numId/'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review'
+    | '/_repo/$owner/$repo/sessions/$numId/pr/diffs'
+    | '/_repo/$owner/$repo/sessions/$numId/review/diffs'
+    | '/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+    | '/_repo/$owner/$repo/sessions/$numId/pr/recap'
+    | '/_repo/$owner/$repo/sessions/$numId/review/recap'
+    | '/_repo/$owner/$repo/projects/$numId/$taskNumId/'
+    | '/_repo/$owner/$repo/sessions/$numId/pr/'
+    | '/_repo/$owner/$repo/sessions/$numId/review/'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+    | '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+    | '/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/'
+    | '/_repo/$owner/$repo/sessions/$numId/pr/diffs/'
+    | '/_repo/$owner/$repo/sessions/$numId/review/diffs/'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  GlobalRoute: typeof GlobalRouteWithChildren;
-  RepoRoute: typeof RepoRouteWithChildren;
-  AgentCallbackRoute: typeof AgentCallbackRoute;
-  PreviewAuthRoute: typeof PreviewAuthRoute;
-  McpOauthAuthorizeRoute: typeof McpOauthAuthorizeRoute;
+  IndexRoute: typeof IndexRoute
+  GlobalRoute: typeof GlobalRouteWithChildren
+  RepoRoute: typeof RepoRouteWithChildren
+  AgentCallbackRoute: typeof AgentCallbackRoute
+  PreviewAuthRoute: typeof PreviewAuthRoute
+  McpOauthAuthorizeRoute: typeof McpOauthAuthorizeRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/preview-auth": {
-      id: "/preview-auth";
-      path: "/preview-auth";
-      fullPath: "/preview-auth";
-      preLoaderRoute: typeof PreviewAuthRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/agent-callback": {
-      id: "/agent-callback";
-      path: "/agent-callback";
-      fullPath: "/agent-callback";
-      preLoaderRoute: typeof AgentCallbackRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_repo": {
-      id: "/_repo";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof RepoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_global": {
-      id: "/_global";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof GlobalRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_global/testing": {
-      id: "/_global/testing";
-      path: "/testing";
-      fullPath: "/testing";
-      preLoaderRoute: typeof GlobalTestingRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/inbox": {
-      id: "/_global/inbox";
-      path: "/inbox";
-      fullPath: "/inbox";
-      preLoaderRoute: typeof GlobalInboxRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/home": {
-      id: "/_global/home";
-      path: "/home";
-      fullPath: "/home";
-      preLoaderRoute: typeof GlobalHomeRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/teams/": {
-      id: "/_global/teams/";
-      path: "/teams";
-      fullPath: "/teams/";
-      preLoaderRoute: typeof GlobalTeamsIndexRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/artifacts/": {
-      id: "/_global/artifacts/";
-      path: "/artifacts";
-      fullPath: "/artifacts/";
-      preLoaderRoute: typeof GlobalArtifactsIndexRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/mcp/oauth/authorize": {
-      id: "/mcp/oauth/authorize";
-      path: "/mcp/oauth/authorize";
-      fullPath: "/mcp/oauth/authorize";
-      preLoaderRoute: typeof McpOauthAuthorizeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_repo/$owner/$repo": {
-      id: "/_repo/$owner/$repo";
-      path: "/$owner/$repo";
-      fullPath: "/$owner/$repo";
-      preLoaderRoute: typeof RepoOwnerRepoRouteImport;
-      parentRoute: typeof RepoRoute;
-    };
-    "/_global/setup/$id": {
-      id: "/_global/setup/$id";
-      path: "/setup/$id";
-      fullPath: "/setup/$id";
-      preLoaderRoute: typeof GlobalSetupIdRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/theme": {
-      id: "/_global/settings/theme";
-      path: "/settings/theme";
-      fullPath: "/settings/theme";
-      preLoaderRoute: typeof GlobalSettingsThemeRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/sync": {
-      id: "/_global/settings/sync";
-      path: "/settings/sync";
-      fullPath: "/settings/sync";
-      preLoaderRoute: typeof GlobalSettingsSyncRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/sandboxes": {
-      id: "/_global/settings/sandboxes";
-      path: "/settings/sandboxes";
-      fullPath: "/settings/sandboxes";
-      preLoaderRoute: typeof GlobalSettingsSandboxesRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/personalisation": {
-      id: "/_global/settings/personalisation";
-      path: "/settings/personalisation";
-      fullPath: "/settings/personalisation";
-      preLoaderRoute: typeof GlobalSettingsPersonalisationRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/notifications": {
-      id: "/_global/settings/notifications";
-      path: "/settings/notifications";
-      fullPath: "/settings/notifications";
-      preLoaderRoute: typeof GlobalSettingsNotificationsRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/settings/accounts": {
-      id: "/_global/settings/accounts";
-      path: "/settings/accounts";
-      fullPath: "/settings/accounts";
-      preLoaderRoute: typeof GlobalSettingsAccountsRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/artifacts/$artifactId": {
-      id: "/_global/artifacts/$artifactId";
-      path: "/artifacts/$artifactId";
-      fullPath: "/artifacts/$artifactId";
-      preLoaderRoute: typeof GlobalArtifactsArtifactIdRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_global/teams/$teamId": {
-      id: "/_global/teams/$teamId";
-      path: "/teams/$teamId";
-      fullPath: "/teams/$teamId";
-      preLoaderRoute: typeof GlobalTeamsTeamIdRouteRouteImport;
-      parentRoute: typeof GlobalRoute;
-    };
-    "/_repo/$owner/$repo/": {
-      id: "/_repo/$owner/$repo/";
-      path: "/";
-      fullPath: "/$owner/$repo/";
-      preLoaderRoute: typeof RepoOwnerRepoIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_global/teams/$teamId/": {
-      id: "/_global/teams/$teamId/";
-      path: "/";
-      fullPath: "/teams/$teamId/";
-      preLoaderRoute: typeof GlobalTeamsTeamIdIndexRouteImport;
-      parentRoute: typeof GlobalTeamsTeamIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/stats": {
-      id: "/_repo/$owner/$repo/stats";
-      path: "/stats";
-      fullPath: "/$owner/$repo/stats";
-      preLoaderRoute: typeof RepoOwnerRepoStatsRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/inbox": {
-      id: "/_repo/$owner/$repo/inbox";
-      path: "/inbox";
-      fullPath: "/$owner/$repo/inbox";
-      preLoaderRoute: typeof RepoOwnerRepoInboxRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_global/teams/$teamId/$teamTab": {
-      id: "/_global/teams/$teamId/$teamTab";
-      path: "/$teamTab";
-      fullPath: "/teams/$teamId/$teamTab";
-      preLoaderRoute: typeof GlobalTeamsTeamIdTeamTabRouteImport;
-      parentRoute: typeof GlobalTeamsTeamIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks": {
-      id: "/_repo/$owner/$repo/quick-tasks";
-      path: "/quick-tasks";
-      fullPath: "/$owner/$repo/quick-tasks";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/testing-arena/": {
-      id: "/_repo/$owner/$repo/testing-arena/";
-      path: "/testing-arena";
-      fullPath: "/$owner/$repo/testing-arena/";
-      preLoaderRoute: typeof RepoOwnerRepoTestingArenaIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/": {
-      id: "/_repo/$owner/$repo/settings/";
-      path: "/settings";
-      fullPath: "/$owner/$repo/settings/";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/sessions/": {
-      id: "/_repo/$owner/$repo/sessions/";
-      path: "/sessions";
-      fullPath: "/$owner/$repo/sessions/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/reviews/": {
-      id: "/_repo/$owner/$repo/reviews/";
-      path: "/reviews";
-      fullPath: "/$owner/$repo/reviews/";
-      preLoaderRoute: typeof RepoOwnerRepoReviewsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/": {
-      id: "/_repo/$owner/$repo/quick-tasks/";
-      path: "/";
-      fullPath: "/$owner/$repo/quick-tasks/";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/": {
-      id: "/_repo/$owner/$repo/projects/";
-      path: "/projects";
-      fullPath: "/$owner/$repo/projects/";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/drafts/": {
-      id: "/_repo/$owner/$repo/drafts/";
-      path: "/drafts";
-      fullPath: "/$owner/$repo/drafts/";
-      preLoaderRoute: typeof RepoOwnerRepoDraftsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/docs/": {
-      id: "/_repo/$owner/$repo/docs/";
-      path: "/docs";
-      fullPath: "/$owner/$repo/docs/";
-      preLoaderRoute: typeof RepoOwnerRepoDocsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/designs/": {
-      id: "/_repo/$owner/$repo/designs/";
-      path: "/designs";
-      fullPath: "/$owner/$repo/designs/";
-      preLoaderRoute: typeof RepoOwnerRepoDesignsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/automations/": {
-      id: "/_repo/$owner/$repo/automations/";
-      path: "/automations";
-      fullPath: "/$owner/$repo/automations/";
-      preLoaderRoute: typeof RepoOwnerRepoAutomationsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/theme": {
-      id: "/_repo/$owner/$repo/settings/theme";
-      path: "/settings/theme";
-      fullPath: "/$owner/$repo/settings/theme";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsThemeRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/tabs": {
-      id: "/_repo/$owner/$repo/settings/tabs";
-      path: "/settings/tabs";
-      fullPath: "/$owner/$repo/settings/tabs";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsTabsRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/skills": {
-      id: "/_repo/$owner/$repo/settings/skills";
-      path: "/settings/skills";
-      fullPath: "/$owner/$repo/settings/skills";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsSkillsRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/personalisation": {
-      id: "/_repo/$owner/$repo/settings/personalisation";
-      path: "/settings/personalisation";
-      fullPath: "/$owner/$repo/settings/personalisation";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsPersonalisationRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/monorepo": {
-      id: "/_repo/$owner/$repo/settings/monorepo";
-      path: "/settings/monorepo";
-      fullPath: "/$owner/$repo/settings/monorepo";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsMonorepoRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/mcp-config": {
-      id: "/_repo/$owner/$repo/settings/mcp-config";
-      path: "/settings/mcp-config";
-      fullPath: "/$owner/$repo/settings/mcp-config";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsMcpConfigRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/logs": {
-      id: "/_repo/$owner/$repo/settings/logs";
-      path: "/settings/logs";
-      fullPath: "/$owner/$repo/settings/logs";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsLogsRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/config": {
-      id: "/_repo/$owner/$repo/settings/config";
-      path: "/settings/config";
-      fullPath: "/$owner/$repo/settings/config";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsConfigRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/audits": {
-      id: "/_repo/$owner/$repo/settings/audits";
-      path: "/settings/audits";
-      fullPath: "/$owner/$repo/settings/audits";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsAuditsRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/app": {
-      id: "/_repo/$owner/$repo/settings/app";
-      path: "/settings/app";
-      fullPath: "/$owner/$repo/settings/app";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsAppRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/designs/$numId": {
-      id: "/_repo/$owner/$repo/designs/$numId";
-      path: "/designs/$numId";
-      fullPath: "/$owner/$repo/designs/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoDesignsNumIdRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/testing-arena/$numId": {
-      id: "/_repo/$owner/$repo/testing-arena/$numId";
-      path: "/testing-arena/$numId";
-      fullPath: "/$owner/$repo/testing-arena/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/settings/snapshots": {
-      id: "/_repo/$owner/$repo/settings/snapshots";
-      path: "/settings/snapshots";
-      fullPath: "/$owner/$repo/settings/snapshots";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId": {
-      id: "/_repo/$owner/$repo/sessions/$numId";
-      path: "/sessions/$numId";
-      fullPath: "/$owner/$repo/sessions/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/reviews/$prNumber": {
-      id: "/_repo/$owner/$repo/reviews/$prNumber";
-      path: "/reviews/$prNumber";
-      fullPath: "/$owner/$repo/reviews/$prNumber";
-      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId";
-      path: "/$numId";
-      fullPath: "/$owner/$repo/quick-tasks/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId": {
-      id: "/_repo/$owner/$repo/projects/$numId";
-      path: "/projects/$numId";
-      fullPath: "/$owner/$repo/projects/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/docs/$numId": {
-      id: "/_repo/$owner/$repo/docs/$numId";
-      path: "/docs/$numId";
-      fullPath: "/$owner/$repo/docs/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/automations/$numId": {
-      id: "/_repo/$owner/$repo/automations/$numId";
-      path: "/automations/$numId";
-      fullPath: "/$owner/$repo/automations/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/testing-arena/$numId/": {
-      id: "/_repo/$owner/$repo/testing-arena/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/testing-arena/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/settings/snapshots/": {
-      id: "/_repo/$owner/$repo/settings/snapshots/";
-      path: "/";
-      fullPath: "/$owner/$repo/settings/snapshots/";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRoute;
-    };
-    "/_repo/$owner/$repo/settings/env-variables/": {
-      id: "/_repo/$owner/$repo/settings/env-variables/";
-      path: "/settings/env-variables";
-      fullPath: "/$owner/$repo/settings/env-variables/";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsEnvVariablesIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/": {
-      id: "/_repo/$owner/$repo/sessions/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/sessions/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/reviews/$prNumber/": {
-      id: "/_repo/$owner/$repo/reviews/$prNumber/";
-      path: "/";
-      fullPath: "/$owner/$repo/reviews/$prNumber/";
-      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/": {
-      id: "/_repo/$owner/$repo/projects/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/projects/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/docs/$numId/": {
-      id: "/_repo/$owner/$repo/docs/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/docs/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoDocsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/automations/$numId/": {
-      id: "/_repo/$owner/$repo/automations/$numId/";
-      path: "/";
-      fullPath: "/$owner/$repo/automations/$numId/";
-      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab": {
-      id: "/_repo/$owner/$repo/testing-arena/$numId/$arenaTab";
-      path: "/$arenaTab";
-      fullPath: "/$owner/$repo/testing-arena/$numId/$arenaTab";
-      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdArenaTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/settings/snapshots/$snapTab": {
-      id: "/_repo/$owner/$repo/settings/snapshots/$snapTab";
-      path: "/$snapTab";
-      fullPath: "/$owner/$repo/settings/snapshots/$snapTab";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRoute;
-    };
-    "/_repo/$owner/$repo/settings/env-variables/$scope": {
-      id: "/_repo/$owner/$repo/settings/env-variables/$scope";
-      path: "/settings/env-variables/$scope";
-      fullPath: "/$owner/$repo/settings/env-variables/$scope";
-      preLoaderRoute: typeof RepoOwnerRepoSettingsEnvVariablesScopeRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/$sandboxTab": {
-      id: "/_repo/$owner/$repo/sessions/$numId/$sandboxTab";
-      path: "/$sandboxTab";
-      fullPath: "/$owner/$repo/sessions/$numId/$sandboxTab";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdSandboxTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/reviews/$prNumber/$reviewTab": {
-      id: "/_repo/$owner/$repo/reviews/$prNumber/$reviewTab";
-      path: "/$reviewTab";
-      fullPath: "/$owner/$repo/reviews/$prNumber/$reviewTab";
-      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberReviewTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/$detailTab";
-      path: "/$detailTab";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/$detailTab";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/docs/$numId/$docTab": {
-      id: "/_repo/$owner/$repo/docs/$numId/$docTab";
-      path: "/$docTab";
-      fullPath: "/$owner/$repo/docs/$numId/$docTab";
-      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdDocTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoDocsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/automations/$numId/$automationTab": {
-      id: "/_repo/$owner/$repo/automations/$numId/$automationTab";
-      path: "/$automationTab";
-      fullPath: "/$owner/$repo/automations/$numId/$automationTab";
-      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review";
-      path: "/review";
-      fullPath: "/$owner/$repo/sessions/$numId/review";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr";
-      path: "/pr";
-      fullPath: "/$owner/$repo/sessions/$numId/pr";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/$taskNumId": {
-      id: "/_repo/$owner/$repo/projects/$numId/$taskNumId";
-      path: "/$taskNumId";
-      fullPath: "/$owner/$repo/projects/$numId/$taskNumId";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review/": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review/";
-      path: "/";
-      fullPath: "/$owner/$repo/sessions/$numId/review/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr/": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr/";
-      path: "/";
-      fullPath: "/$owner/$repo/sessions/$numId/pr/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/$taskNumId/": {
-      id: "/_repo/$owner/$repo/projects/$numId/$taskNumId/";
-      path: "/";
-      fullPath: "/$owner/$repo/projects/$numId/$taskNumId/";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review/recap": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review/recap";
-      path: "/recap";
-      fullPath: "/$owner/$repo/sessions/$numId/review/recap";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr/recap": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr/recap";
-      path: "/recap";
-      fullPath: "/$owner/$repo/sessions/$numId/pr/recap";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRecapRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab";
-      path: "/sandbox/$sandboxTab";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab";
-      path: "/sandbox/$sandboxTab";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/$sandboxTab";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab": {
-      id: "/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab";
-      path: "/$detailTab";
-      fullPath: "/$owner/$repo/projects/$numId/$taskNumId/$detailTab";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review/diffs": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs";
-      path: "/diffs";
-      fullPath: "/$owner/$repo/sessions/$numId/review/diffs";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr/diffs": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr/diffs";
-      path: "/diffs";
-      fullPath: "/$owner/$repo/sessions/$numId/pr/diffs";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review";
-      path: "/sandbox/review";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review";
-      path: "/sandbox/review";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review/diffs/": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs/";
-      path: "/";
-      fullPath: "/$owner/$repo/sessions/$numId/review/diffs/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr/diffs/": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr/diffs/";
-      path: "/";
-      fullPath: "/$owner/$repo/sessions/$numId/pr/diffs/";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/";
-      path: "/";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review/";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review/": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review/";
-      path: "/";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review/";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView": {
-      id: "/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView";
-      path: "/$diffView";
-      fullPath: "/$owner/$repo/sessions/$numId/review/diffs/$diffView";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView": {
-      id: "/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView";
-      path: "/$diffView";
-      fullPath: "/$owner/$repo/sessions/$numId/pr/diffs/$diffView";
-      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport;
-      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap";
-      path: "/recap";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review/recap";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review/recap": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review/recap";
-      path: "/recap";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review/recap";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs";
-      path: "/diffs";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs";
-      path: "/diffs";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review/diffs";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/";
-      path: "/";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/";
-      path: "/";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review/diffs/";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView": {
-      id: "/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView";
-      path: "/$diffView";
-      fullPath: "/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView";
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRouteImport;
-      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute;
-    };
-    "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView": {
-      id: "/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView";
-      path: "/$diffView";
-      fullPath: "/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute;
-    };
+    '/preview-auth': {
+      id: '/preview-auth'
+      path: '/preview-auth'
+      fullPath: '/preview-auth'
+      preLoaderRoute: typeof PreviewAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-callback': {
+      id: '/agent-callback'
+      path: '/agent-callback'
+      fullPath: '/agent-callback'
+      preLoaderRoute: typeof AgentCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_repo': {
+      id: '/_repo'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof RepoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_global': {
+      id: '/_global'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof GlobalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_global/testing': {
+      id: '/_global/testing'
+      path: '/testing'
+      fullPath: '/testing'
+      preLoaderRoute: typeof GlobalTestingRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/inbox': {
+      id: '/_global/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof GlobalInboxRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/home': {
+      id: '/_global/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof GlobalHomeRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/teams/': {
+      id: '/_global/teams/'
+      path: '/teams'
+      fullPath: '/teams/'
+      preLoaderRoute: typeof GlobalTeamsIndexRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/artifacts/': {
+      id: '/_global/artifacts/'
+      path: '/artifacts'
+      fullPath: '/artifacts/'
+      preLoaderRoute: typeof GlobalArtifactsIndexRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/mcp/oauth/authorize': {
+      id: '/mcp/oauth/authorize'
+      path: '/mcp/oauth/authorize'
+      fullPath: '/mcp/oauth/authorize'
+      preLoaderRoute: typeof McpOauthAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_repo/$owner/$repo': {
+      id: '/_repo/$owner/$repo'
+      path: '/$owner/$repo'
+      fullPath: '/$owner/$repo'
+      preLoaderRoute: typeof RepoOwnerRepoRouteImport
+      parentRoute: typeof RepoRoute
+    }
+    '/_global/setup/$id': {
+      id: '/_global/setup/$id'
+      path: '/setup/$id'
+      fullPath: '/setup/$id'
+      preLoaderRoute: typeof GlobalSetupIdRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/theme': {
+      id: '/_global/settings/theme'
+      path: '/settings/theme'
+      fullPath: '/settings/theme'
+      preLoaderRoute: typeof GlobalSettingsThemeRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/sync': {
+      id: '/_global/settings/sync'
+      path: '/settings/sync'
+      fullPath: '/settings/sync'
+      preLoaderRoute: typeof GlobalSettingsSyncRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/sandboxes': {
+      id: '/_global/settings/sandboxes'
+      path: '/settings/sandboxes'
+      fullPath: '/settings/sandboxes'
+      preLoaderRoute: typeof GlobalSettingsSandboxesRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/personalisation': {
+      id: '/_global/settings/personalisation'
+      path: '/settings/personalisation'
+      fullPath: '/settings/personalisation'
+      preLoaderRoute: typeof GlobalSettingsPersonalisationRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/notifications': {
+      id: '/_global/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof GlobalSettingsNotificationsRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/accounts': {
+      id: '/_global/settings/accounts'
+      path: '/settings/accounts'
+      fullPath: '/settings/accounts'
+      preLoaderRoute: typeof GlobalSettingsAccountsRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/artifacts/$artifactId': {
+      id: '/_global/artifacts/$artifactId'
+      path: '/artifacts/$artifactId'
+      fullPath: '/artifacts/$artifactId'
+      preLoaderRoute: typeof GlobalArtifactsArtifactIdRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/teams/$teamId': {
+      id: '/_global/teams/$teamId'
+      path: '/teams/$teamId'
+      fullPath: '/teams/$teamId'
+      preLoaderRoute: typeof GlobalTeamsTeamIdRouteRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_repo/$owner/$repo/': {
+      id: '/_repo/$owner/$repo/'
+      path: '/'
+      fullPath: '/$owner/$repo/'
+      preLoaderRoute: typeof RepoOwnerRepoIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_global/teams/$teamId/': {
+      id: '/_global/teams/$teamId/'
+      path: '/'
+      fullPath: '/teams/$teamId/'
+      preLoaderRoute: typeof GlobalTeamsTeamIdIndexRouteImport
+      parentRoute: typeof GlobalTeamsTeamIdRouteRoute
+    }
+    '/_repo/$owner/$repo/stats': {
+      id: '/_repo/$owner/$repo/stats'
+      path: '/stats'
+      fullPath: '/$owner/$repo/stats'
+      preLoaderRoute: typeof RepoOwnerRepoStatsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/inbox': {
+      id: '/_repo/$owner/$repo/inbox'
+      path: '/inbox'
+      fullPath: '/$owner/$repo/inbox'
+      preLoaderRoute: typeof RepoOwnerRepoInboxRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_global/teams/$teamId/$teamTab': {
+      id: '/_global/teams/$teamId/$teamTab'
+      path: '/$teamTab'
+      fullPath: '/teams/$teamId/$teamTab'
+      preLoaderRoute: typeof GlobalTeamsTeamIdTeamTabRouteImport
+      parentRoute: typeof GlobalTeamsTeamIdRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks': {
+      id: '/_repo/$owner/$repo/quick-tasks'
+      path: '/quick-tasks'
+      fullPath: '/$owner/$repo/quick-tasks'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/testing-arena/': {
+      id: '/_repo/$owner/$repo/testing-arena/'
+      path: '/testing-arena'
+      fullPath: '/$owner/$repo/testing-arena/'
+      preLoaderRoute: typeof RepoOwnerRepoTestingArenaIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/': {
+      id: '/_repo/$owner/$repo/settings/'
+      path: '/settings'
+      fullPath: '/$owner/$repo/settings/'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/sessions/': {
+      id: '/_repo/$owner/$repo/sessions/'
+      path: '/sessions'
+      fullPath: '/$owner/$repo/sessions/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/reviews/': {
+      id: '/_repo/$owner/$repo/reviews/'
+      path: '/reviews'
+      fullPath: '/$owner/$repo/reviews/'
+      preLoaderRoute: typeof RepoOwnerRepoReviewsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/': {
+      id: '/_repo/$owner/$repo/quick-tasks/'
+      path: '/'
+      fullPath: '/$owner/$repo/quick-tasks/'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/': {
+      id: '/_repo/$owner/$repo/projects/'
+      path: '/projects'
+      fullPath: '/$owner/$repo/projects/'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/drafts/': {
+      id: '/_repo/$owner/$repo/drafts/'
+      path: '/drafts'
+      fullPath: '/$owner/$repo/drafts/'
+      preLoaderRoute: typeof RepoOwnerRepoDraftsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/docs/': {
+      id: '/_repo/$owner/$repo/docs/'
+      path: '/docs'
+      fullPath: '/$owner/$repo/docs/'
+      preLoaderRoute: typeof RepoOwnerRepoDocsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/designs/': {
+      id: '/_repo/$owner/$repo/designs/'
+      path: '/designs'
+      fullPath: '/$owner/$repo/designs/'
+      preLoaderRoute: typeof RepoOwnerRepoDesignsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/automations/': {
+      id: '/_repo/$owner/$repo/automations/'
+      path: '/automations'
+      fullPath: '/$owner/$repo/automations/'
+      preLoaderRoute: typeof RepoOwnerRepoAutomationsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/theme': {
+      id: '/_repo/$owner/$repo/settings/theme'
+      path: '/settings/theme'
+      fullPath: '/$owner/$repo/settings/theme'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsThemeRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/tabs': {
+      id: '/_repo/$owner/$repo/settings/tabs'
+      path: '/settings/tabs'
+      fullPath: '/$owner/$repo/settings/tabs'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsTabsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/skills': {
+      id: '/_repo/$owner/$repo/settings/skills'
+      path: '/settings/skills'
+      fullPath: '/$owner/$repo/settings/skills'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsSkillsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/personalisation': {
+      id: '/_repo/$owner/$repo/settings/personalisation'
+      path: '/settings/personalisation'
+      fullPath: '/$owner/$repo/settings/personalisation'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsPersonalisationRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/monorepo': {
+      id: '/_repo/$owner/$repo/settings/monorepo'
+      path: '/settings/monorepo'
+      fullPath: '/$owner/$repo/settings/monorepo'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsMonorepoRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/mcp-config': {
+      id: '/_repo/$owner/$repo/settings/mcp-config'
+      path: '/settings/mcp-config'
+      fullPath: '/$owner/$repo/settings/mcp-config'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsMcpConfigRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/logs': {
+      id: '/_repo/$owner/$repo/settings/logs'
+      path: '/settings/logs'
+      fullPath: '/$owner/$repo/settings/logs'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsLogsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/config': {
+      id: '/_repo/$owner/$repo/settings/config'
+      path: '/settings/config'
+      fullPath: '/$owner/$repo/settings/config'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsConfigRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/audits': {
+      id: '/_repo/$owner/$repo/settings/audits'
+      path: '/settings/audits'
+      fullPath: '/$owner/$repo/settings/audits'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsAuditsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/app': {
+      id: '/_repo/$owner/$repo/settings/app'
+      path: '/settings/app'
+      fullPath: '/$owner/$repo/settings/app'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsAppRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/designs/$numId': {
+      id: '/_repo/$owner/$repo/designs/$numId'
+      path: '/designs/$numId'
+      fullPath: '/$owner/$repo/designs/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoDesignsNumIdRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/testing-arena/$numId': {
+      id: '/_repo/$owner/$repo/testing-arena/$numId'
+      path: '/testing-arena/$numId'
+      fullPath: '/$owner/$repo/testing-arena/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/snapshots': {
+      id: '/_repo/$owner/$repo/settings/snapshots'
+      path: '/settings/snapshots'
+      fullPath: '/$owner/$repo/settings/snapshots'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId': {
+      id: '/_repo/$owner/$repo/sessions/$numId'
+      path: '/sessions/$numId'
+      fullPath: '/$owner/$repo/sessions/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/reviews/$prNumber': {
+      id: '/_repo/$owner/$repo/reviews/$prNumber'
+      path: '/reviews/$prNumber'
+      fullPath: '/$owner/$repo/reviews/$prNumber'
+      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId'
+      path: '/$numId'
+      fullPath: '/$owner/$repo/quick-tasks/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId': {
+      id: '/_repo/$owner/$repo/projects/$numId'
+      path: '/projects/$numId'
+      fullPath: '/$owner/$repo/projects/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/docs/$numId': {
+      id: '/_repo/$owner/$repo/docs/$numId'
+      path: '/docs/$numId'
+      fullPath: '/$owner/$repo/docs/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/automations/$numId': {
+      id: '/_repo/$owner/$repo/automations/$numId'
+      path: '/automations/$numId'
+      fullPath: '/$owner/$repo/automations/$numId'
+      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/testing-arena/$numId/': {
+      id: '/_repo/$owner/$repo/testing-arena/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/testing-arena/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/settings/snapshots/': {
+      id: '/_repo/$owner/$repo/settings/snapshots/'
+      path: '/'
+      fullPath: '/$owner/$repo/settings/snapshots/'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRoute
+    }
+    '/_repo/$owner/$repo/settings/env-variables/': {
+      id: '/_repo/$owner/$repo/settings/env-variables/'
+      path: '/settings/env-variables'
+      fullPath: '/$owner/$repo/settings/env-variables/'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsEnvVariablesIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/': {
+      id: '/_repo/$owner/$repo/sessions/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/sessions/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/reviews/$prNumber/': {
+      id: '/_repo/$owner/$repo/reviews/$prNumber/'
+      path: '/'
+      fullPath: '/$owner/$repo/reviews/$prNumber/'
+      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/': {
+      id: '/_repo/$owner/$repo/projects/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/projects/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/docs/$numId/': {
+      id: '/_repo/$owner/$repo/docs/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/docs/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoDocsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/automations/$numId/': {
+      id: '/_repo/$owner/$repo/automations/$numId/'
+      path: '/'
+      fullPath: '/$owner/$repo/automations/$numId/'
+      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/testing-arena/$numId/$arenaTab': {
+      id: '/_repo/$owner/$repo/testing-arena/$numId/$arenaTab'
+      path: '/$arenaTab'
+      fullPath: '/$owner/$repo/testing-arena/$numId/$arenaTab'
+      preLoaderRoute: typeof RepoOwnerRepoTestingArenaNumIdArenaTabRouteImport
+      parentRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/settings/snapshots/$snapTab': {
+      id: '/_repo/$owner/$repo/settings/snapshots/$snapTab'
+      path: '/$snapTab'
+      fullPath: '/$owner/$repo/settings/snapshots/$snapTab'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport
+      parentRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRoute
+    }
+    '/_repo/$owner/$repo/settings/env-variables/$scope': {
+      id: '/_repo/$owner/$repo/settings/env-variables/$scope'
+      path: '/settings/env-variables/$scope'
+      fullPath: '/$owner/$repo/settings/env-variables/$scope'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsEnvVariablesScopeRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/$sandboxTab': {
+      id: '/_repo/$owner/$repo/sessions/$numId/$sandboxTab'
+      path: '/$sandboxTab'
+      fullPath: '/$owner/$repo/sessions/$numId/$sandboxTab'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdSandboxTabRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab': {
+      id: '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab'
+      path: '/$reviewTab'
+      fullPath: '/$owner/$repo/reviews/$prNumber/$reviewTab'
+      preLoaderRoute: typeof RepoOwnerRepoReviewsPrNumberReviewTabRouteImport
+      parentRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab'
+      path: '/$detailTab'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/$detailTab'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/docs/$numId/$docTab': {
+      id: '/_repo/$owner/$repo/docs/$numId/$docTab'
+      path: '/$docTab'
+      fullPath: '/$owner/$repo/docs/$numId/$docTab'
+      preLoaderRoute: typeof RepoOwnerRepoDocsNumIdDocTabRouteImport
+      parentRoute: typeof RepoOwnerRepoDocsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/automations/$numId/$automationTab': {
+      id: '/_repo/$owner/$repo/automations/$numId/$automationTab'
+      path: '/$automationTab'
+      fullPath: '/$owner/$repo/automations/$numId/$automationTab'
+      preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport
+      parentRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review'
+      path: '/review'
+      fullPath: '/$owner/$repo/sessions/$numId/review'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr'
+      path: '/pr'
+      fullPath: '/$owner/$repo/sessions/$numId/pr'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/$taskNumId': {
+      id: '/_repo/$owner/$repo/projects/$numId/$taskNumId'
+      path: '/$taskNumId'
+      fullPath: '/$owner/$repo/projects/$numId/$taskNumId'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/'
+      path: '/'
+      fullPath: '/$owner/$repo/sessions/$numId/review/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr/': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr/'
+      path: '/'
+      fullPath: '/$owner/$repo/sessions/$numId/pr/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/$taskNumId/': {
+      id: '/_repo/$owner/$repo/projects/$numId/$taskNumId/'
+      path: '/'
+      fullPath: '/$owner/$repo/projects/$numId/$taskNumId/'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/recap': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/recap'
+      path: '/recap'
+      fullPath: '/$owner/$repo/sessions/$numId/review/recap'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr/recap': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr/recap'
+      path: '/recap'
+      fullPath: '/$owner/$repo/sessions/$numId/pr/recap'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrRecapRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+      path: '/sandbox/$sandboxTab'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+      path: '/sandbox/$sandboxTab'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab': {
+      id: '/_repo/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+      path: '/$detailTab'
+      fullPath: '/$owner/$repo/projects/$numId/$taskNumId/$detailTab'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/diffs': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/diffs'
+      path: '/diffs'
+      fullPath: '/$owner/$repo/sessions/$numId/review/diffs'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr/diffs': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr/diffs'
+      path: '/diffs'
+      fullPath: '/$owner/$repo/sessions/$numId/pr/diffs'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review'
+      path: '/sandbox/review'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review'
+      path: '/sandbox/review'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/diffs/': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/diffs/'
+      path: '/'
+      fullPath: '/$owner/$repo/sessions/$numId/review/diffs/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr/diffs/': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr/diffs/'
+      path: '/'
+      fullPath: '/$owner/$repo/sessions/$numId/pr/diffs/'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/'
+      path: '/'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/'
+      path: '/'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+      path: '/$diffView'
+      fullPath: '/$owner/$repo/sessions/$numId/review/diffs/$diffView'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView': {
+      id: '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+      path: '/$diffView'
+      fullPath: '/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+      path: '/recap'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap'
+      path: '/recap'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/recap'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+      path: '/diffs'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs'
+      path: '/diffs'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/diffs'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/'
+      path: '/'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/'
+      path: '/'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/diffs/'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+      path: '/$diffView'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/$diffView'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
+      path: '/$diffView'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/diffs/$diffView'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute
+    }
   }
 }
 
 interface GlobalTeamsTeamIdRouteRouteChildren {
-  GlobalTeamsTeamIdTeamTabRoute: typeof GlobalTeamsTeamIdTeamTabRoute;
-  GlobalTeamsTeamIdIndexRoute: typeof GlobalTeamsTeamIdIndexRoute;
+  GlobalTeamsTeamIdTeamTabRoute: typeof GlobalTeamsTeamIdTeamTabRoute
+  GlobalTeamsTeamIdIndexRoute: typeof GlobalTeamsTeamIdIndexRoute
 }
 
 const GlobalTeamsTeamIdRouteRouteChildren: GlobalTeamsTeamIdRouteRouteChildren =
   {
     GlobalTeamsTeamIdTeamTabRoute: GlobalTeamsTeamIdTeamTabRoute,
     GlobalTeamsTeamIdIndexRoute: GlobalTeamsTeamIdIndexRoute,
-  };
+  }
 
 const GlobalTeamsTeamIdRouteRouteWithChildren =
   GlobalTeamsTeamIdRouteRoute._addFileChildren(
     GlobalTeamsTeamIdRouteRouteChildren,
-  );
+  )
 
 interface GlobalRouteChildren {
-  GlobalHomeRoute: typeof GlobalHomeRoute;
-  GlobalInboxRoute: typeof GlobalInboxRoute;
-  GlobalTestingRoute: typeof GlobalTestingRoute;
-  GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren;
-  GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute;
-  GlobalSettingsAccountsRoute: typeof GlobalSettingsAccountsRoute;
-  GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute;
-  GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute;
-  GlobalSettingsSandboxesRoute: typeof GlobalSettingsSandboxesRoute;
-  GlobalSettingsSyncRoute: typeof GlobalSettingsSyncRoute;
-  GlobalSettingsThemeRoute: typeof GlobalSettingsThemeRoute;
-  GlobalSetupIdRoute: typeof GlobalSetupIdRoute;
-  GlobalArtifactsIndexRoute: typeof GlobalArtifactsIndexRoute;
-  GlobalTeamsIndexRoute: typeof GlobalTeamsIndexRoute;
+  GlobalHomeRoute: typeof GlobalHomeRoute
+  GlobalInboxRoute: typeof GlobalInboxRoute
+  GlobalTestingRoute: typeof GlobalTestingRoute
+  GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute
+  GlobalSettingsAccountsRoute: typeof GlobalSettingsAccountsRoute
+  GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute
+  GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute
+  GlobalSettingsSandboxesRoute: typeof GlobalSettingsSandboxesRoute
+  GlobalSettingsSyncRoute: typeof GlobalSettingsSyncRoute
+  GlobalSettingsThemeRoute: typeof GlobalSettingsThemeRoute
+  GlobalSetupIdRoute: typeof GlobalSetupIdRoute
+  GlobalArtifactsIndexRoute: typeof GlobalArtifactsIndexRoute
+  GlobalTeamsIndexRoute: typeof GlobalTeamsIndexRoute
 }
 
 const GlobalRouteChildren: GlobalRouteChildren = {
@@ -2060,14 +2060,14 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalSetupIdRoute: GlobalSetupIdRoute,
   GlobalArtifactsIndexRoute: GlobalArtifactsIndexRoute,
   GlobalTeamsIndexRoute: GlobalTeamsIndexRoute,
-};
+}
 
 const GlobalRouteWithChildren =
-  GlobalRoute._addFileChildren(GlobalRouteChildren);
+  GlobalRoute._addFileChildren(GlobalRouteChildren)
 
 interface RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteChildren {
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute;
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute;
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute
 }
 
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteChildren: RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteChildren =
@@ -2076,17 +2076,17 @@ const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteChildren: RepoOwne
       RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsDiffViewRoute,
     RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute:
       RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute._addFileChildren(
     RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren {
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute;
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute;
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute
 }
 
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren =
@@ -2097,18 +2097,18 @@ const RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepo
       RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute,
     RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute:
       RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute._addFileChildren(
     RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoQuickTasksNumIdRouteRouteChildren {
-  RepoOwnerRepoQuickTasksNumIdDetailTabRoute: typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute;
-  RepoOwnerRepoQuickTasksNumIdIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdIndexRoute;
-  RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren;
-  RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute;
+  RepoOwnerRepoQuickTasksNumIdDetailTabRoute: typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
+  RepoOwnerRepoQuickTasksNumIdIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdIndexRoute
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren
+  RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
 }
 
 const RepoOwnerRepoQuickTasksNumIdRouteRouteChildren: RepoOwnerRepoQuickTasksNumIdRouteRouteChildren =
@@ -2121,16 +2121,16 @@ const RepoOwnerRepoQuickTasksNumIdRouteRouteChildren: RepoOwnerRepoQuickTasksNum
       RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteWithChildren,
     RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute:
       RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute,
-  };
+  }
 
 const RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren =
   RepoOwnerRepoQuickTasksNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoQuickTasksNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoQuickTasksRouteRouteChildren {
-  RepoOwnerRepoQuickTasksNumIdRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren;
-  RepoOwnerRepoQuickTasksIndexRoute: typeof RepoOwnerRepoQuickTasksIndexRoute;
+  RepoOwnerRepoQuickTasksNumIdRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren
+  RepoOwnerRepoQuickTasksIndexRoute: typeof RepoOwnerRepoQuickTasksIndexRoute
 }
 
 const RepoOwnerRepoQuickTasksRouteRouteChildren: RepoOwnerRepoQuickTasksRouteRouteChildren =
@@ -2138,16 +2138,16 @@ const RepoOwnerRepoQuickTasksRouteRouteChildren: RepoOwnerRepoQuickTasksRouteRou
     RepoOwnerRepoQuickTasksNumIdRouteRoute:
       RepoOwnerRepoQuickTasksNumIdRouteRouteWithChildren,
     RepoOwnerRepoQuickTasksIndexRoute: RepoOwnerRepoQuickTasksIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoQuickTasksRouteRouteWithChildren =
   RepoOwnerRepoQuickTasksRouteRoute._addFileChildren(
     RepoOwnerRepoQuickTasksRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoAutomationsNumIdRouteRouteChildren {
-  RepoOwnerRepoAutomationsNumIdAutomationTabRoute: typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute;
-  RepoOwnerRepoAutomationsNumIdIndexRoute: typeof RepoOwnerRepoAutomationsNumIdIndexRoute;
+  RepoOwnerRepoAutomationsNumIdAutomationTabRoute: typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
+  RepoOwnerRepoAutomationsNumIdIndexRoute: typeof RepoOwnerRepoAutomationsNumIdIndexRoute
 }
 
 const RepoOwnerRepoAutomationsNumIdRouteRouteChildren: RepoOwnerRepoAutomationsNumIdRouteRouteChildren =
@@ -2156,32 +2156,32 @@ const RepoOwnerRepoAutomationsNumIdRouteRouteChildren: RepoOwnerRepoAutomationsN
       RepoOwnerRepoAutomationsNumIdAutomationTabRoute,
     RepoOwnerRepoAutomationsNumIdIndexRoute:
       RepoOwnerRepoAutomationsNumIdIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren =
   RepoOwnerRepoAutomationsNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoAutomationsNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoDocsNumIdRouteRouteChildren {
-  RepoOwnerRepoDocsNumIdDocTabRoute: typeof RepoOwnerRepoDocsNumIdDocTabRoute;
-  RepoOwnerRepoDocsNumIdIndexRoute: typeof RepoOwnerRepoDocsNumIdIndexRoute;
+  RepoOwnerRepoDocsNumIdDocTabRoute: typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  RepoOwnerRepoDocsNumIdIndexRoute: typeof RepoOwnerRepoDocsNumIdIndexRoute
 }
 
 const RepoOwnerRepoDocsNumIdRouteRouteChildren: RepoOwnerRepoDocsNumIdRouteRouteChildren =
   {
     RepoOwnerRepoDocsNumIdDocTabRoute: RepoOwnerRepoDocsNumIdDocTabRoute,
     RepoOwnerRepoDocsNumIdIndexRoute: RepoOwnerRepoDocsNumIdIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoDocsNumIdRouteRouteWithChildren =
   RepoOwnerRepoDocsNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoDocsNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteChildren {
-  RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute;
-  RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute;
+  RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute
+  RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
 }
 
 const RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteChildren: RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteChildren =
@@ -2190,16 +2190,16 @@ const RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteChildren: RepoOwnerRepoProjec
       RepoOwnerRepoProjectsNumIdTaskNumIdDetailTabRoute,
     RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute:
       RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren =
   RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteChildren {
-  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute;
-  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute;
+  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute
+  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute
 }
 
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteChildren: RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteChildren =
@@ -2208,17 +2208,17 @@ const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteChildren: RepoOwnerR
       RepoOwnerRepoProjectsNumIdSandboxReviewDiffsDiffViewRoute,
     RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute:
       RepoOwnerRepoProjectsNumIdSandboxReviewDiffsIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren =
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute._addFileChildren(
     RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren {
-  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren;
-  RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute;
-  RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute;
+  RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute
 }
 
 const RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren =
@@ -2229,18 +2229,18 @@ const RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepoPr
       RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute,
     RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute:
       RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren =
   RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute._addFileChildren(
     RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoProjectsNumIdRouteRouteChildren {
-  RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren;
-  RepoOwnerRepoProjectsNumIdIndexRoute: typeof RepoOwnerRepoProjectsNumIdIndexRoute;
-  RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren;
-  RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute: typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute;
+  RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdIndexRoute: typeof RepoOwnerRepoProjectsNumIdIndexRoute
+  RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute: typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
 }
 
 const RepoOwnerRepoProjectsNumIdRouteRouteChildren: RepoOwnerRepoProjectsNumIdRouteRouteChildren =
@@ -2252,16 +2252,16 @@ const RepoOwnerRepoProjectsNumIdRouteRouteChildren: RepoOwnerRepoProjectsNumIdRo
       RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteWithChildren,
     RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute:
       RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute,
-  };
+  }
 
 const RepoOwnerRepoProjectsNumIdRouteRouteWithChildren =
   RepoOwnerRepoProjectsNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoProjectsNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoReviewsPrNumberRouteRouteChildren {
-  RepoOwnerRepoReviewsPrNumberReviewTabRoute: typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute;
-  RepoOwnerRepoReviewsPrNumberIndexRoute: typeof RepoOwnerRepoReviewsPrNumberIndexRoute;
+  RepoOwnerRepoReviewsPrNumberReviewTabRoute: typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
+  RepoOwnerRepoReviewsPrNumberIndexRoute: typeof RepoOwnerRepoReviewsPrNumberIndexRoute
 }
 
 const RepoOwnerRepoReviewsPrNumberRouteRouteChildren: RepoOwnerRepoReviewsPrNumberRouteRouteChildren =
@@ -2270,16 +2270,16 @@ const RepoOwnerRepoReviewsPrNumberRouteRouteChildren: RepoOwnerRepoReviewsPrNumb
       RepoOwnerRepoReviewsPrNumberReviewTabRoute,
     RepoOwnerRepoReviewsPrNumberIndexRoute:
       RepoOwnerRepoReviewsPrNumberIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren =
   RepoOwnerRepoReviewsPrNumberRouteRoute._addFileChildren(
     RepoOwnerRepoReviewsPrNumberRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteChildren {
-  RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute;
-  RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute;
+  RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
+  RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute
 }
 
 const RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteChildren: RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteChildren =
@@ -2288,17 +2288,17 @@ const RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteChildren: RepoOwnerRepoSessions
       RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute,
     RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute:
       RepoOwnerRepoSessionsNumIdPrDiffsIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren =
   RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute._addFileChildren(
     RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSessionsNumIdPrRouteRouteChildren {
-  RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren;
-  RepoOwnerRepoSessionsNumIdPrRecapRoute: typeof RepoOwnerRepoSessionsNumIdPrRecapRoute;
-  RepoOwnerRepoSessionsNumIdPrIndexRoute: typeof RepoOwnerRepoSessionsNumIdPrIndexRoute;
+  RepoOwnerRepoSessionsNumIdPrDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdPrRecapRoute: typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  RepoOwnerRepoSessionsNumIdPrIndexRoute: typeof RepoOwnerRepoSessionsNumIdPrIndexRoute
 }
 
 const RepoOwnerRepoSessionsNumIdPrRouteRouteChildren: RepoOwnerRepoSessionsNumIdPrRouteRouteChildren =
@@ -2309,16 +2309,16 @@ const RepoOwnerRepoSessionsNumIdPrRouteRouteChildren: RepoOwnerRepoSessionsNumId
       RepoOwnerRepoSessionsNumIdPrRecapRoute,
     RepoOwnerRepoSessionsNumIdPrIndexRoute:
       RepoOwnerRepoSessionsNumIdPrIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren =
   RepoOwnerRepoSessionsNumIdPrRouteRoute._addFileChildren(
     RepoOwnerRepoSessionsNumIdPrRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren {
-  RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute;
-  RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute;
+  RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute
+  RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute
 }
 
 const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren: RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren =
@@ -2327,17 +2327,17 @@ const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren: RepoOwnerRepoSess
       RepoOwnerRepoSessionsNumIdReviewDiffsDiffViewRoute,
     RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute:
       RepoOwnerRepoSessionsNumIdReviewDiffsIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren =
   RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute._addFileChildren(
     RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren {
-  RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren;
-  RepoOwnerRepoSessionsNumIdReviewRecapRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute;
-  RepoOwnerRepoSessionsNumIdReviewIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute;
+  RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdReviewRecapRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
+  RepoOwnerRepoSessionsNumIdReviewIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
 }
 
 const RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren: RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren =
@@ -2348,18 +2348,18 @@ const RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren: RepoOwnerRepoSessionsN
       RepoOwnerRepoSessionsNumIdReviewRecapRoute,
     RepoOwnerRepoSessionsNumIdReviewIndexRoute:
       RepoOwnerRepoSessionsNumIdReviewIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren =
   RepoOwnerRepoSessionsNumIdReviewRouteRoute._addFileChildren(
     RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSessionsNumIdRouteRouteChildren {
-  RepoOwnerRepoSessionsNumIdPrRouteRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren;
-  RepoOwnerRepoSessionsNumIdReviewRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren;
-  RepoOwnerRepoSessionsNumIdSandboxTabRoute: typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute;
-  RepoOwnerRepoSessionsNumIdIndexRoute: typeof RepoOwnerRepoSessionsNumIdIndexRoute;
+  RepoOwnerRepoSessionsNumIdPrRouteRoute: typeof RepoOwnerRepoSessionsNumIdPrRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdReviewRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdSandboxTabRoute: typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
+  RepoOwnerRepoSessionsNumIdIndexRoute: typeof RepoOwnerRepoSessionsNumIdIndexRoute
 }
 
 const RepoOwnerRepoSessionsNumIdRouteRouteChildren: RepoOwnerRepoSessionsNumIdRouteRouteChildren =
@@ -2371,16 +2371,16 @@ const RepoOwnerRepoSessionsNumIdRouteRouteChildren: RepoOwnerRepoSessionsNumIdRo
     RepoOwnerRepoSessionsNumIdSandboxTabRoute:
       RepoOwnerRepoSessionsNumIdSandboxTabRoute,
     RepoOwnerRepoSessionsNumIdIndexRoute: RepoOwnerRepoSessionsNumIdIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSessionsNumIdRouteRouteWithChildren =
   RepoOwnerRepoSessionsNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoSessionsNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoSettingsSnapshotsRouteRouteChildren {
-  RepoOwnerRepoSettingsSnapshotsSnapTabRoute: typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute;
-  RepoOwnerRepoSettingsSnapshotsIndexRoute: typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
+  RepoOwnerRepoSettingsSnapshotsSnapTabRoute: typeof RepoOwnerRepoSettingsSnapshotsSnapTabRoute
+  RepoOwnerRepoSettingsSnapshotsIndexRoute: typeof RepoOwnerRepoSettingsSnapshotsIndexRoute
 }
 
 const RepoOwnerRepoSettingsSnapshotsRouteRouteChildren: RepoOwnerRepoSettingsSnapshotsRouteRouteChildren =
@@ -2389,16 +2389,16 @@ const RepoOwnerRepoSettingsSnapshotsRouteRouteChildren: RepoOwnerRepoSettingsSna
       RepoOwnerRepoSettingsSnapshotsSnapTabRoute,
     RepoOwnerRepoSettingsSnapshotsIndexRoute:
       RepoOwnerRepoSettingsSnapshotsIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren =
   RepoOwnerRepoSettingsSnapshotsRouteRoute._addFileChildren(
     RepoOwnerRepoSettingsSnapshotsRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoTestingArenaNumIdRouteRouteChildren {
-  RepoOwnerRepoTestingArenaNumIdArenaTabRoute: typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute;
-  RepoOwnerRepoTestingArenaNumIdIndexRoute: typeof RepoOwnerRepoTestingArenaNumIdIndexRoute;
+  RepoOwnerRepoTestingArenaNumIdArenaTabRoute: typeof RepoOwnerRepoTestingArenaNumIdArenaTabRoute
+  RepoOwnerRepoTestingArenaNumIdIndexRoute: typeof RepoOwnerRepoTestingArenaNumIdIndexRoute
 }
 
 const RepoOwnerRepoTestingArenaNumIdRouteRouteChildren: RepoOwnerRepoTestingArenaNumIdRouteRouteChildren =
@@ -2407,47 +2407,47 @@ const RepoOwnerRepoTestingArenaNumIdRouteRouteChildren: RepoOwnerRepoTestingAren
       RepoOwnerRepoTestingArenaNumIdArenaTabRoute,
     RepoOwnerRepoTestingArenaNumIdIndexRoute:
       RepoOwnerRepoTestingArenaNumIdIndexRoute,
-  };
+  }
 
 const RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren =
   RepoOwnerRepoTestingArenaNumIdRouteRoute._addFileChildren(
     RepoOwnerRepoTestingArenaNumIdRouteRouteChildren,
-  );
+  )
 
 interface RepoOwnerRepoRouteChildren {
-  RepoOwnerRepoQuickTasksRouteRoute: typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren;
-  RepoOwnerRepoInboxRoute: typeof RepoOwnerRepoInboxRoute;
-  RepoOwnerRepoStatsRoute: typeof RepoOwnerRepoStatsRoute;
-  RepoOwnerRepoIndexRoute: typeof RepoOwnerRepoIndexRoute;
-  RepoOwnerRepoAutomationsNumIdRouteRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren;
-  RepoOwnerRepoDocsNumIdRouteRoute: typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren;
-  RepoOwnerRepoProjectsNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren;
-  RepoOwnerRepoReviewsPrNumberRouteRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren;
-  RepoOwnerRepoSessionsNumIdRouteRoute: typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren;
-  RepoOwnerRepoSettingsSnapshotsRouteRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
-  RepoOwnerRepoTestingArenaNumIdRouteRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  RepoOwnerRepoDesignsNumIdRoute: typeof RepoOwnerRepoDesignsNumIdRoute;
-  RepoOwnerRepoSettingsAppRoute: typeof RepoOwnerRepoSettingsAppRoute;
-  RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute;
-  RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute;
-  RepoOwnerRepoSettingsLogsRoute: typeof RepoOwnerRepoSettingsLogsRoute;
-  RepoOwnerRepoSettingsMcpConfigRoute: typeof RepoOwnerRepoSettingsMcpConfigRoute;
-  RepoOwnerRepoSettingsMonorepoRoute: typeof RepoOwnerRepoSettingsMonorepoRoute;
-  RepoOwnerRepoSettingsPersonalisationRoute: typeof RepoOwnerRepoSettingsPersonalisationRoute;
-  RepoOwnerRepoSettingsSkillsRoute: typeof RepoOwnerRepoSettingsSkillsRoute;
-  RepoOwnerRepoSettingsTabsRoute: typeof RepoOwnerRepoSettingsTabsRoute;
-  RepoOwnerRepoSettingsThemeRoute: typeof RepoOwnerRepoSettingsThemeRoute;
-  RepoOwnerRepoAutomationsIndexRoute: typeof RepoOwnerRepoAutomationsIndexRoute;
-  RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute;
-  RepoOwnerRepoDocsIndexRoute: typeof RepoOwnerRepoDocsIndexRoute;
-  RepoOwnerRepoDraftsIndexRoute: typeof RepoOwnerRepoDraftsIndexRoute;
-  RepoOwnerRepoProjectsIndexRoute: typeof RepoOwnerRepoProjectsIndexRoute;
-  RepoOwnerRepoReviewsIndexRoute: typeof RepoOwnerRepoReviewsIndexRoute;
-  RepoOwnerRepoSessionsIndexRoute: typeof RepoOwnerRepoSessionsIndexRoute;
-  RepoOwnerRepoSettingsIndexRoute: typeof RepoOwnerRepoSettingsIndexRoute;
-  RepoOwnerRepoTestingArenaIndexRoute: typeof RepoOwnerRepoTestingArenaIndexRoute;
-  RepoOwnerRepoSettingsEnvVariablesScopeRoute: typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
-  RepoOwnerRepoSettingsEnvVariablesIndexRoute: typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
+  RepoOwnerRepoQuickTasksRouteRoute: typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren
+  RepoOwnerRepoInboxRoute: typeof RepoOwnerRepoInboxRoute
+  RepoOwnerRepoStatsRoute: typeof RepoOwnerRepoStatsRoute
+  RepoOwnerRepoIndexRoute: typeof RepoOwnerRepoIndexRoute
+  RepoOwnerRepoAutomationsNumIdRouteRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren
+  RepoOwnerRepoDocsNumIdRouteRoute: typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren
+  RepoOwnerRepoReviewsPrNumberRouteRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdRouteRoute: typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren
+  RepoOwnerRepoSettingsSnapshotsRouteRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
+  RepoOwnerRepoTestingArenaNumIdRouteRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
+  RepoOwnerRepoDesignsNumIdRoute: typeof RepoOwnerRepoDesignsNumIdRoute
+  RepoOwnerRepoSettingsAppRoute: typeof RepoOwnerRepoSettingsAppRoute
+  RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute
+  RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute
+  RepoOwnerRepoSettingsLogsRoute: typeof RepoOwnerRepoSettingsLogsRoute
+  RepoOwnerRepoSettingsMcpConfigRoute: typeof RepoOwnerRepoSettingsMcpConfigRoute
+  RepoOwnerRepoSettingsMonorepoRoute: typeof RepoOwnerRepoSettingsMonorepoRoute
+  RepoOwnerRepoSettingsPersonalisationRoute: typeof RepoOwnerRepoSettingsPersonalisationRoute
+  RepoOwnerRepoSettingsSkillsRoute: typeof RepoOwnerRepoSettingsSkillsRoute
+  RepoOwnerRepoSettingsTabsRoute: typeof RepoOwnerRepoSettingsTabsRoute
+  RepoOwnerRepoSettingsThemeRoute: typeof RepoOwnerRepoSettingsThemeRoute
+  RepoOwnerRepoAutomationsIndexRoute: typeof RepoOwnerRepoAutomationsIndexRoute
+  RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute
+  RepoOwnerRepoDocsIndexRoute: typeof RepoOwnerRepoDocsIndexRoute
+  RepoOwnerRepoDraftsIndexRoute: typeof RepoOwnerRepoDraftsIndexRoute
+  RepoOwnerRepoProjectsIndexRoute: typeof RepoOwnerRepoProjectsIndexRoute
+  RepoOwnerRepoReviewsIndexRoute: typeof RepoOwnerRepoReviewsIndexRoute
+  RepoOwnerRepoSessionsIndexRoute: typeof RepoOwnerRepoSessionsIndexRoute
+  RepoOwnerRepoSettingsIndexRoute: typeof RepoOwnerRepoSettingsIndexRoute
+  RepoOwnerRepoTestingArenaIndexRoute: typeof RepoOwnerRepoTestingArenaIndexRoute
+  RepoOwnerRepoSettingsEnvVariablesScopeRoute: typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute
+  RepoOwnerRepoSettingsEnvVariablesIndexRoute: typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute
 }
 
 const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
@@ -2495,21 +2495,21 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
     RepoOwnerRepoSettingsEnvVariablesScopeRoute,
   RepoOwnerRepoSettingsEnvVariablesIndexRoute:
     RepoOwnerRepoSettingsEnvVariablesIndexRoute,
-};
+}
 
 const RepoOwnerRepoRouteWithChildren = RepoOwnerRepoRoute._addFileChildren(
   RepoOwnerRepoRouteChildren,
-);
+)
 
 interface RepoRouteChildren {
-  RepoOwnerRepoRoute: typeof RepoOwnerRepoRouteWithChildren;
+  RepoOwnerRepoRoute: typeof RepoOwnerRepoRouteWithChildren
 }
 
 const RepoRouteChildren: RepoRouteChildren = {
   RepoOwnerRepoRoute: RepoOwnerRepoRouteWithChildren,
-};
+}
 
-const RepoRouteWithChildren = RepoRoute._addFileChildren(RepoRouteChildren);
+const RepoRouteWithChildren = RepoRoute._addFileChildren(RepoRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -2518,7 +2518,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentCallbackRoute: AgentCallbackRoute,
   PreviewAuthRoute: PreviewAuthRoute,
   McpOauthAuthorizeRoute: McpOauthAuthorizeRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()

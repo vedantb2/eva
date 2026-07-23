@@ -15,8 +15,8 @@ import { VERCEL_PREVIEW_PROXY_PORT } from "./vercelAppPorts";
 
 export { VERCEL_PREVIEW_PROXY_PORT };
 
-// Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
-// navigation proxy must listen inside that range.
+// In-sandbox preview proxy listen range. Vercel declares ports up front; this
+// high band keeps the proxy clear of common app dev ports (3000–8999).
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
@@ -123,7 +123,7 @@ async function resolvePreviewProxyPort(
   }
 
   throw new Error(
-    `No available Daytona preview proxy port in ${PROXY_PORT_MIN}-${PROXY_PORT_MAX}`,
+    `No available preview proxy port in ${PROXY_PORT_MIN}-${PROXY_PORT_MAX}`,
   );
 }
 
@@ -264,7 +264,7 @@ function verifySession(token) {
   }
 }
 
-// HTML interstitial for unauthenticated document loads. Daytona forwards to the
+// HTML interstitial for unauthenticated document loads. The preview proxy forwards to the
 // sandbox with the Host header rewritten to the internal upstream
 // (localhost:proxyPort), so the proxy cannot know its own browser-facing URL.
 // We therefore compute the return URL in the browser from location.href, which
@@ -373,7 +373,7 @@ function authorize(clientReq, clientRes) {
   return false;
 }
 
-// Convex's browser client opens a raw WebSocket and cannot attach the Daytona
+// Convex's browser client opens a raw WebSocket and cannot attach the
 // preview token, so it can never follow the cross-origin auth redirect to a
 // separate 3210-<sandbox> preview origin. Instead the client points at this
 // same (already-authenticated) preview origin under /__convex, and the proxy
@@ -543,7 +543,7 @@ function rewriteHtml(html, injects) {
 }
 
 // Vercel exposes each sandbox port on its OWN "*.vercel.run" subdomain (unlike
-// Daytona's single host + port-prefix scheme). The proxy has no way to learn
+// a single-host + port-prefix scheme). The proxy has no way to learn
 // its own external hostname (Vercel's edge terminates TLS before this
 // process), so it cannot rewrite a redirect to "the current host, new path" —
 // it can only strip the host entirely and rely on the browser resolving a

@@ -1,4 +1,4 @@
-import { DaytonaLogo, VercelLogo } from "@/lib/components/ui/providerLogos";
+import { VercelLogo } from "@/lib/components/ui/providerLogos";
 import type { EnvVarSlotEntry } from "./envVarSlotTypes";
 
 /**
@@ -6,16 +6,6 @@ import type { EnvVarSlotEntry } from "./envVarSlotTypes";
  * Token and team id are typically team-level; project id must be per app repo.
  */
 export const INFRA_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
-  {
-    id: "daytona",
-    label: "Daytona",
-    primaryKey: "DAYTONA_API_KEY",
-    matchKeys: ["DAYTONA_API_KEY"],
-    Logo: DaytonaLogo,
-    hint: "Daytona API key for sandbox provisioning. Usually set once at team level.",
-    placeholder: "dtn_...",
-    multiline: false,
-  },
   {
     id: "vercel-token",
     label: "Vercel token",

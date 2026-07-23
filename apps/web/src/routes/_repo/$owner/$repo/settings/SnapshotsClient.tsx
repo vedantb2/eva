@@ -266,12 +266,10 @@ export function SnapshotsClient({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Requires sandbox provider credentials in team or repo environment
-            variables: set <code className="font-mono">SANDBOX_PROVIDER</code>{" "}
-            to <code className="font-mono">daytona</code> (
-            <code className="font-mono">DAYTONA_API_KEY</code>) or{" "}
-            <code className="font-mono">vercel</code> (
-            <code className="font-mono">VERCEL_TOKEN</code>, team, and project).
+            Requires Vercel credentials in team or repo environment variables:{" "}
+            <code className="font-mono">VERCEL_TOKEN</code>,{" "}
+            <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
+            <code className="font-mono">VERCEL_PROJECT_ID</code>.
           </p>
         </TabsContent>
 
@@ -360,11 +358,11 @@ export function SnapshotsClient({
                 <p className="text-xs text-muted-foreground">
                   Provider-native base snapshot with toolchain,{" "}
                   <code className="font-mono text-[11px]">pnpm install</code>,
-                  and your build commands. Daytona builds a declarative Image;
-                  Vercel captures a running sandbox as{" "}
-                  <code className="font-mono text-[11px]">snap_*</code>. This is
-                  what sandboxes boot from unless a seeded snapshot exists.
-                  Rebuild Now always refreshes this — no seed file needed.
+                  and your build commands. Vercel captures a running sandbox
+                  as <code className="font-mono text-[11px]">snap_*</code>.
+                  This is what sandboxes boot from unless a seeded snapshot
+                  exists. Rebuild Now always refreshes this — no seed file
+                  needed.
                 </p>
                 {baseImageReady ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">

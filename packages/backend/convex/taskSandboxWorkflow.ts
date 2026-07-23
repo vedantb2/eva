@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 
 /** Starts a task preview sandbox (checkout task branch + run startup commands) as a durable workflow step. */
 export const taskPreviewSandboxStartupWorkflow = workflow.define({
@@ -18,7 +18,7 @@ export const taskPreviewSandboxStartupWorkflow = workflow.define({
     forceStartupCommands: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
-    // Daytona-only pre-thaw (see sessionSandboxStartupWorkflow). Vercel resume
+    // Legacy archived-sandbox pre-thaw (see sessionSandboxStartupWorkflow). Vercel resume
     // runs inside startTaskPreviewSandbox — skip kickoff to avoid ~6–8s of
     // empty workflow step latency before sandbox.start().
     if (args.existingSandboxId && !args.vercelSandboxId) {
@@ -40,7 +40,7 @@ export const taskPreviewSandboxStartupWorkflow = workflow.define({
         return;
       }
     }
-    await step.runAction(internal.daytona.startTaskPreviewSandbox, {
+    await step.runAction(internal.sandbox.startTaskPreviewSandbox, {
       taskId: args.taskId,
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,

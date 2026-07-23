@@ -64,7 +64,7 @@ function deriveSelectedRelPath(
  * links still drive the viewer; the tree highlights the matching path.
  */
 export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
-  const listSandboxFiles = useAction(api.daytona.listSandboxFiles);
+  const listSandboxFiles = useAction(api.sandbox.listSandboxFiles);
   const [file, setFile] = useQueryState("file", fileViewerPathParser);
   const [listState, setListState] = useState<FileListState>(() => {
     if (!sandboxId) return { kind: "idle" };

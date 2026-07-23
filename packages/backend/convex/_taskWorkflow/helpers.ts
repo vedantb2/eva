@@ -26,7 +26,7 @@ export async function resolveTaskBranchName(
 
 /**
  * Resolves the sandbox id to use for a task run (push / audit-fix).
- * Prefer vercelSandboxId when present so Vercel never receives a Daytona UUID.
+ * Prefer vercelSandboxId when present so Vercel never receives a sandbox UUID.
  */
 export async function resolveTaskSandboxIdForRun(
   db: GenericDatabaseReader<DataModel>,

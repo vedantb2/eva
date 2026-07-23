@@ -1,5 +1,9 @@
 # Changelog
 
+## Vercel-only sandbox provider (Daytona code removed) - 2026-07-23
+
+Daytona was dual-provider tech debt after the Vercel migration flag. All Daytona SDK/adapter/PTY/volume code is gone; orchestration lives in `_sandbox_runtime/` behind the Vercel-only `SandboxClient` contract. Persistence volumes are an accepted regression (no Vercel equivalent). Legacy Convex data cleanup is deferred to `internal/plans/todo/daytona-legacy-data-cleanup.md`.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -183,7 +183,7 @@ export const cancelExecution = authMutation({
     await cancelTrackedWorkflow(ctx, project.activeChatWorkflowId);
 
     if (project.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: project.sandboxId,
         repoId: project.repoId,
       });
@@ -294,7 +294,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     }
 
     const validation = await step.runAction(
-      internal.daytona.validateSandbox,
+      internal.sandbox.validateSandbox,
       { sandboxId: activeSandboxId, repoId: data.repoId },
       { retry: false },
     );
@@ -306,7 +306,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+    await step.runAction(internal.sandbox.launchOnExistingSandbox, {
       sandboxId: activeSandboxId,
       entityId: args.projectId,
       prompt: data.prompt,
@@ -333,7 +333,7 @@ export const projectChatExecuteWorkflow = workflow.define({
 
     if (result.success && activeSandboxId && data.branchName) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: activeSandboxId,
           installationId: data.installationId,
           repoOwner: data.repoOwner,

@@ -4,7 +4,6 @@ import { v } from "convex/values";
 import { quote } from "shell-quote";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
-import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
@@ -29,12 +28,10 @@ export const toggleCodeServer = action({
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
     );
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    // Vercel: listen internally so the auth proxy can own exposed 8080.
-    // Daytona: listen on 8080 (proxy sits on a separate 9xxx port).
-    const listenPort =
-      credentials.kind === "vercel" ? VERCEL_EDITOR_INTERNAL_PORT : 8080;
-    const bindAddr = credentials.kind === "vercel" ? "127.0.0.1" : "0.0.0.0";
+    // Listen internally on the Vercel-reserved port so the auth proxy owns
+    // the exposed 8080.
+    const listenPort = VERCEL_EDITOR_INTERNAL_PORT;
+    const bindAddr = "127.0.0.1";
 
     if (args.action === "start") {
       try {

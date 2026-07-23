@@ -75,7 +75,7 @@ export const startProjectSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startProjectPreviewSandbox,
+        internal.sandbox.startProjectPreviewSandbox,
         startArgs,
       );
     } else {
@@ -177,7 +177,7 @@ export const runProjectBackgroundCommands = authMutation({
       throw new Error("Start the sandbox before running background commands");
     }
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runBackgroundCommands, {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
     });
@@ -310,11 +310,11 @@ export const resolveProjectConflicts = authMutation({
 });
 
 /**
- * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the user can
+ * Stops the preview sandbox in the sandbox. Keeps `sandboxId` so the user can
  * resume the same paused filesystem on next start.
  *
  * Marks the project as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the real sandbox stop (~10s) completes.
  */
 export const stopProjectSandbox = authMutation({
   args: { projectId: v.id("projects") },
@@ -373,7 +373,7 @@ export const finalizeStopProjectSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
@@ -503,7 +503,7 @@ export const projectSandboxStarting = internalMutation({
   },
 });
 
-/** Persists the sandbox id as soon as Daytona creates it, before long startup steps. */
+/** Persists the sandbox id as soon as the provider creates it, before long startup steps. */
 export const projectSandboxAllocated = internalMutation({
   args: {
     projectId: v.id("projects"),

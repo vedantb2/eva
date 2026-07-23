@@ -8,21 +8,9 @@ import {
   getSandboxHandle,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
-import {
-  resolveSandboxCredentialsOnly,
-  resolveSandboxProviderKind,
-} from "../envVarResolver";
+import { resolveSandboxCredentialsOnly } from "../envVarResolver";
 import { getSandboxClient } from "../_sandbox/factory";
 
-/**
- * Short wait window for the start kick-off. A stopped→started fast resume
- * completes inside this window; an archived cold-storage thaw will not, and that
- * is expected — the thaw continues server-side on Daytona and is then observed
- * via pollSandboxStarted.
- */
-const KICKOFF_START_WAIT_SECONDS = 30;
-/** States from which a sandbox can never reach "running" — fail fast on these. */
-const TERMINAL_FAILURE_STATES = ["error", "gone"];
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -44,7 +32,7 @@ const AGENT_PROCESS_LIVENESS_COMMAND =
  * protects against transient heartbeat transport failures (Convex auth flaps,
  * brief network issues) where the run itself is still healthy.
  *
- * Conservative failure handling: if we cannot reach Daytona to determine state,
+ * Conservative failure handling: if we cannot reach the sandbox to determine state,
  * we report `alive: true` with reason `probe_unreachable` so the watchdog does
  * NOT kill on our inability to verify. The hard 2-hour timeout (`handleStaleRun`)
  * remains a backstop.
@@ -166,7 +154,7 @@ export const killSandboxProcess = internalAction({
   },
 });
 
-/** Stops a Daytona/Vercel sandbox (preserves state, fast resume). */
+/** Stops a Vercel sandbox (preserves state, fast resume). */
 export const stopSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
@@ -174,7 +162,7 @@ export const stopSandbox = internalAction({
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       await sandbox.stop();
-      console.log(`[daytona] stopSandbox ok sandboxId=${args.sandboxId}`);
+      console.log(`[sandbox] stopSandbox ok sandboxId=${args.sandboxId}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // Already gone / already idle — treat as success so finalize can close.
@@ -184,14 +172,14 @@ export const stopSandbox = internalAction({
         ) && !/did not reach a terminal stopped state/i.test(message);
       if (benign) {
         console.log(
-          `[daytona] stopSandbox ignored benign error for ${args.sandboxId}: ${message}`,
+          `[sandbox] stopSandbox ignored benign error for ${args.sandboxId}: ${message}`,
         );
         return null;
       }
       // Real stop failures must propagate — swallowing them made Eva mark the
       // session closed while Vercel still showed running.
       console.error(
-        `[daytona] stopSandbox failed for ${args.sandboxId}: ${message}`,
+        `[sandbox] stopSandbox failed for ${args.sandboxId}: ${message}`,
       );
       throw error instanceof Error ? error : new Error(message);
     }
@@ -247,7 +235,7 @@ export const captureDiagnosticsAndStopSandbox = internalAction({
         `[watchdog][diagnostics] runId=${args.runId} capture failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    await ctx.runAction(internal.daytona.stopSandbox, {
+    await ctx.runAction(internal.sandbox.stopSandbox, {
       sandboxId: args.sandboxId,
       repoId: args.repoId,
     });
@@ -255,7 +243,7 @@ export const captureDiagnosticsAndStopSandbox = internalAction({
   },
 });
 
-/** Deletes a Daytona sandbox, silently ignoring already-deleted sandboxes. */
+/** Deletes a Vercel sandbox, silently ignoring already-deleted sandboxes. */
 export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
@@ -274,7 +262,7 @@ export const deleteSandbox = internalAction({
   },
 });
 
-/** Archives a Daytona sandbox (stops first if running, then moves to cold storage). */
+/** Archives a Vercel sandbox (stops first if running, then moves to cold storage). */
 export const archiveSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
@@ -284,163 +272,69 @@ export const archiveSandbox = internalAction({
       await sandbox.refresh();
       const state = sandbox.state;
       console.log(
-        `[daytona] Archiving sandbox ${args.sandboxId}, current state: ${state}`,
+        `[sandbox] Archiving sandbox ${args.sandboxId}, current state: ${state}`,
       );
 
       // Already archived - nothing to do
       if (state === "archived") {
-        console.log(`[daytona] Sandbox ${args.sandboxId} already archived`);
+        console.log(`[sandbox] Sandbox ${args.sandboxId} already archived`);
         return null;
       }
 
       // Stop first if currently running (archive requires stopped state)
       if (state === "running") {
         await sandbox.stop();
-        console.log(`[daytona] Stopped sandbox ${args.sandboxId}`);
+        console.log(`[sandbox] Stopped sandbox ${args.sandboxId}`);
       }
 
       await sandbox.archive();
-      console.log(`[daytona] Archived sandbox ${args.sandboxId}`);
+      console.log(`[sandbox] Archived sandbox ${args.sandboxId}`);
     } catch (error) {
       // Sandbox may already be archived, stopped, or deleted
       console.warn(
-        `[daytona] Failed to archive sandbox ${args.sandboxId}: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox] Failed to archive sandbox ${args.sandboxId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return null;
   },
 });
 
-/** Returns the active sandbox provider for a repo (for workflow thaw id selection). */
+/** Returns the active sandbox provider for a repo (for workflow thaw id selection). Vercel is the only provider. */
 export const getSandboxProviderKind = internalAction({
   args: { repoId: v.id("githubRepos") },
-  returns: v.union(v.literal("daytona"), v.literal("vercel")),
-  handler: async (ctx, args) => {
-    // Do not call resolveSandboxCredentials here — that decrypts the full env
-    // map and was the multi-second gap before kickoff on resume.
-    return resolveSandboxProviderKind(ctx, args.repoId);
-  },
+  returns: v.literal("vercel"),
+  handler: async () => "vercel" as const,
 });
 
-/**
- * Provider for a snapshot config: checks the config repo and every monorepo
- * sibling. SANDBOX_PROVIDER often lives on an app repo (e.g. apps/web) while
- * the shared snapshot config points at the monorepo parent.
- */
+/** Provider for a snapshot config. Vercel is the only provider. */
 export const getSnapshotSandboxProviderKind = internalAction({
   args: { repoSnapshotId: v.id("repoSnapshots") },
-  returns: v.union(v.literal("daytona"), v.literal("vercel")),
-  handler: async (ctx, args) => {
-    const config = await ctx.runQuery(
-      internal.repoSnapshots.getRepoSnapshotInternal,
-      { repoSnapshotId: args.repoSnapshotId },
-    );
-    if (!config) return "daytona";
-
-    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: config.repoId,
-    });
-    if (!repo) return "daytona";
-
-    const siblingIds = await ctx.runQuery(
-      internal.githubRepos.listRepoIdsByOwnerAndName,
-      { owner: repo.owner, name: repo.name },
-    );
-
-    for (const repoId of siblingIds) {
-      const kind = await resolveSandboxProviderKind(ctx, repoId);
-      if (kind === "vercel") return "vercel";
-    }
-    return "daytona";
-  },
+  returns: v.literal("vercel"),
+  handler: async () => "vercel" as const,
 });
 
 /**
  * Issues a start request for a sandbox and returns the observed state WITHOUT
- * blocking on a full cold-storage thaw.
- *
- * Archived sandboxes rehydrate from object storage, which can take well over 10
- * minutes — waiting inline would blow the Convex per-action time limit. So this
- * fires the start (the thaw then proceeds server-side on Daytona) with only a
- * short wait window: a stopped→started fast resume completes here and returns
- * "running"; an archived thaw times out the wait (expected) and returns the
- * in-progress state so the caller can poll via pollSandboxStarted. Throws only
- * when the sandbox is in a terminal failure state.
+ * blocking on a full cold-storage thaw. Vercel resumes on the first exec
+ * inside `ensureSandboxRunning` (with progress UI) — waiting here would block
+ * the workflow step for the full restore (~10–30s) with no streaming
+ * activity, so this only reports current state and defers the actual resume.
  */
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.object({
     state: v.string(),
-    provider: v.union(v.literal("daytona"), v.literal("vercel")),
+    provider: v.literal("vercel"),
   }),
   handler: async (ctx, args) => {
     const kickoffStartedAt = Date.now();
     const credentials = await resolveSandboxCredentialsOnly(ctx, args.repoId);
     const sandbox = await getSandboxClient(credentials).get(args.sandboxId);
     await sandbox.refresh();
-    if (sandbox.state === "running") {
-      console.log(
-        `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} already running (elapsed=${Date.now() - kickoffStartedAt}ms)`,
-      );
-      return { state: "running", provider: credentials.kind };
-    }
-    // Vercel resumes on the first exec inside ensureSandboxRunning (with
-    // progress UI). Waiting here blocks the workflow step for the full restore
-    // (~10–30s) with no streaming activity — measured ~17s on carepulse resume.
-    if (credentials.kind === "vercel") {
-      const state: string = sandbox.state;
-      console.log(
-        `[daytona] startSandboxAsyncKickoff: vercel sandbox ${args.sandboxId} state=${state} (defer resume to ensureSandboxRunning, elapsed=${Date.now() - kickoffStartedAt}ms)`,
-      );
-      return { state, provider: "vercel" as const };
-    }
-    try {
-      // start() POSTs the start request, then waits up to the given window. The
-      // POST returns fast; for a cold thaw the wait times out and throws — the
-      // restore keeps running on Daytona regardless.
-      await sandbox.start(KICKOFF_START_WAIT_SECONDS);
-    } catch (error) {
-      console.log(
-        `[daytona] startSandboxAsyncKickoff: start() did not complete within ${KICKOFF_START_WAIT_SECONDS}s for ${args.sandboxId} (expected for a cold thaw): ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    await sandbox.refresh();
     const state = sandbox.state;
-    if (TERMINAL_FAILURE_STATES.includes(state)) {
-      throw new Error(
-        `Sandbox ${args.sandboxId} is in terminal state "${state}": ${sandbox.errorReason ?? "no reason given"}`,
-      );
-    }
     console.log(
-      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state} (elapsed=${Date.now() - kickoffStartedAt}ms)`,
+      `[sandbox] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state=${state} (defer resume to ensureSandboxRunning, elapsed=${Date.now() - kickoffStartedAt}ms)`,
     );
-    return { state, provider: credentials.kind };
-  },
-});
-
-/**
- * Single poll of a sandbox's state, used by the cold-storage thaw workflow loop
- * (ensureSandboxStartedSteps). Returns the current state; throws if the sandbox
- * has reached a terminal failure state so the workflow can stop early instead of
- * polling all the way to its ceiling.
- */
-export const pollSandboxStarted = internalAction({
-  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
-  returns: v.object({ state: v.string() }),
-  handler: async (ctx, args) => {
-    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    await sandbox.refresh();
-    let state = sandbox.state;
-    if (state !== "running" && !TERMINAL_FAILURE_STATES.includes(state)) {
-      await sandbox.start(KICKOFF_START_WAIT_SECONDS);
-      await sandbox.refresh();
-      state = sandbox.state;
-    }
-    if (TERMINAL_FAILURE_STATES.includes(state)) {
-      throw new Error(
-        `Sandbox ${args.sandboxId} reached terminal state "${state}" during restore: ${sandbox.errorReason ?? "no reason given"}`,
-      );
-    }
-    return { state };
+    return { state, provider: "vercel" as const };
   },
 });

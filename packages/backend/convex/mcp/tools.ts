@@ -1136,7 +1136,7 @@ Do NOT use this for session walkthrough recordings, screen captures, or screensh
       if ("isError" in session) return session;
 
       const result = await ctx.runAction(
-        internal.daytona.startDesktopForBrowserSession,
+        internal.sandbox.startDesktopForBrowserSession,
         {
           sessionId: session.sessionId,
           clerkUserId,

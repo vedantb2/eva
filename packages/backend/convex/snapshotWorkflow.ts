@@ -1,10 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
-
-const POLL_DELAY_MS = 30_000;
-const MAX_POLLS = 60; // ~30 minutes at 30s intervals
+import { isTerminalSnapshotState } from "./_sandbox_runtime/snapshotStates";
 
 // Detached seed-run poll loop (per app). The whole per-app pipeline (git
 // update, deps/build, daemons, seed, clean stop) runs as ONE detached script on
@@ -22,7 +19,7 @@ const MAX_SEED_RUN_POLLS = 150; // ~50 minutes at 20s intervals
 // a reliable completion signal.
 const SEED_SNAPSHOT_POLL_DELAY_MS = 15_000;
 const MAX_SEED_SNAPSHOT_POLLS = 240; // ~60 minutes at 15s intervals — captures
-// normally finish in ~6m but have been observed taking 40m+ when the Daytona
+// normally finish in ~6m but have been observed taking 40m+ when the provider
 // builder/runner fleet is degraded; the window must outlast a bad day because
 // exhausting it costs the app its seeded refresh for this build.
 
@@ -95,7 +92,7 @@ export const snapshotBuildWorkflow = workflow.define({
     const branch = config.workflowRef ?? "main";
 
     const providerKind = await step.runAction(
-      internal.daytona.getSandboxProviderKind,
+      internal.sandbox.getSandboxProviderKind,
       { repoId: appRepoId },
     );
     await step.runMutation(internal.repoSnapshots.setBuildProvider, {
@@ -119,7 +116,7 @@ export const snapshotBuildWorkflow = workflow.define({
     // Bootstrap / toolchain path: rebuild the base Image first
     // (serial — captures contending with the Image builder slow both down).
     if (rebuildBaseImage) {
-      if (providerKind === "vercel") {
+      {
         const baseSnapshotLabel = `base-${config.repoId}`;
         let prepSandboxId: string | null = null;
         // Keep-last-good: hold the previous base id and delete it only AFTER
@@ -137,13 +134,16 @@ export const snapshotBuildWorkflow = workflow.define({
         try {
           const created = await step.runAction(
             internal.snapshotActions.createSeedPrepSandbox,
-            { repoId: appRepoId, imageSnapshot: config.snapshotName },
+            {
+              repoId: appRepoId,
+              imageSnapshot: config.baseSnapshotId ?? config.snapshotName,
+            },
             { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
           );
           prepSandboxId = created.sandboxId;
 
           await step.runAction(
-            internal.daytona.fetchBaseBranch,
+            internal.sandbox.fetchBaseBranch,
             {
               sandboxId: prepSandboxId,
               installationId: repo.installationId,
@@ -311,49 +311,6 @@ export const snapshotBuildWorkflow = workflow.define({
           });
           return;
         }
-      } else {
-        await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
-          snapshotName: config.snapshotName,
-          repoId: appRepoId,
-          buildId: args.buildId,
-        });
-        const kickOffResult = await step.runAction(
-          internal.snapshotActions.kickOffSnapshotBuild,
-          { buildId: args.buildId, repoSnapshotId: args.repoSnapshotId },
-        );
-        // Kick-off failure already recorded completeBuild(error).
-        if (!kickOffResult) return;
-        let attempt = 0;
-        let state = "";
-        while (attempt < MAX_POLLS) {
-          attempt++;
-          state = await step.runAction(
-            internal.snapshotActions.pollSnapshotProgress,
-            {
-              buildId: args.buildId,
-              snapshotName: kickOffResult.snapshotName,
-              repoId: kickOffResult.repoId,
-              attempt,
-            },
-            { runAfter: attempt === 1 ? 10_000 : POLL_DELAY_MS },
-          );
-          if (isTerminalSnapshotState(state)) break;
-        }
-        if (state !== "active") {
-          // pollSnapshotProgress recorded the error terminal states; timeouts
-          // need recording here. Either way there is no bootable image to seed
-          // from, so stop.
-          if (!isTerminalSnapshotState(state)) {
-            await step.runMutation(internal.repoSnapshots.completeBuild, {
-              buildId: args.buildId,
-              status: "error",
-              logs: `Max poll attempts (${MAX_POLLS}) reached.\n`,
-              error:
-                "Snapshot build did not complete within polling window (~30 minutes)",
-            });
-          }
-          return;
-        }
       }
     } else {
       await step.runMutation(internal.repoSnapshots.appendLogs, {
@@ -399,18 +356,22 @@ export const snapshotBuildWorkflow = workflow.define({
       });
 
       // One fresh seed-prep sandbox for the whole build (Vercel maps a
-      // non-`snap_` source to a fresh sandbox; Daytona would map onto its
+      // non-`snap_` source to a fresh sandbox; a legacy provider would map onto its
       // Image snapshot the same way the old per-app flow did).
       const created = await step.runAction(
         internal.snapshotActions.createSeedPrepSandbox,
-        { repoId: appRepoId, imageSnapshot: config.snapshotName },
+        {
+          repoId: appRepoId,
+          // Prefer Vercel base snap_*; non-snap_ values become a fresh sandbox.
+          imageSnapshot: config.baseSnapshotId ?? config.snapshotName,
+        },
         { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
       );
       prepSandboxId = created.sandboxId;
 
       // Fresh refs for the detached script's hard reset (owns git auth).
       await step.runAction(
-        internal.daytona.fetchBaseBranch,
+        internal.sandbox.fetchBaseBranch,
         {
           sandboxId: prepSandboxId,
           installationId: repo.installationId,
@@ -478,7 +439,7 @@ export const snapshotBuildWorkflow = workflow.define({
       // POST without blocking; poll across separate steps so a long DB
       // capture never exceeds Convex's 600s per-action ceiling.
       // triggerSeededSnapshot returns the provider's actual snapshot id:
-      // - Daytona: equals seededName (the Daytona snapshot name IS its id)
+      // - Legacy name-as-id providers used seededName as the id
       // - Vercel: a generated `snap_*` id distinct from seededName
       // All subsequent steps must use effectiveSeededName so that the right
       // id is polled and written to seededSnapshotName on every app repo.

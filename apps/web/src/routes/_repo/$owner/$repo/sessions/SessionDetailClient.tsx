@@ -63,9 +63,9 @@ export function SessionDetailClient({
   }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
-  // (and disabling Start) for its full duration prevents the stop/start race
-  // that previously orphaned sandboxes.
+  // cleared once the provider's stop call completes (~10s). Showing the
+  // spinner (and disabling Start) for its full duration prevents the
+  // stop/start race that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
   const handleSandboxToggle = async (action: "start" | "stop") => {

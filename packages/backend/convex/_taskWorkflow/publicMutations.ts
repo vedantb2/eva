@@ -414,7 +414,7 @@ export const cancelExecution = authMutation({
       // workflow.cancel() aborts execution before the workflow's own sandbox
       // cleanup step runs, so we stop the execution sandbox here.
       if (run.sandboxId && run.repoId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.stopSandbox, {
           sandboxId: run.sandboxId,
           repoId: run.repoId,
         });

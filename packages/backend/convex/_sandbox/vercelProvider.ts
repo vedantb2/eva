@@ -2,10 +2,10 @@
 
 /**
  * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts).
- * Mirrors ./daytonaProvider.ts but targets `@vercel/sandbox` v2 (persistent
+ * Implements SandboxClient against `@vercel/sandbox` v2 (persistent
  * sandboxes, sub-second snapshot restore — see the Phase 0 spike results).
  *
- * Design notes / provider deltas vs Daytona:
+ * Design notes / Vercel deltas:
  * - Identity: Vercel addresses sandboxes by `name`, not a separate id. We expose
  *   `handle.id === sandbox.name` and resolve `get(sandboxId)` via `Sandbox.get({ name })`.
  * - Resources: the neutral create params carry no vCPU count, so we default it
@@ -16,8 +16,7 @@
  * - PTY/desktop/volumes are intentionally omitted for now: Vercel's PTY is a
  *   client-connect WebSocket (`openInteractive`) rather than the push-callback
  *   model of the neutral SandboxPty, and Drives (volumes) are beta. These are
- *   the "wired last" capabilities called out in the contract; consumers that
- *   need them stay on Daytona until they're designed for both providers.
+ *   the "wired last" capabilities called out in the contract.
  */
 
 import { Sandbox } from "@vercel/sandbox";
@@ -593,7 +592,7 @@ class VercelSandboxHandle implements SandboxHandle {
 
   async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
     // Native detached exec: returns a Command handle immediately without holding
-    // the stream. This is the analogue of eva's `setsid nohup … &` on Daytona —
+    // the stream. This is the analogue of eva's `setsid nohup … &` on sandbox —
     // a shell `&` inside a synchronous runCommand would keep the stream open
     // until it times out (StreamError). The command itself still backgrounds its
     // long-runner with setsid so it survives this launcher process exiting.
@@ -890,7 +889,7 @@ class VercelSandboxClient implements SandboxClient {
     const persistent = params.lifecycle.ephemeral !== true;
     const base = {
       ...this.creds,
-      // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
+      // Vercel `timeout` is a HARD session cap, not the provider's idle-stop timer.
       // Mapping a small autoStop (e.g. WARMING's 10 min) straight through would
       // hard-kill a ~11-min seed build mid-run. Floor it to 45 min so builds and
       // resumes have headroom; eva stops sandboxes explicitly (snapshot/stop),
@@ -976,7 +975,7 @@ class VercelSandboxClient implements SandboxClient {
 
   async ensureVolume(_name: string): Promise<{ id: string; ready: boolean }> {
     // Persistent named volumes map to Vercel Drives (beta) — not wired yet.
-    // Consumers needing CLI-persistence volumes stay on Daytona for now.
+    // Consumers needing CLI-persistence volumes stay on sandbox for now.
     throw new Error(
       "Vercel provider does not implement named volumes yet (Drives, beta — Phase 2 follow-up).",
     );

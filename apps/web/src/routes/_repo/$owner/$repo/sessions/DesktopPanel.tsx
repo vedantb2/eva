@@ -92,8 +92,8 @@ export function DesktopPanel({
   onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
-  const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
-  const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
+  const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
+  const launchChromeInDesktop = useAction(api.sandbox.launchChromeInDesktop);
   const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
 
   const startAction = async (): Promise<StartResult> => {

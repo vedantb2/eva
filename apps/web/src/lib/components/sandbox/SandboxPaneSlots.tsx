@@ -23,7 +23,7 @@ interface SandboxPaneSlotsProps {
   preview: SandboxPreviewApi;
   owner: PtyOwner;
   sandboxId: string | undefined;
-  /** Vercel sandbox name; when set, the Daytona preview hint is hidden. */
+  /** Vercel sandbox name for the active preview. */
   vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;

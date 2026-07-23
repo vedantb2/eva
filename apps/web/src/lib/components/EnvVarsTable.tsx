@@ -34,7 +34,6 @@ import {
 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { EnvVarProviderSlots } from "@/lib/components/EnvVarProviderSlots";
-import { SandboxProviderToggle } from "@/lib/components/SandboxProviderToggle";
 import { parseEnvVars } from "./_utils/parseEnvVars";
 import {
   KNOWN_ENV_VARS,
@@ -461,13 +460,6 @@ export function EnvVarsTable({
               Infrastructure
             </p>
             <div className="space-y-2">
-              <SandboxProviderToggle
-                vars={vars}
-                scope={scope}
-                onUpsert={onUpsert}
-                onReveal={onReveal}
-                readOnly={readOnly}
-              />
               <EnvVarProviderSlots
                 entries={infraSlots}
                 defaultSandboxExclude

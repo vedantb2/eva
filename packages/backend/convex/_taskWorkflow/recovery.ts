@@ -25,13 +25,13 @@ export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 // confirmed the callback PID is still alive.
 export const STALE_TOOL_ACTIVE_THRESHOLD_MS = 1_500_000;
 
-/** Checks whether an error message indicates a Daytona infrastructure/network issue. */
-export function isDaytonaNetworkIssue(errorMsg: string): boolean {
+/**
+ * Checks whether an error message indicates a sandbox provider
+ * infrastructure/network issue (safe to auto-retry).
+ */
+export function isSandboxNetworkIssue(errorMsg: string): boolean {
   const message = errorMsg.toLowerCase();
-  if (
-    message.includes("failed to fetch latest base branch") ||
-    message.includes("daytona:fetchbasebranch")
-  ) {
+  if (message.includes("failed to fetch latest base branch")) {
     return false;
   }
   const networkMarkers = [
@@ -47,8 +47,8 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
     "timed out",
     "aborted",
   ];
-  const daytonaMarkers = ["daytona", "daytonaerror", "sandbox", "snapshot"];
-  const daytonaStatusMarkers = [
+  const sandboxMarkers = ["sandbox", "snapshot", "vercel"];
+  const statusMarkers = [
     "status code 408",
     "status code 429",
     "status code 500",
@@ -57,10 +57,10 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
     "status code 504",
   ];
 
-  const hasDaytonaMarker = daytonaMarkers.some((marker) =>
+  const hasSandboxMarker = sandboxMarkers.some((marker) =>
     message.includes(marker),
   );
-  if (!hasDaytonaMarker) {
+  if (!hasSandboxMarker) {
     return false;
   }
 
@@ -74,7 +74,7 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   const hasNetworkMarker = networkMarkers.some((marker) =>
     message.includes(marker),
   );
-  const hasDaytonaStatusMarker = daytonaStatusMarkers.some((marker) =>
+  const hasStatusMarker = statusMarkers.some((marker) =>
     message.includes(marker),
   );
 
@@ -84,7 +84,7 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
     return true;
   }
 
-  return hasNetworkMarker || hasDaytonaStatusMarker;
+  return hasNetworkMarker || hasStatusMarker;
 }
 
 /** Checks whether an error message indicates a Claude API usage limit. */
@@ -177,7 +177,7 @@ export async function cleanUpStaleRun(
   await cancelTrackedWorkflow(ctx, params.activeWorkflowId);
 
   if (params.sandboxId && params.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
       sandboxId: params.sandboxId,
       repoId: params.repoId,
     });
@@ -189,7 +189,7 @@ export async function cleanUpStaleRun(
       // sandbox is still running.
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.captureDiagnosticsAndStopSandbox,
+        internal.sandbox.captureDiagnosticsAndStopSandbox,
         {
           sandboxId: params.sandboxId,
           repoId: params.repoId,

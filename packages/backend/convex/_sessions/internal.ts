@@ -86,7 +86,7 @@ export const markReadyAndArchive = internalMutation({
     if (!session) return null;
 
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.archiveSandbox, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.archiveSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

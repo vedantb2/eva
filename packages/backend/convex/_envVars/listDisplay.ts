@@ -1,7 +1,7 @@
 /**
  * Non-secret env keys shown and stored in plaintext (toggles, not credentials).
  * Must not go through `"use node"` decrypt in isolate queries — store as plain
- * `daytona` / `vercel` and return as-is from list.
+ * `vercel` (and legacy plaintext toggles) and return as-is from list.
  */
 export const PLAINTEXT_ENV_VAR_KEYS: ReadonlySet<string> = new Set([
   "SANDBOX_PROVIDER",

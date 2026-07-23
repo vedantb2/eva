@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, "..");
 const entry = join(backendRoot, "callback-src/index.ts");
 const outJs = join(backendRoot, "callback-src/.build/bundle.js");
-const outTs = join(backendRoot, "convex/_daytona/callbackScript.generated.ts");
+const outTs = join(backendRoot, "convex/_sandbox_runtime/callbackScript.generated.ts");
 const callbackTsconfig = join(backendRoot, "callback-src/tsconfig.json");
 
 // Fail the bundle if callback-src doesn't typecheck — esbuild alone won't

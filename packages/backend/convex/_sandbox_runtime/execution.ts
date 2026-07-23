@@ -14,13 +14,11 @@ import {
   execHandle,
   resolveSandboxContext,
   getSandboxHandle,
-  getDaytona,
   ensureSandboxRunning,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   sleep,
   errorMessage,
   signAndLaunchScript,
-  workspaceDirShell,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -29,39 +27,13 @@ import {
   materializeAttachmentsToSandbox,
   buildAttachmentPromptNote,
 } from "./attachments";
-import {
-  resolveSandboxCredentials,
-  resolveDaytonaApiKey,
-} from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
 } from "./convexLocalBackend";
-import {
-  detectPackageManager,
-  launchDevServerInBackground,
-  isDevServerBooting,
-  restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox,
-} from "./devServer";
-import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
-
-async function resolveDevCommandForPreview(
-  handle: SandboxHandle,
-  repo: { rootDirectory?: string; devPort?: number; devCommand?: string },
-  port: number,
-): Promise<string> {
-  const rootDir = repo.rootDirectory ?? "";
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
-  const effectivePort = repo.devPort ?? port;
-  if (repo.devCommand && repo.devCommand.trim().length > 0) {
-    return `cd ${workspaceDirShell()} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${repo.devCommand}`;
-  }
-  const pm = await detectPackageManager(handle, rootDir);
-  return `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${pm} run dev`;
-}
+import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
+import { isSandboxNetworkIssue } from "../_taskWorkflow/recovery";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -109,7 +81,7 @@ import {
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
-import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
+import { sessionClaudeUuid } from "./agentRuntimePaths";
 import { startDesktopWithChrome } from "./desktop";
 import {
   ensurePreviewNavigationProxy,
@@ -242,7 +214,7 @@ export const runStartupCommands = internalAction({
         await execHandle(sandbox, "test -f /tmp/.startup-commands-done", 5);
         // Marker exists, commands already ran
         console.log(
-          `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
+          `[sandbox] runStartupCommands: marker exists, skipping ${commands.length} commands`,
         );
         return { ran: false, commandCount: 0, errors: [] };
       } catch {
@@ -251,22 +223,22 @@ export const runStartupCommands = internalAction({
     }
 
     console.log(
-      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)${args.force ? " (forced)" : ""}`,
+      `[sandbox] runStartupCommands: executing ${commands.length} startup command(s)${args.force ? " (forced)" : ""}`,
     );
 
     const errors: string[] = [];
     for (const command of commands) {
-      console.log(`[daytona] runStartupCommands: running: ${command}`);
+      console.log(`[sandbox] runStartupCommands: running: ${command}`);
       try {
         // 10 minute timeout per command (supabase start can take a while)
         const output = await execHandle(sandbox, command, 600);
-        console.log(`[daytona] runStartupCommands: completed: ${command}`);
+        console.log(`[sandbox] runStartupCommands: completed: ${command}`);
         if (output.trim()) {
-          console.log(`[daytona] output: ${output.slice(0, 500)}`);
+          console.log(`[sandbox] output: ${output.slice(0, 500)}`);
         }
       } catch (e) {
         const msg = errorMessage(e, "command failed");
-        console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
+        console.error(`[sandbox] runStartupCommands: failed: ${command}`, msg);
         errors.push(`${command}: ${msg}`);
         // Continue with other commands even if one fails
       }
@@ -284,7 +256,7 @@ export const runStartupCommands = internalAction({
       }
     } else {
       console.error(
-        `[daytona] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
+        `[sandbox] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
       );
     }
 
@@ -332,7 +304,7 @@ export const runBackgroundCommands = internalAction({
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
-      `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)${args.onlyRestartDead ? " (onlyRestartDead)" : ""}`,
+      `[sandbox] runBackgroundCommands: launching ${commands.length} background command(s)${args.onlyRestartDead ? " (onlyRestartDead)" : ""}`,
     );
 
     const errors: string[] = [];
@@ -357,7 +329,7 @@ export const runBackgroundCommands = internalAction({
         ).trim();
         if (alive === "alive") {
           console.log(
-            `[daytona] runBackgroundCommands: still alive, skip: ${command}`,
+            `[sandbox] runBackgroundCommands: still alive, skip: ${command}`,
           );
           continue;
         }
@@ -404,7 +376,7 @@ export const runBackgroundCommands = internalAction({
       // only blocks SIGHUP).
       const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && (setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
       console.log(
-        `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
+        `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );
       try {
         // Short timeout — we only wait for the shell to fork the daemon.
@@ -413,7 +385,7 @@ export const runBackgroundCommands = internalAction({
       } catch (e) {
         const msg = errorMessage(e, "command failed");
         console.error(
-          `[daytona] runBackgroundCommands: failed to launch: ${command}`,
+          `[sandbox] runBackgroundCommands: failed to launch: ${command}`,
           msg,
         );
         errors.push(`${command}: ${msg}`);
@@ -460,18 +432,18 @@ export const runStopCommands = internalAction({
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
-      `[daytona] runStopCommands: running ${commands.length} stop command(s)`,
+      `[sandbox] runStopCommands: running ${commands.length} stop command(s)`,
     );
 
     const errors: string[] = [];
     for (const command of commands) {
-      console.log(`[daytona] runStopCommands: running: ${command}`);
+      console.log(`[sandbox] runStopCommands: running: ${command}`);
       try {
         await execHandle(handle, command, 300);
-        console.log(`[daytona] runStopCommands: completed: ${command}`);
+        console.log(`[sandbox] runStopCommands: completed: ${command}`);
       } catch (e) {
         const msg = errorMessage(e, "command failed");
-        console.error(`[daytona] runStopCommands: failed: ${command}`, msg);
+        console.error(`[sandbox] runStopCommands: failed: ${command}`, msg);
         errors.push(`${command}: ${msg}`);
       }
     }
@@ -508,20 +480,17 @@ export const getPreviewUrl = action({
       throw new Error("Not authorized to access this repository");
     }
 
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
-    // On Vercel, services listen on internal ports and the auth proxy owns the
-    // exposed port (desktop 16080→6080, editor 18080→8080, app listen→3000).
-    // Probe the upstream service port for readiness, not the proxy port.
+    // Services listen on internal ports and the auth proxy owns the exposed
+    // port (desktop 16080→6080, editor 18080→8080, app listen→3000). Probe
+    // the upstream service port for readiness, not the proxy port.
     const upstreamPort =
-      credentials.kind === "vercel" && args.port === 6080
+      args.port === 6080
         ? VERCEL_DESKTOP_INTERNAL_PORT
-        : credentials.kind === "vercel" && args.port === 8080
+        : args.port === 8080
           ? VERCEL_EDITOR_INTERNAL_PORT
-          : credentials.kind === "vercel"
-            ? vercelAppListenPort(args.port)
-            : args.port;
+          : vercelAppListenPort(args.port);
 
     let ready = true;
     if (args.checkReady) {
@@ -540,49 +509,20 @@ export const getPreviewUrl = action({
       // keep loading a frontend with a dead backend. Cheap pid check; skip
       // when still alive.
       try {
-        await ctx.runAction(internal.daytona.runBackgroundCommands, {
+        await ctx.runAction(internal.sandbox.runBackgroundCommands, {
           sandboxId: args.sandboxId,
           repoId: args.repoId,
           onlyRestartDead: true,
         });
       } catch (e) {
         console.warn(
-          `[daytona] preview background heal failed sandbox=${args.sandboxId}: ${errorMessage(e, "heal failed")}`,
+          `[sandbox] preview background heal failed sandbox=${args.sandboxId}: ${errorMessage(e, "heal failed")}`,
         );
       }
       ready = await probePreviewReady(handle, upstreamPort);
-      // Only auto-restart the app/dev server for app preview ports.
-      // Desktop (6080) and editor (8080) are started by their own toggle
-      // actions — launching `pnpm run dev` onto those ports would clobber
-      // noVNC/websockify or code-server and surface as SANDBOX_NOT_LISTENING.
-      //
-      // Vercel: Preview must NOT background-launch the app. Lifecycle owns
-      // Console (`launchPreviewDevServer` → tmux). Remount via
-      // `launchDevServerInBackground` raced resume and hit EADDRINUSE.
-      // Probe-only here; Console is the single launcher.
-      const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
-      if (!ready && !isDesktopOrEditorPort && credentials.kind !== "vercel") {
-        try {
-          if (await isDevServerBooting(handle, args.port)) {
-            console.log(
-              `[daytona] preview restart skipped (booting) sandbox=${args.sandboxId} port=${args.port}`,
-            );
-          } else {
-            const devCommand = await resolveDevCommandForPreview(
-              handle,
-              repo,
-              args.port,
-            );
-            await launchDevServerInBackground(handle, devCommand, args.port);
-            await sleep(8);
-            ready = await probePreviewReady(handle, args.port);
-          }
-        } catch (e) {
-          console.warn(
-            `[daytona] preview dev server restart failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "restart failed")}`,
-          );
-        }
-      }
+      // Preview must NOT background-launch the app. Lifecycle owns Console
+      // (`launchPreviewDevServer` → tmux), which is the single launcher;
+      // this is probe-only.
     }
 
     // Always front the service with the in-sandbox auth proxy so open-in-new-tab
@@ -592,25 +532,17 @@ export const getPreviewUrl = action({
     //   app/dev → proxy on 3000 (upstream = listen port; 54321 left for Supabase)
     //   editor  → proxy on 8080  (upstream 18080)
     //   desktop → proxy on 6080  (upstream 16080)
-    // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
-    const isVercelDesktopOrEditor =
-      credentials.kind === "vercel" &&
-      (args.port === 6080 || args.port === 8080);
-    const fixedVercelProxyPort =
-      credentials.kind !== "vercel"
-        ? undefined
-        : isVercelDesktopOrEditor
-          ? args.port
-          : VERCEL_PREVIEW_PROXY_PORT;
+    const isVercelDesktopOrEditor = args.port === 6080 || args.port === 8080;
+    const fixedVercelProxyPort = isVercelDesktopOrEditor
+      ? args.port
+      : VERCEL_PREVIEW_PROXY_PORT;
     // Public route port: on Vercel app/dev previews this is always 3000, never
     // the upstream listen port (e.g. Next 13000 / 3001, Vite 5173).
-    let previewPort = fixedVercelProxyPort ?? args.port;
+    let previewPort = fixedVercelProxyPort;
     // Same upstream mapping used for the readiness probe above.
     const proxyTargetPort = upstreamPort;
-    const shouldStartPreviewProxy =
-      credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
-    if (ready && shouldStartPreviewProxy) {
+    if (ready) {
       try {
         previewPort = await ensurePreviewNavigationProxy(
           handle,
@@ -629,7 +561,7 @@ export const getPreviewUrl = action({
       } catch (e) {
         const proxyErrorMessage = errorMessage(e, "proxy startup failed");
         console.warn(
-          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${proxyErrorMessage}`,
+          `[sandbox] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${proxyErrorMessage}`,
         );
         // Vercel only exposes a fixed, small port set (VERCEL_DEFAULT_EXPOSED_PORTS).
         // If the reserved proxy port fails to start while a preview grant
@@ -671,7 +603,7 @@ const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "5400000";
 
 /** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {
-  if (isDaytonaNetworkIssue(message)) {
+  if (isSandboxNetworkIssue(message)) {
     return true;
   }
   const lowered = message.toLowerCase();
@@ -691,9 +623,9 @@ function isSandboxSetupRetryable(message: string): boolean {
   return (
     (lowered.includes("sandbox exec") && lowered.includes("timed out")) ||
     lowered.includes("command execution timeout") ||
-    // Daytona returns exit code -1 when the command was terminated abnormally
-    // (sandbox not yet accepting commands, transport error, killed mid-exec) —
-    // this is transient, unlike non-zero exit codes from real command failures.
+    // Exit code -1 means the command was terminated abnormally (sandbox not
+    // yet accepting commands, transport error, killed mid-exec) — this is
+    // transient, unlike non-zero exit codes from real command failures.
     lowered.includes("sandbox command failed with exit code -1") ||
     gitNetworkMarkers.some((marker) => lowered.includes(marker))
   );
@@ -742,35 +674,23 @@ export const prepareSandbox = internalAction({
 
     const setupStartedAt = Date.now();
     console.log(
-      `[daytona] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+      `[sandbox] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
-    // Daytona `existingSandboxId` on the entity must never be treated as
+    // legacy `existingSandboxId` on the entity must never be treated as
     // reusable here.
     const existingSandboxId = resolveExistingSandboxId({
-      providerKind: client.kind,
       sandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
     });
-    // Persistence volumes remain a Daytona-only capability; resolve a raw
-    // Daytona client just for the volume lookup on that path.
+    // Vercel has no persistence-volume equivalent; session persistence is a
+    // no-op regression accepted with the Vercel-only sandbox model.
     const sessionVolumeMounts =
-      args.sessionPersistenceId && args.sessionPersistenceKind
-        ? client.kind === "vercel"
-          ? []
-          : await ensureSessionPersistenceVolumes(
-              getDaytona(
-                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-              ),
-              args.repoId,
-              args.sessionPersistenceKind,
-              args.sessionPersistenceId,
-            )
-        : undefined;
+      args.sessionPersistenceId && args.sessionPersistenceKind ? [] : undefined;
     console.log(
-      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
     let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
@@ -785,8 +705,7 @@ export const prepareSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
-        vercelSandboxId:
-          client.kind === "vercel" ? sandboxToAttach.id : undefined,
+        vercelSandboxId: sandboxToAttach.id,
       });
     };
 
@@ -849,7 +768,7 @@ export const prepareSandbox = internalAction({
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
           console.warn(
-            `[daytona] prepareSandbox: deleting failed sandbox ${sandbox.id}`,
+            `[sandbox] prepareSandbox: deleting failed sandbox ${sandbox.id}`,
           );
           try {
             await sandbox.delete();
@@ -868,19 +787,19 @@ export const prepareSandbox = internalAction({
         const shouldRetry = retryable && withinTimeLimit;
 
         console.warn(
-          `[daytona] prepareSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+          `[sandbox] prepareSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
         );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           console.error(
-            `[daytona] prepareSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+            `[sandbox] prepareSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
           );
           throw error;
         }
 
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
-        console.warn(`[daytona] prepareSandbox: retrying in ${delayMs}ms`);
+        console.warn(`[sandbox] prepareSandbox: retrying in ${delayMs}ms`);
         await sleep(delayMs);
         completedSteps.length = 0;
         await emitProgress("Retrying sandbox setup...");
@@ -896,11 +815,11 @@ export const prepareSandbox = internalAction({
 
     const totalElapsed = Date.now() - setupStartedAt;
     console.log(
-      `[daytona] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+      `[sandbox] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
     return {
       sandboxId: sandbox.id,
-      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+      vercelSandboxId: sandbox.id,
     };
   },
 });
@@ -947,35 +866,23 @@ export const createOrResumeSandbox = internalAction({
 
     const setupStartedAt = Date.now();
     console.log(
-      `[daytona] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+      `[sandbox] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
-    // Daytona `existingSandboxId` on the entity must never be treated as
+    // legacy `existingSandboxId` on the entity must never be treated as
     // reusable here.
     const existingSandboxId = resolveExistingSandboxId({
-      providerKind: client.kind,
       sandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
     });
-    // Persistence volumes remain a Daytona-only capability; resolve a raw
-    // Daytona client just for the volume lookup on that path.
+    // Vercel has no persistence-volume equivalent; session persistence is a
+    // no-op regression accepted with the Vercel-only sandbox model.
     const sessionVolumeMounts =
-      args.sessionPersistenceId && args.sessionPersistenceKind
-        ? client.kind === "vercel"
-          ? []
-          : await ensureSessionPersistenceVolumes(
-              getDaytona(
-                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-              ),
-              args.repoId,
-              args.sessionPersistenceKind,
-              args.sessionPersistenceId,
-            )
-        : undefined;
+      args.sessionPersistenceId && args.sessionPersistenceKind ? [] : undefined;
     console.log(
-      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
     let sandbox: SandboxHandle | undefined;
@@ -991,8 +898,7 @@ export const createOrResumeSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
-        vercelSandboxId:
-          client.kind === "vercel" ? sandboxToAttach.id : undefined,
+        vercelSandboxId: sandboxToAttach.id,
       });
     };
 
@@ -1038,7 +944,7 @@ export const createOrResumeSandbox = internalAction({
           await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
             runId: args.attachRunId,
             sandboxId: sandbox.id,
-            vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+            vercelSandboxId: sandbox.id,
           });
         }
 
@@ -1046,7 +952,7 @@ export const createOrResumeSandbox = internalAction({
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
           console.warn(
-            `[daytona] createOrResumeSandbox: deleting failed sandbox ${sandbox.id}`,
+            `[sandbox] createOrResumeSandbox: deleting failed sandbox ${sandbox.id}`,
           );
           try {
             await sandbox.delete();
@@ -1065,12 +971,12 @@ export const createOrResumeSandbox = internalAction({
         const shouldRetry = retryable && withinTimeLimit;
 
         console.warn(
-          `[daytona] createOrResumeSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+          `[sandbox] createOrResumeSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
         );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           console.error(
-            `[daytona] createOrResumeSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+            `[sandbox] createOrResumeSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
           );
           throw error;
         }
@@ -1078,7 +984,7 @@ export const createOrResumeSandbox = internalAction({
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] createOrResumeSandbox: retrying in ${delayMs}ms`,
+          `[sandbox] createOrResumeSandbox: retrying in ${delayMs}ms`,
         );
         await sleep(delayMs);
         completedSteps.length = 0;
@@ -1095,11 +1001,11 @@ export const createOrResumeSandbox = internalAction({
 
     const totalElapsed = Date.now() - setupStartedAt;
     console.log(
-      `[daytona] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+      `[sandbox] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
     return {
       sandboxId: sandbox.id,
-      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+      vercelSandboxId: sandbox.id,
     };
   },
 });
@@ -1180,7 +1086,7 @@ export const pushSandboxBranch = internalAction({
       );
     } catch (error) {
       console.error(
-        `[daytona][execution] pushSandboxBranch failed sandbox=${args.sandboxId} repo=${args.repoOwner}/${args.repoName} branch=${args.branchName}: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox][execution] pushSandboxBranch failed sandbox=${args.sandboxId} repo=${args.repoOwner}/${args.repoName} branch=${args.branchName}: ${error instanceof Error ? error.message : String(error)}`,
       );
       // Rethrow so callers can surface the failure and preserve the sandbox for
       // recovery. Swallowing here made every caller's error handling dead code.
@@ -1281,7 +1187,7 @@ export const prewarmSessionDaemon = internalAction({
       // via launchOnExistingSandbox from sessionExecuteWorkflow instead.
       if (getAIModelProvider(normalizedModel) !== "claude") {
         console.log(
-          `[daytona][execution] prewarmSessionDaemon: skip non-claude provider sessionId=${args.sessionId} model=${normalizedModel}`,
+          `[sandbox][execution] prewarmSessionDaemon: skip non-claude provider sessionId=${args.sessionId} model=${normalizedModel}`,
         );
         return { prewarmed: false };
       }
@@ -1314,13 +1220,13 @@ export const prewarmSessionDaemon = internalAction({
       const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
       if (aliveState === "alive") {
         console.log(
-          `[daytona][execution] prewarmSessionDaemon: already warm sessionId=${args.sessionId}`,
+          `[sandbox][execution] prewarmSessionDaemon: already warm sessionId=${args.sessionId}`,
         );
         return { prewarmed: false };
       }
       if (aliveState === "stale") {
         console.log(
-          `[daytona][execution] prewarmSessionDaemon: stale callback script — uploading bundle without killing live daemon sessionId=${args.sessionId}`,
+          `[sandbox][execution] prewarmSessionDaemon: stale callback script — uploading bundle without killing live daemon sessionId=${args.sessionId}`,
         );
         await uploadCallbackScriptBundle(sandbox);
         return { prewarmed: false };
@@ -1339,7 +1245,7 @@ export const prewarmSessionDaemon = internalAction({
           pending === undefined && fresh?.activeWorkflowId !== undefined;
         if (midTurnNoPending) {
           console.log(
-            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but mid-turn — deferring respawn sessionId=${args.sessionId}`,
+            `[sandbox][execution] prewarmSessionDaemon: model/tools mismatch but mid-turn — deferring respawn sessionId=${args.sessionId}`,
           );
           return { prewarmed: false };
         }
@@ -1349,12 +1255,12 @@ export const prewarmSessionDaemon = internalAction({
           normalizeAIModel(pendingModel) !== normalizedModel
         ) {
           console.log(
-            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch, pendingTurn targets different model — deferring respawn sessionId=${args.sessionId} pending=${pendingModel} launch=${normalizedModel}`,
+            `[sandbox][execution] prewarmSessionDaemon: model/tools mismatch, pendingTurn targets different model — deferring respawn sessionId=${args.sessionId} pending=${pendingModel} launch=${normalizedModel}`,
           );
           return { prewarmed: false };
         }
         console.log(
-          `[daytona][execution] prewarmSessionDaemon: model/tools changed — respawning daemon sessionId=${args.sessionId}`,
+          `[sandbox][execution] prewarmSessionDaemon: model/tools changed — respawning daemon sessionId=${args.sessionId}`,
         );
         await execHandle(
           sandbox,
@@ -1404,12 +1310,12 @@ export const prewarmSessionDaemon = internalAction({
         },
       );
       console.log(
-        `[daytona][execution] prewarmSessionDaemon: launched in ${Date.now() - startedAt}ms sessionId=${args.sessionId}`,
+        `[sandbox][execution] prewarmSessionDaemon: launched in ${Date.now() - startedAt}ms sessionId=${args.sessionId}`,
       );
       return { prewarmed: true };
     } catch (error) {
       console.log(
-        `[daytona][execution] prewarmSessionDaemon: skipped in ${Date.now() - startedAt}ms sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox][execution] prewarmSessionDaemon: skipped in ${Date.now() - startedAt}ms sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return { prewarmed: false };
     }
@@ -1446,7 +1352,7 @@ export const launchOnExistingSandbox = internalAction({
   handler: async (ctx, args) => {
     const launchStartedAt = Date.now();
     console.log(
-      `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
+      `[sandbox][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
     );
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
@@ -1464,7 +1370,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     console.log(
-      `[daytona][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
+      `[sandbox][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );
 
     const extraEnvVars: Record<string, string> = {};
@@ -1529,7 +1435,7 @@ export const launchOnExistingSandbox = internalAction({
       },
     );
     console.log(
-      `[daytona][execution] launchOnExistingSandbox finished in ${Date.now() - launchStartedAt}ms entityId=${args.entityId} sandboxId=${args.sandboxId}`,
+      `[sandbox][execution] launchOnExistingSandbox finished in ${Date.now() - launchStartedAt}ms entityId=${args.entityId} sandboxId=${args.sandboxId}`,
     );
 
     return null;

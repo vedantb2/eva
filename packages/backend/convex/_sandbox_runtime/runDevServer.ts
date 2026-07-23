@@ -4,11 +4,8 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { resolveSandboxContext } from "./helpers";
-import { resolveSandboxCredentials } from "../envVarResolver";
-import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import {
   launchDevServerInBackground,
-  resetDevTerminalForResume,
   startSessionServices,
 } from "./devServer";
 
@@ -52,13 +49,6 @@ export const runDevServerInTaskSandbox = internalAction({
     );
 
     await launchDevServerInBackground(handle, devCommand, devPort);
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    if (credentials.kind === "daytona") {
-      await resetDevTerminalForResume(
-        unwrapDaytonaSandbox(handle),
-        `task-${args.taskId}`,
-      );
-    }
 
     await ctx.runMutation(internal._agentTasks.sandbox.patchTaskDevServer, {
       taskId: args.taskId,

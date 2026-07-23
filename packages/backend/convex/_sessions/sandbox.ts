@@ -98,12 +98,12 @@ export const startSandbox = authMutation({
       repoId: session.repoId,
     };
     // Vercel: schedule the start action directly. Workflow step scheduling was
-    // measured at ~6s before the first action ran — Daytona still needs the
+    // measured at ~6s before the first action ran — sandbox still needs the
     // multi-step thaw workflow for archived restores.
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startSessionSandbox,
+        internal.sandbox.startSessionSandbox,
         startArgs,
       );
     } else {
@@ -118,10 +118,10 @@ export const startSandbox = authMutation({
 });
 
 /**
- * Stops the sandbox in Daytona and closes the session.
+ * Stops the sandbox in the sandbox and closes the session.
  *
  * Marks the session as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the real sandbox stop (~10s) completes.
  * The wrapping `finalizeStopSandbox` action does the actual stop and then
  * flips the status to `"closed"`. Without the transient `"stopping"` state,
  * a quick Start click during the stop window would race with `getOrCreateSandbox`
@@ -188,7 +188,7 @@ export const stopSandbox = authMutation({
     );
 
     // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
-    // `markSandboxClosed` once Daytona's stop call settles, so the divider
+    // `markSandboxClosed` once the provider's stop call settles, so the divider
     // matches the actual outcome rather than being optimistic.
     await ctx.db.patch(args.sessionId, {
       // Keep sandboxId so we can resume the stopped sandbox later.
@@ -215,7 +215,7 @@ export const finalizeStopSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });

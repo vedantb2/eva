@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
-import { ensureSandboxStartedSteps } from "../_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "../_sandbox_runtime/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
@@ -145,7 +145,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Daytona-only pre-thaw: archived restores can exceed the 10-minute action
+    // Legacy archived-sandbox pre-thaw: archived restores can exceed the 10-minute action
     // limit, so poll across workflow steps first. Vercel resume is handled
     // inside startSessionSandbox → ensureSandboxRunning; running kickoff here
     // only added ~6–8s of workflow step-scheduling latency (measured).
@@ -169,7 +169,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
         return;
       }
     }
-    await step.runAction(internal.daytona.startSessionSandbox, {
+    await step.runAction(internal.sandbox.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
@@ -255,7 +255,7 @@ export const sessionExecuteWorkflow = workflow.define({
       const thawId = started.thawId;
       if (thawId) {
         const validation = await step.runAction(
-          internal.daytona.validateSandbox,
+          internal.sandbox.validateSandbox,
           { sandboxId: thawId, repoId: data.repoId },
           { retry: false },
         );
@@ -267,7 +267,7 @@ export const sessionExecuteWorkflow = workflow.define({
       sandboxId = validatedSandboxId;
     } else {
       const prepared = await step.runAction(
-        internal.daytona.prepareSessionSandbox,
+        internal.sandbox.prepareSessionSandbox,
         {
           sessionId: args.sessionId,
           existingSandboxId: data.sandboxId,
@@ -314,7 +314,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // launch, otherwise a Cursor prewarm would run with an empty prompt and die
     // as "no parseable stream-json events within 90000ms".
     if (getAIModelProvider(data.model) === "claude") {
-      await step.runAction(internal.daytona.prewarmSessionDaemon, {
+      await step.runAction(internal.sandbox.prewarmSessionDaemon, {
         sandboxId,
         sessionId: args.sessionId,
         repoId: data.repoId,
@@ -329,7 +329,7 @@ export const sessionExecuteWorkflow = workflow.define({
         sessionPersistenceId: args.sessionId,
       });
     } else {
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.sessionId),
         prompt: data.prompt,
@@ -355,7 +355,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let planContent: string | undefined;
 
     if (args.mode === "plan" && result.success && sandboxId) {
-      const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
+      const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
@@ -393,7 +393,7 @@ export const sessionExecuteWorkflow = workflow.define({
       data.turnKind === "agent"
     ) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,

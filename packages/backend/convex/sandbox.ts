@@ -10,8 +10,7 @@ export {
   getSandboxProviderKind,
   getSnapshotSandboxProviderKind,
   startSandboxAsyncKickoff,
-  pollSandboxStarted,
-} from "./_daytona/lifecycle";
+} from "./_sandbox_runtime/lifecycle";
 
 export {
   runSandboxCommand,
@@ -30,9 +29,9 @@ export {
   launchOnExistingSandbox,
   prewarmSessionDaemon,
   validateSandbox,
-} from "./_daytona/execution";
+} from "./_sandbox_runtime/execution";
 
-export { runDevServerInTaskSandbox } from "./_daytona/runDevServer";
+export { runDevServerInTaskSandbox } from "./_sandbox_runtime/runDevServer";
 
 export {
   toggleCodeServer,
@@ -41,12 +40,12 @@ export {
   startDesktopForBrowserSession,
   readSandboxFile,
   listSandboxFiles,
-} from "./_daytona/services";
+} from "./_sandbox_runtime/services";
 
 export {
   reconcileBackgroundProcesses,
   killBackgroundProcess,
-} from "./_daytona/backgroundProcesses";
+} from "./_sandbox_runtime/backgroundProcesses";
 
 export {
   launchAudit,
@@ -54,13 +53,13 @@ export {
   launchSelectedAuditFixes,
   runSessionAudit,
   runChatAudit,
-} from "./_daytona/audit";
+} from "./_sandbox_runtime/audit";
 
 export {
   launchProof,
   prepareProofSandbox,
   waitForProofMedia,
-} from "./_daytona/proof";
+} from "./_sandbox_runtime/proof";
 
 export {
   startSessionSandbox,
@@ -68,4 +67,4 @@ export {
   startDesignSandbox,
   startTaskPreviewSandbox,
   startProjectPreviewSandbox,
-} from "./_daytona/sessions";
+} from "./_sandbox_runtime/sessions";

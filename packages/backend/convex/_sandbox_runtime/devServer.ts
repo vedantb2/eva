@@ -1,7 +1,6 @@
 "use node";
 
 import { z } from "zod";
-import type { Sandbox } from "@daytonaio/sdk";
 import type { SandboxHandle } from "../_sandbox/provider";
 import {
   ensureDockerDaemon,
@@ -153,7 +152,7 @@ export async function restoreSeededRuntimeState(
     (await bootstrapVercelDocker(sandbox));
   if (!dockerReady) {
     console.log(
-      `[daytona] restoreSeededRuntimeState: docker unavailable on ${sandbox.id}, skipping supabase dump restore (startup commands will bootstrap)`,
+      `[sandbox] restoreSeededRuntimeState: docker unavailable on ${sandbox.id}, skipping supabase dump restore (startup commands will bootstrap)`,
     );
     return;
   }
@@ -196,22 +195,6 @@ export async function restoreSeededRuntimeState(
 /** Stable default terminal pane id — must match `sandboxPanes.defaultPane`. */
 export function defaultTerminalPtyId(ownerKey: string): string {
   return `${ownerKey}-terminal-default`;
-}
-
-/**
- * Drops the shared dev-server PTY after a stopped sandbox is resumed.
- * The web terminal only auto-runs `devCommand` when `connectPty` reports
- * `isNewPty`; a surviving PTY from before stop would skip that path.
- */
-export async function resetDevTerminalForResume(
-  sandbox: Sandbox,
-  ownerKey: string,
-): Promise<void> {
-  try {
-    await sandbox.process.killPtySession(defaultTerminalPtyId(ownerKey));
-  } catch {
-    // PTY may already be gone after archive/stop.
-  }
 }
 
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
@@ -315,6 +298,6 @@ export async function launchDevServerInBackground(
     { timeoutSeconds: 15 },
   );
   console.log(
-    `[daytona] launchDevServerInBackground: launched on ${sandbox.id} port=${port}`,
+    `[sandbox] launchDevServerInBackground: launched on ${sandbox.id} port=${port}`,
   );
 }

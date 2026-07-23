@@ -65,7 +65,7 @@
     "**/.output/**",
     "**/.vite/**",
     "**/.wxt/**",
-    "**/convex/_daytona/callbackScript.generated.ts",
+    "**/convex/_sandbox_runtime/callbackScript.generated.ts",
     "video/**"
   ]
 }

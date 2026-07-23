@@ -13,7 +13,7 @@ import type { SandboxClient } from "../_sandbox/provider";
  *
  * These functions preserve their own {@link SnapshotInfo} return shape (with the
  * raw provider state string) because the snapshot-build workflow still switches
- * on Daytona's native state machine; that logic moves to the neutral status in
+ * on the provider native state machine; that logic moves to the neutral status in
  * the Phase 3 workflow port.
  */
 

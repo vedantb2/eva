@@ -93,7 +93,8 @@ function resolveBuildProvider(
   if (seededApps.some((app) => app.seededSnapshotName?.startsWith("seeded-"))) {
     return "daytona";
   }
-  return "daytona";
+  // Prefer vercel snap_*; otherwise fall back to legacy Daytona-era inference.
+  return "vercel";
 }
 
 /** Persists the sandbox provider at workflow start (requires action to decrypt env). */

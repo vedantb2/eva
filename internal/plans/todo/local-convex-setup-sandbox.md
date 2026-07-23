@@ -1,4 +1,8 @@
+> Note (2026-07-23): Daytona provider code removed — Vercel-only. Re-scope any Daytona-specific steps before executing.
+
 # Plan: Local Convex Backend in Daytona Sandboxes
+
+> **2026-07-23:** Daytona is gone — eva is Vercel-only now. References to `daytona.ts` below should read as `sandbox.ts`/`_sandbox_runtime/`; re-verify mechanics against the Vercel provider before implementing.
 
 ## Context
 

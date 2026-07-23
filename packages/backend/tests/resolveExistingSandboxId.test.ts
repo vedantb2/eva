@@ -5,10 +5,9 @@ import {
   resolveReusableVercelSandboxId,
 } from "../convex/_sandbox/resolveExistingSandboxId";
 
-test("resolveExistingSandboxId prefers vercelSandboxId on vercel", () => {
+test("resolveExistingSandboxId prefers vercelSandboxId", () => {
   expect(
     resolveExistingSandboxId({
-      providerKind: "vercel",
       sandboxId: "legacy-or-daytona",
       vercelSandboxId: "sb_vercel_name",
     }),
@@ -20,21 +19,19 @@ test("resolveExistingSandboxId falls back to sandboxId when vercel field missing
   // resume skips reuse and creates a second sandbox.
   expect(
     resolveExistingSandboxId({
-      providerKind: "vercel",
       sandboxId: "sb_legacy_name",
       vercelSandboxId: undefined,
     }),
   ).toBe("sb_legacy_name");
 });
 
-test("resolveExistingSandboxId uses sandboxId on daytona", () => {
+test("resolveExistingSandboxId ignores Daytona UUID sandboxId fallback", () => {
   expect(
     resolveExistingSandboxId({
-      providerKind: "daytona",
       sandboxId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      vercelSandboxId: "sb_should_ignore",
+      vercelSandboxId: undefined,
     }),
-  ).toBe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+  ).toBeUndefined();
 });
 
 test("preferPersistedSandboxId prefers vercelSandboxId when present", () => {

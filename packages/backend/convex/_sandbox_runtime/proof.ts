@@ -40,7 +40,7 @@ export const prepareProofSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const bg = await ctx.runAction(internal.daytona.runBackgroundCommands, {
+    const bg = await ctx.runAction(internal.sandbox.runBackgroundCommands, {
       sandboxId: args.sandboxId,
       repoId: args.repoId,
       onlyRestartDead: true,
@@ -48,7 +48,7 @@ export const prepareProofSandbox = internalAction({
     if (bg.commandCount > 0) {
       // Fresh Convex needs time to start local backend + push functions.
       console.log(
-        `[daytona] prepareProofSandbox: restarted ${bg.commandCount} background command(s); waiting for deploy`,
+        `[sandbox] prepareProofSandbox: restarted ${bg.commandCount} background command(s); waiting for deploy`,
       );
       await sleep(20_000);
     } else {
@@ -58,7 +58,7 @@ export const prepareProofSandbox = internalAction({
     }
 
     try {
-      await ctx.runAction(internal.daytona.runDevServerInTaskSandbox, {
+      await ctx.runAction(internal.sandbox.runDevServerInTaskSandbox, {
         taskId: args.taskId,
         sandboxId: args.sandboxId,
         repoId: args.repoId,
@@ -66,7 +66,7 @@ export const prepareProofSandbox = internalAction({
       await sleep(8_000);
     } catch (error) {
       console.error(
-        `[daytona] prepareProofSandbox: dev server start failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox] prepareProofSandbox: dev server start failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

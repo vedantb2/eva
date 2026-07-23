@@ -29,7 +29,7 @@ interface WebPreviewPanelProps {
   sandboxId: string | undefined;
   /**
    * Vercel sandbox name when the sandbox runs on Vercel. Used only to hide the
-   * Daytona preview-interstitial hint: Vercel previews go through the auth proxy
+   * Preview auth hint: Vercel previews go through the auth proxy
    * and never show that "Accept" warning, so the hint is noise there.
    */
   vercelSandboxId: string | undefined;

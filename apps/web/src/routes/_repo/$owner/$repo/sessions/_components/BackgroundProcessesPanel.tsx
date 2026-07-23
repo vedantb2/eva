@@ -42,8 +42,8 @@ export function BackgroundProcessesPanel({
   sessionId: Id<"sessions">;
 }) {
   const rows = useQuery(api.backgroundProcesses.listRunning, { sessionId });
-  const reconcile = useAction(api.daytona.reconcileBackgroundProcesses);
-  const kill = useAction(api.daytona.killBackgroundProcess);
+  const reconcile = useAction(api.sandbox.reconcileBackgroundProcesses);
+  const kill = useAction(api.sandbox.killBackgroundProcess);
   const [killingIds, setKillingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );

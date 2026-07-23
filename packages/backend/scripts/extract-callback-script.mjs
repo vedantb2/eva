@@ -3,7 +3,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const sourcePath = join(__dirname, "../convex/_daytona/callbackScript.ts");
+const sourcePath = join(__dirname, "../convex/_sandbox_runtime/callbackScript.ts");
 const outPath = join(__dirname, "../callback-src/_extracted.mjs");
 
 const text = readFileSync(sourcePath, "utf8");

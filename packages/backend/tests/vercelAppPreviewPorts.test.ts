@@ -4,8 +4,8 @@ import {
   VERCEL_PREVIEW_PROXY_PORT,
   vercelAppListenPort,
   vercelForcedFrameworkDevCommand,
-} from "../convex/_daytona/vercelAppPorts";
-import { workspaceDirShell } from "../convex/_daytona/helpers";
+} from "../convex/_sandbox_runtime/vercelAppPorts";
+import { workspaceDirShell } from "../convex/_sandbox_runtime/helpers";
 
 describe("vercelAppListenPort", () => {
   it("moves listen off 3000 so the auth proxy can own the public slot", () => {

@@ -1,4 +1,8 @@
+> Note (2026-07-23): Daytona provider code removed — Vercel-only. Re-scope any Daytona-specific steps before executing.
+
 # Migrate the Claude provider off `claude -p` to the Claude Agent SDK
+
+> **2026-07-23:** Daytona is gone — eva is Vercel-only now. The `@daytonaio/sdk` externalPackages comparison below is a stale reference point only.
 
 Status: WORKING on dev (branch `feat/agent-sdk-migration`, PR #423). Verified
 end-to-end via the local dev server (dev deployment with

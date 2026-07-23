@@ -1,4 +1,8 @@
+> Note (2026-07-23): Daytona provider code removed — Vercel-only. Re-scope any Daytona-specific steps before executing.
+
 # Running-sandbox filesystem snapshots (seeded DB baked in)
+
+> **2026-07-23:** Daytona is gone — eva is Vercel-only now. This plan's `daytona.create`/`_experimental_createSnapshot`/SDK-version mechanics below are historical (Daytona-era) and need re-deriving against `@vercel/sandbox` before this is actionable again.
 
 ## Goal
 

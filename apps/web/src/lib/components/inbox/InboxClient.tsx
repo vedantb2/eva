@@ -224,6 +224,7 @@ export function InboxClient() {
                 : "No notifications yet"
             }
             description="You're all caught up"
+            animate={filter !== "unread"}
           />
         </div>
       ) : (

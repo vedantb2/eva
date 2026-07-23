@@ -11,6 +11,7 @@ import {
 } from "@conductor/ui";
 import { ProviderIcon } from "@conductor/ui/ai";
 import { IconChevronRight, IconCode } from "@tabler/icons-react";
+import { AnimatePresence, m } from "motion/react";
 import dayjs from "@conductor/shared/dates";
 import { formatDurationMsShort } from "@conductor/shared/duration";
 import {
@@ -48,11 +49,22 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
         <IconCode size={12} />
         {open ? "Hide raw" : "View raw"}
       </button>
-      {open && (
-        <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
-          {formatted}
-        </pre>
-      )}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <m.div
+            key="raw-event"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+              {formatted}
+            </pre>
+          </m.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

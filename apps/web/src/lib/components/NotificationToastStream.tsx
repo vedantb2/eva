@@ -131,11 +131,9 @@ export function NotificationToastStream() {
   const toastTransition = reduceMotion
     ? { duration: TOAST_REDUCED_DURATION_S }
     : { duration: TOAST_DURATION_S, ease: [0.22, 1, 0.36, 1] };
-  const toastEnter = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, y: -8, x: 8 };
-  const toastRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, x: 0 };
-  const toastExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, x: 8 };
+  const toastEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
+  const toastRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const toastExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
 
   return (
     <div

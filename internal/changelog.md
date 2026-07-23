@@ -1,5 +1,9 @@
 # Changelog
 
+## Rail app tiles support middle-click new tab - 2026-07-23
+
+App icons on the left RepoRail were `<button onClick={navigate}>`, so middle-click / cmd-click had no `href` and could not open another tab. They are now `Link`s to `repoHref(...)` (same destination as before); left-click still SPA-navigates and closes the mobile drawer.
+
 ## Session title gen uses AI Gateway flex tier - 2026-07-23
 
 Session titles are background work (placeholder until the LLM returns), so paying default Gateway latency rates was waste. `textGen.generateSessionTitle` now requests `providerOptions.gateway.serviceTier: "flex"` (~0.5x cost; higher latency acceptable). Invalid tiers fail; unavailable flex best-effort-falls back to default billing.

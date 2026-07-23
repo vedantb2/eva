@@ -115,6 +115,7 @@ export function ChatPanel({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
+  const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
     mode,
@@ -128,11 +129,11 @@ export function ChatPanel({
     setProviderAccountId,
   } = useSessionSettings(sessionId, {
     defaultModel,
+    seedModel: session?.lastModel ?? null,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
-  const session = useQuery(api.sessions.get, { id: sessionId });
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&

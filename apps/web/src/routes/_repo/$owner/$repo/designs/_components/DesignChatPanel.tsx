@@ -273,18 +273,11 @@ export function DesignChatPanel({
 
   const queuedMessageItems = (queuedMessages ?? []).map(
     (message: QueuedDesignMessage) => {
-      const detailParts = [
-        message.personaId
-          ? (personaMap.get(message.personaId)?.name ?? "Persona")
-          : null,
-        typeof message.numDesigns === "number"
-          ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
-          : null,
-      ].filter((part): part is string => Boolean(part));
       return {
         id: message._id,
         content: message.content,
-        info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        model: message.model,
+        reasoningLevel: message.reasoningLevel,
       };
     },
   );

@@ -527,6 +527,10 @@ export async function signAndLaunchScript(
     providerAccountId?: Id<"userProviderAccounts">;
     /** Entity owner (`createdBy`); defaults to `userId` when omitted. */
     credentialOwnerUserId?: Id<"users">;
+    claimMutation?: string;
+    openSyntheticTurnMutation?: string;
+    completeSyntheticTurnMutation?: string;
+    updateBackgroundAgentsMutation?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();

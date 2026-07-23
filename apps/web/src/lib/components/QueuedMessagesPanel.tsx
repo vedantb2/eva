@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Id } from "@conductor/backend";
+import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
 import {
   Button,
   Dialog,
@@ -7,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ProviderIcon,
   Queue,
   QueueItem,
   QueueItemAction,
@@ -22,13 +24,9 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  formatModelDisplayLabel,
 } from "@conductor/ui";
-import {
-  IconArrowUp,
-  IconInfoCircle,
-  IconPencil,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconArrowUp, IconPencil, IconTrash } from "@tabler/icons-react";
 import {
   DndContext,
   closestCenter,
@@ -50,7 +48,8 @@ import { CSS } from "@dnd-kit/utilities";
 interface QueuedMessageItem {
   id: Id<"queuedMessages">;
   content: string;
-  info?: string;
+  model?: string;
+  reasoningLevel?: string;
 }
 
 interface QueuedMessagesPanelProps {
@@ -63,7 +62,70 @@ interface QueuedMessagesPanelProps {
   onReorder?: (orderedIds: Id<"queuedMessages">[]) => Promise<void>;
 }
 
-/** A single sortable queue row (Cursor-style card: indicator + 2-line text + actions). */
+/** Tooltip copy for a queued row's model + effort snapshot. */
+function queueModelTooltip(
+  model: string,
+  reasoningLevel: string | undefined,
+): string {
+  const option = findAIModelOption(model);
+  const modelLabel = formatModelDisplayLabel(option.provider, option.label);
+  if (!reasoningLevel) return modelLabel;
+  return `${modelLabel} · ${getReasoningLevelLabel(reasoningLevel)}`;
+}
+
+/** Left-rail drag handle: provider icon (with model/effort tooltip) or legacy dot. */
+function QueueRowHandle({
+  item,
+  draggable,
+  attributes,
+  listeners,
+}: {
+  item: QueuedMessageItem;
+  draggable: boolean;
+  attributes: ReturnType<typeof useSortable>["attributes"];
+  listeners: ReturnType<typeof useSortable>["listeners"];
+}) {
+  const dragProps = draggable ? { ...attributes, ...listeners } : {};
+  // Share one line-box with the text (`leading-4` / 16px) so the mark sits centered.
+  const buttonClass = draggable
+    ? "inline-flex size-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm border-0 bg-transparent p-0"
+    : "inline-flex size-4 shrink-0 items-center justify-center border-0 bg-transparent p-0";
+
+  if (!item.model) {
+    return (
+      <button
+        type="button"
+        aria-label={draggable ? "Drag to reorder queued message" : undefined}
+        className={buttonClass}
+        disabled={!draggable}
+        {...dragProps}
+      >
+        <QueueItemIndicator className="mt-0" />
+      </button>
+    );
+  }
+
+  const option = findAIModelOption(item.model);
+  const tooltip = queueModelTooltip(item.model, item.reasoningLevel);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={draggable ? `Drag to reorder · ${tooltip}` : tooltip}
+          className={`${buttonClass} text-muted-foreground/70`}
+          {...dragProps}
+        >
+          <ProviderIcon provider={option.provider} size={14} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A single sortable queue row (provider handle + 2-line text + actions). */
 function SortableQueuedItem({
   item,
   index,
@@ -101,36 +163,17 @@ function SortableQueuedItem({
       style={style}
       className={isDragging ? "opacity-50" : undefined}
     >
-      <div className="flex items-start gap-2.5">
-        <button
-          type="button"
-          aria-label={draggable ? "Drag to reorder queued message" : undefined}
-          className={
-            draggable
-              ? "mt-0.5 shrink-0 cursor-grab touch-none rounded-full border-0 bg-transparent p-0"
-              : "mt-0.5 shrink-0"
-          }
-          disabled={!draggable}
-          {...(draggable ? { ...attributes, ...listeners } : {})}
-        >
-          <QueueItemIndicator />
-        </button>
-        <QueueItemContent className="text-xs">
+      <div className="flex items-center gap-2.5">
+        <QueueRowHandle
+          item={item}
+          draggable={draggable}
+          attributes={attributes}
+          listeners={listeners}
+        />
+        <QueueItemContent className="text-xs leading-4">
           {renderContent ? renderContent(item.content) : item.content}
         </QueueItemContent>
-        <QueueItemActions>
-          {item.info ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <QueueItemAction aria-label="Queued message details">
-                  <IconInfoCircle size={14} />
-                </QueueItemAction>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{item.info}</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
+        <QueueItemActions className="items-center">
           {onEditClick ? (
             <QueueItemAction
               aria-label="Edit queued message"

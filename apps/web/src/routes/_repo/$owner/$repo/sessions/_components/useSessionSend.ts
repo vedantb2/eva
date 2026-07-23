@@ -50,6 +50,8 @@ function applyAddMessageOptimistically(
       args.providerAccountId,
       accounts,
     ),
+    model: args.model,
+    reasoningLevel: args.reasoningLevel,
   };
   const assistantPlaceholder: SessionMessage = {
     _id: optimisticMessageId(),
@@ -77,6 +79,8 @@ interface UseSessionSendParams {
   mode: SessionMode;
   model: AIModel;
   executionTraits: ModelTraitsExecutionArgs;
+  /** Effective effort shown in the composer; snapshotted onto the user message. */
+  reasoningLevel?: ModelTraitsExecutionArgs["reasoningLevel"];
   providerAccountId: string | null;
   resolveAccountId: (
     id: string | null,
@@ -90,6 +94,7 @@ export function useSessionSend({
   mode,
   model,
   executionTraits,
+  reasoningLevel,
   providerAccountId,
   resolveAccountId,
   accounts,
@@ -126,6 +131,7 @@ export function useSessionSend({
         mode,
         model,
         ...executionTraits,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
@@ -141,6 +147,8 @@ export function useSessionSend({
         mode,
         attachmentStorageIds,
         providerAccountId: accountId,
+        model,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
       }),
       startExecution({
         sessionId,

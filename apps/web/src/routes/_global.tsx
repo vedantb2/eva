@@ -1,11 +1,17 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+} from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider } from "@/lib/contexts/SidebarContext";
+import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
+import { cn } from "@conductor/ui";
 
 export const Route = createFileRoute("/_global")({
   beforeLoad: ({ context }) => {
@@ -17,9 +23,24 @@ export const Route = createFileRoute("/_global")({
 });
 
 function GlobalMainContent() {
-  // Global pages are rail-only (w-16); the wider repo sidebar never mounts here.
+  const { pathname } = useLocation();
+  const { collapsed } = useSidebar();
+  const isSessionsLanding =
+    pathname === "/sessions" || pathname === "/sessions/";
+  // Sessions landing shows the wide second column; other global pages stay rail-only.
+  const paddingClass = isSessionsLanding
+    ? collapsed
+      ? "lg:pl-36"
+      : "lg:pl-80"
+    : "lg:pl-16";
+
   return (
-    <div className="relative flex min-h-screen flex-col pt-14 lg:pt-0 lg:pl-16">
+    <div
+      className={cn(
+        "relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0",
+        paddingClass,
+      )}
+    >
       <div className="relative flex flex-1 flex-col bg-background">
         <div
           aria-hidden

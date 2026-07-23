@@ -1,9 +1,4 @@
-import {
-  api,
-  findAIModelOption,
-  normalizeAIModel,
-  type Id,
-} from "@conductor/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -12,15 +7,13 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
-import {
-  ChatBody,
-  type ChatBodyQueuedMessage,
-} from "@/lib/components/chat/ChatBody";
+import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
+import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionModeDropdown } from "./_components/SessionModeDropdown";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
@@ -79,6 +72,7 @@ interface ChatPanelProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
+  backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -110,6 +104,7 @@ export function ChatPanel({
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
+  backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -174,6 +169,7 @@ export function ChatPanel({
     mode,
     model,
     executionTraits,
+    reasoningLevel: displayTraits.effortLevel,
     providerAccountId,
     resolveAccountId,
     accounts,
@@ -193,17 +189,6 @@ export function ChatPanel({
       toolUseId,
       answer: JSON.stringify(answers),
     });
-  };
-
-  const formatQueuedInfo = (
-    message: ChatBodyQueuedMessage,
-  ): string | undefined => {
-    const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
-    const detailParts = [
-      modeLabel,
-      message.model ? findAIModelOption(message.model).label : null,
-    ].filter((part): part is string => Boolean(part));
-    return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
   };
 
   const hasSummary = Boolean(summary && summary.length > 0);
@@ -269,6 +254,11 @@ export function ChatPanel({
 
   const preInputContent = (
     <>
+      <BackgroundAgentsChip
+        sessionId={sessionId}
+        backgroundAgents={backgroundAgents}
+        isReadOnly={isReadOnly}
+      />
       <BackgroundProcessesPanel sessionId={sessionId} />
       <PendingReviewCommentChips />
       {showCompactPlanCard && planContent ? (
@@ -371,7 +361,6 @@ export function ChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

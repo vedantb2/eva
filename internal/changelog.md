@@ -1,5 +1,53 @@
 # Changelog
 
+## Diffs tab file accordion + Viewed - 2026-07-23
+
+Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.
+
+## Warm seed-prep from base Image - 2026-07-23
+
+Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.
+
+Reason: warm Image boots cut seed time and avoid cold-install 404s without breaking daemon-dependent startup commands.
+
+## Queue row uses provider icon - 2026-07-22
+
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.
+
+## Sandbox chat model + effort on messages - 2026-07-22
+
+Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.
+
+## Session synthetic turns (Tranche C) - 2026-07-22
+
+Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
+
+Reason: extend Tranche A/B architecture to the other in-sandbox chat surfaces without double-executing turns or killing the main run on chat cancel.
+
+## Session synthetic turns (Tranche B) - 2026-07-22
+
+Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.
+
+Reason: product surface for background subagents — users see lifecycle telemetry and can stop in-flight agents without hunting the timeline.
+
+## Session synthetic turns (Tranche A) - 2026-07-22
+
+Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
+
+Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
+
+## Global Sessions rail + cross-app sidebar - 2026-07-22
+
+Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.
+
+## Cache session Preview across sidebar switches - 2026-07-22
+
+Switching between sessions remounted each detail shell, so Preview iframes always cold-loaded again. The sessions layout now keeps the last three opened session shells mounted (hidden), freezes inactive sandbox tabs / preview polling, and only bumps the iframe when the preview URL actually changes.
+
+## Cache sandbox tabs across switches - 2026-07-22
+
+Switching Preview ↔ Review (or any other sandbox tab) remounted the whole session/project shell, wiping iframes, Console PTY scrollback, and editor state. Session and project layouts now stay mounted across tab URL changes; pane slots keep Files / PRD / custom tabs hidden instead of unmounting, and a default preview pane is created up front so the running app can stay cached.
+
 ## Quick-task activity model + composer picker - 2026-07-22
 
 Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.

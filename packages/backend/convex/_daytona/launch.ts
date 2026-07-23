@@ -135,6 +135,10 @@ export async function launchScript(
     claudeSessionId?: string;
     mcpToken?: string;
     mcpBaseUrl?: string;
+    claimMutation?: string;
+    openSyntheticTurnMutation?: string;
+    completeSyntheticTurnMutation?: string;
+    updateBackgroundAgentsMutation?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -235,6 +239,24 @@ export async function launchScript(
     );
     envParts.push(
       `CLAUDE_PERSIST_DIR=${quote([CLAUDE_PERSIST_VOLUME_MOUNT_PATH])}`,
+    );
+  }
+  if (opts.claimMutation) {
+    envParts.push(`CLAIM_MUTATION=${quote([opts.claimMutation])}`);
+  }
+  if (opts.openSyntheticTurnMutation) {
+    envParts.push(
+      `OPEN_SYNTHETIC_TURN_MUTATION=${quote([opts.openSyntheticTurnMutation])}`,
+    );
+  }
+  if (opts.completeSyntheticTurnMutation) {
+    envParts.push(
+      `COMPLETE_SYNTHETIC_TURN_MUTATION=${quote([opts.completeSyntheticTurnMutation])}`,
+    );
+  }
+  if (opts.updateBackgroundAgentsMutation) {
+    envParts.push(
+      `UPDATE_BACKGROUND_AGENTS_MUTATION=${quote([opts.updateBackgroundAgentsMutation])}`,
     );
   }
   if (opts.extraEnvVars) {

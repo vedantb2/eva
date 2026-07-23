@@ -12,7 +12,7 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import {
   KanbanProvider,
@@ -185,28 +185,30 @@ export function KanbanBoard<T extends BaseTask>({
           }`}
         >
           <AnimatePresence initial={false}>
-            {KANBAN_STATUSES.filter((status) =>
-              visibleStatuses.has(status),
-            ).map((status) => (
-              <motion.div
-                key={status}
-                layout
-                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <VirtualKanbanColumn
-                  status={status}
-                  items={itemsByStatus.get(status) ?? []}
-                  count={countByStatus[status] ?? 0}
-                  headerExtra={columnExtra?.(status)}
-                  renderCard={renderCard}
-                  onItemClick={onItemClick}
-                />
-              </motion.div>
-            ))}
+            {KANBAN_STATUSES.flatMap((status) =>
+              visibleStatuses.has(status)
+                ? [
+                    <m.div
+                      key={status}
+                      layout
+                      className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <VirtualKanbanColumn
+                        status={status}
+                        items={itemsByStatus.get(status) ?? []}
+                        count={countByStatus[status] ?? 0}
+                        headerExtra={columnExtra?.(status)}
+                        renderCard={renderCard}
+                        onItemClick={onItemClick}
+                      />
+                    </m.div>,
+                  ]
+                : [],
+            )}
           </AnimatePresence>
         </div>
       </KanbanProvider>

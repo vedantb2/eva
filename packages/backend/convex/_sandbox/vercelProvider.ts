@@ -607,7 +607,11 @@ class VercelSandboxHandle implements SandboxHandle {
     });
   }
 
-  async start(timeoutSeconds: number): Promise<void> {
+  async start(
+    timeoutSeconds: number,
+    opts?: { resumeAfterStop?: boolean },
+  ): Promise<void> {
+    const resumeAfterStop = opts?.resumeAfterStop === true;
     // Explicit resume via get(resume:true) — the SDK's native resume path (one
     // getSandbox API call that provisions a fresh session, sub-second on warm
     // hosts). The previous exec("true") kick went through withResume, which on
@@ -619,22 +623,29 @@ class VercelSandboxHandle implements SandboxHandle {
     let observed: SandboxState = this.state;
     if (observed === "running") return;
 
-    // If a stop is in flight, NEVER issue resume:true — the SDK waits the stop
-    // out and then wakes the VM (auto-restart after the user clicked Stop).
-    // Wait for a terminal stopped state with resume:false, then refuse to start
-    // so in-flight resume/start callers fail cleanly instead of resurrecting.
+    // If a stop is in flight, NEVER issue resume:true while it runs — the SDK
+    // waits the stop out and then wakes the VM (auto-restart after the user
+    // clicked Stop). Wait for a terminal stopped state with resume:false
+    // first. What happens next depends on caller intent: explicit
+    // user-initiated starts (resumeAfterStop) proceed to resume from the
+    // fresh snapshot — e.g. Start clicked while a previous run's teardown was
+    // still snapshotting — while background callers refuse, so a stale
+    // in-flight resume cannot resurrect a sandbox the user just stopped.
     let resolved = await this.resolveSessionStatus();
     if (
       resolved.kind === "status" &&
       this.isStopInFlightStatus(resolved.status)
     ) {
       console.log(
-        `[vercel] start refused while ${resolved.status} sandbox=${this.sandbox.name}; waiting for stop to finish`,
+        `[vercel] start ${resumeAfterStop ? "waiting out in-flight stop" : "refused"} while ${resolved.status} sandbox=${this.sandbox.name}`,
       );
       await this.waitForStopConfirmation();
-      throw new Error(
-        `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-      );
+      if (!resumeAfterStop) {
+        throw new Error(
+          `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+        );
+      }
+      await this.refresh();
     }
 
     // Retry loop: a resume issued while a previous stop is still snapshotting
@@ -649,12 +660,16 @@ class VercelSandboxHandle implements SandboxHandle {
         this.isStopInFlightStatus(resolved.status)
       ) {
         console.log(
-          `[vercel] start aborted — stop began mid-resume sandbox=${this.sandbox.name}`,
+          `[vercel] start: stop began mid-resume sandbox=${this.sandbox.name}; ${resumeAfterStop ? "waiting it out before resuming" : "aborting"}`,
         );
         await this.waitForStopConfirmation();
-        throw new Error(
-          `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-        );
+        if (!resumeAfterStop) {
+          throw new Error(
+            `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+          );
+        }
+        await this.refresh();
+        continue;
       }
       // Still resolving (listSessions error / race) — do not resume yet.
       if (resolved.kind === "unknown") {
@@ -681,9 +696,12 @@ class VercelSandboxHandle implements SandboxHandle {
             `[vercel] start hit stop-in-flight API error sandbox=${this.sandbox.name}: ${lastError}`,
           );
           await this.waitForStopConfirmation();
-          throw new Error(
-            `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-          );
+          if (!resumeAfterStop) {
+            throw new Error(
+              `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+            );
+          }
+          // Stop confirmed terminal — loop around and retry the resume.
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 500));

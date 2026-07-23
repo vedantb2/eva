@@ -145,6 +145,31 @@ export const listReposWithActiveSandboxes = authQuery({
   },
 });
 
+/** Counts live sessions (status active, not archived, with a sandbox) the user can see. */
+export const countActiveSessions = authQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
+    const perRepo = await Promise.all(
+      repos.map(async (repo) => {
+        const sessions = filterActiveEntities(
+          await ctx.db
+            .query("sessions")
+            .withIndex("by_repo_and_status", (q) =>
+              q.eq("repoId", repo._id).eq("status", "active"),
+            )
+            .take(64),
+        );
+        return sessions.filter(
+          (s) => s.archived !== true && s.sandboxId !== undefined,
+        ).length;
+      }),
+    );
+    return perRepo.reduce((total, n) => total + n, 0);
+  },
+});
+
 /** Resolves the current logo image URL for a repo (null when none set). */
 export const getLogoUrl = authQuery({
   args: { repoId: v.id("githubRepos") },

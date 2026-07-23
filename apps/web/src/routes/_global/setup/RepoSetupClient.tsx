@@ -50,34 +50,39 @@ export function RepoSetupClient({
       });
   }, [installationId, fetchRepos]);
 
+  const handleAddAll = async () => {
+    if (syncing) return;
+    setSyncing(true);
+
+    const pending = repos.filter((repo) => !addedRepos.has(repo.fullName));
+    const results = await Promise.allSettled(
+      pending.map((repo) =>
+        createRepo({
+          owner: repo.owner,
+          name: repo.name,
+          installationId: Number(installationId),
+          githubId: repo.id,
+        }).then(() => repo.fullName),
+      ),
+    );
+    setAddedRepos((prev) => {
+      const next = new Set(prev);
+      for (const result of results) {
+        if (result.status === "fulfilled") next.add(result.value);
+      }
+      return next;
+    });
+
+    setSyncing(false);
+    navigate({ to: "/home" });
+  };
+
   useEffect(() => {
     if (!loading && repos.length > 0 && autoSync && !syncedRef.current) {
       syncedRef.current = true;
       handleAddAll();
     }
   }, [loading, repos, autoSync]);
-
-  const handleAddAll = async () => {
-    if (syncing) return;
-    setSyncing(true);
-
-    for (const repo of repos) {
-      if (!addedRepos.has(repo.fullName)) {
-        try {
-          await createRepo({
-            owner: repo.owner,
-            name: repo.name,
-            installationId: Number(installationId),
-            githubId: repo.id,
-          });
-          setAddedRepos((prev) => new Set([...prev, repo.fullName]));
-        } catch {}
-      }
-    }
-
-    setSyncing(false);
-    navigate({ to: "/home" });
-  };
 
   const handleDetectMonorepo = async (repo: GitHubRepo) => {
     if (expandedRepo === repo.fullName) {

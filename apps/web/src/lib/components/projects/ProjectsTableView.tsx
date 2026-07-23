@@ -159,6 +159,7 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
+  "use no memo";
   const { basePath, repo, owner, name } = useRepo();
   const { scrollParent, scrollRef } = usePersistedScrollParent(
     `${owner}/${name}/projects/table`,

@@ -65,9 +65,8 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
       setGenerateError(
         error instanceof Error ? error.message : "Couldn't generate recap",
       );
-    } finally {
-      setIsGenerating(false);
     }
+    setIsGenerating(false);
   };
 
   if (!prUrl) {

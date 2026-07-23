@@ -68,9 +68,11 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
         autoRun,
       });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   return (

@@ -7,8 +7,6 @@ import {
   api,
   buildTraitsExecutionPayload,
   DEFAULT_AI_MODEL,
-  findAIModelOption,
-  getAIModelProvider,
   normalizeAIModel,
   resolveTraitsForDisplay,
   type AIModel,
@@ -16,21 +14,20 @@ import {
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@conductor/backend";
-import {
-  ChatBody,
-  type ChatBodyQueuedMessage,
-} from "@/lib/components/chat/ChatBody";
+import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
-  useProviderAccounts,
+  useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
-  model: AIModel;
+  /** @deprecated Model is owned by the task doc; kept so old localStorage parses. */
+  model?: AIModel;
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
@@ -72,13 +69,20 @@ export function TaskSandboxChatPanel({
   const cancelExecution = useMutation(
     api.agentTaskChatWorkflow.cancelExecution,
   );
+  const updateTask = useMutation(api.agentTasks.update);
+  const requestStopBackgroundAgent = useMutation(
+    api.agentTaskChatWorkflow.requestStopBackgroundAgent,
+  );
 
-  const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
+  // Traits stay local; model + account come from the task (same as activity
+  // composer) so detail ↔ sandbox never disagree.
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
     chatSettingsKey(taskId),
-    { model: defaultModel },
+    {},
   );
-  const model = normalizeAIModel(settings.model);
+  const model = normalizeAIModel(
+    task?.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
+  );
   const storedTraits: StoredModelTraits = {
     effortLevel: settings.effortLevel,
     thinkingEnabled: settings.thinkingEnabled,
@@ -86,36 +90,15 @@ export function TaskSandboxChatPanel({
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
-  // Owner-sticky: chat always shows/uses the task's provider account.
   const providerAccountId = task?.providerAccountId ?? null;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+    useTaskOwnerProviderAccounts(taskId);
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
-  const ownerProfile = useQuery(
-    api.users.get,
-    task?.createdBy ? { id: task.createdBy } : "skip",
-  );
-  const updateTask = useMutation(api.agentTasks.update);
-  const ownerAccountLabel =
-    ownerProfile?.firstName?.trim() ||
-    ownerProfile?.fullName?.trim() ||
-    "Personal";
-  const displayAccounts =
-    isOwner || !providerAccountId
-      ? accounts
-      : [
-          {
-            id: providerAccountId,
-            provider: getAIModelProvider(model),
-            label: ownerAccountLabel,
-          },
-          ...accounts,
-        ];
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -146,8 +129,9 @@ export function TaskSandboxChatPanel({
     });
   };
 
-  const setModel = (next: AIModel) =>
-    setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) }));
+  const setModel = (next: AIModel) => {
+    void updateTask({ id: taskId, model: normalizeAIModel(next) });
+  };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
@@ -177,6 +161,8 @@ export function TaskSandboxChatPanel({
         message: content,
         model,
         ...executionTraits,
+        reasoningLevel:
+          displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
@@ -188,6 +174,8 @@ export function TaskSandboxChatPanel({
       content,
       attachmentStorageIds,
       providerAccountId: accountId,
+      model,
+      reasoningLevel: displayTraits.effortLevel,
     });
     await startExecute({
       taskId,
@@ -202,13 +190,6 @@ export function TaskSandboxChatPanel({
     await cancelExecution({ taskId });
   };
 
-  const formatQueuedInfo = (msg: ChatBodyQueuedMessage) => {
-    const parts = [
-      msg.model ? findAIModelOption(msg.model).label : null,
-    ].filter((part): part is string => Boolean(part));
-    return parts.length > 0 ? parts.join(" / ") : undefined;
-  };
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {onToggleSandbox ? (
@@ -219,6 +200,12 @@ export function TaskSandboxChatPanel({
           />
         </div>
       ) : null}
+      <BackgroundAgentsChip
+        backgroundAgents={task?.backgroundAgents}
+        onRequestStop={async (toolUseId) => {
+          await requestStopBackgroundAgent({ taskId, toolUseId });
+        }}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
@@ -245,14 +232,13 @@ export function TaskSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
-        accounts={displayAccounts}
+        accounts={accounts}
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

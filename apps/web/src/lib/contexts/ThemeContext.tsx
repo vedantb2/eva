@@ -1,6 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useSyncExternalStore,
+} from "react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -427,7 +432,12 @@ export { ACCENT_COLORS, RADIUS_VALUES };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useThemeMode();
-  const [mounted, setMounted] = useState(false);
+  // Client-only gate without setState-in-effect (SSR snapshot = false).
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const syncedTheme = useQuery(api.auth.getTheme);
   const setThemeMutation = useMutation(api.auth.setTheme).withOptimisticUpdate(
     (localStore, args) => {
@@ -440,10 +450,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   ).withOptimisticUpdate((localStore, args) => {
     localStore.setQuery(api.auth.getCustomTheme, {}, args.customTheme);
   });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (syncedTheme === undefined || syncedTheme === null) return;

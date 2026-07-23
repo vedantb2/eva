@@ -132,7 +132,9 @@ export function SandboxIframeService({
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const onStateChangeRef = useRef(onStateChange);
-  onStateChangeRef.current = onStateChange;
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
 
   useEffect(() => {
     onStateChangeRef.current?.(state);

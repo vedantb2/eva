@@ -292,6 +292,13 @@ export async function ensureSandboxRunning(
      * commands (git checkout, services) get equivalent failure surfacing.
      */
     skipExecProbe?: boolean;
+    /**
+     * When true (explicit user-initiated starts), a Vercel stop still in
+     * flight is waited out and the sandbox resumed from the fresh snapshot,
+     * instead of the start being refused. Leave unset on background paths
+     * (prewarm, watchdog) so they cannot resurrect a just-stopped sandbox.
+     */
+    resumeAfterStop?: boolean;
   } = {},
 ): Promise<void> {
   const defaultTimeout =
@@ -362,7 +369,9 @@ export async function ensureSandboxRunning(
   }
 
   const startStartedAt = Date.now();
-  await sandbox.start(startTimeout);
+  await sandbox.start(startTimeout, {
+    resumeAfterStop: options.resumeAfterStop,
+  });
   console.log(
     `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
   );
@@ -425,7 +434,27 @@ export async function withTimeout<T>(
 
 /** Extracts the message from an error, returning a fallback if not an Error instance. */
 export function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    if (error.message.trim().length > 0) return error.message;
+    // Some errors carry an empty message (e.g. Node's AggregateError from a
+    // failed network call). Returning "" verbatim left blank errorDetail on
+    // sandboxStartupWarning messages — recover what we can from name/errors/cause.
+    const parts: string[] = [];
+    if (error.name && error.name !== "Error") parts.push(error.name);
+    if (error instanceof AggregateError) {
+      const inner = error.errors
+        .map((e) => (e instanceof Error ? e.message || e.name : String(e)))
+        .filter((m) => m.length > 0);
+      if (inner.length > 0) parts.push(inner.join("; "));
+    }
+    if (error.cause !== undefined) {
+      const cause = error.cause;
+      const causeText =
+        cause instanceof Error ? cause.message || cause.name : String(cause);
+      if (causeText.length > 0) parts.push(`cause: ${causeText}`);
+    }
+    return parts.length > 0 ? parts.join(": ") : fallback;
+  }
   return fallback;
 }
 
@@ -527,6 +556,10 @@ export async function signAndLaunchScript(
     providerAccountId?: Id<"userProviderAccounts">;
     /** Entity owner (`createdBy`); defaults to `userId` when omitted. */
     credentialOwnerUserId?: Id<"users">;
+    claimMutation?: string;
+    openSyntheticTurnMutation?: string;
+    completeSyntheticTurnMutation?: string;
+    updateBackgroundAgentsMutation?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();

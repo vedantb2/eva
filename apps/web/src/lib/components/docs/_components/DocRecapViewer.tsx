@@ -133,9 +133,11 @@ export function DocRecapViewer({
     setIsRevising(true);
     try {
       await reviseRecap({ docId: doc._id });
-    } finally {
+    } catch (error) {
       setIsRevising(false);
+      throw error;
     }
+    setIsRevising(false);
   };
 
   return (

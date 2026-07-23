@@ -135,9 +135,8 @@ export function TaskActivityComposerForm({
       await createComment({ taskId, content });
     } catch (err) {
       console.error("Failed to add comment:", err);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const handleSubmitRequestChanges = async () => {
@@ -183,9 +182,8 @@ export function TaskActivityComposerForm({
             ? "Failed to queue changes"
             : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const disabledReason = requestChangesBlockedReason;

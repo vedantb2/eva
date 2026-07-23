@@ -90,19 +90,27 @@ export function SandboxPaneSlots({
     handleCloseTerminal,
   } = panes;
 
+  // Keep Preview chrome + iframes mounted while the Preview tab is hidden so
+  // switching away (Editor / Review / …) does not remount the running app.
   const previewRegion = (
     <div className="flex h-full min-h-0 flex-col">
-      {activeTab === "preview" ? (
+      <div className={activeTab === "preview" ? undefined : "hidden"}>
         <PreviewPaneTabs
           previewIds={previewIds}
           activeId={resolvedPreviewActive}
           onSelect={setPreviewActive}
           onClose={handleClosePreview}
         />
-      ) : null}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        {activeTab === "preview" && previewIds.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        {previewIds.length === 0 ? (
+          <div
+            className={
+              activeTab === "preview"
+                ? "flex flex-1 items-center justify-center text-sm text-muted-foreground"
+                : "hidden"
+            }
+          >
             Preparing preview...
           </div>
         ) : null}
@@ -185,14 +193,14 @@ export function SandboxPaneSlots({
       <div
         className={activeTab === "terminal" ? "h-full flex flex-col" : "hidden"}
       >
-        {activeTab === "terminal" ? (
+        <div className={activeTab === "terminal" ? undefined : "hidden"}>
           <TerminalPaneTabs
             termIds={userTermPanes.map((pane) => pane.id)}
             activeId={resolvedTermActive}
             onSelect={setTermActive}
             onClose={handleCloseTerminal}
           />
-        ) : null}
+        </div>
         <div className="flex min-h-0 flex-1 flex-col">
           {userTermPanes.map((pane) => (
             <div
@@ -251,15 +259,14 @@ export function SandboxPaneSlots({
             key={tab._id}
             className={activeTab === slug ? "h-full" : "hidden"}
           >
-            {activeTab === slug ? (
-              <CustomTabPanel
-                name={tab.name}
-                port={tab.port}
-                sandboxId={sandboxId}
-                isActive={isActive}
-                repoId={repoId}
-              />
-            ) : null}
+            <CustomTabPanel
+              name={tab.name}
+              port={tab.port}
+              sandboxId={sandboxId}
+              isActive={isActive}
+              isForeground={activeTab === slug}
+              repoId={repoId}
+            />
           </div>
         );
       })}

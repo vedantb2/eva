@@ -31,7 +31,8 @@ interface GlobalSessionsSidebarProps {
 
 /**
  * Cross-repo Sessions list for the rail entry point: every accessible app as a
- * collapsible group (empty apps included), search across titles, no archived.
+ * collapsible group (empty apps included), search across titles, archived nested
+ * under each app (default collapsed).
  */
 export function GlobalSessionsSidebar({
   pathname,

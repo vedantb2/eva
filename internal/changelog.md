@@ -1,5 +1,9 @@
 # Changelog
 
+## Global Sessions sidebar shows Archived again - 2026-07-23
+
+The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.
+
 ## Rail active badge ignores sessions - 2026-07-23
 
 Session sandboxes were lighting the left-rail repo/app dot even when nothing else was running, which made the indicator noisy. The badge now only reflects active quick-task or project sandboxes.
@@ -7,6 +11,7 @@ Session sandboxes were lighting the left-rail repo/app dot even when nothing els
 ## Project tasks share Make-changes model + Options - 2026-07-23
 
 Project tasks still hid the composer model picker and Options behind `!isProjectTask`, while Properties kept a duplicate model field — so the same shared components looked different by surface. Both now use the quick-task Make-changes controls; project Options persist proof/audit on the task for the next build. Create-from-project also gets the same assignee/tags/projects props as the quick-task modal.
+
 ## More space between Global Sessions app groups - 2026-07-23
 
 App collapsibles in the root Sessions sidebar sat too tight (`space-y-1`), so related groups felt like one block. Spacing between app groups is now `space-y-3` for clearer separation when scanning across codebases.

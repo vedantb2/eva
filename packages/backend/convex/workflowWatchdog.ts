@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { cancelTrackedWorkflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { finalizeCancelledAssistantMessage } from "./streaming";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -213,10 +214,28 @@ export const handleStaleSession = internalMutation({
       `summary:${String(args.sessionId)}`,
     ]);
 
+    if (session.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq("entityId", String(args.sessionId)),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(ctx, args.sessionId, "Execution timed out.");
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 
@@ -392,6 +411,26 @@ export const handleStaleProjectChat = internalMutation({
       `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`,
     ]);
 
+    if (project.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(project.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq(
+              "entityId",
+              `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`,
+            ),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(
       ctx,
       args.projectId,
@@ -400,6 +439,7 @@ export const handleStaleProjectChat = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       activeChatWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 
@@ -423,6 +463,26 @@ export const handleStaleAgentTaskChat = internalMutation({
       `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
     ]);
 
+    if (task.syntheticTurnMessageId) {
+      const syntheticMessage = await ctx.db.get(task.syntheticTurnMessageId);
+      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+        const streaming = await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) =>
+            q.eq(
+              "entityId",
+              `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
+            ),
+          )
+          .first();
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          syntheticMessage,
+          streaming,
+        );
+      }
+    }
+
     await timeoutLastMessage(
       ctx,
       args.taskId,
@@ -431,6 +491,7 @@ export const handleStaleAgentTaskChat = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
 

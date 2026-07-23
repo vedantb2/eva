@@ -33,10 +33,10 @@ interface ScheduleDateTimePickerProps {
 }
 
 export function useScheduleDateTime(initialTimestamp?: number) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(() =>
     initialTimestamp ? new Date(initialTimestamp) : new Date(),
   );
-  const [time, setTime] = useState(
+  const [time, setTime] = useState(() =>
     initialTimestamp
       ? dayjs(initialTimestamp).format("HH:mm")
       : dayjs().format("HH:mm"),

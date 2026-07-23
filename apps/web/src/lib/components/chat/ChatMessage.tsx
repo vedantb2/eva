@@ -2,13 +2,19 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
+  ProviderIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
+  formatModelDisplayLabel,
 } from "@conductor/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
+import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
 import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";
@@ -36,6 +42,36 @@ function userBubbleRadius(isOtherUser: boolean): string {
   const r = "clamp(0.75rem, var(--radius), 1.25rem)";
   // CSS order: top-left, top-right, bottom-right, bottom-left
   return isOtherUser ? `${r} ${r} ${r} 0` : `${r} ${r} 0 ${r}`;
+}
+
+/** Provider mark under a user bubble; tooltip lists model + effort when known. */
+function MessageModelIcon({
+  model,
+  reasoningLevel,
+}: {
+  model: string;
+  reasoningLevel?: string;
+}) {
+  const option = findAIModelOption(model);
+  const modelLabel = formatModelDisplayLabel(option.provider, option.label);
+  const effortLabel = reasoningLevel
+    ? getReasoningLevelLabel(reasoningLevel)
+    : null;
+  const tooltip = effortLabel ? `${modelLabel} · ${effortLabel}` : modelLabel;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/70"
+          aria-label={tooltip}
+        >
+          <ProviderIcon provider={option.provider} size={12} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 interface ChatMessageProps {
@@ -93,7 +129,7 @@ export const ChatMessage = memo(function ChatMessage({
     getAssistantTurnState(message, isLast);
 
   return (
-    <motion.div
+    <m.div
       key={message._id}
       data-message-id={message._id}
       initial={{ opacity: 0, y: 10 }}
@@ -275,10 +311,16 @@ export const ChatMessage = memo(function ChatMessage({
                 </span>
               )}
             </div>
+            {message.model ? (
+              <MessageModelIcon
+                model={message.model}
+                reasoningLevel={message.reasoningLevel}
+              />
+            ) : null}
             {isOtherUser ? null : <UserMessageAvatar userId={message.userId} />}
           </div>
         )}
       </AIMessage>
-    </motion.div>
+    </m.div>
   );
 });

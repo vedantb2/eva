@@ -6,7 +6,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
@@ -121,6 +121,16 @@ export function useTaskDetail(
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
+  const derivedBaseBranch =
+    task?.baseBranch?.trim() ||
+    repoForTask?.defaultBaseBranch?.trim() ||
+    FALLBACK_GIT_BASE_BRANCH;
+  const [prevDerivedBaseBranch, setPrevDerivedBaseBranch] =
+    useState(derivedBaseBranch);
+  if (derivedBaseBranch !== prevDerivedBaseBranch) {
+    setPrevDerivedBaseBranch(derivedBaseBranch);
+    setBaseBranch(derivedBaseBranch);
+  }
   const [embeddedShowSandbox, setEmbeddedShowSandbox] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
@@ -166,16 +176,6 @@ export function useTaskDetail(
         ? false
         : embeddedShowSandbox;
 
-  useEffect(() => {
-    const fromTask = task?.baseBranch?.trim();
-    if (fromTask) {
-      setBaseBranch(fromTask);
-      return;
-    }
-    const fromRepo = repoForTask?.defaultBaseBranch?.trim();
-    setBaseBranch(fromRepo || FALLBACK_GIT_BASE_BRANCH);
-  }, [task?.baseBranch, repoForTask?.defaultBaseBranch]);
-
   const handleStartExecution = async () => {
     setIsStarting(true);
     try {
@@ -184,9 +184,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsStarting(false);
     }
+    setIsStarting(false);
   };
 
   const handleResolveConflicts = async () => {
@@ -197,9 +196,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsStarting(false);
     }
+    setIsStarting(false);
   };
 
   const handleStopExecution = async () => {
@@ -208,9 +206,8 @@ export function useTaskDetail(
       await cancelExecution({ taskId });
     } catch (err) {
       console.error("Failed to stop execution:", err);
-    } finally {
-      setIsStopping(false);
     }
+    setIsStopping(false);
   };
 
   const canStartSandbox =
@@ -251,9 +248,8 @@ export function useTaskDetail(
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to start sandbox:", err);
-    } finally {
-      setIsSandboxStarting(false);
     }
+    setIsSandboxStarting(false);
   };
 
   const handleStopSandbox = async () => {
@@ -262,9 +258,8 @@ export function useTaskDetail(
       await stopTaskSandboxMutation({ taskId });
     } catch (err) {
       console.error("Failed to stop sandbox:", err);
-    } finally {
-      setIsSandboxStopping(false);
     }
+    setIsSandboxStopping(false);
   };
 
   const handleRetryStartupCommands = async () => {
@@ -274,9 +269,8 @@ export function useTaskDetail(
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to retry startup commands:", err);
-    } finally {
-      setIsRetryingStartupCommands(false);
     }
+    setIsRetryingStartupCommands(false);
   };
 
   const handleRunDevServer = async () => {
@@ -287,9 +281,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to run dev server";
       setExecutionError(message);
-    } finally {
-      setIsRunningDevServer(false);
     }
+    setIsRunningDevServer(false);
   };
 
   const handleRunBackgroundCommands = async () => {
@@ -302,9 +295,8 @@ export function useTaskDetail(
           ? err.message
           : "Failed to run background commands";
       setExecutionError(message);
-    } finally {
-      setIsRunningBackgroundCommands(false);
     }
+    setIsRunningBackgroundCommands(false);
   };
 
   const devServerCommandLabel = (() => {
@@ -323,9 +315,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
       setExecutionError(message);
-    } finally {
-      setIsCreatingPr(false);
     }
+    setIsCreatingPr(false);
   };
 
   const handleToggleSandboxView = () => {

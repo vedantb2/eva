@@ -110,9 +110,11 @@ export function ProjectPlanTab({
       if (segment) {
         navigate({ to: `${basePath}/projects/${segment}` });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   if (!parsedSpec) {

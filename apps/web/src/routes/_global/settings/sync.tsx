@@ -97,9 +97,9 @@ function SyncSettingsRoute() {
   const repos = dbRepos ? dedupeRepos(dbRepos, githubRepos) : [];
 
   const disabledSet = new Set(
-    (syncSettings ?? [])
-      .filter((s) => !s.enabled)
-      .map((s) => `${s.owner}/${s.name}`),
+    (syncSettings ?? []).flatMap((s) =>
+      s.enabled ? [] : [`${s.owner}/${s.name}`],
+    ),
   );
 
   const isRepoEnabled = (owner: string, name: string) =>

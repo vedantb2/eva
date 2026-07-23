@@ -90,9 +90,11 @@ export function DesignDetailClient({
       try {
         await stopSandboxMutation({ id: designSessionId });
         setPreviewUrl(null);
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 

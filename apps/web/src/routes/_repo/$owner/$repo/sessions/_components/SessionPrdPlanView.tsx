@@ -119,9 +119,11 @@ export function SessionPrdPlanView({
         planContent: markdown,
       });
       setEditingSnapshot(null);
-    } finally {
+    } catch (error) {
       setIsSaving(false);
+      throw error;
     }
+    setIsSaving(false);
   };
 
   const handleSaveAsDocument = async () => {
@@ -135,9 +137,11 @@ export function SessionPrdPlanView({
         return;
       }
       navigate({ to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}` });
-    } finally {
+    } catch (error) {
       setIsSavingDoc(false);
+      throw error;
     }
+    setIsSavingDoc(false);
   };
 
   const hasContent = planContent.trim().length > 0;

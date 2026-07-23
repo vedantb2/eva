@@ -57,9 +57,8 @@ export function useProjectSandbox(
       await startProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to start project sandbox:", err);
-    } finally {
-      setIsStartingLocal(false);
     }
+    setIsStartingLocal(false);
   };
 
   const handleStopSandbox = async () => {
@@ -68,9 +67,8 @@ export function useProjectSandbox(
       await stopProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to stop project sandbox:", err);
-    } finally {
-      setIsStoppingLocal(false);
     }
+    setIsStoppingLocal(false);
   };
 
   const handleRetryStartupCommands = async () => {
@@ -79,9 +77,8 @@ export function useProjectSandbox(
       await retryStartupCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to retry project startup commands:", err);
-    } finally {
-      setIsRetryingStartupCommands(false);
     }
+    setIsRetryingStartupCommands(false);
   };
 
   const handleRunBackgroundCommands = async () => {
@@ -90,9 +87,8 @@ export function useProjectSandbox(
       await runBackgroundCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to run project background commands:", err);
-    } finally {
-      setIsRunningBackgroundCommands(false);
     }
+    setIsRunningBackgroundCommands(false);
   };
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 
 const ICON_MOTION = {
   initial: { scale: 0.25, opacity: 0, filter: "blur(4px)" },
@@ -31,21 +31,21 @@ export function CrossfadeIcon({
     <span className={className}>
       <AnimatePresence initial={false}>
         {show ? (
-          <motion.span
+          <m.span
             key={trueKey}
             className="absolute inset-0 flex items-center justify-center"
             {...ICON_MOTION}
           >
             {whenTrue}
-          </motion.span>
+          </m.span>
         ) : (
-          <motion.span
+          <m.span
             key={falseKey}
             className="absolute inset-0 flex items-center justify-center"
             {...ICON_MOTION}
           >
             {whenFalse}
-          </motion.span>
+          </m.span>
         )}
       </AnimatePresence>
     </span>

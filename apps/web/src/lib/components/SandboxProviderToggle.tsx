@@ -48,10 +48,7 @@ export function SandboxProviderToggle({
 
   // Legacy encrypted values come back masked from list — reveal + heal once.
   useEffect(() => {
-    if (listed !== null) {
-      setRevealed(null);
-      return;
-    }
+    if (listed !== null) return;
     if (entry === undefined || !onReveal) return;
     let cancelled = false;
     void (async () => {
@@ -76,9 +73,11 @@ export function SandboxProviderToggle({
     try {
       await onUpsert(SANDBOX_PROVIDER_KEY, next, true);
       setRevealed(next);
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
+    setSaving(false);
   };
 
   const scopeHint =

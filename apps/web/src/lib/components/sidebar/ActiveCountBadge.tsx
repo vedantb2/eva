@@ -7,22 +7,12 @@ import type { Id } from "@conductor/backend";
 
 interface ActiveCountBadgeProps {
   repoId: Id<"githubRepos">;
-  type: "sessions" | "designs";
 }
 
-export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
-  const sessionCount = useQuery(
-    api.sessions.countActive,
-    type === "sessions" ? { repoId } : "skip",
-  );
-  const designCount = useQuery(
-    api.designSessions.countActive,
-    type === "designs" ? { repoId } : "skip",
-  );
+export function ActiveCountBadge({ repoId }: ActiveCountBadgeProps) {
+  const designCount = useQuery(api.designSessions.countActive, { repoId });
 
-  const count = type === "sessions" ? sessionCount : designCount;
-
-  if (!count) {
+  if (!designCount) {
     return null;
   }
 
@@ -33,7 +23,7 @@ export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
     >
       <span className="h-2 w-2 rounded-full bg-success" />
       <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-        {count}
+        {designCount}
       </span>
     </Badge>
   );

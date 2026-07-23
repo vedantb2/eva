@@ -74,21 +74,21 @@ export function TestingArenaSidebar({
     if (testableDocs.length === 0) return;
     setIsTestingAll(true);
     try {
-      for (const doc of testableDocs) {
-        // One failure should not abort the whole batch.
-        try {
-          await startEvaluation({
+      // Fire all evaluations; one failure must not abort the batch.
+      await Promise.allSettled(
+        testableDocs.map((doc) =>
+          startEvaluation({
             docId: doc._id,
             repoId,
             branchName: branch !== "main" ? branch : undefined,
-          });
-        } catch {
-          // Skip this doc and continue with the rest.
-        }
-      }
-    } finally {
+          }),
+        ),
+      );
+    } catch (error) {
       setIsTestingAll(false);
+      throw error;
     }
+    setIsTestingAll(false);
   };
 
   return (

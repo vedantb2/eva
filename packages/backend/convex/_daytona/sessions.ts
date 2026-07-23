@@ -114,6 +114,15 @@ async function runLoggedSessionStep<T>(
     console.error(
       `[daytona][sessions] ${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
+    // Prefix the step label so downstream error surfaces (sandboxStartupWarning
+    // errorDetail) say which step failed. Mutate rather than wrap to preserve
+    // instanceof checks (e.g. SandboxStartAbortedError in startSessionSandbox).
+    if (
+      error instanceof Error &&
+      !(error instanceof SandboxStartAbortedError)
+    ) {
+      error.message = `${label}: ${errorMessage(error, "failed with no error message")}`;
+    }
     throw error;
   }
 }
@@ -301,6 +310,10 @@ async function resumeReusedSandbox(
     // session reports running, and the git steps right after early-ready
     // surface any real failure.
     skipExecProbe: true,
+    // Explicit user start: if the previous run's stop is still snapshotting,
+    // wait it out and resume instead of refusing. `shouldAbort` above still
+    // catches a genuine user Stop.
+    resumeAfterStop: true,
     onRestoring: opts.onRestoring,
   });
   // A Stop may have landed while start() was waking the VM — bail before the
@@ -1696,6 +1709,9 @@ export const startDesignSandbox = internalAction({
         }
         await ensureSandboxRunning(handle, {
           timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+          // Explicit user start: wait out a trailing stop and resume; the
+          // designStopRequested checks around this call catch a real Stop.
+          resumeAfterStop: true,
         });
         if (await designStopRequested(ctx, args.designSessionId)) {
           throw new SandboxStartAbortedError(

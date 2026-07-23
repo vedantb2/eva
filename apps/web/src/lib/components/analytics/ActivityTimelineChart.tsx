@@ -1,29 +1,36 @@
 "use client";
 
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Suspense, use } from "react";
 import { Widget } from "@/lib/components/Widget";
 import dayjs from "@conductor/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-);
+/** Lazy chart.js + react-chartjs-2 so stats pages don't pay the cost up front. */
+const lineChartModules = Promise.all([
+  import("react-chartjs-2"),
+  import("chart.js"),
+]).then(([reactChart, chartJs]) => {
+  const {
+    Chart: ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Filler,
+    Tooltip,
+    Legend,
+  } = chartJs;
+  ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Filler,
+    Tooltip,
+    Legend,
+  );
+  return { Line: reactChart.Line };
+});
 
 interface ActivityTimelineChartProps {
   timeline: Array<{
@@ -32,6 +39,32 @@ interface ActivityTimelineChartProps {
     runs: number;
     tasks: number;
   }>;
+}
+
+function ActivityLineChart({
+  chartData,
+  options,
+}: {
+  chartData: {
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      borderColor: string;
+      backgroundColor: string;
+      fill: boolean;
+      tension: number;
+    }>;
+  };
+  options: {
+    responsive: boolean;
+    maintainAspectRatio: boolean;
+    plugins: { legend: { display: boolean } };
+    scales: { y: { beginAtZero: boolean; ticks: { stepSize: number } } };
+  };
+}) {
+  const { Line } = use(lineChartModules);
+  return <Line data={chartData} options={options} />;
 }
 
 export function ActivityTimelineChart({
@@ -89,7 +122,9 @@ export function ActivityTimelineChart({
       }
     >
       <div className="h-48 sm:h-64">
-        <Line data={chartData} options={options} />
+        <Suspense fallback={null}>
+          <ActivityLineChart chartData={chartData} options={options} />
+        </Suspense>
       </div>
     </Widget>
   );

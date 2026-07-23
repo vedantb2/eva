@@ -18,6 +18,20 @@ import {
   assertProviderAccountOwnedBy,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+
+async function finalizeOpenSyntheticTurnOnCancel(
+  ctx: MutationCtx,
+  syntheticTurnMessageId: Id<"messages"> | undefined,
+  streaming: Doc<"streamingActivity"> | null,
+): Promise<void> {
+  if (syntheticTurnMessageId === undefined) return;
+  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
+  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+  }
+}
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
@@ -299,14 +313,25 @@ export const cancelExecution = authMutation({
       latest.activeWorkflowId !== workflowIdToCancel;
 
     if (!newerTurnStaged && !newerWorkflowTracked) {
+      const syntheticTurnMessageId = latest.syntheticTurnMessageId;
       const last = await ctx.db
         .query("messages")
         .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
         .order("desc")
         .first();
-      if (last && last.role === "assistant" && last.finishedAt === undefined) {
+      if (
+        last &&
+        last.role === "assistant" &&
+        last.finishedAt === undefined &&
+        last._id !== syntheticTurnMessageId
+      ) {
         await finalizeCancelledAssistantMessage(ctx, last, streaming);
       }
+      await finalizeOpenSyntheticTurnOnCancel(
+        ctx,
+        syntheticTurnMessageId,
+        streaming,
+      );
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));
@@ -314,6 +339,7 @@ export const cancelExecution = authMutation({
     const sessionPatch: {
       activeWorkflowId?: undefined;
       pendingTurn?: undefined;
+      syntheticTurnMessageId?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
 
@@ -328,6 +354,9 @@ export const cancelExecution = authMutation({
       latest.pendingTurn?.requestedAt === pendingRequestedAt
     ) {
       sessionPatch.pendingTurn = undefined;
+    }
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      sessionPatch.syntheticTurnMessageId = undefined;
     }
 
     await ctx.db.patch(args.sessionId, sessionPatch);

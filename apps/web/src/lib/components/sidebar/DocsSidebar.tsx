@@ -114,7 +114,10 @@ export function DocsSidebar({
       });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsCreating(false);
+        return;
+      }
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
       navigate({
@@ -122,9 +125,11 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   const readFileContent = (file: File): Promise<string> =>
@@ -165,7 +170,10 @@ export function DocsSidebar({
       const id = await createDoc({ repoId, title, content: prdContent });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsUploading(false);
+        return;
+      }
       setIsCreateDialogOpen(false);
       setShowUploadSection(false);
       setPastedPrdContent("");
@@ -177,9 +185,8 @@ export function DocsSidebar({
       onNavigate?.();
     } catch (error) {
       console.error("PRD upload failed", error);
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleUploadSelect = async (
@@ -226,9 +233,11 @@ export function DocsSidebar({
         navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   return (

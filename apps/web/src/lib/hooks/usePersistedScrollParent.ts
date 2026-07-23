@@ -47,7 +47,9 @@ export function usePersistedScrollParent(storageKey: string): {
   const [savedScrollTop] = useSessionStorage(fullKey, 0);
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const savedScrollTopRef = useRef(savedScrollTop);
-  savedScrollTopRef.current = savedScrollTop;
+  useLayoutEffect(() => {
+    savedScrollTopRef.current = savedScrollTop;
+  }, [savedScrollTop]);
 
   useLayoutEffect(() => {
     if (!scrollParent) return;

@@ -119,38 +119,26 @@ export function DaytonaLogo({ size = 16, className }: ProviderLogoProps) {
       aria-label="Daytona"
       className={cn("text-[#121212] dark:text-white", className)}
     >
+      <path fill="currentColor" d="M14.6 193.7H114.3V227.9H14.6V193.7Z" />
+      <path fill="currentColor" d="M148.5 74.1H262.4V108.3H148.5V74.1Z" />
       <path
         fill="currentColor"
-        d="M14.5584 193.736H114.275V227.925H14.5584V193.736Z"
+        d="M88.6 84.6L173.2 0L197.4 24.2L112.8 108.8L88.6 84.6Z"
       />
       <path
         fill="currentColor"
-        d="M148.464 74.076H262.426V108.265H148.464V74.076Z"
+        d="M89.2 170.1L24.2 105.1L0 129.3L65 194.3L89.2 170.1Z"
       />
       <path
         fill="currentColor"
-        d="M88.6338 84.6127L173.246 0L197.422 24.175L112.809 108.788L88.6338 84.6127Z"
+        d="M174.6 217.9L106.1 286.4L82 262.2L150.5 193.7L174.6 217.9Z"
       />
       <path
         fill="currentColor"
-        d="M89.157 170.084L24.175 105.102L0 129.277L64.9819 194.259L89.157 170.084Z"
+        d="M174.1 132.4L250.7 209L274.8 184.8L198.3 108.3L174.1 132.4Z"
       />
-      <path
-        fill="currentColor"
-        d="M174.629 217.911L106.133 286.407L81.9577 262.232L150.454 193.736L174.629 217.911Z"
-      />
-      <path
-        fill="currentColor"
-        d="M174.106 132.44L250.66 208.994L274.835 184.819L198.281 108.265L174.106 132.44Z"
-      />
-      <path
-        fill="currentColor"
-        d="M88.6338 48.434V131.057H54.4451L54.4451 48.434H88.6338Z"
-      />
-      <path
-        fill="currentColor"
-        d="M208.294 168.094V270.66H174.106V168.094H208.294Z"
-      />
+      <path fill="currentColor" d="M88.6 48.4V131.1H54.4L54.4 48.4H88.6Z" />
+      <path fill="currentColor" d="M208.3 168.1V270.7H174.1V168.1H208.3Z" />
     </svg>
   );
 }

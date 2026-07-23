@@ -68,23 +68,11 @@ async function gatherAccessibleRepos(
   return repos;
 }
 
-/** True when this app has a live sandbox on a session, quick task, or project. */
+/** True when this app has a live sandbox on a quick task or project. */
 async function repoHasActiveSandbox(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<boolean> {
-  // Active sessions per repo are few — indexed status lookup, then skip archived /
-  // sandboxes-without-id. Early exit avoids project/task reads when a session is live.
-  const activeSession = filterActiveEntities(
-    await db
-      .query("sessions")
-      .withIndex("by_repo_and_status", (q) =>
-        q.eq("repoId", repoId).eq("status", "active"),
-      )
-      .take(16),
-  ).find((s) => s.archived !== true && s.sandboxId !== undefined);
-  if (activeSession) return true;
-
   // Indexed existence checks (not full table scans): at most a handful of docs.
   const activeProject = filterActiveEntities(
     await db
@@ -139,8 +127,8 @@ export const list = authQuery({
 });
 
 /**
- * Repo/app ids that currently have an active sandbox on a session, quick task,
- * or project. Used by the left rail to show a live indicator on app icons.
+ * Repo/app ids that currently have an active sandbox on a quick task or
+ * project. Used by the left rail to show a live indicator on app icons.
  */
 export const listReposWithActiveSandboxes = authQuery({
   args: {},
@@ -154,6 +142,31 @@ export const listReposWithActiveSandboxes = authQuery({
       })),
     );
     return flags.filter((f) => f.active).map((f) => f.id);
+  },
+});
+
+/** Counts live sessions (status active, not archived, with a sandbox) the user can see. */
+export const countActiveSessions = authQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
+    const perRepo = await Promise.all(
+      repos.map(async (repo) => {
+        const sessions = filterActiveEntities(
+          await ctx.db
+            .query("sessions")
+            .withIndex("by_repo_and_status", (q) =>
+              q.eq("repoId", repo._id).eq("status", "active"),
+            )
+            .take(64),
+        );
+        return sessions.filter(
+          (s) => s.archived !== true && s.sandboxId !== undefined,
+        ).length;
+      }),
+    );
+    return perRepo.reduce((total, n) => total + n, 0);
   },
 });
 

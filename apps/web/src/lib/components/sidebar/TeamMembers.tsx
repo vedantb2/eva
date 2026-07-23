@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
@@ -23,7 +24,11 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const { following, startFollowing, stopFollowing } = useFollow();
 
-  const now = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const twoMinutes = 2 * 60 * 1000;
 
   const onlineMembers = teamData

@@ -214,9 +214,11 @@ function SettingsForm({
         to: "/$owner/$repo/automations",
         params: { owner: repoOwner, repo: repoName },
       });
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   return (

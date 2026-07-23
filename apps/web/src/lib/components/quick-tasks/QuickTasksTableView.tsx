@@ -157,6 +157,7 @@ export function QuickTasksTableView({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
+  "use no memo";
   const { basePath, owner, name } = useRepo();
   const users = useQuery(api.users.listAll);
   const { scrollParent, scrollRef } = usePersistedScrollParent(
@@ -171,17 +172,18 @@ export function QuickTasksTableView({
 
   const tasks = (() => {
     const query = q.toLowerCase().trim();
-    return externalTasks
-      .filter((t) =>
-        TASK_STATUSES.some((s) => s === t.status && visibleStatuses.has(s)),
-      )
-      .filter((t) => {
-        if (!query) return true;
-        return (
-          t.title.toLowerCase().includes(query) ||
-          t.description?.toLowerCase().includes(query)
-        );
-      });
+    return externalTasks.filter((t) => {
+      if (
+        !TASK_STATUSES.some((s) => s === t.status && visibleStatuses.has(s))
+      ) {
+        return false;
+      }
+      if (!query) return true;
+      return (
+        t.title.toLowerCase().includes(query) ||
+        t.description?.toLowerCase().includes(query)
+      );
+    });
   })();
 
   const resolvedColumns = columns.map((col) => {

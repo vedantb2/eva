@@ -71,6 +71,8 @@ export async function startNextQueuedSessionMessage(
       session.providerAccountId,
       session.createdBy ?? session.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {
@@ -155,6 +157,8 @@ export async function startNextQueuedDesignMessage(
       nextMessage.providerAccountId,
       session.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   const assistantMessageId = await ctx.db.insert("messages", {
@@ -238,6 +242,8 @@ export async function startNextQueuedProjectChatMessage(
       project.providerAccountId,
       project.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {
@@ -315,6 +321,8 @@ export async function startNextQueuedTaskChatMessage(
       task.providerAccountId,
       task.createdBy,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {

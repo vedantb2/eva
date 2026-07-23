@@ -69,6 +69,7 @@ export function DocContentTab({
   onToggleSuggestions: () => void;
   onSuggestionCount: (count: number) => void;
 }) {
+  "use no memo";
   const [mode] = useQueryState("mode", docModeParser);
   const isPrRecap = doc.kind === "pr-recap";
   const effectiveMode: DocMode = isPrRecap ? "viewing" : mode;
@@ -80,7 +81,9 @@ export function DocContentTab({
   // recreating the editor when auth resolves.
   const currentUserId = useQuery(api.auth.me);
   const userIdRef = useRef<string | null>(null);
-  userIdRef.current = currentUserId ?? null;
+  useEffect(() => {
+    userIdRef.current = currentUserId ?? null;
+  }, [currentUserId]);
   // Clicking a highlight routes here; the ref lets the (memoized once) editor
   // extension reach the latest handler without recreating the editor.
   const anchorClickRef = useRef<(anchorId: string) => void>(() => undefined);
@@ -262,10 +265,12 @@ export function DocContentTab({
   }, [editor]);
 
   // Highlight click -> focus its thread in the panel.
-  anchorClickRef.current = (anchorId: string) => {
-    setActiveAnchorId(anchorId);
-    if (!commentsOpen) onToggleComments();
-  };
+  useEffect(() => {
+    anchorClickRef.current = (anchorId: string) => {
+      setActiveAnchorId(anchorId);
+      if (!commentsOpen) onToggleComments();
+    };
+  }, [commentsOpen, onToggleComments]);
 
   // Panel thread click -> scroll the editor to the anchored text.
   const handleAnchorActivate = (anchorId: string) => {

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { Suspense, use, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -10,35 +9,48 @@ import { IconArrowLeft, IconExternalLink } from "@tabler/icons-react";
 import { ArtifactFrame } from "./ArtifactFrame";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 
+type ArtifactHtmlResult =
+  | { ok: true; html: string }
+  | { ok: false; error: string };
+
+const artifactHtmlCache = new Map<string, Promise<ArtifactHtmlResult>>();
+
+function loadArtifactHtml(url: string): Promise<ArtifactHtmlResult> {
+  const cached = artifactHtmlCache.get(url);
+  if (cached) return cached;
+  const promise = fetch(url)
+    .then(async (response) => {
+      if (!response.ok) {
+        return {
+          ok: false as const,
+          error: `Failed to load artifact (status ${response.status})`,
+        };
+      }
+      return { ok: true as const, html: await response.text() };
+    })
+    .catch((error: Error) => ({
+      ok: false as const,
+      error: error.message || String(error),
+    }));
+  artifactHtmlCache.set(url, promise);
+  return promise;
+}
+
+function ArtifactHtmlBody({ url, title }: { url: string; title: string }) {
+  const result = use(loadArtifactHtml(url));
+  if (!result.ok) {
+    return (
+      <Centered>
+        <p className="text-sm text-destructive">{result.error}</p>
+      </Centered>
+    );
+  }
+  return <ArtifactFrame html={result.html} title={title} />;
+}
+
 /** Loads an artifact's stored HTML and renders it in the bridged sandbox iframe. */
 export function ArtifactViewer({ artifactId }: { artifactId: string }) {
   const artifact = useQuery(api.artifacts.get, { id: artifactId });
-  const [html, setHtml] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const url = artifact?.url ?? null;
-  useEffect(() => {
-    if (!url) return;
-    let cancelled = false;
-    setHtml(null);
-    setError(null);
-    fetch(url)
-      .then((r) => {
-        if (!r.ok) {
-          throw new Error(`Failed to load artifact (status ${r.status})`);
-        }
-        return r.text();
-      })
-      .then((text) => {
-        if (!cancelled) setHtml(text);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
 
   if (artifact === undefined) {
     return <Centered>{<Spinner />}</Centered>;
@@ -52,6 +64,8 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
       />
     );
   }
+
+  const url = artifact.url;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -79,21 +93,27 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
         </button>
       </div>
       <div className="min-h-0 w-full flex-1 overflow-hidden rounded-surface border border-border bg-white shadow-sm">
-        {error ? (
-          <Centered>
-            <p className="text-sm text-destructive">{error}</p>
-          </Centered>
-        ) : html === null ? (
-          <Centered>
-            <div className="flex flex-col items-center gap-2">
-              <Spinner />
-              <span className="text-sm text-muted-foreground">
-                Loading dashboard…
-              </span>
-            </div>
-          </Centered>
+        {url ? (
+          <Suspense
+            fallback={
+              <Centered>
+                <div className="flex flex-col items-center gap-2">
+                  <Spinner />
+                  <span className="text-sm text-muted-foreground">
+                    Loading dashboard…
+                  </span>
+                </div>
+              </Centered>
+            }
+          >
+            <ArtifactHtmlBody key={url} url={url} title={artifact.name} />
+          </Suspense>
         ) : (
-          <ArtifactFrame html={html} title={artifact.name} />
+          <Centered>
+            <p className="text-sm text-muted-foreground">
+              Artifact has no content URL.
+            </p>
+          </Centered>
         )}
       </div>
     </div>

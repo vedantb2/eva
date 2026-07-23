@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import type { FunctionReturnType } from "convex/server";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
+import type { OptimisticLocalStore } from "convex/browser";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -44,6 +45,24 @@ import { DocTestGenDialog } from "./DocTestGenDialog";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
+
+function applyDocUpdateOptimistically(
+  localStore: OptimisticLocalStore,
+  args: FunctionArgs<typeof api.docs.update>,
+) {
+  const current = localStore.getQuery(api.docs.get, { id: args.id });
+  if (current) {
+    localStore.setQuery(
+      api.docs.get,
+      { id: args.id },
+      {
+        ...current,
+        ...args,
+        updatedAt: Date.now(),
+      },
+    );
+  }
+}
 
 export function DocPrdViewer({
   doc,
@@ -100,20 +119,7 @@ export function DocPrdViewer({
   const startTestGenMutation = useMutation(api.testGenWorkflow.startTestGen);
   const cancelTestGenMutation = useMutation(api.testGenWorkflow.cancelTestGen);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
-    (localStore, args) => {
-      const current = localStore.getQuery(api.docs.get, { id: args.id });
-      if (current) {
-        localStore.setQuery(
-          api.docs.get,
-          { id: args.id },
-          {
-            ...current,
-            ...args,
-            updatedAt: Date.now(),
-          },
-        );
-      }
-    },
+    applyDocUpdateOptimistically,
   );
 
   const handleCopy = async () => {
@@ -134,18 +140,22 @@ export function DocPrdViewer({
     setIsTriggeringTestGen(true);
     try {
       await startTestGenMutation({ docId: doc._id });
-    } finally {
+    } catch (error) {
       setIsTriggeringTestGen(false);
+      throw error;
     }
+    setIsTriggeringTestGen(false);
   };
 
   const handleStopTestGen = async () => {
     setIsStopping(true);
     try {
       await cancelTestGenMutation({ docId: doc._id });
-    } finally {
+    } catch (error) {
       setIsStopping(false);
+      throw error;
     }
+    setIsStopping(false);
   };
 
   const isGeneratingTests =

@@ -2,8 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, normalizeAIModel } from "@conductor/backend";
+import { api } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -15,7 +14,6 @@ import {
   SelectLabel,
   SelectGroup,
   Input,
-  ModelSelect,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -57,12 +55,7 @@ import {
   NEW_PROJECT_VALUE,
   NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
-  canEditTaskModel,
 } from "./task-detail-constants";
-import {
-  useAvailableAiModels,
-  useTaskOwnerProviderAccounts,
-} from "@/lib/hooks/useAvailableAiModels";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 
 type RunDoc = NonNullable<
@@ -233,20 +226,6 @@ export function StatusFieldsSection({
     ? getUserDisplayName(assignedUser)
     : "Unnamed User";
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
-  const currentModel = normalizeAIModel(task?.model);
-  const { options: modelOptions } = useAvailableAiModels(
-    task?.repoId,
-    currentModel,
-  );
-  const { options: accounts, resolveId: resolveAccountId } =
-    useTaskOwnerProviderAccounts(taskId);
-  const currentUserId = useQuery(api.auth.me);
-  const isOwner =
-    currentUserId !== undefined &&
-    task?.createdBy !== undefined &&
-    currentUserId === task.createdBy;
-  const canEditModel = canEditTaskModel(status);
-  const isQuickTask = task?.projectId === undefined;
 
   return (
     <div className="space-y-4">
@@ -395,45 +374,7 @@ export function StatusFieldsSection({
           </SelectContent>
         </Select>
 
-        {/* Quick tasks: model lives in the Make-changes composer. */}
-        {!isQuickTask ? (
-          <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
-            <ModelSelect
-              value={currentModel}
-              options={modelOptions}
-              onValueChange={() => undefined}
-              accounts={accounts}
-              accountId={task?.providerAccountId ?? null}
-              onSelectionChange={(nextModel, nextAccountId) => {
-                if (isOwner) {
-                  updateTask({
-                    id: taskId,
-                    model: nextModel,
-                    providerAccountId: resolveAccountId(nextAccountId) ?? null,
-                  });
-                  return;
-                }
-                updateTask({ id: taskId, model: nextModel });
-              }}
-              canSelectTeamWhilePersonal={isOwner}
-              disabled={!canEditModel}
-              className="px-0"
-            />
-            {!canEditModel ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <IconInfoCircle
-                    size={12}
-                    className="cursor-help text-muted-foreground"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Locked when the task is done or cancelled
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-        ) : null}
+        {/* Model lives in the Make-changes composer (quick + project). */}
 
         {!task?.projectId && (
           <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">
@@ -539,22 +480,25 @@ export function StatusFieldsSection({
                 align="end"
                 className="max-h-56 overflow-y-auto"
               >
-                {allTags.map((tag) => (
-                  <DropdownMenuCheckboxItem
-                    key={tag}
-                    checked={(task?.tags ?? []).includes(tag)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        void addTag(tag);
-                      } else {
-                        void removeTag(tag);
-                      }
-                    }}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    {tag}
-                  </DropdownMenuCheckboxItem>
-                ))}
+                {(() => {
+                  const tagSet = new Set(task?.tags ?? []);
+                  return allTags.map((tag) => (
+                    <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={tagSet.has(tag)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          void addTag(tag);
+                        } else {
+                          void removeTag(tag);
+                        }
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {tag}
+                    </DropdownMenuCheckboxItem>
+                  ));
+                })()}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

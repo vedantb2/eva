@@ -179,8 +179,8 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      // claude-agent-sdk backs the flag-gated SDK runner (CLAUDE_ATTEMPT_MODE=sdk);
-      // the callback dynamically imports it from the global npm root.
+      // claude-agent-sdk is the Claude runtime (one-shot + sdk-daemon); the
+      // callback dynamically imports it from the global npm root.
       "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @anthropic-ai/claude-agent-sdk@0.3.201",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",

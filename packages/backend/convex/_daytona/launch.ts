@@ -213,9 +213,9 @@ export async function launchScript(
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CURSOR_BIN_PATH=${quote([CURSOR_FALLBACK_BIN_PATH])}`,
   ];
-  // Deployment-level switch for the Claude Agent SDK runner: set
-  // CLAUDE_ATTEMPT_MODE=sdk on a Convex deployment to flip its sessions off the
-  // `claude -p` spawn. Unset (prod default) keeps the CLI path.
+  // Deployment-level switch for Claude Agent SDK runtime shape: `sdk` (one-shot
+  // query per turn) vs `sdk-daemon` (persistent warm session; callback default
+  // when unset). Forward when set so a deployment can opt into one-shot SDK.
   if (process.env.CLAUDE_ATTEMPT_MODE) {
     envParts.push(
       `CLAUDE_ATTEMPT_MODE=${quote([process.env.CLAUDE_ATTEMPT_MODE])}`,

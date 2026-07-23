@@ -24,19 +24,23 @@ export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-/** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
-export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 /**
- * Human-in-the-loop AskUserQuestion. Only the Agent SDK exposes the `canUseTool`
+ * Claude runtime: `"sdk"` = one-shot Agent SDK `query()` per turn;
+ * `"sdk-daemon"` = persistent warm-session daemon (default). The legacy CLI
+ * spawn path has been removed.
+ */
+export const CLAUDE_ATTEMPT_MODE =
+  process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
+/**
+ * Human-in-the-loop AskUserQuestion. The Agent SDK exposes the `canUseTool`
  * pause needed to block a turn on an answer, and only sessions currently wire the
- * answering UI — so this is gated to SDK session runs. Elsewhere AskUserQuestion
+ * answering UI — so this is gated to session runs. Elsewhere AskUserQuestion
  * stays the old fire-and-forget metadata (surfaced after the turn). When enabled
  * the SDK drops `bypassPermissions` for a `canUseTool` gate that auto-allows every
  * tool except AskUserQuestion (which waits for the user's answer via Convex).
  */
 export const BLOCKING_QUESTIONS_ENABLED =
-  process.env.ENTITY_ID_FIELD === "sessionId" &&
-  (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
+  process.env.ENTITY_ID_FIELD === "sessionId";
 /**
  * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
  * so the CLI/MCP/API connection is live) and wait for the first prompt via the
@@ -191,7 +195,7 @@ export const REPO_ID = process.env.REPO_ID;
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
 // when the user picks a non-default level. Mapped per provider below:
-//   - Claude: `--effort` on the CLI and Agent SDK `effort` option.
+//   - Claude: Agent SDK `effort` option.
 //   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
 export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
@@ -232,17 +236,9 @@ function buildSettingsJson(): string {
   return JSON.stringify(settings);
 }
 
-export const toolsArg = ALLOWED_TOOLS
-  ? '--allowedTools "' + ALLOWED_TOOLS + '"'
-  : "";
-export const systemArg = SYSTEM_PROMPT
-  ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT)
-  : "";
 export const settingsJson = buildSettingsJson();
-export const settingsArg = "--settings " + JSON.stringify(settingsJson);
-export const mcpArg = existsSync("/tmp/eva-mcp.json")
-  ? "--mcp-config /tmp/eva-mcp.json"
-  : "";
+/** True when the sandbox MCP config file is present (used for startup logging). */
+export const hasMcpConfig = existsSync("/tmp/eva-mcp.json");
 const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;
@@ -273,9 +269,6 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
 
 export const normalizedCursorModel =
   CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
-export const claudeCommand = existsSync(CLAUDE_BIN_PATH)
-  ? JSON.stringify(CLAUDE_BIN_PATH)
-  : "claude";
 export const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
@@ -313,21 +306,6 @@ export const cursorExecBaseCmd =
   " --model " +
   JSON.stringify(normalizedCursorModel) +
   " --output-format stream-json --approve-mcps";
-export const claudeBaseCmd =
-  "cat /tmp/design-prompt.txt | " +
-  claudeCommand +
-  " -p --verbose --dangerously-skip-permissions --model " +
-  normalizedClaudeModel +
-  (claudeEffort ? " --effort " + claudeEffort : "") +
-  " " +
-  toolsArg +
-  " " +
-  systemArg +
-  " " +
-  settingsArg +
-  " " +
-  mcpArg +
-  " --output-format stream-json";
 
 export const TOOL_STEP_TYPES = new Set([
   "read",

@@ -1,6 +1,6 @@
 "use node";
 
-export const CALLBACK_SCRIPT = `// callback-src/index.ts
+export const CALLBACK_SCRIPT = `// packages/backend/callback-src/index.ts
 import {
   existsSync as existsSync8,
   mkdirSync as mkdirSync7,
@@ -9,7 +9,7 @@ import {
   writeFileSync as writeFileSync11
 } from "fs";
 
-// callback-src/config.ts
+// packages/backend/callback-src/config.ts
 import { existsSync } from "fs";
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -29,8 +29,8 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
-var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId" && (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
+var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
+var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -161,11 +161,8 @@ function buildSettingsJson() {
   }
   return JSON.stringify(settings);
 }
-var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
-var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 var settingsJson = buildSettingsJson();
-var settingsArg = "--settings " + JSON.stringify(settingsJson);
-var mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
+var hasMcpConfig = existsSync("/tmp/eva-mcp.json");
 var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
@@ -180,7 +177,6 @@ var CURSOR_CLI_MODEL_IDS = {
 };
 var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
 var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
-var claudeCommand = existsSync(CLAUDE_BIN_PATH) ? JSON.stringify(CLAUDE_BIN_PATH) : "claude";
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
 var cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
@@ -190,7 +186,6 @@ var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto -
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
 var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
-var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + (claudeEffort ? " --effort " + claudeEffort : "") + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -245,10 +240,10 @@ var completedLabels = {
   "Asking a question...": "Asked a question"
 };
 
-// callback-src/providers/claudeSdkDaemon.ts
+// packages/backend/callback-src/providers/claudeSdkDaemon.ts
 import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
 
-// callback-src/utils.ts
+// packages/backend/callback-src/utils.ts
 import { spawnSync } from "child_process";
 import {
   cpSync,
@@ -260,7 +255,7 @@ import {
   writeFileSync
 } from "fs";
 
-// callback-src/runtime/state.ts
+// packages/backend/callback-src/runtime/state.ts
 function parsePriorStep(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
@@ -428,7 +423,7 @@ function assignRawLogStream(stream) {
 }
 var accumulatedSteps = callbackState.accumulatedSteps;
 
-// callback-src/utils.ts
+// packages/backend/callback-src/utils.ts
 function narrowJsonValue(value) {
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
@@ -599,7 +594,7 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
-// callback-src/http/convexClient.ts
+// packages/backend/callback-src/http/convexClient.ts
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -748,7 +743,7 @@ async function callStreamingHeartbeatTouch(entityId) {
   }
 }
 
-// callback-src/parse/stepBudget.ts
+// packages/backend/callback-src/parse/stepBudget.ts
 var STEP_FIELD_CAPS = {
   command: 600,
   output: 1200,
@@ -812,7 +807,7 @@ function serializeSteps(steps) {
   return JSON.stringify(enforceStepBudget(steps));
 }
 
-// callback-src/parse/toolResultCapture.ts
+// packages/backend/callback-src/parse/toolResultCapture.ts
 function capCommand(command) {
   return headCap(command, STEP_FIELD_CAPS.command).text;
 }
@@ -995,7 +990,7 @@ function probeOpencodeStateResult(state) {
   };
 }
 
-// callback-src/parse/toolSteps.ts
+// packages/backend/callback-src/parse/toolSteps.ts
 function opencodeToolToStep(part) {
   const tool = typeof part.tool === "string" ? part.tool : "tool";
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
@@ -1559,7 +1554,7 @@ function codexItemToStep(item) {
   });
 }
 
-// callback-src/runtime/proofMedia.ts
+// packages/backend/callback-src/runtime/proofMedia.ts
 var PROOF_NO_MEDIA_MESSAGE = "Eva decided not to capture.";
 function proofMediaCandidateRoots(workDir, rootDirectory) {
   const roots = [workDir];
@@ -1580,7 +1575,7 @@ function proofMediaSearchDirs(workDir, rootDirectory) {
   };
 }
 
-// callback-src/runtime/completion.ts
+// packages/backend/callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
   readFileSync as readFileSync2,
@@ -2072,7 +2067,7 @@ function hasToolActivity() {
   return callbackState.accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-// callback-src/session/claudeSession.ts
+// packages/backend/callback-src/session/claudeSession.ts
 import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
 function buildClaudeStartupStep() {
   if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
@@ -2277,7 +2272,7 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
-// callback-src/runtime/backgroundShells.ts
+// packages/backend/callback-src/runtime/backgroundShells.ts
 var PENDING_CAP = 200;
 var QUEUE_CAP = 20;
 var FLUSH_FAILURE_COOLDOWN_MS = 1e4;
@@ -2390,7 +2385,7 @@ async function flushBackgroundShellQueue() {
   }
 }
 
-// callback-src/providers/claude.ts
+// packages/backend/callback-src/providers/claude.ts
 function claudeToolCompleteResult(resultText, isError) {
   const output = buildStepOutput(resultText);
   if (!output && !isError) {
@@ -2603,10 +2598,10 @@ var claudeAdapter = {
   }
 };
 
-// callback-src/session/codexSession.ts
+// packages/backend/callback-src/session/codexSession.ts
 import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
 
-// callback-src/session/createSessionStore.ts
+// packages/backend/callback-src/session/createSessionStore.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 function createSessionStore(config) {
   const readSessionState = () => {
@@ -2680,7 +2675,7 @@ function createSessionStore(config) {
   };
 }
 
-// callback-src/session/codexSession.ts
+// packages/backend/callback-src/session/codexSession.ts
 var store = createSessionStore({
   runtimeHomeDir: CODEX_RUNTIME_HOME_DIR,
   persistDir: CODEX_PERSIST_DIR,
@@ -2764,7 +2759,7 @@ function prepareCodexSessionState() {
   return persistedState && persistedState.resumeThreadId ? { mode: "resume", sessionId: persistedState.resumeThreadId } : { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/codex.ts
+// packages/backend/callback-src/providers/codex.ts
 function codexParseLine(event) {
   const events = [];
   const threadId = getCodexThreadId(event);
@@ -2866,7 +2861,7 @@ var codexAdapter = {
   onStdoutText: inspectCodexStdout
 };
 
-// callback-src/session/cursorSession.ts
+// packages/backend/callback-src/session/cursorSession.ts
 import { existsSync as existsSync6, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync6 } from "fs";
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
@@ -2941,7 +2936,7 @@ function prepareCursorSessionState() {
   return { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/cursor.ts
+// packages/backend/callback-src/providers/cursor.ts
 function cursorParseLine(event) {
   const events = [];
   if (event.type === "system" && event.subtype === "init") {
@@ -3028,7 +3023,7 @@ var cursorAdapter = {
   }
 };
 
-// callback-src/session/opencodeSession.ts
+// packages/backend/callback-src/session/opencodeSession.ts
 import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync7 } from "fs";
 var store3 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
@@ -3089,7 +3084,7 @@ function prepareOpencodeSessionState() {
   return { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/opencode.ts
+// packages/backend/callback-src/providers/opencode.ts
 function opencodeParseLine(event) {
   const events = [];
   if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
@@ -3168,7 +3163,7 @@ var opencodeAdapter = {
   }
 };
 
-// callback-src/parse/canonical.ts
+// packages/backend/callback-src/parse/canonical.ts
 var stepStartedAt = /* @__PURE__ */ new WeakMap();
 function mergeToolResult(step, result) {
   if (result.output) {
@@ -3347,10 +3342,10 @@ function appendStreamedContent(text) {
   callbackState.currentStreamedContent += nextText;
 }
 
-// callback-src/runtime/heartbeats.ts
+// packages/backend/callback-src/runtime/heartbeats.ts
 import { writeFileSync as writeFileSync8 } from "fs";
 
-// callback-src/runtime/processControl.ts
+// packages/backend/callback-src/runtime/processControl.ts
 import { spawnSync as spawnSync2 } from "child_process";
 function terminateAttemptProcess(child) {
   try {
@@ -3378,7 +3373,7 @@ function isChildZombie(pid) {
   }
 }
 
-// callback-src/runtime/heartbeats.ts
+// packages/backend/callback-src/runtime/heartbeats.ts
 var flushInterval = null;
 var heartbeatInterval = null;
 function buildStreamingPayload() {
@@ -3579,7 +3574,7 @@ async function runPreflightHeartbeat() {
   }
 }
 
-// callback-src/providers/index.ts
+// packages/backend/callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
   if (provider === "codex") return codexAdapter;
   if (provider === "opencode") return opencodeAdapter;
@@ -3587,7 +3582,7 @@ function getProviderAdapter(provider = PROVIDER) {
   return claudeAdapter;
 }
 
-// callback-src/parse/streamRouter.ts
+// packages/backend/callback-src/parse/streamRouter.ts
 function processRealtimeStdoutChunk(text) {
   callbackState.realtimeOutputBuffer += text;
   while (true) {
@@ -3614,7 +3609,7 @@ function handleRealtimeStreamLine(line) {
   }
 }
 
-// callback-src/runtime/buffers.ts
+// packages/backend/callback-src/runtime/buffers.ts
 import { createWriteStream } from "fs";
 function trimBufferHead(buf) {
   if (buf.length <= OUTPUT_BUFFER_MAX_BYTES) return buf;
@@ -3652,11 +3647,11 @@ function appendToRawLogFile(text) {
   }
 }
 
-// callback-src/providers/claudeSdk.ts
+// packages/backend/callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
 import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
 
-// callback-src/runtime/cliAttempt.ts
+// packages/backend/callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
 import { writeFileSync as writeFileSync9 } from "fs";
 function evaluateAttemptHealth(input) {
@@ -3823,7 +3818,7 @@ async function runCliAttempt(options) {
   });
 }
 
-// callback-src/runtime/pendingQuestion.ts
+// packages/backend/callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -3897,7 +3892,7 @@ function buildCanUseTool() {
   };
 }
 
-// callback-src/providers/conversationalEscalation.ts
+// packages/backend/callback-src/providers/conversationalEscalation.ts
 var ESCALATION_SENTINEL = "<<EVA_ESCALATE>>";
 function isEscalationReply(text) {
   return text.trimStart().startsWith(ESCALATION_SENTINEL);
@@ -3909,7 +3904,7 @@ function shouldHoldConversationalStream(text) {
   return ESCALATION_SENTINEL.startsWith(trimmed);
 }
 
-// callback-src/providers/claudeSdk.ts
+// packages/backend/callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
 var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
@@ -4141,7 +4136,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
-// callback-src/providers/claudeSdkDaemon.ts
+// packages/backend/callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -4829,7 +4824,7 @@ async function runSdkDaemon() {
   process.exit(0);
 }
 
-// callback-src/providers/attempts.ts
+// packages/backend/callback-src/providers/attempts.ts
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") return prepareCodexSessionState();
   if (PROVIDER === "opencode") return prepareOpencodeSessionState();
@@ -4852,27 +4847,7 @@ function syncProviderStateToPersist(reason) {
   syncClaudeStateToPersist(reason);
 }
 async function runClaudeAttempt(sessionMode) {
-  if (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon") {
-    return await runClaudeSdkAttempt(sessionMode);
-  }
-  const sessionArg = sessionMode.mode === "session" && sessionMode.sessionId ? " --session-id " + JSON.stringify(sessionMode.sessionId) : sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = claudeBaseCmd + sessionArg;
-  const startupStep = buildClaudeStartupStep();
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
-    processLabel: "claude",
-    attemptLabel: "runClaudeAttempt",
-    startupStep,
-    onStart: () => {
-      log(
-        "runClaudeAttempt started (mode=" + sessionMode.mode + ", sessionArg=" + (sessionArg || "none") + ")"
-      );
-      log(
-        "spawning claude after " + String(callbackState.activeAttemptStartedAt - SCRIPT_STARTED_AT) + "ms since callback start"
-      );
-    }
-  });
+  return await runClaudeSdkAttempt(sessionMode);
 }
 async function runCodexAttempt(sessionMode) {
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " resume " + JSON.stringify(sessionMode.sessionId) : "";
@@ -4929,7 +4904,7 @@ async function runProviderAttempt(sessionMode) {
   return await runClaudeAttempt(sessionMode);
 }
 
-// callback-src/index.ts
+// packages/backend/callback-src/index.ts
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
     exitCode: typeof code === "number" ? code : null
@@ -4997,7 +4972,7 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   }
 }
 log(
-  "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no")
+  "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (hasMcpConfig ? "yes" : "no")
 );
 try {
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";

@@ -159,12 +159,9 @@ function readPromptText(): string {
 }
 
 export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
-  // Mirror the CLI flags claudeBaseCmd passes today:
-  //   --append-system-prompt  -> preset claude_code + append
-  //   --dangerously-skip-permissions -> bypassPermissions + allow flag
-  //   --allowedTools           -> allowedTools[]
-  //   --settings / --mcp-config -> extraArgs passthrough (verbatim CLI flags)
-  //   --session-id / --resume  -> sessionId / resume
+  // Map SDK option shapes from the existing config (model, system prompt,
+  // allowed tools, MCP, permissions, session resume). Formerly mirrored
+  // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
   if (existsSync(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
@@ -304,14 +301,13 @@ function buildSdkOptionsFromParts(
 }
 
 /**
- * Runs one Claude turn via the Agent SDK instead of spawning `claude -p`.
+ * Runs one Claude turn via the Agent SDK (`query()`).
  *
  * Integration model: every SDKMessage the query yields is serialized to a JSON
- * line and pushed through the exact same realtime pipeline the CLI's stdout
- * used (`processRealtimeStdoutChunk` -> claudeParseLine -> canonical events ->
- * accumulated steps / session capture / result detection), so streaming,
- * activity, session persistence and completion behave identically to the CLI
- * path with zero parser changes.
+ * line and pushed through the realtime pipeline (`processRealtimeStdoutChunk`
+ * -> claudeParseLine -> canonical events -> accumulated steps / session
+ * capture / result detection), so streaming, activity, session persistence and
+ * completion share the same parser as other stream-json providers.
  */
 export async function runClaudeSdkAttempt(
   sessionMode: SessionMode,

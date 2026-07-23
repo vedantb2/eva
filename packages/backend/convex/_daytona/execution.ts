@@ -1250,10 +1250,10 @@ export const prewarmSessionDaemon = internalAction({
   returns: v.object({ prewarmed: v.boolean() }),
   handler: async (ctx, args) => {
     const startedAt = Date.now();
-    // The warm daemon only runs in sdk-daemon mode. In CLI mode a prewarm would
-    // launch a runner with an empty prompt that nothing consumes (and on the
-    // one-shot path would resolve the turn with a blank result), so no-op.
-    if (process.env.CLAUDE_ATTEMPT_MODE !== "sdk-daemon") {
+    // The warm daemon only runs in sdk-daemon mode (also the unset/default).
+    // In one-shot `sdk` mode a prewarm would launch a runner with an empty
+    // prompt that nothing consumes, so no-op.
+    if ((process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon") !== "sdk-daemon") {
       return { prewarmed: false };
     }
     // Defense-in-depth: never touch the sandbox for a closed/stopping session.

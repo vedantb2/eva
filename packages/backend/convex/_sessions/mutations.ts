@@ -80,6 +80,9 @@ export const create = authMutation({
       numId,
       providerAccountId,
       lastModel: model,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -196,6 +199,27 @@ export const setModel = authMutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { lastModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sets the sticky composer reasoning effort for a session. Same contract as
+ * `setModel`: write on change (optimistic on the client), do not bump
+ * `updatedAt`.
+ */
+export const setReasoningLevel = authMutation({
+  args: {
+    id: v.id("sessions"),
+    reasoningLevel: reasoningLevelValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { lastReasoningLevel: args.reasoningLevel });
     return null;
   },
 });

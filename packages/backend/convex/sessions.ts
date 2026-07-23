@@ -12,6 +12,7 @@ export {
   updateStatus,
   update,
   setModel,
+  setReasoningLevel,
   updateSummary,
   archive,
   unarchive,

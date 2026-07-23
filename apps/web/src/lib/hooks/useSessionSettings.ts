@@ -50,6 +50,9 @@ export function useSessionSettings(
     // model. New-session composers omit these and keep the local-storage model.
     model?: AIModel;
     onModelChange?: (model: AIModel) => void;
+    // Same pattern for reasoning effort (`sessions.lastReasoningLevel`).
+    effortLevel?: ReasoningLevel;
+    onEffortLevelChange?: (effortLevel: ReasoningLevel) => void;
   },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
@@ -64,7 +67,7 @@ export function useSessionSettings(
   const model = overrides?.model ?? normalizeAIModel(settings.model);
 
   const storedTraits: StoredModelTraits = {
-    effortLevel: settings.effortLevel,
+    effortLevel: overrides?.effortLevel ?? settings.effortLevel,
     thinkingEnabled: settings.thinkingEnabled,
     use1mContext: settings.use1mContext,
   };
@@ -86,7 +89,26 @@ export function useSessionSettings(
   };
 
   const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
-    setSettings((prev) => ({ ...prev, ...partial }));
+    if (
+      partial.effortLevel !== undefined &&
+      overrides?.onEffortLevelChange !== undefined
+    ) {
+      overrides.onEffortLevelChange(partial.effortLevel);
+    }
+    setSettings((prev) => ({
+      ...prev,
+      ...(partial.thinkingEnabled !== undefined
+        ? { thinkingEnabled: partial.thinkingEnabled }
+        : {}),
+      ...(partial.use1mContext !== undefined
+        ? { use1mContext: partial.use1mContext }
+        : {}),
+      // When effort is Convex-backed, skip writing it to localStorage.
+      ...(partial.effortLevel !== undefined &&
+      overrides?.onEffortLevelChange === undefined
+        ? { effortLevel: partial.effortLevel }
+        : {}),
+    }));
   };
 
   const setProviderAccountId = (providerAccountId: string | null) => {

@@ -113,8 +113,11 @@ export function ChatPanel({
 
   const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model is owned by Convex (`sessions.lastModel`); traits/mode stay local.
-  const { model, setModel } = useSessionModel(sessionId, defaultModel);
+  // Model + effort are owned by Convex; mode / thinking / 1m stay local.
+  const { model, setModel, effortLevel, setEffortLevel } = useSessionModel(
+    sessionId,
+    defaultModel,
+  );
   const {
     mode,
     setMode,
@@ -127,6 +130,8 @@ export function ChatPanel({
     defaultModel,
     model,
     onModelChange: setModel,
+    effortLevel,
+    onEffortLevelChange: setEffortLevel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =

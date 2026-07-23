@@ -134,6 +134,9 @@ export const startExecute = authMutation({
       // Persist the session owner's sticky account for page-open prewarm.
       providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
       updatedAt: Date.now(),
     });
 
@@ -265,7 +268,13 @@ export const enqueueMessage = authMutation({
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
-    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
+    await ctx.db.patch(args.sessionId, {
+      lastModel: args.model,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

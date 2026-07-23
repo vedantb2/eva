@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sticky reasoning effort on Convex - 2026-07-23
+
+`lastModel` was moved to Convex but composer effort stayed in localStorage, so a Medium pick silently reset to the Claude model default (High) on reload / another device. Sessions now store `lastReasoningLevel` (set on change + create/send/enqueue), wired like `lastModel`.
+
 ## System alerts no longer clear "turn executing" UI - 2026-07-23
 
 Mid-turn system messages (`isSystemAlert`) append after the empty Working bubble, so `isExecuting` (last-message-only) flipped false and the composer offered a fresh send while the agent was still running. Executing state now skips system alerts; streamed tokens stay on the live Working bubble even when an alert is newest.

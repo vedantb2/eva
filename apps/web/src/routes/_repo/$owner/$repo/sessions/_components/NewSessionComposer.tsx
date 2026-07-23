@@ -74,6 +74,9 @@ export function NewSessionComposer() {
         mode,
         model,
         ...executionTraits,
+        // Always snapshot the resolved display effort (even model default) so
+        // the new session's sticky lastReasoningLevel matches the composer.
+        reasoningLevel: displayTraits.effortLevel,
         providerAccountId: resolveAccountId(providerAccountId) ?? null,
         attachmentStorageIds,
       });

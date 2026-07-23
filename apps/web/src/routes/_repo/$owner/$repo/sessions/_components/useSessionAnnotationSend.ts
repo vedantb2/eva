@@ -18,13 +18,16 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model is owned by Convex (`sessions.lastModel`); read it here so annotation
-  // sends use the session's actual model, not a stale localStorage fallback.
-  const { model } = useSessionModel(sessionId, defaultModel);
-  const { mode, executionTraits, providerAccountId } = useSessionSettings(
-    String(sessionId),
-    { defaultModel, model },
-  );
+  // Model + effort are owned by Convex (`sessions.lastModel` /
+  // `lastReasoningLevel`); read them here so annotation sends use the
+  // session's actual picks, not a stale localStorage fallback.
+  const { model, effortLevel } = useSessionModel(sessionId, defaultModel);
+  const { mode, displayTraits, executionTraits, providerAccountId } =
+    useSessionSettings(String(sessionId), {
+      defaultModel,
+      model,
+      effortLevel,
+    });
   const { resolveId: resolveAccountId } = useProviderAccounts();
 
   const messages = useQuery(api.messages.listByParent, {
@@ -38,6 +41,7 @@ export function useSessionAnnotationSend(
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);
+    const reasoningLevel = displayTraits.effortLevel;
     if (isExecuting) {
       await enqueueMessage({
         sessionId,
@@ -46,6 +50,7 @@ export function useSessionAnnotationSend(
         mode,
         model,
         ...executionTraits,
+        reasoningLevel,
         providerAccountId: accountId,
       });
       return;
@@ -57,6 +62,8 @@ export function useSessionAnnotationSend(
         content: display,
         mode,
         providerAccountId: accountId,
+        model,
+        reasoningLevel,
       }),
       startExecution({
         sessionId,
@@ -64,6 +71,7 @@ export function useSessionAnnotationSend(
         mode,
         model,
         ...executionTraits,
+        reasoningLevel,
         providerAccountId: accountId,
       }),
     ]).catch(async (error) => {

@@ -278,6 +278,10 @@ export const sessionFields = {
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
   lastModel: v.optional(aiModelValidator),
+  // Sticky composer effort for this session (mirrors lastModel). Without this,
+  // effort only lived in localStorage and reloads fell back to the model
+  // default (Claude → high), silently undoing a Medium pick.
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),

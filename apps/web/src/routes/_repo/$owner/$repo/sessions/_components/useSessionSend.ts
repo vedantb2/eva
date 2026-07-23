@@ -154,6 +154,7 @@ export function useSessionSend({
         mode,
         model,
         ...executionTraits,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
       }),

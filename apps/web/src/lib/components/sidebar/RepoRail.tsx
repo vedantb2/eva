@@ -112,6 +112,7 @@ export function RepoRail({
 }: RepoRailProps) {
   const { sessionsNavMode, setSessionsNavMode } = useSidebar();
   const unreadCount = useQuery(api.notifications.countUnread);
+  const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
   const activeSandboxRepoIds = useQuery(
     api.githubRepos.listReposWithActiveSandboxes,
   );
@@ -136,6 +137,12 @@ export function RepoRail({
       ? unreadCount > 99
         ? "99+"
         : String(unreadCount)
+      : null;
+  const sessionsLabel =
+    activeSessionCount && activeSessionCount > 0
+      ? activeSessionCount > 99
+        ? "99+"
+        : String(activeSessionCount)
       : null;
   const showTesting = import.meta.env.DEV;
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
@@ -220,25 +227,33 @@ export function RepoRail({
                 setSessionsNavMode("global");
                 onNavigate();
               }}
-              aria-label="Sessions"
+              aria-label={
+                sessionsLabel ? `Sessions, ${sessionsLabel} active` : "Sessions"
+              }
               className={cn(RAIL_TILE_CLASS, railTileActive(sessionsActive))}
             >
               <SessionsIcon size={22} className="shrink-0" />
+              {sessionsLabel ? (
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
+                  {sessionsLabel}
+                </span>
+              ) : null}
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Sessions</TooltipContent>
+          <TooltipContent side="right">
+            {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
+          </TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
         {repos.map((row) => {
           const displayName = repoDisplayLabel(row);
-          const active = isRowActive(
-            row,
-            currentOwner,
-            currentName,
-            currentAppName,
-          );
+          // While the global Sessions destination is highlighted, don't also
+          // light up a repo tile — the rail should show one active target.
+          const active =
+            !sessionsActive &&
+            isRowActive(row, currentOwner, currentName, currentAppName);
           const tooltip = `${displayName} · ${row.owner}/${row.name}`;
           const hasActiveSandbox = activeSandboxRepoIdSet.has(row._id);
 

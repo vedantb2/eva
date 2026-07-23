@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_global")({
 function GlobalMainContent() {
   // Global pages are rail-only (w-16); the wider repo sidebar never mounts here.
   return (
-    <div className="relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 lg:pl-16">
+    <div className="relative flex min-h-screen flex-col pt-14 lg:pt-0 lg:pl-16">
       <div className="relative flex flex-1 flex-col bg-background">
         <div
           aria-hidden

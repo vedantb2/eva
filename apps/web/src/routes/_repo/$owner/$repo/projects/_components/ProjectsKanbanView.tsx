@@ -35,28 +35,30 @@ export function ProjectsKanbanView({
 }: ProjectsKanbanViewProps) {
   return (
     <AnimatePresence initial={false}>
-      {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
-        (phase) => (
-          <m.div
-            key={phase}
-            layout
-            className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <VirtualProjectColumn
-              phase={phase}
-              projects={projectsByPhase[phase]}
-              owner={owner}
-              name={name}
-              basePath={basePath}
-              onOpenProject={onOpenProject}
-              onDelete={onDelete}
-            />
-          </m.div>
-        ),
+      {PROJECT_PHASES.flatMap((phase) =>
+        visiblePhases.has(phase)
+          ? [
+              <m.div
+                key={phase}
+                layout
+                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <VirtualProjectColumn
+                  phase={phase}
+                  projects={projectsByPhase[phase]}
+                  owner={owner}
+                  name={name}
+                  basePath={basePath}
+                  onOpenProject={onOpenProject}
+                  onDelete={onDelete}
+                />
+              </m.div>,
+            ]
+          : [],
       )}
     </AnimatePresence>
   );

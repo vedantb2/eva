@@ -27,8 +27,11 @@ function RemoteCursorItem({ cursor }: { cursor: RemoteCursor }) {
   const hex = accentToHex(cursor.accentColor);
   return (
     <div
-      className="absolute transition-[left,top] duration-75 ease-linear"
-      style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
+      className="absolute"
+      style={{
+        left: `${cursor.x}%`,
+        top: `${cursor.y}%`,
+      }}
     >
       <Cursor style={{ color: hex }}>
         <CursorPointer />

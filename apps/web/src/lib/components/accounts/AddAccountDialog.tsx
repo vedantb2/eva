@@ -94,15 +94,19 @@ function AddAccountForm({
     if (!editing) return;
     let cancelled = false;
     void (async () => {
+      const entries = await Promise.all(
+        editing.credentialKeys.map(async (key) => {
+          const value = await revealValue({ accountId: editing._id, key });
+          return value !== null ? ([key, value] as const) : null;
+        }),
+      );
+      if (cancelled) return;
       const revealed: Record<string, string> = {};
-      for (const key of editing.credentialKeys) {
-        const value = await revealValue({ accountId: editing._id, key });
-        if (value !== null) revealed[key] = value;
+      for (const entry of entries) {
+        if (entry) revealed[entry[0]] = entry[1];
       }
-      if (!cancelled) {
-        setValues(revealed);
-        setPrefilling(false);
-      }
+      setValues(revealed);
+      setPrefilling(false);
     })();
     return () => {
       cancelled = true;

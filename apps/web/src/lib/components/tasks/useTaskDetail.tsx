@@ -6,7 +6,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
@@ -121,6 +121,16 @@ export function useTaskDetail(
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
+  const derivedBaseBranch =
+    task?.baseBranch?.trim() ||
+    repoForTask?.defaultBaseBranch?.trim() ||
+    FALLBACK_GIT_BASE_BRANCH;
+  const [prevDerivedBaseBranch, setPrevDerivedBaseBranch] =
+    useState(derivedBaseBranch);
+  if (derivedBaseBranch !== prevDerivedBaseBranch) {
+    setPrevDerivedBaseBranch(derivedBaseBranch);
+    setBaseBranch(derivedBaseBranch);
+  }
   const [embeddedShowSandbox, setEmbeddedShowSandbox] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
@@ -165,16 +175,6 @@ export function useTaskDetail(
       : routing?.mode === "quick-detail"
         ? false
         : embeddedShowSandbox;
-
-  useEffect(() => {
-    const fromTask = task?.baseBranch?.trim();
-    if (fromTask) {
-      setBaseBranch(fromTask);
-      return;
-    }
-    const fromRepo = repoForTask?.defaultBaseBranch?.trim();
-    setBaseBranch(fromRepo || FALLBACK_GIT_BASE_BRANCH);
-  }, [task?.baseBranch, repoForTask?.defaultBaseBranch]);
 
   const handleStartExecution = async () => {
     setIsStarting(true);

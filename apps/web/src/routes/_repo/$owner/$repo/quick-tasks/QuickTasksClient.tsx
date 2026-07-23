@@ -107,21 +107,23 @@ export function QuickTasksClient() {
     return set;
   })();
 
-  useEffect(() => {
-    if (!isSelecting) return;
-    setSelectedIds((prev) => {
-      let changed = false;
-      const next = new Set<Id<"agentTasks">>();
-      for (const id of prev) {
-        if (taskIdSet.has(id)) {
-          next.add(id);
-        } else {
-          changed = true;
-        }
+  // Drop selections for tasks that disappeared (adjust during render).
+  if (isSelecting) {
+    let needsPrune = false;
+    for (const id of selectedIds) {
+      if (!taskIdSet.has(id)) {
+        needsPrune = true;
+        break;
       }
-      return changed ? next : prev;
-    });
-  }, [taskIdSet, isSelecting]);
+    }
+    if (needsPrune) {
+      const next = new Set<Id<"agentTasks">>();
+      for (const id of selectedIds) {
+        if (taskIdSet.has(id)) next.add(id);
+      }
+      setSelectedIds(next);
+    }
+  }
 
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 

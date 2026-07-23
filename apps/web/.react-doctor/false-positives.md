@@ -20,7 +20,11 @@ TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"`
 
 - `ClientProvider` `useStableAuth`: debounces unexpected Clerk signed-out blips (stale deploys) so Convex does not cascade unauth subscription errors — requires a timer-driven override flag.
 - `SessionListSidebar` create-request effect: parent bumps `createRequestId` to open the create modal (or navigate); that is an imperative cross-tree signal, not prop→state mirroring.
-- Data-load panels (`DiffsPanel`, `ReviewsSidebar`, `ReviewDetailClient`, `ReviewOverviewPanel`, `FileViewerPanel`, `FilesPanel`, `MonorepoClient`, `DesignDetailClient`, etc.): `setState` after `fetch`/Convex actions is the loading pattern; converting all to `use()` is a larger migration.
+- `ResizablePanelLayout` `expandRightSignal`: parent bumps a counter to expand the right panel; same imperative signal pattern (mobile also mirrors collapsed cookie state).
+- Data-load panels (`DiffsPanel`, `ReviewsSidebar`, `ReviewDetailClient`, `ReviewOverviewPanel`, `FileViewerPanel`, `FilesPanel`, `MonorepoClient`, `DesignDetailClient`, `CustomTabPanel`, `useBranches`, etc.): `setState` after `fetch`/Convex actions is the loading pattern; converting all to `use()` is a larger migration.
+- `preview-auth`: one-shot mint + redirect; error `setState` only on invalid search params / failed mint.
+- `ThemeContext` Convex→next-themes sync: applies server theme preference into next-themes when the query resolves.
+- `DocInterviewDialog` / `ProjectChatTab` / `MentionEditor` / `DesignChatPanel` / `SandboxIframeService` / `useSandboxPreview` / `PreviewAnnotationLayer`: workflow/stream/layout effects that set loading or measured position from async or DOM reads.
 
 ## react-hooks-js/refs — ResizablePanelLayout / DocContentTab
 

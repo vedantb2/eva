@@ -8,9 +8,9 @@ export { PLATFORM_SECTIONS };
 export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <m.div
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
       <Card className="ui-surface-strong mb-6 overflow-hidden">

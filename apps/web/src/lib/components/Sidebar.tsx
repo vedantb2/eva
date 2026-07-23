@@ -293,10 +293,10 @@ export function Sidebar() {
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
+                // Always reserve tall header on main repo panel so team
+                // background resolving later does not shift the nav list (CLS).
                 "relative flex items-center overflow-hidden",
-                teamBackgroundUrl &&
-                  !showContextSidebar &&
-                  !showGlobalSessionsPanel
+                !showContextSidebar && !showGlobalSessionsPanel
                   ? "h-24"
                   : "h-16",
                 collapsed ? "px-2" : "px-3",
@@ -425,13 +425,21 @@ export function Sidebar() {
                               : repoName
                         }
                       >
-                        {repoLogoUrl ? (
-                          <RepoLogo
-                            logoUrl={repoLogoUrl}
-                            size={18}
-                            fallback={null}
-                          />
-                        ) : null}
+                        {/* Always reserve the logo slot so late logoUrl does not reflow the title. */}
+                        <RepoLogo
+                          logoUrl={repoLogoUrl}
+                          size={18}
+                          fallback={
+                            <span className="flex size-[18px] shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">
+                              {(repo
+                                ? repoDisplayLabel(repo)
+                                : (repoName ?? "?")
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+                          }
+                        />
                         <span className="min-w-0 truncate text-sm font-medium text-sidebar-primary">
                           {repo
                             ? repoDisplayLabel(repo)

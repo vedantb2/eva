@@ -18,8 +18,18 @@
   font-family: "Geist Sans";
   font-style: normal;
   font-display: swap;
+  /* Match system-ui metrics so swap does not reflow text (CLS). */
+  size-adjust: 100%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
   font-weight: 100 900;
   src: url("/fonts/Geist-Variable.woff2") format("woff2");
+}
+
+html {
+  /* Reserve scrollbar space so appearing/disappearing overflow does not shift layout. */
+  scrollbar-gutter: stable;
 }
 
 @layer base {

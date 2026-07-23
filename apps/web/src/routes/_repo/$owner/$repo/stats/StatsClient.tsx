@@ -16,7 +16,6 @@ import {
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";
-import { Spinner } from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconPercentage,
@@ -70,8 +69,21 @@ export function StatsClient() {
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[36rem] space-y-6"
+          aria-busy="true"
+          aria-label="Loading stats"
+        >
+          <div className="h-40 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))}
+          </div>
+          <div className="h-56 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : (
         <div className="space-y-6">

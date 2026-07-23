@@ -15,7 +15,6 @@ import {
   DialogTitle,
   Input,
   SearchInput,
-  Spinner,
 } from "@conductor/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
@@ -83,8 +82,17 @@ export function GlobalSessionsSidebar({
 
       <div className="flex-1 space-y-3 px-0 pb-1">
         {repos === undefined ? (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size="sm" />
+          <div
+            className="min-h-[12rem] space-y-2 px-3"
+            aria-busy="true"
+            aria-label="Loading sessions"
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-9 animate-pulse rounded-md bg-muted/60"
+              />
+            ))}
           </div>
         ) : repos.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">

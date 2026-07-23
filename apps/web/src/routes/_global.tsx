@@ -37,7 +37,8 @@ function GlobalMainContent() {
   return (
     <div
       className={cn(
-        "relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0",
+        // No padding transition: animating pl-* during route changes counts as CLS.
+        "relative flex min-h-screen flex-col pt-14 lg:pt-0",
         paddingClass,
       )}
     >

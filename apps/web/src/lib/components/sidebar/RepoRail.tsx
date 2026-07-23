@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -29,6 +30,7 @@ import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
+import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
@@ -93,12 +95,47 @@ function railTileActive(active: boolean): string {
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
+function formatCountLabel(count: number | undefined): string | null {
+  if (count === undefined || count <= 0) return null;
+  return count > 99 ? "99+" : String(count);
+}
+
+function InboxUnreadBadge() {
+  const unreadCount = useQuery(api.notifications.countUnread);
+  const unreadLabel = formatCountLabel(unreadCount);
+  if (!unreadLabel) return null;
+  return (
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+      {unreadLabel}
+    </span>
+  );
+}
+
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
  * Sessions), then repos, then Testing (dev) / account / settings at the bottom.
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
+ *
+ * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
+ * functions throws through the router CatchBoundary and swaps the whole shell
+ * (severe CLS). Re-enable via RepoRailLiveIndicators once cloud is synced.
  */
-export function RepoRail({
+export function RepoRail(props: RepoRailProps) {
+  return (
+    <RepoRailView
+      {...props}
+      activeSessionCount={undefined}
+      activeSandboxRepoIds={new Set()}
+    />
+  );
+}
+
+interface RepoRailViewProps extends RepoRailProps {
+  activeSessionCount: number | undefined;
+  activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
+}
+
+function RepoRailView({
   repos,
   currentOwner,
   currentName,
@@ -108,14 +145,10 @@ export function RepoRail({
   userName,
   userEmail,
   showSearch,
-}: RepoRailProps) {
+  activeSessionCount,
+  activeSandboxRepoIds,
+}: RepoRailViewProps) {
   const { setSessionsNavMode } = useSidebar();
-  const unreadCount = useQuery(api.notifications.countUnread);
-  const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
-  const activeSandboxRepoIds = useQuery(
-    api.githubRepos.listReposWithActiveSandboxes,
-  );
-  const activeSandboxRepoIdSet = new Set(activeSandboxRepoIds ?? []);
   const homeActive =
     pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
@@ -133,18 +166,7 @@ export function RepoRail({
     onRepoSessionsPath;
   const testingActive =
     pathname === "/testing" || pathname.startsWith("/testing/");
-  const unreadLabel =
-    unreadCount && unreadCount > 0
-      ? unreadCount > 99
-        ? "99+"
-        : String(unreadCount)
-      : null;
-  const sessionsLabel =
-    activeSessionCount && activeSessionCount > 0
-      ? activeSessionCount > 99
-        ? "99+"
-        : String(activeSessionCount)
-      : null;
+  const sessionsLabel = formatCountLabel(activeSessionCount);
   const showTesting = import.meta.env.DEV;
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -176,22 +198,16 @@ export function RepoRail({
             <Link
               to="/inbox"
               onClick={onNavigate}
-              aria-label={
-                unreadLabel ? `Inbox, ${unreadLabel} unread` : "Inbox"
-              }
+              aria-label="Inbox"
               className={cn(RAIL_TILE_CLASS, railTileActive(inboxActive))}
             >
               <InboxIcon size={22} className="shrink-0" />
-              {unreadLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-                  {unreadLabel}
-                </span>
-              ) : null}
+              <QueryErrorBoundary>
+                <InboxUnreadBadge />
+              </QueryErrorBoundary>
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">
-            {unreadLabel ? `Inbox (${unreadLabel})` : "Inbox"}
-          </TooltipContent>
+          <TooltipContent side="right">Inbox</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -256,7 +272,7 @@ export function RepoRail({
             !sessionsActive &&
             isRowActive(row, currentOwner, currentName, currentAppName);
           const tooltip = `${displayName} · ${row.owner}/${row.name}`;
-          const hasActiveSandbox = activeSandboxRepoIdSet.has(row._id);
+          const hasActiveSandbox = activeSandboxRepoIds.has(row._id);
 
           return (
             <ContextMenu key={row._id}>

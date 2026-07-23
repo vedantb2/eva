@@ -168,8 +168,14 @@ export function SnapshotsClient({
   if (snapshot === undefined) {
     return (
       <PageWrapper title="Snapshots" comfortable>
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[28rem] space-y-4"
+          aria-busy="true"
+          aria-label="Loading snapshots"
+        >
+          <div className="h-9 w-80 max-w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-48 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <div className="h-32 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       </PageWrapper>
     );

@@ -1,5 +1,9 @@
 # Changelog
 
+## Reduce layout shifts across web routes - 2026-07-23
+
+Async shells and theme/font paint were still nudging content after first paint (sidebar header growing when team art loaded, spinner→content height swaps, padding transitions, font check icons, late custom-theme vars). Reserved stable heights/skeletons, early theme hints, and metric-matched Geist swap so route loads stay visually still. Follow-up pass reserved sidebar stats/logo slots and kept PageWrapper mounted for drafts/artifacts/quick-tasks/inbox/teams/sessions sidebars.
+
 ## Snapshot seed commands split from startup commands - 2026-07-23
 
 Startup commands served two lifecycles at once: one-time data seeding (env set, convex import) and per-boot work (readiness gates, docker restarts). Seed steps consume their inputs at snapshot build, so the forced per-boot re-run failed on every fresh sandbox and wasted 1-2 minutes re-applying baked env vars. New `repoSnapshots.seedCommands` run once per seeded build in the post-daemon phase (services up) and never on boot; the Snapshots settings page gains the field, startup-command copy now states the real build-and-every-boot contract, and eva/eprocurement/staging configs were migrated in prod (eva boots with 2 commands instead of 31). Startup-command failures now also surface on the session as a startup warning instead of vanishing into transient console logs, and message-less startup errors persist their constructor and stack so the recurring anonymous ~5-minute failure can identify itself.

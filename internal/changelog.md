@@ -1,5 +1,9 @@
 # Changelog
 
+## Send for Review no longer archives the session - 2026-07-24
+
+"Send for Review" promoted the draft PR then archived/closed the session and sandbox, so follow-up work required unarchiving. It now only marks the PR ready (`prState: open`); archiving stays an explicit user action.
+
 ## Kanban columns tint by status/phase - 2026-07-24
 
 Kanban columns used a uniform muted wash, so status was only readable from badges. Columns now use the existing status/phase `cardBg` tokens (e.g. light yellow for In Progress) so each lane’s colour matches its state at a glance.

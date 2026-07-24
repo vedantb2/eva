@@ -125,9 +125,10 @@ export function SessionReviewModal({
                 <p>
                   By clicking this you confirm that all your changes have been
                   tested in your session, you are happy with those changes, have
-                  generated a summary, and agree with the changes. Your session
-                  will become uneditable while a developer reviews the code
-                  changes before merging into staging/production.
+                  generated a summary, and agree with the changes. Your pull
+                  request will be marked ready for review so a developer can
+                  review the code before merging into staging/production. The
+                  session stays open and editable.
                 </p>
                 <p>
                   The following audits will also run automatically in the

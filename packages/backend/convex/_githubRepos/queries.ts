@@ -4,6 +4,7 @@ import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
 import {
+  gatherAccessibleRepos,
   githubRepoValidator,
   githubRepoWithLogoValidator,
   pickDefaultVisibleAppRepo,
@@ -30,42 +31,6 @@ async function userCanAccessRepo(
     )
     .first();
   return membership !== null;
-}
-
-/** All repos the user can access (connected + team), de-duplicated. */
-async function gatherAccessibleRepos(
-  db: GenericDatabaseReader<DataModel>,
-  userId: Id<"users">,
-  includeHidden: boolean,
-): Promise<Array<Doc<"githubRepos">>> {
-  const userTeamMemberships = await db
-    .query("teamMembers")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
-
-  const teamRepoResults = await Promise.all(
-    userTeamMemberships.map((m) =>
-      db
-        .query("githubRepos")
-        .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
-        .collect(),
-    ),
-  );
-
-  const connectedRepos = await db
-    .query("githubRepos")
-    .withIndex("by_connected_by", (q) => q.eq("connectedBy", userId))
-    .collect();
-
-  const seen = new Set<string>();
-  const repos: Array<Doc<"githubRepos">> = [];
-  for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-    if (seen.has(String(repo._id))) continue;
-    seen.add(String(repo._id));
-    if (!includeHidden && repo.hidden === true) continue;
-    repos.push(repo);
-  }
-  return repos;
 }
 
 /** True when this app has a live sandbox on a quick task or project. */

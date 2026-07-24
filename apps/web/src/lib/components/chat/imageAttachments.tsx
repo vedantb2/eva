@@ -4,7 +4,14 @@ import {
   usePromptInputAttachments,
   type PromptInputMessage,
 } from "@conductor/ui";
-import { IconFile, IconX } from "@tabler/icons-react";
+import {
+  IconFile,
+  IconFileTypeTxt,
+  IconHtml,
+  IconMarkdown,
+  IconX,
+  type Icon,
+} from "@tabler/icons-react";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
 
 /**
@@ -78,6 +85,31 @@ function filenameExtension(name: string): string {
   const dot = lower.lastIndexOf(".");
   if (dot < 0) return "";
   return lower.slice(dot);
+}
+
+/** Icon for a non-image composer/message attachment, keyed by MIME or extension. */
+function iconForAttachment(
+  filename: string | undefined,
+  contentType: string | null | undefined,
+): Icon {
+  const type = (contentType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  const ext = filenameExtension(filename ?? "");
+
+  if (
+    type === "text/markdown" ||
+    type === "text/x-markdown" ||
+    ext === ".md" ||
+    ext === ".markdown"
+  ) {
+    return IconMarkdown;
+  }
+  if (type === "text/html" || ext === ".html" || ext === ".htm") {
+    return IconHtml;
+  }
+  if (type === "text/plain" || ext === ".txt") {
+    return IconFileTypeTxt;
+  }
+  return IconFile;
 }
 
 function isSessionTextAttachment(
@@ -193,6 +225,7 @@ export function ChatAttachmentPreview() {
     <div className="flex flex-wrap gap-2 border-b border-border p-2">
       {attachments.files.map((file) => {
         const isImage = file.mediaType?.startsWith("image/");
+        const FileIcon = iconForAttachment(file.filename, file.mediaType);
         return (
           <div
             key={file.id}
@@ -210,7 +243,7 @@ export function ChatAttachmentPreview() {
               />
             ) : (
               <>
-                <IconFile className="size-4 shrink-0 text-muted-foreground" />
+                <FileIcon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="truncate text-xs text-foreground">
                   {labelForAttachment(file.filename, file.mediaType)}
                 </span>
@@ -245,22 +278,26 @@ export function UserMessageAttachments({
 
   return (
     <div className="mb-2 flex flex-wrap gap-2">
-      {resolved.map((item) =>
-        isImageContentType(item.contentType) ? (
-          <a
-            key={item.url}
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="block size-24 overflow-hidden rounded-surface border border-border bg-muted"
-          >
-            <img
-              src={item.url}
-              alt="Attached image"
-              className="size-full object-cover"
-            />
-          </a>
-        ) : (
+      {resolved.map((item) => {
+        if (isImageContentType(item.contentType)) {
+          return (
+            <a
+              key={item.url}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block size-24 overflow-hidden rounded-surface border border-border bg-muted"
+            >
+              <img
+                src={item.url}
+                alt="Attached image"
+                className="size-full object-cover"
+              />
+            </a>
+          );
+        }
+        const FileIcon = iconForAttachment(undefined, item.contentType);
+        return (
           <a
             key={item.url}
             href={item.url}
@@ -268,13 +305,13 @@ export function UserMessageAttachments({
             rel="noreferrer"
             className="flex max-w-[14rem] items-center gap-2 rounded-surface border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/80"
           >
-            <IconFile className="size-4 shrink-0 text-muted-foreground" />
+            <FileIcon className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">
               {labelForAttachment(undefined, item.contentType)}
             </span>
           </a>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

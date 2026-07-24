@@ -1,5 +1,9 @@
 # Changelog
 
+## Composer file chips show type icons - 2026-07-24
+
+Pasted/dropped non-image attachments in session/task/project composers all used a generic file icon, so HTML vs Markdown vs text looked identical. Chips (and sent-message file links) now pick IconHtml / IconMarkdown / IconFileTypeTxt / IconFile from MIME or extension.
+
 ## Send for Review no longer archives the session - 2026-07-24
 
 "Send for Review" promoted the draft PR then archived/closed the session and sandbox, so follow-up work required unarchiving. It now only marks the PR ready (`prState: open`); archiving stays an explicit user action.

@@ -10,6 +10,7 @@
     "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 convex dev",
     "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
+    "typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
     "test": "vitest run",

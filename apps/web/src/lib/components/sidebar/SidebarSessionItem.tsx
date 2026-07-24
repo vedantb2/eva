@@ -79,7 +79,7 @@ export function SidebarSessionItem({
                   "min-w-0 text-sm transition-colors duration-200",
                   isSelected
                     ? "font-medium text-sidebar-primary"
-                    : "text-sidebar-foreground",
+                    : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
                 )}
               >
                 {title}

@@ -268,10 +268,11 @@ export function Sidebar() {
           "fixed inset-y-0 left-0 z-50 flex motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           // Global pages are rail-only except Sessions (grouped cross-repo list).
+          // Collapsed = hide the secondary panel entirely (rail only on lg+).
           showSidePanel
             ? cn(
                 "w-[min(20rem,calc(100vw-1.5rem))]",
-                collapsed ? "lg:w-36" : "lg:w-80",
+                collapsed ? "lg:w-16" : "lg:w-80",
               )
             : "w-16",
         )}
@@ -288,16 +289,21 @@ export function Sidebar() {
           showSearch={isRepoRoute}
         />
         {showSidePanel ? (
-          <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
+          <div
+            className={cn(
+              "flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar",
+              // Keep the drawer content on mobile even when the desktop panel is hidden.
+              collapsed && "lg:hidden",
+            )}
+          >
             <div
               className={cn(
                 // Always reserve tall header on main repo panel so team
                 // background resolving later does not shift the nav list (CLS).
-                "relative flex items-center overflow-hidden",
+                "relative flex items-center overflow-hidden px-3",
                 !showContextSidebar && !showGlobalSessionsPanel
                   ? "h-24"
                   : "h-16",
-                collapsed ? "px-2" : "px-3",
               )}
             >
               {teamBackgroundUrl &&
@@ -321,8 +327,7 @@ export function Sidebar() {
                       : "main-header"
                 }
                 className={cn(
-                  "relative z-10 flex w-full items-center",
-                  collapsed ? "justify-center" : "justify-between",
+                  "relative z-10 flex w-full items-center justify-between",
                   teamBackgroundUrl &&
                     !showContextSidebar &&
                     !showGlobalSessionsPanel &&
@@ -333,29 +338,23 @@ export function Sidebar() {
                 transition={{ duration: 0.2 }}
               >
                 {showGlobalSessionsPanel ? (
-                  !collapsed ? (
-                    <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                      Sessions
-                    </span>
-                  ) : null
+                  <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                    Sessions
+                  </span>
                 ) : showContextSidebar ? (
                   <>
-                    {!collapsed && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => setContextSidebarMode("main")}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Back to main sidebar"
-                      >
-                        <IconChevronLeft size={16} />
-                      </Button>
-                    )}
-                    {!collapsed && (
-                      <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
-                        {contextSidebarTitle}
-                      </span>
-                    )}
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setContextSidebarMode("main")}
+                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                      title="Back to main sidebar"
+                    >
+                      <IconChevronLeft size={16} />
+                    </Button>
+                    <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
+                      {contextSidebarTitle}
+                    </span>
 
                     <Button
                       size="icon"
@@ -368,7 +367,7 @@ export function Sidebar() {
                   </>
                 ) : (
                   <>
-                    {!collapsed && repoName ? (
+                    {repoName ? (
                       <div
                         className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
                         title={
@@ -440,14 +439,12 @@ export function Sidebar() {
                   transition={{ duration: 0.2 }}
                 >
                   {showGlobalSessionsPanel ? (
-                    collapsed ? null : (
-                      <GlobalSessionsSidebar
-                        pathname={pathname}
-                        onNavigate={closeMobileSidebar}
-                      />
-                    )
+                    <GlobalSessionsSidebar
+                      pathname={pathname}
+                      onNavigate={closeMobileSidebar}
+                    />
                   ) : showContextSidebar ? (
-                    collapsed ? null : contextSidebarMode === "settings" ? (
+                    contextSidebarMode === "settings" ? (
                       <SettingsSidebar
                         basePath={repoBasePath ?? ""}
                         pathname={pathname}
@@ -500,14 +497,14 @@ export function Sidebar() {
                       <RepoTopNav
                         repoBasePath={repoBasePath}
                         pathname={pathname}
-                        collapsed={collapsed}
+                        collapsed={false}
                         repo={repo}
                         onNavigate={closeMobileSidebar}
                       />
                       <RepoNavSections
                         repoBasePath={repoBasePath}
                         pathname={pathname}
-                        collapsed={collapsed}
+                        collapsed={false}
                         repo={repo}
                         onOpenContextSidebar={(mode) => {
                           setContextSidebarMode(mode);
@@ -521,11 +518,11 @@ export function Sidebar() {
             </nav>
 
             {isRepoRoute && repoBasePath && !showGlobalSessionsPanel ? (
-              <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
+              <div className="px-3 py-3">
                 <RepoStatsSummary
                   repo={repo}
                   repoBasePath={repoBasePath}
-                  collapsed={collapsed}
+                  collapsed={false}
                 />
               </div>
             ) : null}

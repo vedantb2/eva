@@ -1,5 +1,9 @@
 # Changelog
 
+## Rail collapse fully hides the second sidebar - 2026-07-24
+
+The rail toggle only narrowed the app/repo/session column to icon width, so nav still competed with the canvas. Collapsed now hides that column entirely (rail-only, `pl-16`), matching other global rail-only pages; mobile drawer still opens the full panel.
+
 ## Duplicate session PRs merge independently without killing the session - 2026-07-24
 
 Agents can now create a "duplicate PR" on request: squash a session branch onto a fresh branch (new commit SHAs) so it merges independently instead of pushing identical SHAs that make GitHub auto-merge the session's own PR. If a tip-copy still auto-marks a session PR merged because its SHAs landed via another PR, the webhook now schedules a delayed check against GitHub's commit-to-PR association data and, when the merge is foreign, detaches the PR and posts a chat alert instead of permanently locking the session.

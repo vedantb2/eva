@@ -1,5 +1,9 @@
 # Changelog
 
+## Sessions sidebar archives merged/closed PRs - 2026-07-24
+
+Active session lists still mixed in merged/closed PRs beside live draft/open work. The Sessions sidebar now keeps only draft/open (or no-PR) sessions active and folds merged/closed into the Archived collapsible with manually archived ones.
+
 ## Bake ffmpeg into sandbox snapshots for agent-browser record - 2026-07-24
 
 `agent-browser record stop` encodes WebM via ffmpeg on PATH; sandboxes lacked it so walkthrough captures failed at stop. Snapshot builds now install ffmpeg (Debian apt on Daytona images; AL2023 SPAL `ffmpeg-free` on Vercel seed + desktop bootstrap).

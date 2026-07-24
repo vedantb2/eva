@@ -1,5 +1,9 @@
 # Changelog
 
+## Bake ffmpeg into sandbox snapshots for agent-browser record - 2026-07-24
+
+`agent-browser record stop` encodes WebM via ffmpeg on PATH; sandboxes lacked it so walkthrough captures failed at stop. Snapshot builds now install ffmpeg (Debian apt on Daytona images; AL2023 SPAL `ffmpeg-free` on Vercel seed + desktop bootstrap).
+
 ## Composer file chips show type icons - 2026-07-24
 
 Pasted/dropped non-image attachments in session/task/project composers all used a generic file icon, so HTML vs Markdown vs text looked identical. Chips (and sent-message file links) now pick IconHtml / IconMarkdown / IconFileTypeTxt / IconFile from MIME or extension.

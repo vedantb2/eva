@@ -1,5 +1,9 @@
 # Changelog
 
+## Kanban columns tint by status/phase - 2026-07-24
+
+Kanban columns used a uniform muted wash, so status was only readable from badges. Columns now use the existing status/phase `cardBg` tokens (e.g. light yellow for In Progress) so each lane’s colour matches its state at a glance.
+
 ## Sidebar collapse control lives on the rail - 2026-07-24
 
 The collapse toggle sat in the secondary sidebar header, competing with titles/back and disappearing from muscle memory when the panel was icon-narrow. It now lives on the vertical rail directly above the user avatar (always reachable), and the panel headers keep only navigation/close chrome.

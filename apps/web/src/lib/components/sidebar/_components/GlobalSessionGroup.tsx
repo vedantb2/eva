@@ -25,6 +25,10 @@ import {
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
+import {
+  isSessionSidebarActive,
+  partitionSessionsForSidebar,
+} from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 
@@ -41,8 +45,8 @@ interface GlobalSessionGroupProps {
 
 /**
  * One collapsible app group in the global Sessions sidebar: logo + title,
- * `+` → that app's sessions composer, active rows, then Archived (default
- * collapsed). Rows link to `/$owner/$repo/…/sessions/$numId`.
+ * `+` → that app's sessions composer, active rows (draft/open PR), then
+ * Archived (manual archive + merged/closed PRs; default collapsed).
  */
 export function GlobalSessionGroup({
   repo,
@@ -65,26 +69,31 @@ export function GlobalSessionGroup({
   const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
   const query = searchQuery.trim().toLowerCase();
 
+  const { active: sidebarActive, archivedGroup } = partitionSessionsForSidebar(
+    sessions,
+    archivedSessions,
+  );
+
   const filtered =
-    sessions === undefined
+    sidebarActive === undefined
       ? undefined
       : query.length === 0
-        ? sessions
-        : sessions.filter((s) => s.title.toLowerCase().includes(query));
+        ? sidebarActive
+        : sidebarActive.filter((s) => s.title.toLowerCase().includes(query));
 
   const filteredArchived =
-    archivedSessions === undefined
+    archivedGroup === undefined
       ? undefined
       : query.length === 0
-        ? archivedSessions
-        : archivedSessions.filter((s) => s.title.toLowerCase().includes(query));
+        ? archivedGroup
+        : archivedGroup.filter((s) => s.title.toLowerCase().includes(query));
 
   const isLoading = filtered === undefined || filteredArchived === undefined;
   const activeCount = filtered?.length ?? 0;
-  // Sessions currently running (status "active"), independent of the search
-  // filter — the badge reflects the app's live session count, not matches.
+  // Live sandbox badge: only count sidebar-active sessions that are running.
   const runningCount =
-    sessions?.filter((s) => s.status === "active").length ?? 0;
+    sessions?.filter((s) => s.status === "active" && isSessionSidebarActive(s))
+      .length ?? 0;
   const archivedCount = filteredArchived?.length ?? 0;
   const hasNoResults = !isLoading && activeCount === 0 && archivedCount === 0;
 
@@ -205,6 +214,9 @@ export function GlobalSessionGroup({
                   onNavigate={onNavigate}
                   itemIdPrefix={`global-archived-${repo._id}`}
                   onUnarchive={async (session) => {
+                    // Merged/closed rows live here without archived=true —
+                    // Unarchive only applies to manually archived sessions.
+                    if (session.archived !== true) return;
                     await unarchiveSession({ id: session._id });
                   }}
                 />

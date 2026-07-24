@@ -88,6 +88,13 @@ export const startExecute = authMutation({
       }
     }
 
+    // Wipe any stale streaming row before staging the placeholder. The daemon's
+    // post-completion reconcile heartbeat (finalizeTurn -> setFinalizingState)
+    // races saveResult's clearStreamingActivity; when it loses, a row holding
+    // the finished turn's full activity survives, and the new placeholder below
+    // would flash the previous turn's thinking trace until the next heartbeat.
+    await clearStreamingActivity(ctx, String(args.sessionId));
+
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
     // poll instead of waiting on the workflow's durable step queue. We must
     // reproduce, in this mutation, the exact side effects the workflow's first

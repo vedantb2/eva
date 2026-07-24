@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Command } from "cmdk";
-import { Dialog, DialogContent } from "@conductor/ui";
+import { useDeferredValue, useState } from "react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Dialog,
+  DialogContent,
+  CommandShortcut,
+} from "@conductor/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import { useRepo } from "@/lib/contexts/RepoContext";
-import { entityPathSegment } from "@/lib/numId";
-import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import type { FunctionReturnType } from "convex/server";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import {
@@ -19,25 +26,127 @@ import {
   IconFileText,
   IconFlask,
   IconChartBar,
-  IconShield,
+  IconSettings,
+  IconHome,
+  IconInbox,
+  IconUsers,
+  IconBox,
+  IconFolder,
+  IconRobot,
+  IconPalette,
+  IconFileCode,
 } from "@tabler/icons-react";
+import type { ComponentType } from "react";
 
-const itemClass =
-  "group mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
+type SpotlightHit = FunctionReturnType<typeof api.spotlight.search>[number];
 
-const headingClass =
-  "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";
+type HitType = SpotlightHit["type"];
+
+const GROUP_ORDER: HitType[] = [
+  "page",
+  "repo",
+  "team",
+  "project",
+  "task",
+  "session",
+  "doc",
+  "design",
+  "automation",
+  "artifact",
+];
+
+const GROUP_LABEL: Record<HitType, string> = {
+  page: "Pages",
+  repo: "Repos",
+  team: "Teams",
+  project: "Projects",
+  task: "Tasks",
+  session: "Sessions",
+  doc: "Documents",
+  design: "Designs",
+  automation: "Automations",
+  artifact: "Artifacts",
+};
+
+const TYPE_ICON: Record<
+  HitType,
+  ComponentType<{ size?: number; className?: string }>
+> = {
+  page: IconFolder,
+  repo: IconBox,
+  team: IconUsers,
+  project: IconLayoutKanban,
+  task: IconChecklist,
+  session: IconTerminal2,
+  doc: IconFileText,
+  design: IconPalette,
+  automation: IconRobot,
+  artifact: IconFileCode,
+};
+
+function iconForPageTitle(title: string) {
+  switch (title) {
+    case "Home":
+      return IconHome;
+    case "Inbox":
+      return IconInbox;
+    case "Sessions":
+      return IconTerminal2;
+    case "Projects":
+      return IconLayoutKanban;
+    case "Quick Tasks":
+      return IconChecklist;
+    case "Documents":
+      return IconFileText;
+    case "Testing Arena":
+      return IconFlask;
+    case "Stats":
+      return IconChartBar;
+    case "Settings":
+      return IconSettings;
+    case "Teams":
+      return IconUsers;
+    case "Artifacts":
+      return IconFileCode;
+    case "Automations":
+      return IconRobot;
+    case "Designs":
+      return IconPalette;
+    default:
+      return IconSearch;
+  }
+}
+
+function groupHits(hits: SpotlightHit[]): Array<{
+  type: HitType;
+  items: SpotlightHit[];
+}> {
+  const buckets = new Map<HitType, SpotlightHit[]>();
+  for (const hit of hits) {
+    const existing = buckets.get(hit.type);
+    if (existing) {
+      existing.push(hit);
+    } else {
+      buckets.set(hit.type, [hit]);
+    }
+  }
+  return GROUP_ORDER.flatMap((type) => {
+    const items = buckets.get(type);
+    if (!items || items.length === 0) return [];
+    return [{ type, items }];
+  });
+}
 
 export function SpotlightSearch() {
   const { isOpen, setIsOpen } = useSearch();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const navigate = useNavigate();
-  const { repo, basePath } = useRepo();
 
-  const projects = useQuery(api.projects.list, { repoId: repo._id });
-  const sessions = useQuery(api.sessions.list, { repoId: repo._id });
-  const docs = useQuery(api.docs.list, { repoId: repo._id });
-  const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
+  const results = useQuery(
+    api.spotlight.search,
+    isOpen ? { query: deferredSearch, limit: 40 } : "skip",
+  );
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -50,227 +159,51 @@ export function SpotlightSearch() {
     setSearch("");
   };
 
+  const groups = results ? groupHits(results) : [];
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         hideCloseButton
-        className="top-[28%] max-w-xl translate-y-0 gap-0 p-0"
+        className="top-[28%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0"
       >
-        <Command className="flex flex-col bg-transparent" shouldFilter>
-          <div className="flex items-center gap-2 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
-            <IconSearch className="size-4 flex-shrink-0 text-muted-foreground" />
-            <Command.Input
-              autoFocus
-              placeholder="Search pages, projects, sessions..."
-              value={search}
-              onValueChange={setSearch}
-              className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
-            />
-            <kbd className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ESC
-            </kbd>
-          </div>
-          <Command.List className="max-h-80 overflow-y-auto py-2">
-            <Command.Empty className="text-sm text-muted-foreground text-center py-8">
-              No results found
-            </Command.Empty>
-
-            <Command.Group heading="Pages" className={headingClass}>
-              <Command.Item
-                value="Projects"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/projects`)}
-              >
-                <IconLayoutKanban size={16} className="flex-shrink-0" />
-                <span className="flex-1">Projects</span>
-                <span className="text-xs text-muted-foreground">Build</span>
-              </Command.Item>
-              <Command.Item
-                value="Quick Tasks"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
-              >
-                <IconChecklist size={16} className="flex-shrink-0" />
-                <span className="flex-1">Quick Tasks</span>
-                <span className="text-xs text-muted-foreground">Fix</span>
-              </Command.Item>
-              <Command.Item
-                value="Sessions"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/sessions`)}
-              >
-                <IconTerminal2 size={16} className="flex-shrink-0" />
-                <span className="flex-1">Sessions</span>
-                <span className="text-xs text-muted-foreground">Fix</span>
-              </Command.Item>
-              <Command.Item
-                value="Documents"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/docs`)}
-              >
-                <IconFileText size={16} className="flex-shrink-0" />
-                <span className="flex-1">Documents</span>
-                <span className="text-xs text-muted-foreground">Test</span>
-              </Command.Item>
-              <Command.Item
-                value="Testing Arena"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/testing-arena`)}
-              >
-                <IconFlask size={16} className="flex-shrink-0" />
-                <span className="flex-1">Testing Arena</span>
-                <span className="text-xs text-muted-foreground">Test</span>
-              </Command.Item>
-              <Command.Item
-                value="Stats"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/stats`)}
-              >
-                <IconChartBar size={16} className="flex-shrink-0" />
-                <span className="flex-1">Stats</span>
-                <span className="text-xs text-muted-foreground">Analytics</span>
-              </Command.Item>
-              <Command.Item
-                value="Settings"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/settings`)}
-              >
-                <IconShield size={16} className="flex-shrink-0" />
-                <span className="flex-1">Settings</span>
-                <span className="text-xs text-muted-foreground">Settings</span>
-              </Command.Item>
-            </Command.Group>
-
-            {search && projects && projects.length > 0 && (
-              <Command.Group heading="Projects" className={headingClass}>
-                {projects.map((p) => (
-                  <Command.Item
-                    key={p._id}
-                    value={`${p.title} ${p.description ?? ""}`}
-                    className={itemClass}
-                    onSelect={() => {
-                      const segment = entityPathSegment(p);
-                      if (segment) {
-                        handleSelect(`${basePath}/projects/${segment}`);
-                      }
-                    }}
-                  >
-                    <IconLayoutKanban size={16} className="flex-shrink-0" />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {p.title}
-                    </MarqueeOnHover>
-                    <span className="text-xs text-muted-foreground">
-                      {p.phase}
-                    </span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-
-            {search && tasks && tasks.length > 0 && (
-              <Command.Group heading="Tasks" className={headingClass}>
-                {tasks.map((t) => (
-                  <Command.Item
-                    key={t._id}
-                    value={t.title}
-                    className={itemClass}
-                    onSelect={() => {
-                      const segment = entityPathSegment(t);
-                      if (segment) {
-                        handleSelect(`${basePath}/quick-tasks/${segment}`);
-                      } else {
-                        handleSelect(`${basePath}/quick-tasks`);
-                      }
-                    }}
-                  >
-                    <IconChecklist size={16} className="flex-shrink-0" />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {t.title}
-                    </MarqueeOnHover>
-                    <span className="text-xs text-muted-foreground">
-                      {t.status}
-                    </span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-
-            {search && sessions && sessions.length > 0 && (
-              <Command.Group heading="Sessions" className={headingClass}>
-                {sessions.map((s) => (
-                  <Command.Item
-                    key={s._id}
-                    value={s.title}
-                    className={itemClass}
-                    onSelect={() => {
-                      const segment = entityPathSegment(s);
-                      if (segment) {
-                        handleSelect(`${basePath}/sessions/${segment}`);
-                      }
-                    }}
-                  >
-                    <IconTerminal2 size={16} className="flex-shrink-0" />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {s.title}
-                    </MarqueeOnHover>
-                    <span className="text-xs text-muted-foreground">
-                      {s.status}
-                    </span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-
-            {search && docs && docs.length > 0 && (
-              <Command.Group heading="Documents" className={headingClass}>
-                {docs.map((d) => (
-                  <Command.Item
-                    key={d._id}
-                    value={d.title}
-                    className={itemClass}
-                    onSelect={() => {
-                      const segment = entityPathSegment(d);
-                      if (segment) {
-                        handleSelect(
-                          `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
-                        );
-                      }
-                    }}
-                  >
-                    <IconFileText size={16} className="flex-shrink-0" />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {d.title}
-                    </MarqueeOnHover>
-                    <span className="text-xs text-muted-foreground">Doc</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-
-            {search && docs && docs.length > 0 && (
-              <Command.Group heading="Testing Arena" className={headingClass}>
-                {docs.map((d) => (
-                  <Command.Item
-                    key={`test-${d._id}`}
-                    value={`test ${d.title}`}
-                    className={itemClass}
-                    onSelect={() => {
-                      const segment = entityPathSegment(d);
-                      if (segment) {
-                        handleSelect(`${basePath}/testing-arena/${segment}`);
-                      }
-                    }}
-                  >
-                    <IconFlask size={16} className="flex-shrink-0" />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {d.title}
-                    </MarqueeOnHover>
-                    <span className="text-xs text-muted-foreground">Test</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-          </Command.List>
+        <Command shouldFilter={false} className="border-0">
+          <CommandInput
+            autoFocus
+            placeholder="Search across your teams and repos…"
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {results === undefined ? "Searching…" : "No results found"}
+            </CommandEmpty>
+            {groups.map((group) => (
+              <CommandGroup key={group.type} heading={GROUP_LABEL[group.type]}>
+                {group.items.map((hit) => {
+                  const Icon =
+                    hit.type === "page"
+                      ? iconForPageTitle(hit.title)
+                      : TYPE_ICON[hit.type];
+                  return (
+                    <CommandItem
+                      key={`${hit.type}:${hit.href}`}
+                      value={`${hit.type} ${hit.title} ${hit.subtitle} ${hit.href}`}
+                      onSelect={() => handleSelect(hit.href)}
+                    >
+                      <Icon size={16} className="text-muted-foreground" />
+                      <MarqueeOnHover className="min-w-0 flex-1">
+                        {hit.title}
+                      </MarqueeOnHover>
+                      <CommandShortcut className="max-w-[40%] truncate normal-case tracking-normal">
+                        {hit.subtitle}
+                      </CommandShortcut>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ))}
+          </CommandList>
         </Command>
       </DialogContent>
     </Dialog>

@@ -7,10 +7,12 @@ import {
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
+import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
+import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { cn } from "@conductor/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -60,12 +62,15 @@ function GlobalLayout() {
     <AuthGate>
       <SidebarProvider>
         <PageTitleProvider>
-          <FollowProvider>
-            <Sidebar />
-            <GlobalMainContent />
-            <FollowOverlay />
-            <NotificationToastStream />
-          </FollowProvider>
+          <SearchProvider>
+            <FollowProvider>
+              <Sidebar />
+              <GlobalMainContent />
+              <SpotlightSearch />
+              <FollowOverlay />
+              <NotificationToastStream />
+            </FollowProvider>
+          </SearchProvider>
         </PageTitleProvider>
       </SidebarProvider>
     </AuthGate>

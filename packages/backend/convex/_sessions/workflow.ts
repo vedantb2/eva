@@ -137,7 +137,7 @@ export async function buildSessionPrompt(
       {
         owner: repo.owner,
         name: repo.name,
-        baseBranch: repo.defaultBaseBranch,
+        baseBranch: session.baseBranch ?? repo.defaultBaseBranch,
       },
       branchName,
       session.planContent || "",

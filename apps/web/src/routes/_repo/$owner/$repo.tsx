@@ -18,7 +18,7 @@ function MainContent({ children: _children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   return (
     <div
-      className={`relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0 ${collapsed ? "lg:pl-36" : "lg:pl-80"}`}
+      className={`relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0 ${collapsed ? "lg:pl-16" : "lg:pl-80"}`}
     >
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <div

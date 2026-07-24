@@ -366,8 +366,8 @@ function RepoRailView({
             <button
               type="button"
               onClick={() => setCollapsed(!collapsed)}
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
+              title={collapsed ? "Show sidebar" : "Hide sidebar"}
               className={cn(
                 RAIL_TILE_CLASS,
                 "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
@@ -384,7 +384,7 @@ function RepoRailView({
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            {collapsed ? "Show sidebar" : "Hide sidebar"}
           </TooltipContent>
         </Tooltip>
         <SidebarUserMenu

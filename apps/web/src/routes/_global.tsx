@@ -27,10 +27,10 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
-  // Sessions landing shows the wide second column; other global pages stay rail-only.
+  // Sessions landing shows the wide second column; collapsed hides it (rail only).
   const paddingClass = isSessionsLanding
     ? collapsed
-      ? "lg:pl-36"
+      ? "lg:pl-16"
       : "lg:pl-80"
     : "lg:pl-16";
 

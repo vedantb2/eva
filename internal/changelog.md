@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview iframe keeps sandboxed app session cookies - 2026-07-24
+
+Sign-in inside the preview tab succeeded at the app but the session never stuck — browsers drop default `SameSite=Lax` `Set-Cookie` responses in Eva’s cross-site iframe (`*.vercel.run`), so the next request looked logged-out (while a top-level new tab worked). The in-sandbox preview proxy now rewrites upstream `Set-Cookie` headers for non-loopback clients to `Secure; SameSite=None; Partitioned` (same as the proxy’s own gate cookie), strips upstream `Domain`/`SameSite`, and bumps the proxy script to `annotate-v12` so health-check relaunches pick it up without manual sandbox restarts. Partitioned sessions stay per-visitor and separate from a new-tab session; third-party IdPs that refuse framing still need a top-level window.
+
 ## Sessions sidebar archives merged/closed PRs - 2026-07-24
 
 Active session lists still mixed in merged/closed PRs beside live draft/open work. The Sessions sidebar now keeps only draft/open (or no-PR) sessions active and folds merged/closed into the Archived collapsible with manually archived ones.

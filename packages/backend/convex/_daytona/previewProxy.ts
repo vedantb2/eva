@@ -28,7 +28,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "annotate-v11";
+const SCRIPT_VERSION = "annotate-v12";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -571,7 +571,30 @@ function rewriteLocationHeader(value) {
   }
 }
 
-function responseHeaders(upstreamHeaders, injectsHtml, addCors) {
+// Upstream apps set their session cookies with the browser's SameSite=Lax
+// default, which cross-site iframes (Eva web app → *.vercel.run preview
+// origin) silently drop — so signing in to the previewed app only worked when
+// opened top-level in a new tab. Rewrite Set-Cookie with the same attributes
+// the proxy's own session cookie uses (SameSite=None; Secure; Partitioned) so
+// the app's sign-in works inside the preview iframe. Domain= is stripped: the
+// upstream only knows its localhost host, which would pin the cookie to a
+// host the browser never sees.
+function rewriteSetCookie(value) {
+  const parts = String(value).split(";");
+  const kept = [parts[0]];
+  for (let i = 1; i < parts.length; i += 1) {
+    const attr = parts[i].trim();
+    if (!attr) continue;
+    const lower = attr.toLowerCase();
+    if (lower.startsWith("samesite")) continue;
+    if (lower.startsWith("domain")) continue;
+    if (lower === "secure" || lower === "partitioned") continue;
+    kept.push(attr);
+  }
+  return kept.join("; ") + "; Secure; SameSite=None; Partitioned";
+}
+
+function responseHeaders(upstreamHeaders, injectsHtml, addCors, rewriteCookies) {
   const headers = {};
   for (const name of Object.keys(upstreamHeaders)) {
     const lower = name.toLowerCase();
@@ -587,6 +610,15 @@ function responseHeaders(upstreamHeaders, injectsHtml, addCors) {
         headers[name] = value.map(rewriteLocationHeader);
       } else {
         headers[name] = rewriteLocationHeader(String(value));
+      }
+      continue;
+    }
+
+    if (lower === "set-cookie" && rewriteCookies) {
+      if (Array.isArray(value)) {
+        headers[name] = value.map(rewriteSetCookie);
+      } else {
+        headers[name] = rewriteSetCookie(String(value));
       }
       continue;
     }
@@ -671,12 +703,15 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
       } catch {}
       const addCors = STATIC_ASSET_RE.test(pathname);
 
+      // Loopback clients (in-sandbox agent browser, curl, Inngest) talk plain
+      // http to localhost — leave their cookies untouched.
       clientRes.writeHead(
         upstreamRes.statusCode || 502,
         responseHeaders(
           upstreamRes.headers,
           rewriteHtmlBody,
           addCors,
+          !isLoopbackRequest(clientReq),
         ),
       );
 

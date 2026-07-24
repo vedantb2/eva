@@ -17,6 +17,7 @@ import {
 import { markAllRunningExited } from "../backgroundProcesses";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
+import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
@@ -135,6 +136,10 @@ export async function requestSessionSandboxStop(
 ): Promise<void> {
   const session = await ctx.db.get(sessionId);
   if (!session) return;
+
+  // Stopping kills the paused turn, so any blocking AskUserQuestion can never
+  // be claimed — clear it or it hides the composer forever.
+  await clearPendingQuestionsForEntity(ctx.db, String(sessionId));
 
   // Allow stop from closed when a sandboxId remains — start can early-ready
   // then fail and leave a live Vercel VM while UI shows inactive.

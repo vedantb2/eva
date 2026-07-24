@@ -10,6 +10,7 @@ import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -213,6 +214,16 @@ export function ChatBody({
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
+  // The blocking card is normally hosted by the streaming placeholder message.
+  // If that placeholder is gone (run died, sandbox restarted) the unanswered
+  // question would otherwise be unrenderable while still hiding the composer —
+  // render it standalone so the user can always answer and unblock the chat.
+  const hasStreamingPlaceholder = messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      !message.content &&
+      message.finishedAt === undefined,
+  );
 
   const handleQuestionAnswer = async (answer: string) => {
     if (pendingQuestionRaw) {
@@ -323,6 +334,14 @@ export function ChatBody({
               </ChatLastTurn>
             </>
           )}
+          {blockingQuestions && !hasStreamingPlaceholder ? (
+            <MultipleChoiceQuestion
+              questions={blockingQuestions}
+              onAnswer={handleQuestionAnswer}
+              onAnswerStructured={handleBlockingAnswer}
+              isLoading={isAnsweringQuestion}
+            />
+          ) : null}
         </ConversationContent>
         <ConversationScrollButton resetKey={conversationId} />
         <ChatJumpRail messages={jumpRailMessages} />

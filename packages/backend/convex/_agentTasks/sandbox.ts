@@ -9,6 +9,7 @@ import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
+import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 
 const PREVIEW_ALLOWED_STATUSES = [
   "code_review",
@@ -312,6 +313,10 @@ export const stopTaskSandbox = authMutation({
       ctx.db,
       `task-sandbox-startup-${args.taskId}`,
     );
+
+    // Stopping kills the paused turn, so any blocking AskUserQuestion can
+    // never be claimed — clear it or it hides the composer forever.
+    await clearPendingQuestionsForEntity(ctx.db, String(args.taskId));
 
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.taskId, {

@@ -11,6 +11,7 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { normalizeAIModel } from "../validators";
 
 const PREVIEW_ALLOWED_PHASES = [
@@ -349,6 +350,10 @@ export const stopProjectSandbox = authMutation({
       ctx.db,
       `project-sandbox-startup-${args.projectId}`,
     );
+
+    // Stopping kills the paused turn, so any blocking AskUserQuestion can
+    // never be claimed — clear it or it hides the composer forever.
+    await clearPendingQuestionsForEntity(ctx.db, String(args.projectId));
 
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.projectId, {

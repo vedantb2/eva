@@ -5,10 +5,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, normalizeAIModel, type Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { toast } from "@conductor/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
-import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -23,8 +21,7 @@ import { SessionModeDropdown } from "./SessionModeDropdown";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
- * base-branch picker under the composer, create with the first message, then
- * navigate while the sandbox boots.
+ * create with the first message, then navigate while the sandbox boots.
  */
 export function NewSessionComposer() {
   const navigate = useNavigate();
@@ -32,9 +29,6 @@ export function NewSessionComposer() {
   const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [baseBranch, setBaseBranch] = useState(
-    repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-  );
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
@@ -79,7 +73,6 @@ export function NewSessionComposer() {
         message: content,
         mode,
         model,
-        baseBranch,
         ...executionTraits,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
@@ -133,8 +126,8 @@ export function NewSessionComposer() {
           isInputDisabled={isSubmitting}
           placeholder={
             mode === "plan"
-              ? "Describe the product requirements... / for skills · @ for docs"
-              : "Ask Eva anything... / for skills · @ for docs"
+              ? "Describe the product requirements... / for skills · @ for data"
+              : "Ask Eva anything... / for skills · @ for data"
           }
           model={model}
           setModel={(next) => {
@@ -154,16 +147,6 @@ export function NewSessionComposer() {
           }
           attachmentMode="sessionFiles"
         />
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <span>Base branch</span>
-          <BranchSelect
-            value={baseBranch}
-            onValueChange={setBaseBranch}
-            placeholder="Select a base branch"
-            className="h-8 w-auto max-w-[240px]"
-            disabled={isSubmitting}
-          />
-        </div>
       </div>
     </div>
   );

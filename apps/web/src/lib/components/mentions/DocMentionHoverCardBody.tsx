@@ -1,8 +1,8 @@
 "use client";
 
+import type { Id } from "@conductor/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import { Spinner } from "@conductor/ui";
 import { MentionContentPreview } from "./MentionContentPreview";
 

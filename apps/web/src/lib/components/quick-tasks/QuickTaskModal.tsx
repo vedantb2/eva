@@ -318,7 +318,7 @@ export function QuickTaskModal({
               ref={editorRef}
               value={description}
               onValueChange={setDescription}
-              placeholder="Add description... @ for docs, / for skills."
+              placeholder="Add description... @ for data, / for skills."
               minHeight="min-h-[160px]"
               className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
               initialMentionMap={initialDescMaps.mentionMap}

@@ -52,6 +52,7 @@ export const create = authMutation({
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
+    baseBranch: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.object({
@@ -65,6 +66,10 @@ export const create = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
     const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
+    const baseBranch =
+      args.baseBranch?.trim() ||
+      repo.defaultBaseBranch ||
+      FALLBACK_GIT_BASE_BRANCH;
     const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
     const model = args.model ?? repo.defaultModel;
     const providerAccountId =
@@ -83,6 +88,7 @@ export const create = authMutation({
       createdBy: ctx.userId,
       updatedAt: Date.now(),
       numId,
+      baseBranch,
       providerAccountId,
       lastModel: model,
       ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
@@ -98,7 +104,6 @@ export const create = authMutation({
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
-    const baseBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionSandboxStartupWorkflow,

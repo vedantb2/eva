@@ -262,6 +262,11 @@ export const sessionFields = {
   userId: v.id("users"),
   title: v.string(),
   branchName: v.optional(v.string()),
+  // Base branch this session checks out from and creates its branch off of.
+  // Chosen at creation (defaults to the repo default). Persisted so sandbox
+  // restarts/restores rebuild the session branch from the same base instead of
+  // silently falling back to the repo default.
+  baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   prState: v.optional(
     v.union(

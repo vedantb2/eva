@@ -137,12 +137,14 @@ test("codex item.started sets toolUseId for id-matched completion", () => {
   resetStateForTests();
 });
 
-test("append_text updates streamed content without adding activity steps", () => {
+test("append_text keeps distinct blocks separated and adds no activity steps", () => {
   resetStateForTests();
-  applyCanonicalEvents([{ kind: "append_text", text: "Hello" }]);
-  applyCanonicalEvents([{ kind: "append_text", text: " world" }]);
+  // Each append_text is a whole (non-streamed) assistant text block, so distinct
+  // blocks are separated by a paragraph break and never create activity steps.
+  applyCanonicalEvents([{ kind: "append_text", text: "First reply." }]);
+  applyCanonicalEvents([{ kind: "append_text", text: "Second reply." }]);
   expect(S.accumulatedSteps.length).toBe(0);
-  expect(S.currentStreamedContent).toBe("Hello world");
+  expect(S.currentStreamedContent).toBe("First reply.\n\nSecond reply.");
   resetStateForTests();
 });
 
@@ -254,4 +256,74 @@ test("parseToCanonical cursor thinking block routes to update_reasoning", () => 
     kind: "update_reasoning",
     text: "hmm let me see",
   });
+});
+
+// Regression tests for the interleaved-thinking paragraph-break fix. With
+// interleaved thinking the model streams text → thinking → text inside one
+// message; consecutive text blocks used to clump ("design.Design settled.").
+// A paragraph break must land between distinct blocks/messages, but never
+// between deltas of the same block nor as a leading break on an empty buffer.
+
+test("interleaved thinking inserts a paragraph break between text blocks in one message", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    { kind: "mark_message_start" },
+    { kind: "mark_text_block_start" },
+    { kind: "stream_text_delta", text: "First para." },
+    { kind: "update_reasoning", text: "pondering" },
+    { kind: "mark_text_block_start" },
+    { kind: "stream_text_delta", text: "Second para." },
+  ]);
+  expect(S.currentStreamedContent).toBe("First para.\n\nSecond para.");
+  resetStateForTests();
+});
+
+test("deltas within one text block are not separated by a paragraph break", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    { kind: "mark_message_start" },
+    { kind: "stream_text_delta", text: "Hello" },
+    { kind: "stream_text_delta", text: " world" },
+  ]);
+  expect(S.currentStreamedContent).toBe("Hello world");
+  resetStateForTests();
+});
+
+test("a new assistant message inserts a paragraph break before its first text", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    { kind: "mark_message_start" },
+    { kind: "stream_text_delta", text: "Wrapping up the design." },
+    { kind: "mark_message_start" },
+    { kind: "stream_text_delta", text: "Design settled." },
+  ]);
+  expect(S.currentStreamedContent).toBe(
+    "Wrapping up the design.\n\nDesign settled.",
+  );
+  resetStateForTests();
+});
+
+test("no leading paragraph break when the streamed buffer is empty", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    { kind: "mark_message_start" },
+    { kind: "mark_text_block_start" },
+    { kind: "stream_text_delta", text: "First line" },
+  ]);
+  expect(S.currentStreamedContent).toBe("First line");
+  resetStateForTests();
+});
+
+test("an existing newline boundary is not doubled into a paragraph break", () => {
+  resetStateForTests();
+  // Trailing newline on the buffer: no extra break added.
+  applyCanonicalEvents([{ kind: "append_text", text: "Line one\n" }]);
+  applyCanonicalEvents([{ kind: "append_text", text: "Line two" }]);
+  expect(S.currentStreamedContent).toBe("Line one\nLine two");
+  // Leading newline on the next block: no extra break added.
+  resetStateForTests();
+  applyCanonicalEvents([{ kind: "append_text", text: "Line one" }]);
+  applyCanonicalEvents([{ kind: "append_text", text: "\nLine two" }]);
+  expect(S.currentStreamedContent).toBe("Line one\nLine two");
+  resetStateForTests();
 });

@@ -2,8 +2,8 @@ import { ConvexLogo } from "@/lib/components/ui/providerLogos";
 import type { EnvVarSlotEntry } from "./envVarSlotTypes";
 
 /**
- * Convex credentials for sandboxed apps (BYOK). Deploy key stays out of the
- * sandbox by default; URL is injected so the app can talk to its own backend.
+ * Convex credentials for sandboxed apps (BYOK). Deploy keys and deployment URLs
+ * are kept out of the sandbox by default.
  */
 export const CONVEX_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
   {
@@ -23,10 +23,10 @@ export const CONVEX_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
     primaryKey: "NEXT_PUBLIC_CONVEX_URL",
     matchKeys: ["NEXT_PUBLIC_CONVEX_URL", "VITE_CONVEX_URL", "CONVEX_URL"],
     Logo: ConvexLogo,
-    hint: "Convex deployment URL for the sandboxed app (e.g. https://….convex.cloud).",
+    hint: "Convex deployment URL (e.g. https://….convex.cloud). Kept out of the sandbox.",
     placeholder: "https://….convex.cloud",
     multiline: false,
-    sandboxExclude: false,
+    sandboxExclude: true,
   },
   {
     id: "prod-convex-deploy-key",

@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useRef, useState } from "react";
 import { m, AnimatePresence } from "motion/react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import {
   Button,
@@ -21,7 +21,7 @@ import {
   SearchInput,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArchive,
   IconArchiveOff,

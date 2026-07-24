@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";

@@ -3,9 +3,9 @@
 import { useMutation, useConvex } from "convex/react";
 import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Badge, Button, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Badge, Button, cn } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import {

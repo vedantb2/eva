@@ -6,7 +6,7 @@ import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   getAIModelProvider,
   normalizeAIModel,

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import { Button, cn } from "@conductor/ui";
+import { Button, cn } from "@eva/ui";
 import { IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { treeThemeVars } from "@/lib/components/sandbox/treeTheme";

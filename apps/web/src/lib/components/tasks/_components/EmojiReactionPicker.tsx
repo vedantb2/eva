@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { EmojiPicker } from "frimousse";
-import { Popover, PopoverContent, PopoverTrigger, cn } from "@conductor/ui";
+import { Popover, PopoverContent, PopoverTrigger, cn } from "@eva/ui";
 import { IconMoodSmile } from "@tabler/icons-react";
 
 // Fast-path reactions shown above the full searchable grid.

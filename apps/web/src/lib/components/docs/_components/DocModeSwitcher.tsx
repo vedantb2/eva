@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPencil, IconMessageDots, IconEye } from "@tabler/icons-react";
 
 const MODE_CONFIG: Record<DocMode, { label: string; icon: typeof IconPencil }> =

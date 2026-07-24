@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
+import { Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 interface DraftsCountBadgeProps {
   repoId: Id<"githubRepos">;

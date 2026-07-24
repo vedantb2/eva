@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { Id } from "@conductor/backend";
-import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
+import type { Id } from "@eva/backend";
+import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -25,7 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   formatModelDisplayLabel,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconArrowUp, IconPencil, IconTrash } from "@tabler/icons-react";
 import {
   DndContext,

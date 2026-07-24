@@ -1,7 +1,7 @@
 "use client";
 
-import type { Doc, Id } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import type { Doc, Id } from "@eva/backend";
+import { cn } from "@eva/ui";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
@@ -151,7 +151,7 @@ export function SandboxPaneSlots({
               port={preview.effectivePort}
               onPortChange={preview.setPort}
               pathStorageKey={[
-                "conductor",
+                "eva",
                 owner.kind,
                 cacheKey,
                 "preview-path",
@@ -180,7 +180,7 @@ export function SandboxPaneSlots({
         }
       >
         <ConsoleDock
-          storageKey={`conductor:${owner.kind}:${cacheKey}:console`}
+          storageKey={`eva:${owner.kind}:${cacheKey}:console`}
           preview={previewRegion}
           renderConsole={(visible) =>
             consolePane ? (

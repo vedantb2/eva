@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
-import type { Doc } from "@conductor/backend";
+import { Badge } from "@eva/ui";
+import type { Doc } from "@eva/backend";
 import {
   IconNotes,
   IconCheck,

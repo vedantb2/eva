@@ -1,7 +1,7 @@
 "use client";
 
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import type { EnvVarScope } from "@/lib/search-params";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";

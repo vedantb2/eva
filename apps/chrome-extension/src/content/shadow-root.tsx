@@ -13,7 +13,7 @@ interface ShadowMount {
 
 export function createShadowMount(): ShadowMount {
   const host = document.createElement("div");
-  host.setAttribute("data-conductor-overlay", "");
+  host.setAttribute("data-eva-overlay", "");
   document.body.appendChild(host);
 
   const shadow = host.attachShadow({ mode: "open" });

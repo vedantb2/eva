@@ -2,10 +2,10 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Checkbox } from "@conductor/ui";
+import { Checkbox } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { AddCategoryForm } from "./audits/_components/AddCategoryForm";

@@ -1,7 +1,7 @@
 import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { ensureSandboxStartedSteps } from "./resumeSandboxSteps";
 
 type ProgressStep = {

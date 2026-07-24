@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 
 /** A single repo row from `githubRepos.list` (root repo or a monorepo app). */
 export type RepoWithLogo = FunctionReturnType<

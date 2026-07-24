@@ -174,14 +174,14 @@ export function SelectionOverlay({
 
     function handleMouseDown(e: MouseEvent) {
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) return;
+      if (target?.closest("[data-eva-overlay]")) return;
       mouseDownPos = { x: e.clientX, y: e.clientY };
     }
 
     function handleMouseUp(e: MouseEvent) {
       if (!mouseDownPos) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) {
+      if (target?.closest("[data-eva-overlay]")) {
         mouseDownPos = null;
         return;
       }
@@ -219,7 +219,7 @@ export function SelectionOverlay({
         !(target instanceof HTMLElement)
       )
         return;
-      if (target.closest("[data-conductor-overlay]")) return;
+      if (target.closest("[data-eva-overlay]")) return;
       if (target === hoveredRef.current) return;
       hoveredRef.current = target;
       const rect = target.getBoundingClientRect();
@@ -334,7 +334,7 @@ export function SelectionOverlay({
             borderImage: "linear-gradient(to right, #0c786c, #109182) 1",
             boxSizing: "border-box",
             filter: "blur(20px)",
-            animation: "conductor-glow 0.8s ease-in-out infinite alternate",
+            animation: "eva-glow 0.8s ease-in-out infinite alternate",
           }}
         />
       </>

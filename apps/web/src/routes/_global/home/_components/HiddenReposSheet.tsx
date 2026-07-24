@@ -1,13 +1,13 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconEye, IconBrandGithub } from "@tabler/icons-react";
 
 interface HiddenReposSheetProps {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
 
 /**

@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 

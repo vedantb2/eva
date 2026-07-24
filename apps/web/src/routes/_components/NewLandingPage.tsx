@@ -3,7 +3,7 @@
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { useNavigate } from "@tanstack/react-router";
 import { m, type Variants } from "motion/react";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { LandingCapabilityGrid } from "./LandingCapabilityGrid";
 import { LandingTaskDetailMock } from "./LandingTaskDetailMock";
 import { LandingWorkflowStrip } from "./LandingWorkflowStrip";

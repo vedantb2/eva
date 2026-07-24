@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 

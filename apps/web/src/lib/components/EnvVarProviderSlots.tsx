@@ -10,7 +10,7 @@ import {
   DialogTitle,
   Input,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCopy,

@@ -6,7 +6,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconClipboardList, IconCode } from "@tabler/icons-react";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 

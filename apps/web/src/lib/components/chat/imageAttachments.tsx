@@ -1,9 +1,6 @@
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
-import {
-  usePromptInputAttachments,
-  type PromptInputMessage,
-} from "@conductor/ui";
+import { api, type Id } from "@eva/backend";
+import { usePromptInputAttachments, type PromptInputMessage } from "@eva/ui";
 import {
   IconFile,
   IconFileTypeTxt,

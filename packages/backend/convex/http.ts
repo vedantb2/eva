@@ -245,7 +245,7 @@ http.route({
   }),
 });
 
-const EXTENSION_ID = process.env.EXTENSION_ID ?? "conductor-extension";
+const EXTENSION_ID = process.env.EXTENSION_ID ?? "eva-extension";
 
 http.route({
   path: "/api/updates/extension/updates.xml",
@@ -272,8 +272,7 @@ http.route({
     }
 
     const siteUrl = process.env.CONVEX_SITE_URL ?? "";
-    const crxUrl =
-      release.crxUrl ?? `${siteUrl}/api/updates/extension/conductor.crx`;
+    const crxUrl = release.crxUrl ?? `${siteUrl}/api/updates/extension/eva.crx`;
 
     const xml = `<?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
@@ -292,7 +291,7 @@ http.route({
 });
 
 http.route({
-  path: "/api/updates/extension/conductor.crx",
+  path: "/api/updates/extension/eva.crx",
   method: "GET",
   handler: httpAction(async (ctx) => {
     const release = await ctx.runQuery(

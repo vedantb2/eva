@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
@@ -41,7 +41,7 @@ function clearLegacyPreviewUrlCache(): void {
   const keys: string[] = [];
   for (let i = 0; i < sessionStorage.length; i += 1) {
     const key = sessionStorage.key(i);
-    if (key?.startsWith("conductor:") && key.includes(":nav-sync-")) {
+    if (key?.startsWith("eva:") && key.includes(":nav-sync-")) {
       keys.push(key);
     }
   }

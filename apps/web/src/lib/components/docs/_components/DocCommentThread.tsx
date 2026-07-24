@@ -2,11 +2,11 @@
 
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { UserInitials } from "@conductor/shared";
-import { Button, cn, Textarea } from "@conductor/ui";
+import { UserInitials } from "@eva/shared";
+import { Button, cn, Textarea } from "@eva/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { useState, useEffect, useRef } from "react";

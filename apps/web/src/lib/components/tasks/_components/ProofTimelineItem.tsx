@@ -13,7 +13,7 @@ import {
   Button,
   Spinner,
   ActivityTasks,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -23,9 +23,9 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { VideoPreview } from "@/lib/components/MediaPreview";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 
 export type TaskProof = FunctionReturnType<

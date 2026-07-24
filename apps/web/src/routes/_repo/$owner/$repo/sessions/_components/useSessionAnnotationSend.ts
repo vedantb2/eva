@@ -1,6 +1,6 @@
 "use client";
 
-import { api, normalizeAIModel, type Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";

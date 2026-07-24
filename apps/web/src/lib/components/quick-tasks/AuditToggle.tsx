@@ -1,6 +1,6 @@
 "use client";
 
-import { Switch } from "@conductor/ui";
+import { Switch } from "@eva/ui";
 
 interface AuditToggleProps {
   value: boolean;

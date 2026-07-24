@@ -13,7 +13,7 @@ import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
   beforeLoad: ({ context }) => {

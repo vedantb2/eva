@@ -19,7 +19,7 @@ import {
   KanbanCard,
   type KanbanItem,
   type KanbanColumnDef,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,

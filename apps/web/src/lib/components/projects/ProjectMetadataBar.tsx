@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, getAIModelProvider, normalizeAIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, getAIModelProvider, normalizeAIModel } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   ModelSelect,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconUsers,
   type IconCalendar,
@@ -35,12 +35,12 @@ import {
   IconGitBranch,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import {
   FALLBACK_GIT_BASE_BRANCH,
   UserInitials,
   getUserInitials,
-} from "@conductor/shared";
+} from "@eva/shared";
 import { Facehash } from "facehash";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {

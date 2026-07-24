@@ -36,7 +36,7 @@ Follows the `EditorPanel.tsx` pattern exactly:
 - On mount (when sandbox active), checks if port 6080 is already responding
 - If not, calls `toggleDesktopServer` to start VNC, then polls `getPreviewUrl` on port 6080
 - Max 40 poll attempts (2 min timeout) — VNC startup is slower than code-server
-- sessionStorage cache (`conductor:desktop:{sessionId}`) for instant restore on tab switch
+- sessionStorage cache (`eva:desktop:{sessionId}`) for instant restore on tab switch
 - Toolbar: fullscreen button + open-in-new-tab button
 - `appendNoVncParams()` helper safely appends query params to signed URLs (which already contain `?token=...`)
 

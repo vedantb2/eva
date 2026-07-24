@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import {
   IconDeviceDesktop,
   IconDeviceMobile,

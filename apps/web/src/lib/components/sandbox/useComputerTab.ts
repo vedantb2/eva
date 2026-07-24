@@ -13,7 +13,7 @@ export function useComputerTab(
   onTabChange: (tab: string) => void,
 ) {
   const { isOpen, openTab, closeTab } = usePinnedSandboxTab(
-    `conductor:${storageScope}:computer-tab`,
+    `eva:${storageScope}:computer-tab`,
     "computer",
     activeTab,
     onTabChange,

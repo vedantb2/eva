@@ -4,10 +4,10 @@ import { forwardRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,

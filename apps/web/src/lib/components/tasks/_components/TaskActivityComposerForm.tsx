@@ -13,10 +13,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
   ModelSelect,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import { api, normalizeAIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, normalizeAIModel } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,

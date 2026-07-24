@@ -1,8 +1,8 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import type { Id } from "@eva/backend";
 import { MENTION_CHIP_CLASS } from "./mentionChipStyles";
 import { DocMentionHoverCardBody } from "./DocMentionHoverCardBody";
 

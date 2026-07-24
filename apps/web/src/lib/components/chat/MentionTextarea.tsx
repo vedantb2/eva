@@ -2,11 +2,8 @@
 
 import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  usePromptInputController,
-  usePromptInputAttachments,
-} from "@conductor/ui";
-import type { Doc, Id } from "@conductor/backend";
+import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
+import type { Doc, Id } from "@eva/backend";
 import {
   MentionEditor,
   type MentionEditorHandle,

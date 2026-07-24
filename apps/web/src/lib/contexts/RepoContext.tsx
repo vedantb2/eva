@@ -3,10 +3,10 @@
 import { createContext, useContext, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 
 type Repo = NonNullable<
   FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>

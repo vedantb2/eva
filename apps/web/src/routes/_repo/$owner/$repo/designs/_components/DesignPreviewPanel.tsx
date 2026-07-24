@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import { useQueryStates } from "nuqs";
 import { designVariationParser, viewModeParser } from "@/lib/search-params";
 import {
@@ -10,7 +10,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconDeviceDesktop,

@@ -22,7 +22,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import {
@@ -31,8 +31,8 @@ import {
   normalizeAIModel,
   type AIModel,
   type Id,
-} from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+} from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api, normalizeAIModel } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
@@ -15,7 +15,7 @@ import {
   cn,
   ModelSelect,
   toast,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";

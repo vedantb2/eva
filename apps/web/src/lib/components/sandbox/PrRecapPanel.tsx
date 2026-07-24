@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api, type Id } from "@conductor/backend";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { api, type Id } from "@eva/backend";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import {
   ActivityTasks,
   Button,
@@ -13,7 +13,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconAlertTriangle,
   IconExternalLink,

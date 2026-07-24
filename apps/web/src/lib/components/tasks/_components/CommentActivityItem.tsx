@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   Button,
@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { useRepo } from "@/lib/contexts/RepoContext";

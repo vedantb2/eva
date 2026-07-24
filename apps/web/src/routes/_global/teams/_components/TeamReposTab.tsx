@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPlus } from "@tabler/icons-react";
 import { TeamRepoCard } from "./TeamRepoCard";
 

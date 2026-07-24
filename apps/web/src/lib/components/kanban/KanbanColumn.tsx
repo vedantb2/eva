@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, KanbanBoard } from "@conductor/ui";
+import { Badge, KanbanBoard } from "@eva/ui";
 import { useCallback, type ReactNode, type RefCallback } from "react";
 
 import type { IconCircle } from "@tabler/icons-react";

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 
 interface FollowTarget {
   userId: Id<"users">;

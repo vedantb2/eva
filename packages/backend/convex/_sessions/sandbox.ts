@@ -8,7 +8,7 @@ import {
 import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   seedSandboxStartupActivity,

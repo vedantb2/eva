@@ -16,7 +16,7 @@ import {
   getProjectDetails,
   buildProjectBranchName,
 } from "./helpers";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 /** Builds a project's detail payload (conversation history + optional generated
  *  spec) from a single projectDetails read, matching projectWithDetailsValidator.

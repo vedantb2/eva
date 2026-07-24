@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useAction } from "convex/react";
 import { useSessionStorage } from "usehooks-ts";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Spinner, Button } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Spinner, Button } from "@eva/ui";
 import {
   IconAlertTriangle,
   IconRefresh,
@@ -118,7 +118,7 @@ export function SandboxIframeService({
   // session/task. useSessionStorage re-reads automatically when the key
   // changes (e.g. on sandbox swap).
   const [cachedUrl, setCachedUrl] = useSessionStorage<string | null>(
-    `conductor:${cacheNamespace}:${cacheKey}:${sandboxId ?? "no-sandbox"}`,
+    `eva:${cacheNamespace}:${cacheKey}:${sandboxId ?? "no-sandbox"}`,
     null,
   );
 

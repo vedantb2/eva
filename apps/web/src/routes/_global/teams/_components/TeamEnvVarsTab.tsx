@@ -1,6 +1,6 @@
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
 

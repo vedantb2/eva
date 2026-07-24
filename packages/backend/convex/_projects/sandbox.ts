@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, getProjectWithAccess, hasActiveRun } from "../functions";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { buildProjectBranchName } from "./helpers";
 import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {

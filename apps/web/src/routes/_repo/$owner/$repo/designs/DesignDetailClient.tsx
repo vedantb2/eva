@@ -1,9 +1,9 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useEffect, useState } from "react";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";

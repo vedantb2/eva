@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconFolders,
   IconTrash,

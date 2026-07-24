@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Context,
   ContextTrigger,
@@ -14,7 +14,7 @@ import {
   ContextOutputUsage,
   ContextCacheReadUsage,
   ContextCacheWriteUsage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { parseResultEvent } from "@/lib/utils/logs";
 
 // Model context window sizes (in tokens). Used for the usage percentage display;

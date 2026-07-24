@@ -7,7 +7,7 @@ import {
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
-} from "@conductor/backend";
+} from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {

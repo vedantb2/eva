@@ -2,7 +2,7 @@ import {
   CODEX_AUTH_ENV_KEYS,
   OPENCODE_AUTH_ENV_KEYS,
   CURSOR_AUTH_ENV_KEYS,
-} from "@conductor/backend";
+} from "@eva/backend";
 import {
   ClaudeLogo,
   OpenAILogo,

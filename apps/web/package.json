@@ -1,5 +1,5 @@
 {
-  "name": "@conductor/web",
+  "name": "@eva/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.25.0",
-    "@conductor/backend": "workspace:*",
-    "@conductor/shared": "workspace:*",
-    "@conductor/ui": "workspace:*",
+    "@eva/backend": "workspace:*",
+    "@eva/shared": "workspace:*",
+    "@eva/ui": "workspace:*",
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",
     "@dnd-kit/core": "^6.3.1",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";

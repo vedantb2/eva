@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Input, Button } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import { Input, Button } from "@eva/ui";
+import type { Id } from "@eva/backend";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { extractHostname } from "../_utils";
 

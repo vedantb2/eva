@@ -2,7 +2,7 @@
 
 import type { GenericActionCtx } from "convex/server";
 import { quote } from "shell-quote";
-import { formatDurationMsShort } from "@conductor/shared/duration";
+import { formatDurationMsShort } from "@eva/shared/duration";
 import { getInstallationToken } from "../githubAuth";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
@@ -414,7 +414,7 @@ export async function createSandbox(
         );
       }
       // Fresh Vercel node24 sandboxes ship without `jq`, which the git credential
-      // helper (git-credential-conductor) shells out to on every authenticated
+      // helper (git-credential-eva) shells out to on every authenticated
       // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
       // ("jq: command not found") before the seed toolchain stage ever runs.
       // Daytona bakes jq into its base Image, so this is a no-op there.
@@ -497,7 +497,7 @@ function bareGitHubRepoUrl(owner: string, name: string): string {
  * Fetches refs from the GitHub remote origin, optionally pruning stale refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
  *
- * Auth comes from the conductor git credential helper installed at sandbox
+ * Auth comes from the eva git credential helper installed at sandbox
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchOrigin(
@@ -538,7 +538,7 @@ export async function fetchOrigin(
  * Fetches specific branch refs from origin, falling back to individual fetches on missing refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
  *
- * Auth comes from the conductor git credential helper installed at sandbox
+ * Auth comes from the eva git credential helper installed at sandbox
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchBranchRefs(
@@ -879,7 +879,7 @@ async function installDependencies(
 /**
  * Clones a GitHub repo into the sandbox and optionally installs dependencies.
  *
- * The conductor git credential helper is installed before the clone so the SDK
+ * The eva git credential helper is installed before the clone so the SDK
  * call can use a bare HTTPS URL — no token in the URL, no token in process
  * args.
  */
@@ -994,7 +994,7 @@ export async function setupBranch(
 /**
  * Pushes the current branch to origin with retry logic.
  *
- * Auth comes from the conductor git credential helper installed at sandbox
+ * Auth comes from the eva git credential helper installed at sandbox
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function pushBranchToOrigin(

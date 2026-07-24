@@ -1,9 +1,5 @@
-import {
-  getAIModelProvider,
-  type AIProvider,
-  type Id,
-} from "@conductor/backend";
-import type { ModelAccount } from "@conductor/ui";
+import { getAIModelProvider, type AIProvider, type Id } from "@eva/backend";
+import type { ModelAccount } from "@eva/ui";
 
 /**
  * Creator default: personal account matching the model's provider (most

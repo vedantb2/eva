@@ -1,4 +1,4 @@
-import type { AIProvider } from "@conductor/backend";
+import type { AIProvider } from "@eva/backend";
 
 /** A single credential field a provider account collects. */
 export interface CredentialFieldSpec {

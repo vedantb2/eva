@@ -10,14 +10,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   usePromptInputAttachments,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconFile,
   IconPhoto,
   IconSparkles,
   IconFileText,
 } from "@tabler/icons-react";
-import type { Doc, Id } from "@conductor/backend";
+import type { Doc, Id } from "@eva/backend";
 import type { ReactNode, RefObject } from "react";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {

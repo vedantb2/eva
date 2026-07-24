@@ -11,10 +11,10 @@ import {
   Dialog,
   DialogContent,
   CommandShortcut,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";

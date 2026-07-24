@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
@@ -11,9 +11,9 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconBell, IconBellOff, IconUserPlus } from "@tabler/icons-react";
-import { UserInitials, getUserInitials } from "@conductor/shared";
+import { UserInitials, getUserInitials } from "@eva/shared";
 import { Facehash } from "facehash";
 import { getUserDisplayName } from "./task-detail-constants";
 

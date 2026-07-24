@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { formatDurationMsShort } from "@conductor/shared/duration";
+import { formatDurationMsShort } from "@eva/shared/duration";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { DataModel, Id, Doc } from "../_generated/dataModel";

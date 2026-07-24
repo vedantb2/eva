@@ -1,4 +1,4 @@
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,

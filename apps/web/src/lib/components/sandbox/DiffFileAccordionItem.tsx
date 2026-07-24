@@ -5,7 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
   Checkbox,
-} from "@conductor/ui";
+} from "@eva/ui";
 import type { ThemeTypes } from "@pierre/diffs";
 import { ReviewableFileDiff } from "./ReviewableFileDiff";
 

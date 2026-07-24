@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { GitStatus } from "@pierre/trees";
-import { Accordion, Spinner } from "@conductor/ui";
+import { Accordion, Spinner } from "@eva/ui";
 import { IconGitPullRequest, IconAlertTriangle } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { DiffFileTree } from "./DiffFileTree";

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
+import { UserInitials } from "@eva/shared";
 import { useFollow } from "@/lib/contexts/FollowContext";
 
 function getDisplayName(user: {

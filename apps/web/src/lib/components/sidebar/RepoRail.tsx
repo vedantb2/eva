@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCode,
   IconLayoutDashboard,

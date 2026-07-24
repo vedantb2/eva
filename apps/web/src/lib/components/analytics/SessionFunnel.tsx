@@ -1,6 +1,6 @@
 "use client";
 
-import { Progress } from "@conductor/ui";
+import { Progress } from "@eva/ui";
 import { Widget } from "@/lib/components/Widget";
 
 interface SessionFunnelProps {

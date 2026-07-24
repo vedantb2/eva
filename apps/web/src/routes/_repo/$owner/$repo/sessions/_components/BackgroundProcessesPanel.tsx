@@ -14,14 +14,14 @@ import {
   QueueSectionLabel,
   QueueSectionTrigger,
   toast,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconLoader2,
   IconPlayerStop,
   IconTerminal2,
 } from "@tabler/icons-react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 function formatElapsed(startedAt: number, now: number): string {
   const sec = Math.max(0, Math.floor((now - startedAt) / 1000));

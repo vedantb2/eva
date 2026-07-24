@@ -34,7 +34,7 @@ per-surface work.
 
 1. **New component** `packages/ui/src/ai-elements/conversation.tsx` (or a
    route-local `_components/ChatJumpRail.tsx` if it shouldn't ship in the
-   shared `@conductor/ui` package — needs a decision, see Open questions):
+   shared `@eva/ui` package — needs a decision, see Open questions):
    - Props: list of `{ id, preview }` for user messages, `activeId`,
      `onSelect(id)`.
    - Renders a vertical rail of ticks positioned by index (percentage of
@@ -73,7 +73,7 @@ per-surface work.
 
 ## Open questions
 
-- Shared UI package (`@conductor/ui`) vs. route-local component — does this
+- Shared UI package (`@eva/ui`) vs. route-local component — does this
   belong next to `Conversation`/`ConversationScrollButton` since it's
   conceptually part of that same primitive, or is it specific enough to
   `ChatBody`'s message shape (`ChatBodyMessage`) to live in

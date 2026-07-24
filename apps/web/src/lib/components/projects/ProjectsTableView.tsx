@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { SortingState } from "@tanstack/react-table";
 import {
@@ -13,14 +13,14 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { TableVirtuoso } from "react-virtuoso";
-import { DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
+import { DataTableColumnHeader, type ColumnDef } from "@eva/ui";
+import { UserInitials } from "@eva/shared";
 import { IconGitBranch } from "@tabler/icons-react";
 import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
-import { compactRelativeTime } from "@conductor/shared/dates";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { entityPathSegment } from "@/lib/numId";

@@ -20,7 +20,7 @@ import {
   setProjectConversation,
   setProjectGeneratedSpec,
 } from "./_projects/helpers";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",

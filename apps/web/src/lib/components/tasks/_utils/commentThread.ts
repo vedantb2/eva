@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 
 export type TaskComment = FunctionReturnType<
   typeof api.taskComments.listByTask

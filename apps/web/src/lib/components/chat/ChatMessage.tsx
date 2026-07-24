@@ -8,13 +8,13 @@ import {
   TooltipTrigger,
   cn,
   formatModelDisplayLabel,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
 import { m } from "motion/react";
-import dayjs from "@conductor/shared/dates";
-import { formatDuration } from "@conductor/shared/duration";
-import { findAIModelOption, getReasoningLevelLabel } from "@conductor/backend";
+import dayjs from "@eva/shared/dates";
+import { formatDuration } from "@eva/shared/duration";
+import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
 import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";

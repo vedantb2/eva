@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconClipboard,

@@ -2,8 +2,8 @@
 
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import type { api } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { IconArrowRight } from "@tabler/icons-react";
 
 type TaskActivityEvent = NonNullable<

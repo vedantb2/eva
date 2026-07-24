@@ -3,7 +3,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconDots,
   IconEyeOff,

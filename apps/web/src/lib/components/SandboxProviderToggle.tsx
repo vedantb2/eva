@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { DaytonaLogo, VercelLogo } from "@/lib/components/ui/providerLogos";
 import type { EnvVar } from "@/lib/components/EnvVarsTable";
 import type { EnvVarScope } from "@/lib/components/_utils/envVarSlotTypes";

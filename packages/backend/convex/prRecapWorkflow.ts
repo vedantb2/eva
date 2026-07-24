@@ -20,7 +20,7 @@ import {
   type PrRecapOutcome,
 } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   findSiblingRepos,
   pickDefaultVisibleAppRepo,

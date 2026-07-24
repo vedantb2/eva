@@ -2,7 +2,7 @@
 // Cursor, Convex) or the vendor favicon (Daytona — not on svgl). Theme-sensitive
 // marks use currentColor so they stay visible in light and dark UI.
 
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface ProviderLogoProps {
   size?: number;

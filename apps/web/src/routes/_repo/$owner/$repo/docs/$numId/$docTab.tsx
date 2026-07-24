@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, redirect } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   DOC_VIEWER_DEFAULT_TAB,
   isDocViewerTab,
@@ -10,7 +10,7 @@ import { DocViewer } from "@/lib/components/docs/DocViewer";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { parseRouteNumId } from "@/lib/numId";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/docs/$numId/$docTab")(
   {

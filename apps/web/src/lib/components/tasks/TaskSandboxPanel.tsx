@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";

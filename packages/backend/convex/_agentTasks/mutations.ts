@@ -20,7 +20,7 @@ import { allocateNumId } from "../numId";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { logTaskActivity } from "../taskActivity";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import {

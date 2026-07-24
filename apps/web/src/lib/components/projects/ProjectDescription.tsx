@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/tasks/_components/MarkdownEditor";
 
 export function ProjectDescription({

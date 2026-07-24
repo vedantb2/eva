@@ -1,7 +1,7 @@
 "use client";
 
-import { PERSONALISATION_PRESETS } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import { PERSONALISATION_PRESETS } from "@eva/backend";
+import { cn } from "@eva/ui";
 import { IconBriefcase, IconCode, IconBrush } from "@tabler/icons-react";
 
 const PRESET_ICONS = {

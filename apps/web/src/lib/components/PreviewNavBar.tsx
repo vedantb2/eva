@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArrowLeft,
   IconArrowRight,

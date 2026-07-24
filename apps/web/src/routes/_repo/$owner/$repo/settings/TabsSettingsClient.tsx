@@ -2,8 +2,8 @@
 
 import { useState, createElement } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import { Button, Input } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Input } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {

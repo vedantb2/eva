@@ -22,7 +22,7 @@ import {
 } from "./toolbar-state";
 import { subscribeDark, getDark } from "./theme";
 import { getPageUrl } from "./page-url";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { requestBackground, type BgError } from "@/shared/messaging";
 
 function dividerStyle(dark: boolean): React.CSSProperties {

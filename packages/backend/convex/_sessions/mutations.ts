@@ -12,7 +12,7 @@ import {
   sessionStatusValidator,
 } from "../validators";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import {
   assertProviderAccountOwnedBy,

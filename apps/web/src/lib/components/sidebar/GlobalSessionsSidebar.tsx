@@ -3,7 +3,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import {
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   Input,
   SearchInput,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";

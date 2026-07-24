@@ -3,7 +3,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Badge,
@@ -12,7 +12,7 @@ import {
   CollapsibleTrigger,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { AnimatePresence } from "motion/react";
 import { RepoLogo } from "@/lib/components/RepoLogo";

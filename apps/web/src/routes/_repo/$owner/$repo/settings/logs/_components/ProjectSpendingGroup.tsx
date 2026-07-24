@@ -2,17 +2,17 @@
 
 import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   Badge,
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@conductor/ui";
-import { ProviderIcon } from "@conductor/ui/ai";
+} from "@eva/ui";
+import { ProviderIcon } from "@eva/ui/ai";
 import { IconChevronRight, IconLayoutKanban } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { formatDurationMsShort } from "@conductor/shared/duration";
+import dayjs from "@eva/shared/dates";
+import { formatDurationMsShort } from "@eva/shared/duration";
 import {
   parseResultEvent,
   getTotalInputTokens,

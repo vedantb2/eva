@@ -6,7 +6,7 @@ import type { OptimisticLocalStore } from "convex/browser";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
@@ -22,7 +22,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCopy,
@@ -42,7 +42,7 @@ import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocModeSwitcher } from "./DocModeSwitcher";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { DocTestGenDialog } from "./DocTestGenDialog";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

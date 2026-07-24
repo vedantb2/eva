@@ -1,4 +1,4 @@
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 const STEP_LABELS = [
   "How Eva works",

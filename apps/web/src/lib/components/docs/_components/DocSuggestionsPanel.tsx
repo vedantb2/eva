@@ -3,11 +3,11 @@
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
-import { Button, cn } from "@conductor/ui";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
+import { Button, cn } from "@eva/ui";
 import { IconX, IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {

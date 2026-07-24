@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Spinner } from "@eva/ui";
 import {
   AUTOMATION_DEFAULT_TAB,
   isAutomationTab,

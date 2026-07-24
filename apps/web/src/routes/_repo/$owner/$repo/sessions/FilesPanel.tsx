@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { useQueryState } from "nuqs";
-import { api, type Id } from "@conductor/backend";
-import { Button, Spinner } from "@conductor/ui";
+import { api, type Id } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 import { toRepoRelativePath } from "@/lib/components/chat/ChangedFilesCard";
 import { fileViewerPathParser } from "@/lib/search-params";

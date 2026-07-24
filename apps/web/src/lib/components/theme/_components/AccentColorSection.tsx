@@ -2,7 +2,7 @@
 
 import { ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
 import type { AccentColor } from "@/lib/contexts/ThemeContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { SectionLabel } from "./SectionLabel";
 import { OptionButton } from "./OptionButton";

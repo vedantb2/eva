@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";

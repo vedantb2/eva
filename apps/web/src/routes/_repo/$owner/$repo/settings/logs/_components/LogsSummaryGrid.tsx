@@ -8,7 +8,7 @@ import {
 } from "@tabler/icons-react";
 import { Kpi } from "@/lib/components/analytics/Kpi";
 import { formatCost, formatTokens, GBP_TO_USD } from "../_utils";
-import { formatDurationMs } from "@conductor/shared/duration";
+import { formatDurationMs } from "@eva/shared/duration";
 
 interface LogsSummaryGridProps {
   totalCost: number;

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -21,7 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconUpload } from "@tabler/icons-react";
 import { parseArtifactMeta, parseStorageId } from "./_meta";
 

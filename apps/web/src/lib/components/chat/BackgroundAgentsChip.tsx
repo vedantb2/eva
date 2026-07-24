@@ -6,8 +6,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@conductor/ui";
-import type { BackgroundAgentEntry } from "@conductor/backend";
+} from "@eva/ui";
+import type { BackgroundAgentEntry } from "@eva/backend";
 import { IconLoader2, IconPlayerStop, IconRobot } from "@tabler/icons-react";
 import { useState } from "react";
 

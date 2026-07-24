@@ -1,6 +1,6 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 
 /** Discriminated target shapes accepted by the chat draft APIs. */

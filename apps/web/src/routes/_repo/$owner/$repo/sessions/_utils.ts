@@ -223,7 +223,7 @@ export function buildTerminalHistoryKey(
       : owner.kind === "task"
         ? owner.taskId
         : owner.projectId;
-  return `conductor:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
+  return `eva:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
 }
 
 export function createTerminalHistoryWriter(

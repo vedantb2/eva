@@ -2,11 +2,11 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { SkillRow } from "./skills/_components/SkillRow";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 import { useState } from "react";
 

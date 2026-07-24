@@ -1,9 +1,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { useQueryState } from "nuqs";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button, Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import {
   IconFileText,
   IconCopy,

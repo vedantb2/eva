@@ -1,11 +1,11 @@
 "use client";
 
-import { useElapsedSeconds } from "@conductor/ui";
+import { useElapsedSeconds } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";

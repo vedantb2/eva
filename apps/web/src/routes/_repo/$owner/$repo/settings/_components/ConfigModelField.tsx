@@ -1,7 +1,7 @@
 "use client";
 
-import { ModelSelect } from "@conductor/ui";
-import type { AIModel } from "@conductor/backend";
+import { ModelSelect } from "@eva/ui";
+import type { AIModel } from "@eva/backend";
 import type { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type ModelFieldState = Pick<

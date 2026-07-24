@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useState } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -14,7 +14,7 @@ import {
   DialogFooter,
   Button,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 interface DeleteTasksModalProps {
   isOpen: boolean;

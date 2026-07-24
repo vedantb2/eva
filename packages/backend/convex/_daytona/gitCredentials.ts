@@ -12,8 +12,8 @@ import {
   WORKSPACE_DIR,
 } from "./helpers";
 
-const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-conductor";
-const HELPER_CONFIG_DIR = "/home/eva/.config/conductor";
+const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-eva";
+const HELPER_CONFIG_DIR = "/home/eva/.config/eva";
 const HELPER_CONFIG_PATH = `${HELPER_CONFIG_DIR}/git-credentials.env`;
 
 // Repositories that may have a URL-embedded GitHub token in `.git/config` from
@@ -23,7 +23,7 @@ const KNOWN_REPO_DIRS = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
 
 // Bash credential helper. Git invokes it with `get` and supplies the host/proto
 // on stdin (which we discard — we only auth one installation). We POST the
-// per-sandbox bearer secret to the conductor backend, which mints a fresh
+// per-sandbox bearer secret to the eva backend, which mints a fresh
 // installation token. A short file cache trims duplicate mints during a single
 // git operation (clone/fetch/push fan out into several helper invocations).
 const HELPER_SCRIPT = `#!/usr/bin/env bash
@@ -38,15 +38,15 @@ cat >/dev/null 2>&1 || true
 
 CONFIG_FILE="${HELPER_CONFIG_PATH}"
 if [ ! -f "$CONFIG_FILE" ]; then
-  echo "git-credential-conductor: missing $CONFIG_FILE" >&2
+  echo "git-credential-eva: missing $CONFIG_FILE" >&2
   exit 1
 fi
 
 # shellcheck disable=SC1090
 . "$CONFIG_FILE"
 
-if [ -z "\${CONDUCTOR_SANDBOX_SECRET:-}" ] || [ -z "\${CONVEX_SITE_URL:-}" ]; then
-  echo "git-credential-conductor: incomplete config in $CONFIG_FILE" >&2
+if [ -z "\${EVA_SANDBOX_SECRET:-}" ] || [ -z "\${CONVEX_SITE_URL:-}" ]; then
+  echo "git-credential-eva: incomplete config in $CONFIG_FILE" >&2
   exit 1
 fi
 
@@ -67,17 +67,17 @@ if [ -f "$CACHE_FILE" ]; then
 fi
 
 RESPONSE=$(curl -fsSL -X POST \\
-  -H "Authorization: Bearer $CONDUCTOR_SANDBOX_SECRET" \\
+  -H "Authorization: Bearer $EVA_SANDBOX_SECRET" \\
   -H "Content-Type: application/json" \\
   --data '{}' \\
   "$CONVEX_SITE_URL/api/git-credentials") || {
-    echo "git-credential-conductor: token fetch failed" >&2
+    echo "git-credential-eva: token fetch failed" >&2
     exit 1
   }
 
 TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.token // empty')
 if [ -z "$TOKEN" ]; then
-  echo "git-credential-conductor: empty token in response" >&2
+  echo "git-credential-eva: empty token in response" >&2
   exit 1
 fi
 
@@ -96,11 +96,11 @@ function resolveConvexSiteUrl(): string {
 }
 
 /**
- * Installs the conductor git credential helper inside the sandbox and binds it
+ * Installs the eva git credential helper inside the sandbox and binds it
  * to a fresh per-sandbox bearer secret stored in `sandboxGitCredentials`. After
  * this runs, the sandbox can run `git fetch`/`git push` against
  * `https://github.com/...` without any token in the URL — the helper mints a
- * fresh installation token on demand via the conductor backend.
+ * fresh installation token on demand via the eva backend.
  *
  * Idempotent: re-running rotates the secret and re-writes the helper script.
  */
@@ -117,7 +117,7 @@ export async function ensureGitCredentialHelper(
   });
 
   const siteUrl = resolveConvexSiteUrl();
-  const envFileContent = `CONDUCTOR_SANDBOX_SECRET=${secret}\nCONVEX_SITE_URL=${siteUrl}\n`;
+  const envFileContent = `EVA_SANDBOX_SECRET=${secret}\nCONVEX_SITE_URL=${siteUrl}\n`;
 
   await sandbox.writeFile(HELPER_SCRIPT_PATH, HELPER_SCRIPT);
   await sandbox.writeFile(HELPER_CONFIG_PATH, envFileContent);

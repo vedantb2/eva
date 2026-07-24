@@ -11,12 +11,12 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 /**
  * Proof/audit default for a task's runs, attached to the Run button. Edits the

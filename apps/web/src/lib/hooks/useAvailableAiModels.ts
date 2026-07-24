@@ -1,13 +1,13 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import type { ModelAccount } from "@conductor/ui";
+import type { ModelAccount } from "@eva/ui";
 import {
   api,
   getVisibleAIModelOptions,
   normalizeAIModel,
   type Id,
-} from "@conductor/backend";
+} from "@eva/backend";
 
 export function useAvailableAiModels(
   repoId: Id<"githubRepos"> | null | undefined,

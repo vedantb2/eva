@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 
 // The cowork-artifact-meta manifest embedded in a Cowork artifact's HTML. Extra
 // keys (schemaVersion, mcpServerNames, …) are ignored by the non-strict schema.

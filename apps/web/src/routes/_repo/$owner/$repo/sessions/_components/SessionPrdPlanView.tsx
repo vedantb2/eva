@@ -18,7 +18,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCode,
@@ -28,8 +28,8 @@ import {
   IconPencil,
   IconX,
 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
-import { api } from "@conductor/backend";
+import type { Id } from "@eva/backend";
+import { api } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";

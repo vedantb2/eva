@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 import { useAction } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 
 // Must match PREVIEW_GRANT_PARAM in packages/backend/convex/previewGrantConfig.ts.
 const GRANT_PARAM = "__eva_grant";

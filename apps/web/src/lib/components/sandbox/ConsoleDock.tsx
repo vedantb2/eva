@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronUp,

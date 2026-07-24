@@ -1,6 +1,6 @@
 import { useLocalStorage } from "usehooks-ts";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   TASK_STATUSES,
   type DisplayTaskStatus,

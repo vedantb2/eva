@@ -15,7 +15,7 @@ import {
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",

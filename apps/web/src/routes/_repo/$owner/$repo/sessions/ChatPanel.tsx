@@ -1,4 +1,4 @@
-import { api, normalizeAIModel, type Doc, type Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";

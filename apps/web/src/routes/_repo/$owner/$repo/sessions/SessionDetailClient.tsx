@@ -1,11 +1,11 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";

@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import {
   isSnapshotSettingsTab,
@@ -20,7 +20,7 @@ import {
   TabsTrigger,
   TabsContent,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   CronScheduleCard,
@@ -33,7 +33,7 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import { formatDurationMs } from "@conductor/shared/duration";
+import { formatDurationMs } from "@eva/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";

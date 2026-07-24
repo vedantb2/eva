@@ -599,7 +599,11 @@ export async function signAndLaunchScript(
       entityId,
       ...(entityIdField === "sessionId"
         ? { entityKind: "session" as const }
-        : {}),
+        : entityIdField === "taskId"
+          ? { entityKind: "task" as const }
+          : entityIdField === "projectId"
+            ? { entityKind: "project" as const }
+            : {}),
     },
   );
   console.log(

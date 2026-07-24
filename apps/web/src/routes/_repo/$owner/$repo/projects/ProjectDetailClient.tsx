@@ -160,6 +160,28 @@ export function ProjectDetailClient({
     });
   };
 
+  // Auto-switch to Browser + expand sandbox panel on lock transition only
+  // (undefined → set). Mirrors SessionDetailClient's pattern. Don't fight the
+  // user if they switch away mid-lock.
+  const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
+  const [expandRightSignal, setExpandRightSignal] = useState(0);
+  const agentBrowsingAt =
+    project === null || project === undefined
+      ? undefined
+      : project.agentBrowsingAt;
+  useEffect(() => {
+    const prev = prevAgentBrowsingAt.current;
+    prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (agentBrowsingAt === undefined || prev !== undefined) return;
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/browser`,
+      search: true,
+    });
+    setExpandRightSignal((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentBrowsingAt]);
+
   const handleStopBuild = async () => {
     if (!project) return;
     setIsStoppingBuild(true);
@@ -286,6 +308,7 @@ export function ProjectDetailClient({
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
+      expandRightSignal={expandRightSignal}
       leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <ProjectSandboxChatPanel
           projectId={projectId}

@@ -1,4 +1,4 @@
-import { useAction, useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
@@ -18,9 +18,13 @@ interface DesktopPanelProps {
   repoId: Id<"githubRepos">;
   /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
   surface?: "browser" | "desktop";
-  /** When set with a fresh agentBrowsingAt, shows the takeover overlay. */
-  sessionId?: Id<"sessions">;
+  /** When fresh, shows the takeover overlay (session/task/project sandboxes). */
   agentBrowsingAt?: number;
+  /**
+   * Clears the agent-browsing soft lock (session/task/project-specific
+   * mutation, provided by the caller). Takeover overlay only renders when set.
+   */
+  onReleaseLock?: () => void;
   /** True while Computer/Browser desktop is starting or running. */
   onRunningChange?: (running: boolean) => void;
 }
@@ -87,14 +91,13 @@ export function DesktopPanel({
   isActive,
   repoId,
   surface = "desktop",
-  sessionId,
   agentBrowsingAt,
+  onReleaseLock,
   onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
   const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
-  const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
@@ -117,11 +120,10 @@ export function DesktopPanel({
   };
 
   const showLockOverlay =
-    sessionId !== undefined && isAgentBrowsingActive(agentBrowsingAt);
+    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt);
 
   const handleTakeControl = () => {
-    if (!sessionId) return;
-    void releaseBrowserLock({ sessionId });
+    onReleaseLock?.();
   };
 
   return (

@@ -209,6 +209,9 @@ export const agentTaskFields = {
   lastReasoningLevel: v.optional(reasoningLevelValidator),
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  // Soft UX lock while the agent drives the shared desktop Chrome via
+  // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
+  agentBrowsingAt: v.optional(v.number()),
 };
 
 export const agentRunFields = {
@@ -496,6 +499,9 @@ export const projectFields = {
   lastReasoningLevel: v.optional(reasoningLevelValidator),
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  // Soft UX lock while the agent drives the shared desktop Chrome via
+  // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
+  agentBrowsingAt: v.optional(v.number()),
 };
 
 export const projectDetailsFields = {

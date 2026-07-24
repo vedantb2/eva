@@ -102,28 +102,9 @@ export const markReadyAndArchive = internalMutation({
   },
 });
 
-/**
- * Soft UX lock for agent-driven browsing. MCP browser_lock / browser_unlock
- * call this; the session UI reacts to `agentBrowsingAt` for auto-switch + overlay.
- */
-export const setAgentBrowsingAt = internalMutation({
-  args: {
-    sessionId: v.string(),
-    locked: v.boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const sessionId = ctx.db.normalizeId("sessions", args.sessionId);
-    if (!sessionId) return null;
-    const session = await ctx.db.get(sessionId);
-    if (!session) return null;
-    await ctx.db.patch(sessionId, {
-      agentBrowsingAt: args.locked ? Date.now() : undefined,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
+// Soft UX lock for agent-driven browsing moved to
+// `internal.mcp.browserLock.setAgentBrowsingAt` (generalized to
+// sessions/tasks/projects); MCP browser_lock / browser_unlock call that now.
 
 /**
  * Applies an LLM-generated session title only while the placeholder remains.

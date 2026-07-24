@@ -1,5 +1,9 @@
 # Changelog
 
+## Shared browser works in task/project sandboxes - 2026-07-23
+
+The MCP `browser_*` tools hard-gated on a session entity, so quick-task and project chat agents (whose prompts advertise the shared-browser flow) always fell back to headless Chrome — the user could never watch live despite those panels already having a Browser tab. Sandbox tokens now carry `task`/`project` entity kinds, `browser_start` resolves the sandbox from the owning table, and `agentBrowsingAt` (+ `releaseBrowserLock`, takeover overlay, auto-switch to Browser) is generalized to `agentTasks`/`projects`, mirroring the session wiring.
+
 ## Reduce layout shifts across web routes - 2026-07-23
 
 Async shells and theme/font paint were still nudging content after first paint (sidebar header growing when team art loaded, spinner→content height swaps, padding transitions, font check icons, late custom-theme vars). Reserved stable heights/skeletons, early theme hints, and metric-matched Geist swap so route loads stay visually still. Follow-up pass reserved sidebar stats/logo slots and kept PageWrapper mounted for drafts/artifacts/quick-tasks/inbox/teams/sessions sidebars.

@@ -40,7 +40,7 @@ export {
   toggleCodeServer,
   toggleDesktopServer,
   launchChromeInDesktop,
-  startDesktopForBrowserSession,
+  startDesktopForBrowserEntity,
   readSandboxFile,
   listSandboxFiles,
 } from "./_daytona/services";

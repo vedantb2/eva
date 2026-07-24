@@ -431,6 +431,20 @@ export const setPreviewPort = authMutation({
   },
 });
 
+/** Clears the agent-browsing soft lock so the user can take over the shared browser. */
+export const releaseBrowserLock = authMutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      agentBrowsingAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 /**
  * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
  * bump. Server re-truncates so a buggy client cannot inflate the project doc.

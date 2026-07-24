@@ -230,6 +230,7 @@ import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
 import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
+import type * as mcp_browserLock from "../mcp/browserLock.js";
 import type * as mcp_native from "../mcp/native.js";
 import type * as mcp_nodeActions from "../mcp/nodeActions.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
@@ -534,6 +535,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   linearActions: typeof linearActions;
   logs: typeof logs;
+  "mcp/browserLock": typeof mcp_browserLock;
   "mcp/native": typeof mcp_native;
   "mcp/nodeActions": typeof mcp_nodeActions;
   "mcp/oauth": typeof mcp_oauth;

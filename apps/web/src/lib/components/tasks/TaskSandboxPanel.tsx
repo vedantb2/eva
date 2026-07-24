@@ -73,6 +73,7 @@ export function TaskSandboxPanel({
   const setTerminalHistoryTail = useMutation(
     api.agentTasks.setTerminalHistoryTail,
   );
+  const releaseBrowserLock = useMutation(api.agentTasks.releaseBrowserLock);
 
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
@@ -137,6 +138,7 @@ export function TaskSandboxPanel({
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
+        agentBrowsingAt={task?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
@@ -165,6 +167,8 @@ export function TaskSandboxPanel({
           cacheKey={taskIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
+          agentBrowsingAt={task?.agentBrowsingAt}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ id: taskId })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}

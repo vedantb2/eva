@@ -79,6 +79,7 @@ export function SandboxPanel({
   const setTerminalHistoryTail = useMutation(
     api.sessions.setTerminalHistoryTail,
   );
+  const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
 
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
@@ -211,8 +212,8 @@ export function SandboxPanel({
           devCommand={devCommand}
           prUrl={prUrl}
           customTabs={customTabs}
-          sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ sessionId })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}

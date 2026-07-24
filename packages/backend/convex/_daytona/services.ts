@@ -163,12 +163,18 @@ export const launchChromeInDesktop = action({
 });
 
 /**
- * On-demand desktop + Chrome for session browser MCP. Idempotent — safe to call
- * when VNC/Chrome are already up. Resolves the session from the MCP token claim.
+ * On-demand desktop + Chrome for the shared browser MCP tools. Idempotent —
+ * safe to call when VNC/Chrome are already up. Resolves the session/task/
+ * project from the MCP token claim (entityKind + entityId).
  */
-export const startDesktopForBrowserSession = internalAction({
+export const startDesktopForBrowserEntity = internalAction({
   args: {
-    sessionId: v.string(),
+    entityKind: v.union(
+      v.literal("session"),
+      v.literal("task"),
+      v.literal("project"),
+    ),
+    entityId: v.string(),
     clerkUserId: v.string(),
   },
   returns: v.object({
@@ -176,11 +182,26 @@ export const startDesktopForBrowserSession = internalAction({
     message: v.string(),
   }),
   handler: async (ctx, args) => {
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) {
-      return { ok: false, message: "Session not found." };
+    const entity =
+      args.entityKind === "session"
+        ? await ctx.runQuery(internal.sessions.getInternal, {
+            id: args.entityId,
+          })
+        : args.entityKind === "task"
+          ? await ctx.runQuery(internal.agentTasks.getInternalByStringId, {
+              id: args.entityId,
+            })
+          : await ctx.runQuery(internal.projects.getInternalByStringId, {
+              id: args.entityId,
+            });
+    if (!entity) {
+      return { ok: false, message: `${args.entityKind} not found.` };
+    }
+    if (!entity.repoId) {
+      return {
+        ok: false,
+        message: `No repo on this ${args.entityKind}.`,
+      };
     }
 
     const user = await ctx.runQuery(internal.mcp.queries.getUserByClerkId, {
@@ -192,23 +213,25 @@ export const startDesktopForBrowserSession = internalAction({
 
     const hasAccess = await ctx.runQuery(
       internal.mcp.queries.checkRepoAccessForUser,
-      { repoId: session.repoId, userId: user._id },
+      { repoId: entity.repoId, userId: user._id },
     );
     if (!hasAccess) {
-      return { ok: false, message: "Access denied for this session's repo." };
+      return {
+        ok: false,
+        message: `Access denied for this ${args.entityKind}'s repo.`,
+      };
     }
 
-    const sandboxId = session.sandboxId;
+    const sandboxId = entity.sandboxId;
     if (!sandboxId) {
       return {
         ok: false,
-        message:
-          "No sandbox on this session. Start the sandbox before using the shared browser.",
+        message: `No sandbox on this ${args.entityKind}. Start the sandbox before using the shared browser.`,
       };
     }
 
     try {
-      const handle = await getSandboxHandle(ctx, session.repoId, sandboxId);
+      const handle = await getSandboxHandle(ctx, entity.repoId, sandboxId);
       await startDesktopWithChrome(handle);
       return {
         ok: true,

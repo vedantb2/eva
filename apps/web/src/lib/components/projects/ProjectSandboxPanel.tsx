@@ -66,6 +66,7 @@ export function ProjectSandboxPanel({
   const setTerminalHistoryTail = useMutation(
     api.projects.setTerminalHistoryTail,
   );
+  const releaseBrowserLock = useMutation(api.projects.releaseBrowserLock);
 
   const activeTab: SandboxTab = sandboxTab;
 
@@ -144,6 +145,7 @@ export function ProjectSandboxPanel({
         newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
+        agentBrowsingAt={project?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
@@ -172,6 +174,10 @@ export function ProjectSandboxPanel({
           cacheKey={projectIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
+          agentBrowsingAt={project?.agentBrowsingAt}
+          onReleaseBrowserLock={() =>
+            void releaseBrowserLock({ id: projectId })
+          }
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}

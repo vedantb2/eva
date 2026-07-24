@@ -45,7 +45,7 @@ const internalTokenClaims = z.object({
   aud: z.literal("mcp-internal"),
   repoId: z.string(),
   entityId: z.string().optional(),
-  entityKind: z.literal("session").optional(),
+  entityKind: z.enum(["session", "task", "project"]).optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,7 +158,9 @@ export const verifyAccessToken = internalAction({
       clerkUserId: v.string(),
       scopedRepoId: v.optional(v.string()),
       entityId: v.optional(v.string()),
-      entityKind: v.optional(v.literal("session")),
+      entityKind: v.optional(
+        v.union(v.literal("session"), v.literal("task"), v.literal("project")),
+      ),
     }),
     v.null(),
   ),
@@ -1371,7 +1373,9 @@ export const handleMcpRequest = internalAction({
     clerkUserId: v.string(),
     scopedRepoId: v.optional(v.string()),
     entityId: v.optional(v.string()),
-    entityKind: v.optional(v.literal("session")),
+    entityKind: v.optional(
+      v.union(v.literal("session"), v.literal("task"), v.literal("project")),
+    ),
     body: v.string(),
   },
   returns: v.object({

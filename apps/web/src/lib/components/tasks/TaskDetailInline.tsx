@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import { useMutation } from "convex/react";
@@ -141,6 +141,34 @@ export function TaskDetailInline({
     setEmbeddedSandboxTab("files");
   };
 
+  // Must stay above early returns — same hooks-order constraint as openFile.
+  const handleSandboxTabChange = (tab: SandboxTab) => {
+    if (routing?.mode === "quick-sandbox") {
+      if (tab === "prd" || !isTaskRouteSandboxTab(tab)) {
+        routing.quick.onSandboxTabChange("preview");
+        return;
+      }
+      routing.quick.onSandboxTabChange(tab);
+      return;
+    }
+    setEmbeddedSandboxTab(tab);
+  };
+
+  // Auto-switch to Browser + expand sandbox panel on lock transition only
+  // (undefined → set). Mirrors SessionDetailClient's pattern. Don't fight the
+  // user if they switch away mid-lock.
+  const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
+  const [expandRightSignal, setExpandRightSignal] = useState(0);
+  const agentBrowsingAt = task?.agentBrowsingAt;
+  useEffect(() => {
+    const prev = prevAgentBrowsingAt.current;
+    prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (agentBrowsingAt === undefined || prev !== undefined) return;
+    handleSandboxTabChange("browser");
+    setExpandRightSignal((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentBrowsingAt]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -160,17 +188,6 @@ export function TaskDetailInline({
     routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
   const activeSandboxTab: SandboxTab =
     routing?.mode === "quick-sandbox" ? routeSandboxTab : embeddedSandboxTab;
-  const handleSandboxTabChange = (tab: SandboxTab) => {
-    if (routing?.mode === "quick-sandbox") {
-      if (tab === "prd" || !isTaskRouteSandboxTab(tab)) {
-        routing.quick.onSandboxTabChange("preview");
-        return;
-      }
-      routing.quick.onSandboxTabChange(tab);
-      return;
-    }
-    setEmbeddedSandboxTab(tab);
-  };
 
   // Always mount the sandbox panel when the task can have a sandbox so tabs
   // (Diffs, etc.) stay reachable while stopped — same as sessions. Panes
@@ -213,6 +230,7 @@ export function TaskDetailInline({
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
+      expandRightSignal={expandRightSignal}
       leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <TaskSandboxChatPanel
           taskId={taskId}

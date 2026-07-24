@@ -34,9 +34,12 @@ interface SandboxPaneSlotsProps {
   prUrl?: string;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
-  /** Sessions only — enables agent-browsing takeover overlay on the desktop surface. */
-  sessionId?: Id<"sessions">;
   agentBrowsingAt?: number;
+  /**
+   * Clears the agent-browsing soft lock for this owner (session/task/project
+   * mutation, provided by the caller). Takeover overlay only renders when set.
+   */
+  onReleaseBrowserLock?: () => void;
   /**
    * When false, the Preview Console does not auto-type the start command
    * (session sandboxes start it in tmux from the backend after startup).
@@ -79,8 +82,8 @@ export function SandboxPaneSlots({
   devCommand,
   prUrl,
   customTabs,
-  sessionId,
   agentBrowsingAt,
+  onReleaseBrowserLock,
   runConsoleDevCommandOnConnect = true,
   onComputerRunningChange,
   onStartSandbox,
@@ -257,8 +260,8 @@ export function SandboxPaneSlots({
           isActive={isActive}
           repoId={repoId}
           surface={activeTab === "browser" ? "browser" : "desktop"}
-          sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
+          onReleaseLock={onReleaseBrowserLock}
           onRunningChange={onComputerRunningChange}
         />
       </div>

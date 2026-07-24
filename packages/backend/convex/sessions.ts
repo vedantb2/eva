@@ -45,6 +45,5 @@ export {
   setPrState,
   markReadyAndArchive,
   updateDeploymentStatus,
-  setAgentBrowsingAt,
   applyGeneratedTitle,
 } from "./_sessions/internal";

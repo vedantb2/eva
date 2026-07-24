@@ -21,6 +21,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconPencil,
+  IconSearch,
   IconUsers,
 } from "@tabler/icons-react";
 import {
@@ -34,6 +35,7 @@ import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { useSearch } from "@/lib/contexts/SearchContext";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
   appLeafName,
@@ -152,6 +154,7 @@ function RepoRailView({
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
+  const { openSearch } = useSearch();
   const homeActive =
     pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
@@ -385,6 +388,28 @@ function RepoRailView({
           </TooltipTrigger>
           <TooltipContent side="right">
             {collapsed ? "Show sidebar" : "Hide sidebar"}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => openSearch()}
+              aria-label="Search"
+              title="Search"
+              className={cn(
+                RAIL_TILE_CLASS,
+                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+              )}
+            >
+              <IconSearch size={22} className="shrink-0" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="flex items-center gap-2">
+            Search
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
           </TooltipContent>
         </Tooltip>
         <SidebarUserMenu

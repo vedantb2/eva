@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@conductor/ui";
 import {
+  IconArrowBackUp,
   IconBrandVercel,
   IconDots,
   IconGitPullRequest,
@@ -37,12 +38,14 @@ interface SessionChatHeaderProps {
   messageCount: number;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
+  isUndoingReview: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
   onOpenReviewModal: () => void;
+  onUndoReview: () => void;
 }
 
 export function SessionChatHeader({
@@ -55,12 +58,14 @@ export function SessionChatHeader({
   messageCount,
   isSandboxActive,
   isSandboxToggling,
+  isUndoingReview,
   deploymentStatus,
   sandboxCollapsed,
   onSandboxToggle,
   onToggleSandbox,
   onOpenSummaryModal,
   onOpenReviewModal,
+  onUndoReview,
 }: SessionChatHeaderProps) {
   const headerLeft = (
     <Button
@@ -92,6 +97,22 @@ export function SessionChatHeader({
         >
           <IconSend size={12} />
           <span className="hidden sm:inline">Send for Review</span>
+        </Button>
+      )}
+      {prState === "open" && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="motion-press hover:scale-[1.01] active:scale-[0.96]"
+          onClick={onUndoReview}
+          disabled={isUndoingReview}
+        >
+          {isUndoingReview ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconArrowBackUp size={12} />
+          )}
+          <span className="hidden sm:inline">Undo</span>
         </Button>
       )}
       <DropdownMenu>

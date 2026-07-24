@@ -8,7 +8,11 @@ export {
   listAllAvailableRepos,
 } from "./_github/api";
 
-export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";
+export {
+  createSessionPr,
+  createDraftSessionPr,
+  revertSessionPrToDraft,
+} from "./_github/prFlow";
 
 export { getPrDiff } from "./_github/prDiff";
 

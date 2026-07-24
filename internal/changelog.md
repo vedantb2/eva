@@ -1,5 +1,9 @@
 # Changelog
 
+## Undo Send for Review returns PR to draft - 2026-07-24
+
+After promoting a session PR, there was no in-app way back to draft without editing on GitHub. When `prState` is open, Undo replaces Send for Review, calls `convertPullRequestToDraft`, and sets the session back to draft so review can be re-sent later.
+
 ## Draggable app/repo and sessions sidebar - 2026-07-24
 
 The secondary sidebar was locked at `w-80`, so dense session lists and long nav labels couldn’t reclaim or release canvas space. Desktop users can now drag the panel edge (240–480px, default 320px = prior width); width persists in localStorage and applies to both the in-repo nav and global Sessions column.

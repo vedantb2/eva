@@ -4,7 +4,7 @@ import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
@@ -196,6 +196,19 @@ export function ChatPanel({
     entityId: sessionId,
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
+  const revertSessionPrToDraft = useAction(api.github.revertSessionPrToDraft);
+  const [isUndoingReview, setIsUndoingReview] = useState(false);
+
+  const handleUndoReview = async () => {
+    if (isUndoingReview) return;
+    setIsUndoingReview(true);
+    try {
+      await revertSessionPrToDraft({ sessionId });
+    } finally {
+      setIsUndoingReview(false);
+    }
+  };
+
   const handleAnswerBlockingQuestion = async (
     toolUseId: string,
     answers: Record<string, string>,
@@ -221,12 +234,16 @@ export function ChatPanel({
     messageCount: messages.length,
     isSandboxActive,
     isSandboxToggling,
+    isUndoingReview,
     deploymentStatus,
     sandboxCollapsed,
     onSandboxToggle,
     onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),
+    onUndoReview: () => {
+      void handleUndoReview();
+    },
   });
 
   const startupStreamingNode = (

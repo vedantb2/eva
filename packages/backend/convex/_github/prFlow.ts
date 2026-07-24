@@ -71,6 +71,60 @@ export const createSessionPr = action({
   },
 });
 
+/**
+ * Undoes "Send for Review": converts the GitHub PR back to draft and sets
+ * session `prState` to `"draft"`. Inverse of `createSessionPr` promote path.
+ */
+export const revertSessionPrToDraft = action({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session) throw new Error("Session not found");
+    if (!session.prUrl) {
+      throw new Error("No PR to move back to draft");
+    }
+    if (session.prState !== "open") {
+      throw new Error("Only an open (ready for review) PR can be undone");
+    }
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: session.repoId,
+    });
+    if (!repo) throw new Error("Repository not found");
+
+    const prNumber = extractPrNumber(session.prUrl);
+    if (!prNumber) {
+      throw new Error("Could not parse PR number from URL");
+    }
+
+    const converted = await ctx.runAction(
+      internal.taskWorkflowActions.convertPrToDraft,
+      {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        prNumber,
+      },
+    );
+    if (!converted) {
+      throw new Error("Failed to convert pull request back to draft on GitHub");
+    }
+
+    await ctx.runMutation(internal.sessions.setPrState, {
+      id: args.sessionId,
+      prState: "draft",
+    });
+    return null;
+  },
+});
+
 function isBranchNotAheadError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (

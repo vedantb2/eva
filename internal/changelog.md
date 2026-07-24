@@ -1,5 +1,9 @@
 # Changelog
 
+## Cross-repo spotlight search (titles/names) - 2026-07-24
+
+⌘K only searched the current repo’s pages and a few entity lists, so it drifted from the real product surface. Spotlight now runs a Convex `spotlight.search` over every team/repo the user can access (pages, repos, teams, projects, tasks, sessions, docs, designs, automations, artifacts — titles/names only), uses shared `@conductor/ui` Command primitives (still cmdk), and is available on global routes as well as in-repo. The left rail also exposes Search between collapse and the avatar (same opener as ⌘K).
+
 ## Rail collapse fully hides the second sidebar - 2026-07-24
 
 The rail toggle only narrowed the app/repo/session column to icon width, so nav still competed with the canvas. Collapsed now hides that column entirely (rail-only, `pl-16`), matching other global rail-only pages; mobile drawer still opens the full panel.

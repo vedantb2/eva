@@ -82,6 +82,72 @@ export async function findAllSiblingRepoIds(
 }
 
 /**
+ * All repos the user can access (connected + team), de-duplicated.
+ * Shared by list queries and cross-repo spotlight search.
+ */
+export async function gatherAccessibleRepos(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  includeHidden: boolean,
+): Promise<Array<Doc<"githubRepos">>> {
+  const userTeamMemberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const teamRepoResults = await Promise.all(
+    userTeamMemberships.map((m) =>
+      db
+        .query("githubRepos")
+        .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+        .collect(),
+    ),
+  );
+
+  const connectedRepos = await db
+    .query("githubRepos")
+    .withIndex("by_connected_by", (q) => q.eq("connectedBy", userId))
+    .collect();
+
+  const seen = new Set<string>();
+  const repos: Array<Doc<"githubRepos">> = [];
+  for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+    if (seen.has(String(repo._id))) continue;
+    seen.add(String(repo._id));
+    if (!includeHidden && repo.hidden === true) continue;
+    repos.push(repo);
+  }
+  return repos;
+}
+
+/** Frontend path prefix for a githubRepos row (monorepo apps use `name--app`). */
+export function repoBasePath(repo: {
+  owner: string;
+  name: string;
+  rootDirectory?: string;
+}): string {
+  if (!repo.rootDirectory) return `/${repo.owner}/${repo.name}`;
+  const appName = repo.rootDirectory.split("/").pop();
+  if (!appName) return `/${repo.owner}/${repo.name}`;
+  return `/${repo.owner}/${repo.name}--${appName}`;
+}
+
+/** Custom label when set; otherwise leaf folder or GitHub name. */
+export function repoDisplayLabel(repo: {
+  label?: string;
+  name: string;
+  rootDirectory?: string;
+}): string {
+  const custom = repo.label?.trim();
+  if (custom) return custom;
+  if (repo.rootDirectory) {
+    const leaf = repo.rootDirectory.split("/").pop();
+    if (leaf) return leaf;
+  }
+  return repo.name;
+}
+
+/**
  * Picks which githubRepos row to use for sandbox credentials.
  * Shared automations and PR recaps often run against the monorepo root, which
  * has no VERCEL_PROJECT_ID — credentials live on app rows.

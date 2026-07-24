@@ -127,7 +127,7 @@ export function NewSessionComposer() {
           placeholder={
             mode === "plan"
               ? "Describe the product requirements... / for skills · @ for docs"
-              : "Ask Eva anything... / for skills · @ for docs · attach images or HTML"
+              : "Ask Eva anything... / for skills · @ for docs"
           }
           model={model}
           setModel={(next) => {

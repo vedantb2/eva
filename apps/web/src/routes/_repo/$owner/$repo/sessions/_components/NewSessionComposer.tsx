@@ -5,8 +5,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, normalizeAIModel, type Id } from "@conductor/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { toast } from "@conductor/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
+import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -29,6 +31,9 @@ export function NewSessionComposer() {
   const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [baseBranch, setBaseBranch] = useState(
+    repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+  );
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
@@ -73,6 +78,7 @@ export function NewSessionComposer() {
         message: content,
         mode,
         model,
+        baseBranch,
         ...executionTraits,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
@@ -143,7 +149,16 @@ export function NewSessionComposer() {
           onSend={handleSend}
           onCancel={async () => {}}
           toolsBefore={
-            <SessionModeDropdown mode={mode} onModeChange={setMode} />
+            <>
+              <SessionModeDropdown mode={mode} onModeChange={setMode} />
+              <BranchSelect
+                value={baseBranch}
+                onValueChange={setBaseBranch}
+                placeholder="Select a base branch"
+                className="h-8 w-auto max-w-[200px]"
+                disabled={isSubmitting}
+              />
+            </>
           }
           attachmentMode="sessionFiles"
         />

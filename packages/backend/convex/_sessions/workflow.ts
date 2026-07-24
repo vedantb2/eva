@@ -733,7 +733,10 @@ export const getSessionData = internalQuery({
       prompt,
       branchName,
       turnKind,
-      baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+      baseBranch:
+        session.baseBranch ??
+        repo.defaultBaseBranch ??
+        FALLBACK_GIT_BASE_BRANCH,
       allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,

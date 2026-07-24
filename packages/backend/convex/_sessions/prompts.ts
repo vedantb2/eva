@@ -1,3 +1,4 @@
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import {
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,
@@ -40,7 +41,7 @@ export function buildConversationalPrompt(
 
 /** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
 export function buildEditPrompt(
-  repo: { owner: string; name: string },
+  repo: { owner: string; name: string; baseBranch?: string },
   branchName: string,
   planContent: string,
   message: string,
@@ -50,6 +51,7 @@ export function buildEditPrompt(
   captureProof: boolean,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
+  const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
@@ -88,6 +90,7 @@ When the user asks for a recording, walkthrough video, or screenshot:
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Never commit or push to main. Fetching/merging/rebasing/pulling from main into this branch is allowed when the user asks.
 - If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
+- Duplicate/extract PR (when the user asks to ship this session's work as a separate PR that merges independently): never push this branch's commits to another ref — identical SHAs make GitHub auto-merge this session's PR. Instead squash onto a fresh branch: \`git fetch origin && git checkout -b eva/dup-<short-slug> origin/${baseBranch} && git merge --squash ${branchName} && git commit -m "<summary>" && git push -u origin HEAD && gh pr create --fill --base ${baseBranch} && git checkout ${branchName}\`. Base on "${baseBranch}" unless the user names a different base branch. Resolve squash conflicts if any. After that PR merges, merge the base branch into ${branchName} before continuing.
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
 - Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

@@ -86,6 +86,7 @@ import type * as _github_prFlow from "../_github/prFlow.js";
 import type * as _github_prRecapService from "../_github/prRecapService.js";
 import type * as _github_prTitleSync from "../_github/prTitleSync.js";
 import type * as _github_pullRequests from "../_github/pullRequests.js";
+import type * as _github_sessionMergeGuard from "../_github/sessionMergeGuard.js";
 import type * as _github_sync from "../_github/sync.js";
 import type * as _logs_resolveProjectId from "../_logs/resolveProjectId.js";
 import type * as _mcp_redirectUri from "../_mcp/redirectUri.js";
@@ -391,6 +392,7 @@ declare const fullApi: ApiFromModules<{
   "_github/prRecapService": typeof _github_prRecapService;
   "_github/prTitleSync": typeof _github_prTitleSync;
   "_github/pullRequests": typeof _github_pullRequests;
+  "_github/sessionMergeGuard": typeof _github_sessionMergeGuard;
   "_github/sync": typeof _github_sync;
   "_logs/resolveProjectId": typeof _logs_resolveProjectId;
   "_mcp/redirectUri": typeof _mcp_redirectUri;

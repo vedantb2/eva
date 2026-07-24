@@ -134,7 +134,11 @@ export async function buildSessionPrompt(
     );
   } else {
     prompt = buildEditPrompt(
-      { owner: repo.owner, name: repo.name },
+      {
+        owner: repo.owner,
+        name: repo.name,
+        baseBranch: repo.defaultBaseBranch,
+      },
       branchName,
       session.planContent || "",
       resolvedMessage,

@@ -112,6 +112,8 @@ export const handleSessionPrEvent = internalMutation({
     action: v.string(),
     draft: v.optional(v.boolean()),
     merged: v.optional(v.boolean()),
+    prNumber: v.optional(v.number()),
+    mergeCommitSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -145,6 +147,28 @@ export const handleSessionPrEvent = internalMutation({
         session.sandboxId !== undefined)
     ) {
       await requestSessionSandboxStop(ctx, session._id);
+    }
+
+    // A "merged" event can be a false positive: GitHub marks this session's PR
+    // merged whenever its commit SHAs land on the base branch via ANY PR (a
+    // "tip-copy" — e.g. a duplicate PR created from the same branch tip).
+    // Schedule a delayed check that confirms the merge commit is actually
+    // associated with this PR number, and detaches/reopens the session if not.
+    if (
+      nextState === "merged" &&
+      args.prNumber !== undefined &&
+      args.mergeCommitSha !== undefined
+    ) {
+      await ctx.scheduler.runAfter(
+        15_000,
+        internal.github.verifySessionPrMerged,
+        {
+          sessionId: session._id,
+          prUrl: args.prUrl,
+          prNumber: args.prNumber,
+          mergeCommitSha: args.mergeCommitSha,
+        },
+      );
     }
     return null;
   },

@@ -19,3 +19,5 @@ export {
 } from "./_github/pullRequests";
 
 export { syncRepos } from "./_github/sync";
+
+export { verifySessionPrMerged } from "./_github/sessionMergeGuard";

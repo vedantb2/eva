@@ -76,6 +76,22 @@ export const setPrState = internalMutation({
   },
 });
 
+/** Detaches a foreign-auto-merged PR from its session so the session stays writable. No-op if the session's PR has since changed. */
+export const clearPrUrlIfMatches = internalMutation({
+  args: { id: v.id("sessions"), expectedPrUrl: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session || session.prUrl !== args.expectedPrUrl) return null;
+    await ctx.db.patch(args.id, {
+      prUrl: undefined,
+      prState: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 // Soft UX lock for agent-driven browsing moved to
 // `internal.mcp.browserLock.setAgentBrowsingAt` (generalized to
 // sessions/tasks/projects); MCP browser_lock / browser_unlock call that now.

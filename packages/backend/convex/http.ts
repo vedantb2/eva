@@ -327,6 +327,7 @@ const prWebhookSchema = z.object({
     draft: z.boolean().nullable().catch(null),
     number: z.number().nullable().catch(null),
     title: nullableString,
+    merge_commit_sha: nullableString,
     head: z
       .object({ ref: nullableString, sha: nullableString })
       .nullable()
@@ -485,6 +486,8 @@ http.route({
             action,
             draft: draft ?? undefined,
             merged: merged ?? undefined,
+            prNumber: pullRequest.number ?? undefined,
+            mergeCommitSha: pullRequest.merge_commit_sha ?? undefined,
           },
         );
         await ctx.scheduler.runAfter(

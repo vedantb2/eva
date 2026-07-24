@@ -1,5 +1,9 @@
 # Changelog
 
+## Duplicate session PRs merge independently without killing the session - 2026-07-24
+
+Agents can now create a "duplicate PR" on request: squash a session branch onto a fresh branch (new commit SHAs) so it merges independently instead of pushing identical SHAs that make GitHub auto-merge the session's own PR. If a tip-copy still auto-marks a session PR merged because its SHAs landed via another PR, the webhook now schedules a delayed check against GitHub's commit-to-PR association data and, when the merge is foreign, detaches the PR and posts a chat alert instead of permanently locking the session.
+
 ## Preview iframe keeps sandboxed app session cookies - 2026-07-24
 
 Sign-in inside the preview tab succeeded at the app but the session never stuck — browsers drop default `SameSite=Lax` `Set-Cookie` responses in Eva’s cross-site iframe (`*.vercel.run`), so the next request looked logged-out (while a top-level new tab worked). The in-sandbox preview proxy now rewrites upstream `Set-Cookie` headers for non-loopback clients to `Secure; SameSite=None; Partitioned` (same as the proxy’s own gate cookie), strips upstream `Domain`/`SameSite`, and bumps the proxy script to `annotate-v12` so health-check relaunches pick it up without manual sandbox restarts. Partitioned sessions stay per-visitor and separate from a new-tab session; third-party IdPs that refuse framing still need a top-level window.

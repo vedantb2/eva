@@ -107,8 +107,8 @@ export function DesignChatPanel({
     parentId: designSessionId,
   });
   const personas = useQuery(api.designPersonas.list, { repoId });
-  const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
@@ -478,13 +478,15 @@ export function DesignChatPanel({
                   <MentionTextarea
                     ref={mentionRef}
                     repoBasePath={basePath}
-                    docs={docs}
+                    repoId={repoId}
+                    skills={skills}
+                    skillsSettingsHref={`${basePath}/settings/skills`}
                     placeholder={
                       !isSandboxActive
                         ? "Start the sandbox to begin designing..."
                         : isExecuting
                           ? "Add a follow-up..."
-                          : "Ask Eva anything... / for skills · @ for docs"
+                          : "Ask Eva anything... / for skills · @ for data"
                     }
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}
@@ -494,7 +496,7 @@ export function DesignChatPanel({
                   <PromptInputFooter>
                     <PromptInputTools>
                       <ComposerPlusMenu
-                        docs={docs}
+                        dataItems={dataMentions}
                         skills={skills}
                         mentionRef={mentionRef}
                         attachmentMode="images"

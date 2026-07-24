@@ -90,7 +90,9 @@ import type * as _githubRepos_sandboxRepoPick from "../_githubRepos/sandboxRepoP
 import type * as _githubRepos_sync from "../_githubRepos/sync.js";
 import type * as _logs_resolveProjectId from "../_logs/resolveProjectId.js";
 import type * as _mcp_redirectUri from "../_mcp/redirectUri.js";
+import type * as _mentions_dataKinds from "../_mentions/dataKinds.js";
 import type * as _mentions_extractMentionedUserIds from "../_mentions/extractMentionedUserIds.js";
+import type * as _mentions_listData from "../_mentions/listData.js";
 import type * as _mentions_mentionToken from "../_mentions/mentionToken.js";
 import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMentions.js";
 import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessageTokens.js";
@@ -240,6 +242,7 @@ import type * as mcp_queries from "../mcp/queries.js";
 import type * as mcp_routes from "../mcp/routes.js";
 import type * as mcp_supabase from "../mcp/supabase.js";
 import type * as mcp_tools from "../mcp/tools.js";
+import type * as mentions from "../mentions.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notificationDigest from "../notificationDigest.js";
@@ -397,7 +400,9 @@ declare const fullApi: ApiFromModules<{
   "_githubRepos/sync": typeof _githubRepos_sync;
   "_logs/resolveProjectId": typeof _logs_resolveProjectId;
   "_mcp/redirectUri": typeof _mcp_redirectUri;
+  "_mentions/dataKinds": typeof _mentions_dataKinds;
   "_mentions/extractMentionedUserIds": typeof _mentions_extractMentionedUserIds;
+  "_mentions/listData": typeof _mentions_listData;
   "_mentions/mentionToken": typeof _mentions_mentionToken;
   "_mentions/resolveDocMentions": typeof _mentions_resolveDocMentions;
   "_mentions/resolveMessageTokens": typeof _mentions_resolveMessageTokens;
@@ -547,6 +552,7 @@ declare const fullApi: ApiFromModules<{
   "mcp/routes": typeof mcp_routes;
   "mcp/supabase": typeof mcp_supabase;
   "mcp/tools": typeof mcp_tools;
+  mentions: typeof mentions;
   messages: typeof messages;
   migrations: typeof migrations;
   notificationDigest: typeof notificationDigest;

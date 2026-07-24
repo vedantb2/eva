@@ -1,5 +1,9 @@
 # Changelog
 
+## Data @-mentions for sessions, projects, and quick tasks - 2026-07-24
+
+`@` in composers only listed documents, so referencing past chats or related work meant pasting links. The picker is now **Data** (docs + sessions + projects + quick tasks) with type badges; comments keep People and add the same Data entries. Docs still inline into the agent prompt; other kinds inject an Eva MCP fetch hint so the agent loads them on demand.
+
 ## Undo Send for Review returns PR to draft - 2026-07-24
 
 After promoting a session PR, there was no in-app way back to draft without editing on GitHub. When `prState` is open, Undo replaces Send for Review, calls `convertPullRequestToDraft`, and sets the session back to draft so review can be re-sent later.

@@ -172,10 +172,9 @@ export function QuickTasksBulkBar({
                     type="button"
                     aria-label="More actions"
                     disabled={!hasSelection}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
                   >
                     <IconDots size={17} />
-                    <span className="hidden sm:inline">More</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" sideOffset={8}>

@@ -1,3 +1,4 @@
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -291,6 +292,51 @@ export const handlePrClosed = internalMutation({
 });
 
 const RECAP_BOT_LOGIN_PREFIXES = ["dependabot", "renovate"];
+
+/**
+ * On push to a repo's configured base branch, schedule a skill sync when the
+ * commit set touches `.agents/skills` (or when path lists are empty — e.g.
+ * some force-pushes — so we still converge).
+ */
+export const handlePushForSkillSync = internalMutation({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    branch: v.string(),
+    touchedSkillsPath: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+    if (siblings.length === 0) return null;
+
+    const workflowRepo =
+      siblings.find(
+        (repo) =>
+          repo.parentRepoId === undefined && repo.rootDirectory === undefined,
+      ) ??
+      siblings.find((repo) => repo.parentRepoId === undefined) ??
+      siblings[0];
+    if (!workflowRepo || workflowRepo.connected === false) return null;
+
+    const baseBranch =
+      workflowRepo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    if (args.branch !== baseBranch) return null;
+    if (!args.touchedSkillsPath) return null;
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal._repoSkills.sync.syncRepoInternal,
+      { repoId: workflowRepo._id },
+    );
+    return null;
+  },
+});
 
 /** Starts or refreshes a PR recap doc + workflow when a pull request is updated. */
 export const handlePrRecapEvent = internalMutation({

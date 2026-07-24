@@ -1,5 +1,37 @@
 # Changelog
 
+## Sessions sidebar archives merged/closed PRs - 2026-07-24
+
+Active session lists still mixed in merged/closed PRs beside live draft/open work. The Sessions sidebar now keeps only draft/open (or no-PR) sessions active and folds merged/closed into the Archived collapsible with manually archived ones.
+
+## Bake ffmpeg into sandbox snapshots for agent-browser record - 2026-07-24
+
+`agent-browser record stop` encodes WebM via ffmpeg on PATH; sandboxes lacked it so walkthrough captures failed at stop. Snapshot builds now install ffmpeg (Debian apt on Daytona images; AL2023 SPAL `ffmpeg-free` on Vercel seed + desktop bootstrap).
+
+## Composer file chips show type icons - 2026-07-24
+
+Pasted/dropped non-image attachments in session/task/project composers all used a generic file icon, so HTML vs Markdown vs text looked identical. Chips (and sent-message file links) now pick IconHtml / IconMarkdown / IconFileTypeTxt / IconFile from MIME or extension.
+
+## Send for Review no longer archives the session - 2026-07-24
+
+"Send for Review" promoted the draft PR then archived/closed the session and sandbox, so follow-up work required unarchiving. It now only marks the PR ready (`prState: open`); archiving stays an explicit user action.
+
+## Kanban columns tint by status/phase - 2026-07-24
+
+Kanban columns used a uniform muted wash, so status was only readable from badges. Columns now use the existing status/phase `cardBg` tokens (e.g. light yellow for In Progress) so each lane’s colour matches its state at a glance.
+
+## Sidebar collapse control lives on the rail - 2026-07-24
+
+The collapse toggle sat in the secondary sidebar header, competing with titles/back and disappearing from muscle memory when the panel was icon-narrow. It now lives on the vertical rail directly above the user avatar (always reachable), and the panel headers keep only navigation/close chrome.
+
+## Skill sync runs on cron + base-branch push - 2026-07-24
+
+Manual Settings sync left repo skills stale until someone clicked the button. Shared scan logic now also runs from a 6h cron across connected codebases and from GitHub `push` webhooks when the base branch touches `.agents/skills` (subscribe the GitHub App to `push`).
+
+## Quick tasks kanban sorts by updatedAt - 2026-07-24
+
+Kanban columns defaulted to `lastRun`, so edits/comments/status changes left cards buried until the next agent run. Default sort is now `updated` (`agentTasks.updatedAt`, already bumped on activity and mutations); storage key bumped so returning users pick up the new default.
+
 ## Shared browser works in task/project sandboxes - 2026-07-23
 
 The MCP `browser_*` tools hard-gated on a session entity, so quick-task and project chat agents (whose prompts advertise the shared-browser flow) always fell back to headless Chrome — the user could never watch live despite those panels already having a Browser tab. Sandbox tokens now carry `task`/`project` entity kinds, `browser_start` resolves the sandbox from the owning table, and `agentBrowsingAt` (+ `releaseBrowserLock`, takeover overlay, auto-switch to Browser) is generalized to `agentTasks`/`projects`, mirroring the session wiring.

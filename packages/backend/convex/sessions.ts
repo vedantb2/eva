@@ -43,7 +43,6 @@ export {
   getInternal,
   setPrUrl,
   setPrState,
-  markReadyAndArchive,
   updateDeploymentStatus,
   applyGeneratedTitle,
 } from "./_sessions/internal";

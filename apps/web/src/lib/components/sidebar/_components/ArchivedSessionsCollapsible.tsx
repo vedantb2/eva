@@ -31,6 +31,8 @@ interface ArchivedSessionItem {
   _creationTime: number;
   title: string;
   updatedAt?: number;
+  /** Present on manually archived rows; absent/false for PR-terminal fold-ins. */
+  archived?: boolean;
 }
 
 interface ArchivedSessionsCollapsibleProps<T extends ArchivedSessionItem> {
@@ -121,7 +123,7 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
                   </m.div>
                 </ContextMenuTrigger>
                 <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-                  {onUnarchive ? (
+                  {onUnarchive && session.archived === true ? (
                     <ContextMenuItem
                       onSelect={() => {
                         void onUnarchive(session);

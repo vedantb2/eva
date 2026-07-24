@@ -9,8 +9,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { m, AnimatePresence } from "motion/react";
 import {
   IconChevronLeft,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconMoon,
   IconSun,
@@ -335,32 +333,11 @@ export function Sidebar() {
                 transition={{ duration: 0.2 }}
               >
                 {showGlobalSessionsPanel ? (
-                  <>
-                    {!collapsed && (
-                      <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                        Sessions
-                      </span>
-                    )}
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => setCollapsed(!collapsed)}
-                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    >
-                      {collapsed ? (
-                        <IconLayoutSidebarLeftCollapseFilled
-                          size={16}
-                          className="text-sidebar-primary"
-                        />
-                      ) : (
-                        <IconLayoutSidebarLeftCollapse
-                          size={16}
-                          className="text-sidebar-primary"
-                        />
-                      )}
-                    </Button>
-                  </>
+                  !collapsed ? (
+                    <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                      Sessions
+                    </span>
+                  ) : null
                 ) : showContextSidebar ? (
                   <>
                     {!collapsed && (
@@ -380,37 +357,14 @@ export function Sidebar() {
                       </span>
                     )}
 
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
-                        title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
-                        }
-                      >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
+                    >
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
                   </>
                 ) : (
                   <>
@@ -450,42 +404,14 @@ export function Sidebar() {
                       </div>
                     ) : null}
 
-                    <div
-                      className={cn(
-                        "flex items-center gap-1",
-                        collapsed ? "lg:mx-auto" : "shrink-0",
-                      )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
                     >
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
-                        title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
-                        }
-                      >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
                   </>
                 )}
               </m.div>

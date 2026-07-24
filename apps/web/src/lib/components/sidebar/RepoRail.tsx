@@ -18,6 +18,8 @@ import {
 import {
   IconCode,
   IconLayoutDashboard,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftCollapseFilled,
   IconPencil,
   IconUsers,
 } from "@tabler/icons-react";
@@ -113,7 +115,8 @@ function InboxUnreadBadge() {
 
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
- * Sessions), then repos, then Testing (dev) / account / settings at the bottom.
+ * Sessions), then repos, then Testing (dev) / collapse / account / settings
+ * at the bottom.
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
@@ -148,7 +151,7 @@ function RepoRailView({
   activeSessionCount,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
-  const { setSessionsNavMode } = useSidebar();
+  const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const homeActive =
     pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
@@ -358,6 +361,32 @@ function RepoRailView({
             <TooltipContent side="right">Testing</TooltipContent>
           </Tooltip>
         ) : null}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={cn(
+                RAIL_TILE_CLASS,
+                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+              )}
+            >
+              {collapsed ? (
+                <IconLayoutSidebarLeftCollapseFilled
+                  size={22}
+                  className="shrink-0"
+                />
+              ) : (
+                <IconLayoutSidebarLeftCollapse size={22} className="shrink-0" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          </TooltipContent>
+        </Tooltip>
         <SidebarUserMenu
           name={userName}
           email={userEmail}

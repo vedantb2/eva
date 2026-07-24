@@ -10,6 +10,8 @@ export { TASK_STATUSES as KANBAN_STATUSES };
 
 export interface ColumnConfig {
   bg: string;
+  /** Soft column wash tinted to the status/phase colour. */
+  cardBg?: string;
   text: string;
   label: string;
   icon: typeof IconCircle;
@@ -49,7 +51,7 @@ export function KanbanColumn({
     <KanbanBoard
       id={id}
       disabled={!droppable}
-      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip"
+      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip ${config.cardBg ?? "bg-muted/40"}`}
     >
       <div className="flex flex-row items-center justify-between p-2 flex-shrink-0">
         <Badge

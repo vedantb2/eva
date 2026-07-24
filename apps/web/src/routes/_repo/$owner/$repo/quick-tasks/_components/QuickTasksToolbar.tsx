@@ -48,8 +48,8 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 
 const SORT_FIELDS = [
-  "lastRun",
   "updated",
+  "lastRun",
   "created",
   "title",
   "priority",

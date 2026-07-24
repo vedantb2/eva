@@ -226,6 +226,9 @@ class VercelDesktop implements SandboxDesktop {
         'if [ "$INSTALLED" != "1" ]; then',
         "  sudo dnf install -y tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 procps-ng psmisc git >/tmp/desktop-dnf.log 2>&1",
         "  sudo dnf install -y gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        // agent-browser record → WebM needs ffmpeg on PATH
+        "  command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+        "  command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
         "  sudo python3 -m pip install --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
         "  command -v websockify >/dev/null 2>&1 || sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
         '  if [ -z "$NOVNC_DIR" ]; then sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc >/tmp/novnc-git.log 2>&1; NOVNC_DIR=/opt/novnc; fi',

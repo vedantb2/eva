@@ -323,7 +323,7 @@ export function ChatPanel({
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
       ? "Describe the product requirements... / for skills · @ for docs"
-      : "Ask Eva anything... / for skills · @ for docs · attach images or HTML";
+      : "Ask Eva anything... / for skills · @ for docs";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,

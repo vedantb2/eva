@@ -169,7 +169,8 @@ function buildSnapshotImage(
 
   const baseImage = Image.base("node:20-bookworm")
     .runCommands(
-      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
+      // ffmpeg: required by `agent-browser record` (WebM encode on record stop)
+      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo ffmpeg",
       // GUI/VNC/X11 packages for desktop mode
       "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
       // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
@@ -928,6 +929,11 @@ export const launchSeedRun = internalAction({
         "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
         'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
         "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
+        // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
+        // still completes if the mirror is unavailable.
+        "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+        "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
         'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
         'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
         'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',

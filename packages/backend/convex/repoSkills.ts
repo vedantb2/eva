@@ -89,16 +89,18 @@ export const getContentById = authQuery({
   },
 });
 
+const syncTargetValidator = v.object({
+  canonicalRepoId: v.id("githubRepos"),
+  owner: v.string(),
+  name: v.string(),
+  installationId: v.number(),
+  ref: v.string(),
+});
+
 /** Resolves the GitHub repo and ref used by the authenticated sync action. */
 export const getSyncTarget = internalQuery({
   args: { repoId: v.id("githubRepos"), userId: v.id("users") },
-  returns: v.object({
-    canonicalRepoId: v.id("githubRepos"),
-    owner: v.string(),
-    name: v.string(),
-    installationId: v.number(),
-    ref: v.string(),
-  }),
+  returns: syncTargetValidator,
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, args.userId))) {
       throw new Error("Not authorized");
@@ -117,6 +119,66 @@ export const getSyncTarget = internalQuery({
       installationId: repo.installationId,
       ref: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
     };
+  },
+});
+
+/**
+ * System sync target (cron / webhook). No user ACL — caller must already be a
+ * trusted internal path. Skips disconnected repos.
+ */
+export const getSyncTargetSystem = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(syncTargetValidator, v.null()),
+  handler: async (ctx, args) => {
+    const canonicalRepoId = await resolveCanonicalRepoId(ctx.db, args.repoId);
+    const repo = await ctx.db.get(canonicalRepoId);
+    if (!repo || repo.connected === false) return null;
+
+    return {
+      canonicalRepoId,
+      owner: repo.owner,
+      name: repo.name,
+      installationId: repo.installationId,
+      ref: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+    };
+  },
+});
+
+/**
+ * One connected canonical repo id per GitHub owner/name codebase. Used by the
+ * periodic skill-sync cron so each install is scanned once.
+ */
+export const listCanonicalReposForSkillSync = internalQuery({
+  args: {},
+  returns: v.array(v.id("githubRepos")),
+  handler: async (ctx) => {
+    const repos = await ctx.db.query("githubRepos").collect();
+    const byCodebase = new Map<string, (typeof repos)[number]>();
+
+    for (const repo of repos) {
+      if (repo.connected === false) continue;
+      if (repo.hidden === true) continue;
+      const key = `${repo.owner}/${repo.name}`;
+      const existing = byCodebase.get(key);
+      if (!existing) {
+        byCodebase.set(key, repo);
+        continue;
+      }
+      const repoIsRoot =
+        repo.parentRepoId === undefined && repo.rootDirectory === undefined;
+      const existingIsRoot =
+        existing.parentRepoId === undefined &&
+        existing.rootDirectory === undefined;
+      if (repoIsRoot && !existingIsRoot) {
+        byCodebase.set(key, repo);
+      }
+    }
+
+    const ids: Array<(typeof repos)[number]["_id"]> = [];
+    for (const repo of byCodebase.values()) {
+      ids.push(await resolveCanonicalRepoId(ctx.db, repo._id));
+    }
+    return ids;
   },
 });
 

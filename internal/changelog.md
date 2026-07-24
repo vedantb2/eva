@@ -1,5 +1,9 @@
 # Changelog
 
+## Skill sync runs on cron + base-branch push - 2026-07-24
+
+Manual Settings sync left repo skills stale until someone clicked the button. Shared scan logic now also runs from a 6h cron across connected codebases and from GitHub `push` webhooks when the base branch touches `.agents/skills` (subscribe the GitHub App to `push`).
+
 ## Quick tasks kanban sorts by updatedAt - 2026-07-24
 
 Kanban columns defaulted to `lastRun`, so edits/comments/status changes left cards buried until the next agent run. Default sort is now `updated` (`agentTasks.updatedAt`, already bumped on activity and mutations); storage key bumped so returning users pick up the new default.

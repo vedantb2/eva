@@ -61,8 +61,10 @@ export function SkillsClient() {
         <div>
           <h3 className="text-sm font-medium">Repo Skills</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Synced from <code>.agents/skills</code>. Type <code>/</code> in
-            session, task, or project chat to invoke a harness skill.
+            Synced from <code>.agents/skills</code> on the base branch. Auto-
+            syncs on push (when skills change) and every 6 hours; use Sync from
+            GitHub to refresh now. Type <code>/</code> in session, task, or
+            project chat to invoke a harness skill.
           </p>
         </div>
 

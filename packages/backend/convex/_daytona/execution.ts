@@ -213,7 +213,89 @@ export const restoreSeededRuntimeState = internalAction({
   },
 });
 
-/** Runs startup commands on a sandbox if configured. Returns success status. */
+/**
+ * Runs startup commands on a sandbox if configured. Exported for DIRECT calls
+ * from sibling "use node" actions (sessions/tasks/projects startup): nesting it
+ * via ctx.runAction dies after ~300s in Convex's runAction syscall bridge with
+ * a message-less Error whenever a readiness gate legitimately waits longer —
+ * the recurring "Sandbox startup unfinished" with no detail.
+ */
+export async function runStartupCommandsDirect(
+  ctx: ActionCtx,
+  args: { sandboxId: string; repoId: Id<"githubRepos">; force?: boolean },
+): Promise<{ ran: boolean; commandCount: number; errors: string[] }> {
+  // Get startup commands for this repo
+  const commands: string[] | null = await ctx.runQuery(
+    internal.repoSnapshots.getStartupCommands,
+    { repoId: args.repoId },
+  );
+
+  if (!commands || commands.length === 0) {
+    return { ran: false, commandCount: 0, errors: [] };
+  }
+
+  const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+
+  if (!args.force) {
+    // Check if startup commands have already run (marker file)
+    try {
+      await execHandle(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      // Marker exists, commands already ran
+      console.log(
+        `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
+      );
+      return { ran: false, commandCount: 0, errors: [] };
+    } catch {
+      // Marker doesn't exist, proceed
+    }
+  }
+
+  console.log(
+    `[daytona] runStartupCommands: executing ${commands.length} startup command(s)${args.force ? " (forced)" : ""}`,
+  );
+
+  const errors: string[] = [];
+  for (const command of commands) {
+    console.log(`[daytona] runStartupCommands: running: ${command}`);
+    try {
+      // 10 minute timeout per command (supabase start can take a while)
+      const output = await execHandle(sandbox, command, 600);
+      console.log(`[daytona] runStartupCommands: completed: ${command}`);
+      if (output.trim()) {
+        console.log(`[daytona] output: ${output.slice(0, 500)}`);
+      }
+    } catch (e) {
+      const msg = errorMessage(e, "command failed");
+      console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
+      errors.push(`${command}: ${msg}`);
+      // Continue with other commands even if one fails
+    }
+  }
+
+  // Create the marker only when every command succeeded. Writing it after a
+  // failed run permanently branded the sandbox as seeded: every resume then
+  // marker-skipped the seed and the DB stayed empty forever. Leaving the
+  // marker absent lets the next resume retry the full startup sequence.
+  if (errors.length === 0) {
+    try {
+      await execHandle(sandbox, "touch /tmp/.startup-commands-done", 5);
+    } catch {
+      // Non-fatal
+    }
+  } else {
+    console.error(
+      `[daytona] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
+    );
+  }
+
+  return { ran: true, commandCount: commands.length, errors };
+}
+
+/**
+ * Action wrapper for {@link runStartupCommandsDirect} — for workflow steps and
+ * scheduler calls only. Do NOT ctx.runAction this from another action (see
+ * the ~300s nested-runAction ceiling note above); call the helper directly.
+ */
 export const runStartupCommands = internalAction({
   args: {
     sandboxId: v.string(),
@@ -227,76 +309,7 @@ export const runStartupCommands = internalAction({
     commandCount: v.number(),
     errors: v.array(v.string()),
   }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ ran: boolean; commandCount: number; errors: string[] }> => {
-    // Get startup commands for this repo
-    const commands: string[] | null = await ctx.runQuery(
-      internal.repoSnapshots.getStartupCommands,
-      { repoId: args.repoId },
-    );
-
-    if (!commands || commands.length === 0) {
-      return { ran: false, commandCount: 0, errors: [] };
-    }
-
-    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-
-    if (!args.force) {
-      // Check if startup commands have already run (marker file)
-      try {
-        await execHandle(sandbox, "test -f /tmp/.startup-commands-done", 5);
-        // Marker exists, commands already ran
-        console.log(
-          `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
-        );
-        return { ran: false, commandCount: 0, errors: [] };
-      } catch {
-        // Marker doesn't exist, proceed
-      }
-    }
-
-    console.log(
-      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)${args.force ? " (forced)" : ""}`,
-    );
-
-    const errors: string[] = [];
-    for (const command of commands) {
-      console.log(`[daytona] runStartupCommands: running: ${command}`);
-      try {
-        // 10 minute timeout per command (supabase start can take a while)
-        const output = await execHandle(sandbox, command, 600);
-        console.log(`[daytona] runStartupCommands: completed: ${command}`);
-        if (output.trim()) {
-          console.log(`[daytona] output: ${output.slice(0, 500)}`);
-        }
-      } catch (e) {
-        const msg = errorMessage(e, "command failed");
-        console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
-        errors.push(`${command}: ${msg}`);
-        // Continue with other commands even if one fails
-      }
-    }
-
-    // Create the marker only when every command succeeded. Writing it after a
-    // failed run permanently branded the sandbox as seeded: every resume then
-    // marker-skipped the seed and the DB stayed empty forever. Leaving the
-    // marker absent lets the next resume retry the full startup sequence.
-    if (errors.length === 0) {
-      try {
-        await execHandle(sandbox, "touch /tmp/.startup-commands-done", 5);
-      } catch {
-        // Non-fatal
-      }
-    } else {
-      console.error(
-        `[daytona] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
-      );
-    }
-
-    return { ran: true, commandCount: commands.length, errors };
-  },
+  handler: (ctx, args) => runStartupCommandsDirect(ctx, args),
 });
 
 /**

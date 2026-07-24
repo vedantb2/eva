@@ -42,6 +42,7 @@ import {
   launchDevServerInBackground,
 } from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
+import { runStartupCommandsDirect } from "./execution";
 import { resolveVercelConsoleDevCommand } from "./vercelAppPorts";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
@@ -915,10 +916,10 @@ async function prepareSessionSandboxInternal(
               "reuseSessionSandbox.runStartupCommands",
               sandboxDetails,
               async () => {
-                const result = await ctx.runAction(
-                  internal.daytona.runStartupCommands,
-                  { sandboxId: handle.id, repoId: args.repoId },
-                );
+                const result = await runStartupCommandsDirect(ctx, {
+                  sandboxId: handle.id,
+                  repoId: args.repoId,
+                });
                 if (result.ran && result.commandCount > 0) {
                   logSession(
                     `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -1089,10 +1090,10 @@ async function prepareSessionSandboxInternal(
                   "reuseSessionSandbox.runStartupCommands",
                   sandboxDetails,
                   async () => {
-                    const result = await ctx.runAction(
-                      internal.daytona.runStartupCommands,
-                      { sandboxId: sandbox.id, repoId: args.repoId },
-                    );
+                    const result = await runStartupCommandsDirect(ctx, {
+                      sandboxId: sandbox.id,
+                      repoId: args.repoId,
+                    });
                     if (result.ran && result.commandCount > 0) {
                       logSession(
                         `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -1472,17 +1473,14 @@ async function prepareSessionSandboxInternal(
       "newSessionSandbox.runStartupCommands",
       sandboxDetails,
       async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runStartupCommands,
-          {
-            sandboxId: handle.id,
-            repoId: args.repoId,
-            // Seeded snapshots ship `/tmp/.startup-commands-done` from the build;
-            // force re-bootstrap on every fresh session sandbox so dockerd and
-            // local services come back after Vercel snapshot restore.
-            force: prepared.usedSnapshot ? true : undefined,
-          },
-        );
+        const result = await runStartupCommandsDirect(ctx, {
+          sandboxId: handle.id,
+          repoId: args.repoId,
+          // Seeded snapshots ship `/tmp/.startup-commands-done` from the build;
+          // force re-bootstrap on every fresh session sandbox so dockerd and
+          // local services come back after Vercel snapshot restore.
+          force: prepared.usedSnapshot ? true : undefined,
+        });
         startupCommandErrors = result.errors;
         if (result.ran && result.commandCount > 0) {
           logSession(
@@ -2200,14 +2198,11 @@ async function prepareTaskPreviewSandboxInternal(
         "reuseTaskSandbox.runStartupCommands",
         sandboxDetails,
         async () => {
-          const result = await ctx.runAction(
-            internal.daytona.runStartupCommands,
-            {
-              sandboxId: handle.id,
-              repoId: args.repoId,
-              force: true,
-            },
-          );
+          const result = await runStartupCommandsDirect(ctx, {
+            sandboxId: handle.id,
+            repoId: args.repoId,
+            force: true,
+          });
           if (result.ran && result.commandCount > 0) {
             logSession(
               `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -2473,14 +2468,11 @@ async function prepareTaskPreviewSandboxInternal(
       "newTaskSandbox.runStartupCommands",
       sandboxDetails,
       async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runStartupCommands,
-          {
-            sandboxId: handle.id,
-            repoId: args.repoId,
-            force: args.forceStartupCommands,
-          },
-        );
+        const result = await runStartupCommandsDirect(ctx, {
+          sandboxId: handle.id,
+          repoId: args.repoId,
+          force: args.forceStartupCommands,
+        });
         if (result.ran && result.commandCount > 0) {
           logSession(
             `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -2743,14 +2735,11 @@ async function prepareProjectPreviewSandboxInternal(
           "reuseProjectSandbox.runStartupCommands",
           sandboxDetails,
           async () => {
-            const result = await ctx.runAction(
-              internal.daytona.runStartupCommands,
-              {
-                sandboxId: handle.id,
-                repoId: args.repoId,
-                force: true,
-              },
-            );
+            const result = await runStartupCommandsDirect(ctx, {
+              sandboxId: handle.id,
+              repoId: args.repoId,
+              force: true,
+            });
             if (result.ran && result.commandCount > 0) {
               logSession(
                 `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -3024,14 +3013,11 @@ async function prepareProjectPreviewSandboxInternal(
       "newProjectSandbox.runStartupCommands",
       sandboxDetails,
       async () => {
-        const result = await ctx.runAction(
-          internal.daytona.runStartupCommands,
-          {
-            sandboxId: handle.id,
-            repoId: args.repoId,
-            force: args.forceStartupCommands,
-          },
-        );
+        const result = await runStartupCommandsDirect(ctx, {
+          sandboxId: handle.id,
+          repoId: args.repoId,
+          force: args.forceStartupCommands,
+        });
         if (result.ran && result.commandCount > 0) {
           logSession(
             `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,

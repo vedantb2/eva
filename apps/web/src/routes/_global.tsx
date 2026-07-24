@@ -33,7 +33,7 @@ function GlobalMainContent() {
   const paddingClass = isSessionsLanding
     ? collapsed
       ? "lg:pl-16"
-      : "lg:pl-80"
+      : "lg:pl-[var(--eva-sidebar-width,20rem)]"
     : "lg:pl-16";
 
   return (

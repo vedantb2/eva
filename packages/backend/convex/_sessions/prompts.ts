@@ -66,7 +66,7 @@ export function buildEditPrompt(
 After committing, capture visual proof with agent-browser:
 1. Start the dev server in the background and wait until it is ready.
 2. Navigate to the affected route: \`agent-browser open http://localhost:3000/<relevant-route>\` and wait 5s for it to render.
-3. Record a walkthrough: \`agent-browser record start recordings/proof.webm\`, step through each affected page (wait 5s per page, scroll to show the change), then \`agent-browser record stop\`. Use \`agent-browser screenshot\` into screenshots/ only for a trivial change with nothing to demonstrate.
+3. Record a walkthrough: \`agent-browser record start /tmp/repo/recordings/proof.webm\` (ALWAYS absolute paths — relative paths resolve against the agent-browser daemon's cwd, not your shell's, and the file can land where Eva never finds it), step through each affected page (wait 5s per page, scroll to show the change), then \`agent-browser record stop\`. A few seconds after \`record start\`, verify the .webm exists and is growing (\`ls -la /tmp/repo/recordings/\`) — ffmpeg writes it progressively, so a missing/0-byte file means recording is broken (usually no ffmpeg); do NOT keep retrying, fall back to \`agent-browser screenshot /tmp/repo/screenshots/proof.png\`. Use screenshots only for a trivial change with nothing to demonstrate.
 4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
 Do NOT commit the recordings/ or screenshots/ files. Do NOT use create_artifact — Eva attaches the file to chat automatically.`
     : "";
@@ -82,7 +82,7 @@ If \`browser_start\` fails or is unavailable, fall back to plain headless agent-
 
 ## Recordings / screenshots in chat (required):
 When the user asks for a recording, walkthrough video, or screenshot:
-1. Write the file under the repo-root \`recordings/\` (video: \`agent-browser record start recordings/<name>.webm\` … \`record stop\`) or \`screenshots/\` (stills).
+1. Write the file under \`/tmp/repo/recordings/\` (video: \`agent-browser record start /tmp/repo/recordings/<name>.webm\` … \`record stop\`) or \`/tmp/repo/screenshots/\` (stills). ALWAYS pass absolute paths — relative paths resolve against the agent-browser daemon's cwd, not your shell's. A few seconds after \`record start\`, verify the .webm exists and is growing (\`ls -la /tmp/repo/recordings/\`); a missing/0-byte file means recording is broken (usually no ffmpeg) — do not retry-loop, capture screenshots instead and tell the user.
 2. Leave the file on disk when you finish the turn. Eva uploads it to Convex storage and renders it in chat with the video player (speed controls). Do not paste a URL instead.
 3. Never use \`create_artifact\` (or any /artifacts/… link) for these captures — artifacts are for HTML docs, not session walkthrough media.
 4. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link.`;

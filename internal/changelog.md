@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick tasks kanban sorts by updatedAt - 2026-07-24
+
+Kanban columns defaulted to `lastRun`, so edits/comments/status changes left cards buried until the next agent run. Default sort is now `updated` (`agentTasks.updatedAt`, already bumped on activity and mutations); storage key bumped so returning users pick up the new default.
+
 ## Shared browser works in task/project sandboxes - 2026-07-23
 
 The MCP `browser_*` tools hard-gated on a session entity, so quick-task and project chat agents (whose prompts advertise the shared-browser flow) always fell back to headless Chrome — the user could never watch live despite those panels already having a Browser tab. Sandbox tokens now carry `task`/`project` entity kinds, `browser_start` resolves the sandbox from the owning table, and `agentBrowsingAt` (+ `releaseBrowserLock`, takeover overlay, auto-switch to Browser) is generalized to `agentTasks`/`projects`, mirroring the session wiring.

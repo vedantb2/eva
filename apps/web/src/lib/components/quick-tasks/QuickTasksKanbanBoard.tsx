@@ -50,7 +50,9 @@ export function QuickTasksKanbanBoard({
         api.agentTasks.getAllTasks,
         { repoId },
         current.map((task) =>
-          task._id === args.id ? { ...task, status: args.status } : task,
+          task._id === args.id
+            ? { ...task, status: args.status, updatedAt: Date.now() }
+            : task,
         ),
       );
     }
@@ -61,7 +63,7 @@ export function QuickTasksKanbanBoard({
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  // Respect the sort order applied by QuickTasksClient (e.g. by latest run).
+  // Respect the sort order applied by QuickTasksClient (default: updatedAt).
   // Re-sorting here would override the user's chosen sort.
   const tasks = externalTasks;
 

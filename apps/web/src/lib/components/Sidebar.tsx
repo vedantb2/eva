@@ -30,6 +30,7 @@ import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
 import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
+import { SidebarResizeHandle } from "@/lib/components/sidebar/SidebarResizeHandle";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -72,7 +73,13 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
 export function Sidebar() {
   const { pathname } = useLocation();
   const { user } = useUser();
-  const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
+  const {
+    collapsed,
+    setCollapsed,
+    setSessionsNavMode,
+    sidebarWidth,
+    setSidebarWidth,
+  } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -272,7 +279,7 @@ export function Sidebar() {
           showSidePanel
             ? cn(
                 "w-[min(20rem,calc(100vw-1.5rem))]",
-                collapsed ? "lg:w-16" : "lg:w-80",
+                collapsed ? "lg:w-16" : "lg:w-[var(--eva-sidebar-width,20rem)]",
               )
             : "w-16",
         )}
@@ -291,7 +298,7 @@ export function Sidebar() {
         {showSidePanel ? (
           <div
             className={cn(
-              "flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar",
+              "relative flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar",
               // Keep the drawer content on mobile even when the desktop panel is hidden.
               collapsed && "lg:hidden",
             )}
@@ -525,6 +532,12 @@ export function Sidebar() {
                   collapsed={false}
                 />
               </div>
+            ) : null}
+            {!collapsed ? (
+              <SidebarResizeHandle
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+              />
             ) : null}
           </div>
         ) : null}

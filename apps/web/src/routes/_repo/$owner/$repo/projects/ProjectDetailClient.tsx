@@ -351,9 +351,8 @@ export function ProjectDetailClient({
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="icon-sm" aria-label="More">
                     <IconDots size={16} />
-                    <span className="hidden sm:inline">More</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

@@ -185,9 +185,12 @@ export function TaskFooter({
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size={buttonSize}>
+                <Button
+                  variant="secondary"
+                  size={buttonSize === "sm" ? "icon-sm" : "icon"}
+                  aria-label="More"
+                >
                   <IconDots size={iconSize} />
-                  <span className="hidden sm:inline">More</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

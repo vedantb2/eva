@@ -97,11 +97,11 @@ export function SessionChatHeader({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            size="sm"
+            size="icon-sm"
             variant="secondary"
+            aria-label="More"
             className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
-            More
             <IconDots size={14} />
           </Button>
         </DropdownMenuTrigger>

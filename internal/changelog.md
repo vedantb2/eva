@@ -1,5 +1,9 @@
 # Changelog
 
+## Agents can host captures at public URLs (upload_media MCP) - 2026-07-24
+
+Agents had no way to embed screenshots in PR comments or Linear issues — chat attachments are invisible outside Eva and GitHub's API cannot upload comment images, so they fell back to plain-text comments. New eva MCP tools: `upload_media` returns a one-time Convex storage upload URL the agent curls the file to, and `get_media_url` exchanges the storageId for a permanent public link; the session prompt's recordings block now documents the flow.
+
 ## Draggable app/repo and sessions sidebar - 2026-07-24
 
 The secondary sidebar was locked at `w-80`, so dense session lists and long nav labels couldn’t reclaim or release canvas space. Desktop users can now drag the panel edge (240–480px, default 320px = prior width); width persists in localStorage and applies to both the in-repo nav and global Sessions column.

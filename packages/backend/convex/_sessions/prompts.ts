@@ -84,7 +84,8 @@ If \`browser_start\` fails or is unavailable, fall back to plain headless agent-
 When the user asks for a recording, walkthrough video, or screenshot:
 1. Write the file under the repo-root \`recordings/\` (video: \`agent-browser record start recordings/<name>.webm\` … \`record stop\`) or \`screenshots/\` (stills).
 2. Leave the file on disk when you finish the turn. Eva uploads it to Convex storage and renders it in chat with the video player (speed controls). Do not paste a URL instead.
-3. Never use \`create_artifact\` (or any /artifacts/… link) for these captures — artifacts are for HTML docs, not session walkthrough media.`;
+3. Never use \`create_artifact\` (or any /artifacts/… link) for these captures — artifacts are for HTML docs, not session walkthrough media.
+4. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link.`;
   return `${message}${planContext}${proofSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):

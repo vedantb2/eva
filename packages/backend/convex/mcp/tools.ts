@@ -1113,6 +1113,44 @@ Do NOT use this for session walkthrough recordings, screen captures, or screensh
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Media tools (host a sandbox file at a public URL for PR comments/Linear issues)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "upload_media",
+    `Host a sandbox file (screenshot, recording, image) so it can be embedded outside Eva — e.g. in a GitHub PR comment or a Linear issue. Returns a one-time uploadUrl: POST the raw bytes to it from the sandbox (\`curl -s -X POST '<uploadUrl>' -H 'Content-Type: image/png' --data-binary @screenshots/before.png\`), read the storageId from the JSON response, then call get_media_url with that storageId to get the permanent public URL.
+
+Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat — Eva attaches those automatically.`,
+    {},
+    async () => {
+      await getContext();
+      const uploadUrl = await ctx.runMutation(
+        internal.mcp.media.generateUploadUrl,
+        {},
+      );
+      return textResult({ uploadUrl });
+    },
+  );
+
+  server.tool(
+    "get_media_url",
+    "Exchange a storageId from upload_media for the file's permanent public URL (plus contentType/size). Embed the URL in PR comments (`![before](url)`) or pass it to external APIs like Linear attachments.",
+    {
+      storageId: z
+        .string()
+        .describe("The storageId returned by upload_media's JSON response"),
+    },
+    async ({ storageId }) => {
+      await getContext();
+      const result = await ctx.runQuery(internal.mcp.media.getUrl, {
+        storageId,
+      });
+      if (result === null) return errorResult("Unknown storageId.");
+      return textResult(result);
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Browser tools (shared desktop Chrome via CDP — session/task/project sandboxes)
   // ─────────────────────────────────────────────────────────────────────────────
 

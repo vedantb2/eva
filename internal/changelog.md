@@ -1,5 +1,9 @@
 # Changelog
 
+## Sidebar collapse control lives on the rail - 2026-07-24
+
+The collapse toggle sat in the secondary sidebar header, competing with titles/back and disappearing from muscle memory when the panel was icon-narrow. It now lives on the vertical rail directly above the user avatar (always reachable), and the panel headers keep only navigation/close chrome.
+
 ## Skill sync runs on cron + base-branch push - 2026-07-24
 
 Manual Settings sync left repo skills stale until someone clicked the button. Shared scan logic now also runs from a 6h cron across connected codebases and from GitHub `push` webhooks when the base branch touches `.agents/skills` (subscribe the GitHub App to `push`).

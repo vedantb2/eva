@@ -1,12 +1,24 @@
 "use client";
 
-import { m, AnimatePresence } from "motion/react";
+import { m, AnimatePresence, type Transition } from "motion/react";
+
+const DEFAULT_TRANSITION: Transition = {
+  type: "spring",
+  duration: 0.3,
+  bounce: 0,
+};
+
+const SOFT_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const SOFT_TRANSITION: Transition = {
+  duration: 0.15,
+  ease: SOFT_EASE,
+};
 
 const DEFAULT_ICON_MOTION = {
   initial: { scale: 0.25, opacity: 0, filter: "blur(4px)" },
   animate: { scale: 1, opacity: 1, filter: "blur(0px)" },
   exit: { scale: 0.25, opacity: 0, filter: "blur(4px)" },
-  transition: { type: "spring", duration: 0.3, bounce: 0 },
+  transition: DEFAULT_TRANSITION,
 };
 
 /** Near-imperceptible swap for high-frequency toggles (150ms, no blur). */
@@ -14,7 +26,7 @@ const SOFT_ICON_MOTION = {
   initial: { scale: 0.96, opacity: 0 },
   animate: { scale: 1, opacity: 1 },
   exit: { scale: 0.96, opacity: 0 },
-  transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] },
+  transition: SOFT_TRANSITION,
 };
 
 interface CrossfadeIconProps {

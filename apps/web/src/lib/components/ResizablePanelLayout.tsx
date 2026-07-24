@@ -41,7 +41,7 @@ interface ResizablePanelLayoutProps {
 }
 
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
-const MOBILE_PANEL_EASE = [0.22, 1, 0.36, 1];
+const MOBILE_PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 export function ResizablePanelLayout({
   leftPanel,

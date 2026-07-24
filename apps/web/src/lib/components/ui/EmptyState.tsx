@@ -2,7 +2,7 @@
 
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
-import { m, useReducedMotion } from "motion/react";
+import { m, useReducedMotion, type Variants } from "motion/react";
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -18,7 +18,7 @@ interface EmptyStateProps {
   animate?: boolean;
 }
 
-const STAGGER_EASE = [0.22, 1, 0.36, 1];
+const STAGGER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 export function EmptyState({
   icon,
@@ -32,14 +32,14 @@ export function EmptyState({
   const reduceMotion = useReducedMotion();
   const shouldAnimate = animate && !reduceMotion;
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: {},
     show: {
       transition: { staggerChildren: 0.04 },
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 8 },
     show: {
       opacity: 1,

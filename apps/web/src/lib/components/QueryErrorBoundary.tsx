@@ -18,17 +18,17 @@ export class QueryErrorBoundary extends Component<
   QueryErrorBoundaryProps,
   QueryErrorBoundaryState
 > {
-  state: QueryErrorBoundaryState = { hasError: false };
+  override state: QueryErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(): QueryErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("QueryErrorBoundary caught:", error, info.componentStack);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return this.props.fallback ?? null;
     }

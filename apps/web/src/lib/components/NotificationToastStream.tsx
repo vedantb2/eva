@@ -128,9 +128,10 @@ export function NotificationToastStream() {
   };
 
   // Keep the fixed host mounted so AnimatePresence can play exit animations.
+  const toastEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
   const toastTransition = reduceMotion
     ? { duration: TOAST_REDUCED_DURATION_S }
-    : { duration: TOAST_DURATION_S, ease: [0.22, 1, 0.36, 1] };
+    : { duration: TOAST_DURATION_S, ease: toastEase };
   const toastEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
   const toastRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
   const toastExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };

@@ -225,16 +225,22 @@ const syncOutcomeValidator = v.object({
 export const syncFromGithub = action({
   args: { repoId: v.id("githubRepos") },
   returns: syncOutcomeValidator,
-  handler: async (ctx, args) => {
-    const userId = await ctx.runQuery(internal.auth.getUserIdFromIdentity, {});
+  handler: async (ctx, args): Promise<SyncOutcome> => {
+    const userId: Id<"users"> | null = await ctx.runQuery(
+      internal.auth.getUserIdFromIdentity,
+      {},
+    );
     if (!userId) {
       throw new Error("Not authenticated");
     }
 
-    const target = await ctx.runQuery(internal.repoSkills.getSyncTarget, {
-      repoId: args.repoId,
-      userId,
-    });
+    const target: SyncTarget = await ctx.runQuery(
+      internal.repoSkills.getSyncTarget,
+      {
+        repoId: args.repoId,
+        userId,
+      },
+    );
     return await syncSkillsForTarget(ctx, target);
   },
 });
@@ -246,10 +252,13 @@ export const syncFromGithub = action({
 export const syncRepoInternal = internalAction({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(syncOutcomeValidator, v.null()),
-  handler: async (ctx, args) => {
-    const target = await ctx.runQuery(internal.repoSkills.getSyncTargetSystem, {
-      repoId: args.repoId,
-    });
+  handler: async (ctx, args): Promise<SyncOutcome | null> => {
+    const target: SyncTarget | null = await ctx.runQuery(
+      internal.repoSkills.getSyncTargetSystem,
+      {
+        repoId: args.repoId,
+      },
+    );
     if (!target) return null;
     return await syncSkillsForTarget(ctx, target);
   },
@@ -262,8 +271,8 @@ export const syncRepoInternal = internalAction({
 export const syncAllRepos = internalAction({
   args: {},
   returns: v.object({ scheduled: v.number() }),
-  handler: async (ctx) => {
-    const repoIds = await ctx.runQuery(
+  handler: async (ctx): Promise<{ scheduled: number }> => {
+    const repoIds: Array<Id<"githubRepos">> = await ctx.runQuery(
       internal.repoSkills.listCanonicalReposForSkillSync,
       {},
     );

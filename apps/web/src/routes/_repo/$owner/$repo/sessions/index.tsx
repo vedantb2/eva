@@ -6,5 +6,5 @@ export const Route = createFileRoute("/_repo/$owner/$repo/sessions/")({
 });
 
 function SessionsPage() {
-  return <NewSessionComposer showBaseBranch />;
+  return <NewSessionComposer />;
 }

@@ -23,16 +23,10 @@ import { SessionModeDropdown } from "./SessionModeDropdown";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
- * create with the first message, then navigate while the sandbox boots.
- *
- * `showBaseBranch` renders the base-branch picker under the composer. Only the
- * `/sessions` route opts in; the repo-home landing keeps the minimal composer.
+ * base-branch picker under the composer, create with the first message, then
+ * navigate while the sandbox boots.
  */
-export function NewSessionComposer({
-  showBaseBranch = false,
-}: {
-  showBaseBranch?: boolean;
-}) {
+export function NewSessionComposer() {
   const navigate = useNavigate();
   const { repo, basePath } = useRepo();
   const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
@@ -160,18 +154,16 @@ export function NewSessionComposer({
           }
           attachmentMode="sessionFiles"
         />
-        {showBaseBranch && (
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <span>Base branch</span>
-            <BranchSelect
-              value={baseBranch}
-              onValueChange={setBaseBranch}
-              placeholder="Select a base branch"
-              className="h-8 w-auto max-w-[240px]"
-              disabled={isSubmitting}
-            />
-          </div>
-        )}
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <span>Base branch</span>
+          <BranchSelect
+            value={baseBranch}
+            onValueChange={setBaseBranch}
+            placeholder="Select a base branch"
+            className="h-8 w-auto max-w-[240px]"
+            disabled={isSubmitting}
+          />
+        </div>
       </div>
     </div>
   );

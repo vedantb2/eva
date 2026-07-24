@@ -114,7 +114,10 @@ async function resolveSandboxProviderKindForRepo(
     ctx.runQuery(internal.githubRepos.getTeamIdForRepo, { repoId }),
     ctx.runQuery(internal.repoEnvVars.getAllInternal, { repoId }),
   ]);
-  let kind: SandboxProviderKind = "daytona";
+  // Vercel is the default: Daytona is legacy and being removed. Set
+  // SANDBOX_PROVIDER=daytona (team, or repo to override the team) to opt back in
+  // while the remaining Daytona-only consumers are migrated.
+  let kind: SandboxProviderKind = "vercel";
   if (teamId) {
     const teamVars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
       teamId,
@@ -122,13 +125,13 @@ async function resolveSandboxProviderKindForRepo(
     const teamEntry = teamVars.find(
       (entry) => entry.key === "SANDBOX_PROVIDER",
     );
-    if (teamEntry && decryptValue(teamEntry.value) === "vercel") {
-      kind = "vercel";
+    if (teamEntry && decryptValue(teamEntry.value) === "daytona") {
+      kind = "daytona";
     }
   }
   const repoEntry = repoVars.find((entry) => entry.key === "SANDBOX_PROVIDER");
   if (repoEntry) {
-    kind = decryptValue(repoEntry.value) === "vercel" ? "vercel" : "daytona";
+    kind = decryptValue(repoEntry.value) === "daytona" ? "daytona" : "vercel";
   }
   return kind;
 }
@@ -139,8 +142,11 @@ async function resolveSandboxProviderKindForRepo(
  * measured `getSandboxProviderKind` was spending multi-seconds decrypting
  * every team/repo var before kickoff, which left the UI on "Eva is inferring…".
  *
- * Walks monorepo siblings so `SANDBOX_PROVIDER=vercel` on apps/web applies to
- * apps/eprocurement and the shared parent config repo too.
+ * Walks monorepo siblings so an explicit `SANDBOX_PROVIDER=daytona` on apps/web
+ * applies to apps/eprocurement and the shared parent config repo too. Daytona is
+ * the explicit opt-out now that Vercel is the default, so it is the value that
+ * propagates — otherwise an unset sibling would silently win back the default and
+ * strand the repo that deliberately opted out.
  */
 export async function resolveSandboxProviderKind(
   ctx: GenericActionCtx<DataModel>,
@@ -150,17 +156,17 @@ export async function resolveSandboxProviderKind(
   const repoIds = await listMonorepoRepoIds(ctx, repoId);
   for (const id of repoIds) {
     const kind = await resolveSandboxProviderKindForRepo(ctx, id);
-    if (kind === "vercel") {
+    if (kind === "daytona") {
       console.log(
-        `[env] resolveSandboxProviderKind repoId=${repoId} kind=vercel credentialRepoId=${id} elapsed=${Date.now() - startedAt}ms`,
+        `[env] resolveSandboxProviderKind repoId=${repoId} kind=daytona credentialRepoId=${id} elapsed=${Date.now() - startedAt}ms`,
       );
-      return "vercel";
+      return "daytona";
     }
   }
   console.log(
-    `[env] resolveSandboxProviderKind repoId=${repoId} kind=daytona elapsed=${Date.now() - startedAt}ms`,
+    `[env] resolveSandboxProviderKind repoId=${repoId} kind=vercel elapsed=${Date.now() - startedAt}ms`,
   );
-  return "daytona";
+  return "vercel";
 }
 
 /**

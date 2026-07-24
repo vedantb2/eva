@@ -13,11 +13,14 @@
  * - Lifecycle: Vercel is persistent-by-default and auto-resumes on `get`, so
  *   `start()` is a no-op and `archive()` maps to `stop()` (stop auto-snapshots).
  * - git: no native git client — implemented over the shell via runCommand.
- * - PTY/desktop/volumes are intentionally omitted for now: Vercel's PTY is a
- *   client-connect WebSocket (`openInteractive`) rather than the push-callback
- *   model of the neutral SandboxPty, and Drives (volumes) are beta. These are
- *   the "wired last" capabilities called out in the contract; consumers that
- *   need them stay on Daytona until they're designed for both providers.
+ * - PTY: implemented, but NOT via the neutral `SandboxPty` interface, so
+ *   `this.pty` stays undefined here. Vercel's PTY is a client-connect WebSocket
+ *   (`openInteractive`) rather than the push-callback model SandboxPty assumes,
+ *   so terminals are wired one layer up in ../pty.ts, which branches on a
+ *   `ptyProtocol: "daytona" | "vercel"` discriminator and hands the browser a ws
+ *   URL. See ../_pty/vercel.ts (tmux-backed shared panes).
+ * - desktop: implemented, see VercelDesktop below (TigerVNC + websockify/noVNC).
+ * - volumes: the one genuine gap. `ensureVolume` throws — Drives are still beta.
  */
 
 import { Sandbox } from "@vercel/sandbox";

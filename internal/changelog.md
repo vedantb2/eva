@@ -1,5 +1,9 @@
 # Changelog
 
+## Session Plan mode (was PRD) - 2026-07-25
+
+Composer mode and sandbox tab said “PRD” and forced a product-requirements prompt (user stories, non-technical WHAT/WHY). Renamed to **Plan** and switched the agent prompt to a normal implementation plan (`plan.md`: approach, files, steps, risks) — same shape as Claude/Codex plan mode. Approve → edit still injects the plan as context.
+
 ## Codex/Cursor model list → GPT-5.5 - 2026-07-25
 
 Codex still offered 5.2–5.4 while OpenAI’s shipping coding model is GPT-5.5; Cursor’s GPT entry was stuck on high effort. Codex picker is now `gpt-5.5` (with matching reasoning levels + pricing); Cursor GPT is `gpt-5.5-low`. Old IDs stay accepted and normalize forward so existing sessions load.

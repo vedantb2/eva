@@ -146,7 +146,7 @@ export function SessionPrdPlanView({
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";
-  const planTitle = proposedPlanTitle(planContent) ?? "Product Requirements";
+  const planTitle = proposedPlanTitle(planContent) ?? "Plan";
 
   return (
     <Plan
@@ -165,7 +165,7 @@ export function SessionPrdPlanView({
             className="size-8"
             onClick={handleCopy}
             disabled={!hasContent}
-            aria-label={copied ? "Copied" : "Copy PRD"}
+            aria-label={copied ? "Copied" : "Copy plan"}
           >
             {copied ? (
               <IconCheck className="size-4 text-success" />
@@ -179,7 +179,7 @@ export function SessionPrdPlanView({
             className="size-8"
             onClick={handleDownload}
             disabled={!hasContent}
-            aria-label="Download PRD as markdown"
+            aria-label="Download plan as markdown"
           >
             <IconDownload className="size-4" />
           </Button>

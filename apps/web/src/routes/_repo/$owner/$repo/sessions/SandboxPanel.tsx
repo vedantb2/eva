@@ -181,10 +181,10 @@ export function SandboxPanel({
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
               <div className="max-w-md space-y-1">
-                <p className="text-sm font-medium">No PRD or plan yet</p>
+                <p className="text-sm font-medium">No plan yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Ask Eva to create a PRD or plan for a feature, and it will
-                  appear here once generated.
+                  Switch the composer to Plan mode and describe what you want to
+                  build — the plan will appear here once generated.
                 </p>
               </div>
             </div>

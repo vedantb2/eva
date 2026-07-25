@@ -323,7 +323,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
                   {message.mode === "plan" ? (
                     <>
-                      <IconClipboardList className="w-2.5 h-2.5" /> PRD
+                      <IconClipboardList className="w-2.5 h-2.5" /> Plan
                     </>
                   ) : (
                     <>

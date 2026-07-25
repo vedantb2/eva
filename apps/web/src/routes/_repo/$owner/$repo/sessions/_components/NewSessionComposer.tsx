@@ -135,7 +135,7 @@ export function NewSessionComposer() {
           isInputDisabled={isSubmitting}
           placeholder={
             mode === "plan"
-              ? "Describe the product requirements... / for skills · @ for data"
+              ? "Describe what to plan... / for skills · @ for data"
               : "Ask Eva anything... / for skills · @ for data"
           }
           model={model}

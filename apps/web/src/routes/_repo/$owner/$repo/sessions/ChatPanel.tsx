@@ -322,7 +322,7 @@ export function ChatPanel({
   const placeholder = !isSandboxActive
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
-      ? "Describe the product requirements... / for skills · @ for data"
+      ? "Describe what to plan... / for skills · @ for data"
       : "Ask Eva anything... / for skills · @ for data";
 
   const readOnlyMessage = getSessionReadOnlyMessage({

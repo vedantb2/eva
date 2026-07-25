@@ -14,18 +14,20 @@ export function buildPlanPrompt(
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
 ): string {
-  return `PRD planning for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
+  // Same shape as Claude/Codex plan mode: explore, write an implementation
+  // plan, do not implement yet. Eva harvests plan.md into session.planContent.
+  return `Plan mode for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
 
 Current plan.md:
 ${existingPlan || "None yet."}
 
 User: ${message}
 
-Create/update plan.md with: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope. Refine iteratively — don't rewrite unless asked.
+Create/update plan.md with a detailed implementation plan: goal, approach, files to touch, steps, risks/open questions. Refine iteratively — don't rewrite unless asked.
 
 Rules:
 - ONLY write plan.md — no other files
-- Non-technical: WHAT and WHY, not HOW
+- Do NOT implement the plan
 - Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -53,7 +55,7 @@ export function buildEditPrompt(
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const planContext = planContent
-    ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
+    ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
     : "";
   // When the session has "Capture proof" enabled, ask the agent to record
   // visual proof after committing. The sandbox callback runtime scans

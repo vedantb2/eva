@@ -18,9 +18,10 @@ export const taskPreviewSandboxStartupWorkflow = workflow.define({
     forceStartupCommands: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
-    // Daytona-only pre-thaw (see sessionSandboxStartupWorkflow). Vercel resume
-    // runs inside startTaskPreviewSandbox — skip kickoff to avoid ~6–8s of
-    // empty workflow step latency before sandbox.start().
+    // Legacy fallback for sandboxes without vercelSandboxId (see
+    // sessionSandboxStartupWorkflow). Vercel resume runs inside
+    // startTaskPreviewSandbox — skip kickoff to avoid ~6–8s of empty workflow
+    // step latency before sandbox.start().
     if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {

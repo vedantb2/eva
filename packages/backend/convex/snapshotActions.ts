@@ -194,7 +194,7 @@ export const launchSeedRun = internalAction({
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
     // Branch to hard-reset /tmp/repo to (refs must already be fetched — the
-    // workflow runs daytona.fetchBaseBranch first, which owns git auth).
+    // workflow runs sandbox.fetchBaseBranch first, which owns git auth).
     branch: v.string(),
     // Repo build commands (pnpm install / codegen etc), run after the reset so
     // the captured snapshot carries fresh node_modules and build artifacts.
@@ -206,7 +206,9 @@ export const launchSeedRun = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    // Validates Vercel credentials are configured for this repo; the sandbox
+    // handle itself is resolved separately below via getSandboxHandle.
+    await resolveSandboxCredentials(ctx, args.repoId);
     const startupCommands: string[] | null = await ctx.runQuery(
       internal.repoSnapshots.getStartupCommands,
       { repoId: args.repoId },
@@ -243,72 +245,70 @@ export const launchSeedRun = internalAction({
     // OTHER than that seeded snapshot (i.e. bare node24, because no seed
     // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
     // — this is expected, not a bug; see getRepoSnapshotName.
-    if (credentials.kind === "vercel") {
-      // Every install below must be idempotent: seed-prep often boots from a
-      // warm base Image snap that already has the toolchain, and re-running
-      // rpm/git-clone must skip (not fail) when the artifact is present.
-      lines.push(
-        'echo "SEEDRUN-STAGE:toolchain"',
-        "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
-        'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
-        "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
-        // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
-        // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
-        // still completes if the mirror is unavailable.
-        "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
-        "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
-        'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
-        'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
-        'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
-        "git config --global --add safe.directory '*'",
-        `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
-        // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
-        // release tarball (dnf has no `gh` package by default).
-        `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
-        'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-        'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
-        'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
-        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
-        // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
-        '[ -d /opt/novnc ] || { sudo rm -rf /opt/noVNC; sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc; } || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
-        "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
-        'command -v google-chrome-stable >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1 || sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
-        '[ -x /home/eva/.local/bin/cursor-agent ] || [ -x /home/eva/.local/bin/agent ] || { curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1; } || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
-        "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
-        "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
-        "mkdir -p /home/eva/.claude/plugins/marketplaces",
-        '[ -d /home/eva/.claude/plugins/marketplaces/claude-plugins-official/.git ] || git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
-        '[ -d /home/eva/.claude/plugins/marketplaces/Dammyjay93/.git ] || git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
-        '[ -d /home/eva/.claude/plugins/marketplaces/maister-plugins/.git ] || git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
-        `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
-        'echo "SEEDRUN-STAGE:path-setup"',
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
-        'grep -qF "/home/eva/.local/bin" /home/eva/.bashrc 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /home/eva/.bashrc',
-        'grep -qF "/home/eva/.local/bin" /vercel/sandbox/.eva-env.sh 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /vercel/sandbox/.eva-env.sh',
-      );
+    // Every install below must be idempotent: seed-prep often boots from a
+    // warm base Image snap that already has the toolchain, and re-running
+    // rpm/git-clone must skip (not fail) when the artifact is present.
+    lines.push(
+      'echo "SEEDRUN-STAGE:toolchain"',
+      "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
+      'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+      "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+      // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
+      // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
+      // still completes if the mirror is unavailable.
+      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+      'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
+      'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
+      "git config --global --add safe.directory '*'",
+      `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+      // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
+      // release tarball (dnf has no `gh` package by default).
+      `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
+      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+      'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+      'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
+      "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
+      // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
+      '[ -d /opt/novnc ] || { sudo rm -rf /opt/noVNC; sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc; } || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+      "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
+      'command -v google-chrome-stable >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1 || sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
+      '[ -x /home/eva/.local/bin/cursor-agent ] || [ -x /home/eva/.local/bin/agent ] || { curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1; } || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
+      "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
+      "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
+      "mkdir -p /home/eva/.claude/plugins/marketplaces",
+      '[ -d /home/eva/.claude/plugins/marketplaces/claude-plugins-official/.git ] || git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
+      '[ -d /home/eva/.claude/plugins/marketplaces/Dammyjay93/.git ] || git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
+      '[ -d /home/eva/.claude/plugins/marketplaces/maister-plugins/.git ] || git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
+      `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+      'echo "SEEDRUN-STAGE:path-setup"',
+      "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
+      'grep -qF "/home/eva/.local/bin" /home/eva/.bashrc 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /home/eva/.bashrc',
+      'grep -qF "/home/eva/.local/bin" /vercel/sandbox/.eva-env.sh 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /vercel/sandbox/.eva-env.sh',
+    );
 
-      // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
-      // sandbox the way they are into the Daytona Image — download them here so
-      // the update stage below can copy them into /tmp/repo before install.
-      const configFiles: SandboxConfigFile[] = await ctx.runQuery(
-        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-        { repoId: args.repoId },
-      );
-      const downloadableFiles = filterDownloadableConfigFiles(configFiles);
-      if (downloadableFiles.length > 0) {
-        lines.push('echo "SEEDRUN-STAGE:config-files"');
-        downloadableFiles.forEach((file, i) => {
-          const commands = buildConfigFileDownloadCommands(
-            file,
-            "/home/eva/sandbox-config",
+    // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
+    // sandbox the way they are into the Daytona Image — download them here so
+    // the update stage below can copy them into /tmp/repo before install.
+    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+      { repoId: args.repoId },
+    );
+    const downloadableFiles = filterDownloadableConfigFiles(configFiles);
+    if (downloadableFiles.length > 0) {
+      lines.push('echo "SEEDRUN-STAGE:config-files"');
+      downloadableFiles.forEach((file, i) => {
+        const commands = buildConfigFileDownloadCommands(
+          file,
+          "/home/eva/sandbox-config",
+        );
+        commands.forEach((command) => {
+          lines.push(
+            `( ${command} ) || { echo "SEEDRUN-FAILED:config-${i}"; exit 1; }`,
           );
-          commands.forEach((command) => {
-            lines.push(
-              `( ${command} ) || { echo "SEEDRUN-FAILED:config-${i}"; exit 1; }`,
-            );
-          });
         });
-      }
+      });
     }
     // ---- update: latest code + fresh deps/artifacts ----
     lines.push(
@@ -316,35 +316,31 @@ export const launchSeedRun = internalAction({
       'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
       `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
     );
-    if (credentials.kind === "vercel") {
-      lines.push(
-        // Mirror config files into the repo tree, same as the Daytona Image does
-        // post-clone (they are staged outside the repo so they survive git clean).
-        "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
-        'echo "SEEDRUN-STAGE:install"',
-        'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
-      );
-    }
+    lines.push(
+      // Mirror config files into the repo tree (staged outside the repo so
+      // they survive git clean).
+      "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
+      'echo "SEEDRUN-STAGE:install"',
+      'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
+    );
     // Vercel node24 base has no container runtime. Install Docker if missing,
     // then ensure the daemon is running and the socket is group-accessible so
     // startup/background commands can run `docker ps` without sudo. Kept as a
     // defensive re-check even though the toolchain stage above already starts
     // dockerd — idempotent, so harmless when it is already running.
-    if (credentials.kind === "vercel") {
-      lines.push(
-        'echo "SEEDRUN-STAGE:docker-bootstrap"',
-        // Install Docker if not already present (skip on warm snapshots that
-        // already have it baked in).
-        'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
-        // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
-        'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
-        // Open the socket so non-root `docker` commands work (background/startup
-        // commands run as the sandbox user without sudo).
-        "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
-        // Block until the daemon is fully ready.
-        "until docker info >/dev/null 2>&1; do sleep 1; done",
-      );
-    }
+    lines.push(
+      'echo "SEEDRUN-STAGE:docker-bootstrap"',
+      // Install Docker if not already present (skip on warm snapshots that
+      // already have it baked in).
+      'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
+      // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
+      'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+      // Open the socket so non-root `docker` commands work (background/startup
+      // commands run as the sandbox user without sudo).
+      "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+      // Block until the daemon is fully ready.
+      "until docker info >/dev/null 2>&1; do sleep 1; done",
+    );
     args.buildCommands.forEach((command, i) => {
       lines.push(
         `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
@@ -425,7 +421,7 @@ export const launchSeedRun = internalAction({
     if (!alreadyRunning.includes("ALREADY-RUNNING")) {
       // Never inline the script as base64 in a shell command — carepulse's
       // startup/background arrays make the payload far larger than ARG_MAX.
-      // Use the provider writeFile API (Vercel writeFiles / Daytona upload).
+      // Use the provider writeFile API instead.
       await execHandle(
         sandbox,
         "rm -f /tmp/.seedrun-done /tmp/seedrun.log /tmp/seedrun.sh",
@@ -537,14 +533,12 @@ export const createSeedPrepSandbox = internalAction({
       args.repoId,
     );
     const client = getSandboxClient(credentials);
-    // For Vercel, snapshot IDs are `snap_*`; Daytona uses `snapshot-*` /
-    // `seeded-*` names. Passing a Daytona name to the Vercel adapter 404s —
-    // instead we fall back to a fresh sandbox (no snapshot source) so the first
-    // Vercel build can bootstrap the chain by cloning the repo from scratch.
-    const effectiveImageSnapshot =
-      credentials.kind === "vercel" && !args.imageSnapshot.startsWith("snap_")
-        ? undefined
-        : args.imageSnapshot;
+    // Vercel snapshot IDs are `snap_*`. If a non-`snap_*` name is passed (e.g.
+    // a stale/legacy value), fall back to a fresh sandbox (no snapshot source)
+    // so the first build can bootstrap the chain by cloning the repo from scratch.
+    const effectiveImageSnapshot = !args.imageSnapshot.startsWith("snap_")
+      ? undefined
+      : args.imageSnapshot;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -582,9 +576,8 @@ export const createSeedPrepSandbox = internalAction({
 });
 
 /**
- * Provider-agnostic delete of a seed-prep sandbox. Used by the snapshot build
- * workflow after the seed run completes (success or failure) so the sandbox does
- * not linger. Works for both Daytona and Vercel providers.
+ * Deletes a seed-prep sandbox. Used by the snapshot build workflow after the
+ * seed run completes (success or failure) so the sandbox does not linger.
  */
 export const deleteSeedPrepSandbox = internalAction({
   args: {
@@ -624,6 +617,11 @@ export const deleteSeedPrepSandbox = internalAction({
 // and the workflow polls completion across separate steps — see
 // triggerSeededSnapshot. Comfortable for the POST; short enough to never near
 // Convex's 600s per-action ceiling.
+//
+// NOTE: Vercel's createSnapshot currently ignores this timeout and awaits the
+// full capture directly (see VercelSandboxHandle.createSnapshot) — flagged for
+// follow-up rather than silently reworded, since the "fires POST, bails fast on
+// timeout" description below no longer matches Vercel's implementation.
 const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
 
 /**
@@ -635,10 +633,11 @@ const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
  * caller polling the sandbox state for the entire capture, which exceeds
  * Convex's hard 600s action limit — the action gets killed mid-await (the
  * "unawaited operation" warning) and the app silently drops to the base Image.
- * Instead we fire the POST with a short timeout so the helper bails fast with a
- * DaytonaTimeoutError (the snapshot keeps building server-side), then poll
- * completion in separate workflow steps via pollSeededSnapshotState. Any
- * non-timeout error is a real failure and propagates to the per-app fallback.
+ * Instead we fire the POST with a short timeout so the helper is meant to bail
+ * fast (the snapshot keeps building server-side), then poll completion in
+ * separate workflow steps via pollSeededSnapshotState. Any non-timeout error is
+ * a real failure and propagates to the per-app fallback. See the NOTE above
+ * SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC — Vercel does not currently honor this.
  */
 export const triggerSeededSnapshot = internalAction({
   args: {
@@ -646,10 +645,11 @@ export const triggerSeededSnapshot = internalAction({
     sandboxId: v.string(),
     seededName: v.string(),
   },
-  // Returns the effective snapshot identifier used by the provider.
-  // For Daytona this equals seededName (name IS the id); for Vercel it is the
-  // `snap_*` id returned by the API. The workflow must use this value — not
-  // seededName — when polling and writing seededSnapshotName to the DB.
+  // Returns the effective snapshot identifier used by the provider. On the
+  // now-removed Daytona provider this equaled seededName (name IS the id); on
+  // Vercel it is the `snap_*` id returned by the API. The workflow must use
+  // this value — not seededName — when polling and writing seededSnapshotName
+  // to the DB.
   returns: v.object({ snapshotId: v.string() }),
   handler: async (ctx, args): Promise<{ snapshotId: string }> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
@@ -762,11 +762,10 @@ export const stopAllRepoSandboxes = internalAction({
 });
 
 /**
- * Provider-agnostic delete of a seeded snapshot by its id/name. Resolves the
- * repo's provider (Daytona or Vercel) and calls the neutral deleteSnapshot, so
- * previous `snap_*` (Vercel) or `seeded-*` (Daytona) captures don't accumulate
- * — the single-snapshot build makes a fresh capture each run. Best-effort: a
- * missing/foreign-provider snapshot just no-ops (deleteSnapshot returns false).
+ * Deletes a seeded snapshot by its id/name so previous `snap_*` captures don't
+ * accumulate — the single-snapshot build makes a fresh capture each run.
+ * Best-effort: a missing snapshot, or a legacy `seeded-*` name left over from
+ * the now-removed Daytona provider, just no-ops (deleteSnapshot returns false).
  */
 export const deleteSeededSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
@@ -798,8 +797,7 @@ export const deleteSeededSnapshot = internalAction({
  * One-shot / ops cleanup: delete every Vercel snap_* in the project that is not
  * (1) the current base Image / per-app seeded capture, or (2) still owned by an
  * existing sandbox (session / quick-task / project resume snaps). Use after
- * ephemeral automation sandboxes left never-expiring orphans behind. Daytona
- * repos no-op.
+ * ephemeral automation sandboxes left never-expiring orphans behind.
  */
 export const purgeUnreferencedVercelSnapshots = internalAction({
   args: { repoId: v.id("githubRepos") },
@@ -819,14 +817,6 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
     skippedCount: number;
   }> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    if (credentials.kind !== "vercel") {
-      return {
-        protectedCount: 0,
-        liveSandboxCount: 0,
-        deletedCount: 0,
-        skippedCount: 0,
-      };
-    }
     const creds = {
       token: credentials.token,
       teamId: credentials.teamId,

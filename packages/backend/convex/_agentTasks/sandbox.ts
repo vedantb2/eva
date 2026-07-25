@@ -268,11 +268,11 @@ export const patchTaskDevServer = internalMutation({
 });
 
 /**
- * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
+ * Stops the preview sandbox. Keeps `sandboxId` so the reviewer
  * can resume the same paused filesystem (DB state intact) on next start.
  *
  * Marks the task as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the sandbox stop completes.
  * Without the transient `"stopping"` state, a quick Start click during the
  * stop window would race with `getOrCreateSandbox` and silently spawn an
  * orphan sandbox.

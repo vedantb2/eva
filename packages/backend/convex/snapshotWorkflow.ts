@@ -19,9 +19,10 @@ const MAX_SEED_RUN_POLLS = 150; // ~50 minutes at 20s intervals
 // a reliable completion signal.
 const SEED_SNAPSHOT_POLL_DELAY_MS = 15_000;
 const MAX_SEED_SNAPSHOT_POLLS = 240; // ~60 minutes at 15s intervals — captures
-// normally finish in ~6m but have been observed taking 40m+ when the Daytona
-// builder/runner fleet is degraded; the window must outlast a bad day because
-// exhausting it costs the app its seeded refresh for this build.
+// normally finish in ~6m but have been observed taking 40m+ when the sandbox
+// provider's builder/runner infrastructure is degraded; the window must outlast
+// a bad day because exhausting it costs the app its seeded refresh for this
+// build.
 
 /**
  * Snapshot build workflow — app-specific seeded snapshot model.
@@ -358,10 +359,11 @@ export const snapshotBuildWorkflow = workflow.define({
       });
 
       // Prefer the Vercel base Image (`snap_*`) when present so seed-prep does
-      // not create a blank sandbox. `snapshotName` is the Daytona-style label
-      // (`snapshot-<repoId>`) and is treated as "no source" on Vercel, which
-      // races toolchain install from scratch and can 404 on flaky project
-      // lookups. Daytona still accepts snapshotName as the Image name.
+      // not create a blank sandbox. `snapshotName` is the legacy Daytona-style
+      // label (`snapshot-<repoId>`) and is treated as "no source" on Vercel,
+      // which races toolchain install from scratch and can 404 on flaky
+      // project lookups. Daytona used to accept snapshotName directly as its
+      // Image name.
       const seedImageSnapshot = config.baseSnapshotId ?? config.snapshotName;
       const created = await step.runAction(
         internal.snapshotActions.createSeedPrepSandbox,
@@ -441,7 +443,7 @@ export const snapshotBuildWorkflow = workflow.define({
       // POST without blocking; poll across separate steps so a long DB
       // capture never exceeds Convex's 600s per-action ceiling.
       // triggerSeededSnapshot returns the provider's actual snapshot id:
-      // - Daytona: equals seededName (the Daytona snapshot name IS its id)
+      // - Daytona (removed): equaled seededName (the snapshot name WAS its id)
       // - Vercel: a generated `snap_*` id distinct from seededName
       // All subsequent steps must use effectiveSeededName so that the right
       // id is polled and written to seededSnapshotName on every app repo.

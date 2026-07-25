@@ -85,7 +85,7 @@ export const taskExecutionWorkflow = workflow.define({
       // run completes). Quick-task sandboxes are persistent (stop/pause, not
       // delete-on-completion — see "Persistent Quick-Task Sandboxes" in the
       // changelog), so `ephemeral` is always false: a first run that ended up
-      // ephemeral would be deleted by Daytona on auto-stop, leaving
+      // ephemeral would be deleted on auto-stop, leaving
       // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;

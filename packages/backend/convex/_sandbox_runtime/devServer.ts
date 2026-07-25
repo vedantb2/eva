@@ -152,7 +152,7 @@ export async function restoreSeededRuntimeState(
     (await bootstrapVercelDocker(sandbox));
   if (!dockerReady) {
     console.log(
-      `[daytona] restoreSeededRuntimeState: docker unavailable on ${sandbox.id}, skipping supabase dump restore (startup commands will bootstrap)`,
+      `[sandbox] restoreSeededRuntimeState: docker unavailable on ${sandbox.id}, skipping supabase dump restore (startup commands will bootstrap)`,
     );
     return;
   }
@@ -298,6 +298,6 @@ export async function launchDevServerInBackground(
     { timeoutSeconds: 15 },
   );
   console.log(
-    `[daytona] launchDevServerInBackground: launched on ${sandbox.id} port=${port}`,
+    `[sandbox] launchDevServerInBackground: launched on ${sandbox.id} port=${port}`,
   );
 }

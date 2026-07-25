@@ -51,7 +51,7 @@ async function emitSteps(
 
 type PrepareSandboxResult = {
   sandboxId: string;
-  /** Set to the sandbox id when the provider is Vercel; undefined for Daytona. */
+  /** Set to the sandbox id when the provider is Vercel; undefined for legacy sandboxes created before vercelSandboxId existed. */
   vercelSandboxId: string | undefined;
 };
 
@@ -63,11 +63,11 @@ export async function prepareSandboxSteps(
   const completedSteps: Array<ProgressStep> = [];
   const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
-  // Thaw an archived/stopped existing sandbox across polling steps before the
-  // create/resume action, so a multi-minute cold-storage restore doesn't blow
-  // the per-action 10-minute limit inside createOrResumeSandbox →
-  // ensureSandboxRunning. On Vercel only vercelSandboxId is thawed (Daytona
-  // UUIDs must not hit Vercel get). New sandboxes have nothing to thaw.
+  // Resolve which existing sandbox (if any) to reuse before the create/resume
+  // action inside createOrResumeSandbox → ensureSandboxRunning; see
+  // ensureSandboxStartedSteps for why this no longer needs to poll. On Vercel
+  // only vercelSandboxId is thawed (legacy Daytona UUIDs must not hit Vercel
+  // get). New sandboxes have nothing to thaw.
   if (args.existingSandboxId || args.vercelSandboxId) {
     await ensureSandboxStartedSteps(step, {
       sandboxId: args.existingSandboxId,

@@ -48,7 +48,7 @@ export const prepareProofSandbox = internalAction({
     if (bg.commandCount > 0) {
       // Fresh Convex needs time to start local backend + push functions.
       console.log(
-        `[daytona] prepareProofSandbox: restarted ${bg.commandCount} background command(s); waiting for deploy`,
+        `[sandbox] prepareProofSandbox: restarted ${bg.commandCount} background command(s); waiting for deploy`,
       );
       await sleep(20_000);
     } else {
@@ -66,7 +66,7 @@ export const prepareProofSandbox = internalAction({
       await sleep(8_000);
     } catch (error) {
       console.error(
-        `[daytona] prepareProofSandbox: dev server start failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox] prepareProofSandbox: dev server start failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

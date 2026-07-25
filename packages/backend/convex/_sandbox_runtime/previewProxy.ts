@@ -15,8 +15,7 @@ import { VERCEL_PREVIEW_PROXY_PORT } from "./vercelAppPorts";
 
 export { VERCEL_PREVIEW_PROXY_PORT };
 
-// Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
-// navigation proxy must listen inside that range.
+// Internal port range the injected navigation proxy listens on.
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
@@ -264,9 +263,9 @@ function verifySession(token) {
   }
 }
 
-// HTML interstitial for unauthenticated document loads. Daytona forwards to the
-// sandbox with the Host header rewritten to the internal upstream
-// (localhost:proxyPort), so the proxy cannot know its own browser-facing URL.
+// HTML interstitial for unauthenticated document loads. Vercel terminates TLS
+// at its edge and exposes each port on its own subdomain before this process
+// ever sees the request, so the proxy cannot know its own browser-facing URL.
 // We therefore compute the return URL in the browser from location.href, which
 // is the real external preview origin, and embed the server-known port + ids.
 function buildAuthBootstrapHtml() {
@@ -373,9 +372,9 @@ function authorize(clientReq, clientRes) {
   return false;
 }
 
-// Convex's browser client opens a raw WebSocket and cannot attach the Daytona
-// preview token, so it can never follow the cross-origin auth redirect to a
-// separate 3210-<sandbox> preview origin. Instead the client points at this
+// Convex's browser client opens a raw WebSocket and cannot attach the preview
+// auth token, so it can never follow the cross-origin auth redirect to a
+// separate preview origin for the Convex ports. Instead the client points at this
 // same (already-authenticated) preview origin under /__convex, and the proxy
 // forwards those requests to the local Convex backend. /__convex-site maps to
 // the Convex HTTP-actions port the same way.

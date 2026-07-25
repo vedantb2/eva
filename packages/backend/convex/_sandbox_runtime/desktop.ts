@@ -4,7 +4,7 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import { execHandle } from "./helpers";
 
 /**
- * Chrome launch flags shared by Daytona (Xvfb :0) and Vercel (Xvnc :1).
+ * Chrome launch flags for the sandbox (Vercel's Xvnc framebuffer, display :1).
  * - --disable-dev-shm-usage: /dev/shm is tiny in these VMs.
  * - --user-data-dir: required for --remote-debugging-port to bind.
  * - --disable-gpu --in-process-gpu: Vercel/Amazon Linux has no GPU + no WM;
@@ -36,8 +36,7 @@ const CHROME_FLAGS = [
  *
  * On Vercel, long-running Chrome MUST use native execDetached — `nohup … &`
  * inside a synchronous runCommand leaves Chrome as a zombie once that command
- * exits (same failure mode as Xvnc/websockify). Daytona's execDetached is a
- * shell background, which is fine there.
+ * exits (same failure mode as Xvnc/websockify).
  */
 export async function launchChrome(sandbox: SandboxHandle): Promise<void> {
   try {
@@ -62,7 +61,7 @@ export async function launchChrome(sandbox: SandboxHandle): Promise<void> {
         "sleep 1",
         "mkdir -p /home/eva/.config/chrome-debug",
         "rm -rf /home/eva/.config/chrome-debug/Singleton* 2>/dev/null || true",
-        // Resolve display: Vercel Xvnc is :1, Daytona Xvfb is :0.
+        // Resolve display: Vercel Xvnc is :1; :0 is a legacy fallback.
         'DISPLAY_VALUE="${EVA_DESKTOP_DISPLAY:-}"',
         'if [ -z "$DISPLAY_VALUE" ]; then DISPLAY=:1 xprop -root >/dev/null 2>&1 && DISPLAY_VALUE=:1; fi',
         'if [ -z "$DISPLAY_VALUE" ]; then DISPLAY=:0 xprop -root >/dev/null 2>&1 && DISPLAY_VALUE=:0; fi',

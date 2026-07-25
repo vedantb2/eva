@@ -301,7 +301,7 @@ const schema = defineSchema(
       // ~11-15m image rebuild — its output would be byte-identical.
       imageFingerprint: v.optional(v.string()),
       // Vercel base Image capture (`snap_*`) from a running sandbox — separate
-      // from Daytona `snapshotName` and per-app `seededSnapshotName`.
+      // from `snapshotName` and per-app `seededSnapshotName`.
       baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),

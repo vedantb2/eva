@@ -60,7 +60,6 @@ export const startSandbox = authMutation({
       repoId: session.repoId,
     };
     // Vercel: schedule the start action directly (skip ~6s workflow scheduling).
-    // Daytona still needs the multi-step thaw workflow for archived restores.
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
@@ -79,10 +78,10 @@ export const startSandbox = authMutation({
 });
 
 /**
- * Stops the sandbox in Daytona and closes the design session.
+ * Stops the sandbox and closes the design session.
  *
  * Marks the session as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the sandbox stop completes.
  * Without the transient `"stopping"` state, a quick Start click during the
  * stop window would race with `getOrCreateSandbox` and silently spawn an
  * orphan sandbox.

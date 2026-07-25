@@ -14,7 +14,6 @@ import {
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-  ensureDockerDaemon,
   bootstrapVercelDocker,
   ensureSandboxRunning,
   sleep,
@@ -48,7 +47,7 @@ export type RepoSyncStrategy =
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
   autoStopInterval: 90,
-  // Auto-archive after 1 day; no auto-delete (Daytona default).
+  // Auto-archive after 1 day; no auto-delete.
   autoArchiveInterval: 1 * 24 * 60,
 };
 
@@ -66,7 +65,7 @@ const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 
 /** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
-  console.log(`[daytona][git] ${message}`);
+  console.log(`[sandbox][git] ${message}`);
 }
 
 /** Checks if an error message indicates a sandbox execution timeout. */
@@ -136,7 +135,7 @@ async function execGitCommand(
 
 const SDK_TIMEOUT_BUFFER_MS = 15_000;
 
-/** Wraps a Daytona SDK git call with timeout, logging, and stale-process cleanup. */
+/** Wraps a sandbox git call with timeout, logging, and stale-process cleanup. */
 async function execSdkGitOperation<T>(
   sandbox: SandboxHandle,
   label: string,
@@ -300,24 +299,15 @@ export async function createSandbox(
         ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
         : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
-    // Vercel: create does not need the GitHub token at API time (env is a
+    // Create does not need the GitHub token at API time (env is a
     // post-create file write). Overlap token fetch with Sandbox.create, then
     // write the env file AFTER onSandboxAcquired so the UI goes active before
     // the first-command boot penalty.
-    // Daytona: envVars are baked into create, so the token must be ready first.
     const tokenPromise = getInstallationToken(installationId);
-    const githubToken =
-      client.kind === "vercel" ? undefined : await tokenPromise;
 
-    // The adapter defaults an absent snapshot to daytona-large (Daytona) — non-
-    // snapshot Daytona sandboxes (cpu=1, mem=1GB) have broken outbound
-    // networking. Vercel has no such requirement.
     const sandbox = await client.create({
       snapshot: snapshotName,
-      ports:
-        client.kind === "vercel"
-          ? [...VERCEL_DEFAULT_EXPOSED_PORTS]
-          : undefined,
+      ports: [...VERCEL_DEFAULT_EXPOSED_PORTS],
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
         // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
@@ -325,12 +315,6 @@ export async function createSandbox(
         // we don't have to rely on a post-start xrandr resize.
         VNC_RESOLUTION: "1920x1080",
         ...sandboxEnvVars,
-        ...(githubToken !== undefined
-          ? {
-              GITHUB_TOKEN: githubToken,
-              INSTALLATION_ID: String(installationId),
-            }
-          : {}),
       },
       lifecycle: {
         autoStopMinutes: lifecycle.autoStopInterval,
@@ -358,33 +342,31 @@ export async function createSandbox(
       if (onSandboxAcquired) {
         await onSandboxAcquired(sandbox);
       }
-      if (client.kind === "vercel") {
-        const token = await tokenPromise;
-        await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
-          sandbox.writeFile(
-            EVA_ENV_FILE,
-            renderEvaEnvFile({
-              VNC_RESOLUTION: "1920x1080",
-              ...sandboxEnvVars,
-              GITHUB_TOKEN: token,
-              INSTALLATION_ID: String(installationId),
-            }),
-          ),
+      const token = await tokenPromise;
+      await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
+        sandbox.writeFile(
+          EVA_ENV_FILE,
+          renderEvaEnvFile({
+            VNC_RESOLUTION: "1920x1080",
+            ...sandboxEnvVars,
+            GITHUB_TOKEN: token,
+            INSTALLATION_ID: String(installationId),
+          }),
+        ),
+      );
+      // Belt-and-suspenders for login shells; tmux Console already sources
+      // eva-env. Never fail create over this hook.
+      try {
+        await runLoggedGitStep(
+          "createSandbox.ensureEvaEnvInteractiveHook",
+          sandbox.id,
+          () =>
+            execHandle(sandbox, ensureEvaEnvInteractiveHookScript(), 30, "/"),
         );
-        // Belt-and-suspenders for login shells; tmux Console already sources
-        // eva-env. Never fail create over this hook.
-        try {
-          await runLoggedGitStep(
-            "createSandbox.ensureEvaEnvInteractiveHook",
-            sandbox.id,
-            () =>
-              execHandle(sandbox, ensureEvaEnvInteractiveHookScript(), 30, "/"),
-          );
-        } catch (hookError) {
-          console.warn(
-            `[daytona][git] createSandbox.ensureEvaEnvInteractiveHook failed on ${sandbox.id} (continuing): ${hookError instanceof Error ? hookError.message : String(hookError)}`,
-          );
-        }
+      } catch (hookError) {
+        console.warn(
+          `[sandbox][git] createSandbox.ensureEvaEnvInteractiveHook failed on ${sandbox.id} (continuing): ${hookError instanceof Error ? hookError.message : String(hookError)}`,
+        );
       }
 
       const appSlug = process.env.GITHUB_APP_SLUG;
@@ -398,18 +380,15 @@ export async function createSandbox(
       // helper (git-credential-eva) shells out to on every authenticated
       // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
       // ("jq: command not found") before the seed toolchain stage ever runs.
-      // Daytona bakes jq into its base Image, so this is a no-op there.
       // Timed individually (vs. one blanket log) so slow session creates can be
       // attributed to a specific step from Convex logs alone.
-      if (client.kind === "vercel") {
-        await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
-          execHandle(
-            sandbox,
-            "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
-            120,
-          ),
-        );
-      }
+      await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
+        execHandle(
+          sandbox,
+          "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
+          120,
+        ),
+      );
       await runLoggedGitStep(
         "createSandbox.gitConfig",
         sandbox.id,
@@ -435,33 +414,23 @@ export async function createSandbox(
 
       // Start Docker daemon if available (for Docker-in-Docker / Supabase local
       // dev). Idempotent — also re-invoked from ensureSandboxRunning on resume
-      // since dockerd doesn't survive auto-stop. Both helpers already fast-path
-      // on an already-running daemon (`docker info` check first); the timing
+      // since dockerd doesn't survive auto-stop. Already fast-paths on an
+      // already-running daemon (`docker info` check first); the timing
       // wrapper just makes that fast path visible in logs instead of assumed.
-      if (client.kind === "vercel") {
-        await runLoggedGitStep(
-          "createSandbox.bootstrapDocker",
-          sandbox.id,
-          () => bootstrapVercelDocker(sandbox),
-        );
-      } else {
-        await runLoggedGitStep(
-          "createSandbox.ensureDockerDaemon",
-          sandbox.id,
-          () => ensureDockerDaemon(sandbox),
-        );
-      }
+      await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
+        bootstrapVercelDocker(sandbox),
+      );
 
       return sandbox;
     } catch (error) {
       console.warn(
-        `[daytona][git] createSandbox: post-create setup failed for ${sandbox.id}; deleting orphan: ${error instanceof Error ? error.message : String(error)}`,
+        `[sandbox][git] createSandbox: post-create setup failed for ${sandbox.id}; deleting orphan: ${error instanceof Error ? error.message : String(error)}`,
       );
       try {
         await sandbox.delete();
       } catch (deleteError) {
         console.warn(
-          `[daytona][git] createSandbox: orphan delete failed for ${sandbox.id}: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
+          `[sandbox][git] createSandbox: orphan delete failed for ${sandbox.id}: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
         );
       }
       throw error;
@@ -1009,14 +978,38 @@ export async function pushBranchToOrigin(
 }
 
 /**
- * Detects Daytona errors meaning the named snapshot is unusable in a way a
- * rebuild would fix (terminal `error` / `build_failed` states from
- * snapshotWorkflow). Caller falls back to creating the sandbox without the
- * snapshot — slower setup, but the run can still proceed.
+ * True when a create failed because the requested snapshot itself is unusable,
+ * so the caller can retry without it (bare sandbox + fresh clone).
+ *
+ * Two shapes, because repos configured before the Vercel migration may still
+ * carry a Daytona-era snapshot name (e.g. `seeded-<repoId>`) that Vercel has
+ * never heard of:
+ *
+ * - Daytona-era state errors ("Snapshot X is error"), still matched so legacy
+ *   messages surfacing from stored data keep working.
+ * - Vercel not-found. `VercelSandboxClient.create` wraps failures as
+ *   `vercel create failed (snapshot=<name>, ...): <API body>`, so we require
+ *   that prefix with a real snapshot name before treating a 404 as a snapshot
+ *   problem. Without that scoping, an unrelated not-found (a missing repo, say)
+ *   would be silently downgraded to "clone instead" and hide the real fault.
  */
 function isSnapshotUnusableError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /Snapshot\s+\S+\s+is\s+(error|build_failed)/i.test(msg);
+  if (/Snapshot\s+\S+\s+is\s+(error|build_failed)/i.test(msg)) return true;
+
+  const requestedASnapshot =
+    msg.includes("vercel create failed (snapshot=") &&
+    !msg.includes("vercel create failed (snapshot=none");
+  if (!requestedASnapshot) return false;
+
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("not_found") ||
+    lower.includes("not found") ||
+    lower.includes("does not exist") ||
+    lower.includes("snapshot_not_found") ||
+    lower.includes("invalid_snapshot")
+  );
 }
 
 /** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
@@ -1192,7 +1185,7 @@ export async function getOrCreateSandbox(
 }
 
 /**
- * Heuristic: does this Daytona error mean the sandbox is genuinely gone
+ * Heuristic: does this error mean the sandbox is genuinely gone
  * (deleted, archived, expired) — i.e. safe to fall through to creating a new one?
  *
  * We deliberately stay narrow. The previous implementation swallowed every
@@ -1218,7 +1211,7 @@ function isSandboxMissingError(err: unknown): boolean {
  * `null` if the sandbox is genuinely gone (caller should create a new one),
  * or throws on persistent transient errors.
  *
- * Retries with backoff to ride through transitional Daytona states (e.g.
+ * Retries with backoff to ride through transitional sandbox states (e.g.
  * sandbox is mid-stop when Start is clicked). Only "missing" errors short-
  * circuit to a new sandbox; everything else surfaces, so we never silently
  * abandon a recoverable sandbox.
@@ -1245,12 +1238,7 @@ async function tryResumeSandbox(
         // wait out a stop still snapshotting and resume, instead of refusing.
         resumeAfterStop: true,
         onRestoring: onProgress
-          ? () =>
-              onProgress(
-                client.kind === "vercel"
-                  ? "Resuming sandbox..."
-                  : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-              )
+          ? () => onProgress("Resuming sandbox...")
           : undefined,
       });
       // Self-heal: rotate the per-sandbox secret and (re)install the helper on

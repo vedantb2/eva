@@ -25,7 +25,7 @@ export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 // confirmed the callback PID is still alive.
 export const STALE_TOOL_ACTIVE_THRESHOLD_MS = 1_500_000;
 
-/** Checks whether an error message indicates a Daytona infrastructure/network issue. */
+/** Checks whether an error message indicates a sandbox infrastructure/network issue. */
 export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   const message = errorMsg.toLowerCase();
   if (

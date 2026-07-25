@@ -89,9 +89,9 @@ export function workspaceDirShell(): string {
 }
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
-// Daytona rehydrates an archived sandbox's filesystem from cold object storage,
-// which can take several minutes depending on size. The 60s default is fine for
-// a stopped→started fast resume, but trips a noisy timeout on archived thaws.
+// Restoring an archived sandbox's filesystem can take much longer than a
+// stopped→started fast resume. The 60s default is fine for the fast-resume
+// case, but trips a noisy timeout on archived thaws.
 export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
@@ -137,7 +137,7 @@ export async function ensureDockerDaemon(
   try {
     await execHandle(sandbox, "docker info >/dev/null 2>&1", 5);
     console.log(
-      `[daytona] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
+      `[sandbox] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
     );
     return true;
   } catch {
@@ -152,7 +152,7 @@ export async function ensureDockerDaemon(
 
   try {
     // Cleanup before restart: kill any half-alive dockerd/containerd, then
-    // remove their pidfiles AND sockets. After Daytona auto-stop/resume, both
+    // remove their pidfiles AND sockets. After sandbox auto-stop/resume, both
     // pidfiles survive but their PIDs map to unrelated processes in the new
     // boot — dockerd/containerd refuse to start while a pidfile claims a
     // running peer, so we must delete them.
@@ -173,12 +173,12 @@ export async function ensureDockerDaemon(
       90,
     );
     console.log(
-      `[daytona] ensureDockerDaemon: Docker daemon started on ${sandbox.id}`,
+      `[sandbox] ensureDockerDaemon: Docker daemon started on ${sandbox.id}`,
     );
     return true;
   } catch {
     console.log(
-      `[daytona] ensureDockerDaemon: Docker not available on ${sandbox.id} (old snapshot or not installed)`,
+      `[sandbox] ensureDockerDaemon: Docker not available on ${sandbox.id} (old snapshot or not installed)`,
     );
   }
 
@@ -226,12 +226,12 @@ export async function bootstrapVercelDocker(
       180,
     );
     console.log(
-      `[daytona] bootstrapVercelDocker: Docker daemon started on ${sandbox.id}`,
+      `[sandbox] bootstrapVercelDocker: Docker daemon started on ${sandbox.id}`,
     );
     return true;
   } catch (error) {
     console.log(
-      `[daytona] bootstrapVercelDocker failed on ${sandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
+      `[sandbox] bootstrapVercelDocker failed on ${sandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return false;
   }
@@ -241,8 +241,9 @@ export async function bootstrapVercelDocker(
  * Ensures a sandbox is running, starting it if the initial health check fails.
  *
  * If the sandbox is archived (or already mid-thaw), `sandbox.start()` needs the
- * extended `ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS` because Daytona has to
- * rehydrate the filesystem from cold storage. The optional `onRestoring`
+ * extended `ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS` because restoring an
+ * archived sandbox's filesystem can take much longer than a fast resume. The
+ * optional `onRestoring`
  * callback fires once that state is detected so callers can surface a more
  * useful progress label instead of the generic "Resuming sandbox...".
  */
@@ -284,7 +285,7 @@ export async function ensureSandboxRunning(
     knownState = sandbox.state;
   } catch (refreshErr) {
     console.log(
-      `[daytona] ensureSandboxRunning: initial refresh failed (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)}); falling back to exec probe`,
+      `[sandbox] ensureSandboxRunning: initial refresh failed (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)}); falling back to exec probe`,
     );
   }
 
@@ -294,11 +295,11 @@ export async function ensureSandboxRunning(
   if (!needsStart) {
     try {
       console.log(
-        `[daytona] ensureSandboxRunning: checking if sandbox ${sandbox.id} is running...`,
+        `[sandbox] ensureSandboxRunning: checking if sandbox ${sandbox.id} is running...`,
       );
       await execHandle(sandbox, "echo 1", 5);
       console.log(
-        `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
+        `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
       );
       if (!options.skipDocker) {
         await ensureDockerDaemon(sandbox);
@@ -306,12 +307,12 @@ export async function ensureSandboxRunning(
       return;
     } catch (e) {
       console.log(
-        `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} not running, starting... (check took ${Date.now() - startedAt}ms, error: ${e instanceof Error ? e.message : String(e)})`,
+        `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} not running, starting... (check took ${Date.now() - startedAt}ms, error: ${e instanceof Error ? e.message : String(e)})`,
       );
     }
   } else {
     console.log(
-      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} state=${knownState}, starting without exec probe`,
+      `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} state=${knownState}, starting without exec probe`,
     );
   }
 
@@ -323,7 +324,7 @@ export async function ensureSandboxRunning(
       ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
     );
     console.log(
-      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, extending start timeout to ${startTimeout}s`,
+      `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, extending start timeout to ${startTimeout}s`,
     );
     if (options.onRestoring) await options.onRestoring();
   } else if (
@@ -333,7 +334,7 @@ export async function ensureSandboxRunning(
     // Vercel maps stopped→stopped (not archived). Surface progress while
     // start() waits on the first exec that resumes the snapshot.
     console.log(
-      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, waiting for resume`,
+      `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, waiting for resume`,
     );
     await options.onRestoring();
   }
@@ -343,13 +344,13 @@ export async function ensureSandboxRunning(
     resumeAfterStop: options.resumeAfterStop,
   });
   console.log(
-    `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
+    `[sandbox] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
   );
   if (!options.skipExecProbe) {
     await execHandle(sandbox, "echo 1", 5);
   }
   console.log(
-    `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms${options.skipExecProbe ? ", exec probe skipped" : ""})`,
+    `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms${options.skipExecProbe ? ", exec probe skipped" : ""})`,
   );
 
   // dockerd doesn't run as a system service, so it's lost on auto-stop/resume.
@@ -435,7 +436,7 @@ export async function resolveSandboxClientOnly(
   const credentials = await resolveSandboxCredentialsOnly(ctx, repoId);
   const client = getSandboxClient(credentials);
   console.log(
-    `[daytona] resolveSandboxClientOnly repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
+    `[sandbox] resolveSandboxClientOnly repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
   );
   return client;
 }
@@ -461,7 +462,7 @@ export async function resolveSandboxContext(
   );
   const snapshotName = repoSnapshot?.snapshotName;
   console.log(
-    `[daytona] resolveSandboxContext repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
+    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
   );
   return {
     client,
@@ -513,7 +514,7 @@ export async function signAndLaunchScript(
 ): Promise<void> {
   const launchStartedAt = Date.now();
   console.log(
-    `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
+    `[sandbox][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
 
   // Layer the selected owner account's credentials last so they win over the
@@ -532,7 +533,7 @@ export async function signAndLaunchScript(
     if (Object.keys(accountEnv).length > 0) {
       extraEnvVars = { ...extraEnvVars, ...accountEnv };
       console.log(
-        `[daytona][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
+        `[sandbox][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
       );
     }
   }
@@ -556,7 +557,7 @@ export async function signAndLaunchScript(
     },
   );
   console.log(
-    `[daytona][launch] sandbox + MCP tokens minted in ${Date.now() - launchStartedAt}ms entityId=${entityId} (mcp=${mcpToken ? "yes" : "no"})`,
+    `[sandbox][launch] sandbox + MCP tokens minted in ${Date.now() - launchStartedAt}ms entityId=${entityId} (mcp=${mcpToken ? "yes" : "no"})`,
   );
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
@@ -576,7 +577,7 @@ export async function signAndLaunchScript(
     },
   );
   console.log(
-    `[daytona][launch] launchScript completed in ${Date.now() - launchStartedAt}ms entityId=${entityId} sandboxId=${sandbox.id}`,
+    `[sandbox][launch] launchScript completed in ${Date.now() - launchStartedAt}ms entityId=${entityId} sandboxId=${sandbox.id}`,
   );
 }
 

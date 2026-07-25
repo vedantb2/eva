@@ -311,11 +311,11 @@ export const resolveProjectConflicts = authMutation({
 });
 
 /**
- * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the user can
+ * Stops the preview sandbox. Keeps `sandboxId` so the user can
  * resume the same paused filesystem on next start.
  *
  * Marks the project as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the sandbox stop completes.
  */
 export const stopProjectSandbox = authMutation({
   args: { projectId: v.id("projects") },
@@ -508,7 +508,7 @@ export const projectSandboxStarting = internalMutation({
   },
 });
 
-/** Persists the sandbox id as soon as Daytona creates it, before long startup steps. */
+/** Persists the sandbox id as soon as the sandbox is created, before long startup steps. */
 export const projectSandboxAllocated = internalMutation({
   args: {
     projectId: v.id("projects"),

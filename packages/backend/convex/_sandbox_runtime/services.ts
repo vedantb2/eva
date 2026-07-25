@@ -29,12 +29,12 @@ export const toggleCodeServer = action({
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
     );
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    // Vercel: listen internally so the auth proxy can own exposed 8080.
-    // Daytona: listen on 8080 (proxy sits on a separate 9xxx port).
-    const listenPort =
-      credentials.kind === "vercel" ? VERCEL_EDITOR_INTERNAL_PORT : 8080;
-    const bindAddr = credentials.kind === "vercel" ? "127.0.0.1" : "0.0.0.0";
+    // Validates that the repo has Vercel sandbox credentials configured;
+    // throws before touching the sandbox if it does not.
+    await resolveSandboxCredentials(ctx, args.repoId);
+    // Listen internally so the auth proxy can own the exposed port.
+    const listenPort = VERCEL_EDITOR_INTERNAL_PORT;
+    const bindAddr = "127.0.0.1";
 
     if (args.action === "start") {
       try {

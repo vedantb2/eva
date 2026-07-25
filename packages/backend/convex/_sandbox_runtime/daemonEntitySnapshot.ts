@@ -96,7 +96,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
       if (doc.status !== "active") return null;
       await ctx.db.patch(id, { status: "closed", updatedAt: Date.now() });
       console.log(
-        `[daytona] reconcileStoppedSandboxStatus: sessions ${id} active → closed (sandbox ${args.sandboxId} not running)`,
+        `[sandbox] reconcileStoppedSandboxStatus: sessions ${id} active → closed (sandbox ${args.sandboxId} not running)`,
       );
       return null;
     }
@@ -114,7 +114,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
       if (doc.reviewTaskSandboxStatus !== "active") return null;
       await ctx.db.patch(id, { reviewTaskSandboxStatus: "closed" });
       console.log(
-        `[daytona] reconcileStoppedSandboxStatus: agentTasks ${id} active → closed (sandbox ${args.sandboxId} not running)`,
+        `[sandbox] reconcileStoppedSandboxStatus: agentTasks ${id} active → closed (sandbox ${args.sandboxId} not running)`,
       );
       return null;
     }
@@ -131,7 +131,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
     if (doc.reviewProjectSandboxStatus !== "active") return null;
     await ctx.db.patch(id, { reviewProjectSandboxStatus: "closed" });
     console.log(
-      `[daytona] reconcileStoppedSandboxStatus: projects ${id} active → closed (sandbox ${args.sandboxId} not running)`,
+      `[sandbox] reconcileStoppedSandboxStatus: projects ${id} active → closed (sandbox ${args.sandboxId} not running)`,
     );
     return null;
   },

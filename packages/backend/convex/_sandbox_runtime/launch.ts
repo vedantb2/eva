@@ -146,7 +146,7 @@ export async function launchScript(
 ): Promise<void> {
   const launchStartedAt = Date.now();
   console.log(
-    `[daytona][launchScript] started entityId=${entityId} sandboxId=${sandbox.id}`,
+    `[sandbox][launchScript] started entityId=${entityId} sandboxId=${sandbox.id}`,
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
@@ -158,7 +158,7 @@ export async function launchScript(
   ): Promise<void> {
     return sandbox.writeFile(path, content).then(() => {
       console.log(
-        `[daytona][launchScript] ${label} uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        `[sandbox][launchScript] ${label} uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
       );
     });
   }
@@ -288,7 +288,7 @@ export async function launchScript(
   );
   await waitForRunnerReady(sandbox, entityId);
   console.log(
-    `[daytona][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+    `[sandbox][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
 }
 
@@ -323,7 +323,7 @@ async function waitForRunnerReady(
         10,
       );
       throw new Error(
-        `[daytona][launchScript] runner died entityId=${entityId}: ${log}`,
+        `[sandbox][launchScript] runner died entityId=${entityId}: ${log}`,
       );
     }
 
@@ -343,6 +343,6 @@ async function waitForRunnerReady(
     5,
   );
   throw new Error(
-    `[daytona][launchScript] runner ready timeout entityId=${entityId}: ${log}`,
+    `[sandbox][launchScript] runner ready timeout entityId=${entityId}: ${log}`,
   );
 }

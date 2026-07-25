@@ -27,7 +27,7 @@ import {
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
-import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
 import { runStartupCommandsDirect } from "./execution";
@@ -74,9 +74,9 @@ function devOverrides(
   return { devPort: repo.devPort, devCommand: repo.devCommand };
 }
 
-/** Logs a session-scoped message with the daytona/sessions prefix. */
+/** Logs a session-scoped message with the sandbox/sessions prefix. */
 function logSession(message: string): void {
-  console.log(`[daytona][sessions] ${message}`);
+  console.log(`[sandbox][sessions] ${message}`);
 }
 
 /** Runs an async step with timing logs and error reporting. */
@@ -95,7 +95,7 @@ async function runLoggedSessionStep<T>(
     return result;
   } catch (error) {
     console.error(
-      `[daytona][sessions] ${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+      `[sandbox][sessions] ${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
     // Prefix the step label so downstream error surfaces (sandboxStartupWarning
     // errorDetail) say which step failed. Mutate rather than wrap to preserve
@@ -510,8 +510,8 @@ type TryReuseSandboxOptions = {
  * failed preparation on a found sandbox usually means the old filesystem is
  * still the user's source of truth and must not be silently abandoned.
  *
- * `label` prefixes the diagnostic logs so the Daytona and provider-neutral
- * wrappers below stay distinguishable in the logs.
+ * `label` prefixes the diagnostic logs so different callers stay
+ * distinguishable in the logs.
  */
 async function tryReuseSandboxWith<T>(
   label: string,
@@ -738,10 +738,9 @@ async function prepareSessionSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
-  // Daytona `sandboxId` on the entity must never be treated as reusable here.
-  const reuseId = resolveExistingSandboxId({
-    providerKind: client.kind,
+  // Sandboxes are only ever reused via `vercelSandboxId` — a stale legacy
+  // `sandboxId` on the entity must never be treated as reusable here.
+  const reuseId = preferPersistedSandboxId({
     sandboxId: args.existingSandboxId,
     vercelSandboxId: args.vercelSandboxId,
   });
@@ -761,147 +760,145 @@ async function prepareSessionSandboxInternal(
     "Checking existing sandbox...",
   );
   let reusedResult: PreparedSessionSandbox | null = null;
-  if (client.kind === "vercel") {
-    const reusedHandle = await runLoggedSessionStep(
-      "tryReuseSessionSandbox",
-      actionDetails,
-      () =>
-        tryReuseSandboxHandle(
-          client,
-          reuseId,
-          async (handle) => {
-            const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
+  const reusedHandle = await runLoggedSessionStep(
+    "tryReuseSessionSandbox",
+    actionDetails,
+    () =>
+      tryReuseSandboxHandle(
+        client,
+        reuseId,
+        async (handle) => {
+          const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.prepare",
+            sandboxDetails,
+            () =>
+              resumeReusedSandbox(ctx, handle, {
+                installationId: args.installationId,
+                branchName: args.branchName,
+                baseBranch: args.baseBranch,
+                onRestoring: () =>
+                  emitSessionProgress(
+                    ctx,
+                    args.sessionId,
+                    completedSteps,
+                    // Vercel resume is snapshot wake, not Daytona cold storage.
+                    "Resuming sandbox...",
+                  ),
+                onEarlyReady: async () => {
+                  await ctx.runMutation(internal.sessions.sandboxReady, {
+                    sessionId: args.sessionId,
+                    sandboxId: handle.id,
+                    vercelSandboxId: handle.id,
+                    branchName: args.branchName,
+                    isNew: false,
+                    usedSnapshot: false,
+                  });
+                },
+                shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
+              }),
+          );
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.setupBranch",
+            sandboxDetails,
+            () => setupBranch(handle, args.branchName, args.baseBranch),
+          );
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.copyConfigFiles",
+            sandboxDetails,
+            () => copySandboxConfigFilesToWorkspace(handle),
+          );
+          const { port: devPort, devCommand } = await runLoggedSessionStep(
+            "reuseSessionSandbox.startSessionServices",
+            sandboxDetails,
+            () => startSessionServices(handle, rootDir, devOverrides(repo)),
+          );
+          if (args.startDesktop) {
             await runLoggedSessionStep(
-              "reuseSessionSandbox.prepare",
+              "reuseSessionSandbox.startDesktop",
               sandboxDetails,
-              () =>
-                resumeReusedSandbox(ctx, handle, {
-                  installationId: args.installationId,
-                  branchName: args.branchName,
-                  baseBranch: args.baseBranch,
-                  onRestoring: () =>
-                    emitSessionProgress(
-                      ctx,
-                      args.sessionId,
-                      completedSteps,
-                      // Vercel resume is snapshot wake, not Daytona cold storage.
-                      "Resuming sandbox...",
-                    ),
-                  onEarlyReady: async () => {
-                    await ctx.runMutation(internal.sessions.sandboxReady, {
-                      sessionId: args.sessionId,
-                      sandboxId: handle.id,
-                      vercelSandboxId: handle.id,
-                      branchName: args.branchName,
-                      isNew: false,
-                      usedSnapshot: false,
-                    });
-                  },
-                  shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
-                }),
+              () => startDesktopWithChrome(handle),
             );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.setupBranch",
-              sandboxDetails,
-              () => setupBranch(handle, args.branchName, args.baseBranch),
-            );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.copyConfigFiles",
-              sandboxDetails,
-              () => copySandboxConfigFilesToWorkspace(handle),
-            );
-            const { port: devPort, devCommand } = await runLoggedSessionStep(
-              "reuseSessionSandbox.startSessionServices",
-              sandboxDetails,
-              () => startSessionServices(handle, rootDir, devOverrides(repo)),
-            );
-            if (args.startDesktop) {
-              await runLoggedSessionStep(
-                "reuseSessionSandbox.startDesktop",
-                sandboxDetails,
-                () => startDesktopWithChrome(handle),
+          }
+          await emitSessionProgress(
+            ctx,
+            args.sessionId,
+            completedSteps,
+            "Launching background commands...",
+          );
+          let reuseBgRan = false;
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.runBackgroundCommands",
+            sandboxDetails,
+            async () => {
+              const result = await ctx.runAction(
+                internal.sandbox.runBackgroundCommands,
+                { sandboxId: handle.id, repoId: args.repoId },
               );
-            }
-            await emitSessionProgress(
-              ctx,
-              args.sessionId,
-              completedSteps,
-              "Launching background commands...",
-            );
-            let reuseBgRan = false;
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.runBackgroundCommands",
-              sandboxDetails,
-              async () => {
-                const result = await ctx.runAction(
-                  internal.sandbox.runBackgroundCommands,
-                  { sandboxId: handle.id, repoId: args.repoId },
+              reuseBgRan = result.ran;
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
                 );
-                reuseBgRan = result.ran;
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
-            );
-            if (reuseBgRan) {
-              completedSteps.push({
-                type: "tool",
-                label: "Launching background commands...",
-                status: "complete",
+              }
+            },
+          );
+          if (reuseBgRan) {
+            completedSteps.push({
+              type: "tool",
+              label: "Launching background commands...",
+              status: "complete",
+            });
+          }
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.runStartupCommands",
+            sandboxDetails,
+            async () => {
+              const result = await runStartupCommandsDirect(ctx, {
+                sandboxId: handle.id,
+                repoId: args.repoId,
               });
-            }
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.runStartupCommands",
-              sandboxDetails,
-              async () => {
-                const result = await runStartupCommandsDirect(ctx, {
-                  sandboxId: handle.id,
-                  repoId: args.repoId,
-                });
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
-            );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.launchDevServer",
-              sandboxDetails,
-              () =>
-                launchPreviewDevServer(
-                  handle,
-                  `session-${args.sessionId}`,
-                  devCommand,
-                  devPort,
-                  rootDir,
-                ),
-            );
-            reusedResult = {
-              sandbox: handle,
-              isNew: false,
-              usedSnapshot: false,
-              sandboxDetails,
-              branchName: args.branchName,
-              devPort,
-              devCommand,
-              vercelSandboxId: handle.id,
-            };
-          },
-          // Never silently create a replacement when the existing sandbox is
-          // still reachable — that orphans the old VM and loses workspace state.
-          { fallbackOnPrepareError: false },
-        ),
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                );
+              }
+            },
+          );
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.launchDevServer",
+            sandboxDetails,
+            () =>
+              launchPreviewDevServer(
+                handle,
+                `session-${args.sessionId}`,
+                devCommand,
+                devPort,
+                rootDir,
+              ),
+          );
+          reusedResult = {
+            sandbox: handle,
+            isNew: false,
+            usedSnapshot: false,
+            sandboxDetails,
+            branchName: args.branchName,
+            devPort,
+            devCommand,
+            vercelSandboxId: handle.id,
+          };
+        },
+        // Never silently create a replacement when the existing sandbox is
+        // still reachable — that orphans the old VM and loses workspace state.
+        { fallbackOnPrepareError: false },
+      ),
+  );
+  if (reusedHandle && reusedResult) {
+    await completeSessionProgress(ctx, args.sessionId);
+    logSession(
+      `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=vercel-reuse, isNew=false, usedSnapshot=false (${actionDetails})`,
     );
-    if (reusedHandle && reusedResult) {
-      await completeSessionProgress(ctx, args.sessionId);
-      logSession(
-        `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=vercel-reuse, isNew=false, usedSnapshot=false (${actionDetails})`,
-      );
-      return reusedResult;
-    }
+    return reusedResult;
   }
   completedSteps.push({
     type: "tool",
@@ -956,7 +953,7 @@ async function prepareSessionSandboxInternal(
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: sandbox.id,
-            vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+            vercelSandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
@@ -981,7 +978,7 @@ async function prepareSessionSandboxInternal(
   // runtime restore, dev server) can throw. If early-ready already marked the
   // session active, the user may already be chatting — never delete that VM.
   // Only delete on failure when the UI never unlocked (no early-ready), else
-  // Daytona/Vercel leaks an unreferenced sandbox.
+  // the sandbox leaks unreferenced.
   let resolvedDevPort: number | undefined;
   let resolvedDevCommand: string | undefined;
   try {
@@ -1289,7 +1286,7 @@ async function prepareSessionSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+      vercelSandboxId: handle.id,
     };
   } catch (setupError) {
     const setupMessage = errorMessage(setupError, "setup failed");
@@ -1297,7 +1294,7 @@ async function prepareSessionSandboxInternal(
     // what nuked tomato-* mid-conversation when startup commands timed out.
     if (earlyReadyEmitted) {
       console.warn(
-        `[daytona][sessions] post-ready setup failed for ${handle.id}; keeping sandbox (session already active): ${setupMessage}`,
+        `[sandbox][sessions] post-ready setup failed for ${handle.id}; keeping sandbox (session already active): ${setupMessage}`,
       );
       // Setup failed after early-ready gated the turn — release the gate so the
       // queued first turn still runs (against baked deps) rather than hanging
@@ -1310,11 +1307,7 @@ async function prepareSessionSandboxInternal(
         error: setupMessage,
       });
       // Best-effort: still put the app server in Console if we got that far.
-      if (
-        resolvedDevCommand !== undefined &&
-        resolvedDevPort !== undefined &&
-        client.kind === "vercel"
-      ) {
+      if (resolvedDevCommand !== undefined && resolvedDevPort !== undefined) {
         try {
           await launchPreviewDevServer(
             handle,
@@ -1325,7 +1318,7 @@ async function prepareSessionSandboxInternal(
           );
         } catch (launchError) {
           console.warn(
-            `[daytona][sessions] soft-keep console launch failed for ${handle.id}: ${errorMessage(launchError, "launch failed")}`,
+            `[sandbox][sessions] soft-keep console launch failed for ${handle.id}: ${errorMessage(launchError, "launch failed")}`,
           );
         }
       }
@@ -1343,11 +1336,11 @@ async function prepareSessionSandboxInternal(
         branchName: args.branchName,
         devPort: resolvedDevPort,
         devCommand: resolvedDevCommand,
-        vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+        vercelSandboxId: handle.id,
       };
     }
     console.warn(
-      `[daytona][sessions] deleting failed new session sandbox ${handle.id}: ${setupMessage}`,
+      `[sandbox][sessions] deleting failed new session sandbox ${handle.id}: ${setupMessage}`,
     );
     try {
       await handle.delete();
@@ -1392,7 +1385,7 @@ export const startSessionSandbox = internalAction({
           sessionBefore.status === "closed")
       ) {
         console.log(
-          `[daytona][sessions] startSessionSandbox aborted sessionId=${args.sessionId} status=${sessionBefore.status}`,
+          `[sandbox][sessions] startSessionSandbox aborted sessionId=${args.sessionId} status=${sessionBefore.status}`,
         );
         return null;
       }
@@ -1437,7 +1430,7 @@ export const startSessionSandbox = internalAction({
       // in `stopping` while the two paths fight over status.
       if (e instanceof SandboxStartAbortedError) {
         console.log(
-          `[daytona][sessions] startSessionSandbox aborted by stop sessionId=${args.sessionId}: ${e.message}`,
+          `[sandbox][sessions] startSessionSandbox aborted by stop sessionId=${args.sessionId}: ${e.message}`,
         );
         if (args.repoId && stopId) {
           try {
@@ -1447,7 +1440,7 @@ export const startSessionSandbox = internalAction({
             });
           } catch (stopErr) {
             console.log(
-              `[daytona][sessions] stop after aborted start failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
+              `[sandbox][sessions] stop after aborted start failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
             );
           }
         }
@@ -1455,7 +1448,7 @@ export const startSessionSandbox = internalAction({
       }
       const failMessage = errorMessage(e, "Unknown error");
       console.error(
-        `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${failMessage}`,
+        `[sandbox][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${failMessage}`,
       );
       // Safety net: early-ready already flipped the session active with a live
       // sandbox. Never stop/close that — the user may already be mid-chat.
@@ -1468,7 +1461,7 @@ export const startSessionSandbox = internalAction({
         sessionAfter.sandboxId
       ) {
         console.warn(
-          `[daytona][sessions] startSessionSandbox failed after early-ready; keeping active sessionId=${args.sessionId} sandboxId=${sessionAfter.sandboxId}: ${failMessage}`,
+          `[sandbox][sessions] startSessionSandbox failed after early-ready; keeping active sessionId=${args.sessionId} sandboxId=${sessionAfter.sandboxId}: ${failMessage}`,
         );
         await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
           sessionId: args.sessionId,
@@ -1484,11 +1477,11 @@ export const startSessionSandbox = internalAction({
             repoId: args.repoId,
           });
           console.log(
-            `[daytona][sessions] stopped sandbox ${stopId} after start failure`,
+            `[sandbox][sessions] stopped sandbox ${stopId} after start failure`,
           );
         } catch (stopErr) {
           console.log(
-            `[daytona][sessions] stop after start failure failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
+            `[sandbox][sessions] stop after start failure failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
           );
         }
       }
@@ -1569,8 +1562,7 @@ export const startDesignSandbox = internalAction({
       const rootDir = repo?.rootDirectory ?? "";
       const { client, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, repoId);
-      const reuseId = resolveExistingSandboxId({
-        providerKind: client.kind,
+      const reuseId = preferPersistedSandboxId({
         sandboxId: args.existingSandboxId,
         vercelSandboxId: args.vercelSandboxId,
       });
@@ -1627,7 +1619,7 @@ export const startDesignSandbox = internalAction({
         await ctx.runMutation(internal.designSessions.sandboxReady, {
           designSessionId: args.designSessionId,
           sandboxId: handle.id,
-          vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+          vercelSandboxId: handle.id,
           branchName: args.branchName,
           isNew: false,
           devPort,
@@ -1685,7 +1677,7 @@ export const startDesignSandbox = internalAction({
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
         sandboxId: sandbox.id,
-        vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+        vercelSandboxId: sandbox.id,
         branchName: args.branchName,
         isNew: true,
         devPort,
@@ -1693,7 +1685,7 @@ export const startDesignSandbox = internalAction({
     } catch (e) {
       if (e instanceof SandboxStartAbortedError) {
         console.log(
-          `[daytona][sessions] startDesignSandbox aborted by stop designSessionId=${args.designSessionId}: ${e.message}`,
+          `[sandbox][sessions] startDesignSandbox aborted by stop designSessionId=${args.designSessionId}: ${e.message}`,
         );
         const stopId = args.vercelSandboxId ?? args.existingSandboxId;
         if (args.repoId && stopId) {
@@ -1708,7 +1700,7 @@ export const startDesignSandbox = internalAction({
       }
       if (newSandbox) {
         console.warn(
-          `[daytona][sessions] deleting failed new design sandbox ${newSandbox.id}: ${errorMessage(e, "setup failed")}`,
+          `[sandbox][sessions] deleting failed new design sandbox ${newSandbox.id}: ${errorMessage(e, "setup failed")}`,
         );
         try {
           await newSandbox.delete();
@@ -1777,8 +1769,7 @@ async function prepareTaskPreviewSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  const reuseId = resolveExistingSandboxId({
-    providerKind: client.kind,
+  const reuseId = preferPersistedSandboxId({
     sandboxId: args.existingSandboxId,
     vercelSandboxId: args.vercelSandboxId,
   });
@@ -1824,7 +1815,7 @@ async function prepareTaskPreviewSandboxInternal(
           await ctx.runMutation(internal.agentTasks.taskSandboxReady, {
             taskId: args.taskId,
             sandboxId: handle.id,
-            vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+            vercelSandboxId: handle.id,
             isNew: false,
           });
         },
@@ -1949,7 +1940,7 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+      vercelSandboxId: handle.id,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -2176,11 +2167,11 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+      vercelSandboxId: handle.id,
     };
   } catch (setupError) {
     console.warn(
-      `[daytona][sessions] deleting failed new task sandbox ${handle.id}: ${errorMessage(setupError, "setup failed")}`,
+      `[sandbox][sessions] deleting failed new task sandbox ${handle.id}: ${errorMessage(setupError, "setup failed")}`,
     );
     try {
       await handle.delete();
@@ -2247,8 +2238,7 @@ async function prepareProjectPreviewSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  const reuseId = resolveExistingSandboxId({
-    providerKind: client.kind,
+  const reuseId = preferPersistedSandboxId({
     sandboxId: args.existingSandboxId,
     vercelSandboxId: args.vercelSandboxId,
   });
@@ -2297,7 +2287,7 @@ async function prepareProjectPreviewSandboxInternal(
             await ctx.runMutation(internal.projects.projectSandboxReady, {
               projectId: args.projectId,
               sandboxId: handle.id,
-              vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+              vercelSandboxId: handle.id,
               isNew: false,
             });
           },
@@ -2426,7 +2416,7 @@ async function prepareProjectPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+      vercelSandboxId: handle.id,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -2481,7 +2471,7 @@ async function prepareProjectPreviewSandboxInternal(
   await ctx.runMutation(internal.projects.projectSandboxAllocated, {
     projectId: args.projectId,
     sandboxId: handle.id,
-    vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+    vercelSandboxId: handle.id,
   });
   completedSteps.push({
     type: "tool",
@@ -2653,7 +2643,7 @@ async function prepareProjectPreviewSandboxInternal(
     branchName: args.branchName,
     devPort,
     devCommand,
-    vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+    vercelSandboxId: handle.id,
   };
 }
 
@@ -2723,7 +2713,7 @@ export const startProjectPreviewSandbox = internalAction({
     } catch (e) {
       if (e instanceof SandboxStartAbortedError) {
         console.log(
-          `[daytona][sessions] startProjectPreviewSandbox aborted by stop projectId=${args.projectId}: ${e.message}`,
+          `[sandbox][sessions] startProjectPreviewSandbox aborted by stop projectId=${args.projectId}: ${e.message}`,
         );
         await completeProjectProgress(ctx, args.projectId);
         const stopId = args.vercelSandboxId ?? args.existingSandboxId;
@@ -2738,7 +2728,7 @@ export const startProjectPreviewSandbox = internalAction({
         return { sandboxId: stopId ?? "" };
       }
       console.error(
-        `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[sandbox][sessions] startProjectPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       await completeProjectProgress(ctx, args.projectId);
       await ctx.runMutation(internal.projects.projectSandboxError, {
@@ -2804,7 +2794,7 @@ export const startTaskPreviewSandbox = internalAction({
     } catch (e) {
       if (e instanceof SandboxStartAbortedError) {
         console.log(
-          `[daytona][sessions] startTaskPreviewSandbox aborted by stop taskId=${args.taskId}: ${e.message}`,
+          `[sandbox][sessions] startTaskPreviewSandbox aborted by stop taskId=${args.taskId}: ${e.message}`,
         );
         await completeTaskProgress(ctx, args.taskId);
         const stopId = args.vercelSandboxId ?? args.existingSandboxId;
@@ -2819,7 +2809,7 @@ export const startTaskPreviewSandbox = internalAction({
         return null;
       }
       console.error(
-        `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[sandbox][sessions] startTaskPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       await completeTaskProgress(ctx, args.taskId);
       await ctx.runMutation(internal.agentTasks.taskSandboxError, {

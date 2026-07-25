@@ -9,8 +9,6 @@ export {
   verifySandboxLiveness,
   getSandboxProviderKind,
   getSnapshotSandboxProviderKind,
-  startSandboxAsyncKickoff,
-  pollSandboxStarted,
 } from "./_sandbox_runtime/lifecycle";
 
 export {

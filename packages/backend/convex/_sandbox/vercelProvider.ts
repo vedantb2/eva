@@ -1,11 +1,11 @@
 "use node";
 
 /**
- * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts).
- * Mirrors ./daytonaProvider.ts but targets `@vercel/sandbox` v2 (persistent
- * sandboxes, sub-second snapshot restore — see the Phase 0 spike results).
+ * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts),
+ * targeting `@vercel/sandbox` v2 (persistent sandboxes, sub-second snapshot
+ * restore — see the Phase 0 spike results).
  *
- * Design notes / provider deltas vs Daytona:
+ * Design notes / provider deltas vs Daytona (the original, now-removed provider):
  * - Identity: Vercel addresses sandboxes by `name`, not a separate id. We expose
  *   `handle.id === sandbox.name` and resolve `get(sandboxId)` via `Sandbox.get({ name })`.
  * - Resources: the neutral create params carry no vCPU count, so we default it
@@ -16,8 +16,8 @@
  * - PTY: implemented, but NOT via the neutral `SandboxPty` interface, so
  *   `this.pty` stays undefined here. Vercel's PTY is a client-connect WebSocket
  *   (`openInteractive`) rather than the push-callback model SandboxPty assumes,
- *   so terminals are wired one layer up in ../pty.ts, which branches on a
- *   `ptyProtocol: "daytona" | "vercel"` discriminator and hands the browser a ws
+ *   so terminals are wired one layer up in ../pty.ts, which returns a
+ *   `ptyProtocol: v.literal("vercel")` discriminator and hands the browser a ws
  *   URL. See ../_pty/vercel.ts (tmux-backed shared panes).
  * - desktop: implemented, see VercelDesktop below (TigerVNC + websockify/noVNC).
  * - volumes: the one genuine gap. `ensureVolume` throws — Drives are still beta.
@@ -1011,7 +1011,6 @@ class VercelSandboxClient implements SandboxClient {
 
   async ensureVolume(_name: string): Promise<{ id: string; ready: boolean }> {
     // Persistent named volumes map to Vercel Drives (beta) — not wired yet.
-    // Consumers needing CLI-persistence volumes stay on Daytona for now.
     throw new Error(
       "Vercel provider does not implement named volumes yet (Drives, beta — Phase 2 follow-up).",
     );

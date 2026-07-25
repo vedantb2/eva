@@ -10,9 +10,9 @@ import { getTaskRunStreamingEntityId } from "./helpers";
  * Pre-kill liveness probe for stale runs.
  *
  * When `checkStaleRuns` detects staleness on a run that has a sandbox attached,
- * it schedules this probe instead of killing immediately. The probe asks
- * Daytona whether the sandbox is still in the `started` state AND whether the
- * callback runner PID is still alive. If both are true we re-schedule
+ * it schedules this probe instead of killing immediately. The probe asks the
+ * sandbox provider whether the sandbox is still in the `started` state AND
+ * whether the callback runner PID is still alive. If both are true we re-schedule
  * `checkStaleRuns` after `STALE_RECHECK_MS` without skipping probes so the next
  * stale check re-validates liveness again instead of doing a blind kill.
  * If the probe confirms the sandbox is dead we schedule `checkStaleRuns` with

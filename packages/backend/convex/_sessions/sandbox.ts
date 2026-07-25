@@ -107,8 +107,7 @@ export const startSandbox = authMutation({
       repoId: session.repoId,
     };
     // Vercel: schedule the start action directly. Workflow step scheduling was
-    // measured at ~6s before the first action ran — Daytona still needs the
-    // multi-step thaw workflow for archived restores.
+    // measured at ~6s before the first action ran.
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
@@ -204,7 +203,7 @@ export async function requestSessionSandboxStop(
   }
 
   // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
-  // `markSandboxClosed` once Daytona's stop call settles, so the divider
+  // `markSandboxClosed` once the sandbox's stop call settles, so the divider
   // matches the actual outcome rather than being optimistic.
   await ctx.db.patch(sessionId, {
     // Keep sandboxId so we can resume the stopped sandbox later.

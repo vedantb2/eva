@@ -19,7 +19,7 @@ function getDisplayName(user: {
   );
 }
 
-/** Online teammates as followable avatars (no card chrome — for the stats footer). */
+/** Online teammates as followable avatars (above the sidebar stats card). */
 export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const { following, startFollowing, stopFollowing } = useFollow();
@@ -87,7 +87,7 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="mt-2.5 min-w-0 border-t border-border pt-2.5">
+    <div className="min-w-0 px-0.5">
       <div className="mb-1.5 flex items-center gap-1.5">
         <span
           className="size-1.5 shrink-0 rounded-full bg-success"

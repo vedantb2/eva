@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useUser } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, normalizeAIModel, type Id } from "@eva/backend";
@@ -28,8 +29,10 @@ import { SessionModeDropdown } from "./SessionModeDropdown";
  */
 export function NewSessionComposer() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const { repo, basePath } = useRepo();
   const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
+  const firstName = user?.firstName?.trim();
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [baseBranch, setBaseBranch] = useState(
@@ -102,7 +105,11 @@ export function NewSessionComposer() {
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
       <div className="flex w-full max-w-3xl flex-col gap-6">
         <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          <span>What are we building for</span>
+          <span>
+            {firstName
+              ? `${firstName}, what are we building for`
+              : "What are we building for"}
+          </span>
           <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-primary">
             <RepoLogo
               logoUrl={logoUrl}

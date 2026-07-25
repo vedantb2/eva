@@ -21,8 +21,8 @@ interface RepoStatsSummaryProps {
 }
 
 /**
- * Compact sidebar footer: tasks ran + cook rate (link to Stats) with online
- * teammates below.
+ * Compact sidebar footer: online teammates above tasks ran + cook rate
+ * (link to Stats).
  */
 export function RepoStatsSummary({
   repo,
@@ -49,14 +49,20 @@ export function RepoStatsSummary({
         <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
       </div>
     ) : (
-      <div
-        className="ui-surface min-h-[4.5rem] animate-pulse p-2.5"
-        aria-busy="true"
-        aria-label="Loading stats"
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <div className="h-8 rounded bg-muted/60" />
-          <div className="h-8 rounded bg-muted/60" />
+      <div className="flex flex-col gap-2">
+        <div
+          className="h-8 animate-pulse rounded-surface bg-muted/60"
+          aria-hidden
+        />
+        <div
+          className="ui-surface min-h-[4.5rem] animate-pulse p-2.5"
+          aria-busy="true"
+          aria-label="Loading stats"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <div className="h-8 rounded bg-muted/60" />
+            <div className="h-8 rounded bg-muted/60" />
+          </div>
         </div>
       </div>
     );
@@ -80,6 +86,7 @@ export function RepoStatsSummary({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1.5">
+        <OnlineTeamAvatars collapsed />
         {items.map((item) => (
           <Tooltip key={item.label}>
             <TooltipTrigger asChild>
@@ -96,34 +103,38 @@ export function RepoStatsSummary({
             <TooltipContent side="right">{item.label}</TooltipContent>
           </Tooltip>
         ))}
-        <OnlineTeamAvatars collapsed />
       </div>
     );
   }
 
   return (
-    <div className={cn("ui-surface p-2.5")}>
-      <Link
-        to={statsHref}
-        className="block rounded-md transition-colors hover:bg-muted/40 -m-1 p-1"
-      >
-        <div className="grid grid-cols-2 gap-2">
-          {items.map((item) => (
-            <div key={item.label} className="flex items-center gap-1.5">
-              <item.icon size={15} className="shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
-                  {item.value}
-                </p>
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                  {item.label}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Link>
+    <div className="flex flex-col gap-2">
       <OnlineTeamAvatars collapsed={false} />
+      <div className={cn("ui-surface p-2.5")}>
+        <Link
+          to={statsHref}
+          className="block rounded-md transition-colors hover:bg-muted/40 -m-1 p-1"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {items.map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <item.icon
+                  size={15}
+                  className="shrink-0 text-muted-foreground"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
+                    {item.value}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                    {item.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }

@@ -35,13 +35,28 @@ export function AccentColorSection({
             >
               <span
                 className={cn(
-                  "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-110",
+                  "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/40 transition-transform group-hover:scale-110",
                   isActive && "scale-110",
+                  key === "neutral" && "bg-zinc-900 dark:bg-zinc-100",
                 )}
-                style={{ backgroundColor: color.preview }}
+                style={
+                  key === "neutral"
+                    ? undefined
+                    : { backgroundColor: color.preview }
+                }
               >
                 {isActive && (
-                  <IconCheck size={11} className="text-white" strokeWidth={3} />
+                  <IconCheck
+                    size={11}
+                    className={
+                      key === "neutral"
+                        ? "text-white dark:text-zinc-900"
+                        : color.checkDark
+                          ? "text-zinc-900"
+                          : "text-white"
+                    }
+                    strokeWidth={3}
+                  />
                 )}
               </span>
               {color.label}

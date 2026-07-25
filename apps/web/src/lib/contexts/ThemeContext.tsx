@@ -11,18 +11,26 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 
+/** Tailwind chromatic accents, plus `neutral` (no hue — black/white by mode). */
 export type AccentColor =
-  | "teal"
-  | "blue"
-  | "purple"
-  | "rose"
+  | "neutral"
+  | "red"
   | "orange"
-  | "green"
   | "amber"
+  | "yellow"
+  | "lime"
+  | "green"
+  | "emerald"
+  | "teal"
   | "cyan"
-  | "pink"
+  | "sky"
+  | "blue"
   | "indigo"
-  | "red";
+  | "violet"
+  | "purple"
+  | "fuchsia"
+  | "pink"
+  | "rose";
 export type RadiusSize = "none" | "sm" | "md" | "lg" | "xl" | "full";
 export type FontFamily =
   | "inter"
@@ -149,11 +157,19 @@ export const FONT_FAMILIES: Record<
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/**
+ * Accent tokens from the Tailwind default palette (600 light / 400 dark).
+ * Light/dark appearance swaps these automatically via `:root` / `.dark`.
+ * `neutral` = no hue (black primary in light, white in dark).
+ * @see https://tailwindcss.com/docs/colors
+ */
 const ACCENT_COLORS: Record<
   AccentColor,
   {
     label: string;
     preview: string;
+    /** Dark checkmark on the swatch (yellow/white/etc.). */
+    checkDark?: boolean;
     light: {
       primary: string;
       foreground: string;
@@ -168,68 +184,36 @@ const ACCENT_COLORS: Record<
     };
   }
 > = {
-  teal: {
-    label: "Teal",
-    preview: "#0D8478",
+  neutral: {
+    label: "None",
+    preview: "#18181B",
     light: {
-      primary: "13 132 120",
-      foreground: "255 255 255",
-      accent: "224 240 236",
-      accentFg: "10 90 81",
+      primary: "9 9 11",
+      foreground: "250 250 250",
+      accent: "244 244 245",
+      accentFg: "24 24 27",
     },
     dark: {
-      primary: "52 199 181",
-      foreground: "8 23 20",
-      accent: "34 47 44",
-      accentFg: "214 233 228",
+      primary: "250 250 250",
+      foreground: "9 9 11",
+      accent: "24 24 27",
+      accentFg: "244 244 245",
     },
   },
-  blue: {
-    label: "Blue",
-    preview: "#2563EB",
+  red: {
+    label: "Red",
+    preview: "#DC2626",
     light: {
-      primary: "37 99 235",
+      primary: "220 38 38",
       foreground: "255 255 255",
-      accent: "219 234 254",
-      accentFg: "29 78 216",
+      accent: "254 226 226",
+      accentFg: "153 27 27",
     },
     dark: {
-      primary: "96 165 250",
-      foreground: "8 18 40",
-      accent: "22 36 60",
-      accentFg: "191 219 254",
-    },
-  },
-  purple: {
-    label: "Purple",
-    preview: "#7C3AED",
-    light: {
-      primary: "124 58 237",
-      foreground: "255 255 255",
-      accent: "237 233 254",
-      accentFg: "91 33 182",
-    },
-    dark: {
-      primary: "167 139 250",
-      foreground: "18 8 40",
-      accent: "38 28 58",
-      accentFg: "221 214 254",
-    },
-  },
-  rose: {
-    label: "Rose",
-    preview: "#E11D48",
-    light: {
-      primary: "225 29 72",
-      foreground: "255 255 255",
-      accent: "255 228 230",
-      accentFg: "159 18 57",
-    },
-    dark: {
-      primary: "251 113 133",
-      foreground: "40 8 18",
-      accent: "58 20 30",
-      accentFg: "253 164 175",
+      primary: "248 113 113",
+      foreground: "40 8 8",
+      accent: "58 20 20",
+      accentFg: "254 202 202",
     },
   },
   orange: {
@@ -248,25 +232,10 @@ const ACCENT_COLORS: Record<
       accentFg: "253 186 116",
     },
   },
-  green: {
-    label: "Green",
-    preview: "#15803D",
-    light: {
-      primary: "21 128 61",
-      foreground: "255 255 255",
-      accent: "220 252 231",
-      accentFg: "21 128 61",
-    },
-    dark: {
-      primary: "74 222 128",
-      foreground: "8 30 18",
-      accent: "18 46 28",
-      accentFg: "187 247 208",
-    },
-  },
   amber: {
     label: "Amber",
     preview: "#D97706",
+    checkDark: true,
     light: {
       primary: "217 119 6",
       foreground: "255 255 255",
@@ -278,6 +247,88 @@ const ACCENT_COLORS: Record<
       foreground: "26 19 4",
       accent: "55 37 10",
       accentFg: "253 230 138",
+    },
+  },
+  yellow: {
+    label: "Yellow",
+    preview: "#CA8A04",
+    checkDark: true,
+    light: {
+      primary: "202 138 4",
+      foreground: "24 24 27",
+      accent: "254 249 195",
+      accentFg: "133 77 14",
+    },
+    dark: {
+      primary: "250 204 21",
+      foreground: "24 24 27",
+      accent: "66 48 6",
+      accentFg: "254 240 138",
+    },
+  },
+  lime: {
+    label: "Lime",
+    preview: "#65A30D",
+    checkDark: true,
+    light: {
+      primary: "101 163 13",
+      foreground: "24 24 27",
+      accent: "236 252 203",
+      accentFg: "63 98 18",
+    },
+    dark: {
+      primary: "163 230 53",
+      foreground: "24 24 27",
+      accent: "38 54 12",
+      accentFg: "217 249 157",
+    },
+  },
+  green: {
+    label: "Green",
+    preview: "#16A34A",
+    light: {
+      primary: "22 163 74",
+      foreground: "255 255 255",
+      accent: "220 252 231",
+      accentFg: "21 128 61",
+    },
+    dark: {
+      primary: "74 222 128",
+      foreground: "8 30 18",
+      accent: "18 46 28",
+      accentFg: "187 247 208",
+    },
+  },
+  emerald: {
+    label: "Emerald",
+    preview: "#059669",
+    light: {
+      primary: "5 150 105",
+      foreground: "255 255 255",
+      accent: "209 250 229",
+      accentFg: "4 120 87",
+    },
+    dark: {
+      primary: "52 211 153",
+      foreground: "2 32 24",
+      accent: "6 48 36",
+      accentFg: "167 243 208",
+    },
+  },
+  teal: {
+    label: "Teal",
+    preview: "#0D9488",
+    light: {
+      primary: "13 148 136",
+      foreground: "255 255 255",
+      accent: "204 251 241",
+      accentFg: "15 118 110",
+    },
+    dark: {
+      primary: "45 212 191",
+      foreground: "4 28 26",
+      accent: "19 52 48",
+      accentFg: "153 246 228",
     },
   },
   cyan: {
@@ -296,20 +347,36 @@ const ACCENT_COLORS: Record<
       accentFg: "165 243 252",
     },
   },
-  pink: {
-    label: "Pink",
-    preview: "#DB2777",
+  sky: {
+    label: "Sky",
+    preview: "#0284C7",
     light: {
-      primary: "219 39 119",
+      primary: "2 132 199",
       foreground: "255 255 255",
-      accent: "252 231 243",
-      accentFg: "157 23 77",
+      accent: "224 242 254",
+      accentFg: "3 105 161",
     },
     dark: {
-      primary: "244 114 182",
-      foreground: "40 8 22",
-      accent: "62 20 42",
-      accentFg: "251 207 232",
+      primary: "56 189 248",
+      foreground: "8 28 40",
+      accent: "12 40 58",
+      accentFg: "186 230 253",
+    },
+  },
+  blue: {
+    label: "Blue",
+    preview: "#2563EB",
+    light: {
+      primary: "37 99 235",
+      foreground: "255 255 255",
+      accent: "219 234 254",
+      accentFg: "29 78 216",
+    },
+    dark: {
+      primary: "96 165 250",
+      foreground: "8 18 40",
+      accent: "22 36 60",
+      accentFg: "191 219 254",
     },
   },
   indigo: {
@@ -328,20 +395,84 @@ const ACCENT_COLORS: Record<
       accentFg: "199 210 254",
     },
   },
-  red: {
-    label: "Red",
-    preview: "#DC2626",
+  violet: {
+    label: "Violet",
+    preview: "#7C3AED",
     light: {
-      primary: "220 38 38",
+      primary: "124 58 237",
       foreground: "255 255 255",
-      accent: "254 226 226",
-      accentFg: "153 27 27",
+      accent: "237 233 254",
+      accentFg: "91 33 182",
     },
     dark: {
-      primary: "248 113 113",
-      foreground: "40 8 8",
-      accent: "58 20 20",
-      accentFg: "254 202 202",
+      primary: "167 139 250",
+      foreground: "18 8 40",
+      accent: "38 28 58",
+      accentFg: "221 214 254",
+    },
+  },
+  purple: {
+    label: "Purple",
+    preview: "#9333EA",
+    light: {
+      primary: "147 51 234",
+      foreground: "255 255 255",
+      accent: "243 232 255",
+      accentFg: "126 34 206",
+    },
+    dark: {
+      primary: "192 132 252",
+      foreground: "30 8 48",
+      accent: "46 16 68",
+      accentFg: "233 213 255",
+    },
+  },
+  fuchsia: {
+    label: "Fuchsia",
+    preview: "#C026D3",
+    light: {
+      primary: "192 38 211",
+      foreground: "255 255 255",
+      accent: "250 232 255",
+      accentFg: "162 28 175",
+    },
+    dark: {
+      primary: "232 121 249",
+      foreground: "40 8 44",
+      accent: "58 16 64",
+      accentFg: "240 171 252",
+    },
+  },
+  pink: {
+    label: "Pink",
+    preview: "#DB2777",
+    light: {
+      primary: "219 39 119",
+      foreground: "255 255 255",
+      accent: "252 231 243",
+      accentFg: "157 23 77",
+    },
+    dark: {
+      primary: "244 114 182",
+      foreground: "40 8 22",
+      accent: "62 20 42",
+      accentFg: "251 207 232",
+    },
+  },
+  rose: {
+    label: "Rose",
+    preview: "#E11D48",
+    light: {
+      primary: "225 29 72",
+      foreground: "255 255 255",
+      accent: "255 228 230",
+      accentFg: "159 18 57",
+    },
+    dark: {
+      primary: "251 113 133",
+      foreground: "40 8 18",
+      accent: "58 20 30",
+      accentFg: "253 164 175",
     },
   },
 };

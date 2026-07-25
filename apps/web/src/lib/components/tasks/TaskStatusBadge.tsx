@@ -48,7 +48,7 @@ export const statusConfig: Record<
 > = {
   draft: {
     bg: "bg-secondary",
-    cardBg: "bg-secondary",
+    cardBg: "bg-secondary/60",
     bar: "bg-muted-foreground/50",
     text: "text-muted-foreground",
     label: "Draft",
@@ -56,7 +56,7 @@ export const statusConfig: Record<
   },
   todo: {
     bg: "bg-secondary",
-    cardBg: "bg-secondary",
+    cardBg: "bg-secondary/60",
     bar: "bg-foreground/50",
     text: "text-muted-foreground",
     label: "To Do",
@@ -64,7 +64,7 @@ export const statusConfig: Record<
   },
   in_progress: {
     bg: "bg-status-progress-bg",
-    cardBg: "bg-status-progress-subtle",
+    cardBg: "bg-status-progress-subtle/60",
     bar: "bg-status-progress-bar",
     text: "text-status-progress",
     label: "In Progress",
@@ -72,7 +72,7 @@ export const statusConfig: Record<
   },
   code_review: {
     bg: "bg-status-code-review-bg",
-    cardBg: "bg-status-code-review-subtle",
+    cardBg: "bg-status-code-review-subtle/60",
     bar: "bg-status-code-review-bar",
     text: "text-status-code-review",
     label: "Code Review",
@@ -80,7 +80,7 @@ export const statusConfig: Record<
   },
   business_review: {
     bg: "bg-status-business-review-bg",
-    cardBg: "bg-status-business-review-subtle",
+    cardBg: "bg-status-business-review-subtle/60",
     bar: "bg-status-business-review-bar",
     text: "text-status-business-review",
     label: "Business Review",
@@ -88,7 +88,7 @@ export const statusConfig: Record<
   },
   done: {
     bg: "bg-status-done-bg",
-    cardBg: "bg-status-done-subtle",
+    cardBg: "bg-status-done-subtle/60",
     bar: "bg-status-done-bar",
     text: "text-status-done",
     label: "Merged",
@@ -96,7 +96,7 @@ export const statusConfig: Record<
   },
   cancelled: {
     bg: "bg-status-cancelled-bg",
-    cardBg: "bg-status-cancelled-subtle",
+    cardBg: "bg-status-cancelled-subtle/60",
     bar: "bg-status-cancelled-bar",
     text: "text-status-cancelled",
     label: "Cancelled",

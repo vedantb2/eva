@@ -33,8 +33,8 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
-var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId" && (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
+var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
+var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -165,11 +165,8 @@ function buildSettingsJson() {
   }
   return JSON.stringify(settings);
 }
-var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
-var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 var settingsJson = buildSettingsJson();
-var settingsArg = "--settings " + JSON.stringify(settingsJson);
-var mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
+var hasMcpConfig = existsSync("/tmp/eva-mcp.json");
 var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
@@ -184,7 +181,6 @@ var CURSOR_CLI_MODEL_IDS = {
 };
 var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
 var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
-var claudeCommand = existsSync(CLAUDE_BIN_PATH) ? JSON.stringify(CLAUDE_BIN_PATH) : "claude";
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
 var cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
@@ -194,7 +190,6 @@ var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto -
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
 var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
-var claudeBaseCmd = "cat /tmp/design-prompt.txt | " + claudeCommand + " -p --verbose --dangerously-skip-permissions --model " + normalizedClaudeModel + (claudeEffort ? " --effort " + claudeEffort : "") + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -5684,27 +5679,7 @@ function syncProviderStateToPersist(reason) {
   syncClaudeStateToPersist(reason);
 }
 async function runClaudeAttempt(sessionMode) {
-  if (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon") {
-    return await runClaudeSdkAttempt(sessionMode);
-  }
-  const sessionArg = sessionMode.mode === "session" && sessionMode.sessionId ? " --session-id " + JSON.stringify(sessionMode.sessionId) : sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = claudeBaseCmd + sessionArg;
-  const startupStep = buildClaudeStartupStep();
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
-    processLabel: "claude",
-    attemptLabel: "runClaudeAttempt",
-    startupStep,
-    onStart: () => {
-      log(
-        "runClaudeAttempt started (mode=" + sessionMode.mode + ", sessionArg=" + (sessionArg || "none") + ")"
-      );
-      log(
-        "spawning claude after " + String(callbackState.activeAttemptStartedAt - SCRIPT_STARTED_AT) + "ms since callback start"
-      );
-    }
-  });
+  return await runClaudeSdkAttempt(sessionMode);
 }
 async function runCodexAttempt(sessionMode) {
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " resume " + JSON.stringify(sessionMode.sessionId) : "";
@@ -5829,7 +5804,7 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   }
 }
 log(
-  "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no")
+  "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (hasMcpConfig ? "yes" : "no")
 );
 try {
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";

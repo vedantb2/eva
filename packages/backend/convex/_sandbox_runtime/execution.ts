@@ -1169,7 +1169,10 @@ async function runPrewarmEntityDaemon(
   args: PrewarmEntityDaemonParams,
 ): Promise<{ prewarmed: boolean }> {
   const startedAt = Date.now();
-  if (process.env.CLAUDE_ATTEMPT_MODE !== "sdk-daemon") {
+  // The warm daemon only runs in sdk-daemon mode (also the unset/default).
+  // In one-shot `sdk` mode a prewarm would launch a runner with an empty
+  // prompt that nothing consumes, so no-op.
+  if ((process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon") !== "sdk-daemon") {
     return { prewarmed: false };
   }
   if (args.skipPrewarm === true) {

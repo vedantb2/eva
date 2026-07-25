@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude Agent SDK only (CLI spawn removed) - 2026-07-25
+
+Claude no longer has a `claude -p` attempt mode — the Agent SDK (`sdk` / `sdk-daemon`, default `sdk-daemon`) is the only Claude runtime. Unset `CLAUDE_ATTEMPT_MODE` now means the warm daemon path, so prod flips on deploy without an env change. Codex, OpenCode, and Cursor keep their CLI spawn paths. Follow-up env-var cleanup is tracked in `internal/plans/todo/claude-cli-removal-followups.md`.
+
 ## Agents can host captures at public URLs (upload_media MCP) - 2026-07-24
 
 Agents had no way to embed screenshots in PR comments or Linear issues — chat attachments are invisible outside Eva and GitHub's API cannot upload comment images, so they fell back to plain-text comments. New eva MCP tools: `upload_media` returns a one-time Convex storage upload URL the agent curls the file to, and `get_media_url` exchanges the storageId for a permanent public link; the session prompt's recordings block now documents the flow.

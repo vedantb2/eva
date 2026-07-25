@@ -84,9 +84,9 @@ export const KanbanBoard = ({
   return (
     <div
       className={cn(
-        "flex size-full min-h-40 flex-col overflow-hidden bg-accent/15 text-xs transition-colors",
+        "flex size-full min-h-40 flex-col overflow-hidden bg-accent/10 text-xs transition-colors",
         SURFACE_RADIUS_CLASS,
-        isOver && "bg-primary/10",
+        isOver && "bg-primary/5",
         className,
       )}
       ref={setNodeRef}

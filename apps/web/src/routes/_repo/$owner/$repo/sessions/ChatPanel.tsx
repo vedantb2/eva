@@ -134,7 +134,7 @@ export function ChatPanel({
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
-  } = useSessionSettings(sessionId, {
+  } = useSessionSettings({
     defaultModel,
     model,
     onModelChange: setModel,
@@ -143,7 +143,7 @@ export function ChatPanel({
     traits,
     onTraitsPersist: setTraits,
     providerAccountId: stickyProviderAccountId,
-    onProviderAccountChange: (next) => {
+    onProviderAccountChange: (next: string | null) => {
       setStickyProviderAccountId(
         next === null ? null : (resolveAccountId(next) ?? null),
       );

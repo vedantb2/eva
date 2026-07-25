@@ -1,5 +1,9 @@
 # Changelog
 
+## Composer prefs + theme off localStorage - 2026-07-25
+
+Design chat kept model/traits/account in per-session localStorage while coding sessions already used Convex, and light/dark was mirrored into a `"theme"` key even though `users.theme` was the source of truth. Sticky design composer fields now live on `designSessions`; `useSessionSettings` is display-only (no LS); Approve Plan writes mode via Convex; appearance FOUC uses `eva-custom-theme-hint.appearance` instead of writing `"theme"`.
+
 ## New-session composer draft survives reload - 2026-07-25
 
 Landing composer had no conversation row yet, so a refresh wiped the prompt. Draft, model, mode, traits, and account now persist per-repo in one localStorage object (`eva:new-session-composer:<repoId>`); only the draft clears once the session is created. Existing session chat drafts stay on Convex.

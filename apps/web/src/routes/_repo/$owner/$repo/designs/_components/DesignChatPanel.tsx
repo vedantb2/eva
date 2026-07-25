@@ -5,6 +5,7 @@ import {
   getModelTraits,
   getReasoningLevelLabel,
   modelHasTraits,
+  normalizeAIModel,
   type Id,
 } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -53,6 +54,7 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@eva/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useDesignSessionModel } from "@/lib/hooks/useDesignSessionModel";
 import {
   useAvailableAiModels,
   useProviderAccounts,
@@ -159,7 +161,7 @@ export function DesignChatPanel({
       reordered,
     );
   });
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const uploadImageAttachments = useUploadImageAttachments();
@@ -168,18 +170,37 @@ export function DesignChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
+  const defaultModel = normalizeAIModel(repo.defaultModel);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
   const {
     model,
     setModel,
+    traits,
+    setTraits,
+    providerAccountId: stickyProviderAccountId,
+    setProviderAccountId: setStickyProviderAccountId,
+  } = useDesignSessionModel(designSessionId, defaultModel);
+  const {
     displayTraits,
     executionTraits,
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
-  } = useSessionSettings(designSessionId);
+  } = useSessionSettings({
+    defaultModel,
+    model,
+    onModelChange: setModel,
+    traits,
+    onTraitsPersist: setTraits,
+    providerAccountId: stickyProviderAccountId,
+    onProviderAccountChange: (next: string | null) => {
+      setStickyProviderAccountId(
+        next === null ? null : (resolveAccountId(next) ?? null),
+      );
+    },
+  });
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "designChat" as const,

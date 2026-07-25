@@ -757,6 +757,13 @@ export const designSessionFields = {
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
   devPort: v.optional(v.number()),
+  // Sticky composer prefs (same contract as sessions.*) — design chat used to
+  // keep these in localStorage only, so picks were lost across devices.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  lastModel: v.optional(aiModelValidator),
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const docCommentFields = {

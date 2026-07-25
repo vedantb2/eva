@@ -15,12 +15,12 @@ const PRESETS: Preset[] = [
   {
     name: "Default",
     theme: {
-      accentColor: "indigo",
-      fontFamily: "geist",
-      radius: "md",
+      accentColor: "neutral",
+      fontFamily: "inter",
+      radius: "xl",
       letterSpacing: "tight",
     },
-    previewColor: "#4F46E5",
+    previewColor: "#18181B",
   },
   {
     name: "Modern",

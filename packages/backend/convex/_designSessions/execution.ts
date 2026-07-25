@@ -11,6 +11,7 @@ import { trackDesignSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "../_queues/helpers";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { assertProviderAccountOwnedBy } from "../_userProviderAccounts/defaults";
 
 /** Sends a message to the AI for design generation, starting a workflow with timeout watchdog. */
 export const executeMessage = authMutation({
@@ -31,6 +32,13 @@ export const executeMessage = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
+    const normalizedModel = normalizeAIModel(args.model);
+    const stickyProviderAccountId = await assertProviderAccountOwnedBy(
+      ctx.db,
+      args.providerAccountId,
+      session.userId,
+    );
+
     const now = Date.now();
     await ctx.db.insert("messages", {
       parentId: args.id,
@@ -42,10 +50,10 @@ export const executeMessage = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        args.providerAccountId,
+        stickyProviderAccountId,
         session.userId,
       ),
-      model: args.model,
+      model: normalizedModel,
       reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.insert("messages", {
@@ -55,7 +63,20 @@ export const executeMessage = authMutation({
       timestamp: now,
       activityLog: "",
     });
-    await ctx.db.patch(args.id, { updatedAt: now });
+    await ctx.db.patch(args.id, {
+      updatedAt: now,
+      lastModel: normalizedModel,
+      providerAccountId: stickyProviderAccountId,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
 
     const workflowId = await workflow.start(
       ctx,
@@ -63,11 +84,11 @@ export const executeMessage = authMutation({
       {
         designSessionId: args.id,
         message: args.message,
-        model: normalizeAIModel(args.model),
+        model: normalizedModel,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId: session.userId,
         personaId: args.personaId,
         userId: ctx.userId,
@@ -105,22 +126,42 @@ export const enqueueMessage = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const normalizedModel = normalizeAIModel(args.model);
+    const stickyProviderAccountId = await assertProviderAccountOwnedBy(
+      ctx.db,
+      args.providerAccountId,
+      session.userId,
+    );
+
     await ctx.db.insert("queuedMessages", {
       parentId: args.id,
       content,
       createdAt: Date.now(),
       order: Date.now(),
       userId: ctx.userId,
-      model: normalizeAIModel(args.model),
+      model: normalizedModel,
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
-      providerAccountId: args.providerAccountId,
+      providerAccountId: stickyProviderAccountId,
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
       attachmentStorageIds: args.attachmentStorageIds,
     });
-    await ctx.db.patch(args.id, { updatedAt: Date.now() });
+    await ctx.db.patch(args.id, {
+      updatedAt: Date.now(),
+      lastModel: normalizedModel,
+      providerAccountId: stickyProviderAccountId,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
     return null;
   },
 });

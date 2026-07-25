@@ -33,10 +33,10 @@ export function useSessionModel(
   setModel: (model: AIModel) => void;
   mode: SessionMode | undefined;
   setMode: (mode: SessionMode) => void;
-  /** Sticky traits from Convex; undefined fields fall back to localStorage. */
+  /** Sticky traits from Convex; undefined fields use model defaults. */
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
-  /** undefined while session loading — fall back to localStorage. */
+  /** undefined while session loading — treat as Team until the query lands. */
   providerAccountId: string | null | undefined;
   setProviderAccountId: (
     providerAccountId: Id<"userProviderAccounts"> | null,

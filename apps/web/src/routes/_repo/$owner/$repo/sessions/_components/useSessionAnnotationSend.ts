@@ -18,8 +18,7 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model + mode + traits + account are owned by Convex; read them here so
-  // annotation sends use the session's actual picks, not a stale localStorage fallback.
+  // Model + mode + traits + account are owned by Convex.
   const {
     model,
     mode: stickyMode,
@@ -27,7 +26,7 @@ export function useSessionAnnotationSend(
     providerAccountId: stickyProviderAccountId,
   } = useSessionModel(sessionId, defaultModel);
   const { mode, displayTraits, executionTraits, providerAccountId } =
-    useSessionSettings(String(sessionId), {
+    useSessionSettings({
       defaultModel,
       model,
       mode: stickyMode,

@@ -10,6 +10,13 @@ import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
+import {
+  CUSTOM_THEME_HINT_KEY,
+  writeCustomThemeHint,
+  writeThemeAppearanceHint,
+} from "@/lib/contexts/themeHint";
+
+export { CUSTOM_THEME_HINT_KEY, writeThemeAppearanceHint };
 
 /** Tailwind chromatic accents, plus `neutral` (no hue — black/white by mode). */
 export type AccentColor =
@@ -67,9 +74,6 @@ const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
   fontFamily: "inter",
   letterSpacing: "tight",
 };
-
-/** localStorage key for early-paint custom theme hint (read by index.html). */
-export const CUSTOM_THEME_HINT_KEY = "eva-custom-theme-hint";
 
 export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
   return {
@@ -516,19 +520,13 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
   );
 
   // Persist hint so the next document paint can apply fonts/radius before React.
-  try {
-    localStorage.setItem(
-      CUSTOM_THEME_HINT_KEY,
-      JSON.stringify({
-        accentColor,
-        radius,
-        fontFamily,
-        letterSpacing,
-      }),
-    );
-  } catch {
-    // Ignore quota / private mode failures — live query still wins.
-  }
+  // Appearance is owned by ThemeModeProvider / Convex.
+  writeCustomThemeHint({
+    accentColor,
+    radius,
+    fontFamily,
+    letterSpacing,
+  });
 
   // Neutral matches globals.css — drop the override style so base CSS applies.
   if (accentColor === "neutral") {

@@ -173,8 +173,10 @@ export function QuickTasksToolbar({
     setParams({ tags: [...next] });
   };
 
+  // "none" (No Project) is the page default — quick tasks are non-project
+  // tasks — so it does not count as an active filter.
   const hasActiveFilters =
-    projectFilter !== "all" ||
+    projectFilter !== "none" ||
     userFilter !== "all" ||
     assignee !== "all" ||
     visibleStatuses.size !== TASK_STATUSES.length ||
@@ -182,9 +184,9 @@ export function QuickTasksToolbar({
     timeRange !== "all";
 
   const clearAllFilters = () => {
-    onProjectFilterChange("all");
-    onUserFilterChange("all");
     setParams({
+      project: "none",
+      user: "all",
       assignee: "all",
       tags: [],
       statuses: [...TASK_STATUSES],

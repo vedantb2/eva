@@ -13,12 +13,14 @@ export const Route = createFileRoute(
         repo: params.repo,
         numId: params.numId,
       },
-      search: {
+      // Merge prev so nuqs-managed filter params (q, statuses, …) survive.
+      search: (prev) => ({
+        ...prev,
         draft: undefined,
         diffFile: undefined,
         diffView: undefined,
         prTab: undefined,
-      },
+      }),
       replace: true,
     });
   },

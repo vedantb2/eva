@@ -20,15 +20,14 @@ export {
 } from "./linkChipUtils";
 export type { LinkProvider } from "./linkChipUtils";
 export { UserMentionText } from "./UserMentionText";
-export { DocMentionChip } from "./DocMentionChip";
+export { DataMentionChip } from "./DataMentionChip";
 export { SkillMentionChip } from "./SkillMentionChip";
-export { DocMentionHoverCardBody } from "./DocMentionHoverCardBody";
+export { DataMentionHoverCardBody } from "./DataMentionHoverCardBody";
 export { SkillMentionHoverCardBody } from "./SkillMentionHoverCardBody";
 export {
   MENTION_TOKEN_REGEX,
   formatMentionToken,
   mentionTokensToEditableText,
-  isMentionTokenDocId,
   extractMapsFromTokenizedText,
   tokenizedToEditable,
   tokenizedToDisplayText,

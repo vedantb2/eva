@@ -90,7 +90,7 @@ export function CommentActivityItem({
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
   const { groups, toggle } = useReactions("comment", comment._id);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -236,6 +236,7 @@ export function CommentActivityItem({
         <MarkdownMentionText
           text={comment.content}
           repoBasePath={basePath}
+          repoId={repo._id}
           atKind="user"
           className="pl-6 text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         />

@@ -38,6 +38,8 @@ export interface MentionItem<TId extends string = string> {
   id: TId;
   label: string;
   description?: string;
+  /** Type badge shown in the picker (e.g. Document, Session, Person). */
+  badge?: string;
 }
 
 export interface SlashItem<
@@ -134,12 +136,20 @@ function renderMenuItemRow(
   prefix: string,
   label: string,
   detail: string | null,
+  badge?: string,
 ): ReactNode {
   return (
     <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-0.5">
-        <span className="shrink-0 text-muted-foreground">{prefix}</span>
-        <span className="truncate">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+          <span className="shrink-0 text-muted-foreground">{prefix}</span>
+          <span className="truncate">{label}</span>
+        </span>
+        {badge ? (
+          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+            {badge}
+          </span>
+        ) : null}
       </span>
       {detail ? (
         <span className="truncate text-xs text-muted-foreground">{detail}</span>
@@ -150,7 +160,7 @@ function renderMenuItemRow(
 
 function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("@", item.label, detail);
+  return renderMenuItemRow("@", item.label, detail, item.badge);
 }
 
 function defaultRenderSlashItem(
@@ -242,7 +252,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   filterItem = defaultFilter,
   filterSlashItem = defaultFilterSlashItem,
   emptySlashContent,
-  mentionPopupTitle = "Docs",
+  mentionPopupTitle = "Data",
   onMentionChipClick,
   onSkillChipClick,
   mentionChipHoverCard = false,

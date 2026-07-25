@@ -119,8 +119,8 @@ export function ChatComposer({
   hasPendingContext = false,
   attachmentMode = "images",
 }: ChatComposerProps) {
-  const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
@@ -245,7 +245,7 @@ export function ChatComposer({
               <MentionTextarea
                 ref={mentionRef}
                 repoBasePath={repoBasePath}
-                docs={docs}
+                repoId={repoId}
                 skills={skills}
                 skillsSettingsHref={`${repoBasePath}/settings/skills`}
                 placeholder={isExecuting ? "Add a follow-up..." : placeholder}
@@ -257,7 +257,7 @@ export function ChatComposer({
               <PromptInputFooter>
                 <PromptInputTools>
                   <ComposerPlusMenu
-                    docs={docs}
+                    dataItems={dataMentions}
                     skills={skills}
                     mentionRef={mentionRef}
                     attachmentMode={attachmentMode}

@@ -1,5 +1,9 @@
 # Changelog
 
+## Data @-mentions for sessions, projects, and quick tasks - 2026-07-25
+
+`@` in composers only listed documents, so referencing past chats or related work meant pasting links. The picker is now **Data** (docs + sessions + projects + quick tasks) with type badges; comments keep People and add the same Data entries. Docs still inline into the agent prompt; other kinds inject an Eva MCP fetch hint so the agent loads them on demand.
+
 ## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-25
 
 - Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
@@ -641,7 +645,6 @@ Activity audit/proof marks and run rows without a requester now use the same rou
 
 - Session/task chat user prompts longer than 8 lines or 600 chars collapse with a fade and expand toggle (same idea as t3code).
 - Reason for change: long pasted prompts were dominating the timeline and burying agent replies.
->>>>>>> origin/staging
 
 ## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
 

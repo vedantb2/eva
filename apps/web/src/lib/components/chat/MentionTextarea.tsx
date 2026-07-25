@@ -2,36 +2,28 @@
 
 import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
-import type { Doc, Id } from "@eva/backend";
+import {
+  usePromptInputController,
+  usePromptInputAttachments,
+} from "@eva/ui";
+import type { Id } from "@eva/backend";
 import {
   MentionEditor,
   type MentionEditorHandle,
-  type MentionItem,
   type SlashItem,
-  DocMentionHoverCardBody,
+  DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
-  isMentionTokenDocId,
 } from "@/lib/components/mentions";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 
 export type MentionTextareaHandle = MentionEditorHandle;
-
-function docDescriptionPreview(doc: {
-  description?: string;
-  content: string;
-}): string | undefined {
-  const description = doc.description?.trim();
-  if (description) return description;
-  const content = doc.content.trim();
-  return content || undefined;
-}
 
 interface MentionTextareaProps {
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
-  docs: Array<Doc<"docs">>;
+  repoId: Id<"githubRepos">;
   skills?: Array<{
     _id: Id<"repoSkills">;
     title: string;
@@ -62,7 +54,7 @@ export const MentionTextarea = forwardRef<
 >(function MentionTextarea(
   {
     repoBasePath,
-    docs,
+    repoId,
     skills = [],
     skillsSettingsHref,
     placeholder,
@@ -77,7 +69,8 @@ export const MentionTextarea = forwardRef<
   const controller = usePromptInputController();
   const attachments = usePromptInputAttachments();
   const value = controller.textInput.value;
-  const navigateToDocById = useDocMentionNavigate(repoBasePath);
+  const items = useDataMentionItems(repoId);
+  const navigateToData = useDataMentionNavigate(repoBasePath, repoId);
 
   // Cursor into `history` (null = editing the live draft) and the draft stashed
   // when history navigation began, so ArrowDown past the newest entry restores it.
@@ -118,20 +111,12 @@ export const MentionTextarea = forwardRef<
   };
 
   const handleMentionChipClick = (id: string) => {
-    if (isMentionTokenDocId(id)) {
-      void navigateToDocById(id, docs);
-    }
+    void navigateToData(id);
   };
 
   const handleSkillChipClick = (_skillId: string) => {
     navigate({ to: `${repoBasePath}/settings/skills` });
   };
-
-  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
-    id: doc._id,
-    label: doc.title,
-    description: docDescriptionPreview(doc),
-  }));
 
   const slashItems: SlashItem[] = skills.flatMap((skill) =>
     skill.available
@@ -155,13 +140,14 @@ export const MentionTextarea = forwardRef<
       }
       items={items}
       slashItems={slashItems}
+      mentionPopupTitle="Data"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
-      renderMentionChipHoverCard={(id) =>
-        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
-      }
+      renderMentionChipHoverCard={(id) => (
+        <DataMentionHoverCardBody entityId={id} repoId={repoId} />
+      )}
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

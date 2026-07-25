@@ -5,32 +5,20 @@ import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import type { Doc } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,
-  type MentionItem,
   type SlashItem,
-  DocMentionHoverCardBody,
+  DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
-  isMentionTokenDocId,
 } from "@/lib/components/mentions";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
-
-function docDescriptionPreview(doc: {
-  description?: string;
-  content: string;
-}): string | undefined {
-  const description = doc.description?.trim();
-  if (description) return description;
-  const content = doc.content.trim();
-  return content || undefined;
-}
 
 interface DescriptionMentionEditorProps {
   value: string;
@@ -66,13 +54,11 @@ export const DescriptionMentionEditor = forwardRef<
 ) {
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
-  const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
-  const navigateToDocById = useDocMentionNavigate(basePath);
+  const items = useDataMentionItems(repo._id);
+  const navigateToData = useDataMentionNavigate(basePath, repo._id);
 
   const handleMentionChipClick = (id: string) => {
-    if (isMentionTokenDocId(id)) {
-      void navigateToDocById(id, docs);
-    }
+    void navigateToData(id);
   };
 
   const handleSkillChipClick = (_skillId: string) => {
@@ -80,12 +66,6 @@ export const DescriptionMentionEditor = forwardRef<
   };
   const skills =
     useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
-
-  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
-    id: doc._id,
-    label: doc.title,
-    description: docDescriptionPreview(doc),
-  }));
 
   const slashItems: SlashItem[] = skills.flatMap((skill) =>
     skill.available
@@ -106,14 +86,15 @@ export const DescriptionMentionEditor = forwardRef<
       onValueChange={onValueChange}
       items={items}
       slashItems={slashItems}
+      mentionPopupTitle="Data"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
       disabled={disabled}
-      renderMentionChipHoverCard={(id) =>
-        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
-      }
+      renderMentionChipHoverCard={(id) => (
+        <DataMentionHoverCardBody entityId={id} repoId={repo._id} />
+      )}
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

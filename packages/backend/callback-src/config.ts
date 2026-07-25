@@ -218,12 +218,13 @@ export const claudeEffort =
     : "";
 
 const CODEX_REASONING_EFFORT: Record<string, string> = {
-  off: "minimal",
+  // GPT-5.5 uses none/low/medium/high/xhigh; "minimal" kept for older CLIs.
+  off: "none",
   low: "low",
   medium: "medium",
   high: "high",
-  xhigh: "high",
-  max: "high",
+  xhigh: "xhigh",
+  max: "xhigh",
 };
 
 export const codexReasoningEffort =
@@ -335,6 +336,11 @@ export const CODEX_PRICING_PER_MILLION: Record<
   string,
   { input: number; cached: number; output: number }
 > = {
+  // OpenAI API list prices (per 1M tokens).
+  "gpt-5.5": { input: 5.0, cached: 0.5, output: 30.0 },
+  // Legacy — kept so in-flight sandboxes still cost-account correctly.
+  "gpt-5.5-pro": { input: 30.0, cached: 30.0, output: 180.0 },
+
   "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
   "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
   "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },

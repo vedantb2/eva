@@ -1,5 +1,9 @@
 # Changelog
 
+## Codex/Cursor model list → GPT-5.5 - 2026-07-25
+
+Codex still offered 5.2–5.4 while OpenAI’s shipping coding model is GPT-5.5; Cursor’s GPT entry was stuck on high effort. Codex picker is now `gpt-5.5` (with matching reasoning levels + pricing); Cursor GPT is `gpt-5.5-low`. Old IDs stay accepted and normalize forward so existing sessions load.
+
 ## Empty states uncarded + neutral default accent - 2026-07-25
 
 Page empty states shared a dashed card that fought the shell. `EmptyState` is chrome-free and vertically centered; sessions/drafts/select-a-X landings all use it. Default theme accent is **None** (neutral) instead of cyan, including `globals.css` so first paint matches.

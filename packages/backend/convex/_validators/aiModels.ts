@@ -18,6 +18,10 @@ export const aiModelValidator = v.union(
   v.literal("claude:claude-opus-4-5-20251101"),
   v.literal("claude:claude-opus-4-6"),
   v.literal("claude:claude-fable-5"),
+  v.literal("codex:gpt-5.5"),
+  // Legacy Codex — still accepted so existing sessions can load;
+  // normalizeAIModel maps them to gpt-5.5.
+  v.literal("codex:gpt-5.5-pro"),
   v.literal("codex:gpt-5.4"),
   v.literal("codex:gpt-5.4-mini"),
   v.literal("codex:gpt-5.3-codex"),
@@ -30,11 +34,12 @@ export const aiModelValidator = v.union(
   v.literal("cursor:grok-4.5-low"),
   v.literal("cursor:grok-4.5-medium"),
   v.literal("cursor:grok-4.5-high"),
-  v.literal("cursor:gpt-5.5-high"),
+  v.literal("cursor:gpt-5.5-low"),
   v.literal("cursor:gemini-3.1-pro"),
   v.literal("cursor:composer-2.5"),
-  // Legacy — still accepted so existing sessions with this lastModel can load;
-  // normalizeAIModel maps it to composer-2.5.
+  // Legacy — still accepted so existing sessions with these lastModel values
+  // can load; normalizeAIModel remaps them.
+  v.literal("cursor:gpt-5.5-high"),
   v.literal("cursor:composer-2"),
 );
 
@@ -113,8 +118,9 @@ const CLAUDE_REASONING_OPUS_46: ModelReasoningTraits = {
   ultrathink: true,
 };
 
+/** GPT-5.5: none/off, low, medium (default), high, xhigh. */
 const CODEX_REASONING: ModelReasoningTraits = {
-  levels: ["off", "low", "medium", "high"],
+  levels: ["off", "low", "medium", "high", "xhigh"],
   default: "medium",
 };
 
@@ -128,10 +134,7 @@ export type AIModel =
   | "claude:claude-opus-4-5-20251101"
   | "claude:claude-opus-4-6"
   | "claude:claude-fable-5"
-  | "codex:gpt-5.4"
-  | "codex:gpt-5.4-mini"
-  | "codex:gpt-5.3-codex"
-  | "codex:gpt-5.2-codex"
+  | "codex:gpt-5.5"
   | "opencode:openai/gpt-5-codex"
   | "opencode:openai/gpt-5.2"
   | "opencode:openai/gpt-5.3-codex"
@@ -140,12 +143,18 @@ export type AIModel =
   | "cursor:grok-4.5-low"
   | "cursor:grok-4.5-medium"
   | "cursor:grok-4.5-high"
-  | "cursor:gpt-5.5-high"
+  | "cursor:gpt-5.5-low"
   | "cursor:gemini-3.1-pro"
   | "cursor:composer-2.5";
 export type PersistedAIModel =
   | AIModel
   | LegacyClaudeModel
+  | "codex:gpt-5.5-pro"
+  | "codex:gpt-5.4"
+  | "codex:gpt-5.4-mini"
+  | "codex:gpt-5.3-codex"
+  | "codex:gpt-5.2-codex"
+  | "cursor:gpt-5.5-high"
   | "cursor:composer-2";
 
 export interface AIModelOption {
@@ -221,30 +230,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     contextWindow1m: true,
   },
   {
-    id: "codex:gpt-5.4",
+    id: "codex:gpt-5.5",
     provider: "codex",
-    label: "GPT-5.4",
-    requiresAuth: true,
-    reasoning: CODEX_REASONING,
-  },
-  {
-    id: "codex:gpt-5.4-mini",
-    provider: "codex",
-    label: "GPT-5.4 mini",
-    requiresAuth: true,
-    reasoning: CODEX_REASONING,
-  },
-  {
-    id: "codex:gpt-5.3-codex",
-    provider: "codex",
-    label: "GPT-5.3-Codex",
-    requiresAuth: true,
-    reasoning: CODEX_REASONING,
-  },
-  {
-    id: "codex:gpt-5.2-codex",
-    provider: "codex",
-    label: "GPT-5.2-Codex",
+    label: "GPT 5.5",
     requiresAuth: true,
     reasoning: CODEX_REASONING,
   },
@@ -297,9 +285,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:gpt-5.5-high",
+    id: "cursor:gpt-5.5-low",
     provider: "cursor",
-    label: "GPT-5.5 High",
+    label: "GPT-5.5 Low",
     requiresAuth: true,
   },
   {
@@ -393,14 +381,13 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "claude-fable-5":
     case "claude:claude-fable-5":
       return "claude:claude-fable-5";
+    case "codex:gpt-5.5":
+    case "codex:gpt-5.5-pro":
     case "codex:gpt-5.4":
-      return "codex:gpt-5.4";
     case "codex:gpt-5.4-mini":
-      return "codex:gpt-5.4-mini";
     case "codex:gpt-5.3-codex":
-      return "codex:gpt-5.3-codex";
     case "codex:gpt-5.2-codex":
-      return "codex:gpt-5.2-codex";
+      return "codex:gpt-5.5";
     case "opencode:openai/gpt-5-codex":
       return "opencode:openai/gpt-5-codex";
     case "opencode:openai/gpt-5.2":
@@ -427,7 +414,8 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "cursor:grok-4.5-high":
       return "cursor:grok-4.5-high";
     case "cursor:gpt-5.5-high":
-      return "cursor:gpt-5.5-high";
+    case "cursor:gpt-5.5-low":
+      return "cursor:gpt-5.5-low";
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":

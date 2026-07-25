@@ -147,12 +147,13 @@ var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
 var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set(["low", "medium", "high", "xhigh", "max"]);
 var claudeEffort = PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT) ? REASONING_EFFORT : "";
 var CODEX_REASONING_EFFORT = {
-  off: "minimal",
+  // GPT-5.5 uses none/low/medium/high/xhigh; "minimal" kept for older CLIs.
+  off: "none",
   low: "low",
   medium: "medium",
   high: "high",
-  xhigh: "high",
-  max: "high"
+  xhigh: "xhigh",
+  max: "xhigh"
 };
 var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
 function buildSettingsJson() {
@@ -206,6 +207,10 @@ var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "todos"
 ]);
 var CODEX_PRICING_PER_MILLION = {
+  // OpenAI API list prices (per 1M tokens).
+  "gpt-5.5": { input: 5, cached: 0.5, output: 30 },
+  // Legacy — kept so in-flight sandboxes still cost-account correctly.
+  "gpt-5.5-pro": { input: 30, cached: 30, output: 180 },
   "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
   "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2 },
   "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10 },

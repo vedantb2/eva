@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
 import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
 import { AppToaster } from "@/lib/components/AppToaster";
+import { AppShell } from "@/lib/components/AppShell";
 
 export interface RouterContext {
   isSignedIn: boolean;
@@ -27,7 +28,9 @@ function RootComponent() {
   return (
     <ClientProvider>
       <NuqsAdapter>
-        <Outlet />
+        <AppShell>
+          <Outlet />
+        </AppShell>
       </NuqsAdapter>
       <ChangelogDialog />
       <AppToaster />

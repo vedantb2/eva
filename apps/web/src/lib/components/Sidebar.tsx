@@ -90,6 +90,11 @@ export function Sidebar() {
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
 
+  // Sidebar now persists across sections, so re-derive the context sidebar mode on navigation.
+  useEffect(() => {
+    setContextSidebarMode(getInitialContextSidebarMode(pathname));
+  }, [pathname]);
+
   const repos = useQuery(api.githubRepos.list, {});
 
   const { repoBasePath, owner, repoName, appName, isRepoRoute } = ((): {

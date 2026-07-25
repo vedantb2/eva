@@ -289,7 +289,13 @@ export function QuickTasksClient() {
   }
 
   // URL points at a task that is still resolving or no longer exists.
-  if (numIdParam !== undefined && taskResolve.status === "loading") {
+  // List view never takes this full-page path — it shows loading/not-found
+  // in the detail pane instead so the list itself stays mounted.
+  if (
+    numIdParam !== undefined &&
+    taskResolve.status === "loading" &&
+    view !== "list"
+  ) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <div
@@ -307,7 +313,11 @@ export function QuickTasksClient() {
     );
   }
 
-  if (numIdParam !== undefined && taskResolve.status === "not-found") {
+  if (
+    numIdParam !== undefined &&
+    taskResolve.status === "not-found" &&
+    view !== "list"
+  ) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <EntityNotFound
@@ -382,7 +392,8 @@ export function QuickTasksClient() {
             />
           )}
           <AnimatePresence mode="wait" initial={false}>
-            {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
+            {!hasQuickTasks &&
+            !(view === "list" && numIdParam !== undefined) ? (
               <m.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}
@@ -457,6 +468,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                   selectedTaskId={selectedTaskId}
+                  selectedTaskStatus={
+                    numIdParam !== undefined ? taskResolve.status : undefined
+                  }
                   detailTab={routeState?.detailTab}
                   sandboxTab={
                     routeState?.surface === "sandbox"

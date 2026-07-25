@@ -3,9 +3,13 @@
 import { IconChecklist } from "@tabler/icons-react";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
+import { Spinner } from "@eva/ui";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
+import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
@@ -19,6 +23,8 @@ interface QuickTasksListSplitProps {
   onToggleSelect: (id: Id<"agentTasks">) => void;
   onOpenTask: (task: { numId?: number }) => void;
   selectedTaskId?: Id<"agentTasks">;
+  /** Resolve status of the numId in the URL; undefined when no task is selected. */
+  selectedTaskStatus?: EntityResolveStatus;
   detailTab?: TaskDetailTab;
   sandboxTab?: TaskRouteSandboxTab;
   navSurface: "detail" | "sandbox";
@@ -30,6 +36,10 @@ interface QuickTasksListSplitProps {
  * keeping the existing `/quick-tasks/$numId` routing. The action-slot provider
  * wraps both panes so `TaskDetailInline` can portal its action buttons into the
  * right pane's header.
+ *
+ * The left list stays mounted across all detail-pane states (loading,
+ * not-found, resolved, no selection) so switching tasks never unmounts the
+ * virtuoso list or loses its scroll position.
  */
 export function QuickTasksListSplit({
   tasks,
@@ -39,10 +49,12 @@ export function QuickTasksListSplit({
   onToggleSelect,
   onOpenTask,
   selectedTaskId,
+  selectedTaskStatus,
   detailTab,
   sandboxTab,
   navSurface,
 }: QuickTasksListSplitProps) {
+  const { basePath } = useRepo();
   return (
     <QuickTaskHeaderActionsSlotProvider>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:flex-row">
@@ -58,7 +70,17 @@ export function QuickTasksListSplit({
           />
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-          {selectedTaskId ? (
+          {selectedTaskStatus === "loading" ? (
+            <div className="flex h-full items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          ) : selectedTaskStatus === "not-found" ? (
+            <EntityNotFound
+              entityLabel="task"
+              backTo={`${basePath}/quick-tasks`}
+              backLabel="Back to Quick Tasks"
+            />
+          ) : selectedTaskId ? (
             <QuickTaskSplitDetailPane
               key={selectedTaskId}
               taskId={selectedTaskId}

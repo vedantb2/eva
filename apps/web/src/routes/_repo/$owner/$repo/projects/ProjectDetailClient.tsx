@@ -60,6 +60,7 @@ import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/Resolve
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 
@@ -69,6 +70,7 @@ export function ProjectDetailClient({
   surface,
   sandboxTab,
   selectedTaskId,
+  selectedTaskStatus,
   detailTab,
 }: {
   projectId: Id<"projects">;
@@ -76,6 +78,8 @@ export function ProjectDetailClient({
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
   selectedTaskId?: Id<"agentTasks">;
+  /** Resolve status of selectedTaskId's numId; undefined when no task is selected. */
+  selectedTaskStatus?: EntityResolveStatus;
   detailTab?: TaskDetailTab;
 }) {
   const navigate = useNavigate();
@@ -562,6 +566,7 @@ export function ProjectDetailClient({
             project={project}
             basePath={basePath}
             selectedTaskId={selectedTaskId}
+            selectedTaskStatus={selectedTaskStatus}
             detailTab={detailTab}
           />
         )}

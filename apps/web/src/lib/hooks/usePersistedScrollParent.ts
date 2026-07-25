@@ -38,6 +38,9 @@ function writeScrollTop(fullKey: string, scrollTop: number): void {
 /**
  * Container scroll ref that restores `scrollTop` from useSessionStorage (per tab).
  * Survives list unmount when opening a detail route; cleared when the tab closes.
+ * Note: list-view task selection (quick-tasks, projects) no longer unmounts the
+ * list at all, so this hack is now only load-bearing for routes that still swap
+ * the whole page out (e.g. kanban/table full-page detail).
  */
 export function usePersistedScrollParent(storageKey: string): {
   scrollParent: HTMLDivElement | null;

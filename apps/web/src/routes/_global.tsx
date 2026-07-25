@@ -4,15 +4,7 @@ import {
   redirect,
   useLocation,
 } from "@tanstack/react-router";
-import { AuthGate } from "@/lib/components/ClientProvider";
-import { FollowOverlay } from "@/lib/components/FollowOverlay";
-import { Sidebar } from "@/lib/components/Sidebar";
-import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
-import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
-import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
-import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
-import { SearchProvider } from "@/lib/contexts/SearchContext";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -21,7 +13,8 @@ export const Route = createFileRoute("/_global")({
       throw redirect({ to: "/" });
     }
   },
-  component: GlobalLayout,
+  staticData: { appShell: true },
+  component: GlobalMainContent,
 });
 
 function GlobalMainContent() {
@@ -54,25 +47,5 @@ function GlobalMainContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-function GlobalLayout() {
-  return (
-    <AuthGate>
-      <SidebarProvider>
-        <PageTitleProvider>
-          <SearchProvider>
-            <FollowProvider>
-              <Sidebar />
-              <GlobalMainContent />
-              <SpotlightSearch />
-              <FollowOverlay />
-              <NotificationToastStream />
-            </FollowProvider>
-          </SearchProvider>
-        </PageTitleProvider>
-      </SidebarProvider>
-    </AuthGate>
   );
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Persistent app chrome + list views that survive task clicks - 2026-07-25
+
+Crossing between global pages and repos remounted the whole sidebar/rail (two sibling layouts each mounted their own chrome), and `RepoProvider` blanked everything behind a full-screen spinner while the repo query resolved. Chrome (Sidebar, providers, Spotlight, overlays) now mounts once in `__root` via an `AppShell` gated by `staticData: { appShell: true }`; `RepoGate` scopes the repo-loading spinner to the routed content only. Quick-tasks list view and project task switching no longer unmount their lists while a task numId resolves — loading/not-found renders in the detail pane, so scroll position genuinely persists instead of being restored by the sessionStorage hack.
+
 ## App chrome polish: sidebar nav, shared page width, softer kanban - 2026-07-25
 
 Global pages mixed `comfortable` / default `PageWrapper` widths, and the app sidebar still used collapsible uppercase section chrome that fought the nav. Home/Inbox/Teams/Artifacts now share the same shell; sidebar sections are static title-case labels aligned with icons (tighter item padding); brand mark is larger; stats footer drops the redundant header; kanban column washes use `/40`; new-session helper copy is gone. Dev-only Agentation toolbar is mounted for visual feedback while iterating.

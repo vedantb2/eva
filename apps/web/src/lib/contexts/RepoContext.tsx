@@ -24,6 +24,15 @@ interface RepoContextType {
 
 const RepoContext = createContext<RepoContextType | undefined>(undefined);
 
+// Internal load-state context: "pending" while the repo query hasn't resolved
+// yet, otherwise the resolved (possibly undefined-repo) context value. This
+// lets RepoProvider always render its children (so sidebar/chrome mounted
+// above it never unmounts on navigation) while RepoGate scopes the loading
+// spinner to just the routed content that actually needs `repo`.
+const RepoLoadStateContext = createContext<
+  RepoContextType | undefined | "pending"
+>("pending");
+
 interface RepoProviderProps {
   children: React.ReactNode;
   owner: string;
@@ -89,23 +98,36 @@ export function RepoProvider({
           rootDirectory: repo.rootDirectory,
         };
 
-  if (repo === undefined) {
+  const loadState = repo === undefined ? "pending" : value;
+
+  return (
+    <RepoLoadStateContext.Provider value={loadState}>
+      {children}
+    </RepoLoadStateContext.Provider>
+  );
+}
+
+/**
+ * Scopes the repo-loading spinner to routed content. Renders a content-area
+ * spinner until the repo query resolves, then provides RepoContext to
+ * `children`. Chrome mounted above RepoProvider (sidebar, etc.) is unaffected.
+ */
+export function RepoGate({ children }: { children: React.ReactNode }) {
+  const loadState = useContext(RepoLoadStateContext);
+
+  // Treat both "query still loading" and "repo not found" (redirect in
+  // flight) as pending — children rely on useRepo's non-nullable contract.
+  if (loadState === "pending" || loadState === undefined) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex h-full flex-1 items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
   }
 
-  if (repo === null) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  return <RepoContext.Provider value={value}>{children}</RepoContext.Provider>;
+  return (
+    <RepoContext.Provider value={loadState}>{children}</RepoContext.Provider>
+  );
 }
 
 export function useRepo() {

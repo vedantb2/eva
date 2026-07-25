@@ -22,7 +22,7 @@ import {
   RUN_ID,
   SCRIPT_STARTED_AT,
   WORK_DIR,
-  mcpArg,
+  hasMcpConfig,
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
@@ -168,7 +168,7 @@ log(
     " sessionId=" +
     (process.env.CLAUDE_SESSION_ID || "none") +
     " mcp=" +
-    (mcpArg ? "yes" : "no"),
+    (hasMcpConfig ? "yes" : "no"),
 );
 
 try {

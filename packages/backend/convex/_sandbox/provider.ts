@@ -88,9 +88,12 @@ export interface SandboxSnapshotInfo {
 
 /** Parameters to capture a snapshot from a running sandbox. */
 export interface CreateSnapshotParams {
-  /** Desired snapshot name. Vercel ignores it and returns a generated id. */
+  /**
+   * Desired snapshot name. Vercel is id-addressed and ignores this for
+   * addressing, so it is used only for logging and error messages. Callers must
+   * use the returned `snapshotId`, never this name, to poll or persist.
+   */
   name?: string;
-  timeoutSeconds?: number;
 }
 
 /** A signed/public preview URL for a port inside the sandbox. */
@@ -191,9 +194,16 @@ export interface SandboxHandle {
   previewUrl(port: number, ttlSeconds?: number): Promise<PreviewUrl>;
 
   /**
-   * Initiate a filesystem snapshot of this sandbox and return the new snapshot
-   * id. May return before the capture finishes (large seeded snapshots keep
-   * building server-side); poll {@link SandboxClient.getSnapshot} for readiness.
+   * Register a filesystem snapshot of this sandbox and return its id.
+   *
+   * Returns as soon as the snapshot is registered, NOT when the capture
+   * finishes — a seeded snapshot carrying a whole DB volume keeps building
+   * server-side for minutes. Poll {@link SandboxClient.getSnapshot} with the
+   * returned id for readiness. Callers that need completion must do so across
+   * separate steps; awaiting the capture inline would exceed Convex's ~600s
+   * per-action ceiling.
+   *
+   * Note the sandbox is stopped as part of capture.
    */
   createSnapshot(params: CreateSnapshotParams): Promise<{ snapshotId: string }>;
 

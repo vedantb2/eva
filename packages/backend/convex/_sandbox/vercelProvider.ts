@@ -70,6 +70,12 @@ const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
 const MAX_PORTS = 4;
 const STOP_CONFIRMATION_TIMEOUT_MS = 180_000;
 const STOP_CONFIRMATION_POLL_MS = 1_000;
+/**
+ * Ceiling on the snapshot-registration POST. Deliberately far above its normal
+ * few-seconds latency: this catches a wedged request, not a slow capture (the
+ * capture runs server-side after the POST returns). See createSnapshot.
+ */
+const SNAPSHOT_REQUEST_TIMEOUT_MS = 120_000;
 export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
   3000, 8080, 6080, 54321,
 ];
@@ -897,15 +903,47 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async createSnapshot(
-    _params: CreateSnapshotParams,
+    params: CreateSnapshotParams,
   ): Promise<{ snapshotId: string }> {
-    // Vercel snapshots are id-addressed (name is ignored). Retention is also
-    // set at create/stop; re-apply here so explicit captures still evict
-    // older snap_* objects. snapshotWorkflow separately deletes the previous
-    // seeded snapshot by name across sandbox lineages.
+    // Vercel snapshots are id-addressed (name is ignored for addressing).
+    // Retention is also set at create/stop; re-apply here so explicit captures
+    // still evict older snap_* objects. snapshotWorkflow separately deletes the
+    // previous seeded snapshot by name across sandbox lineages.
     await this.ensureSnapshotRetention();
-    const snap = await this.sandbox.snapshot({ expiration: 0 });
-    return { snapshotId: snap.snapshotId };
+
+    // `sandbox.snapshot` is a single POST that registers the snapshot and
+    // returns its id; the capture itself continues server-side. It answers in
+    // seconds, which is what lets callers poll completion across separate
+    // workflow steps instead of awaiting a multi-minute capture inline.
+    //
+    // The bound below is not a capture timeout — it cannot be, since aborting
+    // would discard the very id callers need to poll with. It exists so a wedged
+    // request (or a `withResume` that stalls waking a stopped sandbox — the SDK
+    // resumes before snapshotting) surfaces a describable error instead of
+    // running into Convex's ~600s action ceiling, which kills the action with no
+    // message. Aborting is acceptable here only because at this point the action
+    // was already doomed.
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      SNAPSHOT_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const snap = await this.sandbox.snapshot({
+        expiration: 0,
+        signal: controller.signal,
+      });
+      return { snapshotId: snap.snapshotId };
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `vercel createSnapshot (name=${params.name ?? "unnamed"}, sandbox=${this.sandbox.name}) did not return within ${SNAPSHOT_REQUEST_TIMEOUT_MS / 1000}s. This POST only registers the snapshot, so a stall here means the API or the pre-snapshot resume is wedged — not that the capture is slow.`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async writeFile(path: string, content: string | Uint8Array): Promise<void> {

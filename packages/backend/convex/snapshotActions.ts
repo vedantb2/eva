@@ -610,34 +610,18 @@ export const deleteSeedPrepSandbox = internalAction({
   },
 });
 
-// Trigger timeout (seconds) for the seeded-snapshot capture. The SDK's
-// _experimental_createSnapshot fires the POST then blocks polling the sandbox
-// state until the capture finishes OR this timeout elapses. We keep it small so
-// the trigger action returns quickly (the snapshot keeps building server-side)
-// and the workflow polls completion across separate steps — see
-// triggerSeededSnapshot. Comfortable for the POST; short enough to never near
-// Convex's 600s per-action ceiling.
-//
-// NOTE: Vercel's createSnapshot currently ignores this timeout and awaits the
-// full capture directly (see VercelSandboxHandle.createSnapshot) — flagged for
-// follow-up rather than silently reworded, since the "fires POST, bails fast on
-// timeout" description below no longer matches Vercel's implementation.
-const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
-
 /**
- * Seeded-snapshot build — TRIGGER step. Captures the (clean-stopped) sandbox's
- * filesystem — including the seeded Docker volumes — into a reusable snapshot.
+ * Seeded-snapshot build — TRIGGER step. Registers a snapshot of the
+ * (clean-stopped) sandbox's filesystem, including the seeded Docker volumes.
  *
- * Non-blocking by design: a seeded snapshot carries the whole seeded DB volume
- * and its capture routinely runs for many minutes. The SDK helper blocks the
- * caller polling the sandbox state for the entire capture, which exceeds
- * Convex's hard 600s action limit — the action gets killed mid-await (the
- * "unawaited operation" warning) and the app silently drops to the base Image.
- * Instead we fire the POST with a short timeout so the helper is meant to bail
- * fast (the snapshot keeps building server-side), then poll completion in
- * separate workflow steps via pollSeededSnapshotState. Any non-timeout error is
- * a real failure and propagates to the per-app fallback. See the NOTE above
- * SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC — Vercel does not currently honor this.
+ * Non-blocking: the underlying POST returns as soon as the snapshot is
+ * registered, while the capture itself keeps running server-side for minutes — a
+ * seeded snapshot carries the whole DB volume. That is what makes the
+ * trigger-then-poll split work: completion is observed by
+ * pollSeededSnapshotState across separate workflow steps, so no single action
+ * awaits the capture and risks Convex's hard 600s limit.
+ *
+ * Errors propagate to the per-app fallback (base Image + fresh clone).
  */
 export const triggerSeededSnapshot = internalAction({
   args: {
@@ -657,7 +641,6 @@ export const triggerSeededSnapshot = internalAction({
     const handle = await client.get(args.sandboxId);
     const { snapshotId } = await handle.createSnapshot({
       name: args.seededName,
-      timeoutSeconds: SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
     });
     return { snapshotId };
   },

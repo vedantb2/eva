@@ -121,24 +121,22 @@ Eva is an MCP server as well as a client of its own tools, in two directions.
 - **Auth**: Clerk
 - **Email**: SendGrid
 
-### Sandbox provider
+### Sandboxes
 
-**Vercel Sandbox is the only provider.** It restores snapshots in roughly 0.3 seconds regardless of size, which is what motivated adopting it. There is no provider setting to configure — supply the Vercel credentials in Step 7 and that is all.
+Sandboxes run on Vercel Sandbox, which restores a snapshot in roughly 0.3 seconds regardless of its size. Add the credentials in Step 7 and there is nothing further to configure.
 
-The layout:
+Where the code lives:
 
 | Path                                    | Role                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------- |
-| `convex/_sandbox/`                      | Provider contract (`provider.ts`) and the Vercel implementation           |
+| `convex/_sandbox/`                      | Sandbox contract (`provider.ts`) and its implementation                   |
 | `convex/_sandbox_runtime/`              | Sandbox orchestration: launch, git, sessions, exec, proof, desktop, proxy |
 | `convex/sandbox.ts`, `sandboxDaemon.ts` | Public action entrypoints (`internal.sandbox.*`)                          |
 | `convex/_pty/vercel.ts`                 | Terminals (tmux over Vercel's `openInteractive` WebSocket)                |
 
-**Terminals, desktop, and computer use all work.** PTY is wired in `convex/_pty/vercel.ts` and dispatched from `convex/pty.ts`, deliberately not through a provider interface, because Vercel exposes a client-connect WebSocket rather than a push-callback model. Desktop runs on TigerVNC plus noVNC in `VercelDesktop`.
+Terminals, desktop, and computer use all work. Terminals are wired in `convex/_pty/vercel.ts` and dispatched from `convex/pty.ts` rather than through the sandbox contract, because Vercel exposes a client-connect WebSocket instead of a push-callback model. Desktop runs on TigerVNC plus noVNC.
 
-**Named volumes are not implemented.** Vercel Drives are still beta, so `ensureVolume` does not exist and nothing depends on it. Session persistence uses snapshots instead.
-
-Some Daytona-era naming survives on purpose, because live data still references it: a `DAYTONA_UUID` guard in `_sandbox/resolveExistingSandboxId.ts` (old sandbox ids are UUIDs; Vercel names are not), provider inference in `_repoSnapshots/builds.ts` so historical builds still render a correct badge, and `v.literal("daytona")` in the enum validators. Removing those needs a data migration first — see `internal/plans/todo/daytona-legacy-data-cleanup.md`.
+Named volumes are not supported: Vercel Drives are still beta, so nothing depends on them. Session state persists via snapshots instead.
 
 ## Self-hosting
 
@@ -370,6 +368,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md) for coding con
 
 ## Roadmap
 
-- Null out legacy Daytona sandbox ids and drop the `daytona` enum literal, so the compatibility guards can go (`internal/plans/todo/daytona-legacy-data-cleanup.md`)
+- Named volumes for session persistence, once Vercel Drives leaves beta
 - Release Designs to production, beyond the current development-only flag
 - Improved project interview experience

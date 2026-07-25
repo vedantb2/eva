@@ -1,5 +1,10 @@
 # Changelog
 
+## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-25
+
+- Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
+- Reason for change: Convex platform "Transient error while executing action" (0ms) is not retried for actions, so sessions could wedge on Stop forever until a manual re-click.
+
 ## Claude Agent SDK only (CLI spawn removed) - 2026-07-25
 
 Claude no longer has a `claude -p` attempt mode — the Agent SDK (`sdk` / `sdk-daemon`, default `sdk-daemon`) is the only Claude runtime. Unset `CLAUDE_ATTEMPT_MODE` now means the warm daemon path, so prod flips on deploy without an env change. Codex, OpenCode, and Cursor keep their CLI spawn paths. Follow-up env-var cleanup is tracked in `internal/plans/todo/claude-cli-removal-followups.md`.
@@ -636,6 +641,7 @@ Activity audit/proof marks and run rows without a requester now use the same rou
 
 - Session/task chat user prompts longer than 8 lines or 600 chars collapse with a fade and expand toggle (same idea as t3code).
 - Reason for change: long pasted prompts were dominating the timeline and burying agent replies.
+>>>>>>> origin/staging
 
 ## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
 

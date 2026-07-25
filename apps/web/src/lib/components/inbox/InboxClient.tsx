@@ -157,9 +157,12 @@ export function InboxClient() {
     if (n.href) navigate({ to: transformNotificationHref(n.href) });
   };
 
+  const isEmpty = groups !== undefined && groups.length === 0;
+
   return (
     <PageWrapper
       title="Inbox"
+      fillHeight={isEmpty}
       headerRight={
         <div className="flex items-center gap-1">
           <Button
@@ -224,7 +227,7 @@ export function InboxClient() {
           ))}
         </div>
       ) : groups === undefined || groups.length === 0 ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex min-h-0 flex-1 items-center justify-center">
           <EmptyState
             icon={<IconInbox size={24} className="text-muted-foreground" />}
             title={

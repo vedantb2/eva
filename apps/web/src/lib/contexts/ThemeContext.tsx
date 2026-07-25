@@ -62,7 +62,7 @@ export interface ResolvedCustomTheme {
 }
 
 const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
-  accentColor: "cyan",
+  accentColor: "neutral",
   radius: "xl",
   fontFamily: "inter",
   letterSpacing: "tight",
@@ -498,7 +498,7 @@ export const LETTER_SPACING_VALUES: Record<
 };
 
 function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
-  const accentColor = customTheme.accentColor ?? "cyan";
+  const accentColor = customTheme.accentColor ?? "neutral";
   const radius = customTheme.radius ?? "xl";
   const fontFamily = customTheme.fontFamily ?? "inter";
   const letterSpacing = customTheme.letterSpacing ?? "tight";
@@ -530,8 +530,8 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
     // Ignore quota / private mode failures — live query still wins.
   }
 
-  // If using cyan (CSS default), remove any custom style element so base CSS applies
-  if (accentColor === "cyan") {
+  // Neutral matches globals.css — drop the override style so base CSS applies.
+  if (accentColor === "neutral") {
     const el = document.getElementById("custom-theme-accent");
     if (el) el.remove();
     return;

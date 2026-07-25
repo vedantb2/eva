@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/reviews/")({
 
 function ReviewsIndexPage() {
   return (
-    <div className="flex h-full items-center justify-center">
+    <div className="flex min-h-0 flex-1 items-center justify-center">
       <EmptyState
         icon={
           <IconGitPullRequest size={24} className="text-muted-foreground" />

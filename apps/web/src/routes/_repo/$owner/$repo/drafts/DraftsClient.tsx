@@ -37,13 +37,15 @@ export function DraftsClient() {
   const drafts = mergeDrafts(commentDrafts, taskDrafts);
 
   return (
-    <PageWrapper title="Drafts" comfortable>
+    <PageWrapper title="Drafts" comfortable fillHeight={drafts.length === 0}>
       {drafts.length === 0 ? (
-        <EmptyState
-          icon={<IconFileText size={24} className="text-muted-foreground" />}
-          title="No drafts"
-          description="Drafts save automatically as you type comments, prompts, or compose quick tasks."
-        />
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <EmptyState
+            icon={<IconFileText size={24} className="text-muted-foreground" />}
+            title="No drafts"
+            description="Drafts save automatically as you type comments, prompts, or compose quick tasks."
+          />
+        </div>
       ) : (
         <div className="flex flex-col gap-2">
           {drafts.map((model) => (

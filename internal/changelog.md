@@ -1,5 +1,9 @@
 # Changelog
 
+## Empty states uncarded + neutral default accent - 2026-07-25
+
+Page empty states shared a dashed card that fought the shell. `EmptyState` is chrome-free and vertically centered; sessions/drafts/select-a-X landings all use it. Default theme accent is **None** (neutral) instead of cyan, including `globals.css` so first paint matches.
+
 ## Shareable filter URLs for quick tasks and projects - 2026-07-25
 
 Filters, search, and sort on the quick-tasks and projects pages lived in localStorage, so a shared link showed each recipient their own filter state instead of what the sender was looking at. Search/filters/sort now live in the URL via nuqs (`?q=`, `project`, `statuses`, `sortField`, …); view mode (kanban/list/table) and timeline zoom stay in localStorage as per-user presentation preferences. In-page navigations (opening tasks, next/prev, sandbox tabs) preserve the search params.

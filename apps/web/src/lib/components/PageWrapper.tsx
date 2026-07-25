@@ -91,7 +91,11 @@ export function PageWrapper({
             className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {comfortable ? (
-              <div className="mx-auto w-full max-w-5xl">{children}</div>
+              <div
+                className={`mx-auto w-full max-w-5xl ${fillHeight ? "flex min-h-0 flex-1 flex-col" : ""}`}
+              >
+                {children}
+              </div>
             ) : (
               children
             )}

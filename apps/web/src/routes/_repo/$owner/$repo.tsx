@@ -26,7 +26,7 @@ function MainContent({ children }: { children: ReactNode }) {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
         />
-        <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
         </div>
       </div>
@@ -42,7 +42,9 @@ function RepoLayoutInner() {
       <MainContent>
         <RepoGate>
           <SetupBanner />
-          <Outlet />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Outlet />
+          </div>
         </RepoGate>
       </MainContent>
       <LiveCursors />

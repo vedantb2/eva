@@ -126,7 +126,11 @@ export function RepoGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <RepoContext.Provider value={loadState}>{children}</RepoContext.Provider>
+    <RepoContext.Provider value={loadState}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </div>
+    </RepoContext.Provider>
   );
 }
 

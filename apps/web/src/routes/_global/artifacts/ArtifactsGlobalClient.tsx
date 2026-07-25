@@ -10,8 +10,10 @@ import { ArtifactUploadDialog } from "@/lib/components/artifacts/ArtifactUploadD
 export function ArtifactsGlobalClient() {
   const artifacts = useQuery(api.artifacts.listAll);
 
+  const isEmpty = artifacts !== undefined && artifacts.length === 0;
+
   return (
-    <PageWrapper title="Artifacts">
+    <PageWrapper title="Artifacts" fillHeight={isEmpty}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           Hosted dashboards that read live data through the Eva connector.

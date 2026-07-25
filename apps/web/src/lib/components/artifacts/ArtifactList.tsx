@@ -18,13 +18,15 @@ export function ArtifactList({
 }) {
   if (artifacts.length === 0) {
     return (
-      <EmptyState
-        icon={
-          <IconLayoutDashboard size={24} className="text-muted-foreground" />
-        }
-        title="No artifacts yet"
-        description={emptyDescription}
-      />
+      <div className="flex min-h-0 flex-1 items-center justify-center py-16">
+        <EmptyState
+          icon={
+            <IconLayoutDashboard size={24} className="text-muted-foreground" />
+          }
+          title="No artifacts yet"
+          description={emptyDescription}
+        />
+      </div>
     );
   }
   return (

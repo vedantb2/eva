@@ -16,7 +16,6 @@ import {
   cn,
 } from "@eva/ui";
 import {
-  IconCode,
   IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
@@ -117,8 +116,8 @@ function InboxUnreadBadge() {
 
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
- * Sessions), then repos, then Testing (dev) / collapse / account / settings
- * at the bottom.
+ * Sessions), then repos, then collapse / search / account / settings at the
+ * bottom. Testing (dev) lives in the settings dropdown.
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
@@ -170,10 +169,7 @@ function RepoRailView({
     pathname === "/sessions" ||
     pathname.startsWith("/sessions/") ||
     onRepoSessionsPath;
-  const testingActive =
-    pathname === "/testing" || pathname.startsWith("/testing/");
   const sessionsLabel = formatCountLabel(activeSessionCount);
-  const showTesting = import.meta.env.DEV;
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
   return (
@@ -349,21 +345,6 @@ function RepoRailView({
         />
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
-        {showTesting ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/testing"
-                onClick={onNavigate}
-                aria-label="Testing"
-                className={cn(RAIL_TILE_CLASS, railTileActive(testingActive))}
-              >
-                <IconCode size={22} className="shrink-0" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">Testing</TooltipContent>
-          </Tooltip>
-        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <button

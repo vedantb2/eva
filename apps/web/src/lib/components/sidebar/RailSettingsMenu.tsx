@@ -10,6 +10,7 @@ import {
 } from "@eva/ui";
 import {
   IconBell,
+  IconCode,
   IconKey,
   IconPalette,
   IconServerBolt,
@@ -48,12 +49,15 @@ const SETTINGS_ITEMS = [
 /**
  * Compact settings gear under the rail avatar. Opens global settings routes
  * (theme, personalisation, notifications, sandboxes) — user-level, not per-repo.
+ * Testing is included in DEV only.
  */
 export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
-  const isActive = SETTINGS_ITEMS.some((item) =>
-    pathname.startsWith(item.href),
-  );
+  const showTesting = import.meta.env.DEV;
+  const isActive =
+    SETTINGS_ITEMS.some((item) => pathname.startsWith(item.href)) ||
+    (showTesting &&
+      (pathname === "/testing" || pathname.startsWith("/testing/")));
 
   return (
     <DropdownMenu>
@@ -86,6 +90,14 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
             </Link>
           </DropdownMenuItem>
         ))}
+        {showTesting ? (
+          <DropdownMenuItem asChild>
+            <Link to="/testing" onClick={onNavigate}>
+              <IconCode size={16} className="mr-2" />
+              Testing
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

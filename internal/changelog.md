@@ -1,5 +1,9 @@
 # Changelog
 
+## New-session composer draft survives reload - 2026-07-25
+
+Landing composer had no conversation row yet, so a refresh wiped the prompt. Draft, model, mode, traits, and account now persist per-repo in one localStorage object (`eva:new-session-composer:<repoId>`); only the draft clears once the session is created. Existing session chat drafts stay on Convex.
+
 ## Session Plan mode (was PRD) - 2026-07-25
 
 Composer mode and sandbox tab said “PRD” and forced a product-requirements prompt (user stories, non-technical WHAT/WHY). Renamed to **Plan** and switched the agent prompt to a normal implementation plan (`plan.md`: approach, files, steps, risks) — same shape as Claude/Codex plan mode. Approve → edit still injects the plan as context.

@@ -11,13 +11,14 @@ import { toast } from "@eva/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
-import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import { SessionModeDropdown } from "./SessionModeDropdown";
@@ -41,6 +42,7 @@ export function NewSessionComposer() {
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
+    draft: draftTokenized,
     mode,
     setMode,
     model,
@@ -50,9 +52,15 @@ export function NewSessionComposer() {
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
-  } = useSessionSettings(`new-session-${repo._id}`, {
-    defaultModel,
-  });
+    setDraft,
+    clearDraft,
+  } = useNewSessionComposerState(repo._id, defaultModel);
+  const {
+    displayText: draftDisplay,
+    mentionMap: draftMentionMap,
+    skillMap: draftSkillMap,
+  } = tokenizedToEditable(draftTokenized);
+
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const {
     options: accounts,
@@ -92,6 +100,7 @@ export function NewSessionComposer() {
         providerAccountId: resolveAccountId(providerAccountId) ?? null,
         attachmentStorageIds,
       });
+      clearDraft();
       await navigate({ to: `${basePath}/sessions/${numId}` });
     } catch (error) {
       const message =
@@ -154,6 +163,12 @@ export function NewSessionComposer() {
           toolsBefore={
             <SessionModeDropdown mode={mode} onModeChange={setMode} />
           }
+          localDraft={{
+            initialDisplay: draftDisplay,
+            mentionMap: draftMentionMap,
+            skillMap: draftSkillMap,
+            onSave: setDraft,
+          }}
           attachmentMode="sessionFiles"
         />
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">

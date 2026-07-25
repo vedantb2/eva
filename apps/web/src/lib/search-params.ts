@@ -54,6 +54,60 @@ export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
 
+// Quick Tasks list filters (shareable "what you're looking at" state). View
+// mode is a per-user presentation preference and stays in localStorage —
+// see quick-tasks/_utils.ts.
+const quickTaskSortFields = [
+  "lastRun",
+  "updated",
+  "created",
+  "title",
+  "priority",
+] as const;
+export const quickTaskSortFieldParser = parseAsStringLiteral(
+  quickTaskSortFields,
+)
+  .withDefault("updated")
+  .withOptions(searchOptions);
+
+// Quick Tasks default to "all time" (unlike the generic timeRangeParser's
+// "30d" default used elsewhere), so it needs its own default.
+export const quickTaskTimeRangeParser = parseAsStringLiteral(timeRanges)
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskProjectParser = parseAsString
+  .withDefault("none")
+  .withOptions(searchOptions);
+
+export const quickTaskUserParser = parseAsString
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskAssigneeParser = parseAsString
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskTagsParser = parseAsArrayOf(parseAsString)
+  .withDefault([])
+  .withOptions(searchOptions);
+
+// Projects list filters (shareable "what you're looking at" state). View,
+// timelineRange, and timelineZoom are per-user presentation preferences and
+// stay in localStorage — see projects/_utils.ts.
+// hiddenPhases stores exclusions (blocklist), so the default is empty —
+// reuses the same phase set as `projectPhases` above.
+export const hiddenProjectPhasesParser = parseAsArrayOf(
+  parseAsStringLiteral(projectPhases),
+)
+  .withDefault([])
+  .withOptions(searchOptions);
+
+const projectSortFields = ["created", "title", "priority"] as const;
+export const projectSortFieldParser = parseAsStringLiteral(projectSortFields)
+  .withDefault("created")
+  .withOptions(searchOptions);
+
 const sandboxTabs = [
   "preview",
   "browser",

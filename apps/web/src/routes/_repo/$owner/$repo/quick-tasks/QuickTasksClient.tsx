@@ -231,7 +231,10 @@ export function QuickTasksClient() {
   const handleOpenTask = (task: { numId?: number }) => {
     const segment = entityPathSegment(task);
     if (!segment) return;
-    navigate({ to: `${basePath}/quick-tasks/${segment}` });
+    navigate({
+      to: `${basePath}/quick-tasks/${segment}`,
+      search: (prev) => prev,
+    });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
@@ -363,7 +366,10 @@ export function QuickTasksClient() {
               // Only list view renders an open task inline (master/detail
               // split); kanban/table show the board, so close the task.
               if (selectedTaskId && v !== "list") {
-                navigate({ to: `${basePath}/quick-tasks` });
+                navigate({
+                  to: `${basePath}/quick-tasks`,
+                  search: (prev) => prev,
+                });
               }
             }}
             searchQuery={q}

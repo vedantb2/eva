@@ -1,5 +1,9 @@
 # Changelog
 
+## Shareable filter URLs for quick tasks and projects - 2026-07-25
+
+Filters, search, and sort on the quick-tasks and projects pages lived in localStorage, so a shared link showed each recipient their own filter state instead of what the sender was looking at. Search/filters/sort now live in the URL via nuqs (`?q=`, `project`, `statuses`, `sortField`, …); view mode (kanban/list/table) and timeline zoom stay in localStorage as per-user presentation preferences. In-page navigations (opening tasks, next/prev, sandbox tabs) preserve the search params.
+
 ## Quick-task card menu uses shared model picker - 2026-07-25
 
 Right-click / ⋮ on a quick-task card had a hand-rolled nested radio model tree that drifted from the create-modal picker. The card menu now embeds the same `ModelPickerContent` surface as `ModelSelect`, so account/search UX stays one implementation.

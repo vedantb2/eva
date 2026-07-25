@@ -1,4 +1,5 @@
 import { useLocalStorage } from "usehooks-ts";
+import { useQueryStates } from "nuqs";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
 import {
@@ -6,6 +7,17 @@ import {
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { priorityCompare } from "@/lib/components/priority/priorityMeta";
+import {
+  searchParser,
+  sortDirParser,
+  statusesParser,
+  quickTaskSortFieldParser,
+  quickTaskTimeRangeParser,
+  quickTaskProjectParser,
+  quickTaskUserParser,
+  quickTaskAssigneeParser,
+  quickTaskTagsParser,
+} from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
 type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
@@ -25,36 +37,58 @@ interface QuickTaskFilters {
   statuses: DisplayTaskStatus[];
 }
 
-const DEFAULTS: QuickTaskFilters = {
-  q: "",
+// Per-user presentation preference — kept in localStorage. Everything else
+// (search, filters, sort) is shareable "what you're looking at" state that
+// lives in the URL via nuqs — see the parsers below.
+interface QuickTaskLocalFilters {
+  view: QuickTaskView;
+}
+
+const LOCAL_DEFAULTS: QuickTaskLocalFilters = {
   view: "kanban",
-  project: "none",
-  user: "all",
-  assignee: "all",
-  tags: [],
-  // Default to updatedAt so any task change (edits, activity, status) bubbles
-  // the card to the top of its kanban column — not only agent runs.
-  sortField: "updated",
-  sortDir: "desc",
-  timeRange: "all",
-  statuses: [...TASK_STATUSES],
 };
 
 // v2: product default sort flipped lastRun → updated; bump key so existing
 // localStorage does not keep the old default sticky for returning users.
+// Persisted objects from before the URL-state split still carry the old
+// filter fields (q, project, tags, …) — harmless, we only ever read `view`.
 const STORAGE_KEY = "quick-task-filters-v2";
 
 export function useQuickTaskFilters(): [
   QuickTaskFilters,
   (patch: Partial<QuickTaskFilters>) => void,
 ] {
-  const [filters, setFilters] = useLocalStorage<QuickTaskFilters>(
-    STORAGE_KEY,
-    DEFAULTS,
-  );
+  const [localFilters, setLocalFilters] =
+    useLocalStorage<QuickTaskLocalFilters>(STORAGE_KEY, LOCAL_DEFAULTS);
+
+  const [urlFilters, setUrlFilters] = useQueryStates({
+    q: searchParser,
+    project: quickTaskProjectParser,
+    user: quickTaskUserParser,
+    assignee: quickTaskAssigneeParser,
+    tags: quickTaskTagsParser,
+    sortField: quickTaskSortFieldParser,
+    sortDir: sortDirParser,
+    timeRange: quickTaskTimeRangeParser,
+    statuses: statusesParser,
+  });
+
+  // Merge defaults on read so objects persisted before the URL-state split
+  // (or missing `view` entirely) backfill without a STORAGE_KEY bump.
+  const filters: QuickTaskFilters = {
+    ...LOCAL_DEFAULTS,
+    ...localFilters,
+    ...urlFilters,
+  };
 
   const setParams = (patch: Partial<QuickTaskFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
+    const { view, ...urlPatch } = patch;
+    if (view !== undefined) {
+      setLocalFilters((prev) => ({ ...prev, view }));
+    }
+    if (Object.keys(urlPatch).length > 0) {
+      void setUrlFilters(urlPatch);
+    }
   };
 
   return [filters, setParams];

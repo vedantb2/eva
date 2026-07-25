@@ -65,6 +65,7 @@ export function QuickTaskTaskPageContent({
           onExitSandboxView: () => {
             navigate({
               to: `${basePath}/quick-tasks/${pathSegment}`,
+              search: (prev) => prev,
             });
           },
           onOpenFile: (path: string) => {
@@ -85,17 +86,20 @@ export function QuickTaskTaskPageContent({
         onDetailTabChange: (_tab: TaskDetailTab) => {
           navigate({
             to: `${basePath}/quick-tasks/${pathSegment}`,
+            search: (prev) => prev,
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
           if (sandboxTab === "review") {
             void navigate({
               to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+              search: (prev) => prev,
             });
             return;
           }
           void navigate({
             to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
+            search: (prev) => prev,
           });
         },
       },
@@ -122,7 +126,9 @@ export function QuickTaskTaskPageContent({
 
   return (
     <TaskDetailInline
-      onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
+      onClose={() =>
+        navigate({ to: `${basePath}/quick-tasks`, search: (prev) => prev })
+      }
       taskId={taskId}
       allTags={allTags}
       routing={routing}

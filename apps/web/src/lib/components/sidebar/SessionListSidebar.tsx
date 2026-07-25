@@ -18,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SearchInput,
   Spinner,
   cn,
 } from "@eva/ui";
@@ -31,6 +30,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 import {
   SharedLayoutNav,
@@ -76,7 +76,6 @@ interface SessionListSidebarProps<T extends SessionItem> {
   createPlaceholder: string;
   archiveTitle: string;
   archiveDescription?: string;
-  searchPlaceholder: string;
   layoutId?: string;
 }
 
@@ -99,12 +98,10 @@ export function SessionListSidebar<T extends SessionItem>({
   createPlaceholder,
   archiveTitle,
   archiveDescription,
-  searchPlaceholder,
   layoutId = "session-list-nav",
 }: SessionListSidebarProps<T>) {
   const navigate = useNavigate();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -121,23 +118,8 @@ export function SessionListSidebar<T extends SessionItem>({
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
   const currentSessionNumId = routeNumIdFromPath(pathname, baseUrl);
-
-  const search = searchQuery.toLowerCase().trim();
-  const filteredSessions = !sessions
-    ? []
-    : search
-      ? sessions.filter((session) =>
-          session.title.toLowerCase().includes(search),
-        )
-      : sessions;
-
-  const filteredArchivedSessions = !archivedSessions
-    ? []
-    : search
-      ? archivedSessions.filter((session) =>
-          session.title.toLowerCase().includes(search),
-        )
-      : archivedSessions;
+  const filteredSessions = sessions ?? [];
+  const filteredArchivedSessions = archivedSessions ?? [];
 
   useEffect(() => {
     if (createRequestId === undefined) return;
@@ -198,25 +180,11 @@ export function SessionListSidebar<T extends SessionItem>({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder={searchPlaceholder}
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onClear={() => setSearchQuery("")}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-sidebar-primary"
-          onClick={handleCreateClick}
-          title={createTitle}
-        >
-          <IconPlus size={16} />
-        </Button>
-      </div>
+      <ContextSidebarHeaderIconButton
+        title={createTitle}
+        icon={IconPlus}
+        onClick={handleCreateClick}
+      />
 
       <div className="flex-1">
         {sessions === undefined ? (
@@ -229,11 +197,7 @@ export function SessionListSidebar<T extends SessionItem>({
             <div className="mx-auto mb-2 flex justify-center text-muted-foreground">
               {emptyIcon}
             </div>
-            <p className="text-sm text-muted-foreground">
-              {sessions.length === 0 && (archivedSessions?.length ?? 0) === 0
-                ? emptyLabel
-                : "No matches found"}
-            </p>
+            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
           </div>
         ) : (
           <SharedLayoutNav layoutId={layoutId} className="space-y-1">

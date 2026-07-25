@@ -141,7 +141,6 @@ export function DesignSessionsSidebar({
       createTitle="New Design Session"
       createPlaceholder="e.g., Dashboard user management page"
       archiveTitle="Archive Design Session"
-      searchPlaceholder="Search design sessions..."
       layoutId="designs-nav"
     />
   );

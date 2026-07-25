@@ -14,13 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SearchInput,
   Spinner,
   cn,
 } from "@eva/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
-import { useQueryState } from "nuqs";
-import { searchParser } from "@/lib/search-params";
+import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -50,18 +48,9 @@ export function AutomationsSidebar({
   const automations = useQuery(api.automations.list, { repoId });
   const createAutomation = useMutation(api.automations.create);
 
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-
-  const filteredAutomations = (() => {
-    if (!automations) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return q
-      ? automations.filter((a) => a.title.toLowerCase().includes(q))
-      : automations;
-  })();
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -87,25 +76,11 @@ export function AutomationsSidebar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder="Search automations..."
-          value={searchQuery}
-          onChange={(v) => setSearchQuery(v || null)}
-          onClear={() => setSearchQuery(null)}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateOpen(true)}
-          title="New automation"
-        >
-          <IconPlus size={16} />
-        </Button>
-      </div>
+      <ContextSidebarHeaderIconButton
+        title="New automation"
+        icon={IconPlus}
+        onClick={() => setIsCreateOpen(true)}
+      />
 
       <div className="flex-1">
         {automations === undefined ? (
@@ -120,13 +95,9 @@ export function AutomationsSidebar({
             />
             <p className="text-sm text-muted-foreground">No automations yet</p>
           </div>
-        ) : filteredAutomations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No matches found
-          </div>
         ) : (
           <SharedLayoutNav layoutId="automations-nav" className="space-y-1">
-            {filteredAutomations.map((automation) => {
+            {automations.map((automation) => {
               const segment = entityPathSegment(automation);
               if (!segment) return null;
               const href = `${basePath}/automations/${segment}`;

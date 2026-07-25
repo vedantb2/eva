@@ -35,7 +35,6 @@ type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 interface GlobalSessionGroupProps {
   repo: RepoWithLogo;
   pathname: string;
-  searchQuery: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
@@ -51,7 +50,6 @@ interface GlobalSessionGroupProps {
 export function GlobalSessionGroup({
   repo,
   pathname,
-  searchQuery,
   open,
   onOpenChange,
   onNavigate,
@@ -67,34 +65,19 @@ export function GlobalSessionGroup({
   const unarchiveSession = useMutation(api.sessions.unarchive);
   const label = repoDisplayLabel(repo);
   const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
-  const query = searchQuery.trim().toLowerCase();
 
   const { active: sidebarActive, archivedGroup } = partitionSessionsForSidebar(
     sessions,
     archivedSessions,
   );
 
-  const filtered =
-    sidebarActive === undefined
-      ? undefined
-      : query.length === 0
-        ? sidebarActive
-        : sidebarActive.filter((s) => s.title.toLowerCase().includes(query));
-
-  const filteredArchived =
-    archivedGroup === undefined
-      ? undefined
-      : query.length === 0
-        ? archivedGroup
-        : archivedGroup.filter((s) => s.title.toLowerCase().includes(query));
-
-  const isLoading = filtered === undefined || filteredArchived === undefined;
-  const activeCount = filtered?.length ?? 0;
+  const isLoading = sidebarActive === undefined || archivedGroup === undefined;
+  const activeCount = sidebarActive?.length ?? 0;
   // Live sandbox badge: only count sidebar-active sessions that are running.
   const runningCount =
     sessions?.filter((s) => s.status === "active" && isSessionSidebarActive(s))
       .length ?? 0;
-  const archivedCount = filteredArchived?.length ?? 0;
+  const archivedCount = archivedGroup?.length ?? 0;
   const hasNoResults = !isLoading && activeCount === 0 && archivedCount === 0;
 
   return (
@@ -174,7 +157,7 @@ export function GlobalSessionGroup({
               className="space-y-1"
             >
               <AnimatePresence initial={false}>
-                {(filtered ?? []).map((session) => {
+                {(sidebarActive ?? []).map((session) => {
                   const pathSegment = entityPathSegment(session);
                   const href = pathSegment
                     ? `${baseUrl}/${pathSegment}`
@@ -206,9 +189,9 @@ export function GlobalSessionGroup({
                   );
                 })}
               </AnimatePresence>
-              {archivedCount > 0 && filteredArchived !== undefined ? (
+              {archivedCount > 0 && archivedGroup !== undefined ? (
                 <ArchivedSessionsCollapsible
-                  sessions={filteredArchived}
+                  sessions={archivedGroup}
                   baseUrl={baseUrl}
                   pathname={pathname}
                   onNavigate={onNavigate}

@@ -5,12 +5,11 @@ import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Link } from "@tanstack/react-router";
-import { Button, SearchInput, Spinner, cn } from "@eva/ui";
+import { Button, Spinner, cn } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import {
   pullRequestListStateParser,
-  searchParser,
   type PullRequestListState,
 } from "@/lib/search-params";
 import {
@@ -54,7 +53,6 @@ export function ReviewsSidebar({
   onNavigate,
 }: ReviewsSidebarProps) {
   const listPullRequests = useAction(api.github.listPullRequests);
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [listState, setListState] = useQueryState(
     "prState",
     pullRequestListStateParser,
@@ -89,15 +87,7 @@ export function ReviewsSidebar({
     return Number.isFinite(n) ? n : null;
   })();
 
-  const filteredPulls = (() => {
-    if (state.status !== "ready") return [];
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return state.pulls;
-    return state.pulls.filter((pr) => {
-      const haystack = `${pr.number} ${pr.title} ${pr.authorLogin ?? ""}`;
-      return haystack.toLowerCase().includes(q);
-    });
-  })();
+  const pulls = state.status === "ready" ? state.pulls : [];
 
   const stateButtons: Array<{ value: PullRequestListState; label: string }> = [
     { value: "open", label: "Open" },
@@ -107,18 +97,7 @@ export function ReviewsSidebar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder="Search pull requests..."
-          value={searchQuery}
-          onChange={(v) => setSearchQuery(v || null)}
-          onClear={() => setSearchQuery(null)}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-      </div>
-
-      <div className="flex gap-1 px-2 pb-2">
+      <div className="flex gap-1 px-2 py-2">
         {stateButtons.map((btn) => (
           <Button
             key={btn.value}
@@ -148,7 +127,7 @@ export function ReviewsSidebar({
               Retry
             </Button>
           </div>
-        ) : state.pulls.length === 0 ? (
+        ) : pulls.length === 0 ? (
           <div className="p-4 text-center">
             <IconGitPullRequest
               size={28}
@@ -158,13 +137,9 @@ export function ReviewsSidebar({
               No {listState === "all" ? "" : `${listState} `}pull requests
             </p>
           </div>
-        ) : filteredPulls.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No matches found
-          </div>
         ) : (
           <SharedLayoutNav layoutId="reviews-sidebar-nav" className="px-2 pb-2">
-            {filteredPulls.map((pr) => {
+            {pulls.map((pr) => {
               const href = `${basePath}/reviews/${pr.number}/overview`;
               const isActive = activePrNumber === pr.number;
               return (

@@ -18,13 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SearchInput,
   Spinner,
   Textarea,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
-import { useQueryState } from "nuqs";
-import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -73,7 +72,6 @@ export function DocsSidebar({
       }
     },
   );
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [docToDelete, setDocToDelete] = useState<{
     id: Id<"docs">;
     title: string;
@@ -95,13 +93,10 @@ export function DocsSidebar({
     setIsCreateDialogOpen(true);
   }, [createRequestId]);
 
-  const filteredDocs = (() => {
-    if (!docs) return [];
-    // PR recaps live under Reviews now — Documents is non-recap only.
-    const byKind = docs.filter((doc) => doc.kind !== "pr-recap");
-    const q = searchQuery.toLowerCase().trim();
-    return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
-  })();
+  // PR recaps live under Reviews now — Documents is non-recap only.
+  const filteredDocs = docs
+    ? docs.filter((doc) => doc.kind !== "pr-recap")
+    : [];
 
   const handleCreateDoc = async () => {
     if (!newDocTitle.trim()) return;
@@ -250,42 +245,24 @@ export function DocsSidebar({
         onChange={handleUploadSelect}
       />
 
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder="Search docs..."
-          value={searchQuery}
-          onChange={(v) => setSearchQuery(v || null)}
-          onClear={() => setSearchQuery(null)}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateDialogOpen(true)}
-          title="New document"
-        >
-          <IconPlus size={16} />
-        </Button>
-      </div>
+      <ContextSidebarHeaderIconButton
+        title="New document"
+        icon={IconPlus}
+        onClick={() => setIsCreateDialogOpen(true)}
+      />
 
       <div className="flex-1">
         {docs === undefined ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : filteredDocs.length === 0 && !searchQuery.trim() ? (
+        ) : filteredDocs.length === 0 ? (
           <div className="p-4 text-center">
             <IconFile
               size={28}
               className="mx-auto mb-2 text-muted-foreground"
             />
             <p className="text-sm text-muted-foreground">No documents yet</p>
-          </div>
-        ) : filteredDocs.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No matches found
           </div>
         ) : (
           <SharedLayoutNav layoutId="docs-nav" className="space-y-1">

@@ -81,7 +81,7 @@ export async function ensureSandboxStartedSteps(
     `[daytona] ensureSandboxStartedSteps begin repoId=${args.repoId} sandboxId=${args.sandboxId ?? "none"} vercelSandboxId=${args.vercelSandboxId ?? "none"} streamingEntityId=${args.streamingEntityId ?? "none"}`,
   );
   const provider = await step.runAction(
-    internal.daytona.getSandboxProviderKind,
+    internal.sandbox.getSandboxProviderKind,
     {
       repoId: args.repoId,
     },
@@ -116,7 +116,7 @@ export async function ensureSandboxStartedSteps(
   }
 
   const kickoff = await step.runAction(
-    internal.daytona.startSandboxAsyncKickoff,
+    internal.sandbox.startSandboxAsyncKickoff,
     { sandboxId: thawId, repoId: args.repoId },
   );
   console.log(
@@ -137,7 +137,7 @@ export async function ensureSandboxStartedSteps(
   while (attempt < MAX_POLLS && state !== "running") {
     attempt++;
     const poll = await step.runAction(
-      internal.daytona.pollSandboxStarted,
+      internal.sandbox.pollSandboxStarted,
       { sandboxId: thawId, repoId: args.repoId },
       { runAfter: attempt === 1 ? FIRST_POLL_DELAY_MS : POLL_DELAY_MS },
     );

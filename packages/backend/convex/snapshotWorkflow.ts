@@ -1,10 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
-
-const POLL_DELAY_MS = 30_000;
-const MAX_POLLS = 60; // ~30 minutes at 30s intervals
+import { isTerminalSnapshotState } from "./_sandbox_runtime/snapshotStates";
 
 // Detached seed-run poll loop (per app). The whole per-app pipeline (git
 // update, deps/build, daemons, seed, clean stop) runs as ONE detached script on
@@ -95,7 +92,7 @@ export const snapshotBuildWorkflow = workflow.define({
     const branch = config.workflowRef ?? "main";
 
     const providerKind = await step.runAction(
-      internal.daytona.getSandboxProviderKind,
+      internal.sandbox.getSandboxProviderKind,
       { repoId: appRepoId },
     );
     await step.runMutation(internal.repoSnapshots.setBuildProvider, {
@@ -143,7 +140,7 @@ export const snapshotBuildWorkflow = workflow.define({
           prepSandboxId = created.sandboxId;
 
           await step.runAction(
-            internal.daytona.fetchBaseBranch,
+            internal.sandbox.fetchBaseBranch,
             {
               sandboxId: prepSandboxId,
               installationId: repo.installationId,
@@ -312,50 +309,11 @@ export const snapshotBuildWorkflow = workflow.define({
           });
           return;
         }
-      } else {
-        await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
-          snapshotName: config.snapshotName,
-          repoId: appRepoId,
-          buildId: args.buildId,
-        });
-        const kickOffResult = await step.runAction(
-          internal.snapshotActions.kickOffSnapshotBuild,
-          { buildId: args.buildId, repoSnapshotId: args.repoSnapshotId },
-        );
-        // Kick-off failure already recorded completeBuild(error).
-        if (!kickOffResult) return;
-        let attempt = 0;
-        let state = "";
-        while (attempt < MAX_POLLS) {
-          attempt++;
-          state = await step.runAction(
-            internal.snapshotActions.pollSnapshotProgress,
-            {
-              buildId: args.buildId,
-              snapshotName: kickOffResult.snapshotName,
-              repoId: kickOffResult.repoId,
-              attempt,
-            },
-            { runAfter: attempt === 1 ? 10_000 : POLL_DELAY_MS },
-          );
-          if (isTerminalSnapshotState(state)) break;
-        }
-        if (state !== "active") {
-          // pollSnapshotProgress recorded the error terminal states; timeouts
-          // need recording here. Either way there is no bootable image to seed
-          // from, so stop.
-          if (!isTerminalSnapshotState(state)) {
-            await step.runMutation(internal.repoSnapshots.completeBuild, {
-              buildId: args.buildId,
-              status: "error",
-              logs: `Max poll attempts (${MAX_POLLS}) reached.\n`,
-              error:
-                "Snapshot build did not complete within polling window (~30 minutes)",
-            });
-          }
-          return;
-        }
       }
+      // Vercel is the only sandbox provider; the historical Daytona path
+      // (declarative Image build via kickOffSnapshotBuild/pollSnapshotProgress)
+      // has been removed. providerKind is still recorded above (setBuildProvider)
+      // for historical build labeling.
     } else {
       await step.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
@@ -414,7 +372,7 @@ export const snapshotBuildWorkflow = workflow.define({
 
       // Fresh refs for the detached script's hard reset (owns git auth).
       await step.runAction(
-        internal.daytona.fetchBaseBranch,
+        internal.sandbox.fetchBaseBranch,
         {
           sandboxId: prepSandboxId,
           installationId: repo.installationId,

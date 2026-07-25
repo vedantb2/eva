@@ -260,7 +260,7 @@ export async function deleteTaskRelatedData(
   // Quick tasks persist a Daytona sandbox; clean it up so we don't leak compute.
   // Project tasks share their sandbox via `project.sandboxId` — leave that alone.
   if (task && !task.projectId && task.sandboxId && task.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
     });
@@ -313,7 +313,7 @@ export async function softDeleteAgentTask(
     }
   }
   if (!task.projectId && task.sandboxId && task.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
     });

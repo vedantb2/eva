@@ -90,7 +90,7 @@ export function TerminalPanel({
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const ptyProtocolRef = useRef<PtyProtocol>("daytona");
+  const ptyProtocolRef = useRef<PtyProtocol>("vercel");
   const intentionalCloseRef = useRef(false);
   /** Set when the Vercel interactive shell sends an exit frame — do not reconnect. */
   const shellExitedRef = useRef(false);

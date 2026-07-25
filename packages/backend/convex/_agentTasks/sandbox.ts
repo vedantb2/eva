@@ -88,7 +88,7 @@ export const startTaskSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startTaskPreviewSandbox,
+        internal.sandbox.startTaskPreviewSandbox,
         startArgs,
       );
     } else {
@@ -204,7 +204,7 @@ export const runDevServer = authMutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.daytona.runDevServerInTaskSandbox,
+      internal.sandbox.runDevServerInTaskSandbox,
       {
         taskId: args.taskId,
         sandboxId: task.sandboxId,
@@ -240,7 +240,7 @@ export const runBackgroundCommands = authMutation({
     const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
     if (!hasAccess) throw new Error("No access to repository");
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runBackgroundCommands, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
     });
@@ -343,7 +343,7 @@ export const finalizeStopTaskSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });

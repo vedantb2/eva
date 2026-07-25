@@ -6,11 +6,7 @@ import { formatDurationMsShort } from "@eva/shared/duration";
 import { getInstallationToken } from "../githubAuth";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
-import type {
-  SandboxClient,
-  SandboxHandle,
-  VolumeMountSpec,
-} from "../_sandbox/provider";
+import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import {
   execHandle,
   LEGACY_WORKSPACE_DIR,
@@ -67,12 +63,6 @@ const REPO_CLONE_TIMEOUT_SECONDS = 300;
 const PNPM_INSTALL_TIMEOUT_SECONDS = 900;
 const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
-// Seeded running-sandbox snapshots (~10GB) take ~4 min to become ready when
-// restored with persistence volumes attached — observed ~235s in prod. 90s was
-// far too short and timed out session/task creates before the snapshot was up
-// (leaving an orphaned server-side sandbox). 300s gives headroom over the
-// observed restore time.
-const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 300;
 
 /** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
@@ -292,7 +282,6 @@ export async function createSandbox(
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMountSpec[],
   readyTimeoutSeconds?: number,
   // Fired as soon as Sandbox.create returns — before jq/git/docker setup.
   // Those post-create steps absorb Vercel's first-command boot penalty
@@ -303,15 +292,12 @@ export async function createSandbox(
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
-    `volumes=${volumes?.length ?? 0}`,
   ].join(", ");
   return await runLoggedGitStep("createSandbox", details, async () => {
     const timeoutSeconds =
       readyTimeoutSeconds ??
       (snapshotName
-        ? volumes && volumes.length > 0
-          ? SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS
-          : SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
+        ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
         : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
     // Vercel: create does not need the GitHub token at API time (env is a
@@ -360,11 +346,6 @@ export async function createSandbox(
           repoId: sandboxEnvVars.REPO_ID,
         }),
       },
-      volumes: volumes?.map((v) => ({
-        volumeId: v.volumeId,
-        mountPath: v.mountPath,
-        subpath: v.subpath,
-      })),
       readyTimeoutSeconds: timeoutSeconds,
     });
     logGit(
@@ -1048,7 +1029,6 @@ export async function createSandboxAndPrepareRepo(
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMountSpec[],
   onSandboxAcquired?: (sandbox: SandboxHandle) => Promise<void>,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
@@ -1080,7 +1060,6 @@ export async function createSandboxAndPrepareRepo(
             sandboxEnvVars,
             lifecycle,
             effectiveSnapshot,
-            volumes,
             readyTimeoutSeconds,
             onSandboxAcquired,
           );
@@ -1098,7 +1077,6 @@ export async function createSandboxAndPrepareRepo(
               sandboxEnvVars,
               lifecycle,
               undefined,
-              volumes,
               readyTimeoutSeconds,
               onSandboxAcquired,
             );
@@ -1178,7 +1156,6 @@ export async function getOrCreateSandbox(
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMountSpec[],
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
 ): Promise<{ sandbox: SandboxHandle; isNew: boolean }> {
@@ -1206,7 +1183,6 @@ export async function getOrCreateSandbox(
       sandboxEnvVars,
       lifecycle,
       snapshotName,
-      volumes,
       undefined,
       onProgress,
       syncStrategy,

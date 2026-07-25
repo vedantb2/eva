@@ -198,7 +198,6 @@ export function TaskDetailInline({
       <TaskSandboxPanel
         taskId={taskId}
         sandboxId={sandboxId}
-        vercelSandboxId={task.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={task.repoId}
         devPort={task.devPort}

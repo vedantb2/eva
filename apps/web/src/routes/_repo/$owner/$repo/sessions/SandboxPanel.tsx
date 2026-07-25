@@ -24,7 +24,6 @@ import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   /**
    * False while another session is shown but this shell stays mounted.
@@ -49,7 +48,6 @@ interface SandboxPanelProps {
 export function SandboxPanel({
   sessionId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   isRouteActive = true,
   repoId,
@@ -205,7 +203,6 @@ export function SandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={sessionIdStr}

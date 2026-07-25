@@ -8,10 +8,7 @@ import {
   getSandboxHandle,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
-import {
-  resolveSandboxCredentialsOnly,
-  resolveSandboxProviderKind,
-} from "../envVarResolver";
+import { resolveSandboxCredentialsOnly } from "../envVarResolver";
 import { getSandboxClient } from "../_sandbox/factory";
 
 /**
@@ -247,7 +244,7 @@ export const captureDiagnosticsAndStopSandbox = internalAction({
         `[watchdog][diagnostics] runId=${args.runId} capture failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    await ctx.runAction(internal.daytona.stopSandbox, {
+    await ctx.runAction(internal.sandbox.stopSandbox, {
       sandboxId: args.sandboxId,
       repoId: args.repoId,
     });
@@ -311,48 +308,22 @@ export const archiveSandbox = internalAction({
   },
 });
 
-/** Returns the active sandbox provider for a repo (for workflow thaw id selection). */
+/** Returns the active sandbox provider for a repo (for workflow thaw id selection). Vercel is the only provider. */
 export const getSandboxProviderKind = internalAction({
   args: { repoId: v.id("githubRepos") },
-  returns: v.union(v.literal("daytona"), v.literal("vercel")),
-  handler: async (ctx, args) => {
-    // Do not call resolveSandboxCredentials here — that decrypts the full env
-    // map and was the multi-second gap before kickoff on resume.
-    return resolveSandboxProviderKind(ctx, args.repoId);
-  },
+  returns: v.literal("vercel"),
+  handler: async () => "vercel" as const,
 });
 
 /**
- * Provider for a snapshot config: checks the config repo and every monorepo
- * sibling. SANDBOX_PROVIDER often lives on an app repo (e.g. apps/web) while
- * the shared snapshot config points at the monorepo parent.
+ * Provider for a snapshot config. Vercel is the only provider, so this
+ * always resolves "vercel"; kept as an internalAction (name unchanged) since
+ * it is still part of the public `internal.sandbox.*` surface.
  */
 export const getSnapshotSandboxProviderKind = internalAction({
   args: { repoSnapshotId: v.id("repoSnapshots") },
-  returns: v.union(v.literal("daytona"), v.literal("vercel")),
-  handler: async (ctx, args) => {
-    const config = await ctx.runQuery(
-      internal.repoSnapshots.getRepoSnapshotInternal,
-      { repoSnapshotId: args.repoSnapshotId },
-    );
-    if (!config) return "daytona";
-
-    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: config.repoId,
-    });
-    if (!repo) return "daytona";
-
-    const siblingIds = await ctx.runQuery(
-      internal.githubRepos.listRepoIdsByOwnerAndName,
-      { owner: repo.owner, name: repo.name },
-    );
-
-    for (const repoId of siblingIds) {
-      const kind = await resolveSandboxProviderKind(ctx, repoId);
-      if (kind === "vercel") return "vercel";
-    }
-    return "daytona";
-  },
+  returns: v.literal("vercel"),
+  handler: async () => "vercel" as const,
 });
 
 /**

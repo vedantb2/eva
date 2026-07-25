@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 
 /** Starts a project preview sandbox (checkout project branch + run startup commands) as a durable workflow step. */
 export const projectPreviewSandboxStartupWorkflow = workflow.define({
@@ -40,7 +40,7 @@ export const projectPreviewSandboxStartupWorkflow = workflow.define({
         return;
       }
     }
-    await step.runAction(internal.daytona.startProjectPreviewSandbox, {
+    await step.runAction(internal.sandbox.startProjectPreviewSandbox, {
       projectId: args.projectId,
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,

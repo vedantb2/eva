@@ -31,7 +31,7 @@ export const startSessionAudit = authMutation({
       createdAt: Date.now(),
     });
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runSessionAudit, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runSessionAudit, {
       sessionId: args.sessionId,
       sandboxId: session.sandboxId,
       auditId,
@@ -92,7 +92,7 @@ export const maybeStartTurnAudit = internalMutation({
       createdAt: Date.now(),
     });
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runSessionAudit, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runSessionAudit, {
       sessionId: args.sessionId,
       sandboxId: session.sandboxId,
       auditId,

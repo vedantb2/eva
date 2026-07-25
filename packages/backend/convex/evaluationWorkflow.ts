@@ -14,7 +14,7 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 const evalCompleteEvent = defineEvent({
@@ -66,7 +66,7 @@ export const evaluationWorkflow = workflow.define({
         baseBranch: args.branchName,
       });
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.reportId),
         prompt: docData.prompt,
@@ -133,7 +133,7 @@ export const fixWorkflow = workflow.define({
         branchName: args.fixBranchName,
       });
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId: fixSandboxId,
         entityId: String(args.reportId),
         prompt: fixData.prompt,
@@ -148,7 +148,7 @@ export const fixWorkflow = workflow.define({
       const fixResult = await step.awaitEvent(fixCompleteEvent);
 
       if (fixResult.success) {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: fixSandboxId,
           installationId: args.installationId,
           repoOwner: fixData.repoOwner,

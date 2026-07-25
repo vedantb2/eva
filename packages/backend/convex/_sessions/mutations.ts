@@ -458,7 +458,7 @@ export const archive = authMutation({
 
     // Archive the Daytona sandbox (stops it first, then moves to cold storage)
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.archiveSandbox, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.archiveSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

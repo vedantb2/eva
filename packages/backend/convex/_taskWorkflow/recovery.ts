@@ -177,7 +177,7 @@ export async function cleanUpStaleRun(
   await cancelTrackedWorkflow(ctx, params.activeWorkflowId);
 
   if (params.sandboxId && params.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
       sandboxId: params.sandboxId,
       repoId: params.repoId,
     });
@@ -189,7 +189,7 @@ export async function cleanUpStaleRun(
       // sandbox is still running.
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.captureDiagnosticsAndStopSandbox,
+        internal.sandbox.captureDiagnosticsAndStopSandbox,
         {
           sandboxId: params.sandboxId,
           repoId: params.repoId,

@@ -657,7 +657,7 @@ export const setSnapshotEnabled = authMutation({
   },
 });
 
-/** Deletes a snapshot config, its cron job, and the remote Daytona snapshot. */
+/** Deletes a snapshot config, its cron job, and the remote sandbox snapshot. */
 export const deleteRepoSnapshot = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
@@ -670,7 +670,7 @@ export const deleteRepoSnapshot = authMutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.snapshotActions.deleteDaytonaSnapshot,
+      internal.snapshotActions.deleteSeededSnapshot,
       { snapshotName: config.snapshotName, repoId: config.repoId },
     );
 

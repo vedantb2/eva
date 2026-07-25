@@ -64,7 +64,7 @@ export const startSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startDesignSandbox,
+        internal.sandbox.startDesignSandbox,
         startArgs,
       );
     } else {
@@ -142,7 +142,7 @@ export const finalizeStopSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });

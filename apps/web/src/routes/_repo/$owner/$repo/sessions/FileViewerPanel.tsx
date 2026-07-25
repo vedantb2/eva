@@ -60,7 +60,7 @@ export function FileViewerPanel({
   repoId,
   isActive,
 }: FileViewerPanelProps) {
-  const readSandboxFile = useAction(api.daytona.readSandboxFile);
+  const readSandboxFile = useAction(api.sandbox.readSandboxFile);
   const [filePath] = useQueryState("file", fileViewerPathParser);
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<ViewerState>(() => {

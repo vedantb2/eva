@@ -3,8 +3,12 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { getSandboxHandle, errorMessage, signAndLaunchScript } from "./helpers";
-import { sessionClaudeUuid } from "./volumes";
+import {
+  getSandboxHandle,
+  errorMessage,
+  signAndLaunchScript,
+  sessionClaudeUuid,
+} from "./helpers";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
 import { auditFailureValidator } from "../validators";
@@ -165,7 +169,7 @@ export const launchSelectedAuditFixes = internalAction({
 
       if (sandboxId) {
         const { healthy } = await ctx.runAction(
-          internal.daytona.validateSandbox,
+          internal.sandbox.validateSandbox,
           { sandboxId, repoId: args.repoId },
         );
         if (!healthy) {
@@ -178,7 +182,7 @@ export const launchSelectedAuditFixes = internalAction({
         // persistent replacement (not ephemeral) and write it back so future
         // runs / reviewer Start Sandbox reuse the same paused filesystem.
         const result = await ctx.runAction(
-          internal.daytona.createOrResumeSandbox,
+          internal.sandbox.createOrResumeSandbox,
           {
             installationId: args.installationId,
             repoOwner: args.repoOwner,

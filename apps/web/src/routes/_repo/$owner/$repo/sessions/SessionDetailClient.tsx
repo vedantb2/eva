@@ -96,7 +96,7 @@ export function SessionDetailClient({
   }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // cleared once the Vercel sandbox's stop call completes. Showing the spinner
   // (and disabling Start) for its full duration prevents the stop/start race
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
@@ -207,7 +207,6 @@ export function SessionDetailClient({
           <SandboxPanel
             sessionId={sessionId}
             sandboxId={session.sandboxId}
-            vercelSandboxId={session.vercelSandboxId}
             isActive={isSandboxActive}
             isRouteActive={isRouteActive}
             repoId={session.repoId}

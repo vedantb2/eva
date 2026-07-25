@@ -312,12 +312,10 @@ export function SnapshotsClient({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Requires sandbox provider credentials in team or repo environment
-            variables: set <code className="font-mono">SANDBOX_PROVIDER</code>{" "}
-            to <code className="font-mono">daytona</code> (
-            <code className="font-mono">DAYTONA_API_KEY</code>) or{" "}
-            <code className="font-mono">vercel</code> (
-            <code className="font-mono">VERCEL_TOKEN</code>, team, and project).
+            Requires Vercel Sandbox credentials in team or repo environment
+            variables: <code className="font-mono">VERCEL_TOKEN</code>,{" "}
+            <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
+            <code className="font-mono">VERCEL_PROJECT_ID</code>.
           </p>
         </TabsContent>
 
@@ -404,10 +402,9 @@ export function SnapshotsClient({
               <div className="rounded-surface border border-border bg-card p-4 space-y-3">
                 <h3 className="text-sm font-medium">Base Image</h3>
                 <p className="text-xs text-muted-foreground">
-                  Provider-native base snapshot with toolchain,{" "}
+                  Base snapshot with toolchain,{" "}
                   <code className="font-mono text-[11px]">pnpm install</code>,
-                  and your build commands. Daytona builds a declarative Image;
-                  Vercel captures a running sandbox as{" "}
+                  and your build commands. Eva captures a running sandbox as{" "}
                   <code className="font-mono text-[11px]">snap_*</code>. This is
                   what sandboxes boot from unless a seeded snapshot exists.
                   Rebuild Now always refreshes this — no seed file needed.

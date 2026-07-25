@@ -6,7 +6,6 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { previewPortParser } from "@/lib/search-params";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 
 export interface PreviewInfo {
   url: string;
@@ -53,7 +52,7 @@ function clearLegacyPreviewUrlCache(): void {
 
 /**
  * Drives the WebPreview pane: resolves a sandbox+port to a live URL and polls
- * until the dev server is reachable. Signed Daytona preview URLs are kept in
+ * until the dev server is reachable. Signed Vercel preview URLs are kept in
  * memory only because persisting them can resurrect stale iframe targets.
  */
 export function useSandboxPreview({
@@ -79,7 +78,7 @@ export function useSandboxPreview({
     return params;
   };
 
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Poll generation. An in-flight getPreviewUrl continuation used to re-arm the
   // 3s timer AFTER the isActive-flip cleanup ran (stale closure with the old
@@ -122,7 +121,6 @@ export function useSandboxPreview({
       // in flight — drop the result and do NOT re-arm the poll timer.
       if (generation !== generationRef.current) return;
       if (data.ready) {
-        await dismissDaytonaWarning(data.url);
         if (generation !== generationRef.current) return;
         if (loadedUrlRef.current !== data.url) {
           loadedUrlRef.current = data.url;

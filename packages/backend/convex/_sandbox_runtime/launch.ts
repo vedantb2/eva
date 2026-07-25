@@ -8,17 +8,20 @@ import { execHandle, requireEnv } from "./helpers";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
-import {
-  CLAUDE_BASE_CONFIG_DIR,
-  CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
-  CLAUDE_RUNTIME_CONFIG_DIR,
-  CODEX_PERSIST_VOLUME_MOUNT_PATH,
-  CODEX_RUNTIME_HOME_DIR,
-  CURSOR_PERSIST_VOLUME_MOUNT_PATH,
-  CURSOR_RUNTIME_HOME_DIR,
-  OPENCODE_PERSIST_VOLUME_MOUNT_PATH,
-  OPENCODE_RUNTIME_HOME_DIR,
-} from "./volumes";
+
+// Paths baked into the callback script env for each CLI's config directory.
+// These originated as Daytona persistence-volume mount paths; the *_RUNTIME_*
+// paths are still where the callback script looks regardless of whether a
+// volume is mounted there, so they stay here now that Daytona volumes are gone.
+export const CLAUDE_BASE_CONFIG_DIR = "/home/eva/.claude";
+export const CLAUDE_RUNTIME_CONFIG_DIR = "/tmp/claude-config";
+export const CLAUDE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.claude-persist";
+export const CODEX_RUNTIME_HOME_DIR = "/tmp/codex-home";
+export const CODEX_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.codex-persist";
+export const OPENCODE_RUNTIME_HOME_DIR = "/tmp/opencode-home";
+export const OPENCODE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.opencode-persist";
+export const CURSOR_RUNTIME_HOME_DIR = "/tmp/cursor-home";
+export const CURSOR_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.cursor-persist";
 
 const CLAUDE_INSTALL_TIMEOUT_SECONDS = 300;
 const CLAUDE_FALLBACK_INSTALL_DIR = "/tmp/claude-cli";

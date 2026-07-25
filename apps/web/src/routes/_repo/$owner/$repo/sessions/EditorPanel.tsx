@@ -10,7 +10,6 @@ import {
 interface EditorPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
@@ -23,11 +22,10 @@ interface EditorPanelProps {
 export function EditorPanel({
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
 }: EditorPanelProps) {
-  const toggleCodeServer = useAction(api.daytona.toggleCodeServer);
+  const toggleCodeServer = useAction(api.sandbox.toggleCodeServer);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
@@ -44,7 +42,6 @@ export function EditorPanel({
       cacheNamespace="editor"
       cacheKey={cacheKey}
       sandboxId={sandboxId}
-      vercelSandboxId={vercelSandboxId}
       isActive={isActive}
       repoId={repoId}
       port={8080}

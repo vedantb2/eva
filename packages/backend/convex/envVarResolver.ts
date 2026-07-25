@@ -5,10 +5,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { decryptValue } from "./encryption";
 import { getAIModelProvider } from "./validators";
-import type {
-  SandboxCredentials,
-  SandboxProviderKind,
-} from "./_sandbox/provider";
+import type { SandboxCredentials } from "./_sandbox/provider";
 
 /** Resolves and decrypts all env vars (team + repo), including sandbox-excluded ones. Repo vars override team vars. */
 export async function resolveAllEnvVars(
@@ -70,24 +67,6 @@ export async function resolveEnvVars(
   return { ...teamEnvVars, ...repoEnvVars };
 }
 
-/** Extracts the DAYTONA_API_KEY from all env vars and returns it alongside sandbox-eligible env vars. */
-export async function resolveDaytonaApiKey(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-): Promise<{ daytonaApiKey: string; sandboxEnvVars: Record<string, string> }> {
-  const allVars = await resolveAllEnvVars(ctx, repoId);
-  const daytonaApiKey = allVars.DAYTONA_API_KEY;
-
-  if (!daytonaApiKey) {
-    throw new Error(
-      "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
-    );
-  }
-
-  const sandboxVars = await resolveEnvVars(ctx, repoId);
-  return { daytonaApiKey, sandboxEnvVars: sandboxVars };
-}
-
 /** All repos in the same codebase (owner/name), requested repo first. */
 async function listMonorepoRepoIds(
   ctx: GenericActionCtx<DataModel>,
@@ -103,70 +82,6 @@ async function listMonorepoRepoIds(
   );
   if (siblingIds.length === 0) return [repoId];
   return [repoId, ...siblingIds.filter((id) => id !== repoId)];
-}
-
-/** Provider kind from one repo's team + repo env (no sibling walk). */
-async function resolveSandboxProviderKindForRepo(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-): Promise<SandboxProviderKind> {
-  const [teamId, repoVars] = await Promise.all([
-    ctx.runQuery(internal.githubRepos.getTeamIdForRepo, { repoId }),
-    ctx.runQuery(internal.repoEnvVars.getAllInternal, { repoId }),
-  ]);
-  // Vercel is the default: Daytona is legacy and being removed. Set
-  // SANDBOX_PROVIDER=daytona (team, or repo to override the team) to opt back in
-  // while the remaining Daytona-only consumers are migrated.
-  let kind: SandboxProviderKind = "vercel";
-  if (teamId) {
-    const teamVars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
-      teamId,
-    });
-    const teamEntry = teamVars.find(
-      (entry) => entry.key === "SANDBOX_PROVIDER",
-    );
-    if (teamEntry && decryptValue(teamEntry.value) === "daytona") {
-      kind = "daytona";
-    }
-  }
-  const repoEntry = repoVars.find((entry) => entry.key === "SANDBOX_PROVIDER");
-  if (repoEntry) {
-    kind = decryptValue(repoEntry.value) === "daytona" ? "daytona" : "vercel";
-  }
-  return kind;
-}
-
-/**
- * Cheap provider-kind lookup for workflow thaw routing. Only decrypts the
- * `SANDBOX_PROVIDER` key (repo overrides team) instead of the full env map —
- * measured `getSandboxProviderKind` was spending multi-seconds decrypting
- * every team/repo var before kickoff, which left the UI on "Eva is inferring…".
- *
- * Walks monorepo siblings so an explicit `SANDBOX_PROVIDER=daytona` on apps/web
- * applies to apps/eprocurement and the shared parent config repo too. Daytona is
- * the explicit opt-out now that Vercel is the default, so it is the value that
- * propagates — otherwise an unset sibling would silently win back the default and
- * strand the repo that deliberately opted out.
- */
-export async function resolveSandboxProviderKind(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-): Promise<SandboxProviderKind> {
-  const startedAt = Date.now();
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  for (const id of repoIds) {
-    const kind = await resolveSandboxProviderKindForRepo(ctx, id);
-    if (kind === "daytona") {
-      console.log(
-        `[env] resolveSandboxProviderKind repoId=${repoId} kind=daytona credentialRepoId=${id} elapsed=${Date.now() - startedAt}ms`,
-      );
-      return "daytona";
-    }
-  }
-  console.log(
-    `[env] resolveSandboxProviderKind repoId=${repoId} kind=vercel elapsed=${Date.now() - startedAt}ms`,
-  );
-  return "vercel";
 }
 
 /**
@@ -209,62 +124,21 @@ async function resolveVercelCredentialsForRepo(
 }
 
 /**
- * Finds a DAYTONA_API_KEY across the target repo and its monorepo siblings
- * (target first). Returns the key and the repo it came from, or null if none
- * of the repos define it. Callers own their own logging/throwing.
- */
-async function findDaytonaApiKey(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-): Promise<{ apiKey: string; credentialRepoId: Id<"githubRepos"> } | null> {
-  const repoIds = await listMonorepoRepoIds(ctx, repoId);
-  for (const credentialRepoId of repoIds) {
-    const allVars = await resolveAllEnvVars(ctx, credentialRepoId);
-    const apiKey = allVars.DAYTONA_API_KEY;
-    if (apiKey) return { apiKey, credentialRepoId };
-  }
-  return null;
-}
-
-/**
- * Resolves only the selected provider's credentials (no full sandbox env map).
- * Used by kickoff/thaw paths that only need to call the provider SDK.
+ * Resolves the sandbox provider credentials (no full sandbox env map). Used
+ * by kickoff/thaw paths that only need to call the provider SDK. Vercel is
+ * the only provider, so this always resolves Vercel credentials.
  */
 export async function resolveSandboxCredentialsOnly(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<SandboxCredentials> {
-  const startedAt = Date.now();
-  const kind = await resolveSandboxProviderKind(ctx, repoId);
-
-  if (kind === "vercel") {
-    const credentials = await resolveVercelCredentialsForRepo(ctx, repoId);
-    console.log(
-      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=vercel projectId=${credentials.projectId} elapsed=${Date.now() - startedAt}ms`,
-    );
-    return credentials;
-  }
-
-  const daytona = await findDaytonaApiKey(ctx, repoId);
-  if (daytona) {
-    console.log(
-      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona credentialRepoId=${daytona.credentialRepoId} elapsed=${Date.now() - startedAt}ms`,
-    );
-    return { kind: "daytona", apiKey: daytona.apiKey };
-  }
-
-  throw new Error(
-    "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
-  );
+  return resolveVercelCredentialsForRepo(ctx, repoId);
 }
 
 /**
- * Resolves the active provider and its credentials for a repo, alongside the
- * sandbox-eligible env vars passed into the sandbox. This is the single seam
- * the provider factory uses to pick Daytona vs Vercel; existing callers that
- * only need Daytona keep using {@link resolveDaytonaApiKey}.
+ * Resolves the sandbox provider credentials for a repo, alongside the
+ * sandbox-eligible env vars passed into the sandbox.
  *
- * Provider kind may inherit from monorepo siblings (`SANDBOX_PROVIDER`), but
  * `VERCEL_PROJECT_ID` always comes from the target app repo so eprocurement
  * never creates sandboxes under apps/web's Vercel project.
  */
@@ -275,27 +149,11 @@ export async function resolveSandboxCredentials(
   credentials: SandboxCredentials;
   sandboxEnvVars: Record<string, string>;
 }> {
-  const sandboxEnvVars = await resolveEnvVars(ctx, repoId);
-  const kind = await resolveSandboxProviderKind(ctx, repoId);
-
-  if (kind === "vercel") {
-    return {
-      credentials: await resolveVercelCredentialsForRepo(ctx, repoId),
-      sandboxEnvVars,
-    };
-  }
-
-  const daytona = await findDaytonaApiKey(ctx, repoId);
-  if (daytona) {
-    return {
-      credentials: { kind: "daytona", apiKey: daytona.apiKey },
-      sandboxEnvVars,
-    };
-  }
-
-  throw new Error(
-    "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
-  );
+  const [credentials, sandboxEnvVars] = await Promise.all([
+    resolveVercelCredentialsForRepo(ctx, repoId),
+    resolveEnvVars(ctx, repoId),
+  ]);
+  return { credentials, sandboxEnvVars };
 }
 
 /**

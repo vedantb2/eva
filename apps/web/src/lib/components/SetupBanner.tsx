@@ -26,11 +26,6 @@ const REQUIRED_KEYS: Array<{
     description: "OAuth token for Claude Code CLI authentication in sandboxes",
   },
   {
-    keys: ["DAYTONA_API_KEY"],
-    required: true,
-    description: "API key for provisioning and managing Daytona sandboxes",
-  },
-  {
     keys: ["CODEX_AUTH_JSON", "CODEX_AUTH_JSON_BASE64"],
     required: false,
     description:

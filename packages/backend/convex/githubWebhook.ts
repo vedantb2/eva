@@ -287,7 +287,7 @@ export const handlePrClosed = internalMutation({
           vercelSandboxId: project.vercelSandboxId,
         });
         if (deleteId) {
-          await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+          await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
             sandboxId: deleteId,
             repoId: project.repoId,
           });

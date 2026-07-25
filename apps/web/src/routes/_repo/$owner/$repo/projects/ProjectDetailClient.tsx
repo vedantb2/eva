@@ -277,7 +277,6 @@ export function ProjectDetailClient({
         projectId={projectId}
         projectNumId={projectNumId}
         sandboxId={projectSandboxId}
-        vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
         prUrl={project.prUrl}

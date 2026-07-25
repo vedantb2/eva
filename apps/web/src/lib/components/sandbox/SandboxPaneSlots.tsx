@@ -23,8 +23,6 @@ interface SandboxPaneSlotsProps {
   preview: SandboxPreviewApi;
   owner: PtyOwner;
   sandboxId: string | undefined;
-  /** Vercel sandbox name; when set, the Daytona preview hint is hidden. */
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /** sessionStorage cache namespace for editor / desktop URL caches. */
@@ -75,7 +73,6 @@ export function SandboxPaneSlots({
   preview,
   owner,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   cacheKey,
@@ -142,7 +139,6 @@ export function SandboxPaneSlots({
             <WebPreviewPanel
               isActive={isActive}
               sandboxId={sandboxId}
-              vercelSandboxId={vercelSandboxId}
               previewInfo={preview.previewInfo}
               isLoading={preview.isLoading}
               error={preview.error}
@@ -205,7 +201,6 @@ export function SandboxPaneSlots({
         <EditorPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
         />
@@ -256,7 +251,6 @@ export function SandboxPaneSlots({
         <DesktopPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           surface={activeTab === "browser" ? "browser" : "desktop"}

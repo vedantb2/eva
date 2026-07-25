@@ -160,7 +160,7 @@ export const startExecute = authMutation({
     if (usesDaemonPull && session.sandboxId) {
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
         sandboxId: session.sandboxId,
         sessionId: args.sessionId,
         repoId: session.repoId,
@@ -226,7 +226,7 @@ export const prewarmDaemon = authMutation({
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
     // leaves the chat stuck on Working).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
@@ -321,7 +321,7 @@ export const cancelExecution = authMutation({
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

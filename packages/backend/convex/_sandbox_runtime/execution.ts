@@ -16,7 +16,6 @@ import {
   execHandle,
   resolveSandboxContext,
   getSandboxHandle,
-  getDaytona,
   ensureSandboxRunning,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   sleep,
@@ -24,6 +23,7 @@ import {
   signAndLaunchScript,
   workspaceDirShell,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
+  sessionClaudeUuid,
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
@@ -36,10 +36,7 @@ import {
   materializeAttachmentsToSandbox,
   buildAttachmentPromptNote,
 } from "./attachments";
-import {
-  resolveSandboxCredentials,
-  resolveDaytonaApiKey,
-} from "../envVarResolver";
+import { resolveSandboxCredentials } from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   buildConvexBackgroundScriptBody,
@@ -116,7 +113,6 @@ import {
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
-import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import {
   ensurePreviewNavigationProxy,
@@ -560,7 +556,7 @@ export const getPreviewUrl = action({
       // keep loading a frontend with a dead backend. Cheap pid check; skip
       // when still alive.
       try {
-        await ctx.runAction(internal.daytona.runBackgroundCommands, {
+        await ctx.runAction(internal.sandbox.runBackgroundCommands, {
           sandboxId: args.sandboxId,
           repoId: args.repoId,
           onlyRestartDead: true,
@@ -628,8 +624,7 @@ export const getPreviewUrl = action({
     let previewPort = fixedVercelProxyPort ?? args.port;
     // Same upstream mapping used for the readiness probe above.
     const proxyTargetPort = upstreamPort;
-    const shouldStartPreviewProxy =
-      credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
+    const shouldStartPreviewProxy = fixedVercelProxyPort !== undefined;
     if (ready && shouldStartPreviewProxy) {
       try {
         previewPort = await ensurePreviewNavigationProxy(
@@ -774,23 +769,8 @@ export const prepareSandbox = internalAction({
       sandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
     });
-    // Persistence volumes remain a Daytona-only capability; resolve a raw
-    // Daytona client just for the volume lookup on that path.
-    const sessionVolumeMounts =
-      args.sessionPersistenceId && args.sessionPersistenceKind
-        ? client.kind === "vercel"
-          ? []
-          : await ensureSessionPersistenceVolumes(
-              getDaytona(
-                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-              ),
-              args.repoId,
-              args.sessionPersistenceKind,
-              args.sessionPersistenceId,
-            )
-        : undefined;
     console.log(
-      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
     let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
@@ -822,7 +802,6 @@ export const prepareSandbox = internalAction({
             sandboxEnvVars,
             EPHEMERAL_LIFECYCLE,
             snapshotName,
-            sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
@@ -840,7 +819,6 @@ export const prepareSandbox = internalAction({
             sandboxEnvVars,
             SESSION_LIFECYCLE,
             snapshotName,
-            sessionVolumeMounts,
             emitProgress,
             { mode: "none" },
           );
@@ -979,23 +957,8 @@ export const createOrResumeSandbox = internalAction({
       sandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
     });
-    // Persistence volumes remain a Daytona-only capability; resolve a raw
-    // Daytona client just for the volume lookup on that path.
-    const sessionVolumeMounts =
-      args.sessionPersistenceId && args.sessionPersistenceKind
-        ? client.kind === "vercel"
-          ? []
-          : await ensureSessionPersistenceVolumes(
-              getDaytona(
-                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-              ),
-              args.repoId,
-              args.sessionPersistenceKind,
-              args.sessionPersistenceId,
-            )
-        : undefined;
     console.log(
-      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
     let sandbox: SandboxHandle | undefined;
@@ -1028,7 +991,6 @@ export const createOrResumeSandbox = internalAction({
             sandboxEnvVars,
             EPHEMERAL_LIFECYCLE,
             snapshotName,
-            sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
@@ -1046,7 +1008,6 @@ export const createOrResumeSandbox = internalAction({
             sandboxEnvVars,
             SESSION_LIFECYCLE,
             snapshotName,
-            sessionVolumeMounts,
             emitProgress,
             { mode: "none" },
           );
@@ -1297,7 +1258,7 @@ async function runPrewarmEntityDaemon(
         sandbox.state === "error"
       ) {
         await ctx.runMutation(
-          internal.daytonaDaemon.reconcileStoppedSandboxStatus,
+          internal.sandboxDaemon.reconcileStoppedSandboxStatus,
           {
             entityTable: args.entityTable,
             entityId: args.entityId,
@@ -1347,7 +1308,7 @@ async function runPrewarmEntityDaemon(
     }
     if (aliveState === "optsmismatch") {
       const snapshot = await ctx.runQuery(
-        internal.daytonaDaemon.readDaemonEntitySnapshot,
+        internal.sandboxDaemon.readDaemonEntitySnapshot,
         {
           entityTable: args.entityTable,
           entityId: entityIdStr,

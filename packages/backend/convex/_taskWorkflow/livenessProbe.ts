@@ -34,7 +34,7 @@ export const probeStaleRunLiveness = internalAction({
   handler: async (ctx, args) => {
     const probeStartedAt = Date.now();
     const liveness = await ctx.runAction(
-      internal.daytona.verifySandboxLiveness,
+      internal.sandbox.verifySandboxLiveness,
       { sandboxId: args.sandboxId, repoId: args.repoId },
     );
     const probeDurationMs = Date.now() - probeStartedAt;

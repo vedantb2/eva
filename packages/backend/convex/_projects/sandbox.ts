@@ -76,7 +76,7 @@ export const startProjectSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startProjectPreviewSandbox,
+        internal.sandbox.startProjectPreviewSandbox,
         startArgs,
       );
     } else {
@@ -178,7 +178,7 @@ export const runProjectBackgroundCommands = authMutation({
       throw new Error("Start the sandbox before running background commands");
     }
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runBackgroundCommands, {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
     });
@@ -378,7 +378,7 @@ export const finalizeStopProjectSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });

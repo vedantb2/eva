@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 const sessionsSource = readFileSync(
   join(
     dirname(fileURLToPath(import.meta.url)),
-    "../convex/_daytona/sessions.ts",
+    "../convex/_sandbox_runtime/sessions.ts",
   ),
   "utf8",
 );

@@ -1,10 +1,9 @@
 "use node";
-import { Daytona, type Sandbox } from "@daytonaio/sdk";
+import { createHash } from "crypto";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import {
-  resolveDaytonaApiKey,
   resolveProviderAccountCredentials,
   resolveSandboxCredentials,
   resolveSandboxCredentialsOnly,
@@ -97,36 +96,7 @@ export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
-/** Executes a shell command on a sandbox and returns stdout, throwing on non-zero exit. */
-export async function exec(
-  sandbox: Sandbox,
-  cmd: string,
-  timeout = 30,
-  cwd = WORKSPACE_DIR,
-): Promise<string> {
-  const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
-  const resp = await withTimeout(
-    sandbox.process.executeCommand(cmd, cwd, undefined, timeout),
-    clientTimeoutMs,
-    `exec (${timeout}s)`,
-  );
-  if (resp.exitCode !== 0) {
-    const output = resp.result?.trim();
-    throw new Error(
-      output
-        ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
-        : `Sandbox command failed with exit code ${resp.exitCode}`,
-    );
-  }
-  return resp.result;
-}
-
-/**
- * Provider-neutral counterpart to {@link exec}: runs a command on a
- * {@link SandboxHandle} and returns stdout, throwing on a non-zero exit. Added
- * alongside `exec` so `_daytona` consumers migrate onto the handle one file at a
- * time; `exec` is removed once the last raw-`Sandbox` caller is converted.
- */
+/** Runs a command on a {@link SandboxHandle} and returns stdout, throwing on a non-zero exit. */
 export async function execHandle(
   handle: SandboxHandle,
   cmd: string,
@@ -397,11 +367,6 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-/** Creates a new Daytona SDK client with the given API key. */
-export function getDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey });
-}
-
 /** Returns a promise that resolves after the specified milliseconds. */
 export async function sleep(ms: number): Promise<void> {
   await new Promise<void>((resolve) => {
@@ -505,23 +470,7 @@ export async function resolveSandboxContext(
   };
 }
 
-/** Retrieves a Daytona sandbox instance by its ID for the given repo. */
-export async function getSandbox(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-  sandboxId: string,
-): Promise<Sandbox> {
-  const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
-  const daytona = getDaytona(daytonaApiKey);
-  return daytona.get(sandboxId);
-}
-
-/**
- * Provider-neutral counterpart to {@link getSandbox}: resolves the repo's
- * configured provider (via the `SANDBOX_PROVIDER` flag) and returns a
- * {@link SandboxHandle} for the sandbox. Consumers migrate from `getSandbox`
- * onto this one file at a time; `getSandbox` is removed at the end of the rewire.
- */
+/** Resolves the repo's sandbox provider and returns a {@link SandboxHandle} for the sandbox. */
 export async function getSandboxHandle(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
@@ -629,4 +578,30 @@ export async function signAndLaunchScript(
   console.log(
     `[daytona][launch] launchScript completed in ${Date.now() - launchStartedAt}ms entityId=${entityId} sandboxId=${sandbox.id}`,
   );
+}
+
+/** Owner id types that can derive a stable per-owner Claude session UUID. */
+type PersistableSessionId =
+  | Id<"sessions">
+  | Id<"designSessions">
+  | Id<"projects">
+  | Id<"agentTasks">;
+
+/** Derives a deterministic UUID v4 from a session ID hash for Claude session identification. */
+export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
+  const hex = createHash("sha256")
+    .update(String(sessionId))
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
+  hex[12] = "4";
+  const variantNibble = (parseInt(hex[16], 16) & 0x3) | 0x8;
+  hex[16] = variantNibble.toString(16);
+  return [
+    hex.slice(0, 8).join(""),
+    hex.slice(8, 12).join(""),
+    hex.slice(12, 16).join(""),
+    hex.slice(16, 20).join(""),
+    hex.slice(20, 32).join(""),
+  ].join("-");
 }

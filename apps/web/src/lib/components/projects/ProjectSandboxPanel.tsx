@@ -28,7 +28,6 @@ interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
   projectNumId?: number;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   prUrl?: string;
@@ -44,7 +43,6 @@ export function ProjectSandboxPanel({
   projectId,
   projectNumId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   prUrl,
@@ -168,7 +166,6 @@ export function ProjectSandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={projectIdStr}

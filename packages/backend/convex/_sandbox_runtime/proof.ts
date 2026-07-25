@@ -40,7 +40,7 @@ export const prepareProofSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const bg = await ctx.runAction(internal.daytona.runBackgroundCommands, {
+    const bg = await ctx.runAction(internal.sandbox.runBackgroundCommands, {
       sandboxId: args.sandboxId,
       repoId: args.repoId,
       onlyRestartDead: true,
@@ -58,7 +58,7 @@ export const prepareProofSandbox = internalAction({
     }
 
     try {
-      await ctx.runAction(internal.daytona.runDevServerInTaskSandbox, {
+      await ctx.runAction(internal.sandbox.runDevServerInTaskSandbox, {
         taskId: args.taskId,
         sandboxId: args.sandboxId,
         repoId: args.repoId,

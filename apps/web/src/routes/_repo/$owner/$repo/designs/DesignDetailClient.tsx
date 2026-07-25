@@ -5,7 +5,6 @@ import type { Id } from "@eva/backend";
 import { useEffect, useState } from "react";
 import { Spinner } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
@@ -27,14 +26,14 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
   const [isStopPending, setIsStopPending] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // cleared once the Vercel sandbox's stop call completes. Showing the spinner
   // (and disabling Start) for its full duration prevents the stop/start race
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
@@ -62,7 +61,6 @@ export function DesignDetailClient({
         repoId: session.repoId,
         checkReady: true,
       });
-      await dismissDaytonaWarning(data.url);
       setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);

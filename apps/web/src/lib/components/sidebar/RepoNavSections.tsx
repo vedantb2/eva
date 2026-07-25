@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { useState, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
@@ -21,7 +21,6 @@ import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
-import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -62,7 +61,7 @@ interface RepoNavSectionsProps {
 }
 
 /**
- * Per-repo build-pipeline navigation (BUILD/SHIP/TEST/MORE groups) for the
+ * Per-repo build-pipeline navigation (Build/Ship/Test/More groups) for the
  * active repo. The far-left `RepoRail` handles switching between repos;
  * Inbox/Drafts: Inbox is on the left icon rail (global); Drafts stay above
  * these groups in `RepoTopNav` because they are per-repo.
@@ -77,26 +76,10 @@ export function RepoNavSections({
 }: RepoNavSectionsProps) {
   const isDev = import.meta.env.DEV;
 
-  const [openNavSections, setOpenNavSections] = useState<
-    Record<string, boolean>
-  >({
-    BUILD: true,
-    SHIP: true,
-    TEST: true,
-    MORE: true,
-  });
-
-  const toggleNavSection = (label: string) => {
-    setOpenNavSections((prev) => ({
-      ...prev,
-      [label]: !(prev[label] ?? true),
-    }));
-  };
-
   const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
       {
-        label: "BUILD",
+        label: "Build",
         items: [
           {
             name: "Designs",
@@ -107,7 +90,7 @@ export function RepoNavSections({
         ],
       },
       {
-        label: "SHIP",
+        label: "Ship",
         items: [
           {
             name: "Projects",
@@ -122,7 +105,7 @@ export function RepoNavSections({
         ],
       },
       {
-        label: "TEST",
+        label: "Test",
         items: [
           {
             name: "Documents",
@@ -142,7 +125,7 @@ export function RepoNavSections({
         ],
       },
       {
-        label: "MORE",
+        label: "More",
         items: [
           {
             name: "Automations",
@@ -276,14 +259,12 @@ export function RepoNavSections({
     <SharedLayoutNav layoutId="repo-main-nav" className="space-y-4">
       {repoNavigation.map((group) => (
         <div key={group.label}>
-          <CollapsibleSidebarSection
-            label={group.label}
-            open={openNavSections[group.label] ?? true}
-            onToggle={() => toggleNavSection(group.label)}
-            showHeader={!collapsed}
-          >
-            {group.items.map(renderRepoNavItem)}
-          </CollapsibleSidebarSection>
+          {!collapsed ? (
+            <p className="px-3 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground/55">
+              {group.label}
+            </p>
+          ) : null}
+          <div className="space-y-1">{group.items.map(renderRepoNavItem)}</div>
         </div>
       ))}
     </SharedLayoutNav>

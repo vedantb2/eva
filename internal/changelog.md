@@ -1,5 +1,9 @@
 # Changelog
 
+## App chrome polish: sidebar nav, shared page width, softer kanban - 2026-07-25
+
+Global pages mixed `comfortable` / default `PageWrapper` widths, and the app sidebar still used collapsible uppercase section chrome that fought the nav. Home/Inbox/Teams/Artifacts now share the same shell; sidebar sections are static title-case labels aligned with icons (tighter item padding); brand mark is larger; stats footer drops the redundant header; kanban column washes use `/40`; new-session helper copy is gone. Dev-only Agentation toolbar is mounted for visual feedback while iterating.
+
 ## Data @-mentions for sessions, projects, and quick tasks - 2026-07-25
 
 `@` in composers only listed documents, so referencing past chats or related work meant pasting links. The picker is now **Data** (docs + sessions + projects + quick tasks) with type badges; comments keep People and add the same Data entries. Docs still inline into the agent prompt; other kinds inject an Eva MCP fetch hint so the agent loads them on demand.

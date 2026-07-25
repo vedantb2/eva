@@ -101,28 +101,23 @@ export function NewSessionComposer() {
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
       <div className="flex w-full max-w-3xl flex-col gap-6">
-        <div className="space-y-1.5 text-center">
-          <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            <span>What are we building for</span>
-            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-primary">
-              <RepoLogo
-                logoUrl={logoUrl}
-                size={28}
-                fallback={
-                  <IconBrandGithub
-                    size={28}
-                    className="shrink-0 text-muted-foreground"
-                  />
-                }
-              />
-              <span className="truncate">{repoDisplayLabel(repo)}</span>
-            </span>
-            <span>?</span>
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Describe the task — Eva will start a session and title it for you.
-          </p>
-        </div>
+        <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+          <span>What are we building for</span>
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-primary">
+            <RepoLogo
+              logoUrl={logoUrl}
+              size={28}
+              fallback={
+                <IconBrandGithub
+                  size={28}
+                  className="shrink-0 text-muted-foreground"
+                />
+              }
+            />
+            <span className="truncate">{repoDisplayLabel(repo)}</span>
+          </span>
+          <span>?</span>
+        </h1>
         <ChatComposer
           repoId={repo._id}
           repoBasePath={basePath}

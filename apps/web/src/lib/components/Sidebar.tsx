@@ -376,7 +376,7 @@ export function Sidebar() {
                   <>
                     {repoName ? (
                       <div
-                        className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
+                        className="flex min-w-0 flex-1 items-center justify-center gap-2"
                         title={
                           repo
                             ? `${repoDisplayLabel(repo)} (${repo.owner}/${repo.name})`
@@ -388,9 +388,9 @@ export function Sidebar() {
                         {/* Always reserve the logo slot so late logoUrl does not reflow the title. */}
                         <RepoLogo
                           logoUrl={repoLogoUrl}
-                          size={18}
+                          size={28}
                           fallback={
-                            <span className="flex size-[18px] shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">
                               {(repo
                                 ? repoDisplayLabel(repo)
                                 : (repoName ?? "?")
@@ -400,7 +400,7 @@ export function Sidebar() {
                             </span>
                           }
                         />
-                        <span className="min-w-0 truncate text-sm font-medium text-sidebar-primary">
+                        <span className="min-w-0 truncate text-lg font-medium text-sidebar-primary">
                           {repo
                             ? repoDisplayLabel(repo)
                             : appName

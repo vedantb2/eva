@@ -11,7 +11,7 @@ export function ArtifactsGlobalClient() {
   const artifacts = useQuery(api.artifacts.listAll);
 
   return (
-    <PageWrapper title="Artifacts" comfortable>
+    <PageWrapper title="Artifacts">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           Hosted dashboards that read live data through the Eva connector.

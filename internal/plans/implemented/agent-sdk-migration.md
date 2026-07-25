@@ -1,6 +1,13 @@
 # Migrate the Claude provider off `claude -p` to the Claude Agent SDK
 
-Status: WORKING on dev (branch `feat/agent-sdk-migration`, PR #423). Verified
+Status: DONE (2026-07-25). CLI spawn path removed; Claude runs only via
+`@anthropic-ai/claude-agent-sdk`. `CLAUDE_ATTEMPT_MODE` is now `sdk` |
+`sdk-daemon` (default `sdk-daemon`). Codex/OpenCode/Cursor keep their CLI
+paths. Note: phase-1 plan text said flip default to `sdk`; production default
+is `sdk-daemon` (persistent warm session). Follow-up cleanup tracked in
+`internal/plans/todo/claude-cli-removal-followups.md`.
+
+Original plan status (superseded): WORKING on dev (branch `feat/agent-sdk-migration`, PR #423). Verified
 end-to-end via the local dev server (dev deployment with
 CLAUDE_ATTEMPT_MODE=sdk): new-session turn, tool-using turn with correct
 activity, and multi-turn resume with session memory all pass. Prod untouched

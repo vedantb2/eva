@@ -1,5 +1,9 @@
 # Changelog
 
+## Theme accents expand to Tailwind + monochrome None - 2026-07-25
+
+Theme settings only offered a short accent list on a grey-tinted shell. Accent swatches now cover the Tailwind chromatic palette, Appearance light/dark uses pure white/black surfaces, and a **None** accent gives black/white chrome with no hue. Also: online teammates sit above the sidebar stats card, and the new-session headline greets by first name.
+
 ## Persistent app chrome + list views that survive task clicks - 2026-07-25
 
 Crossing between global pages and repos remounted the whole sidebar/rail (two sibling layouts each mounted their own chrome), and `RepoProvider` blanked everything behind a full-screen spinner while the repo query resolved. Chrome (Sidebar, providers, Spotlight, overlays) now mounts once in `__root` via an `AppShell` gated by `staticData: { appShell: true }`; `RepoGate` scopes the repo-loading spinner to the routed content only. Quick-tasks list view and project task switching no longer unmount their lists while a task numId resolves — loading/not-found renders in the detail pane, so scroll position genuinely persists instead of being restored by the sessionStorage hack.

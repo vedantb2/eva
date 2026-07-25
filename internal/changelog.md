@@ -1,5 +1,9 @@
 # Changelog
 
+## Context sidebars: drop search, actions in header - 2026-07-25
+
+Docs, designs, automations, testing arena, reviews, and sessions sidebars each had a search row that competed with the title chrome. Search is gone from those panels; create / test-all actions sit at the right end of the panel header instead, so the list starts immediately under the title.
+
 ## Theme accents expand to Tailwind + monochrome None - 2026-07-25
 
 Theme settings only offered a short accent list on a grey-tinted shell. Accent swatches now cover the Tailwind chromatic palette, Appearance light/dark uses pure white/black surfaces, and a **None** accent gives black/white chrome with no hue. Also: online teammates sit above the sidebar stats card, and the new-session headline greets by first name.

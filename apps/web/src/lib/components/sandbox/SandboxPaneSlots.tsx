@@ -1,7 +1,7 @@
 "use client";
 
-import type { Doc, Id } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import type { Doc, Id } from "@eva/backend";
+import { cn } from "@eva/ui";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
@@ -9,7 +9,7 @@ import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPane
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
-import { DiffsPanel } from "./DiffsPanel";
+import { PrPanel } from "./PrPanel";
 import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
 import { ConsoleDock } from "./ConsoleDock";
@@ -23,20 +23,21 @@ interface SandboxPaneSlotsProps {
   preview: SandboxPreviewApi;
   owner: PtyOwner;
   sandboxId: string | undefined;
-  /** Vercel sandbox name; when set, the Daytona preview hint is hidden. */
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /** sessionStorage cache namespace for editor / desktop URL caches. */
   cacheKey: string;
   devCommand?: string;
-  /** PR URL for the Diffs tab; absent when no PR exists for this surface. */
+  /** PR URL for the PR tab; absent when no PR exists for this surface. */
   prUrl?: string;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
-  /** Sessions only — enables agent-browsing takeover overlay on the desktop surface. */
-  sessionId?: Id<"sessions">;
   agentBrowsingAt?: number;
+  /**
+   * Clears the agent-browsing soft lock for this owner (session/task/project
+   * mutation, provided by the caller). Takeover overlay only renders when set.
+   */
+  onReleaseBrowserLock?: () => void;
   /**
    * When false, the Preview Console does not auto-type the start command
    * (session sandboxes start it in tmux from the backend after startup).
@@ -45,11 +46,25 @@ interface SandboxPaneSlotsProps {
   runConsoleDevCommandOnConnect?: boolean;
   /** Computer/Browser desktop starting or running — gates Computer tab close. */
   onComputerRunningChange?: (running: boolean) => void;
+  /** Preview empty state Start button when sandbox is stopped. */
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
+  /** Session-only: preview select-element → chat submit. */
+  onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /** Session sticky Preview path from Convex. */
+  stickyPreviewPath?: string;
+  onStickyPreviewPathChange?: (path: string) => void;
+  /**
+   * Session sticky console history: seed + debounced persist of last ~500 lines.
+   * Only wired for the Preview Console pane.
+   */
+  stickyTerminalHistoryTail?: string;
+  onStickyTerminalHistoryTailChange?: (tail: string) => void;
 }
 
 /**
  * Renders the standard sandbox tab slots (preview, terminal, editor, desktop,
- * diffs) as a fragment. Callers wrap this in their own flex container and may
+ * Review) as a fragment. Callers wrap this in their own flex container and may
  * add their own slots alongside (e.g. session PRD slot).
  */
 export function SandboxPaneSlots({
@@ -58,17 +73,23 @@ export function SandboxPaneSlots({
   preview,
   owner,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   cacheKey,
   devCommand,
   prUrl,
   customTabs,
-  sessionId,
   agentBrowsingAt,
+  onReleaseBrowserLock,
   runConsoleDevCommandOnConnect = true,
   onComputerRunningChange,
+  onStartSandbox,
+  isSandboxStarting,
+  onAnnotationSubmit,
+  stickyPreviewPath,
+  onStickyPreviewPathChange,
+  stickyTerminalHistoryTail,
+  onStickyTerminalHistoryTailChange,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -82,19 +103,27 @@ export function SandboxPaneSlots({
     handleCloseTerminal,
   } = panes;
 
+  // Keep Preview chrome + iframes mounted while the Preview tab is hidden so
+  // switching away (Editor / Review / …) does not remount the running app.
   const previewRegion = (
     <div className="flex h-full min-h-0 flex-col">
-      {activeTab === "preview" ? (
+      <div className={activeTab === "preview" ? undefined : "hidden"}>
         <PreviewPaneTabs
           previewIds={previewIds}
           activeId={resolvedPreviewActive}
           onSelect={setPreviewActive}
           onClose={handleClosePreview}
         />
-      ) : null}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        {activeTab === "preview" && previewIds.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        {previewIds.length === 0 ? (
+          <div
+            className={
+              activeTab === "preview"
+                ? "flex flex-1 items-center justify-center text-sm text-muted-foreground"
+                : "hidden"
+            }
+          >
             Preparing preview...
           </div>
         ) : null}
@@ -110,7 +139,6 @@ export function SandboxPaneSlots({
             <WebPreviewPanel
               isActive={isActive}
               sandboxId={sandboxId}
-              vercelSandboxId={vercelSandboxId}
               previewInfo={preview.previewInfo}
               isLoading={preview.isLoading}
               error={preview.error}
@@ -119,13 +147,18 @@ export function SandboxPaneSlots({
               port={preview.effectivePort}
               onPortChange={preview.setPort}
               pathStorageKey={[
-                "conductor",
+                "eva",
                 owner.kind,
                 cacheKey,
                 "preview-path",
                 id,
                 preview.effectivePort,
               ].join(":")}
+              stickyPath={stickyPreviewPath}
+              onStickyPathChange={onStickyPreviewPathChange}
+              onStartSandbox={onStartSandbox}
+              isSandboxStarting={isSandboxStarting}
+              onAnnotationSubmit={onAnnotationSubmit}
             />
           </div>
         ))}
@@ -143,7 +176,7 @@ export function SandboxPaneSlots({
         }
       >
         <ConsoleDock
-          storageKey={`conductor:${owner.kind}:${cacheKey}:console`}
+          storageKey={`eva:${owner.kind}:${cacheKey}:console`}
           preview={previewRegion}
           renderConsole={(visible) =>
             consolePane ? (
@@ -156,6 +189,8 @@ export function SandboxPaneSlots({
                   isForeground={activeTab === "preview" && visible}
                   runDevCommandOnConnect={runConsoleDevCommandOnConnect}
                   devCommand={devCommand}
+                  stickyHistoryTail={stickyTerminalHistoryTail}
+                  onStickyHistoryTailChange={onStickyTerminalHistoryTailChange}
                 />
               </div>
             ) : null
@@ -166,7 +201,6 @@ export function SandboxPaneSlots({
         <EditorPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
         />
@@ -174,14 +208,14 @@ export function SandboxPaneSlots({
       <div
         className={activeTab === "terminal" ? "h-full flex flex-col" : "hidden"}
       >
-        {activeTab === "terminal" ? (
+        <div className={activeTab === "terminal" ? undefined : "hidden"}>
           <TerminalPaneTabs
             termIds={userTermPanes.map((pane) => pane.id)}
             activeId={resolvedTermActive}
             onSelect={setTermActive}
             onClose={handleCloseTerminal}
           />
-        ) : null}
+        </div>
         <div className="flex min-h-0 flex-1 flex-col">
           {userTermPanes.map((pane) => (
             <div
@@ -217,17 +251,20 @@ export function SandboxPaneSlots({
         <DesktopPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           surface={activeTab === "browser" ? "browser" : "desktop"}
-          sessionId={sessionId}
           agentBrowsingAt={agentBrowsingAt}
+          onReleaseLock={onReleaseBrowserLock}
           onRunningChange={onComputerRunningChange}
         />
       </div>
-      <div className={activeTab === "diffs" ? "h-full" : "hidden"}>
-        <DiffsPanel prUrl={prUrl} repoId={repoId} />
+      <div className={activeTab === "review" ? "h-full" : "hidden"}>
+        <PrPanel
+          prUrl={prUrl}
+          repoId={repoId}
+          isActive={activeTab === "review"}
+        />
       </div>
       {customTabs?.map((tab) => {
         const slug = slugifyAppTabName(tab.name);
@@ -236,15 +273,14 @@ export function SandboxPaneSlots({
             key={tab._id}
             className={activeTab === slug ? "h-full" : "hidden"}
           >
-            {activeTab === slug ? (
-              <CustomTabPanel
-                name={tab.name}
-                port={tab.port}
-                sandboxId={sandboxId}
-                isActive={isActive}
-                repoId={repoId}
-              />
-            ) : null}
+            <CustomTabPanel
+              name={tab.name}
+              port={tab.port}
+              sandboxId={sandboxId}
+              isActive={isActive}
+              isForeground={activeTab === slug}
+              repoId={repoId}
+            />
           </div>
         );
       })}

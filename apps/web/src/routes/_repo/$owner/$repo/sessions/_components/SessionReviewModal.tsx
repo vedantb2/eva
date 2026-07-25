@@ -8,14 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconCircleCheck } from "@tabler/icons-react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { m, AnimatePresence } from "motion/react";
+import { useEffect, useState } from "react";
 
 const REVIEW_AUDITS = [
   "Running code audits",
@@ -47,15 +47,15 @@ export function SessionReviewModal({
     reviewStep === "auditing" ? { sessionId } : "skip",
   );
 
-  const resetState = useCallback(() => {
+  const resetState = () => {
     setReviewStep("confirm");
     setCompletedAudits(0);
-  }, []);
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     onClose();
     resetState();
-  }, [onClose, resetState]);
+  };
 
   const handleCreatePr = async () => {
     setReviewStep("auditing");
@@ -70,29 +70,34 @@ export function SessionReviewModal({
       }
     } catch {
       setReviewStep("confirm");
-    } finally {
-      setIsCreatingPr(false);
     }
+    setIsCreatingPr(false);
   };
 
   useEffect(() => {
-    if (reviewStep !== "auditing") return;
-    const status = sessionAudit?.status;
-    if (status !== "completed" && status !== "error") return;
-    const timers = REVIEW_AUDITS.map((_, index) =>
-      setTimeout(
-        () => setCompletedAudits((prev) => prev + 1),
-        (index + 1) * 400,
-      ),
-    );
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (reviewStep === "auditing") {
+      const status = sessionAudit?.status;
+      if (status === "completed" || status === "error") {
+        for (let index = 0; index < REVIEW_AUDITS.length; index++) {
+          timers.push(
+            setTimeout(
+              () => setCompletedAudits((prev) => prev + 1),
+              (index + 1) * 400,
+            ),
+          );
+        }
+      }
+    }
     return () => timers.forEach(clearTimeout);
   }, [sessionAudit?.status, reviewStep]);
 
   useEffect(() => {
-    if (reviewStep === "auditing" && completedAudits >= REVIEW_AUDITS.length) {
-      const timer = setTimeout(() => setReviewStep("complete"), 300);
-      return () => clearTimeout(timer);
+    if (reviewStep !== "auditing" || completedAudits < REVIEW_AUDITS.length) {
+      return;
     }
+    const timer = setTimeout(() => setReviewStep("complete"), 300);
+    return () => clearTimeout(timer);
   }, [reviewStep, completedAudits]);
 
   return (
@@ -105,7 +110,7 @@ export function SessionReviewModal({
       <DialogContent>
         <AnimatePresence initial={false} mode="wait">
           {reviewStep === "confirm" && (
-            <motion.div
+            <m.div
               key="confirm"
               className="space-y-4"
               initial={{ opacity: 0 }}
@@ -120,9 +125,10 @@ export function SessionReviewModal({
                 <p>
                   By clicking this you confirm that all your changes have been
                   tested in your session, you are happy with those changes, have
-                  generated a summary, and agree with the changes. Your session
-                  will become uneditable while a developer reviews the code
-                  changes before merging into staging/production.
+                  generated a summary, and agree with the changes. Your pull
+                  request will be marked ready for review so a developer can
+                  review the code before merging into staging/production. The
+                  session stays open and editable.
                 </p>
                 <p>
                   The following audits will also run automatically in the
@@ -145,10 +151,10 @@ export function SessionReviewModal({
                   {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
                 </Button>
               </DialogFooter>
-            </motion.div>
+            </m.div>
           )}
           {reviewStep === "auditing" && (
-            <motion.div
+            <m.div
               key="auditing"
               className="space-y-4"
               initial={{ opacity: 0, x: 20 }}
@@ -166,7 +172,7 @@ export function SessionReviewModal({
                     index === completedAudits &&
                     completedAudits < REVIEW_AUDITS.length;
                   return (
-                    <motion.div
+                    <m.div
                       key={audit}
                       className="flex items-center gap-3"
                       initial={{ opacity: 0, x: -8 }}
@@ -175,9 +181,9 @@ export function SessionReviewModal({
                     >
                       <div className="flex h-5 w-5 items-center justify-center">
                         {isComplete ? (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
+                          <m.div
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
                             transition={{
                               type: "spring",
                               stiffness: 300,
@@ -188,7 +194,7 @@ export function SessionReviewModal({
                               size={20}
                               className="text-success"
                             />
-                          </motion.div>
+                          </m.div>
                         ) : isActive ? (
                           <Spinner size="sm" />
                         ) : (
@@ -200,14 +206,14 @@ export function SessionReviewModal({
                       >
                         {audit}
                       </span>
-                    </motion.div>
+                    </m.div>
                   );
                 })}
               </div>
-            </motion.div>
+            </m.div>
           )}
           {reviewStep === "complete" && (
-            <motion.div
+            <m.div
               key="complete"
               className="space-y-4"
               initial={{ opacity: 0, x: 20 }}
@@ -217,7 +223,7 @@ export function SessionReviewModal({
               <DialogHeader>
                 <DialogTitle>Review Sent</DialogTitle>
               </DialogHeader>
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
@@ -230,11 +236,11 @@ export function SessionReviewModal({
                 <p className="text-sm font-medium text-success">
                   This information has automatically been sent to the dev team.
                 </p>
-              </motion.div>
+              </m.div>
               <DialogFooter>
                 <Button onClick={handleClose}>Done</Button>
               </DialogFooter>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </DialogContent>

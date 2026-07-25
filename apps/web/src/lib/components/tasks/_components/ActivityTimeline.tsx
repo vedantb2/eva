@@ -11,12 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { CreatedTimelineItem } from "./CreatedTimelineItem";
 import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
@@ -39,10 +40,15 @@ type Streaming = FunctionReturnType<typeof api.streaming.get>;
 type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
+type User = NonNullable<Users>[number];
 type Proofs = FunctionReturnType<typeof api.taskProof.listByTask>;
 type Proof = NonNullable<Proofs>[number];
 
 type ActivityItem =
+  | {
+      kind: "created";
+      timestamp: number;
+    }
   | {
       kind: "audit";
       timestamp: number;
@@ -56,7 +62,7 @@ type ActivityItem =
   | {
       kind: "proof";
       timestamp: number;
-      proof: Proof;
+      proofs: Proof[];
     }
   | {
       kind: "taskActivity";
@@ -71,6 +77,8 @@ type ActivityItem =
 
 export function ActivityTimeline({
   taskId,
+  createdAt,
+  creatorUser,
   runs,
   allAudits,
   comments,
@@ -96,6 +104,8 @@ export function ActivityTimeline({
   isProjectTask,
 }: {
   taskId: Id<"agentTasks">;
+  createdAt: number | undefined;
+  creatorUser: User | undefined;
   isProjectTask: boolean;
   runs: Runs | undefined;
   allAudits: Audits | undefined;
@@ -154,9 +164,8 @@ export function ActivityTimeline({
       setDeletingCommentId(null);
     } catch (err) {
       console.error("Failed to delete comment:", err);
-    } finally {
-      setIsDeletingComment(false);
     }
+    setIsDeletingComment(false);
   };
 
   const userComments = comments?.filter((c) => c.authorId) ?? [];
@@ -178,33 +187,21 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
-  const runIds = new Set((runs ?? []).map((run) => run._id));
-  const proofsByRunId = new Map<string, Proof[]>();
-  const orphanProofs: Proof[] = [];
-  for (const proof of proofs ?? []) {
-    if (!proof.url && !proof.message) continue;
-    if (proof.runId && runIds.has(proof.runId)) {
-      const existing = proofsByRunId.get(proof.runId) ?? [];
-      existing.push(proof);
-      proofsByRunId.set(proof.runId, existing);
-    } else {
-      orphanProofs.push(proof);
-    }
+  // Proofs are top-level timeline events. Media for the same run collapses into
+  // one row so the proof-capture accordion (and gallery) is not duplicated when
+  // a retry saved a second screenshot.
+  const timelineProofs = (proofs ?? []).filter(
+    (proof) => proof.url || proof.message,
+  );
+  const proofGroups = new Map<string, Proof[]>();
+  for (const proof of timelineProofs) {
+    const key =
+      proof.runId !== undefined ? `run:${proof.runId}` : `proof:${proof._id}`;
+    const group = proofGroups.get(key) ?? [];
+    group.push(proof);
+    proofGroups.set(key, group);
   }
-
-  // An audit's `runId` is the code-generation run it audited, so nest each
-  // audit under its run. Audits with no matching loaded run (session audits,
-  // legacy) fall back to a top-level timeline item so nothing disappears.
   const latestAuditId = allAudits?.[0]?._id;
-  const auditsByRunId = new Map<string, NonNullable<Audits>[number]>();
-  const orphanAudits: NonNullable<Audits>[number][] = [];
-  for (const audit of allAudits ?? []) {
-    if (audit.runId && runIds.has(audit.runId)) {
-      auditsByRunId.set(audit.runId, audit);
-    } else {
-      orphanAudits.push(audit);
-    }
-  }
 
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
@@ -212,7 +209,10 @@ export function ActivityTimeline({
   );
 
   const activityTimeline: ActivityItem[] = [
-    ...orphanAudits.map((audit) => ({
+    ...(createdAt !== undefined
+      ? [{ kind: "created" as const, timestamp: createdAt }]
+      : []),
+    ...(allAudits ?? []).map((audit) => ({
       kind: "audit" as const,
       timestamp: audit.createdAt,
       audit,
@@ -227,19 +227,109 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...orphanProofs.map((proof) => ({
+    ...[...proofGroups.values()].map((group) => ({
       kind: "proof" as const,
-      timestamp: proof.createdAt,
-      proof,
+      timestamp: Math.max(...group.map((p) => p.createdAt)),
+      proofs: group,
     })),
-    ...topLevelComments
-      .filter((comment) => !commentsShownWithRuns.has(comment._id))
-      .map((comment) => ({
-        kind: "comment" as const,
-        timestamp: comment.createdAt,
-        comment,
-      })),
+    ...topLevelComments.flatMap((comment) =>
+      commentsShownWithRuns.has(comment._id)
+        ? []
+        : [
+            {
+              kind: "comment" as const,
+              timestamp: comment.createdAt,
+              comment,
+            },
+          ],
+    ),
   ].sort((a, b) => a.timestamp - b.timestamp);
+
+  // Comments sit in cards off the rail; contiguous non-comment events share a line.
+  type TimelineSegment =
+    | { kind: "rail"; items: ActivityItem[] }
+    | { kind: "comment"; item: Extract<ActivityItem, { kind: "comment" }> };
+
+  const segments: TimelineSegment[] = [];
+  for (const item of activityTimeline) {
+    if (item.kind === "comment") {
+      segments.push({ kind: "comment", item });
+      continue;
+    }
+    const last = segments[segments.length - 1];
+    if (last?.kind === "rail") {
+      last.items.push(item);
+    } else {
+      segments.push({ kind: "rail", items: [item] });
+    }
+  }
+
+  const renderTimelineItem = (item: ActivityItem) => {
+    if (item.kind === "created") {
+      return (
+        <CreatedTimelineItem
+          key="created"
+          createdAt={item.timestamp}
+          creatorUser={creatorUser}
+          isProjectTask={isProjectTask}
+        />
+      );
+    }
+    if (item.kind === "audit") {
+      const audit = item.audit;
+      const isLatest = audit._id === latestAuditId;
+      return (
+        <AuditTimelineItem
+          key={`audit-${audit._id}`}
+          audit={audit}
+          isLatest={isLatest}
+          auditStreaming={auditStreaming}
+          auditElapsed={auditElapsed}
+          fixElapsed={fixElapsed}
+        />
+      );
+    }
+    if (item.kind === "taskActivity") {
+      return (
+        <TaskActivityItem
+          key={`activity-${item.activity._id}`}
+          event={item.activity}
+          users={users}
+        />
+      );
+    }
+    if (item.kind === "proof") {
+      return (
+        <ProofTimelineItem
+          key={`proof-${item.proofs.map((p) => p._id).join("-")}`}
+          proofs={item.proofs}
+        />
+      );
+    }
+    if (item.kind === "comment") {
+      return null;
+    }
+    const run = item.run;
+    const isActiveRun = run.status === "running" || run.status === "queued";
+    const runComment = runCommentMap.get(run._id);
+    return (
+      <Suspense key={run._id} fallback={<Spinner size="sm" />}>
+        <RunTimelineItem
+          run={run}
+          isActiveRun={isActiveRun}
+          streaming={streaming}
+          activeRunElapsed={activeRunElapsed}
+          isStopping={isStopping}
+          onStopConfirm={onStopConfirm}
+          runComment={runComment}
+          runCommentReplies={
+            runComment ? (repliesByParentId.get(runComment._id) ?? []) : []
+          }
+          users={users}
+        />
+      </Suspense>
+    );
+  };
 
   return (
     <div className="flex flex-col">
@@ -247,42 +337,9 @@ export function ActivityTimeline({
         {activityTimeline.length === 0 ? (
           <ConversationEmptyState title="No activity yet" />
         ) : (
-          activityTimeline.map((item, index) => {
-            if (item.kind === "audit") {
-              const audit = item.audit;
-              const auditIndex = (allAudits ?? []).indexOf(audit);
-              const isLatest = auditIndex === 0;
-              return (
-                <AuditTimelineItem
-                  key={`audit-${audit._id}`}
-                  audit={audit}
-                  isLatest={isLatest}
-                  isFirst={index === activityTimeline.length - 1}
-                  auditStreaming={auditStreaming}
-                  auditElapsed={auditElapsed}
-                  fixElapsed={fixElapsed}
-                />
-              );
-            }
-            if (item.kind === "taskActivity") {
-              return (
-                <TaskActivityItem
-                  key={`activity-${item.activity._id}`}
-                  event={item.activity}
-                  users={users}
-                />
-              );
-            }
-            if (item.kind === "proof") {
-              return (
-                <ProofTimelineItem
-                  key={`proof-${item.proof._id}`}
-                  proof={item.proof}
-                />
-              );
-            }
-            if (item.kind === "comment") {
-              const comment = item.comment;
+          segments.map((segment, segmentIndex) => {
+            if (segment.kind === "comment") {
+              const comment = segment.item.comment;
               return (
                 <CommentThread
                   key={`comment-${comment._id}`}
@@ -294,36 +351,19 @@ export function ActivityTimeline({
                 />
               );
             }
-            const run = item.run;
-            const isActiveRun =
-              run.status === "running" || run.status === "queued";
-            const runComment = runCommentMap.get(run._id);
+
             return (
-              <Suspense key={run._id} fallback={<Spinner size="sm" />}>
-                <RunTimelineItem
-                  run={run}
-                  isActiveRun={isActiveRun}
-                  streaming={streaming}
-                  activeRunElapsed={activeRunElapsed}
-                  isStopping={isStopping}
-                  onStopConfirm={onStopConfirm}
-                  runComment={runComment}
-                  runCommentReplies={
-                    runComment
-                      ? (repliesByParentId.get(runComment._id) ?? [])
-                      : []
-                  }
-                  users={users}
-                  proofs={proofsByRunId.get(run._id)}
-                  audit={auditsByRunId.get(run._id)}
-                  isLatestAudit={
-                    auditsByRunId.get(run._id)?._id === latestAuditId
-                  }
-                  auditStreaming={auditStreaming}
-                  auditElapsed={auditElapsed}
-                  fixElapsed={fixElapsed}
+              <div
+                key={`rail-${segmentIndex}`}
+                className="relative flex flex-col gap-4"
+              >
+                {/* Rail only through non-comment events in this contiguous block. */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute bottom-2 left-2 top-2 w-px -translate-x-1/2 bg-border"
                 />
-              </Suspense>
+                {segment.items.map((item) => renderTimelineItem(item))}
+              </div>
             );
           })
         )}

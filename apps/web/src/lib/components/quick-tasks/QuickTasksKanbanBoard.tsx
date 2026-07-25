@@ -2,14 +2,14 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { RunAllDialog } from "./RunAllDialog";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
@@ -50,33 +50,29 @@ export function QuickTasksKanbanBoard({
         api.agentTasks.getAllTasks,
         { repoId },
         current.map((task) =>
-          task._id === args.id ? { ...task, status: args.status } : task,
+          task._id === args.id
+            ? { ...task, status: args.status, updatedAt: Date.now() }
+            : task,
         ),
       );
     }
   });
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [{ statuses }] = useQuickTaskFilters();
-  const visibleStatuses = useMemo(
-    () => new Set<DisplayTaskStatus>(statuses),
-    [statuses],
-  );
+  const visibleStatuses = new Set<DisplayTaskStatus>(statuses);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  // Respect the sort order applied by QuickTasksClient (e.g. by latest run).
+  // Respect the sort order applied by QuickTasksClient (default: updatedAt).
   // Re-sorting here would override the user's chosen sort.
   const tasks = externalTasks;
 
-  const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
+  const taskIds = tasks.map((t) => t._id);
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
     repoId,
     taskIds,
   });
-  const errorTaskIdSet = useMemo(
-    () => new Set(errorTaskIds ?? []),
-    [errorTaskIds],
-  );
+  const errorTaskIdSet = new Set(errorTaskIds ?? []);
   const deploymentStatuses = useQuery(
     api.agentRuns.getLatestDeploymentStatuses,
     {
@@ -84,13 +80,13 @@ export function QuickTasksKanbanBoard({
       taskIds,
     },
   );
-  const deploymentStatusMap = useMemo(() => {
-    const map = new Map<string, "queued" | "building" | "deployed" | "error">();
-    for (const entry of deploymentStatuses ?? []) {
-      map.set(entry.taskId, entry.deploymentStatus);
-    }
-    return map;
-  }, [deploymentStatuses]);
+  const deploymentStatusMap = new Map<
+    string,
+    "queued" | "building" | "deployed" | "error"
+  >();
+  for (const entry of deploymentStatuses ?? []) {
+    deploymentStatusMap.set(entry.taskId, entry.deploymentStatus);
+  }
 
   if (tasks.length === 0) {
     return null;
@@ -128,9 +124,8 @@ export function QuickTasksKanbanBoard({
       }
     } catch (err) {
       console.error("Failed to run all:", err);
-    } finally {
-      setIsRunningAll(false);
     }
+    setIsRunningAll(false);
   };
 
   return (

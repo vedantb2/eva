@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useState, createElement } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import { Button, Input } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Input } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -12,6 +12,12 @@ import {
 } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import { CustomTabRow } from "./_components/CustomTabRow";
+
+function TabIconPreview({ icon }: { icon: string }) {
+  return createElement(resolveTablerIcon(icon), {
+    className: "mb-2 h-4 w-4 shrink-0 text-muted-foreground",
+  });
+}
 
 function nameError(
   name: string,
@@ -40,13 +46,13 @@ export function TabsSettingsClient() {
   const [port, setPort] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const takenSlugs = useMemo(() => {
+  const takenSlugs = (() => {
     const set = new Set<string>();
     for (const tab of tabs ?? []) {
       set.add(slugifyAppTabName(tab.name));
     }
     return set;
-  }, [tabs]);
+  })();
 
   const parsedPort = parseInt(port.trim(), 10);
   const portValid =
@@ -59,7 +65,7 @@ export function TabsSettingsClient() {
     portValid &&
     validationError === null;
 
-  const handleAdd = useCallback(async () => {
+  async function handleAdd() {
     if (!canAdd) return;
     setSubmitError(null);
     try {
@@ -76,9 +82,8 @@ export function TabsSettingsClient() {
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to add tab");
     }
-  }, [canAdd, create, repoId, name, icon, parsedPort]);
+  }
 
-  const PreviewIcon = resolveTablerIcon(icon.trim());
   const formError = validationError ?? submitError;
 
   return (
@@ -107,7 +112,7 @@ export function TabsSettingsClient() {
           </div>
 
           <div className="flex items-end gap-2">
-            <PreviewIcon className="mb-2 h-4 w-4 shrink-0 text-muted-foreground" />
+            <TabIconPreview icon={icon.trim()} />
             <div className="flex-1">
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Name

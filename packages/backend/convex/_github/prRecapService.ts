@@ -10,7 +10,7 @@ import {
 } from "../_validators/aiModels";
 import { aiModelValidator } from "../validators";
 import { PR_RECAP_COMMENT_MARKER, buildPrRecapCommentBody } from "./prComments";
-import { buildEvaDocUrl } from "../_taskWorkflow/urls";
+import { buildEvaReviewUrl } from "../_taskWorkflow/urls";
 
 const MAX_DIFF_BYTES = 500_000;
 const MAX_FILES = 100;
@@ -122,7 +122,7 @@ export const upsertPrRecapComment = internalAction({
     repo: v.string(),
     prNumber: v.number(),
     body: v.optional(v.string()),
-    /** Per-repo numeric path id (routes are /docs/$numId/…). */
+    /** Legacy; Reviews links use prNumber. Kept optional for older callers. */
     docNumId: v.optional(v.number()),
     headSha: v.optional(v.string()),
     status: v.optional(
@@ -135,21 +135,17 @@ export const upsertPrRecapComment = internalAction({
   handler: async (_ctx, args) => {
     let body = args.body;
     if (!body) {
-      if (
-        args.docNumId === undefined ||
-        !args.headSha ||
-        args.status === undefined
-      ) {
+      if (!args.headSha || args.status === undefined) {
         throw new Error(
           "upsertPrRecapComment requires body or doc recap fields",
         );
       }
       body = buildPrRecapCommentBody({
-        evaDocUrl: buildEvaDocUrl(
+        evaDocUrl: buildEvaReviewUrl(
           args.owner,
           args.repo,
-          args.docNumId,
-          "html",
+          args.prNumber,
+          "recap",
           args.rootDirectory,
         ),
         prNumber: args.prNumber,

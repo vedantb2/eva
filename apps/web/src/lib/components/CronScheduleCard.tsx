@@ -1,6 +1,6 @@
 import cronstrue from "cronstrue";
 import { CronExpressionParser } from "cron-parser";
-import { Input } from "@conductor/ui";
+import { Input } from "@eva/ui";
 
 function getOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();

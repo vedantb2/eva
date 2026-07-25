@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { api, Doc, Id } from "@conductor/backend";
+import type { api, Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
@@ -12,7 +12,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@conductor/ui";
+  DropdownMenuSeparator,
+} from "@eva/ui";
 import {
   IconGitPullRequest,
   IconBrandVercel,
@@ -28,7 +29,9 @@ import {
   IconRefresh,
   IconServerBolt,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { TaskRunOptionsMenu } from "./TaskRunOptionsMenu";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -113,14 +116,24 @@ export function TaskFooter({
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRequestChanges =
     status !== "todo" && status !== "in_progress" && status !== undefined;
+  const showRunDevServer = isSandboxActive && canStartSandbox;
+  const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
+  const hasSandboxCommandItems =
+    canStartSandbox || showRunDevServer || showRunBackgroundCommands;
+  const hasPrLinkItems =
+    canCreatePr ||
+    Boolean(latestPrUrl) ||
+    Boolean(latestDeployment?.deploymentStatus);
   const showMoreMenu =
+    isHeader ||
     canStartSandbox ||
     canCreatePr ||
     showResolveConflicts ||
     showRequestChanges ||
-    Boolean(latestDeployment?.deploymentStatus);
+    Boolean(latestDeployment?.deploymentStatus) ||
+    Boolean(latestPrUrl);
   const hasSecondaryContent =
-    showViewSandbox || showStopSandbox || showMoreMenu || Boolean(latestPrUrl);
+    isHeader || showViewSandbox || showStopSandbox || showMoreMenu;
 
   return (
     <div
@@ -156,6 +169,9 @@ export function TaskFooter({
             size={buttonSize}
           />
         )}
+        {showRunButton && (
+          <TaskRunOptionsMenu taskId={taskId} size={buttonSize} />
+        )}
         {showRunButton && hasSecondaryContent && (
           <div className="h-6 w-px bg-muted-foreground/20" />
         )}
@@ -169,9 +185,12 @@ export function TaskFooter({
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size={buttonSize}>
+                <Button
+                  variant="secondary"
+                  size={buttonSize === "sm" ? "icon-sm" : "icon"}
+                  aria-label="More"
+                >
                   <IconDots size={iconSize} />
-                  <span className="hidden sm:inline">More</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -188,6 +207,9 @@ export function TaskFooter({
                     Resolve Conflicts
                   </DropdownMenuItem>
                 )}
+                {showResolveConflicts && hasSandboxCommandItems ? (
+                  <DropdownMenuSeparator />
+                ) : null}
                 {canStartSandbox && (
                   <DropdownMenuItem
                     onClick={onRunStartupCommands}
@@ -201,7 +223,7 @@ export function TaskFooter({
                     Run Startup Commands
                   </DropdownMenuItem>
                 )}
-                {isSandboxActive && canStartSandbox ? (
+                {showRunDevServer ? (
                   <DropdownMenuItem
                     onClick={onRunDevServer}
                     disabled={isRunningDevServer}
@@ -214,7 +236,7 @@ export function TaskFooter({
                     Run Dev Server
                   </DropdownMenuItem>
                 ) : null}
-                {isSandboxActive && canStartSandbox ? (
+                {showRunBackgroundCommands ? (
                   <DropdownMenuItem
                     onClick={onRunBackgroundCommands}
                     disabled={isRunningBackgroundCommands}
@@ -226,6 +248,10 @@ export function TaskFooter({
                     )}
                     Run Background Commands
                   </DropdownMenuItem>
+                ) : null}
+                {(showResolveConflicts || hasSandboxCommandItems) &&
+                hasPrLinkItems ? (
+                  <DropdownMenuSeparator />
                 ) : null}
                 {canCreatePr && (
                   <DropdownMenuItem
@@ -240,6 +266,18 @@ export function TaskFooter({
                     Create PR
                   </DropdownMenuItem>
                 )}
+                {latestPrUrl ? (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={latestPrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <IconGitPullRequest size={14} />
+                      View PR
+                    </a>
+                  </DropdownMenuItem>
+                ) : null}
                 {latestDeployment?.deploymentStatus && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -256,23 +294,30 @@ export function TaskFooter({
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {(showResolveConflicts ||
+                  hasSandboxCommandItems ||
+                  hasPrLinkItems) &&
+                showRequestChanges ? (
+                  <DropdownMenuSeparator />
+                ) : null}
                 {showRequestChanges && (
                   <DropdownMenuItem onClick={onRequestChanges}>
                     <IconMessagePlus size={14} />
                     Request Changes
                   </DropdownMenuItem>
                 )}
+                {isHeader ? (
+                  <>
+                    {(showResolveConflicts ||
+                      hasSandboxCommandItems ||
+                      hasPrLinkItems ||
+                      showRequestChanges) && <DropdownMenuSeparator />}
+                    <CopyLinkMenuItem iconSize={14} />
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {latestPrUrl ? (
-            <Button asChild variant="secondary" size={buttonSize}>
-              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                <IconGitPullRequest size={iconSize} />
-                <span className="hidden sm:inline">View PR</span>
-              </a>
-            </Button>
-          ) : null}
           {showStopSandbox ? (
             <Button
               variant="destructive"
@@ -302,7 +347,7 @@ export function TaskFooter({
                 <IconTerminal2 size={iconSize} />
               )}
               {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
               )}
               <span className="hidden sm:inline">
                 {isSandboxStopping

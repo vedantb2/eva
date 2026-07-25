@@ -1,15 +1,9 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  useLayoutEffect,
-} from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -23,6 +17,7 @@ import {
   parseTerminalControlMessage,
   parseVercelExitMessage,
   sendVercelPtyControl,
+  terminalHistoryTail,
   type PtyProtocol,
   type TerminalHistoryWriter,
 } from "./_utils";
@@ -45,6 +40,12 @@ interface TerminalPanelProps {
   isForeground: boolean;
   runDevCommandOnConnect: boolean;
   devCommand?: string;
+  /**
+   * Session Preview Console only: Convex-backed scrollback seed (last ~500
+   * lines). Tab-local sessionStorage still caches a larger buffer.
+   */
+  stickyHistoryTail?: string;
+  onStickyHistoryTailChange?: (tail: string) => void;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -79,6 +80,8 @@ export function TerminalPanel({
   isForeground,
   runDevCommandOnConnect,
   devCommand,
+  stickyHistoryTail,
+  onStickyHistoryTailChange,
 }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +90,7 @@ export function TerminalPanel({
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const ptyProtocolRef = useRef<PtyProtocol>("daytona");
+  const ptyProtocolRef = useRef<PtyProtocol>("vercel");
   const intentionalCloseRef = useRef(false);
   /** Set when the Vercel interactive shell sends an exit frame — do not reconnect. */
   const shellExitedRef = useRef(false);
@@ -97,21 +100,94 @@ export function TerminalPanel({
     sandboxId ?? "no-sandbox",
     ptyInstanceId,
   );
+  const ownerKey =
+    owner.kind === "session"
+      ? `session:${owner.sessionId}`
+      : owner.kind === "task"
+        ? `task:${owner.taskId}`
+        : `project:${owner.projectId}`;
   const [terminalHistory, setTerminalHistory] = useSessionStorage(
     terminalHistoryKey,
     "",
   );
+  // Prefer Convex sticky seed when this tab has no local scrollback yet.
+  const seededHistoryRef = useRef(false);
+  useEffect(() => {
+    if (seededHistoryRef.current) return;
+    if (stickyHistoryTail === undefined) return;
+    seededHistoryRef.current = true;
+    if (terminalHistory.length === 0 && stickyHistoryTail.length > 0) {
+      setTerminalHistory(stickyHistoryTail);
+    }
+  }, [stickyHistoryTail, terminalHistory.length, setTerminalHistory]);
+
   const terminalHistoryRef = useRef(terminalHistory);
-  terminalHistoryRef.current = terminalHistory;
+  useEffect(() => {
+    terminalHistoryRef.current = terminalHistory;
+  }, [terminalHistory]);
+
+  // Debounced Convex persist of last 500 lines (sessions console only).
+  const stickyPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const onStickyHistoryTailChangeRef = useRef(onStickyHistoryTailChange);
+  useEffect(() => {
+    onStickyHistoryTailChangeRef.current = onStickyHistoryTailChange;
+  }, [onStickyHistoryTailChange]);
+
+  const setTerminalHistoryWithSticky = (
+    updater: string | ((current: string) => string),
+  ) => {
+    setTerminalHistory((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      if (onStickyHistoryTailChangeRef.current) {
+        if (stickyPersistTimerRef.current !== null) {
+          clearTimeout(stickyPersistTimerRef.current);
+        }
+        stickyPersistTimerRef.current = setTimeout(() => {
+          stickyPersistTimerRef.current = null;
+          onStickyHistoryTailChangeRef.current?.(terminalHistoryTail(next));
+        }, 2000);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (stickyPersistTimerRef.current === null) return;
+      clearTimeout(stickyPersistTimerRef.current);
+      stickyPersistTimerRef.current = null;
+      onStickyHistoryTailChangeRef.current?.(
+        terminalHistoryTail(terminalHistoryRef.current),
+      );
+    };
+  }, []);
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
 
   const resizePtyRef = useRef(resizePtyAction);
-  resizePtyRef.current = resizePtyAction;
+  useEffect(() => {
+    resizePtyRef.current = resizePtyAction;
+  }, [resizePtyAction]);
 
-  const connectWebSocket = useCallback(
-    async (
+  // Keep connect logic off the connect-effect dep list. Listing the function
+  // itself re-ran the effect on every parent render (preview poll, Convex
+  // updates), which tore down the WebSocket, called connectPty again (log
+  // spam), and cleared the Vercel console — looks like a permanent refresh.
+  const connectWebSocketRef = useRef<
+    (
+      terminal: Terminal,
+      mounted: { current: boolean },
+      historyWriter: TerminalHistoryWriter,
+    ) => Promise<void>
+  >(async () => {});
+
+  // Sync latest connect closure into a ref each commit (not during render) so
+  // the mount effect can call a stable ref without re-subscribing.
+  useEffect(() => {
+    connectWebSocketRef.current = async (
       terminal: Terminal,
       mounted: { current: boolean },
       historyWriter: TerminalHistoryWriter,
@@ -257,17 +333,14 @@ export function TerminalPanel({
             !shellExitedRef.current &&
             !intentionalCloseRef.current
           ) {
-            connectWebSocket(
-              terminalInstanceRef.current,
-              mounted,
-              historyWriter,
-            ).catch(() => {});
+            connectWebSocketRef
+              .current(terminalInstanceRef.current, mounted, historyWriter)
+              .catch(() => {});
           }
         }, RECONNECT_DELAY_MS);
       };
-    },
-    [connectPty, owner, devCommand, ptyInstanceId, runDevCommandOnConnect],
-  );
+    };
+  });
 
   useEffect(() => {
     if (!isActive || !sandboxId || !terminalRef.current) {
@@ -276,7 +349,9 @@ export function TerminalPanel({
 
     const mounted = { current: true };
     const containerEl = terminalRef.current;
-    const historyWriter = createTerminalHistoryWriter(setTerminalHistory);
+    const historyWriter = createTerminalHistoryWriter(
+      setTerminalHistoryWithSticky,
+    );
     let detachWheelScroll = () => {};
 
     const initTerminal = async () => {
@@ -360,7 +435,7 @@ export function TerminalPanel({
         }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
-        await connectWebSocket(terminal, mounted, historyWriter);
+        await connectWebSocketRef.current(terminal, mounted, historyWriter);
       } catch (err) {
         if (mounted.current) {
           setError(
@@ -368,11 +443,11 @@ export function TerminalPanel({
               ? err.message
               : "Failed to initialize terminal",
           );
-        }
-      } finally {
-        if (mounted.current) {
           setIsLoading(false);
         }
+      }
+      if (mounted.current) {
+        setIsLoading(false);
       }
     };
 
@@ -392,15 +467,10 @@ export function TerminalPanel({
       }
       historyWriter.dispose();
     };
-  }, [
-    isActive,
-    sandboxId,
-    owner,
-    retryCount,
-    connectWebSocket,
-    ptyInstanceId,
-    setTerminalHistory,
-  ]);
+    // connectWebSocketRef / setTerminalHistory intentionally omitted — see
+    // comment above connectWebSocketRef. ownerKey (not owner) so a fresh
+    // { kind, id } object from a parent render does not reconnect.
+  }, [isActive, sandboxId, ownerKey, retryCount, ptyInstanceId]);
 
   useLayoutEffect(() => {
     if (!isForeground) {
@@ -421,7 +491,7 @@ export function TerminalPanel({
         .current({ owner, cols, rows, ptyInstanceId })
         .catch(() => {});
     }
-  }, [isForeground, owner, ptyInstanceId]);
+  }, [isForeground, ownerKey, owner, ptyInstanceId]);
 
   useEffect(() => {
     if (!terminalRef.current) {
@@ -457,7 +527,7 @@ export function TerminalPanel({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [owner, ptyInstanceId, isForeground]);
+  }, [ownerKey, owner, ptyInstanceId, isForeground]);
 
   if (!isActive || !sandboxId) {
     return (

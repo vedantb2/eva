@@ -11,11 +11,27 @@ const messageValidator = v.object({
   _id: v.id("messages"),
   _creationTime: v.number(),
   ...messageFields,
-  imageUrl: v.optional(v.union(v.string(), v.null())),
-  videoUrl: v.optional(v.union(v.string(), v.null())),
-  // Resolved URLs for user-attached input images, in the same order as
+  // Resolved agent proof media (recordings/screenshots), in capture order.
+  media: v.optional(
+    v.array(
+      v.object({
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  ),
+  // Resolved URLs for user-attached input files, in the same order as
   // attachmentStorageIds. Entries that fail to resolve are null.
   attachmentUrls: v.optional(v.array(v.union(v.string(), v.null()))),
+  // Parallel metadata for rendering (image thumb vs file chip).
+  attachments: v.optional(
+    v.array(
+      v.object({
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  ),
 });
 
 /** Temporary upload URL for a composer image attachment (client POSTs the file, then sends the message). */
@@ -35,20 +51,53 @@ async function resolveMessageUrls(
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .collect();
   return Promise.all(
-    messages.map(async (m) => ({
-      ...m,
-      imageUrl: m.imageStorageId
-        ? await ctx.storage.getUrl(m.imageStorageId)
-        : undefined,
-      videoUrl: m.videoStorageId
-        ? await ctx.storage.getUrl(m.videoStorageId)
-        : undefined,
-      attachmentUrls: m.attachmentStorageIds
+    messages.map(async (m) => {
+      const attachmentEntries = m.attachmentStorageIds
         ? await Promise.all(
-            m.attachmentStorageIds.map((id) => ctx.storage.getUrl(id)),
+            m.attachmentStorageIds.map(async (id) => {
+              const [url, meta] = await Promise.all([
+                ctx.storage.getUrl(id),
+                ctx.storage.getMetadata(id),
+              ]);
+              return {
+                url,
+                contentType: meta?.contentType ?? null,
+              };
+            }),
           )
-        : undefined,
-    })),
+        : undefined;
+      // mediaStorageIds is the source of truth for new docs. Pre-migration
+      // docs only have the legacy single imageStorageId/videoStorageId
+      // fields, so fall back to resolving those (video first, as before).
+      const mediaIds =
+        m.mediaStorageIds ??
+        [m.videoStorageId, m.imageStorageId].filter(
+          (id): id is Id<"_storage"> => id !== undefined,
+        );
+      const media =
+        mediaIds.length > 0
+          ? await Promise.all(
+              mediaIds.map(async (id) => {
+                const [url, meta] = await Promise.all([
+                  ctx.storage.getUrl(id),
+                  ctx.storage.getMetadata(id),
+                ]);
+                return {
+                  url,
+                  contentType: meta?.contentType ?? null,
+                };
+              }),
+            )
+          : undefined;
+      return {
+        ...m,
+        media,
+        attachmentUrls: attachmentEntries
+          ? attachmentEntries.map((entry) => entry.url)
+          : undefined,
+        attachments: attachmentEntries,
+      };
+    }),
   );
 }
 
@@ -66,8 +115,12 @@ export const updateLastInternal = internalMutation({
     content: v.optional(v.string()),
     activityLog: v.optional(v.string()),
     variations: v.optional(v.array(variationValidator)),
+    // Legacy single-media args: stale callback bundles still in flight during
+    // a deploy call with these instead of mediaStorageIds. New callers use
+    // mediaStorageIds.
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
+    mediaStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -82,16 +135,22 @@ export const updateLastInternal = internalMutation({
       content?: string;
       activityLog?: string;
       variations?: (typeof variationValidator.type)[];
-      imageStorageId?: Id<"_storage">;
-      videoStorageId?: Id<"_storage">;
+      mediaStorageIds?: Id<"_storage">[];
     } = {};
     if (args.content !== undefined) patch.content = args.content;
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     if (args.variations !== undefined) patch.variations = args.variations;
-    if (args.imageStorageId !== undefined)
-      patch.imageStorageId = args.imageStorageId;
-    if (args.videoStorageId !== undefined)
-      patch.videoStorageId = args.videoStorageId;
+
+    // Append this call's ids (video then image, for legacy callers) so
+    // repeated calls within a turn accumulate instead of overwriting.
+    const newIds = [
+      ...(args.mediaStorageIds ?? []),
+      ...(args.videoStorageId ? [args.videoStorageId] : []),
+      ...(args.imageStorageId ? [args.imageStorageId] : []),
+    ];
+    if (newIds.length > 0) {
+      patch.mediaStorageIds = [...(last.mediaStorageIds ?? []), ...newIds];
+    }
 
     await ctx.db.patch(last._id, patch);
     return null;

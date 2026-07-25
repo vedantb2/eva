@@ -1,44 +1,47 @@
 "use client";
 
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
+import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   IconChevronLeft,
-  IconHome,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconMoon,
   IconSun,
   IconX,
 } from "@tabler/icons-react";
 import { LogoMark } from "@/lib/components/LogoMark";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
-import { api } from "@conductor/backend";
-import { Button, Spinner, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Spinner, cn } from "@eva/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
-import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
+import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
+import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
+import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
+import { SidebarResizeHandle } from "@/lib/components/sidebar/SidebarResizeHandle";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
   "designs",
   "docs",
+  "reviews",
   "sessions",
   "quick-tasks",
   "settings",
@@ -55,9 +58,9 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
     const s = segments[i];
     if (
       s === "designs" ||
-      s === "sessions" ||
       s === "settings" ||
       s === "docs" ||
+      s === "reviews" ||
       s === "testing-arena" ||
       s === "automations"
     ) {
@@ -69,9 +72,14 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { user } = useUser();
-  const { collapsed, setCollapsed } = useSidebar();
+  const {
+    collapsed,
+    setCollapsed,
+    setSessionsNavMode,
+    sidebarWidth,
+    setSidebarWidth,
+  } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -84,7 +92,7 @@ export function Sidebar() {
 
   const repos = useQuery(api.githubRepos.list, {});
 
-  const { repoBasePath, owner, repoName, appName, isRepoRoute } = useMemo((): {
+  const { repoBasePath, owner, repoName, appName, isRepoRoute } = ((): {
     repoBasePath: string | null;
     owner: string | null;
     repoName: string | null;
@@ -111,6 +119,7 @@ export function Sidebar() {
       "teams",
       "inbox",
       "artifacts",
+      "sessions",
       "api",
       "settings",
       "testing",
@@ -144,42 +153,61 @@ export function Sidebar() {
       appName: decoded.appName,
       isRepoRoute: true,
     };
-  }, [pathname]);
+  })();
 
-  const showContextSidebar = isRepoRoute && contextSidebarMode !== "main";
+  const pathParts = pathname.split("/").filter(Boolean);
+  const isGlobalSessionsLanding =
+    pathname === "/sessions" || pathname === "/sessions/";
+  // Per-app Sessions sidebar was removed; any sessions URL (landing or deep
+  // link like /$owner/$repo/.../sessions/$numId/preview) uses the root list.
+  const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
+  const showGlobalSessionsPanel = isGlobalSessionsLanding || isRepoSessionsPath;
+  const showSidePanel = isRepoRoute || isGlobalSessionsLanding;
+
+  useEffect(() => {
+    if (isGlobalSessionsLanding || isRepoSessionsPath) {
+      setSessionsNavMode("global");
+    }
+  }, [isGlobalSessionsLanding, isRepoSessionsPath, setSessionsNavMode]);
+
+  const showContextSidebar =
+    isRepoRoute && !showGlobalSessionsPanel && contextSidebarMode !== "main";
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
     owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
+  const repoLogoUrl = useQuery(
+    api.githubRepos.getLogoUrl,
+    repo?._id ? { repoId: repo._id } : "skip",
+  );
+  const team = useQuery(
+    api.teams.get,
+    repo?.teamId ? { id: repo.teamId } : "skip",
+  );
+  const teamBackgroundUrl = team?.backgroundUrl ?? null;
+
+  const sidebarScrollKey =
+    owner && repoName
+      ? `${owner}/${repoName}${appName ? `/${appName}` : ""}/sidebar/${contextSidebarMode}`
+      : `sidebar/${contextSidebarMode}`;
+  const { scrollRef: sidebarScrollRef } =
+    usePersistedScrollParent(sidebarScrollKey);
 
   const { theme, toggleTheme } = useThemeContext();
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
-  const handleRepoSwitch = (
-    selectedOwner: string,
-    selectedName: string,
-    rootDirectory?: string,
-  ) => {
-    const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
-    const segments = subPath.split("/").filter(Boolean);
-    const preservePath =
-      segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-    const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
-    navigate({ to: `${base}${preservePath}` });
-    closeMobileSidebar();
-  };
-
-  const contextSidebarTitle =
-    contextSidebarMode === "designs"
+  const contextSidebarTitle = showGlobalSessionsPanel
+    ? "Sessions"
+    : contextSidebarMode === "designs"
       ? "Designs"
-      : contextSidebarMode === "sessions"
-        ? "Sessions"
-        : contextSidebarMode === "settings"
-          ? "Settings"
-          : contextSidebarMode === "docs"
-            ? "Documents"
+      : contextSidebarMode === "settings"
+        ? "Settings"
+        : contextSidebarMode === "docs"
+          ? "Documents"
+          : contextSidebarMode === "reviews"
+            ? "Reviews"
             : contextSidebarMode === "testing-arena"
               ? "Testing Arena"
               : contextSidebarMode === "automations"
@@ -231,7 +259,7 @@ export function Sidebar() {
 
       <AnimatePresence initial={false}>
         {mobileOpen && (
-          <motion.div
+          <m.div
             className="fixed inset-0 z-40 bg-background/62  lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
@@ -246,11 +274,12 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex motion-base transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          // Global pages are rail-only; repo pages keep the wider nav panel.
-          isRepoRoute
+          // Global pages are rail-only except Sessions (grouped cross-repo list).
+          // Collapsed = hide the secondary panel entirely (rail only on lg+).
+          showSidePanel
             ? cn(
                 "w-[min(20rem,calc(100vw-1.5rem))]",
-                collapsed ? "lg:w-36" : "lg:w-80",
+                collapsed ? "lg:w-16" : "lg:w-[var(--eva-sidebar-width,20rem)]",
               )
             : "w-16",
         )}
@@ -261,169 +290,174 @@ export function Sidebar() {
           currentName={repoName}
           currentAppName={appName}
           pathname={pathname}
-          onSelect={handleRepoSwitch}
           onNavigate={closeMobileSidebar}
           userName={user?.fullName || user?.firstName || "User"}
           userEmail={user?.primaryEmailAddress?.emailAddress}
           showSearch={isRepoRoute}
         />
-        {isRepoRoute && repoBasePath ? (
-          <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
+        {showSidePanel ? (
+          <div
+            className={cn(
+              "relative flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar",
+              // Keep the drawer content on mobile even when the desktop panel is hidden.
+              collapsed && "lg:hidden",
+            )}
+          >
             <div
               className={cn(
-                "flex h-16 items-center",
-                collapsed ? "px-2" : "px-3",
+                // Always reserve tall header on main repo panel so team
+                // background resolving later does not shift the nav list (CLS).
+                "relative flex items-center overflow-hidden px-3",
+                !showContextSidebar && !showGlobalSessionsPanel
+                  ? "h-24"
+                  : "h-16",
               )}
             >
-              <motion.div
+              {teamBackgroundUrl &&
+              !showContextSidebar &&
+              !showGlobalSessionsPanel ? (
+                <>
+                  <img
+                    src={teamBackgroundUrl}
+                    alt=""
+                    className="absolute inset-0 size-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
+                </>
+              ) : null}
+              <m.div
                 key={
-                  showContextSidebar
-                    ? `${contextSidebarMode}-header`
-                    : "main-header"
+                  showGlobalSessionsPanel
+                    ? "global-sessions-header"
+                    : showContextSidebar
+                      ? `${contextSidebarMode}-header`
+                      : "main-header"
                 }
                 className={cn(
-                  "relative flex w-full items-center",
-                  collapsed ? "justify-center" : "justify-between",
+                  "relative z-10 flex w-full items-center justify-between",
+                  teamBackgroundUrl &&
+                    !showContextSidebar &&
+                    !showGlobalSessionsPanel &&
+                    "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-sm",
                 )}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {showContextSidebar ? (
+                {showGlobalSessionsPanel ? (
+                  <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                    Sessions
+                  </span>
+                ) : showContextSidebar ? (
                   <>
-                    {!collapsed && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => setContextSidebarMode("main")}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Back to main sidebar"
-                      >
-                        <IconChevronLeft size={16} />
-                      </Button>
-                    )}
-                    {!collapsed && (
-                      <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
-                        {contextSidebarTitle}
-                      </span>
-                    )}
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setContextSidebarMode("main")}
+                      className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                      title="Back to main sidebar"
+                    >
+                      <IconChevronLeft size={16} />
+                    </Button>
+                    <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
+                      {contextSidebarTitle}
+                    </span>
 
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
-                        title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
-                        }
-                      >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
+                    >
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
                   </>
                 ) : (
                   <>
-                    {!collapsed && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => navigate({ to: repoBasePath })}
-                        className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                        title="Repo home"
-                      >
-                        <IconHome size={16} className="text-sidebar-primary" />
-                      </Button>
-                    )}
-
-                    {!collapsed && repoName ? (
-                      <span
-                        className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary"
-                        title={appName ? `${repoName} / ${appName}` : repoName}
-                      >
-                        {appName ? `${repoName} / ${appName}` : repoName}
-                      </span>
-                    ) : null}
-
-                    <div
-                      className={cn(
-                        "flex items-center gap-1",
-                        collapsed ? "lg:mx-auto" : "shrink-0",
-                      )}
-                    >
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={closeMobileSidebar}
-                      >
-                        <IconX size={18} className="text-muted-foreground" />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
-                        onClick={() => setCollapsed(!collapsed)}
+                    {repoName ? (
+                      <div
+                        className="flex min-w-0 flex-1 items-center justify-center gap-1.5"
                         title={
-                          collapsed ? "Expand sidebar" : "Collapse sidebar"
+                          repo
+                            ? `${repoDisplayLabel(repo)} (${repo.owner}/${repo.name})`
+                            : appName
+                              ? `${repoName} / ${appName}`
+                              : repoName
                         }
                       >
-                        {collapsed ? (
-                          <IconLayoutSidebarLeftCollapseFilled
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        ) : (
-                          <IconLayoutSidebarLeftCollapse
-                            size={16}
-                            className="text-sidebar-primary"
-                          />
-                        )}
-                      </Button>
-                    </div>
+                        {/* Always reserve the logo slot so late logoUrl does not reflow the title. */}
+                        <RepoLogo
+                          logoUrl={repoLogoUrl}
+                          size={18}
+                          fallback={
+                            <span className="flex size-[18px] shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">
+                              {(repo
+                                ? repoDisplayLabel(repo)
+                                : (repoName ?? "?")
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+                          }
+                        />
+                        <span className="min-w-0 truncate text-sm font-medium text-sidebar-primary">
+                          {repo
+                            ? repoDisplayLabel(repo)
+                            : appName
+                              ? `${repoName} / ${appName}`
+                              : repoName}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                      onClick={closeMobileSidebar}
+                    >
+                      <IconX size={18} className="text-muted-foreground" />
+                    </Button>
                   </>
                 )}
-              </motion.div>
+              </m.div>
             </div>
 
-            <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
-              <div className="space-y-4">
-                <motion.div
+            <nav
+              ref={sidebarScrollRef}
+              className={cn(
+                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto",
+                showGlobalSessionsPanel ? "px-1 py-1" : "px-2 py-3",
+              )}
+            >
+              <div
+                className={showGlobalSessionsPanel ? "space-y-0" : "space-y-4"}
+              >
+                <m.div
                   key={
-                    showContextSidebar
-                      ? `${contextSidebarMode}-nav`
-                      : "main-nav"
+                    showGlobalSessionsPanel
+                      ? "global-sessions-nav"
+                      : showContextSidebar
+                        ? `${contextSidebarMode}-nav`
+                        : "main-nav"
                   }
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {showContextSidebar ? (
-                    collapsed ? null : contextSidebarMode === "settings" ? (
+                  {showGlobalSessionsPanel ? (
+                    <GlobalSessionsSidebar
+                      pathname={pathname}
+                      onNavigate={closeMobileSidebar}
+                    />
+                  ) : showContextSidebar ? (
+                    contextSidebarMode === "settings" ? (
                       <SettingsSidebar
-                        basePath={repoBasePath}
+                        basePath={repoBasePath ?? ""}
                         pathname={pathname}
                         onNavigate={closeMobileSidebar}
                       />
-                    ) : repo ? (
+                    ) : repo && repoBasePath ? (
                       contextSidebarMode === "designs" ? (
                         <DesignSessionsSidebar
                           repoId={repo._id}
@@ -431,15 +465,15 @@ export function Sidebar() {
                           pathname={pathname}
                           onNavigate={closeMobileSidebar}
                         />
-                      ) : contextSidebarMode === "sessions" ? (
-                        <SessionsSidebar
+                      ) : contextSidebarMode === "docs" ? (
+                        <DocsSidebar
                           repoId={repo._id}
                           basePath={repoBasePath}
                           pathname={pathname}
                           onNavigate={closeMobileSidebar}
                         />
-                      ) : contextSidebarMode === "docs" ? (
-                        <DocsSidebar
+                      ) : contextSidebarMode === "reviews" ? (
+                        <ReviewsSidebar
                           repoId={repo._id}
                           basePath={repoBasePath}
                           pathname={pathname}
@@ -465,32 +499,46 @@ export function Sidebar() {
                         <Spinner size="sm" />
                       </div>
                     )
-                  ) : (
+                  ) : repoBasePath ? (
                     <div className="space-y-4">
                       <RepoTopNav
                         repoBasePath={repoBasePath}
                         pathname={pathname}
-                        collapsed={collapsed}
+                        collapsed={false}
                         repo={repo}
                         onNavigate={closeMobileSidebar}
                       />
                       <RepoNavSections
                         repoBasePath={repoBasePath}
                         pathname={pathname}
-                        collapsed={collapsed}
+                        collapsed={false}
                         repo={repo}
-                        onOpenContextSidebar={setContextSidebarMode}
+                        onOpenContextSidebar={(mode) => {
+                          setContextSidebarMode(mode);
+                        }}
                         onNavigate={closeMobileSidebar}
                       />
                     </div>
-                  )}
-                </motion.div>
+                  ) : null}
+                </m.div>
               </div>
             </nav>
 
-            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
-              <TeamMembers collapsed={collapsed} />
-            </div>
+            {isRepoRoute && repoBasePath && !showGlobalSessionsPanel ? (
+              <div className="px-3 py-3">
+                <RepoStatsSummary
+                  repo={repo}
+                  repoBasePath={repoBasePath}
+                  collapsed={false}
+                />
+              </div>
+            ) : null}
+            {!collapsed ? (
+              <SidebarResizeHandle
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+              />
+            ) : null}
           </div>
         ) : null}
       </aside>

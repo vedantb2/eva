@@ -6,9 +6,9 @@ import {
   getReasoningLevelLabel,
   modelHasTraits,
   type Id,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -29,33 +29,29 @@ import {
   TraitsMenu,
   toast,
   type PromptInputMessage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   MAX_IMAGE_ATTACHMENTS,
   MAX_IMAGE_ATTACHMENT_BYTES,
   imageAttachmentErrorMessage,
   useUploadImageAttachments,
   ChatAttachmentPreview,
-  UserAttachmentImages,
+  UserMessageAttachments,
 } from "@/lib/components/chat/imageAttachments";
-import {
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
-} from "@tabler/icons-react";
-import { motion } from "motion/react";
+import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
+import { m } from "motion/react";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import {
   useAvailableAiModels,
@@ -70,6 +66,7 @@ import {
 } from "@/lib/components/chat/MentionTextarea";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -111,6 +108,7 @@ export function DesignChatPanel({
   });
   const personas = useQuery(api.designPersonas.list, { repoId });
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
+  const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
@@ -193,25 +191,19 @@ export function DesignChatPanel({
 
   // Previously sent messages as editable display text, newest-first, for
   // ArrowUp/ArrowDown history recall in the composer.
-  const messageHistory = useMemo(
-    () =>
-      (messages ?? [])
-        .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-        .map((m) => tokenizedToEditable(m.content ?? "").displayText)
-        .reverse(),
-    [messages],
-  );
+  const messageHistory = (messages ?? [])
+    .flatMap((m) =>
+      m.role === "user" && !m.isSystemAlert && m.content
+        ? [tokenizedToEditable(m.content).displayText]
+        : [],
+    )
+    .reverse();
 
-  useEffect(() => {
-    if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
-      setIsSending(false);
-    }
-  }, [isSending, lastMessage]);
+  if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
+    setIsSending(false);
+  }
 
-  const personaMap = useMemo(
-    () => new Map(personas?.map((p) => [p._id, p]) ?? []),
-    [personas],
-  );
+  const personaMap = new Map(personas?.map((p) => [p._id, p]) ?? []);
 
   const evaIcon = <EvaIcon />;
 
@@ -275,24 +267,15 @@ export function DesignChatPanel({
     await handleSend(text, attachmentStorageIds);
   };
 
-  const queuedMessageItems = useMemo(
-    () =>
-      (queuedMessages ?? []).map((message: QueuedDesignMessage) => {
-        const detailParts = [
-          message.personaId
-            ? (personaMap.get(message.personaId)?.name ?? "Persona")
-            : null,
-          typeof message.numDesigns === "number"
-            ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
-            : null,
-        ].filter((part): part is string => Boolean(part));
-        return {
-          id: message._id,
-          content: message.content,
-          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
-        };
-      }),
-    [personaMap, queuedMessages],
+  const queuedMessageItems = (queuedMessages ?? []).map(
+    (message: QueuedDesignMessage) => {
+      return {
+        id: message._id,
+        content: message.content,
+        model: message.model,
+        reasoningLevel: message.reasoningLevel,
+      };
+    },
   );
 
   return (
@@ -325,21 +308,12 @@ export function DesignChatPanel({
               onClearPersona={() => setSelectedPersonaId(undefined)}
             />
             {onTogglePreview && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
-                onClick={onTogglePreview}
-                title={
-                  previewCollapsed ? "Show preview panel" : "Hide preview panel"
-                }
-              >
-                {previewCollapsed ? (
-                  <IconLayoutSidebarRightExpand className="size-4" />
-                ) : (
-                  <IconLayoutSidebarRightCollapse className="size-4" />
-                )}
-              </Button>
+              <SandboxPanelToggleButton
+                collapsed={previewCollapsed === true}
+                onToggle={onTogglePreview}
+                expandLabel="Show preview panel"
+                collapseLabel="Hide preview panel"
+              />
             )}
           </>
         }
@@ -364,7 +338,7 @@ export function DesignChatPanel({
                     timestamp={message.timestamp}
                   />
                 ) : (
-                  <motion.div
+                  <m.div
                     key={message._id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -402,8 +376,14 @@ export function DesignChatPanel({
                               </>
                             ) : (
                               <>
-                                <UserAttachmentImages
-                                  urls={message.attachmentUrls}
+                                <UserMessageAttachments
+                                  attachments={
+                                    message.attachments ??
+                                    message.attachmentUrls?.map((url) => ({
+                                      url,
+                                      contentType: url ? "image/*" : null,
+                                    }))
+                                  }
                                 />
                                 {message.content ? (
                                   <MessageMentionText
@@ -444,12 +424,12 @@ export function DesignChatPanel({
                         </div>
                       )}
                     </AIMessage>
-                  </motion.div>
+                  </m.div>
                 ),
               )
             )}
           </ConversationContent>
-          <ConversationScrollButton />
+          <ConversationScrollButton resetKey={designSessionId} />
         </Conversation>
         {!isArchived && (
           <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
@@ -513,6 +493,37 @@ export function DesignChatPanel({
                   />
                   <PromptInputFooter>
                     <PromptInputTools>
+                      <ComposerPlusMenu
+                        docs={docs}
+                        skills={skills}
+                        mentionRef={mentionRef}
+                        attachmentMode="images"
+                      />
+                      <PersonaDropdown
+                        repoId={repoId}
+                        value={selectedPersonaId}
+                        onChange={setSelectedPersonaId}
+                      />
+                    </PromptInputTools>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>Designs:</span>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setNumDesigns(n)}
+                            disabled={!isSandboxActive}
+                            className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
+                              numDesigns === n
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
                       <ModelSelect
                         value={model}
                         options={modelOptions}
@@ -554,31 +565,6 @@ export function DesignChatPanel({
                           }
                         />
                       ) : null}
-                      <PersonaDropdown
-                        repoId={repoId}
-                        value={selectedPersonaId}
-                        onChange={setSelectedPersonaId}
-                      />
-                    </PromptInputTools>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>Designs:</span>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setNumDesigns(n)}
-                          disabled={!isSandboxActive}
-                          className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
-                            numDesigns === n
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-1">
                       <PromptInputSpeech disabled={!isSandboxActive} />
                       {isExecuting ? (
                         <Button

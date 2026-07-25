@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { cn } from "@conductor/ui";
+import { useState } from "react";
+import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/tasks/_components/MarkdownEditor";
 
 export function ProjectDescription({
@@ -57,20 +57,17 @@ export function ProjectDescription({
 
   const desc = description ?? "";
 
-  const handleSave = useCallback(
-    (markdown: string) => {
-      const trimmed = markdown.trim();
-      if (trimmed !== desc) {
-        updateProject({ id: projectId, description: trimmed });
-      }
-      setIsEditing(false);
-    },
-    [desc, projectId, updateProject],
-  );
+  const handleSave = (markdown: string) => {
+    const trimmed = markdown.trim();
+    if (trimmed !== desc) {
+      updateProject({ id: projectId, description: trimmed });
+    }
+    setIsEditing(false);
+  };
 
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (!isEditing) setIsEditing(true);
-  }, [isEditing]);
+  };
 
   return (
     <div className="px-3 pt-3 pb-2">

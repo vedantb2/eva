@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { diffWords } from "diff";
-import { Spinner, Button } from "@conductor/ui";
+import { Spinner, Button } from "@eva/ui";
 
 export function DocVersionDiff({
   versionId,

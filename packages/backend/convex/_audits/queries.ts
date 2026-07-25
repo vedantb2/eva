@@ -11,7 +11,7 @@ import type { Doc } from "../_generated/dataModel";
 export const auditReturnValidator = v.object({
   _id: v.id("audits"),
   _creationTime: v.number(),
-  entityId: v.union(v.id("agentTasks"), v.id("sessions")),
+  entityId: v.union(v.id("agentTasks"), v.id("sessions"), v.id("projects")),
   runId: v.optional(v.id("agentRuns")),
   status: evaluationStatusValidator,
   sections: v.array(auditSectionValidator),
@@ -86,6 +86,23 @@ export const getBySession = authQuery({
     const latest = await ctx.db
       .query("audits")
       .withIndex("by_entity_created", (q) => q.eq("entityId", args.sessionId))
+      .order("desc")
+      .first();
+
+    if (!latest) return null;
+
+    return toAuditReturn(latest);
+  },
+});
+
+/** Returns the most recent audit for a project (project sandbox chat). */
+export const getByProject = authQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.union(auditReturnValidator, v.null()),
+  handler: async (ctx, args) => {
+    const latest = await ctx.db
+      .query("audits")
+      .withIndex("by_entity_created", (q) => q.eq("entityId", args.projectId))
       .order("desc")
       .first();
 

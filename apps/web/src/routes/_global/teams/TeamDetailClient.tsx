@@ -1,18 +1,13 @@
 import { useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Button,
-} from "@conductor/ui";
+import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
+import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
@@ -42,8 +37,18 @@ export function TeamDetailClient({
     api.teamEnvVars.list,
     team ? { teamId: team._id } : "skip",
   );
-  const { uploadLogo, removeLogo, uploading } = useTeamLogoUpload();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    uploadLogo,
+    removeLogo,
+    uploading: logoUploading,
+  } = useTeamLogoUpload();
+  const {
+    uploadBackground,
+    removeBackground,
+    uploading: backgroundUploading,
+  } = useTeamBackgroundUpload();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
 
   if (!team) {
     return (
@@ -60,6 +65,12 @@ export function TeamDetailClient({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (file) void uploadLogo(team._id, file);
+  };
+
+  const handleBackgroundSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) void uploadBackground(team._id, file);
   };
 
   return (
@@ -83,8 +94,8 @@ export function TeamDetailClient({
           <Button
             size="sm"
             variant="outline"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
+            disabled={logoUploading}
+            onClick={() => logoInputRef.current?.click()}
           >
             <IconPhoto size={14} className="mr-1.5" />
             {team.logoUrl ? "Change logo" : "Set logo"}
@@ -94,14 +105,14 @@ export function TeamDetailClient({
               size="icon-sm"
               variant="ghost"
               title="Remove logo"
-              disabled={uploading}
+              disabled={logoUploading}
               onClick={() => void removeLogo(team._id)}
             >
               <IconPhotoOff size={14} />
             </Button>
           ) : null}
           <input
-            ref={fileInputRef}
+            ref={logoInputRef}
             type="file"
             accept="image/*"
             className="hidden"
@@ -110,12 +121,72 @@ export function TeamDetailClient({
         </div>
       }
     >
+      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <div className="relative h-28 w-full bg-muted">
+          {team.backgroundUrl ? (
+            <img
+              src={team.backgroundUrl}
+              alt=""
+              className="absolute inset-0 size-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <IconPhoto size={16} />
+              No sidebar background
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Sidebar background
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Shown behind the app name at the top of this team&apos;s
+                sidebars.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-background/90"
+                disabled={backgroundUploading}
+                onClick={() => backgroundInputRef.current?.click()}
+              >
+                <IconPhoto size={14} className="mr-1.5" />
+                {team.backgroundUrl ? "Change" : "Upload"}
+              </Button>
+              {team.backgroundUrl ? (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="bg-background/90"
+                  title="Remove background"
+                  disabled={backgroundUploading}
+                  onClick={() => void removeBackground(team._id)}
+                >
+                  <IconPhotoOff size={14} />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <input
+          ref={backgroundInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleBackgroundSelected}
+        />
+      </div>
+
       <Tabs
         value={tab}
         onValueChange={(v) => {
           if (
             v === "members" ||
-            v === "repos" ||
+            v === "codebases" ||
             v === "env" ||
             v === "artifacts"
           ) {
@@ -127,7 +198,7 @@ export function TeamDetailClient({
       >
         <TabsList className="mb-4">
           <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="repos">Codebases</TabsTrigger>
+          <TabsTrigger value="codebases">Codebases</TabsTrigger>
           <TabsTrigger value="env">Environment Variables</TabsTrigger>
           <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
         </TabsList>
@@ -140,7 +211,7 @@ export function TeamDetailClient({
           />
         </TabsContent>
 
-        <TabsContent value="repos">
+        <TabsContent value="codebases">
           <TeamReposTab
             teamId={team._id}
             repos={repos}

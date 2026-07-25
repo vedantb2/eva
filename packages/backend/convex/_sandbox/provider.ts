@@ -1,33 +1,29 @@
 /**
  * Provider-neutral sandbox contract.
  *
- * WHY: eva runs managed codebases in remote sandboxes. Today that is Daytona
- * (see `../_daytona/`). We are migrating to Vercel Sandbox for sub-second
- * snapshot restores (Phase 0 spike proved ~0.3s regardless of size). To migrate
- * without a big-bang rewrite, every sandbox operation eva uses is expressed here
- * as a provider-neutral interface. A Daytona adapter (default) and a Vercel
- * adapter both implement it, selected per-repo/team by the `SANDBOX_PROVIDER`
- * flag (see `../envVarResolver.ts`).
+ * WHY: eva runs managed codebases in remote sandboxes. The only backend today
+ * is Vercel Sandbox (sub-second snapshot restores — Phase 0 spike proved
+ * ~0.3s regardless of size). Daytona was the original provider and has been
+ * fully removed; this contract stays provider-neutral in shape so a future
+ * provider swap does not require touching every `_sandbox_runtime/` consumer again.
  *
  * These types are a hand-written contract, NOT Convex documents — they describe
  * an external SDK surface, so they are defined here rather than imported from
  * generated Convex types.
  *
- * Scope note: this file defines the CONTRACT. Consumers in `../_daytona/` are
- * rewired onto it, and the Daytona/Vercel adapters implement it, in follow-up
- * commits. Terminal (PTY) and desktop (ComputerUse) are optional capabilities
- * because they differ most between providers and are wired last.
+ * Note: `_sandbox_runtime/` and the `internal.sandbox.*` action namespace keep their
+ * names even though Daytona itself is gone — renaming them is tracked as a
+ * separate follow-up, not part of the provider removal.
  */
 
-/** Which backend fulfils sandbox operations. Resolved per repo/team; defaults to daytona. */
-export type SandboxProviderKind = "daytona" | "vercel";
+/** Which backend fulfils sandbox operations. Vercel is the only implementation. */
+export type SandboxProviderKind = "vercel";
 
 /**
  * Coarse sandbox lifecycle state, normalised across providers.
  *
- * Daytona exposes: started/stopped/archived/restoring/building/error/… .
  * Vercel exposes: running/stopped/stopping/snapshotting/pending/failed/aborted.
- * Adapters map their native state onto these buckets; `raw` carries the
+ * The adapter maps its native state onto these buckets; `raw` carries the
  * provider's original string for logging and edge-case checks.
  */
 export type SandboxState =
@@ -56,16 +52,8 @@ export interface SandboxExecOptions {
   sudo?: boolean;
 }
 
-/** A volume/drive mount request. Daytona: named volumes; Vercel: Drives (beta). */
-export interface VolumeMountSpec {
-  volumeId: string;
-  mountPath: string;
-  subpath?: string;
-}
-
 /**
  * Lifecycle policy applied at create time. Neutral, minute-based.
- * Daytona maps these to autoStop/autoArchive/autoDelete intervals + ephemeral.
  * Vercel maps `autoStopMinutes` to the session `timeout`, `autoArchiveMinutes`
  * to snapshot expiration, and `ephemeral` to `persistent: false`.
  */
@@ -79,14 +67,13 @@ export interface SandboxLifecycleParams {
 
 /** Parameters to create a sandbox, optionally seeded from a snapshot. */
 export interface SandboxCreateParams {
-  /** Provider-specific snapshot identifier (Daytona snapshot name / Vercel snapshotId). Omit for a bare sandbox. */
+  /** Vercel snapshotId. Omit for a bare sandbox. */
   snapshot?: string;
   envVars: Record<string, string>;
   lifecycle: SandboxLifecycleParams;
-  volumes?: VolumeMountSpec[];
-  /** Ports to expose publicly (Vercel needs these declared up front; Daytona ignores). */
+  /** Ports to expose publicly (Vercel needs these declared up front). */
   ports?: number[];
-  /** Override the create-ready wait; large seeded snapshots need longer on Daytona. */
+  /** Override the create-ready wait; large seeded snapshots need longer. */
   readyTimeoutSeconds?: number;
 }
 
@@ -101,9 +88,12 @@ export interface SandboxSnapshotInfo {
 
 /** Parameters to capture a snapshot from a running sandbox. */
 export interface CreateSnapshotParams {
-  /** Desired snapshot name. Daytona requires it; Vercel ignores it and returns a generated id. */
+  /**
+   * Desired snapshot name. Vercel is id-addressed and ignores this for
+   * addressing, so it is used only for logging and error messages. Callers must
+   * use the returned `snapshotId`, never this name, to poll or persist.
+   */
   name?: string;
-  timeoutSeconds?: number;
 }
 
 /** A signed/public preview URL for a port inside the sandbox. */
@@ -117,7 +107,7 @@ export interface PreviewUrl {
 // until implemented, hence optional on SandboxHandle).
 // ---------------------------------------------------------------------------
 
-/** In-sandbox git operations. Daytona has a native `git` client; Vercel runs shell git. */
+/** In-sandbox git operations, backed by shell git. */
 export interface SandboxGit {
   branches(workspaceDir: string): Promise<{ branches: string[] }>;
   clone(
@@ -127,25 +117,6 @@ export interface SandboxGit {
     authToken: string,
   ): Promise<void>;
   checkoutBranch(workspaceDir: string, branchName: string): Promise<void>;
-}
-
-/** A live pseudo-terminal session bound to the sandbox. */
-export interface SandboxPtyHandle {
-  disconnect(): Promise<void>;
-}
-
-/** Pseudo-terminal capability (browser terminal). */
-export interface SandboxPty {
-  open(opts: {
-    id: string;
-    cols: number;
-    rows: number;
-    cwd: string;
-    env?: Record<string, string>;
-    onData: (chunk: Uint8Array) => void;
-  }): Promise<SandboxPtyHandle>;
-  resize(ptyId: string, cols: number, rows: number): Promise<void>;
-  kill(ptyId: string): Promise<void>;
 }
 
 /** Desktop / ComputerUse capability (Xvfb + browser for vision tasks). */
@@ -181,23 +152,41 @@ export interface SandboxHandle {
   /**
    * Launch a command detached and return immediately, without holding the exec
    * stream for the process's lifetime. Used to kick off long-running daemons /
-   * the seed-run script. On Daytona this is a normal exec (its `setsid nohup … &`
-   * returns at once); on Vercel it must use native detached exec, because a shell
-   * `&` inside a synchronous exec keeps Vercel's stream open until it times out.
+   * the seed-run script. Must use native detached exec — a shell `&` inside a
+   * synchronous exec keeps Vercel's stream open until it times out.
    */
   execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void>;
 
   /**
    * Write a file into the sandbox filesystem at an absolute path, creating
-   * parent directories as needed. (Daytona: `fs.uploadFile`; Vercel: `writeFiles`.)
+   * parent directories as needed (Vercel: `writeFiles`).
    */
   writeFile(path: string, content: string | Uint8Array): Promise<void>;
 
-  /** Start/resume the sandbox, waiting up to `timeoutSeconds` for readiness. */
-  start(timeoutSeconds: number): Promise<void>;
+  /**
+   * Start/resume the sandbox, waiting up to `timeoutSeconds` for readiness.
+   *
+   * `resumeAfterStop` encodes caller intent when a stop is still in flight
+   * (`stopping`/`snapshotting` while the snapshot is written). Explicit
+   * user-initiated starts pass true: wait the stop out, then resume from the
+   * fresh snapshot. Background callers (prewarm, watchdog, lazy resume) omit
+   * it: the start is refused so a stale in-flight resume cannot resurrect a
+   * sandbox the user just stopped.
+   */
+  start(
+    timeoutSeconds: number,
+    opts?: { resumeAfterStop?: boolean },
+  ): Promise<void>;
   stop(): Promise<void>;
   archive(): Promise<void>;
-  delete(): Promise<void>;
+  /**
+   * Permanently remove the sandbox. On Vercel, also deletes snap_* objects for
+   * this sandbox name (SDK delete does not reliably cascade). Pass
+   * `preserveSnapshotIds` when a seed capture must survive prep-sandbox teardown.
+   */
+  delete(options?: {
+    preserveSnapshotIds?: ReadonlyArray<string>;
+  }): Promise<void>;
   /** Re-read live state/errorReason from the provider. */
   refresh(): Promise<void>;
 
@@ -205,22 +194,32 @@ export interface SandboxHandle {
   previewUrl(port: number, ttlSeconds?: number): Promise<PreviewUrl>;
 
   /**
-   * Initiate a filesystem snapshot of this sandbox and return the new snapshot
-   * id. May return before the capture finishes (large seeded snapshots keep
-   * building server-side); poll {@link SandboxClient.getSnapshot} for readiness.
+   * Register a filesystem snapshot of this sandbox and return its id.
+   *
+   * Returns as soon as the snapshot is registered, NOT when the capture
+   * finishes — a seeded snapshot carrying a whole DB volume keeps building
+   * server-side for minutes. Poll {@link SandboxClient.getSnapshot} with the
+   * returned id for readiness. Callers that need completion must do so across
+   * separate steps; awaiting the capture inline would exceed Convex's ~600s
+   * per-action ceiling.
+   *
+   * Note the sandbox is stopped as part of capture.
    */
   createSnapshot(params: CreateSnapshotParams): Promise<{ snapshotId: string }>;
 
   readonly git: SandboxGit;
 
-  /** Present only on providers that support it (wired last). */
-  readonly pty?: SandboxPty;
+  /**
+   * Present only on providers that support it. Vercel's interactive PTY is
+   * wired one layer up in `../pty.ts` / `../_pty/vercel.ts` rather than
+   * through this interface, so this stays undefined by design.
+   */
   readonly desktop?: SandboxDesktop;
 }
 
 /**
  * A provider client scoped to one set of credentials. Owns sandbox creation,
- * lookup, and account-level snapshot/volume operations.
+ * lookup, and account-level snapshot operations.
  */
 export interface SandboxClient {
   readonly kind: SandboxProviderKind;
@@ -230,12 +229,12 @@ export interface SandboxClient {
 
   getSnapshot(ref: string): Promise<SandboxSnapshotInfo | null>;
   deleteSnapshot(ref: string): Promise<boolean>;
-
-  /** Provision (or look up) a named persistent volume/drive. */
-  ensureVolume(name: string): Promise<{ id: string; ready: boolean }>;
 }
 
-/** Credentials for whichever provider is active. Exactly one branch is populated. */
-export type SandboxCredentials =
-  | { kind: "daytona"; apiKey: string }
-  | { kind: "vercel"; token: string; teamId: string; projectId: string };
+/** Credentials for the active provider. */
+export type SandboxCredentials = {
+  kind: "vercel";
+  token: string;
+  teamId: string;
+  projectId: string;
+};

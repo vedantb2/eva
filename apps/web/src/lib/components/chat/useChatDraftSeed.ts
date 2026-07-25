@@ -1,6 +1,6 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 
 /** Discriminated target shapes accepted by the chat draft APIs. */
@@ -14,7 +14,21 @@ export type DesignChatTarget = {
   designSessionId: Id<"designSessions">;
 };
 
-export type ChatDraftTarget = SessionChatTarget | DesignChatTarget;
+export type TaskChatTarget = {
+  kind: "taskChat";
+  taskId: Id<"agentTasks">;
+};
+
+export type ProjectChatTarget = {
+  kind: "projectChat";
+  projectId: Id<"projects">;
+};
+
+export type ChatDraftTarget =
+  | SessionChatTarget
+  | DesignChatTarget
+  | TaskChatTarget
+  | ProjectChatTarget;
 
 /** Seed bundle passed to ChatBody (and used inline in DesignChatPanel). */
 export type ChatDraftSeed = {

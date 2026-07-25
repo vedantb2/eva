@@ -1,18 +1,45 @@
 "use client";
 
 import { useRef } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button } from "@conductor/ui";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Input } from "@eva/ui";
 import { IconPhoto } from "@tabler/icons-react";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 
-/** Repo logo uploader shown on the App settings page. */
+/** Display name + logo for this app (App settings). */
 export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
+  const { repo, owner, name } = useRepo();
   const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId });
   const { uploadLogo, removeLogo, uploading } = useRepoLogoUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const appName = repo.rootDirectory?.split("/").pop();
+  const fallbackName = repoDisplayLabel({
+    name: repo.name,
+    rootDirectory: repo.rootDirectory,
+  });
+
+  const updateConfig = useMutation(
+    api.githubRepos.updateConfig,
+  ).withOptimisticUpdate((localStore, args) => {
+    if (args.label === undefined) return;
+    const queryArgs = { owner, name, appName };
+    const current = localStore.getQuery(
+      api.githubRepos.getByOwnerAndName,
+      queryArgs,
+    );
+    if (current !== undefined && current !== null) {
+      const nextLabel =
+        args.label.trim().length > 0 ? args.label.trim() : undefined;
+      localStore.setQuery(api.githubRepos.getByOwnerAndName, queryArgs, {
+        ...current,
+        label: nextLabel,
+      });
+    }
+  });
 
   const handleLogoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -20,12 +47,35 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
     if (file) uploadLogo(repoId, file);
   };
 
+  const handleLabelBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    if (next === (repo.label ?? "")) return;
+    updateConfig({ repoId, label: next });
+  };
+
   return (
     <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
       <div>
-        <h3 className="text-sm font-medium">Logo</h3>
+        <h3 className="text-sm font-medium">Identity</h3>
         <p className="mt-1 text-[11px] text-muted-foreground">
-          Shown next to this app in the repo lists. Applies to this app only.
+          Display name and logo for this app. Applies to this app only.
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          Display name
+        </label>
+        <Input
+          key={`label-${repoId}`}
+          className="h-8 text-xs"
+          placeholder={fallbackName}
+          defaultValue={repo.label ?? ""}
+          onBlur={handleLabelBlur}
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Shown in the sidebar instead of the GitHub name. Leave empty for{" "}
+          <span className="font-medium">{fallbackName}</span>.
         </p>
       </div>
 

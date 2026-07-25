@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Button,
@@ -17,7 +17,7 @@ import {
   SearchInput,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
@@ -55,13 +55,13 @@ export function AutomationsSidebar({
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const filteredAutomations = useMemo(() => {
+  const filteredAutomations = (() => {
     if (!automations) return [];
     const q = searchQuery.toLowerCase().trim();
     return q
       ? automations.filter((a) => a.title.toLowerCase().includes(q))
       : automations;
-  }, [automations, searchQuery]);
+  })();
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -70,14 +70,19 @@ export function AutomationsSidebar({
       const id = await createAutomation({ repoId, title: newTitle.trim() });
       const created = await convex.query(api.automations.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsCreating(false);
+        return;
+      }
       setNewTitle("");
       setIsCreateOpen(false);
       navigate({ to: `${basePath}/automations/${segment}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   return (

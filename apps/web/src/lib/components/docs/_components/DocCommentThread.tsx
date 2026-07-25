@@ -2,14 +2,14 @@
 
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { UserInitials } from "@conductor/shared";
-import { Button, cn, Textarea } from "@conductor/ui";
+import { UserInitials } from "@eva/shared";
+import { Button, cn, Textarea } from "@eva/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -43,7 +43,7 @@ export function DocCommentThread({
     }
   }, [isActive]);
 
-  const handleReply = useCallback(async () => {
+  const handleReply = async () => {
     if (!replyContent.trim()) return;
     await createComment({
       docId,
@@ -52,7 +52,7 @@ export function DocCommentThread({
     });
     setReplyContent("");
     setIsReplying(false);
-  }, [replyContent, docId, root._id, createComment]);
+  };
 
   return (
     <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,9 @@ import {
   Button,
   Textarea,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { IconAlertCircle } from "@tabler/icons-react";
 
@@ -55,7 +55,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
     api.agentTasks.createQuickTasksBatch,
   );
 
-  const identifiers = useMemo(() => parseLinearIdentifiers(input), [input]);
+  const identifiers = parseLinearIdentifiers(input);
 
   const handleSubmit = async () => {
     if (identifiers.length === 0 || !repo) return;
@@ -72,6 +72,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
         setError(
           "No issues found. Check that the identifiers are correct and you have access to them.",
         );
+        setIsLoading(false);
         return;
       }
 
@@ -90,9 +91,8 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleClose = () => {

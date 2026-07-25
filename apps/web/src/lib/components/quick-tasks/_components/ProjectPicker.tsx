@@ -10,10 +10,10 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconFolder, IconFolderPlus, IconCheck } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 

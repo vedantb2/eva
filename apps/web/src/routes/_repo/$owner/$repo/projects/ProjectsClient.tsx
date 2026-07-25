@@ -1,16 +1,15 @@
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  Spinner,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -25,7 +24,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
@@ -102,10 +101,10 @@ export function ProjectsClient() {
   const searchQuery = q;
   // Derive the visible set from the persisted blocklist so new phases show by
   // default and "all visible" is independent of how many phases exist.
-  const visiblePhases = useMemo(() => {
-    const hidden = new Set<ProjectPhase>(hiddenPhases);
-    return new Set<ProjectPhase>(PROJECT_PHASES.filter((p) => !hidden.has(p)));
-  }, [hiddenPhases]);
+  const hiddenPhaseSet = new Set<ProjectPhase>(hiddenPhases);
+  const visiblePhases = new Set<ProjectPhase>(
+    PROJECT_PHASES.filter((p) => !hiddenPhaseSet.has(p)),
+  );
   const [projectToDelete, setProjectToDelete] = useState<{
     id: Id<"projects">;
     title: string;
@@ -113,12 +112,12 @@ export function ProjectsClient() {
   const [isDeleting, setIsDeleting] = useState(false);
   const hasProjects = projects !== undefined && projects.length > 0;
 
-  const filteredSorted = useMemo(() => {
+  const filteredSorted = (() => {
     if (!projects) return [];
     const query = searchQuery.toLowerCase().trim();
     return projects
-      .filter((p) => visiblePhases.has(p.phase))
       .filter((p) => {
+        if (!visiblePhases.has(p.phase)) return false;
         if (!query) return true;
         return (
           p.title.toLowerCase().includes(query) ||
@@ -141,23 +140,21 @@ export function ProjectsClient() {
         }
         return sortDir === "asc" ? comparison : -comparison;
       });
-  }, [projects, sortField, sortDir, searchQuery, visiblePhases]);
+  })();
 
-  const projectsByPhase = useMemo(() => {
-    const initial: Record<ProjectPhase, typeof filteredSorted> = {
-      draft: [],
-      finalized: [],
-      in_progress: [],
-      business_review: [],
-      code_review: [],
-      completed: [],
-      cancelled: [],
-    };
-    return PROJECT_PHASES.reduce((acc, phase) => {
-      acc[phase] = filteredSorted.filter((p) => p.phase === phase);
-      return acc;
-    }, initial);
-  }, [filteredSorted]);
+  const projectsByPhaseInitial: Record<ProjectPhase, typeof filteredSorted> = {
+    draft: [],
+    finalized: [],
+    in_progress: [],
+    business_review: [],
+    code_review: [],
+    completed: [],
+    cancelled: [],
+  };
+  const projectsByPhase = PROJECT_PHASES.reduce((acc, phase) => {
+    acc[phase] = filteredSorted.filter((p) => p.phase === phase);
+    return acc;
+  }, projectsByPhaseInitial);
 
   const handleDelete = async () => {
     if (!projectToDelete) return;
@@ -165,9 +162,11 @@ export function ProjectsClient() {
     try {
       await deleteProject({ id: projectToDelete.id });
       setProjectToDelete(null);
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   const handlePhaseToggle = (phase: ProjectPhase) => {
@@ -199,25 +198,22 @@ export function ProjectsClient() {
     });
   };
 
-  const activeFilterLabels = useMemo(() => {
-    const labels: Array<{ key: string; label: string }> = [];
-    if (hiddenPhases.length > 0) {
-      labels.push({
-        key: "phases",
-        label: `${visiblePhases.size} Phase${visiblePhases.size !== 1 ? "s" : ""}`,
-      });
-    }
-    if (sortField !== "created") {
-      labels.push({
-        key: "sortField",
-        label: `Sort: ${SORT_FIELD_LABELS[sortField]}`,
-      });
-    }
-    if (sortDir !== "desc") {
-      labels.push({ key: "sortDir", label: "Ascending" });
-    }
-    return labels;
-  }, [hiddenPhases, visiblePhases, sortField, sortDir]);
+  const activeFilterLabels: Array<{ key: string; label: string }> = [];
+  if (hiddenPhases.length > 0) {
+    activeFilterLabels.push({
+      key: "phases",
+      label: `${visiblePhases.size} Phase${visiblePhases.size !== 1 ? "s" : ""}`,
+    });
+  }
+  if (sortField !== "created") {
+    activeFilterLabels.push({
+      key: "sortField",
+      label: `Sort: ${SORT_FIELD_LABELS[sortField]}`,
+    });
+  }
+  if (sortDir !== "desc") {
+    activeFilterLabels.push({ key: "sortDir", label: "Ascending" });
+  }
 
   const clearFilter = (key: string) => {
     switch (key) {
@@ -379,8 +375,19 @@ export function ProjectsClient() {
             />
           )}
           {projects === undefined ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Spinner />
+            <div
+              className="flex flex-1 min-h-[24rem] flex-col gap-3"
+              aria-busy="true"
+              aria-label="Loading projects"
+            >
+              <div className="flex flex-1 gap-3 overflow-hidden">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="min-w-[220px] flex-1 animate-pulse rounded-surface border border-border bg-muted/60"
+                  />
+                ))}
+              </div>
             </div>
           ) : projects.length === 0 ? (
             <EmptyState
@@ -395,7 +402,7 @@ export function ProjectsClient() {
           ) : (
             <AnimatePresence initial={false} mode="wait">
               {view === "kanban" ? (
-                <motion.div
+                <m.div
                   key="projects-kanban-view"
                   className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar [&>*]:min-w-[220px] sm:[&>*]:min-w-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -412,9 +419,9 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               ) : view === "timeline" ? (
-                <motion.div
+                <m.div
                   key="projects-timeline-view"
                   className="flex flex-1 min-h-0 min-w-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -430,9 +437,9 @@ export function ProjectsClient() {
                     onRangeChange={(r) => setParams({ timelineRange: r })}
                     onZoomChange={(z) => setParams({ timelineZoom: z })}
                   />
-                </motion.div>
+                </m.div>
               ) : view === "table" ? (
-                <motion.div
+                <m.div
                   key="projects-table-view"
                   className="flex flex-1 min-h-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -445,9 +452,9 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               ) : (
-                <motion.div
+                <m.div
                   key="projects-list-view"
                   className="flex flex-1 min-h-0"
                   initial={{ opacity: 0, y: 8 }}
@@ -461,7 +468,7 @@ export function ProjectsClient() {
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           )}

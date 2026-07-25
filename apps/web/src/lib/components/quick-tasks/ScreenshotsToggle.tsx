@@ -1,36 +1,28 @@
 "use client";
 
-import { IconCamera, IconCameraOff } from "@tabler/icons-react";
-import {
-  TriStateOverrideToggle,
-  type TriStateValue,
-} from "./TriStateOverrideToggle";
-
-export type ScreenshotsToggleValue = TriStateValue;
+import { Switch } from "@eva/ui";
 
 interface ScreenshotsToggleProps {
-  value: ScreenshotsToggleValue;
-  repoDefault: boolean;
-  onChange: (next: ScreenshotsToggleValue) => void;
+  value: boolean;
+  onChange: (next: boolean) => void;
   disabled?: boolean;
 }
 
-/** Tri-state per-task override for the repo/project screenshots-videos default. */
+/** On/off task default for capturing proof after a run. */
 export function ScreenshotsToggle({
   value,
-  repoDefault,
   onChange,
   disabled,
 }: ScreenshotsToggleProps) {
   return (
-    <TriStateOverrideToggle
-      label="Proof"
-      value={value}
-      inheritedDefault={repoDefault}
-      onChange={onChange}
-      onIcon={IconCamera}
-      offIcon={IconCameraOff}
-      disabled={disabled}
-    />
+    <label className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground">
+      <Switch
+        checked={value}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        aria-label="Capture proof"
+      />
+      <span className={value ? "text-foreground" : undefined}>Proof</span>
+    </label>
   );
 }

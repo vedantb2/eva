@@ -90,6 +90,7 @@ export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
     repoId: v.id("githubRepos"),
+    runId: v.id("agentRuns"),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
     mode: v.optional(runModeValidator),
@@ -108,6 +109,8 @@ export const getTaskData = internalQuery({
     keepTaskSandboxActiveAfterRun: v.boolean(),
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
+    devPort: v.optional(v.number()),
+    devCommand: v.optional(v.string()),
     screenshotsVideosEnabled: v.boolean(),
     runAuditEnabled: v.boolean(),
     proofModel: v.optional(aiModelValidator),
@@ -263,19 +266,21 @@ export const getTaskData = internalQuery({
           ? await ctx.db.get(defaultsProjectId)
           : null;
 
-    // Per-task override wins, then project default, then repo, then off.
+    // Proof/audit resolution: a per-run override (set by the request-changes
+    // composer, default off) wins for this run; otherwise fall back to the task
+    // default, then the project default, else off. There is no repo default.
+    const run = await ctx.db.get(args.runId);
     const screenshotsVideosEnabled =
+      run?.screenshotsVideosEnabled ??
       task.screenshotsVideosEnabled ??
       defaultsProject?.screenshotsVideosEnabled ??
-      repo.screenshotsVideosEnabled ??
       false;
 
-    // Audit: task override -> project default -> current behavior (project
-    // tasks audit by default, quick tasks do not).
     const runAuditEnabled =
+      run?.runAuditEnabled ??
       task.runAuditEnabled ??
       defaultsProject?.runAuditEnabled ??
-      args.projectId !== undefined;
+      false;
 
     const prompt =
       args.mode === "resolve_conflicts"
@@ -335,6 +340,8 @@ export const getTaskData = internalQuery({
       keepTaskSandboxActiveAfterRun,
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
+      devPort: repo.devPort,
+      devCommand: repo.devCommand,
       screenshotsVideosEnabled,
       runAuditEnabled,
       proofModel: repo.proofModel,

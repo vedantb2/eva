@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 interface PageTitleContextType {
   pageTitle: string;
@@ -14,9 +14,9 @@ const PageTitleContext = createContext<PageTitleContextType | undefined>(
 export function PageTitleProvider({ children }: { children: React.ReactNode }) {
   const [pageTitle, setPageTitleState] = useState("");
 
-  const setPageTitle = useCallback((title: string) => {
+  const setPageTitle = (title: string) => {
     setPageTitleState(title);
-  }, []);
+  };
 
   return (
     <PageTitleContext.Provider value={{ pageTitle, setPageTitle }}>

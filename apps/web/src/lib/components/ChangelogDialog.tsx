@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   Button,
   cn,
   STREAMDOWN_TABLE_RADIUS_CLASS,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -29,17 +29,15 @@ import {
 const changelogPlugins = { cjk, math, mermaid };
 
 export function ChangelogDialog() {
-  const [forcedDismissed, setForcedDismissed] = useState(false);
+  // Keyed by preview search so reopening `?changelog` resets dismiss without an effect.
+  const [dismissedPreviewKey, setDismissedPreviewKey] = useState<string | null>(
+    null,
+  );
   const previewSearchKey = useDevPreviewSearchKey();
   const isPreview = useDevChangelogPreview();
-  const forceShow = isPreview && !forcedDismissed;
+  const forceShow = isPreview && dismissedPreviewKey !== previewSearchKey;
   const changelog = useQuery(api.changelog.getLatestChangelog);
 
-  useEffect(() => {
-    if (isPreview) {
-      setForcedDismissed(false);
-    }
-  }, [isPreview, previewSearchKey]);
   const dismiss = useMutation(
     api.changelog.dismissChangelog,
   ).withOptimisticUpdate((localStore) => {
@@ -63,7 +61,7 @@ export function ChangelogDialog() {
 
   function handleDismiss() {
     if (isPreview) {
-      setForcedDismissed(true);
+      setDismissedPreviewKey(previewSearchKey);
       return;
     }
     void dismiss();

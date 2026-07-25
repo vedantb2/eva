@@ -1,6 +1,7 @@
 export {
   list,
   listReposWithActiveSandboxes,
+  countActiveSessions,
   get,
   getByIdString,
   getProviderAvailability,

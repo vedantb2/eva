@@ -1,6 +1,6 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import { useQueryStates } from "nuqs";
 import { designVariationParser, viewModeParser } from "@/lib/search-params";
 import {
@@ -10,7 +10,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconDeviceDesktop,
@@ -64,7 +64,9 @@ export function DesignPreviewPanel({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
   const activeIframeRef = useRef<HTMLIFrameElement | null>(null);
-  activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
+  useEffect(() => {
+    activeIframeRef.current = iframeRefs.current.get(activeTabIndex) ?? null;
+  }, [activeTabIndex]);
 
   if (latestVariations.length === 0) {
     return (

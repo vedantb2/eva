@@ -1,12 +1,21 @@
-import { type Doc } from "@conductor/backend";
+import { type Doc, type Id } from "@eva/backend";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
+import {
+  collectChangedFiles,
+  type ChangedFile,
+} from "@/lib/components/chat/ChangedFilesCard";
 import { z } from "zod";
 
 export type ChatBodyMessage = Doc<"messages"> & {
-  imageUrl?: string | null;
-  videoUrl?: string | null;
+  media?: { url: string | null; contentType: string | null }[];
+  /** @deprecated Prefer `attachments` — kept for optimistic/local messages. */
   attachmentUrls?: (string | null)[];
+  attachments?: {
+    url: string | null;
+    contentType: string | null;
+  }[];
 };
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
@@ -41,15 +50,64 @@ export function parsePendingQuestion(
   }
 }
 
+/** First name for chat labels; falls back to the first word of full name. */
+export function firstNameFromUser(user: {
+  firstName?: string | null;
+  fullName?: string | null;
+}): string | null {
+  return user.firstName?.trim() || user.fullName?.trim().split(" ")[0] || null;
+}
+
+/** Teammate user turn (not yours). Missing ids → treat as own to avoid layout flash. */
+export function isOtherUserChatMessage(
+  message: ChatBodyMessage,
+  currentUserId: Id<"users"> | undefined,
+): boolean {
+  return (
+    !message.isSystemAlert &&
+    message.role === "user" &&
+    message.userId !== undefined &&
+    currentUserId !== undefined &&
+    message.userId !== currentUserId
+  );
+}
+
+/** Streaming / questions / changed-files flags for an assistant row. */
+export function getAssistantTurnState(
+  message: ChatBodyMessage,
+  isLast: boolean,
+): {
+  isStreamingPlaceholder: boolean;
+  showQuestions: boolean;
+  changedFiles: ChangedFile[];
+} {
+  const isStreamingPlaceholder =
+    message.role === "assistant" &&
+    !message.content &&
+    message.finishedAt === undefined;
+  const changedFiles =
+    !isStreamingPlaceholder &&
+    message.role === "assistant" &&
+    message.activityLog
+      ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
+      : [];
+  return {
+    isStreamingPlaceholder,
+    showQuestions: isStreamingPlaceholder || isLast,
+    changedFiles,
+  };
+}
+
 /** Previously sent user messages as editable display text, newest-first. */
 export function buildMessageHistory(messages: ChatBodyMessage[]): string[] {
   return messages
-    .filter((m) => m.role === "user" && !m.isSystemAlert && m.content)
-    .map(
-      (m) =>
-        tokenizedToEditable(stripReviewCommentBlocks(m.content ?? "").text)
+    .flatMap((m) => {
+      if (m.role !== "user" || m.isSystemAlert || !m.content) return [];
+      return [
+        tokenizedToEditable(stripReviewCommentBlocks(m.content).text)
           .displayText,
-    )
+      ];
+    })
     .reverse();
 }
 
@@ -62,6 +120,49 @@ export function findLastUserMessageIndex(messages: ChatBodyMessage[]): number {
     }
   }
   return -1;
+}
+
+/**
+ * Model / account snapshot for an assistant row: walks back to the preceding
+ * user turn (where send/dequeue stores model + credentialSourceLabel).
+ */
+export function findPrecedingUserTurn(
+  messages: ReadonlyArray<ChatBodyMessage>,
+  assistantMessageId: string,
+): ChatBodyMessage | undefined {
+  const index = messages.findIndex(
+    (message) => message._id === assistantMessageId,
+  );
+  if (index < 0) return undefined;
+  for (let i = index - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.isSystemAlert) continue;
+    if (message.role === "user") return message;
+    if (message.role === "assistant") return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a session/task chat still has an unfinished Working bubble.
+ * System alerts (`isSystemAlert`) are skipped — they can append mid-turn and
+ * must not make the composer think the reply finished.
+ */
+export function isAssistantTurnInProgress(
+  messages: ReadonlyArray<
+    Pick<ChatBodyMessage, "role" | "content" | "isSystemAlert" | "finishedAt">
+  >,
+): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.isSystemAlert) continue;
+    return (
+      message.role === "assistant" &&
+      !message.content &&
+      message.finishedAt === undefined
+    );
+  }
+  return false;
 }
 
 /** One tick per user turn for the jump rail. */

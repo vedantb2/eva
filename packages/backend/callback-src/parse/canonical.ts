@@ -9,8 +9,14 @@ import type {
   JsonObject,
   ProgressStep,
   TodoItem,
+  ToolCompleteResult,
 } from "../types.js";
 import { tryParseJson } from "../utils.js";
+import {
+  completeStatusOnNonStatusMessage,
+  consumesClaudeSdkTaxonomyMessage,
+  parseClaudeSdkTaxonomy,
+} from "./sdkTaxonomy.js";
 
 export {
   codexItemToStep,
@@ -22,6 +28,24 @@ export {
   toolCallToStep,
 } from "./toolSteps.js";
 
+/** Push-time timestamps for durationMs (not persisted across serialize). */
+const stepStartedAt = new WeakMap<ProgressStep, number>();
+
+function mergeToolResult(step: ProgressStep, result: ToolCompleteResult): void {
+  if (result.output) {
+    step.output = result.output;
+  }
+  if (result.isError !== undefined) {
+    step.isError = result.isError;
+  }
+  if (result.files && result.files.length > 0) {
+    step.files = result.files;
+  }
+  if (result.durationMs !== undefined) {
+    step.durationMs = result.durationMs;
+  }
+}
+
 /** Flips one step to complete and swaps its in-progress label for the past-tense one. */
 function markStepComplete(step: ProgressStep): void {
   step.status = "complete";
@@ -29,6 +53,12 @@ function markStepComplete(step: ProgressStep): void {
     step.label = completedLabels[step.label];
   } else if (step.label.startsWith("Using ") && step.label.endsWith("...")) {
     step.label = "Used " + step.label.slice(6, -3);
+  }
+  if (step.durationMs === undefined) {
+    const started = stepStartedAt.get(step);
+    if (started !== undefined) {
+      step.durationMs = Date.now() - started;
+    }
   }
 }
 
@@ -44,17 +74,26 @@ export function markLastComplete(): void {
  * id. Matching by id is what lets a subagent's parent `Agent` step stay active
  * until its own tool_result, rather than being closed by its first child.
  */
-function completeToolStep(trackingId?: string): void {
+function completeToolStep(
+  trackingId?: string,
+  result?: ToolCompleteResult,
+): void {
   if (trackingId) {
     for (let i = S.accumulatedSteps.length - 1; i >= 0; i--) {
       const step = S.accumulatedSteps[i];
       if (step.toolUseId === trackingId) {
+        if (result) mergeToolResult(step, result);
         markStepComplete(step);
         return;
       }
     }
   }
-  markLastComplete();
+  if (S.accumulatedSteps.length > 0) {
+    const last = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+    if (result) mergeToolResult(last, result);
+    markStepComplete(last);
+    return;
+  }
 }
 
 /** Short "N of M done" summary used as the todos step's fallback detail. */
@@ -118,6 +157,7 @@ function pushProgressStep(step: ProgressStep): void {
     markLastComplete();
   }
   S.accumulatedSteps.push(step);
+  stepStartedAt.set(step, Date.now());
   S.lastStepType = "tool";
 }
 
@@ -148,7 +188,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         }
         break;
       case "complete_tool":
-        completeToolStep(ev.trackingId);
+        completeToolStep(ev.trackingId, ev.result);
         if (ev.trackingId !== undefined) {
           S.codexToolItemIds.delete(ev.trackingId);
         }
@@ -160,19 +200,33 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         markLastComplete();
         break;
       case "append_text":
-        appendStreamedContent(ev.text);
+        // A whole (non-streamed) assistant text block — always a boundary, so a
+        // paragraph break separates it from any prior block.
+        appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
         // Live token delta from an Anthropic partial message. Appends exactly
         // like append_text but marks the flag so the FINAL assistant message's
-        // duplicate text block is skipped (see claudeParseLine dedup).
-        appendStreamedContent(ev.text);
+        // duplicate text block is skipped (see claudeParseLine dedup). The break
+        // is applied only on the first delta after a message boundary.
+        appendStreamedContent(ev.text, S.pendingParagraphBreak);
+        S.pendingParagraphBreak = false;
         S.streamedAssistantTextThisMessage = true;
         break;
       case "mark_message_start":
         // A new assistant message is beginning; clear the per-message dedup flag
-        // so its text blocks stream fresh.
+        // so its text blocks stream fresh, and request a paragraph break before
+        // this message's first streamed text.
         S.streamedAssistantTextThisMessage = false;
+        S.pendingParagraphBreak = true;
+        break;
+      case "mark_text_block_start":
+        // A new text content block is opening inside the current message. With
+        // interleaved thinking the model emits text → thinking → text within one
+        // message (no message_start between them), so request a paragraph break
+        // here too — otherwise consecutive text blocks butt together. The break
+        // itself only lands when there is prior content (see appendStreamedContent).
+        S.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
         S.lastStepType = "thinking";
@@ -201,6 +255,11 @@ export function parseStreamEvent(line: string): boolean {
     return false;
   }
   try {
+    completeStatusOnNonStatusMessage(event);
+    if (consumesClaudeSdkTaxonomyMessage(event)) {
+      applyCanonicalEvents(parseClaudeSdkTaxonomy(event));
+      return true;
+    }
     return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
   } catch {
     return false;
@@ -208,14 +267,29 @@ export function parseStreamEvent(line: string): boolean {
 }
 
 /** Appends new text to the current streamed content buffer. */
-export function appendStreamedContent(text: string): void {
+export function appendStreamedContent(
+  text: string,
+  isBlockBoundary = false,
+): void {
   const nextText = String(text);
   if (!nextText) {
     return;
   }
   if (nextText.startsWith(S.currentStreamedContent)) {
+    // A full snapshot supersedes the accumulated streamed text (dedup); never a
+    // boundary, so no separator is inserted.
     S.currentStreamedContent = nextText;
     return;
+  }
+  if (
+    isBlockBoundary &&
+    S.currentStreamedContent.length > 0 &&
+    !S.currentStreamedContent.endsWith("\n") &&
+    !nextText.startsWith("\n")
+  ) {
+    // Distinct assistant message/block — keep a paragraph break so the end of
+    // one block does not butt against the start of the next.
+    S.currentStreamedContent += "\n\n";
   }
   S.currentStreamedContent += nextText;
 }

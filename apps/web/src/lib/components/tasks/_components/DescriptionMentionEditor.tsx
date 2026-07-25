@@ -1,13 +1,13 @@
 "use client";
 
-import { forwardRef, useCallback, useMemo } from "react";
+import { forwardRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,
@@ -69,44 +69,34 @@ export const DescriptionMentionEditor = forwardRef<
   const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
   const navigateToDocById = useDocMentionNavigate(basePath);
 
-  const handleMentionChipClick = useCallback(
-    (id: string) => {
-      if (isMentionTokenDocId(id)) {
-        void navigateToDocById(id, docs);
-      }
-    },
-    [docs, navigateToDocById],
-  );
+  const handleMentionChipClick = (id: string) => {
+    if (isMentionTokenDocId(id)) {
+      void navigateToDocById(id, docs);
+    }
+  };
 
-  const handleSkillChipClick = useCallback(
-    (_skillId: string) => {
-      navigate({ to: `${basePath}/settings/skills` });
-    },
-    [navigate, basePath],
-  );
+  const handleSkillChipClick = (_skillId: string) => {
+    navigate({ to: `${basePath}/settings/skills` });
+  };
   const skills =
     useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
 
-  const items: MentionItem<Doc<"docs">["_id"]>[] = useMemo(
-    () =>
-      docs.map((doc) => ({
-        id: doc._id,
-        label: doc.title,
-        description: docDescriptionPreview(doc),
-      })),
-    [docs],
-  );
+  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
+    id: doc._id,
+    label: doc.title,
+    description: docDescriptionPreview(doc),
+  }));
 
-  const slashItems: SlashItem[] = useMemo(
-    () =>
-      skills
-        .filter((skill) => skill.available)
-        .map((skill) => ({
-          id: skill._id,
-          label: skill.title,
-          description: skill.description,
-        })),
-    [skills],
+  const slashItems: SlashItem[] = skills.flatMap((skill) =>
+    skill.available
+      ? [
+          {
+            id: skill._id,
+            label: skill.title,
+            description: skill.description,
+          },
+        ]
+      : [],
   );
 
   return (

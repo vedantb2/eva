@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Checkbox, Input, Spinner } from "@conductor/ui";
+import { Checkbox, Input, Spinner } from "@eva/ui";
 
 /**
  * App-wide setting for the daily sandbox auto-stop sweep. The entered time is

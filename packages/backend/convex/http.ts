@@ -245,7 +245,7 @@ http.route({
   }),
 });
 
-const EXTENSION_ID = process.env.EXTENSION_ID ?? "conductor-extension";
+const EXTENSION_ID = process.env.EXTENSION_ID ?? "eva-extension";
 
 http.route({
   path: "/api/updates/extension/updates.xml",
@@ -272,8 +272,7 @@ http.route({
     }
 
     const siteUrl = process.env.CONVEX_SITE_URL ?? "";
-    const crxUrl =
-      release.crxUrl ?? `${siteUrl}/api/updates/extension/conductor.crx`;
+    const crxUrl = release.crxUrl ?? `${siteUrl}/api/updates/extension/eva.crx`;
 
     const xml = `<?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
@@ -292,7 +291,7 @@ http.route({
 });
 
 http.route({
-  path: "/api/updates/extension/conductor.crx",
+  path: "/api/updates/extension/eva.crx",
   method: "GET",
   handler: httpAction(async (ctx) => {
     const release = await ctx.runQuery(
@@ -327,6 +326,7 @@ const prWebhookSchema = z.object({
     draft: z.boolean().nullable().catch(null),
     number: z.number().nullable().catch(null),
     title: nullableString,
+    merge_commit_sha: nullableString,
     head: z
       .object({ ref: nullableString, sha: nullableString })
       .nullable()
@@ -338,6 +338,52 @@ const prWebhookSchema = z.object({
     .nullable()
     .catch(null),
 });
+
+const pushCommitPathsSchema = z.object({
+  added: z.array(z.string()).optional().default([]),
+  modified: z.array(z.string()).optional().default([]),
+  removed: z.array(z.string()).optional().default([]),
+});
+
+const pushWebhookSchema = z.object({
+  ref: z.string(),
+  repository: z.object({
+    name: z.string(),
+    owner: z.object({ login: z.string() }),
+  }),
+  commits: z.array(pushCommitPathsSchema).optional().default([]),
+});
+
+const SKILLS_ROOT_PREFIX = ".agents/skills";
+
+/** True when any commit path is under `.agents/skills`, or when GitHub sent no
+ * path lists (force-push / truncated payloads) so we still resync. */
+function pushTouchesSkills(
+  commits: Array<{
+    added: string[];
+    modified: string[];
+    removed: string[];
+  }>,
+): boolean {
+  if (commits.length === 0) return true;
+  let sawAnyPath = false;
+  for (const commit of commits) {
+    for (const path of [
+      ...commit.added,
+      ...commit.modified,
+      ...commit.removed,
+    ]) {
+      sawAnyPath = true;
+      if (
+        path === SKILLS_ROOT_PREFIX ||
+        path.startsWith(`${SKILLS_ROOT_PREFIX}/`)
+      ) {
+        return true;
+      }
+    }
+  }
+  return !sawAnyPath;
+}
 
 // Boundary schemas for the deploy-key-protected MCP OAuth endpoints. These are
 // internal, so they are strict: any missing/mistyped field yields a 400.
@@ -439,6 +485,8 @@ http.route({
             action,
             draft: draft ?? undefined,
             merged: merged ?? undefined,
+            prNumber: pullRequest.number ?? undefined,
+            mergeCommitSha: pullRequest.merge_commit_sha ?? undefined,
           },
         );
         await ctx.scheduler.runAfter(
@@ -490,10 +538,28 @@ http.route({
                 headSha,
                 draft: draft ?? undefined,
                 authorLogin: authorLogin ?? undefined,
+                branchName: branchName ?? undefined,
               },
             );
           }
         }
+      }
+    }
+
+    if (event === "push") {
+      const parsed = pushWebhookSchema.safeParse(JSON.parse(body));
+      if (parsed.success && parsed.data.ref.startsWith("refs/heads/")) {
+        const branch = parsed.data.ref.slice("refs/heads/".length);
+        await ctx.scheduler.runAfter(
+          0,
+          internal.githubWebhook.handlePushForSkillSync,
+          {
+            owner: parsed.data.repository.owner.login,
+            name: parsed.data.repository.name,
+            branch,
+            touchedSkillsPath: pushTouchesSkills(parsed.data.commits),
+          },
+        );
       }
     }
 
@@ -546,6 +612,7 @@ http.route({
 
     const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId,
+      now: Date.now(),
     });
 
     if (!client) {

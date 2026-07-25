@@ -8,9 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-} from "@conductor/ui";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+} from "@eva/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 
@@ -35,9 +35,11 @@ export function SessionSummaryModal({
     try {
       await startSummarize({ sessionId });
       onClose();
-    } finally {
+    } catch (error) {
       setIsSummarizing(false);
+      throw error;
     }
+    setIsSummarizing(false);
   };
 
   return (

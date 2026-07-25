@@ -3,6 +3,13 @@ import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { githubRepoFields } from "../validators";
 import { hasRepoAccess } from "../functions";
+import { pickSandboxRepoId } from "./sandboxRepoPick";
+
+export {
+  pickDefaultVisibleAppRepo,
+  pickSandboxRepoId,
+  type AppRepoPickFields,
+} from "./sandboxRepoPick";
 
 /** Resolves a repo ID to its parent repo ID if it is a sub-app, otherwise returns itself. */
 export async function resolveCanonicalRepoId(
@@ -16,25 +23,6 @@ export async function resolveCanonicalRepoId(
     if (parent) return parent._id;
   }
   return repoId;
-}
-
-/** Default visible monorepo app row for bare owner/name URLs and external links. */
-export function pickDefaultVisibleAppRepo(
-  siblings: Array<Doc<"githubRepos">>,
-): Doc<"githubRepos"> | undefined {
-  const visible = siblings.filter(
-    (repo) => repo.rootDirectory !== undefined && repo.hidden !== true,
-  );
-  const webApp = visible.find(
-    (repo) =>
-      repo.rootDirectory === "web" || repo.rootDirectory?.endsWith("/web"),
-  );
-  if (webApp) return webApp;
-
-  const connected = visible.find((repo) => repo.connectedBy !== undefined);
-  if (connected) return connected;
-
-  return visible[0];
 }
 
 /** Stable repo id for codebase-wide docs (PR recaps). Prefers root row, else first connected sibling. */
@@ -91,6 +79,94 @@ export async function findAllSiblingRepoIds(
   const siblings = await findSiblingRepos(db, repoId);
   if (siblings.length === 0) return [repoId];
   return siblings.map((s) => s._id);
+}
+
+/**
+ * All repos the user can access (connected + team), de-duplicated.
+ * Shared by list queries and cross-repo spotlight search.
+ */
+export async function gatherAccessibleRepos(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  includeHidden: boolean,
+): Promise<Array<Doc<"githubRepos">>> {
+  const userTeamMemberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  const teamRepoResults = await Promise.all(
+    userTeamMemberships.map((m) =>
+      db
+        .query("githubRepos")
+        .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+        .collect(),
+    ),
+  );
+
+  const connectedRepos = await db
+    .query("githubRepos")
+    .withIndex("by_connected_by", (q) => q.eq("connectedBy", userId))
+    .collect();
+
+  const seen = new Set<string>();
+  const repos: Array<Doc<"githubRepos">> = [];
+  for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+    if (seen.has(String(repo._id))) continue;
+    seen.add(String(repo._id));
+    if (!includeHidden && repo.hidden === true) continue;
+    repos.push(repo);
+  }
+  return repos;
+}
+
+/** Frontend path prefix for a githubRepos row (monorepo apps use `name--app`). */
+export function repoBasePath(repo: {
+  owner: string;
+  name: string;
+  rootDirectory?: string;
+}): string {
+  if (!repo.rootDirectory) return `/${repo.owner}/${repo.name}`;
+  const appName = repo.rootDirectory.split("/").pop();
+  if (!appName) return `/${repo.owner}/${repo.name}`;
+  return `/${repo.owner}/${repo.name}--${appName}`;
+}
+
+/** Custom label when set; otherwise leaf folder or GitHub name. */
+export function repoDisplayLabel(repo: {
+  label?: string;
+  name: string;
+  rootDirectory?: string;
+}): string {
+  const custom = repo.label?.trim();
+  if (custom) return custom;
+  if (repo.rootDirectory) {
+    const leaf = repo.rootDirectory.split("/").pop();
+    if (leaf) return leaf;
+  }
+  return repo.name;
+}
+
+/**
+ * Picks which githubRepos row to use for sandbox credentials.
+ * Shared automations and PR recaps often run against the monorepo root, which
+ * has no VERCEL_PROJECT_ID — credentials live on app rows.
+ */
+export async function resolveSandboxRepoId(
+  db: GenericDatabaseReader<DataModel>,
+  workflowRepoId: Id<"githubRepos">,
+  siblings?: Array<Doc<"githubRepos">>,
+): Promise<Id<"githubRepos">> {
+  const siblingRepos = siblings ?? (await findSiblingRepos(db, workflowRepoId));
+  return pickSandboxRepoId(workflowRepoId, siblingRepos, async (repoId) => {
+    const envDoc = await db
+      .query("repoEnvVars")
+      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+      .first();
+    return (
+      envDoc?.vars.some((entry) => entry.key === "VERCEL_PROJECT_ID") === true
+    );
+  });
 }
 
 /** Validator for the full githubRepos document shape including system fields. */

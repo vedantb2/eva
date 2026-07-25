@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Calendar, Button } from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
+import { useState } from "react";
+import { Calendar, Button } from "@eva/ui";
+import dayjs from "@eva/shared/dates";
 
 function parseTimestamp(
   selectedDate: Date | undefined,
@@ -33,10 +33,10 @@ interface ScheduleDateTimePickerProps {
 }
 
 export function useScheduleDateTime(initialTimestamp?: number) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(() =>
     initialTimestamp ? new Date(initialTimestamp) : new Date(),
   );
-  const [time, setTime] = useState(
+  const [time, setTime] = useState(() =>
     initialTimestamp
       ? dayjs(initialTimestamp).format("HH:mm")
       : dayjs().format("HH:mm"),
@@ -44,10 +44,10 @@ export function useScheduleDateTime(initialTimestamp?: number) {
 
   const timestamp = parseTimestamp(selectedDate, time);
 
-  const reset = useCallback((ts?: number) => {
+  const reset = (ts?: number) => {
     setSelectedDate(ts ? new Date(ts) : new Date());
     setTime(ts ? dayjs(ts).format("HH:mm") : dayjs().format("HH:mm"));
-  }, []);
+  };
 
   return {
     selectedDate,

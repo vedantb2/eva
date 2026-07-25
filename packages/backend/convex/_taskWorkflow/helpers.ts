@@ -97,7 +97,7 @@ export async function upsertActivityLog(
   ctx: MutationCtx,
   runId: Id<"agentRuns">,
   activityLog: string,
-  type: "run" | "audit" | "fix" = "run",
+  type: "run" | "audit" | "fix" | "proof" = "run",
 ): Promise<void> {
   const existing = await ctx.db
     .query("agentRunActivityLogs")

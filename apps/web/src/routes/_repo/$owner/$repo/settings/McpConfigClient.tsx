@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -16,7 +16,7 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 
 export function McpConfigClient() {
@@ -29,12 +29,12 @@ export function McpConfigClient() {
 
   const prompt = repo.mcpRootPrompt ?? "";
 
-  const handleOpen = useCallback(() => {
+  const handleOpen = () => {
     setDraft(prompt);
     setOpen(true);
-  }, [prompt]);
+  };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
       await updateMcpRootPrompt({
@@ -42,10 +42,12 @@ export function McpConfigClient() {
         mcpRootPrompt: draft.trim() || undefined,
       });
       setOpen(false);
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
-  }, [updateMcpRootPrompt, repoId, draft]);
+    setSaving(false);
+  };
 
   const isDirty = draft !== prompt;
 

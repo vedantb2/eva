@@ -17,6 +17,11 @@ export {
   assignToProject,
   reorderProjectTasks,
   deleteCascade,
+  setPreviewPath,
+  setPreviewPort,
+  setTerminalHistoryTail,
+  setTraits,
+  releaseBrowserLock,
 } from "./_agentTasks/mutations";
 
 export {
@@ -38,4 +43,4 @@ export {
   taskSandboxError,
 } from "./_agentTasks/sandbox";
 
-export { getInternal } from "./_agentTasks/internal";
+export { getInternal, getInternalByStringId } from "./_agentTasks/internal";

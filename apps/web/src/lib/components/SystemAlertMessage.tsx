@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   Button,
   Dialog,
@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
@@ -28,7 +28,7 @@ export function SystemAlertMessage({
 
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
@@ -58,7 +58,7 @@ export function SystemAlertMessage({
           </button>
         )}
         <div className="h-px flex-1 bg-border" />
-      </motion.div>
+      </m.div>
       {errorDetail && (
         <Dialog open={showError} onOpenChange={setShowError}>
           <DialogContent>

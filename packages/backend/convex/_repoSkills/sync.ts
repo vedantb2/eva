@@ -1,9 +1,9 @@
 "use node";
 
 import type { Octokit } from "octokit";
-import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
-import { action } from "../_generated/server";
+import { action, internalAction, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { getInstallationOctokit } from "../githubAuth";
 import {
@@ -11,6 +11,7 @@ import {
   parseSkillMarkdown,
   SKILL_FILE_NAME,
 } from "./skillMarkdown";
+import { decodeGitHubContent } from "./decodeGitHubContent";
 
 const SKILLS_ROOT_PATH = ".agents/skills";
 
@@ -35,46 +36,17 @@ type SyncTarget = {
   ref: string;
 };
 
-type SyncResult = {
+type SyncOutcome = {
   synced: number;
   available: number;
   stale: number;
+  skipped: number;
+  warnings: string[];
 };
-
-const getUserIdFromIdentityRef = makeFunctionReference<
-  "query",
-  Record<string, never>,
-  Id<"users"> | null
->("auth:getUserIdFromIdentity");
-
-const getSyncTargetRef = makeFunctionReference<
-  "query",
-  { repoId: Id<"githubRepos">; userId: Id<"users"> },
-  SyncTarget
->("repoSkills:getSyncTarget");
-
-const applyGithubSyncRef = makeFunctionReference<
-  "mutation",
-  {
-    repoId: Id<"githubRepos">;
-    skills: SyncedSkill[];
-    syncedAt: number;
-  },
-  SyncResult
->("repoSkills:applyGithubSync");
 
 function isGithubNotFound(error: Error): boolean {
   const message = error.message.toLowerCase();
   return message.includes("not found") || message.includes("404");
-}
-
-function decodeGitHubContent(content: string): string {
-  const binary = atob(content.replace(/\n/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new TextDecoder("utf-8").decode(bytes);
 }
 
 async function fetchSkillDirectories(
@@ -178,80 +150,142 @@ async function fetchSkill(
   }
 }
 
-export const syncFromGithub = action({
-  args: { repoId: v.id("githubRepos") },
-  returns: v.object({
-    synced: v.number(),
-    available: v.number(),
-    stale: v.number(),
-    skipped: v.number(),
-    warnings: v.array(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const userId = await ctx.runQuery(getUserIdFromIdentityRef, {});
-    if (!userId) {
-      throw new Error("Not authenticated");
-    }
+/** Shared GitHub scan + apply for manual, cron, and webhook skill sync. */
+async function syncSkillsForTarget(
+  ctx: ActionCtx,
+  target: SyncTarget,
+): Promise<SyncOutcome> {
+  const octokit = await getInstallationOctokit(target.installationId);
+  const directories = await fetchSkillDirectories(
+    octokit,
+    target.owner,
+    target.name,
+    target.ref,
+  );
 
-    const target = await ctx.runQuery(getSyncTargetRef, {
-      repoId: args.repoId,
-      userId,
+  const warnings: string[] = [];
+  let skipped = 0;
+
+  if (directories === null) {
+    warnings.push(
+      `No ${SKILLS_ROOT_PATH} directory found on ${target.ref}. Existing skills were marked stale.`,
+    );
+    const result = await ctx.runMutation(internal.repoSkills.applyGithubSync, {
+      repoId: target.canonicalRepoId,
+      skills: [],
+      syncedAt: Date.now(),
     });
-    const octokit = await getInstallationOctokit(target.installationId);
-    const directories = await fetchSkillDirectories(
+    return { ...result, skipped, warnings };
+  }
+
+  const skills: SyncedSkill[] = [];
+  const seenTitles = new Set<string>();
+  for (const directory of directories) {
+    const fetchResult = await fetchSkill(
       octokit,
       target.owner,
       target.name,
       target.ref,
+      directory,
     );
-
-    const warnings: string[] = [];
-    let skipped = 0;
-
-    if (directories === null) {
+    if (!fetchResult.ok) {
+      skipped++;
+      warnings.push(fetchResult.warning);
+      continue;
+    }
+    const skill = fetchResult.skill;
+    if (seenTitles.has(skill.title)) {
+      skipped++;
       warnings.push(
-        `No ${SKILLS_ROOT_PATH} directory found on ${target.ref}. Existing skills were marked stale.`,
+        `Skipped ${skill.sourcePath}: duplicate skill name "${skill.title}".`,
       );
-      const result = await ctx.runMutation(applyGithubSyncRef, {
-        repoId: target.canonicalRepoId,
-        skills: [],
-        syncedAt: Date.now(),
-      });
-      return { ...result, skipped, warnings };
+      continue;
+    }
+    seenTitles.add(skill.title);
+    skills.push(skill);
+  }
+
+  const result = await ctx.runMutation(internal.repoSkills.applyGithubSync, {
+    repoId: target.canonicalRepoId,
+    skills,
+    syncedAt: Date.now(),
+  });
+  return { ...result, skipped, warnings };
+}
+
+const syncOutcomeValidator = v.object({
+  synced: v.number(),
+  available: v.number(),
+  stale: v.number(),
+  skipped: v.number(),
+  warnings: v.array(v.string()),
+});
+
+/** Manual Settings → Sync from GitHub (authenticated). */
+export const syncFromGithub = action({
+  args: { repoId: v.id("githubRepos") },
+  returns: syncOutcomeValidator,
+  handler: async (ctx, args): Promise<SyncOutcome> => {
+    const userId: Id<"users"> | null = await ctx.runQuery(
+      internal.auth.getUserIdFromIdentity,
+      {},
+    );
+    if (!userId) {
+      throw new Error("Not authenticated");
     }
 
-    const skills: SyncedSkill[] = [];
-    const seenTitles = new Set<string>();
-    for (const directory of directories) {
-      const fetchResult = await fetchSkill(
-        octokit,
-        target.owner,
-        target.name,
-        target.ref,
-        directory,
-      );
-      if (!fetchResult.ok) {
-        skipped++;
-        warnings.push(fetchResult.warning);
-        continue;
-      }
-      const skill = fetchResult.skill;
-      if (seenTitles.has(skill.title)) {
-        skipped++;
-        warnings.push(
-          `Skipped ${skill.sourcePath}: duplicate skill name "${skill.title}".`,
-        );
-        continue;
-      }
-      seenTitles.add(skill.title);
-      skills.push(skill);
-    }
+    const target: SyncTarget = await ctx.runQuery(
+      internal.repoSkills.getSyncTarget,
+      {
+        repoId: args.repoId,
+        userId,
+      },
+    );
+    return await syncSkillsForTarget(ctx, target);
+  },
+});
 
-    const result = await ctx.runMutation(applyGithubSyncRef, {
-      repoId: target.canonicalRepoId,
-      skills,
-      syncedAt: Date.now(),
-    });
-    return { ...result, skipped, warnings };
+/**
+ * System sync for one repo (cron / webhook). Uses the installation token —
+ * no end-user auth required.
+ */
+export const syncRepoInternal = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(syncOutcomeValidator, v.null()),
+  handler: async (ctx, args): Promise<SyncOutcome | null> => {
+    const target: SyncTarget | null = await ctx.runQuery(
+      internal.repoSkills.getSyncTargetSystem,
+      {
+        repoId: args.repoId,
+      },
+    );
+    if (!target) return null;
+    return await syncSkillsForTarget(ctx, target);
+  },
+});
+
+/**
+ * Schedules a staggered per-repo skill sync for every connected canonical
+ * codebase. Invoked by the periodic cron in `crons.ts`.
+ */
+export const syncAllRepos = internalAction({
+  args: {},
+  returns: v.object({ scheduled: v.number() }),
+  handler: async (ctx): Promise<{ scheduled: number }> => {
+    const repoIds: Array<Id<"githubRepos">> = await ctx.runQuery(
+      internal.repoSkills.listCanonicalReposForSkillSync,
+      {},
+    );
+    // Stagger to stay under GitHub secondary rate limits across many installs.
+    for (let i = 0; i < repoIds.length; i++) {
+      const repoId = repoIds[i];
+      if (repoId === undefined) continue;
+      await ctx.scheduler.runAfter(
+        i * 2000,
+        internal._repoSkills.sync.syncRepoInternal,
+        { repoId },
+      );
+    }
+    return { scheduled: repoIds.length };
   },
 });

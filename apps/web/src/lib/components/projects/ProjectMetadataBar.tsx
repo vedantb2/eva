@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, getAIModelProvider, normalizeAIModel } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   ModelSelect,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconUsers,
   type IconCalendar,
@@ -34,17 +34,13 @@ import {
   IconCalendarDue,
   IconGitBranch,
   IconInfoCircle,
-  IconCamera,
-  IconCameraOff,
-  IconChecklist,
-  IconClipboardOff,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import {
   FALLBACK_GIT_BASE_BRANCH,
   UserInitials,
   getUserInitials,
-} from "@conductor/shared";
+} from "@eva/shared";
 import { Facehash } from "facehash";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -59,10 +55,8 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
-import {
-  TriStateOverrideToggle,
-  type TriStateValue,
-} from "@/lib/components/quick-tasks/TriStateOverrideToggle";
+import { ScreenshotsToggle } from "@/lib/components/quick-tasks/ScreenshotsToggle";
+import { AuditToggle } from "@/lib/components/quick-tasks/AuditToggle";
 
 const GHOST_TRIGGER_CLASS =
   "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
@@ -136,10 +130,26 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
   );
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
 
   if (!project) return null;
 
+  const isOwner =
+    currentUserId !== undefined && currentUserId === project.userId;
   const creator = (users ?? []).find((user) => user._id === project.userId);
+  const ownerAccountLabel =
+    creator?.firstName?.trim() || creator?.fullName?.trim() || "Personal";
+  const displayAccounts =
+    isOwner || !project.providerAccountId
+      ? accounts
+      : [
+          {
+            id: project.providerAccountId,
+            provider: getAIModelProvider(currentModel),
+            label: ownerAccountLabel,
+          },
+          ...accounts,
+        ];
   const displayBaseBranch =
     project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
@@ -291,25 +301,28 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {(users ?? []).map((user) => {
-            const isMember = project.members?.includes(user._id) ?? false;
-            return (
-              <DropdownMenuCheckboxItem
-                key={user._id}
-                checked={isMember}
-                onCheckedChange={() => {
-                  const current = project.members ?? [];
-                  const next = isMember
-                    ? current.filter((id) => id !== user._id)
-                    : [...current, user._id];
-                  updateProject({ id: projectId, members: next });
-                }}
-                onSelect={(e) => e.preventDefault()}
-              >
-                {displayName(user)}
-              </DropdownMenuCheckboxItem>
-            );
-          })}
+          {(() => {
+            const memberIds = new Set(project.members ?? []);
+            return (users ?? []).map((user) => {
+              const isMember = memberIds.has(user._id);
+              return (
+                <DropdownMenuCheckboxItem
+                  key={user._id}
+                  checked={isMember}
+                  onCheckedChange={() => {
+                    const current = project.members ?? [];
+                    const next = isMember
+                      ? current.filter((id) => id !== user._id)
+                      : [...current, user._id];
+                    updateProject({ id: projectId, members: next });
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {displayName(user)}
+                </DropdownMenuCheckboxItem>
+              );
+            });
+          })()}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -325,43 +338,36 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           onValueChange={(nextModel) =>
             updateProject({ id: projectId, model: nextModel })
           }
-          accounts={accounts}
+          accounts={displayAccounts}
           accountId={project.providerAccountId ?? null}
-          onAccountChange={(nextAccountId) =>
+          onAccountChange={(nextAccountId) => {
+            if (!isOwner) return;
             updateProject({
               id: projectId,
               providerAccountId: resolveAccountId(nextAccountId) ?? null,
-            })
-          }
+            });
+          }}
           className="px-0"
         />
       </div>
 
       <div className="flex items-center h-8 shrink-0">
-        <TriStateOverrideToggle
-          label="Proof"
-          value={project.screenshotsVideosEnabled}
-          inheritedDefault={repo.screenshotsVideosEnabled ?? false}
-          onIcon={IconCamera}
-          offIcon={IconCameraOff}
-          onChange={(next: TriStateValue) =>
+        <ScreenshotsToggle
+          value={project.screenshotsVideosEnabled === true}
+          onChange={(next) =>
             updateProject({
               id: projectId,
-              screenshotsVideosEnabled: next ?? null,
+              screenshotsVideosEnabled: next,
             })
           }
         />
       </div>
 
       <div className="flex items-center h-8 shrink-0">
-        <TriStateOverrideToggle
-          label="Audit"
-          value={project.runAuditEnabled}
-          inheritedDefault={true}
-          onIcon={IconChecklist}
-          offIcon={IconClipboardOff}
-          onChange={(next: TriStateValue) =>
-            updateProject({ id: projectId, runAuditEnabled: next ?? null })
+        <AuditToggle
+          value={project.runAuditEnabled === true}
+          onChange={(next) =>
+            updateProject({ id: projectId, runAuditEnabled: next })
           }
         />
       </div>

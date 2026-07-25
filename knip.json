@@ -1,0 +1,44 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.{ts,mjs}"],
+      "project": ["scripts/*.{ts,mjs}"]
+    },
+    "apps/web": {
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/chrome-extension": {
+      "entry": ["src/background/index.ts", "src/content/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/backend": {
+      "entry": [
+        "convex/**/*.ts",
+        "callback-src/**/*.ts",
+        "scripts/**/*.{ts,mjs}",
+        "tests/**/*.ts"
+      ],
+      "project": ["convex/**/*.ts", "callback-src/**/*.ts", "tests/**/*.ts"],
+      "ignore": ["scripts/vercel-sandbox-spike/**"],
+      "includeEntryExports": true
+    },
+    "packages/shared": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ui": {
+      "project": ["src/**/*.{ts,tsx}"]
+    }
+  },
+  "ignoreDependencies": ["@tiptap/pm", "lint-staged"],
+  "ignoreBinaries": ["ps"],
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "binaries": "warn",
+    "exports": "warn",
+    "types": "warn",
+    "duplicates": "warn"
+  }
+}

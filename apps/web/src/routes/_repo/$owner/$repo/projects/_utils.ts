@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
@@ -50,12 +49,9 @@ export function useProjectFilters(): [
     DEFAULTS,
   );
 
-  const setParams = useCallback(
-    (patch: Partial<ProjectFilters>) => {
-      setFilters((prev) => ({ ...prev, ...patch }));
-    },
-    [setFilters],
-  );
+  const setParams = (patch: Partial<ProjectFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
 
   // Merge defaults on read so objects persisted before new keys existed
   // (e.g. timelineRange/timelineZoom) backfill without a STORAGE_KEY bump.

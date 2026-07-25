@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState, type ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { useRef, useState, type ReactNode } from "react";
+import { cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -50,32 +50,29 @@ export function ConsoleDock({
   const containerRef = useRef<HTMLDivElement>(null);
   const { expanded, previewPct } = state;
 
-  const toggle = useCallback(() => {
+  const toggle = () => {
     setState((s) => ({ ...s, expanded: !s.expanded }));
-  }, [setState]);
+  };
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragging(true);
-  }, []);
+  };
 
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!dragging || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      if (rect.height === 0) return;
-      const pct = ((e.clientY - rect.top) / rect.height) * 100;
-      const clamped = Math.min(MAX_PREVIEW_PCT, Math.max(MIN_PREVIEW_PCT, pct));
-      setState((s) => ({ ...s, previewPct: clamped }));
-    },
-    [dragging, setState],
-  );
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.height === 0) return;
+    const pct = ((e.clientY - rect.top) / rect.height) * 100;
+    const clamped = Math.min(MAX_PREVIEW_PCT, Math.max(MIN_PREVIEW_PCT, pct));
+    setState((s) => ({ ...s, previewPct: clamped }));
+  };
 
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     setDragging(false);
-  }, []);
+  };
 
   return (
     <div

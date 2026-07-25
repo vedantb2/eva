@@ -438,6 +438,10 @@ export const PromptInput = ({
           const prefix = pattern.slice(0, -1);
           return f.type.startsWith(prefix);
         }
+        // Extension patterns (e.g. .html) — browsers often omit MIME for these.
+        if (pattern.startsWith(".")) {
+          return f.name.toLowerCase().endsWith(pattern.toLowerCase());
+        }
         return f.type === pattern;
       });
     },

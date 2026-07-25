@@ -2,9 +2,9 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Button, Checkbox, Spinner } from "@conductor/ui";
+import { Button, Checkbox, Spinner } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 
 type RepoEntry = {
@@ -97,9 +97,9 @@ function SyncSettingsRoute() {
   const repos = dbRepos ? dedupeRepos(dbRepos, githubRepos) : [];
 
   const disabledSet = new Set(
-    (syncSettings ?? [])
-      .filter((s) => !s.enabled)
-      .map((s) => `${s.owner}/${s.name}`),
+    (syncSettings ?? []).flatMap((s) =>
+      s.enabled ? [] : [`${s.owner}/${s.name}`],
+    ),
   );
 
   const isRepoEnabled = (owner: string, name: string) =>

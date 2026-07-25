@@ -9,7 +9,7 @@ import type {
 } from "@pierre/diffs";
 import { getSingularPatch } from "@pierre/diffs";
 import { PatchDiff, useStableCallback } from "@pierre/diffs/react";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import {
   buildDiffReviewComment,
   restoreReviewCommentRange,
@@ -39,6 +39,8 @@ interface ReviewableFileDiffProps {
   path: string;
   diffView: "unified" | "split";
   resolvedTheme: ThemeTypes;
+  /** When true, hide Pierre's built-in file header (parent accordion owns chrome). */
+  hideFileHeader?: boolean;
 }
 
 function annotationSide(range: SelectedLineRange): AnnotationSide {
@@ -85,6 +87,7 @@ function PlainPatchDiff({
   patch,
   diffView,
   resolvedTheme,
+  hideFileHeader = false,
 }: Omit<ReviewableFileDiffProps, "path">) {
   return (
     <PatchDiff
@@ -94,6 +97,7 @@ function PlainPatchDiff({
         diffStyle: diffView,
         theme: { light: "github-light", dark: "github-dark" },
         themeType: resolvedTheme,
+        disableFileHeader: hideFileHeader,
       }}
     />
   );
@@ -104,6 +108,7 @@ function AnnotatablePatchDiff({
   path,
   diffView,
   resolvedTheme,
+  hideFileHeader = false,
   fileDiff,
   review,
 }: ReviewableFileDiffProps & {
@@ -119,7 +124,7 @@ function AnnotatablePatchDiff({
     rangeLabel: string;
   } | null>(null);
 
-  const lineAnnotations = useMemo(() => {
+  const lineAnnotations = (() => {
     const persisted = review.comments
       .filter((comment) => comment.filePath === path)
       .reduce<DiffCommentLineAnnotation[]>((annotations, comment) => {
@@ -143,36 +148,30 @@ function AnnotatablePatchDiff({
       rangeLabel: draft.rangeLabel,
       text: "",
     });
-  }, [draft, fileDiff, path, review.comments]);
+  })();
 
-  const removeEntry = useCallback(
-    (entryId: string) => {
-      setSelectedLines(null);
-      if (draft?.id === entryId) {
-        setDraft(null);
-        return;
-      }
-      review.remove(entryId);
-    },
-    [draft, review],
-  );
-
-  const submitEntry = useCallback(
-    (entryId: string, text: string) => {
-      if (!draft || draft.id !== entryId) return;
-      const comment = buildDiffReviewComment({
-        id: entryId,
-        filePath: path,
-        fileDiff,
-        range: draft.range,
-        text,
-      });
-      if (comment) review.add(comment);
-      setSelectedLines(null);
+  const removeEntry = (entryId: string) => {
+    setSelectedLines(null);
+    if (draft?.id === entryId) {
       setDraft(null);
-    },
-    [draft, fileDiff, path, review],
-  );
+      return;
+    }
+    review.remove(entryId);
+  };
+
+  const submitEntry = (entryId: string, text: string) => {
+    if (!draft || draft.id !== entryId) return;
+    const comment = buildDiffReviewComment({
+      id: entryId,
+      filePath: path,
+      fileDiff,
+      range: draft.range,
+      text,
+    });
+    if (comment) review.add(comment);
+    setSelectedLines(null);
+    setDraft(null);
+  };
 
   const onLineSelectionEnd = useStableCallback(
     (range: SelectedLineRange | null) => {
@@ -203,17 +202,15 @@ function AnnotatablePatchDiff({
 
   const hasOpenDraft = draft !== null;
 
-  const options = useMemo(
-    () => ({
-      diffStyle: diffView,
-      theme: { light: "github-light", dark: "github-dark" },
-      themeType: resolvedTheme,
-      enableLineSelection: !hasOpenDraft,
-      onLineSelectionEnd,
-      onLineSelected,
-    }),
-    [diffView, hasOpenDraft, onLineSelectionEnd, onLineSelected, resolvedTheme],
-  );
+  const options = {
+    diffStyle: diffView,
+    theme: { light: "github-light", dark: "github-dark" },
+    themeType: resolvedTheme,
+    disableFileHeader: hideFileHeader,
+    enableLineSelection: !hasOpenDraft,
+    onLineSelectionEnd,
+    onLineSelected,
+  };
 
   const renderAnnotation = useStableCallback(
     (annotation: DiffCommentLineAnnotation) => (

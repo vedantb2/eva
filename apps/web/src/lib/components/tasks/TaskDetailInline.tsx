@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Id } from "@conductor/backend";
-import { Badge } from "@conductor/ui";
+import { useQueryState } from "nuqs";
+import { useMutation } from "convex/react";
+import { api, type Id } from "@eva/backend";
+import { Badge } from "@eva/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { UserInitials } from "@conductor/shared";
+import dayjs from "@eva/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
-import { getUserDisplayName } from "./_components/task-detail-constants";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
@@ -23,7 +23,12 @@ import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDial
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
+import {
+  fileViewerPathParser,
+  isTaskRouteSandboxTab,
+  type SandboxTab,
+  type TaskRouteSandboxTab,
+} from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -42,7 +47,11 @@ export function TaskDetailInline({
 }: TaskDetailInlineProps) {
   const [embeddedSandboxTab, setEmbeddedSandboxTab] =
     useState<SandboxTab>("preview");
+  const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
+  const prewarmChatDaemon = useMutation(
+    api.agentTaskChatWorkflow.prewarmChatDaemon,
+  );
 
   const {
     isLoading,
@@ -100,6 +109,7 @@ export function TaskDetailInline({
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
+    handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
     handleRetryStartupCommands,
@@ -114,6 +124,50 @@ export function TaskDetailInline({
     isCreatingPr,
     handleCreatePr,
   } = useTaskDetail(taskId, routing);
+
+  useEffect(() => {
+    if (!isSandboxActive || !sandboxId) return;
+    void prewarmChatDaemon({ taskId });
+  }, [taskId, isSandboxActive, sandboxId, prewarmChatDaemon]);
+
+  // Chat file chips → Files tab + `?file=` (same pattern as sessions).
+  // Must stay above early returns so hooks order is stable.
+  const openFile = (path: string) => {
+    if (routing?.mode === "quick-sandbox") {
+      routing.quick.onOpenFile(path);
+      return;
+    }
+    void setFileViewerPath(path);
+    setEmbeddedSandboxTab("files");
+  };
+
+  // Must stay above early returns — same hooks-order constraint as openFile.
+  const handleSandboxTabChange = (tab: SandboxTab) => {
+    if (routing?.mode === "quick-sandbox") {
+      if (tab === "prd" || !isTaskRouteSandboxTab(tab)) {
+        routing.quick.onSandboxTabChange("preview");
+        return;
+      }
+      routing.quick.onSandboxTabChange(tab);
+      return;
+    }
+    setEmbeddedSandboxTab(tab);
+  };
+
+  // Auto-switch to Browser + expand sandbox panel on lock transition only
+  // (undefined → set). Mirrors SessionDetailClient's pattern. Don't fight the
+  // user if they switch away mid-lock.
+  const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
+  const [expandRightSignal, setExpandRightSignal] = useState(0);
+  const agentBrowsingAt = task?.agentBrowsingAt;
+  useEffect(() => {
+    const prev = prevAgentBrowsingAt.current;
+    prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (agentBrowsingAt === undefined || prev !== undefined) return;
+    handleSandboxTabChange("browser");
+    setExpandRightSignal((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentBrowsingAt]);
 
   if (isLoading) {
     return (
@@ -134,15 +188,6 @@ export function TaskDetailInline({
     routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
   const activeSandboxTab: SandboxTab =
     routing?.mode === "quick-sandbox" ? routeSandboxTab : embeddedSandboxTab;
-  const handleSandboxTabChange = (tab: SandboxTab) => {
-    if (routing?.mode === "quick-sandbox") {
-      const nextTab: TaskRouteSandboxTab =
-        tab === "prd" || tab === "files" || tab === "browser" ? "preview" : tab;
-      routing.quick.onSandboxTabChange(nextTab);
-      return;
-    }
-    setEmbeddedSandboxTab(tab);
-  };
 
   // Always mount the sandbox panel when the task can have a sandbox so tabs
   // (Diffs, etc.) stay reachable while stopped — same as sessions. Panes
@@ -153,7 +198,6 @@ export function TaskDetailInline({
       <TaskSandboxPanel
         taskId={taskId}
         sandboxId={sandboxId}
-        vercelSandboxId={task.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={task.repoId}
         devPort={task.devPort}
@@ -162,6 +206,10 @@ export function TaskDetailInline({
         prUrl={latestPrUrl}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
+        onStartSandbox={
+          canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
+        }
+        isSandboxStarting={isSandboxStarting}
       />
     ) : (
       <div className="flex h-full items-center justify-center p-8">
@@ -176,15 +224,19 @@ export function TaskDetailInline({
 
   const sandboxContent = (
     <ResizablePanelLayout
-      storageKey="task-sandbox-collapsed"
-      leftDefaultSize="30%"
+      storageKey="task-sandbox-panel"
+      leftDefaultSize="40%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
-      leftPanel={() => (
+      expandRightSignal={expandRightSignal}
+      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <TaskSandboxChatPanel
           taskId={taskId}
           isSandboxActive={isSandboxActive}
+          onOpenFile={openFile}
+          sandboxCollapsed={rightPanelCollapsed}
+          onToggleSandbox={onToggleRightPanel}
         />
       )}
       rightPanel={sandboxRightPanel}
@@ -207,8 +259,8 @@ export function TaskDetailInline({
                         canEditTaskText={canEditTaskText}
                         taskId={taskId}
                       />
-                      <div className="flex items-center gap-2 mt-2">
-                        {task?.scheduledAt ? (
+                      {task?.scheduledAt ? (
+                        <div className="mt-2 flex items-center gap-2">
                           <Badge
                             variant="outline"
                             className="gap-1 text-xs font-normal text-muted-foreground"
@@ -219,25 +271,8 @@ export function TaskDetailInline({
                               : "Was scheduled for"}{" "}
                             {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
                           </Badge>
-                        ) : null}
-                        {task?.createdAt ? (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
-                            {creatorUser ? (
-                              <>
-                                <UserInitials
-                                  userId={creatorUser._id}
-                                  size="sm"
-                                />
-                                <span>{getUserDisplayName(creatorUser)}</span>
-                                <span>·</span>
-                              </>
-                            ) : null}
-                            <span>
-                              {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                     <TaskDescription
                       description={task?.description}
@@ -246,11 +281,11 @@ export function TaskDetailInline({
                       inline={true}
                     />
 
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                         Activity
                         {isActivityBusy ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-warning" />
                         ) : null}
                       </div>
                       <TaskSubscribers taskId={taskId} users={users} />
@@ -259,6 +294,8 @@ export function TaskDetailInline({
                   <div className="mt-3 flex flex-col sm:mt-4">
                     <ActivityTimeline
                       taskId={taskId}
+                      createdAt={task.createdAt}
+                      creatorUser={creatorUser}
                       runs={runs}
                       allAudits={allAudits}
                       comments={comments}

@@ -4,7 +4,7 @@ import { useQueryState } from "nuqs";
 import { branchParser } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { parseRouteNumId } from "@/lib/numId";
 import type { FunctionReturnType } from "convex/server";
@@ -14,7 +14,7 @@ import {
   Spinner,
   TestError,
   TestErrorMessage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconPlayerPlay,
   IconCheck,
@@ -25,7 +25,7 @@ import {
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { IssuesList } from "../_components/IssuesList";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
 export const Route = createFileRoute(
@@ -54,9 +54,11 @@ function ReportCard({
     setIsStartingFix(true);
     try {
       await startFix({ reportId: report._id });
-    } finally {
+    } catch (error) {
       setIsStartingFix(false);
+      throw error;
     }
+    setIsStartingFix(false);
   };
 
   if (report.status === "running") {
@@ -355,9 +357,11 @@ function TestingArenaDetailRoute() {
         repoId: repo._id,
         branchName: branch !== "main" ? branch : undefined,
       });
-    } finally {
+    } catch (error) {
       setIsRunning(false);
+      throw error;
     }
+    setIsRunning(false);
   };
 
   if (parsedNumId === null) {

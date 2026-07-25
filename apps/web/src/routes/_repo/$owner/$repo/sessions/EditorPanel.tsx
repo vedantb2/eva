@@ -1,7 +1,6 @@
-import { useCallback } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { IconCode } from "@tabler/icons-react";
 import {
   SandboxIframeService,
@@ -11,7 +10,6 @@ import {
 interface EditorPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
@@ -24,28 +22,26 @@ interface EditorPanelProps {
 export function EditorPanel({
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
 }: EditorPanelProps) {
-  const toggleCodeServer = useAction(api.daytona.toggleCodeServer);
+  const toggleCodeServer = useAction(api.sandbox.toggleCodeServer);
 
-  const startAction = useCallback(async (): Promise<StartResult> => {
+  const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
     return toggleCodeServer({ sandboxId, repoId, action: "start" });
-  }, [sandboxId, repoId, toggleCodeServer]);
+  };
 
-  const stopAction = useCallback(async () => {
+  const stopAction = async () => {
     if (!sandboxId) return;
     await toggleCodeServer({ sandboxId, repoId, action: "stop" });
-  }, [sandboxId, repoId, toggleCodeServer]);
+  };
 
   return (
     <SandboxIframeService
       cacheNamespace="editor"
       cacheKey={cacheKey}
       sandboxId={sandboxId}
-      vercelSandboxId={vercelSandboxId}
       isActive={isActive}
       repoId={repoId}
       port={8080}

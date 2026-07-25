@@ -1,9 +1,647 @@
 # Changelog
 
-## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-18
+## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-25
 
 - Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
 - Reason for change: Convex platform "Transient error while executing action" (0ms) is not retried for actions, so sessions could wedge on Stop forever until a manual re-click.
+
+## Claude Agent SDK only (CLI spawn removed) - 2026-07-25
+
+Claude no longer has a `claude -p` attempt mode — the Agent SDK (`sdk` / `sdk-daemon`, default `sdk-daemon`) is the only Claude runtime. Unset `CLAUDE_ATTEMPT_MODE` now means the warm daemon path, so prod flips on deploy without an env change. Codex, OpenCode, and Cursor keep their CLI spawn paths. Follow-up env-var cleanup is tracked in `internal/plans/todo/claude-cli-removal-followups.md`.
+
+## Agents can host captures at public URLs (upload_media MCP) - 2026-07-24
+
+Agents had no way to embed screenshots in PR comments or Linear issues — chat attachments are invisible outside Eva and GitHub's API cannot upload comment images, so they fell back to plain-text comments. New eva MCP tools: `upload_media` returns a one-time Convex storage upload URL the agent curls the file to, and `get_media_url` exchanges the storageId for a permanent public link; the session prompt's recordings block now documents the flow.
+
+## Draggable app/repo and sessions sidebar - 2026-07-24
+
+The secondary sidebar was locked at `w-80`, so dense session lists and long nav labels couldn’t reclaim or release canvas space. Desktop users can now drag the panel edge (240–480px, default 320px = prior width); width persists in localStorage and applies to both the in-repo nav and global Sessions column.
+
+## Cross-repo spotlight search (titles/names) - 2026-07-24
+
+⌘K only searched the current repo’s pages and a few entity lists, so it drifted from the real product surface. Spotlight now runs a Convex `spotlight.search` over every team/repo the user can access (pages, repos, teams, projects, tasks, sessions, docs, designs, automations, artifacts — titles/names only), uses shared `@conductor/ui` Command primitives (still cmdk), and is available on global routes as well as in-repo. The left rail also exposes Search between collapse and the avatar (same opener as ⌘K).
+
+## Rail collapse fully hides the second sidebar - 2026-07-24
+
+The rail toggle only narrowed the app/repo/session column to icon width, so nav still competed with the canvas. Collapsed now hides that column entirely (rail-only, `pl-16`), matching other global rail-only pages; mobile drawer still opens the full panel.
+
+## Duplicate session PRs merge independently without killing the session - 2026-07-24
+
+Agents can now create a "duplicate PR" on request: squash a session branch onto a fresh branch (new commit SHAs) so it merges independently instead of pushing identical SHAs that make GitHub auto-merge the session's own PR. If a tip-copy still auto-marks a session PR merged because its SHAs landed via another PR, the webhook now schedules a delayed check against GitHub's commit-to-PR association data and, when the merge is foreign, detaches the PR and posts a chat alert instead of permanently locking the session.
+
+## Preview iframe keeps sandboxed app session cookies - 2026-07-24
+
+Sign-in inside the preview tab succeeded at the app but the session never stuck — browsers drop default `SameSite=Lax` `Set-Cookie` responses in Eva’s cross-site iframe (`*.vercel.run`), so the next request looked logged-out (while a top-level new tab worked). The in-sandbox preview proxy now rewrites upstream `Set-Cookie` headers for non-loopback clients to `Secure; SameSite=None; Partitioned` (same as the proxy’s own gate cookie), strips upstream `Domain`/`SameSite`, and bumps the proxy script to `annotate-v12` so health-check relaunches pick it up without manual sandbox restarts. Partitioned sessions stay per-visitor and separate from a new-tab session; third-party IdPs that refuse framing still need a top-level window.
+
+## Sessions sidebar archives merged/closed PRs - 2026-07-24
+
+Active session lists still mixed in merged/closed PRs beside live draft/open work. The Sessions sidebar now keeps only draft/open (or no-PR) sessions active and folds merged/closed into the Archived collapsible with manually archived ones.
+
+## Bake ffmpeg into sandbox snapshots for agent-browser record - 2026-07-24
+
+`agent-browser record stop` encodes WebM via ffmpeg on PATH; sandboxes lacked it so walkthrough captures failed at stop. Snapshot builds now install ffmpeg (Debian apt on Daytona images; AL2023 SPAL `ffmpeg-free` on Vercel seed + desktop bootstrap).
+
+## Composer file chips show type icons - 2026-07-24
+
+Pasted/dropped non-image attachments in session/task/project composers all used a generic file icon, so HTML vs Markdown vs text looked identical. Chips (and sent-message file links) now pick IconHtml / IconMarkdown / IconFileTypeTxt / IconFile from MIME or extension.
+
+## Send for Review no longer archives the session - 2026-07-24
+
+"Send for Review" promoted the draft PR then archived/closed the session and sandbox, so follow-up work required unarchiving. It now only marks the PR ready (`prState: open`); archiving stays an explicit user action.
+
+## Kanban columns tint by status/phase - 2026-07-24
+
+Kanban columns used a uniform muted wash, so status was only readable from badges. Columns now use the existing status/phase `cardBg` tokens (e.g. light yellow for In Progress) so each lane’s colour matches its state at a glance.
+
+## Sidebar collapse control lives on the rail - 2026-07-24
+
+The collapse toggle sat in the secondary sidebar header, competing with titles/back and disappearing from muscle memory when the panel was icon-narrow. It now lives on the vertical rail directly above the user avatar (always reachable), and the panel headers keep only navigation/close chrome.
+
+## Skill sync runs on cron + base-branch push - 2026-07-24
+
+Manual Settings sync left repo skills stale until someone clicked the button. Shared scan logic now also runs from a 6h cron across connected codebases and from GitHub `push` webhooks when the base branch touches `.agents/skills` (subscribe the GitHub App to `push`).
+
+## Quick tasks kanban sorts by updatedAt - 2026-07-24
+
+Kanban columns defaulted to `lastRun`, so edits/comments/status changes left cards buried until the next agent run. Default sort is now `updated` (`agentTasks.updatedAt`, already bumped on activity and mutations); storage key bumped so returning users pick up the new default.
+
+## Shared browser works in task/project sandboxes - 2026-07-23
+
+The MCP `browser_*` tools hard-gated on a session entity, so quick-task and project chat agents (whose prompts advertise the shared-browser flow) always fell back to headless Chrome — the user could never watch live despite those panels already having a Browser tab. Sandbox tokens now carry `task`/`project` entity kinds, `browser_start` resolves the sandbox from the owning table, and `agentBrowsingAt` (+ `releaseBrowserLock`, takeover overlay, auto-switch to Browser) is generalized to `agentTasks`/`projects`, mirroring the session wiring.
+
+## Reduce layout shifts across web routes - 2026-07-23
+
+Async shells and theme/font paint were still nudging content after first paint (sidebar header growing when team art loaded, spinner→content height swaps, padding transitions, font check icons, late custom-theme vars). Reserved stable heights/skeletons, early theme hints, and metric-matched Geist swap so route loads stay visually still. Follow-up pass reserved sidebar stats/logo slots and kept PageWrapper mounted for drafts/artifacts/quick-tasks/inbox/teams/sessions sidebars.
+
+## Snapshot seed commands split from startup commands - 2026-07-23
+
+Startup commands served two lifecycles at once: one-time data seeding (env set, convex import) and per-boot work (readiness gates, docker restarts). Seed steps consume their inputs at snapshot build, so the forced per-boot re-run failed on every fresh sandbox and wasted 1-2 minutes re-applying baked env vars. New `repoSnapshots.seedCommands` run once per seeded build in the post-daemon phase (services up) and never on boot; the Snapshots settings page gains the field, startup-command copy now states the real build-and-every-boot contract, and eva/eprocurement/staging configs were migrated in prod (eva boots with 2 commands instead of 31). Startup-command failures now also surface on the session as a startup warning instead of vanishing into transient console logs, and message-less startup errors persist their constructor and stack so the recurring anonymous ~5-minute failure can identify itself.
+
+## Chat renders all agent media via mediaStorageIds - 2026-07-23
+
+Task chat recordings were stranded in the sandbox: the stub-spam fix disabled proof capture for chat, which also gated media upload, and task-chat media routed to the proof timeline instead of the chat message. The capture flag now only gates RUN_ID runs, task chat attaches via `attachMedia`, and messages hold an ordered `mediaStorageIds` array (legacy single image/video fields resolve as fallback) so multiple recordings/screenshots per turn all render inline instead of only the last one.
+
+## Task/project Files tab uses repo tree - 2026-07-23
+
+Quick-task and project sandbox Files tabs only mounted the bare file viewer (usable via `?file=` chips), so they lacked the searchable tree sessions already had. Both now mount the same `FilesPanel` as sessions.
+
+## Restraint UI motion pass - 2026-07-23
+
+A few surfaces still teleported (mobile sandbox panel, task prev/next, empty states, log raw reveal, panel toggle icons). Wired enter/exit + soft icon swaps using existing Motion tokens so occasional state changes feel spatially consistent without slowing high-frequency chrome.
+
+## Live notification toasts animate in - 2026-07-23
+
+New notifications already streamed into a top-right toast stack, but they teleported on arrive/dismiss. Enter/exit now slide from that same top edge (`opacity` + `translateY(-8px)`) via Motion `AnimatePresence`, with a gentler opacity-only path when reduced motion is preferred.
+
+## Task/project sticky chat traits + project chat model - 2026-07-23
+
+Sandbox chat effort/thinking/1M lived in localStorage, and project chat model did too, so picks reset across devices unlike sessions. Traits now stick on `agentTasks` / `projects` (`lastReasoningLevel` / …) via `setTraits` (and on send/enqueue); project composer model uses sticky `lastChatModel` via `setChatModel`. Task model stays on shared `agentTasks.model`.
+
+## Task/project sticky Preview path/port + console tail - 2026-07-23
+
+Quick-task and project sandboxes still kept Preview path and console scrollback in sessionStorage (and never wrote user port changes back to `devPort`), so they reset across devices unlike sessions. Same Convex sticky contract now: `previewPath`, port via `devPort`, and a debounced 500-line `terminalHistoryTail` on `agentTasks` / `projects` (no `updatedAt` bump).
+
+## Session sticky Preview path/port + console tail - 2026-07-23
+
+Preview path and port (via `devPort`) and the last ~500 lines of Preview Console scrollback reset across devices when they only lived in sessionStorage. Sessions now persist path/port and a debounced console tail on the session doc (no `updatedAt` bump); device viewport stays tab-local, and full scrollback still uses sessionStorage.
+
+## Session sticky provider account on change - 2026-07-23
+
+Account picker still only patched `sessions.providerAccountId` on send, so a pre-send switch stayed in localStorage and did not sync across devices. Owner changes now write through `setProviderAccountId` (optimistic, no `updatedAt`), matching model/mode/traits.
+
+## Session sticky edit/plan mode on Convex - 2026-07-23
+
+Composer mode still lived in localStorage after model/traits moved to Convex, so Plan↔Edit resets across devices. Sessions now store `lastMode` via `setMode` (same optimistic sticky contract), written on change and on create/send/enqueue; legacy ask/execute values normalize to edit on read.
+
+## Session sticky thinking + 1M toggles on Convex - 2026-07-23
+
+Effort was already session-sticky via `lastReasoningLevel`, but thinking / 1M still lived in localStorage and reset across devices. Sessions now store `lastThinkingEnabled` / `lastUse1mContext` through a unified `setTraits` mutation (replacing effort-only `setReasoningLevel`), written on change and on create/send/enqueue.
+
+## Session sticky reasoning effort on Convex - 2026-07-23
+
+`lastModel` was moved to Convex but composer effort stayed in localStorage, so a Medium pick silently reset to the Claude model default (High) on reload / another device. Sessions now store `lastReasoningLevel` (set on change + create/send/enqueue), wired like `lastModel`.
+
+## System alerts no longer clear "turn executing" UI - 2026-07-23
+
+Mid-turn system messages (`isSystemAlert`) append after the empty Working bubble, so `isExecuting` (last-message-only) flipped false and the composer offered a fresh send while the agent was still running. Executing state now skips system alerts; streamed tokens stay on the live Working bubble even when an alert is newest.
+
+## Session chat model icon under assistant reply - 2026-07-23
+
+The provider icon sat under the user bubble (with account as plain text), which read as "who asked" rather than "what answered". It now sits under the assistant turn; tooltip is `model · effort · account` using the preceding user message's snapshot (`userProviderAccounts` label / "Team"), matching the run-accordion pattern.
+
+## Rail app tiles support middle-click new tab - 2026-07-23
+
+App icons on the left RepoRail were `<button onClick={navigate}>`, so middle-click / cmd-click had no `href` and could not open another tab. They are now `Link`s to `repoHref(...)` (same destination as before); left-click still SPA-navigates and closes the mobile drawer.
+
+## Session title gen uses AI Gateway flex tier - 2026-07-23
+
+Session titles are background work (placeholder until the LLM returns), so paying default Gateway latency rates was waste. `textGen.generateSessionTitle` now requests `providerOptions.gateway.serviceTier: "flex"` (~0.5x cost; higher latency acceptable). Invalid tiers fail; unavailable flex best-effort-falls back to default billing.
+
+## Session deep links show root Sessions sidebar - 2026-07-23
+
+After dropping the per-app Sessions sidebar, cold loads of `/$owner/$repo/.../sessions/$id/...` still defaulted `sessionsNavMode` to `"repo"`, so the app nav appeared instead of the cross-app Sessions list. Session routes now always open the root Sessions sidebar (and highlight the Sessions rail tile).
+
+## Global Sessions sidebar shows Archived again - 2026-07-23
+
+The cross-app Sessions rail sidebar listed only active sessions, so archived work was unreachable without leaving the global view. Each app group now has a nested Archived disclosure (default collapsed), matching the old per-repo sessions sidebar.
+
+## ActionCache for PR Overview + Diffs - 2026-07-23
+
+Overview and Diffs always re-hit GitHub on every open (multi-call Octokit), so repeat visits felt slow. Both now use `@convex-dev/action-cache` (60s / 120s TTL); Refresh and Retry pass `force` to bypass.
+
+## Sandbox Review Overview tab - 2026-07-23
+
+Reviews already had Overview (description, conversation, checks); sandbox Review only offered Diffs/Recap, so users left the surface to inspect PR status. Overview is now a third Review sub-tab (path-backed like Recap) for sessions, projects, and quick tasks, reusing `ReviewOverviewPanel`.
+
+## AskUserQuestion no longer stuck loading - 2026-07-23
+
+Blocking AskUserQuestion keeps the turn `isExecuting` while waiting for the user, but the MCQ card used that flag as `isLoading` — options greyed out and Next spun forever from first paint. Loading now tracks only the answer submit in flight.
+
+## Rail active badge ignores sessions - 2026-07-23
+
+Session sandboxes were lighting the left-rail repo/app dot even when nothing else was running, which made the indicator noisy. The badge now only reflects active quick-task or project sandboxes.
+
+## Project tasks share Make-changes model + Options - 2026-07-23
+
+Project tasks still hid the composer model picker and Options behind `!isProjectTask`, while Properties kept a duplicate model field — so the same shared components looked different by surface. Both now use the quick-task Make-changes controls; project Options persist proof/audit on the task for the next build. Create-from-project also gets the same assignee/tags/projects props as the quick-task modal.
+
+## More space between Global Sessions app groups - 2026-07-23
+
+App collapsibles in the root Sessions sidebar sat too tight (`space-y-1`), so related groups felt like one block. Spacing between app groups is now `space-y-3` for clearer separation when scanning across codebases.
+
+## Install gh CLI in Vercel snapshot seeds - 2026-07-23
+
+Daytona base images already apt-install `gh`, but Vercel seed-prep (Amazon Linux dnf) did not, so agents in Vercel sandboxes lacked GitHub CLI. Seed toolchain now installs a pinned `gh` release tarball into `/usr/local/bin` before snapshot capture.
+
+## Auto-stop session sandbox when PR merges/closes - 2026-07-23
+
+Merged/closed sessions became read-only but the webhook only patched `prState`, so Vercel VMs could stay active with no clean teardown. GitHub PR terminal events now request the same stop path as the Stop button; opening an already-stuck merged session also triggers stop (and skips daemon prewarm that would resume the VM).
+
+## Sandbox chat model follows task.model - 2026-07-23
+
+Quick-task sandbox chat kept its model in localStorage (often the repo default), so switching between `/quick-tasks/$id` and `/sandbox/preview` could show Claude on the activity page and Grok in the sandbox. Sandbox now binds to and persists `task.model` / owner accounts like the activity composer; only traits stay local.
+
+## Run accordion: account as provider-icon tooltip - 2026-07-23
+
+Activity run headers showed the credential account as a text badge next to the model chip, which crowded the row. The chip is now icon-only; hover shows model + account (e.g. Claude Opus · Vedant).
+
+## Drop app Sessions sidebar + nav tab - 2026-07-23
+
+Repo home already owns session create/list entry, so the per-app Sessions drill-down sidebar and SHIP nav tab were redundant. Sessions routes stay for deep links; Designs and other context sidebars are unchanged.
+
+## Prewarm stops resurrecting stopped Vercel sandboxes; stale "active" self-heals - 2026-07-23
+
+An auto-stopped Vercel VM whose DB status still read "active" was silently rebooted by the page-open daemon prewarm (any exec lazily resumes a stopped VM) — leaving a running sandbox with no dev server, no Convex backend, and an empty Console, since services only launch in the startup workflow. Prewarm now checks live provider state before any exec and skips non-running sandboxes; on definitely-dead states it flips the stale "active" status to "closed" (sessions, agent tasks, projects) so the UI offers Start — the one path that relaunches services — and the terminal-attach guard stops resurrecting the VM too.
+
+Reason: "active" must mean the VM and its services are actually up; hidden resurrection produced sandboxes that looked alive but could never serve a preview.
+
+## Diffs tab file accordion + Viewed - 2026-07-23
+
+Long PR diffs forced every file open at once, so reviewers lost place. Each file is now a collapsible accordion with a GitHub-style Viewed checkbox (persisted per PR in localStorage); checking Viewed collapses that file, and the file tree still expands + scrolls to a selection.
+
+## Sandbox start survives trailing stops; in-sandbox Convex self-heals - 2026-07-23
+
+Clicking Start right after a run finished failed with "was stopped while a start was in progress": the Vercel provider let any in-flight stop win, even against an explicit user start. `start()` now takes `resumeAfterStop` — explicit start paths (session/task/project reuse, design reuse, Start-clicked resume) wait the snapshotting stop out and resume; background paths (prewarm, watchdog) still refuse so they cannot resurrect a just-stopped sandbox.
+
+Separately, `convex dev` wedges permanently if the local backend misses its 240s startup window on a busy resume (retries :3210 forever, never respawns — dead preview backend, session 29). Convex background commands now run under a bash supervisor that health-checks `127.0.0.1:3210/version`, confirms the wedge signature in the log (so cloud-mode `convex dev` is never touched), and kills + relaunches the tree, up to 3 attempts.
+
+Reason: both bugs left users with sandboxes that looked started but were not, with no recovery short of manual surgery.
+
+## Warm seed-prep from base Image - 2026-07-23
+
+Seeded snapshot builds on Vercel often spun a blank sandbox and reinstalled the full toolchain, racing flaky project lookups. Seed-prep now boots from `baseSnapshotId` when present, skips already-installed toolchain pieces, and only runs pure `sandbox-config` file moves before daemons so chained seed/env work still waits on Postgres/`convex dev`.
+
+Reason: warm Image boots cut seed time and avoid cold-install 404s without breaking daemon-dependent startup commands.
+
+## Queue row uses provider icon - 2026-07-22
+
+Queued follow-ups still led with a blank status dot and hid model details behind an info icon. The left rail is now the provider mark (tooltip: model · effort), so the redundant info action is gone. Provider mark + action icons share a 16px line box with the row text so they sit vertically centered.
+
+## Sandbox chat model + effort on messages - 2026-07-22
+
+Sandbox chat turns only remembered credentials, so you could not tell which model/effort powered a past message. User messages now snapshot `model` + `reasoningLevel` at send/dequeue (sessions, tasks, projects), and the bubble/queue row shows a provider icon with a tooltip of the model and effort.
+
+## Session synthetic turns (Tranche C) - 2026-07-22
+
+Task sandbox chat and project chat now use the same warm Claude daemon pull path as sessions: `pendingTurn` staging, entity-scoped daemon markers, synthetic turn plumbing, and the background-agents chip. Chat daemons gate on `activeChatWorkflowId` only so they never compete with a task's main run (`activeWorkflowId`).
+
+Reason: extend Tranche A/B architecture to the other in-sandbox chat surfaces without double-executing turns or killing the main run on chat cancel.
+
+## Session synthetic turns (Tranche B) - 2026-07-22
+
+Sessions now surface the rest of the Claude SDK stream in the activity log (compaction, hooks, file persistence, tool progress) and track background Agent/Task runs on the session doc with a composer chip and stop path drained through `claimPendingTurn`.
+
+Reason: product surface for background subagents — users see lifecycle telemetry and can stop in-flight agents without hunting the timeline.
+
+## Session synthetic turns (Tranche A) - 2026-07-22
+
+Background subagents could finish after the main turn closed and their report-back was silently dropped because the daemon stopped consuming the SDK stream on `result`. The session daemon now keeps a session-lifetime pump, mints synthetic continuation turns for post-result output, and parks user claims until a live synthetic turn finishes — so background agent completions land as normal assistant bubbles.
+
+Reason: architectural — turn boundaries are daemon state changes on a never-stopping stream (synara model), not loop exits.
+
+## Global Sessions rail + cross-app sidebar - 2026-07-22
+
+Sessions were only reachable per-repo, so hopping across apps meant hunting through each codebase's nav. A Sessions tile on the left rail now opens a sticky global sidebar grouped by app (collapsible, empty apps kept, `+` jumps to that app's composer), while the in-repo Sessions list stays as the alternate entry point.
+
+## Cache session Preview across sidebar switches - 2026-07-22
+
+Switching between sessions remounted each detail shell, so Preview iframes always cold-loaded again. The sessions layout now keeps the last three opened session shells mounted (hidden), freezes inactive sandbox tabs / preview polling, and only bumps the iframe when the preview URL actually changes.
+
+## Cache sandbox tabs across switches - 2026-07-22
+
+Switching Preview ↔ Review (or any other sandbox tab) remounted the whole session/project shell, wiping iframes, Console PTY scrollback, and editor state. Session and project layouts now stay mounted across tab URL changes; pane slots keep Files / PRD / custom tabs hidden instead of unmounting, and a default preview pane is created up front so the running app can stay cached.
+
+## Quick-task activity model + composer picker - 2026-07-22
+
+Runs never stored which model powered them, and the Properties model switcher was easy to miss next to Make changes. Each run now snapshots its model (provider icon + label in the activity timeline), the picker lives in the comment composer (disabled until Make changes), and it lists the task owner's personal accounts — with Team for that provider dimmed when personal is selected.
+
+## Owner-sticky personal AI accounts - 2026-07-22
+
+Personal provider accounts used to fall back to Team whenever someone other than the account owner ran a task (e.g. Make changes). Credentials now follow the entity owner (`createdBy` / project `userId`): creates default to that owner's matching personal account for the model provider (else Team), labels are the owner's first name, and only the owner can change the sticky account.
+
+## Reviews PR title above tabs - 2026-07-22
+
+PR title lived inside Overview only, so Recap/Diff had no shared chrome. Title, author, and GitHub link now sit above the tab row for every review tab.
+
+## Reviews overview meta column - 2026-07-22
+
+Overview was description-only; reviewers still had to bounce to GitHub for status, checks, and diff size. Overview is now a wider 60/40 layout with a sticky meta column (open/closed/merged, check runs, files + lines).
+
+## Repo Reviews tab for GitHub PRs - 2026-07-22
+
+PR review lived awkwardly under Documents (recap filter) and only inside sandbox Review once a surface already had a prUrl. Reviews is now a sibling nav item with a PR list and Overview / Recap / Diff tabs keyed by GitHub PR number, shared across monorepo apps. Documents no longer lists recaps; sticky GitHub recap comments link to Reviews.
+
+## Pin Convex local backend to Jul 14 for AL2023 glibc - 2026-07-22
+
+Vercel Sandbox is Amazon Linux 2023 (glibc 2.34). Convex linux-gnu builds from `2026-07-15` onward need GLIBC_2.35 via `libm`, so pinning `07-20` still failed. We now plant `precompiled-2026-07-14-7b3d1a5` (last verified ≤2.34 binary) under the CLI's latest cache label so anonymous `npx convex dev` can start on seeded CarePulse snapshots.
+
+## Proof upload before completion (no double capture) - 2026-07-22
+
+Proof completion used to wake the task workflow before the screenshot was saved, so `hasMediaForRun` often failed and a full second proof turn ran — two real images on one run. Proof callbacks now persist media first; the workflow also waits briefly before retrying.
+
+## Proof capture accordion on timeline - 2026-07-22
+
+Make-changes only showed `type: "run"` activity logs, so proof-capture steps were invisible after a run. The Eva attached proof row now expands to the proof activity log, and multiple screenshots from the same run (retry) group into one timeline item with a multi-capture gallery.
+
+## Comment Options disabled until Make changes - 2026-07-22
+
+Quick-task comment Options stays visible next to Make changes but is disabled (with a short tooltip) until Make changes is on, so the control is discoverable without looking active for plain comments.
+
+## Comment Options always visible on quick tasks - 2026-07-22
+
+Proof/audit for a change-request run lived behind Make changes, so the Options control was easy to miss. It now sits next to Make changes whenever the composer is shown for a quick task (still only applies when that request starts a run).
+
+## Vercel Preview proxy on 3000; leave 54321 for Supabase - 2026-07-22
+
+CarePulse web Preview showed Kong's "no Route matched" because Eva's auth proxy shared 54321 with local Supabase, while eprocurement (no Supabase) worked. Public Preview proxy is now always on exposed port 3000; 54321 stays for Kong. When the UI port is 3000 the app listens on 13000; otherwise it listens on the UI port (e.g. 3001). Eva launches `pnpm exec next|vite -p <listen>` in the sandbox Console so customer package.json `-p` flags are not used — no repo edits required.
+
+## Create task modal field rows - 2026-07-21
+
+Create-task metadata was one crowded wrap row. Core run settings (priority, code reviewer, model, branch) now sit on the first row; proof/audit, tags, and project move to a second row.
+
+## Drop repo screenshotsVideosEnabled after migration - 2026-07-21
+
+Ran `migrations:removeRepoScreenshotsVideosEnabled` on evalucom clouddev and prod (2 / 3 repos patched), then removed the unused field from `githubRepoFields` so the schema matches the opt-in-per-area model.
+
+## Run options button shows checked count - 2026-07-21
+
+The Options control next to Run Eva hid whether proof/audit were on. A small badge now shows how many of those steps are checked.
+
+## Remove Add UI details scaffold - 2026-07-21
+
+The create/edit task “Add UI details” button and description hint pushed a Route/Control/Acceptance template that was rarely used. Removed the UI scaffold; agent-side UI-task detection from title/description keywords remains.
+
+## Proof/audit create toggles are plain switches - 2026-07-21
+
+Create-dialog and project-metadata proof/audit controls still used vestigial inherit/on/off after repo defaults went away. They are now boolean Switch controls for the task/project default.
+
+## Task proof/audit is now a per-run choice - 2026-07-21
+
+- Proof/audit for tasks moved off the task-detail properties sidebar and onto the run itself. A task-level default (set in the create dialog, and editable via an Options control next to the task's Run button) drives runs started from a plain Run button, including the first run.
+- Requesting changes now has its own Capture proof / Run audit options in the comment composer, applying to that run only and defaulting to off — so a change request never silently repeats a proof or audit pass unless you ask for it.
+- Under the hood the effective choice is recorded on the run: a per-run override wins, otherwise the run falls back to the task, then project, default. Removed the task-detail proof/audit selects.
+- Reason for change: proof/audit read better as "what this run should do" than as static task properties, and re-runs were carrying the steps forward when users did not want them to.
+
+## Proof/audit off by default, plus sandbox-chat toggles - 2026-07-21
+
+- Removed the repo-level "Screenshots and Videos" default: proof and audit are now off by default everywhere and opt-in per area (task, project, session, sandbox chat). Project tasks no longer auto-audit unless enabled on the project or task. Resolution is task, then project, else off.
+- Added a migration to clear the deprecated `screenshotsVideosEnabled` field from repo docs; the field stays in the schema until the migration has run in prod, then a follow-up drops it.
+- The quick-task and project sandbox chats gained an "Options" entry in the composer "+" menu with Capture proof / Run audit, persisted per task/project. Proof adds a capture step to the chat turn; audit runs after a successful turn.
+- Project sandbox-chat proof and audit required widening the media-attach and audit-entity types to accept projects (projects previously had no audit path at all).
+- Reason for change: teams wanted proof/audit decided per piece of work rather than a repo-wide default, and wanted the same control inside the in-sandbox chats, not just runs and sessions.
+
+## Project View PR lives in More - 2026-07-21
+
+Project header kept View PR as a standalone button while quick tasks tuck it into More with Create PR / Preview. Projects now match that menu grouping.
+
+## Review Diffs chrome on shared tab row - 2026-07-21
+
+Unified/Split and Refresh sat on a second bar under Diffs/Recap. They now share the Review header row and only appear while Diffs is active (sessions, projects, quick tasks).
+
+## Docs Reviews hides Eva-created PR recaps - 2026-07-21
+
+Eva session/project/quick-task PR recaps were listed under docs Reviews because webhook refreshes never set `prRecapOrigin`. Those stay on the sandbox Review tab; the docs list is for external PRs only.
+
+## Docs Reviews filter and recap tab labels - 2026-07-21
+
+Docs sidebar “PR recaps” is now Reviews (`?docFilter=reviews`); recap docs use Recap/Summary tabs at `/recap` and `/summary` instead of Walkthrough/Markdown on `/html`/`/content`.
+
+## Quick-task sandbox breadcrumb shows title - 2026-07-21
+
+Sandbox view only showed `#{numId}`, which was hard to identify. The truncated task title now follows the number in the breadcrumb.
+
+## Projects and quick tasks use Review path tabs - 2026-07-21
+
+Projects/quick-tasks still drove Diffs/Recap and unified/split via `?prTab=` / `?diffView=`. They now match sessions with `/sandbox/review/diffs/…` and `/sandbox/review/recap`; old query URLs redirect.
+
+## Review tab route is /review - 2026-07-21
+
+The sandbox tab was labeled Review but still lived at `/pr`. Sessions now use `/review/diffs/…` and `/review/recap` (projects/quick-tasks use `/sandbox/review`); old `/pr` URLs redirect.
+
+## Copy link lives in More menus - 2026-07-21
+
+Copy link sat as a separate header button next to More on sessions, projects, and quick tasks. It now lives in More with dividers between action groups so the chrome stays lighter.
+
+## Sandbox PR tab labeled Review - 2026-07-21
+
+"PR" was opaque for a tab that holds diffs and recap. The sandbox tab label is now Review; route segment stays `pr` and the pull-request icon is unchanged.
+
+## Diff layout is path-backed Tabs too - 2026-07-21
+
+Unified/split lived in `?diffView=` beside path-based PR tabs. Sessions now use `/pr/diffs/unified` and `/pr/diffs/split` with the same Tabs component; `?diffView=` still works as a fallback/redirect on other surfaces.
+
+## Session PR Diffs/Recap use path tabs - 2026-07-21
+
+PR sub-views lived in `?prTab=`, which was hard to share and inconsistent with docs tabs. Sessions now use `/pr/diffs/…` and `/pr/recap` with the shared Tabs component; old `?prTab=` and bare `/pr` URLs redirect.
+
+## Composer toolbar: + first, model on the right - 2026-07-21
+
+Composer chrome put model/reasoning next to attach, crowding the left. + is now first on the left; model and reasoning sit with send on the right. Skills/Documents submenu rows match the @/`/` picker (prefix, title, truncated description).
+
+## Conversational turns self-escalate to agent for MCP - 2026-07-21
+
+The Haiku fast path stripped tools, so soft MCP asks ("list my repos?") silently failed. Conversational turns can now emit `<<EVA_ESCALATE>>` and the daemon re-dispatches the same turn onto the full agent query; agent turns also set `ENABLE_TOOL_SEARCH=auto` so large MCP schemas stay deferred. See `internal/t3code-ideas.md` for related t3code research (not implemented).
+
+## Repo home and /sessions share new-session landing - 2026-07-21
+
+Repo root only showed a logo, while `/sessions` had a carded composer. Both routes now render the same landing (app icon + title, prompt copy, cardless composer) so starting a session is consistent wherever you land.
+
+## Composer "+" menu for attach, skills, and docs - 2026-07-21
+
+Composer actions were split across paste/drop, `@`/`/` typing, and a separate Options control. A single "+" dropdown now groups Options (session submenu), Attach files / Add photos, and Skills / Documents submenus so attachments and mentions are reachable without memorizing shortcuts.
+
+## Preview select-element annotations + device presets - 2026-07-21
+
+Session Preview could browse the app but not point Eva at a specific UI element. The preview toolbar now has a Cursor-style select tool (hover highlight, click → comment card → immediate chat message with rich selector/HTML/React context) and mobile/tablet/desktop width presets, so visual feedback reaches the agent without leaving the sandbox.
+
+## Expandable tool output/diff detail in chat - 2026-07-21
+
+Per-call rows showed _what_ ran but not _what came back_. The sandbox harness now captures command output, exit codes, edit before/after, and write previews (budget-capped) for Claude/Codex/Cursor/OpenCode, and rows with detail expand in place — so you can verify a turn without digging through raw logs.
+
+## Synara-style per-call tool rows in chat - 2026-07-21
+
+Grouped activity blocks ("Ran 3 commands") hid what the agent actually did. Chat now shows one humanized row per tool call — Checked "git status", Searched for "x", Edited Foo.tsx — with tense flip while running and per-command icons, so historical and live sessions read as a clear step-by-step trail without a backend change.
+
+## Session Files tab is a full repo explorer - 2026-07-21
+
+The Files tab only opened when a chat chip set `?file=`, with no way to browse the sandbox. It now shows a searchable left-hand tree (`git ls-files`, ignoring gitignored paths) beside the existing viewer, so you can explore the whole repo while chip deep-links keep working.
+
+## Sandbox Diffs tab becomes PR (Diffs + Recap) - 2026-07-21
+
+Eva draft PRs never got recaps (webhook skips drafts), so sandbox work had diffs but no walkthrough. The Diffs tab is now a PR tab with Diffs/Recap sub-tabs; when `prRecapsEnabled` is on, finishing a task/session turn auto-generates an Eva-origin recap for draft PRs, hidden from the Documents sidebar but openable from the panel.
+
+## Message-first session creation with LLM titles - 2026-07-21
+
+Creating a coding session used to mean naming it in a modal before you could type. Sidebar `+` and `/sessions` now open a composer: submit creates the session as "New session", queues the first message until the sandbox is ready, and generates a short title via AI Gateway (`openai/gpt-5-nano`) without overwriting a manual rename.
+
+## Team sidebar background banners - 2026-07-21
+
+Teams only had a square logo, so app sidebars looked the same at the top. Teams can now upload a rectangular background that renders behind the app name in every sidebar for that team's codebases.
+
+## Preview remount no longer kills Next mid-compile - 2026-07-21
+
+Session preview polls treated a slow first-route compile as "not ready", then `fuser`-killed `:13000` and relaunched — while `launchDevServerInBackground`'s 20s cooldown often no-op'd, so Console showed Ready → Compiling `/` → exit forever. Ready now means the port is listening (`/proc/net/tcp` when `ss` is missing), and remount skips while a boot/lock/grace window is active.
+
+## Local Convex survives backend binary bumps - 2026-07-21
+
+CarePulse eproc sandboxes died on `:3210` after `npx convex dev` auto-upgraded the local backend in non-TTY: snapshot-export of huge tables (`answersHistory`) stuck on `ExportInProgress`, and zombie `/tmp/bg-*.pid` files made Preview heal skip relaunch. Background Convex launches now treat zombies as dead, clear leftover backends, unset `CONVEX_AGENT_MODE`, and align `.convex` `backendVersion` with the newest cached binary so the CLI skips the upgrade/export path.
+
+## Sandbox chat no longer spams "decided not to capture" proofs - 2026-07-21
+
+Task sandbox chat shares `entityIdField=taskId` with formal proof runs, and proof capture defaulted on. Every chat turn with no screenshot wrote a `taskProof` stub ("Eva decided not to capture"), flooding the activity timeline. Chat now disables proof capture; no-media stubs only record when a real run id is present.
+
+## Project/task Start resumes background only - 2026-07-21
+
+Hitting Start on an existing project or quick-task sandbox re-ran startupCommands whenever the seed marker was missing (or seed had failed), so CarePulse eproc spent minutes re-importing instead of just bringing `npx convex dev` back. Resume Start now only relaunches background daemons; seed/import stays on first create or the explicit Retry startup action.
+
+## Inbox shows app icon + title per notification - 2026-07-21
+
+Inbox rows only showed a type icon and the notification title, so scanning which CarePulse/Eva app a ping came from meant reading each href or guessing. Each row now joins `repoId` to the app logo and display label so the source is visible at a glance.
+
+## Restart dead background daemons when Preview polls - 2026-07-21
+
+`npx convex dev` (and other repo background commands) only relaunched on sandbox start/resume. If they died while the sandbox stayed active, Preview kept serving a frontend with a dead Convex. Preview readiness now runs `runBackgroundCommands({ onlyRestartDead: true })` so dead daemons come back without Stop/Start.
+
+## Heal Vercel preview when app still listens on pre-remap port - 2026-07-21
+
+After app preview moved to listen on port+10000, sandboxes that still had Next on 3000/3001 never became "ready" (Preview polls forever). getPreviewUrl now remounts the app onto the remapped listen port when the probe misses, so eproc (3001→13001) and similar recover without a full sandbox recycle.
+
+## Stop Console PTY reconnect loop on preview - 2026-07-21
+
+TerminalPanel listed its `connectWebSocket` function in a `useEffect` dependency array. Parent re-renders (preview polling, Convex) recreated that function, tore down the WebSocket, and called `connectPty` again — clearing the Vercel console and spamming `resolveSandboxProviderKind` in prod logs. Connect logic now lives behind a ref; the effect only re-runs when sandbox/owner/pane identity changes.
+
+## Vercel app preview proxy moves off Supabase port 54321 - 2026-07-21
+
+Vercel app/dev preview used exposed 54321 as the auth proxy in front of Next/Vite. CarePulse (and any repo with local Supabase) already binds Kong there, so the public `*.vercel.run` preview URL returned Kong's `no Route matched` JSON while Next was fine on 3000. App preview now matches desktop/editor: the auth proxy owns the **app's configured port** (3000, 3001, 5173, …), the app listens on port+10000, and 54321 stays free for Supabase. Loopback requests through the proxy skip the grant gate so Inngest/`BASE_APP_URL` on localhost still work.
+
+## React Compiler enabled on web; drop ceremonial memoization - 2026-07-21
+
+apps/web now runs React Compiler via `@vitejs/plugin-react` + `@rolldown/plugin-babel`. Manual `useMemo`/`useCallback` were stripped where the compiler owns memoization (~300 → ~9 kept for SortableContext/TerminalPanel/ref/iframe identity). Agents should not add those hooks by default.
+
+## Session chat can attach HTML/MD/TXT design files - 2026-07-21
+
+Session coding chat now accepts HTML (and Markdown/plain text) attachments alongside images. Files land in the sandbox as `/tmp/eva-attachment-*` with the same prompt note pattern as images, so Claude Design HTML exports can drive implementation without paste-only workarounds. Project sandbox chat stays images-only.
+
+## Project/task sandboxes run background before startup - 2026-07-21
+
+Task and project preview sandboxes used to run startup commands before background processes. Repos like carepulse eproc wait in startup for `npx convex dev` (background) to log “Convex functions ready” before importing data — so import never succeeded and the frontend came up with a dead backend. Order now matches sessions: background → startup → Preview Console. Contract test locks the order across session/task/project + prepareSandboxSteps.
+
+## Project/task sandbox panel reopen control - 2026-07-21
+
+Project and quick-task sandbox chat now get the same show/hide control sessions already had. Without it, a collapsed `project-sandbox-collapsed` / `task-sandbox-collapsed` localStorage value could hide Preview/Files with no way back.
+
+## Other users' chat messages sit on the left - 2026-07-20
+
+Sandbox/session chat now right-aligns only your own user turns; teammates' messages use the same bubble on the left with their first name above the bubble (Apple Messages-style) so shared chats read as a conversation.
+
+## Restore repo root as icon + title - 2026-07-20
+
+Repo root (`/$owner/$repo`) renders again with the app logo and display name instead of redirecting to Sessions; stats stay in the sidebar.
+
+## Cook rate uses settled tasks; sidebar shows Tasks ran - 2026-07-20
+
+Cook/ship rate is now done ÷ (done + cancelled) instead of sessions-with-PR ÷ sessions. Sidebar stats label “PRs shipped” → “Tasks ran” (terminal task count).
+
+## Sidebar stats card hosts online teammates - 2026-07-20
+
+Removed the repo Home header button. Footer stats keep PRs shipped + cook rate and drop cookers/tasks rows; online team avatars live in that space in the same card.
+
+## Task creation shown in activity timeline - 2026-07-20
+
+Creator avatar, name, and date no longer sit between the task title and description; they appear as the first activity event (“created the quick task”), so provenance lives with the rest of the history.
+
+## Delete orphan Vercel sandboxes when post-create setup fails - 2026-07-20
+
+`createSandbox` now deletes the VM if jq/git/docker setup fails after `client.create`, and treats the eva-env bashrc hook as best-effort. Fixes orphans left when the hook threw before the handle was returned to callers.
+
+## Fix sandbox create crash from eva-env bashrc hook - 2026-07-20
+
+`ensureEvaEnvInteractiveHookScript` joined a `for` loop with `;`, producing invalid `do;` and failing every Vercel sandbox create. Loop is now one statement; test guards the SOURCE_ENV prefix concat.
+
+## Preview Console loads sandbox env for typed commands - 2026-07-20
+
+Vercel Console tmux shells now source `/vercel/sandbox/.eva-env.sh` on create (plus login/bashrc hooks), so manually typed `pnpm run dev` sees the same secrets as agent exec and auto-launch. Existing bare sessions need a sandbox restart or a new terminal tab.
+
+## Task + project sandboxes launch Preview Console like sessions - 2026-07-20
+
+Quick-task and project preview sandboxes now start the app server in the Preview Console tmux session (same as sessions) instead of relying on fragile frontend auto-type when the PTY is new. Stops idle Consoles after Vercel resume/early-ready. Contract tests pin the backend call sites and `runConsoleDevCommandOnConnect={false}` on all three panels.
+
+## Files tab on task and project sandboxes - 2026-07-20
+
+Quick-task and project sandboxes now include the session Files viewer (URL-routable + chat file-chip open), so sandbox file reads aren’t session-only anymore.
+
+## Browser tab on task and project sandboxes - 2026-07-20
+
+Quick-task and project sandbox views now expose the same Browser tab as sessions (URL-routable), so agent Chrome is reachable outside session detail. Agent auto-switch still session-only until browsing lock is wired on those entities.
+
+## Task + project sandbox chat: drafts + blocking questions - 2026-07-20
+
+Quick-task and project sandbox chat now persist composer drafts (`taskChat` / `projectChat`) and answer blocking AskUserQuestion like sessions, so remounts and paused turns work the same.
+
+## Repo home title matches sidebar label - 2026-07-20
+
+Repo home widget header shows the same display name as the sidebar (custom label or app leaf) instead of "Eva's Stats" + owner/name subtitle.
+
+## Keep audit rail icon top-aligned when open - 2026-07-20
+
+Audit accordion icon no longer stretches/centers with open content — it stays beside the trigger like run rows.
+
+## Activity timestamps inline with duration on the right - 2026-07-20
+
+Relative time sits after a · next to the event copy/badges; run and audit duration stay at the far end of the accordion trigger so elapsed time stays scannable.
+
+## Rounded Eva icon on activity rail + run fallback - 2026-07-20
+
+Activity audit/proof marks and run rows without a requester now use the same rounded-full Eva icon as chat, so system-authored success/error runs still show a clear actor on the timeline.
+
+## Custom display labels for GitHub apps - 2026-07-20
+
+- Optional per-app `label` on `githubRepos` (e.g. "CarePulse v2", "Eva Web") shown in the sidebar header instead of the GitHub/path name; logo appears left of the title when set.
+- Set via App settings → Identity, or Rename in the sidebar rail / home / team codebases context menus. Empty clears back to the default name.
+- Team tab route renamed `/teams/:id/repos` → `/teams/:id/codebases` (legacy URL redirects).
+- Reason for change: monorepo apps and similarly named repos were hard to tell apart as `owner/name` or leaf folders.
+
+## Tidy quick-task More menu and sandbox + tabs - 2026-07-20
+
+- Quick-task "View PR" moves into the More dropdown so the header stays focused on Run / Sandbox.
+- Sandbox Editor joins Computer in the `+` menu (pinned closable tab when opened) across sessions, tasks, and projects.
+- Archived sidebar rows use full-width justify-between for title vs date (flex was overridden by `block`).
+- Reason for change: primary chrome was crowded with secondary actions and less-used tabs.
+
+## Read-only sessions when PR is merged or closed - 2026-07-20
+
+- Sessions whose PR is `merged` or `closed` use the same read-only chrome as archive (banner, no composer, no sandbox start, PRD locked), without auto-archiving.
+- Banner copy is PR-specific; reopening the PR on GitHub (webhook → `open`/`draft`) unlocks the session again. No in-app unlock.
+- Reason for change: post-merge/closed sessions were still editable even though the work was done.
+
+## Persist list scroll across detail navigation - 2026-07-20
+
+- Quick tasks / projects (list, kanban columns, table) and the sidebar nav restore scroll via sessionStorage when returning from a detail view.
+- Positions are per tab and clear when the tab closes; nested scroll containers are keyed by repo + view (and kanban column).
+- Reason for change: opening a task/project unmounted the list and dropped you back at the top.
+
+## Convex env slots + fixed provider logos - 2026-07-20
+
+- Env vars UI adds a Convex section: staging (`CONVEX_DEPLOY_KEY` / `CONVEX_ADMIN_KEY`, `NEXT_PUBLIC_CONVEX_URL` / `VITE_CONVEX_URL` / `CONVEX_URL`) and prod (`PROD_CONVEX_DEPLOY_KEY` / `PROD_CONVEX_ADMIN_KEY`, `PROD_CONVEX_URL`); secrets and prod URL default to `sandboxExclude`.
+- OpenAI/Codex mark uses current B&W brand (not legacy green); Cursor from svgl; Daytona from daytona.io favicon; theme-aware fills for dark mode.
+- Reason for change: Convex BYOK keys were free-form only, and several brand marks were wrong or invisible on dark surfaces.
+
+## Proof and audit as top-level activity events - 2026-07-20
+
+- Proofs and audits no longer nest under the run accordion; each is its own timeline row on the shared rail.
+- Audits use a dedicated accordion titled "Eva performed audit" (with running/error/fix variants) and expandable results.
+- Reason for change: nested proof/audit under the run made the timeline hard to scan as discrete events.
+
+## Flat activity timeline with shared rail - 2026-07-20
+
+- Run rows (success / made changes / running / error / queued) drop the muted card; proof and nested audit sit as sibling events under the run, not indented inside it.
+- Contiguous non-comment activity shares a vertical rail through icon centers; comment cards stay off the rail with the avatar inside the card.
+- Reason for change: activity felt like stacked cards instead of a readable event timeline.
+
+## Quick task detail: sections, copy link, activity coalesce - 2026-07-20
+
+- Sidebar fields split into Properties / Labels / Project; page content capped at `max-w-7xl` and centered; hairline divider above Activity.
+- Header gains a Copy link control next to More (clipboard gets the current URL).
+- Same actor+field task activity edits within 5 minutes coalesce into one timeline row instead of stacking duplicates.
+- Reason for change: quick-task chrome felt flat/wide, and rapid description edits spam the activity feed.
+
+## Fix empty proof captures (retry + longer cap) - 2026-07-20
+
+- Proof max runtime raised from 10m → 30m; empty media message is now "Eva decided not to capture."
+- Uses the repo Proof Capture Model from settings (e.g. cursor:grok); retries once with a hard capture prompt if the first turn left no file.
+- Proof activity is stored on the run (`type: "proof"`) so empty captures are debuggable.
+- Reason for change: carepulse PRs #1916–#1918 burned the old 10m proof budget and attached no media despite real UI changes.
+
+## Harden proof capture runtime + fallback copy - 2026-07-20
+
+- Empty proof media now records "No proof media captured" (not "No UI changes"); the uploader also scans `rootDirectory/recordings|screenshots`.
+- Before the proof agent, the platform revives dead background daemons (Convex) and starts the app so captures are not error pages from undeployed functions.
+- Proof prompt uses the repo's real `devPort`/`devCommand`, requires captures under `/tmp/repo/...`, and mandates re-capture when Convex/runtime errors appear.
+- Reason for change: PRs like carepulse #1910 labeled UI work as "No UI changes", and some proofs were screenshots of Convex errors because the backend was cold.
+
+## Purge Vercel snap\_\* on ephemeral sandbox delete - 2026-07-19
+
+- `sandbox.delete()` now lists and deletes snap\_\* for that sandbox name (SDK cascade was leaving never-expiring storage that bills Snapshot Storage).
+- Create always sets an explicit `snapshotExpiration` so children of expiration:0 seeds don't inherit forever-TTL; seed-prep delete preserves the new base/seeded id.
+- `purgeUnreferencedVercelSnapshots` reclaims orphans while keeping base + seeded ids **and** every snap still owned by a live sandbox (session / task / project resumes).
+- Reason for change: automation/ephemeral sandboxes deleted cleanly but snapshots stayed forever on the Vercel Snapshots dashboard.
+
+## Infrastructure env slots + colored provider logos - 2026-07-19
+
+- Env vars UI adds an Infrastructure section (Daytona API key, Vercel token/team/project) with brand-colored logos; agent logos recolored too.
+- Infra secrets default to `sandboxExclude`; `VERCEL_PROJECT_ID` slot is repo-only; team tab omits it.
+- `SANDBOX_PROVIDER` toggle (Daytona / Vercel) in Infrastructure; listed in plaintext since it is not a secret.
+- Reason for change: Vercel/Daytona creds were buried in free-form vars; first-class slots match coding-agent UX and keep project id per app.
+
+## Shared automations use sibling Vercel project for sandboxes - 2026-07-19
+
+- Automation runs (and the shared `resolveSandboxRepoId` / `pickSandboxRepoId` helpers) now create/launch sandboxes with a monorepo app row that has `VERCEL_PROJECT_ID`, not the bare root.
+- Unit tests lock the carepulse-shaped root→web credential pick so this regresses loudly.
+- Reason for change: shared Daily digest on carepulse root failed because Vercel is required but project id only exists on `apps/web` / `eprocurement`.
+
+## Eva oxlint plugin: vmem-style rules + fixture tests - 2026-07-19
+
+- Restructured `scripts/oxlint-plugin-eva/` (`.mjs`, `rules/`, `utils`, fixture harness) — vmem internals, eva `scripts/` location.
+- Kept `eva/no-is-record` (error); added `eva/no-json-parse` and `eva/no-double-cast` (warn); dropped soft `eva/no-explicit-unknown`.
+- `no-json-parse` only allows Zod `.safeParse` / `.parse` wrappers — not `: unknown` / `as unknown`.
+- Reason for change: name-ban rules were low signal; match vmem’s high-signal boundary-parse checks with real oxlint tests.
+
+## Richer session PRD artifact + Plan Ready composer banner - 2026-07-18
+
+- PRD card gains Download .md, uses the first markdown heading as title, and keeps Copy / Save as Document / Approve.
+- When a plan exists but the compact card is hidden (Edit mode or PRD tab open), a Plan Ready strip above the composer offers View + Approve.
+- Reason for change: plans felt like a mode panel, not a portable artifact with a clear "ready to implement" cue (t3code-style).
+
+## Debounced "Scroll to end" chat pill - 2026-07-18
+
+- Scroll-to-bottom control now shows after 150ms away from the live edge (hide stays immediate), resets on conversation switch, and uses a labeled pill like t3code.
+- Reason for change: the old icon flashed during stick-to-bottom settle and thread switches.
+
+## Collapse long user chat messages behind "Show full message" - 2026-07-18
+
+- Session/task chat user prompts longer than 8 lines or 600 chars collapse with a fade and expand toggle (same idea as t3code).
+- Reason for change: long pasted prompts were dominating the timeline and burying agent replies.
+>>>>>>> origin/staging
 
 ## Session walkthrough recordings go to chat player, not artifacts - 2026-07-18
 

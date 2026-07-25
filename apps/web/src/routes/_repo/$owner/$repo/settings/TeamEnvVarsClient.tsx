@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import { Card, CardContent } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Card, CardContent } from "@eva/ui";
 import { Link } from "@tanstack/react-router";
 import { IconUsers } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -75,6 +75,7 @@ export function TeamEnvVarsClient() {
     <div className="space-y-4">
       <EnvVarsTable
         vars={teamEnvVars}
+        scope="team"
         description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON to enable Codex, OPENCODE_CONFIG_JSON/OPENCODE_AUTH_JSON to enable Opencode, or CURSOR_API_KEY to enable Cursor across the team."
         onUpsert={async (key, value, sandboxExclude) => {
           if (!repo.teamId) return;

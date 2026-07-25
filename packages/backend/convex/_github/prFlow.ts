@@ -8,11 +8,12 @@ import { buildEvaSessionUrl } from "../_taskWorkflow/urls";
 import { extractPrNumber } from "./helpers";
 
 /**
- * Promotes a session's draft PR to ready-for-review and archives the sandbox.
- * Called when the user clicks "Send for Review". Draft PRs are opened
- * automatically after the first successful agent push (`createDraftSessionPr`);
- * this path only flips draft → open. If a draft is somehow missing (older
- * sessions), it creates one first then promotes so the button still works.
+ * Promotes a session's draft PR to ready-for-review. Called when the user
+ * clicks "Send for Review". Draft PRs are opened automatically after the first
+ * successful agent push (`createDraftSessionPr`); this path only flips draft →
+ * open. If a draft is somehow missing (older sessions), it creates one first
+ * then promotes so the button still works. The session stays active and
+ * editable — archiving is a separate explicit action.
  */
 export const createSessionPr = action({
   args: { sessionId: v.id("sessions") },
@@ -62,8 +63,9 @@ export const createSessionPr = action({
       });
     }
 
-    await ctx.runMutation(internal.sessions.markReadyAndArchive, {
+    await ctx.runMutation(internal.sessions.setPrState, {
       id: args.sessionId,
+      prState: "open",
     });
     return { url: prUrl };
   },

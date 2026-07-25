@@ -1,24 +1,17 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  Spinner,
-  Button,
-  WebPreview,
-  WebPreviewNavigation,
-  WebPreviewBody,
-  useWebPreview,
-} from "@conductor/ui";
+import { useMemo, useRef, useState } from "react";
+import { Spinner, Button, WebPreview, WebPreviewBody } from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
+import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
 import {
-  IconAlertTriangle,
-  IconRefresh,
-  IconWorld,
-  IconX,
-} from "@tabler/icons-react";
-import {
-  PreviewNavBar,
   buildUrlWithPath,
   normalizePreviewPath,
 } from "@/lib/components/PreviewNavBar";
+import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
+import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
+import {
+  PREVIEW_DEVICE_WIDTHS,
+  type PreviewDevice,
+} from "./_utils/-previewAnnotation";
 
 interface PreviewInfo {
   url: string;
@@ -28,12 +21,6 @@ interface PreviewInfo {
 interface WebPreviewPanelProps {
   isActive: boolean;
   sandboxId: string | undefined;
-  /**
-   * Vercel sandbox name when the sandbox runs on Vercel. Used only to hide the
-   * Daytona preview-interstitial hint: Vercel previews go through the auth proxy
-   * and never show that "Accept" warning, so the hint is noise there.
-   */
-  vercelSandboxId: string | undefined;
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
   error: string | null;
@@ -42,50 +29,25 @@ interface WebPreviewPanelProps {
   port: number;
   onPortChange: (port: number) => void;
   pathStorageKey: string;
-}
-
-function NavigationBar({
-  previewInfo,
-  isLoading,
-  onRefresh,
-  containerRef,
-  port,
-  onPortChange,
-  previewPath,
-  onPathChange,
-}: {
-  previewInfo: PreviewInfo | null;
-  isLoading: boolean;
-  onRefresh: () => void;
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  port: number;
-  onPortChange: (port: number) => void;
-  previewPath: string;
-  onPathChange: (path: string) => void;
-}) {
-  const { iframeRef } = useWebPreview();
-
-  return (
-    <WebPreviewNavigation>
-      <PreviewNavBar
-        previewUrl={previewInfo?.url ?? null}
-        iframeRef={iframeRef}
-        containerRef={containerRef}
-        port={port}
-        path={previewPath}
-        onPortChange={onPortChange}
-        onPathChange={onPathChange}
-        isLoading={isLoading}
-        onRefresh={onRefresh}
-      />
-    </WebPreviewNavigation>
-  );
+  /**
+   * When set (sessions), Preview path is sticky on Convex. `undefined` while
+   * the session query loads — falls back to sessionStorage until then.
+   */
+  stickyPath?: string;
+  onStickyPathChange?: (path: string) => void;
+  /** When set (sessions), Preview empty state shows a Start sandbox button. */
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
+  /**
+   * Session-only: submit compact display + rich agent prompt for a preview
+   * annotation. When absent, the select-element toggle is hidden.
+   */
+  onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
 }
 
 export function WebPreviewPanel({
   isActive,
   sandboxId,
-  vercelSandboxId,
   previewInfo,
   isLoading,
   error,
@@ -94,13 +56,23 @@ export function WebPreviewPanel({
   port,
   onPortChange,
   pathStorageKey,
+  stickyPath,
+  onStickyPathChange,
+  onStartSandbox,
+  isSandboxStarting = false,
+  onAnnotationSubmit,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [warningHintDismissed, setWarningHintDismissed] = useState(false);
-  const [previewPath, setPreviewPath] = useSessionStorage(pathStorageKey, "/", {
+  const [annotationMode, setAnnotationMode] = useState(false);
+  const [localPath, setLocalPath] = useSessionStorage(pathStorageKey, "/", {
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
   });
+  const [device, setDevice] = useSessionStorage<PreviewDevice>(
+    `${pathStorageKey}:device`,
+    "desktop",
+  );
+  const previewPath = stickyPath ?? localPath;
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is
@@ -113,12 +85,11 @@ export function WebPreviewPanel({
     // eslint-disable-next-line react/exhaustive-deps
   }, [previewInfo, pathStorageKey, iframeKey]);
 
-  const handlePathChange = useCallback(
-    (path: string) => {
-      setPreviewPath(normalizePreviewPath(path));
-    },
-    [setPreviewPath],
-  );
+  function handlePathChange(path: string) {
+    const next = normalizePreviewPath(path);
+    setLocalPath(next);
+    onStickyPathChange?.(next);
+  }
 
   if (!isActive || !sandboxId) {
     return (
@@ -130,10 +101,24 @@ export function WebPreviewPanel({
               ? "Start the sandbox to preview your app"
               : "Waiting for sandbox..."}
           </p>
+          {!isActive && onStartSandbox ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onStartSandbox}
+              disabled={isSandboxStarting}
+            >
+              <IconPlayerPlay size={14} />
+              {isSandboxStarting ? "Starting..." : "Start sandbox"}
+            </Button>
+          ) : null}
         </div>
       </div>
     );
   }
+
+  const deviceWidth =
+    device === "desktop" ? undefined : PREVIEW_DEVICE_WIDTHS[device];
 
   return (
     <WebPreview
@@ -141,7 +126,7 @@ export function WebPreviewPanel({
       defaultUrl={iframeSrc ?? ""}
       className="h-full rounded-none border-0"
     >
-      <NavigationBar
+      <PreviewPanelNavBar
         previewInfo={previewInfo}
         isLoading={isLoading}
         onRefresh={onRefresh}
@@ -150,43 +135,44 @@ export function WebPreviewPanel({
         onPortChange={onPortChange}
         previewPath={previewPath}
         onPathChange={handlePathChange}
+        device={device}
+        onDeviceChange={setDevice}
+        annotationMode={annotationMode}
+        onAnnotationModeChange={setAnnotationMode}
+        showAnnotationToggle={Boolean(onAnnotationSubmit)}
       />
-      {!warningHintDismissed && !vercelSandboxId ? (
-        <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
-          <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <p className="flex-1 leading-relaxed">
-            If you see a preview warning, click Accept, then click the refresh
-            button in the address bar above.
-          </p>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5 shrink-0 text-warning/70 hover:bg-warning/20 hover:text-warning"
-            onClick={() => setWarningHintDismissed(true)}
-          >
-            <IconX size={12} />
-          </Button>
-        </div>
-      ) : null}
-      <WebPreviewBody
-        key={iframeKey}
-        src={iframeSrc}
-        loading={
-          isLoading && !previewInfo ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-              <Spinner size="lg" />
-            </div>
-          ) : error ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-destructive">{error}</p>
-              <Button size="sm" variant="secondary" onClick={onRefresh}>
-                <IconRefresh className="w-4 h-4" />
-                Retry
-              </Button>
-            </div>
-          ) : undefined
-        }
-      />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <WebPreviewBody
+          key={iframeKey}
+          src={iframeSrc}
+          className={deviceWidth ? "mx-auto border-x border-border" : undefined}
+          style={
+            deviceWidth ? { width: deviceWidth, maxWidth: "100%" } : undefined
+          }
+          loading={
+            isLoading && !previewInfo ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+                <Spinner size="lg" />
+              </div>
+            ) : error ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button size="sm" variant="secondary" onClick={onRefresh}>
+                  <IconRefresh className="w-4 h-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+        {onAnnotationSubmit ? (
+          <PreviewAnnotationLayer
+            mode={annotationMode}
+            onModeChange={setAnnotationMode}
+            onSubmit={onAnnotationSubmit}
+          />
+        ) : null}
+      </div>
     </WebPreview>
   );
 }

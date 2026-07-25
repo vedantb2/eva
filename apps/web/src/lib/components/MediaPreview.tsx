@@ -20,7 +20,7 @@ import {
   VideoPlayerTimeDisplay,
   VideoPlayerTimeRange,
   VideoPlayerVolumeRange,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 export function VideoPreview({
   url,
@@ -36,9 +36,6 @@ export function VideoPreview({
         playsInline
         preload="metadata"
         slot="media"
-        onLoadedMetadata={(event) => {
-          event.currentTarget.playbackRate = 5;
-        }}
       />
       <VideoPlayerControlBar>
         <VideoPlayerPlayButton />

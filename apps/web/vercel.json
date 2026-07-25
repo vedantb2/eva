@@ -1,5 +1,5 @@
 {
-  "installCommand": "cd ../.. && HUSKY=0 pnpm install --frozen-lockfile --filter @conductor/web...",
+  "installCommand": "cd ../.. && HUSKY=0 pnpm install --frozen-lockfile --filter @eva/web...",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {

@@ -1,25 +1,22 @@
 "use client";
 
-import { useMemo } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**
- * Tab order matches `SandboxTabBar`'s visible tab row (preview → browser →
- * editor → terminal → diffs → optional Computer → Files → PRD → custom).
- * Computer is only cyclable when pinned open from `+`.
+ * Tab order matches `SandboxTabBar`'s always-visible row (preview → browser →
+ * terminal → Review). Editor / Computer are only cyclable when pinned from `+`.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
   "preview",
   "browser",
-  "editor",
   "terminal",
-  "diffs",
+  "review",
 ];
 
 /**
- * Returns the Shift+Tab cycle order: enabled builtins, then Computer when
- * open, then File Viewer / PRD if shown, then custom tab slugs.
+ * Returns the Shift+Tab cycle order: enabled builtins, then Editor/Computer
+ * when open, then File Viewer / PRD if shown, then custom tab slugs.
  */
 export function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
@@ -27,18 +24,22 @@ export function getCyclableSandboxTabs(
   customTabSlugs?: ReadonlyArray<string>,
   showFilesTab?: boolean,
   showComputerTab?: boolean,
+  showEditorTab?: boolean,
 ): string[] {
   const tabs = enabledTabs
     ? SANDBOX_TAB_BAR_ORDER.filter((tab) => enabledTabs.includes(tab))
     : [...SANDBOX_TAB_BAR_ORDER];
-  const withComputer = showComputerTab ? [...tabs, "computer"] : tabs;
+  const withEditor = showEditorTab ? [...tabs, "editor"] : tabs;
+  const withComputer = showComputerTab
+    ? [...withEditor, "computer"]
+    : withEditor;
   const withFiles = showFilesTab ? [...withComputer, "files"] : withComputer;
   const withPrd = showPrdTab ? [...withFiles, "prd"] : withFiles;
   if (!customTabSlugs || customTabSlugs.length === 0) return withPrd;
   return [...withPrd, ...customTabSlugs];
 }
 
-/** Cycles sandbox tabs (Preview, Editor, …, custom) with Shift+Tab. */
+/** Cycles sandbox tabs (Preview, Terminal, …, custom) with Shift+Tab. */
 export function useCycleSandboxTabHotkey({
   activeTab,
   onTabChange,
@@ -47,6 +48,7 @@ export function useCycleSandboxTabHotkey({
   showFilesTab,
   customTabSlugs,
   showComputerTab,
+  showEditorTab,
   enabled = true,
 }: {
   activeTab: string;
@@ -56,18 +58,16 @@ export function useCycleSandboxTabHotkey({
   showFilesTab?: boolean;
   customTabSlugs?: ReadonlyArray<string>;
   showComputerTab?: boolean;
+  showEditorTab?: boolean;
   enabled?: boolean;
 }) {
-  const cyclableTabs = useMemo(
-    () =>
-      getCyclableSandboxTabs(
-        enabledTabs,
-        showPrdTab,
-        customTabSlugs,
-        showFilesTab,
-        showComputerTab,
-      ),
-    [enabledTabs, showPrdTab, customTabSlugs, showFilesTab, showComputerTab],
+  const cyclableTabs = getCyclableSandboxTabs(
+    enabledTabs,
+    showPrdTab,
+    customTabSlugs,
+    showFilesTab,
+    showComputerTab,
+    showEditorTab,
   );
 
   useHotkey(

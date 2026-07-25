@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   ActivityTasks,
@@ -18,7 +18,7 @@ import {
   Textarea,
   getSpeechRecognition,
   useSpeechRecognition,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconTrash,
   IconMicrophone,
@@ -27,7 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -98,24 +98,21 @@ export function DocInterviewDialog({
 
   const messages = doc.interviewHistory ?? [];
 
-  const answers = useMemo(() => {
-    const result: AnswerRecord[] = [];
-    for (let i = 0; i < messages.length - 1; i++) {
-      const msg = messages[i];
-      const nextMsg = messages[i + 1];
-      if (msg.role === "assistant" && nextMsg?.role === "user") {
-        try {
-          const parsed = JSON.parse(msg.content);
-          if (parsed.question) {
-            result.push({ question: parsed.question, answer: nextMsg.content });
-          }
-        } catch {
-          continue;
+  const answers: AnswerRecord[] = [];
+  for (let i = 0; i < messages.length - 1; i++) {
+    const msg = messages[i];
+    const nextMsg = messages[i + 1];
+    if (msg.role === "assistant" && nextMsg?.role === "user") {
+      try {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.question) {
+          answers.push({ question: parsed.question, answer: nextMsg.content });
         }
+      } catch {
+        continue;
       }
     }
-    return result;
-  }, [messages]);
+  }
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -143,6 +140,15 @@ export function DocInterviewDialog({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const askQuestion = async (currentAnswers: AnswerRecord[]) => {
+    setIsLoading(true);
+    await startDocInterview({
+      docId: doc._id,
+      docTitle: doc.title,
+      previousAnswers: currentAnswers,
+    });
+  };
+
   useEffect(() => {
     if (!open || readOnly || hasTriggeredRef.current) return;
     if (messages.length === 0) {
@@ -150,18 +156,6 @@ export function DocInterviewDialog({
       askQuestion([]);
     }
   }, [open]);
-
-  const askQuestion = useCallback(
-    async (currentAnswers: AnswerRecord[]) => {
-      setIsLoading(true);
-      await startDocInterview({
-        docId: doc._id,
-        docTitle: doc.title,
-        previousAnswers: currentAnswers,
-      });
-    },
-    [doc._id, doc.title, startDocInterview],
-  );
 
   const handleAnswer = async (answer: string) => {
     const lastAssistantMsg = [...messages]

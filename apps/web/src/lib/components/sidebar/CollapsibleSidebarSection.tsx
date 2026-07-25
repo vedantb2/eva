@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { IconChevronDown } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 

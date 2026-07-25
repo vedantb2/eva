@@ -1,4 +1,4 @@
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { LANDING_PLATFORM_SECTIONS } from "./landingTaskDetailFixtures";
 
 export function LandingCapabilityGrid() {

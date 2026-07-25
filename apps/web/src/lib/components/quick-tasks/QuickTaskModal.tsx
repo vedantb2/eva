@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import {
@@ -31,17 +31,15 @@ import {
   normalizeAIModel,
   type AIModel,
   type Id,
-} from "@conductor/backend";
-import {
-  FALLBACK_GIT_BASE_BRANCH,
-  UI_TASK_DESCRIPTION_HINT,
-} from "@conductor/shared";
+} from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconFileText,
@@ -60,15 +58,11 @@ import {
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
-import {
-  ScreenshotsToggle,
-  type ScreenshotsToggleValue,
-} from "./ScreenshotsToggle";
-import { AuditToggle, type AuditToggleValue } from "./AuditToggle";
+import { ScreenshotsToggle } from "./ScreenshotsToggle";
+import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
-import { insertUiTaskDescriptionTemplate } from "@/lib/components/tasks/_utils/insertUiTaskDescription";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -125,9 +119,8 @@ export function QuickTaskModal({
   const [tagSearch, setTagSearch] = useState("");
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
-    useState<ScreenshotsToggleValue>(undefined);
-  const [runAuditEnabled, setRunAuditEnabled] =
-    useState<AuditToggleValue>(undefined);
+    useState(false);
+  const [runAuditEnabled, setRunAuditEnabled] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
@@ -135,18 +128,12 @@ export function QuickTaskModal({
 
   // Seed the mention/skill maps from the initial draft's tokenized description
   // so that @-mention and /skill chips render correctly on deep-link open.
-  const initialDescMaps = useMemo(
-    () =>
-      initialDraft
-        ? tokenizedToEditable(initialDraft.description ?? "")
-        : {
-            mentionMap: new Map<string, string>(),
-            skillMap: new Map<string, string>(),
-          },
-    // initialDraft is stable for the lifetime of this mount (key remount on change).
-    // eslint-disable-next-line react/exhaustive-deps
-    [],
-  );
+  const initialDescMaps = initialDraft
+    ? tokenizedToEditable(initialDraft.description ?? "")
+    : {
+        mentionMap: new Map<string, string>(),
+        skillMap: new Map<string, string>(),
+      };
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
@@ -158,9 +145,20 @@ export function QuickTaskModal({
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
     null,
   );
+  const [accountDefaulted, setAccountDefaulted] = useState(false);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+  const {
+    options: accounts,
+    resolveId: resolveAccountId,
+    ready: accountsReady,
+  } = useProviderAccounts();
+
+  // Once accounts load, default to the creator's personal account for the
+  // selected model provider (Team when none match). Adjust during render.
+  if (accountsReady && !accountDefaulted) {
+    setProviderAccountId(defaultProviderAccountId(accounts, model));
+    setAccountDefaulted(true);
+  }
 
   const effectiveProjectId = projectId ?? selectedProjectId;
   const effectiveProject = useQuery(
@@ -175,23 +173,24 @@ export function QuickTaskModal({
     return tokenized.trim();
   };
 
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
-    setProviderAccountId(null);
+    setProviderAccountId(defaultProviderAccountId(accounts, defaultModel));
+    setAccountDefaulted(accounts.length > 0);
     setActiveDraftId(null);
     setSelectedProjectId(projectId);
     setAssignedTo(undefined);
     setSelectedTags([]);
     setTagSearch("");
     setPriority(undefined);
-    setScreenshotsVideosEnabled(undefined);
-    setRunAuditEnabled(undefined);
-  }, [defaultBranch, defaultModel, projectId]);
+    setScreenshotsVideosEnabled(false);
+    setRunAuditEnabled(false);
+  };
 
-  const handleClose = useCallback(async () => {
+  const handleClose = async () => {
     const desc = getDescription().trim();
     if (title.trim() || desc) {
       await saveDraft({
@@ -205,17 +204,7 @@ export function QuickTaskModal({
     }
     resetForm();
     onClose();
-  }, [
-    saveDraft,
-    activeDraftId,
-    repo._id,
-    title,
-    baseBranch,
-    branchLockedToProject,
-    selectedProjectId,
-    resetForm,
-    onClose,
-  ]);
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !displayBaseBranch || !repo) return;
@@ -231,7 +220,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId),
+          providerAccountId: resolveAccountId(providerAccountId) ?? null,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           screenshotsVideosEnabled,
@@ -244,7 +233,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId),
+          providerAccountId: resolveAccountId(providerAccountId) ?? null,
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
@@ -255,9 +244,11 @@ export function QuickTaskModal({
       }
       resetForm();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const loadDraft = (draft: QuickTaskDraft) => {
@@ -311,7 +302,7 @@ export function QuickTaskModal({
           if (!v) handleClose();
         }}
       >
-        <DialogContent className="max-w-3xl gap-0 p-0" hideCloseButton>
+        <DialogContent className="max-w-5xl gap-0 p-0" hideCloseButton>
           <div className="px-5 pt-5 pb-1">
             <Input
               placeholder="Task title"
@@ -327,202 +318,198 @@ export function QuickTaskModal({
               ref={editorRef}
               value={description}
               onValueChange={setDescription}
-              placeholder={`Add description... @ for docs, / for skills. ${UI_TASK_DESCRIPTION_HINT}`}
+              placeholder="Add description... @ for docs, / for skills."
               minHeight="min-h-[160px]"
               className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
               initialMentionMap={initialDescMaps.mentionMap}
               initialSkillMap={initialDescMaps.skillMap}
             />
-            <button
-              type="button"
-              className="hit-target inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() =>
-                setDescription(insertUiTaskDescriptionTemplate(description))
-              }
-            >
-              Add UI details
-            </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
-            <AssigneeSelector
-              users={users}
-              assignedTo={assignedTo}
-              setAssignedTo={setAssignedTo}
-            />
+          <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <PriorityPicker value={priority} onChange={setPriority} />
 
-            <PriorityPicker value={priority} onChange={setPriority} />
+              <AssigneeSelector
+                users={users}
+                assignedTo={assignedTo}
+                setAssignedTo={setAssignedTo}
+              />
 
-            <ScreenshotsToggle
-              value={screenshotsVideosEnabled}
-              repoDefault={
-                effectiveProject?.screenshotsVideosEnabled ??
-                repo.screenshotsVideosEnabled ??
-                false
-              }
-              onChange={setScreenshotsVideosEnabled}
-            />
+              <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
+                <ModelSelect
+                  value={model}
+                  options={modelOptions}
+                  onValueChange={(next) => {
+                    setModel(next);
+                    setProviderAccountId(
+                      defaultProviderAccountId(accounts, next),
+                    );
+                  }}
+                  accounts={accounts}
+                  accountId={providerAccountId}
+                  onAccountChange={setProviderAccountId}
+                />
+              </div>
 
-            <AuditToggle
-              value={runAuditEnabled}
-              inheritedDefault={
-                effectiveProject?.runAuditEnabled ??
-                effectiveProjectId !== undefined
-              }
-              onChange={setRunAuditEnabled}
-            />
-
-            <ProjectPicker
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              setSelectedProjectId={setSelectedProjectId}
-              open={projectPickerOpen}
-              setOpen={setProjectPickerOpen}
-              onCreateProject={() => setIsCreatingProject(true)}
-            />
-
-            {branchLockedToProject ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
-                  >
-                    <IconGitBranch size={14} />
-                    <span className="text-foreground">{displayBaseBranch}</span>
-                    <IconInfoCircle
-                      size={12}
-                      className="cursor-help text-muted-foreground"
+              {branchLockedToProject ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
+                    >
+                      <IconGitBranch size={14} />
+                      <span className="text-foreground">
+                        {displayBaseBranch}
+                      </span>
+                      <IconInfoCircle
+                        size={12}
+                        className="cursor-help text-muted-foreground"
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Inherited from the project&apos;s base branch
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                    >
+                      <IconGitBranch size={14} />
+                      <span className="text-foreground">{baseBranch}</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-2">
+                    <BranchSelect
+                      value={baseBranch}
+                      onValueChange={setBaseBranch}
+                      placeholder="Select a base branch"
+                      className="h-8 w-full"
                     />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Inherited from the project&apos;s base branch
-                </TooltipContent>
-              </Tooltip>
-            ) : (
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ScreenshotsToggle
+                value={screenshotsVideosEnabled}
+                onChange={setScreenshotsVideosEnabled}
+              />
+
+              <AuditToggle
+                value={runAuditEnabled}
+                onChange={setRunAuditEnabled}
+              />
+
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                   >
-                    <IconGitBranch size={14} />
-                    <span className="text-foreground">{baseBranch}</span>
+                    <IconTag size={14} />
+                    {selectedTags.length > 0 ? (
+                      <span className="text-foreground">
+                        {selectedTags.length} tag
+                        {selectedTags.length !== 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span>Tags</span>
+                    )}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-2">
-                  <BranchSelect
-                    value={baseBranch}
-                    onValueChange={setBaseBranch}
-                    placeholder="Select a base branch"
-                    className="h-8 w-full"
-                  />
+                <PopoverContent align="start" className="w-56 p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search or create tag..."
+                      value={tagSearch}
+                      onValueChange={setTagSearch}
+                      onKeyDown={(e) => {
+                        if (
+                          (e.key === "Enter" || e.key === ",") &&
+                          tagSearch.trim()
+                        ) {
+                          e.preventDefault();
+                          addCustomTag(tagSearch);
+                        }
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {tagSearch.trim() ? (
+                          <button
+                            type="button"
+                            className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
+                            onClick={() => addCustomTag(tagSearch)}
+                          >
+                            Create &quot;{tagSearch.trim()}&quot;
+                          </button>
+                        ) : (
+                          "No tags"
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {(() => {
+                          const selected = new Set(selectedTags);
+                          return (allTags ?? []).map((tag) => (
+                            <CommandItem
+                              key={tag}
+                              value={tag}
+                              onSelect={() => toggleTag(tag)}
+                            >
+                              <IconTag
+                                size={14}
+                                className="text-muted-foreground"
+                              />
+                              {tag}
+                              {selected.has(tag) && (
+                                <IconCheck size={14} className="ml-auto" />
+                              )}
+                            </CommandItem>
+                          ));
+                        })()}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
                 </PopoverContent>
               </Popover>
-            )}
 
-            <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
-              <ModelSelect
-                value={model}
-                options={modelOptions}
-                onValueChange={setModel}
-                accounts={accounts}
-                accountId={providerAccountId}
-                onAccountChange={setProviderAccountId}
+              {selectedTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 ml-1">
+                  {selectedTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="text-[10px] h-5 gap-0.5 pr-0.5"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                        onClick={() => toggleTag(tag)}
+                      >
+                        <IconX size={10} />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <ProjectPicker
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                setSelectedProjectId={setSelectedProjectId}
+                open={projectPickerOpen}
+                setOpen={setProjectPickerOpen}
+                onCreateProject={() => setIsCreatingProject(true)}
               />
             </div>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                >
-                  <IconTag size={14} />
-                  {selectedTags.length > 0 ? (
-                    <span className="text-foreground">
-                      {selectedTags.length} tag
-                      {selectedTags.length !== 1 ? "s" : ""}
-                    </span>
-                  ) : (
-                    <span>Tags</span>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-56 p-0">
-                <Command>
-                  <CommandInput
-                    placeholder="Search or create tag..."
-                    value={tagSearch}
-                    onValueChange={setTagSearch}
-                    onKeyDown={(e) => {
-                      if (
-                        (e.key === "Enter" || e.key === ",") &&
-                        tagSearch.trim()
-                      ) {
-                        e.preventDefault();
-                        addCustomTag(tagSearch);
-                      }
-                    }}
-                  />
-                  <CommandList>
-                    <CommandEmpty>
-                      {tagSearch.trim() ? (
-                        <button
-                          type="button"
-                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
-                          onClick={() => addCustomTag(tagSearch)}
-                        >
-                          Create &quot;{tagSearch.trim()}&quot;
-                        </button>
-                      ) : (
-                        "No tags"
-                      )}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {(allTags ?? []).map((tag) => (
-                        <CommandItem
-                          key={tag}
-                          value={tag}
-                          onSelect={() => toggleTag(tag)}
-                        >
-                          <IconTag
-                            size={14}
-                            className="text-muted-foreground"
-                          />
-                          {tag}
-                          {selectedTags.includes(tag) && (
-                            <IconCheck size={14} className="ml-auto" />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 ml-1">
-                {selectedTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-[10px] h-5 gap-0.5 pr-0.5"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      <IconX size={10} />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
           <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">

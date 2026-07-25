@@ -17,15 +17,15 @@ import {
   DropdownMenuSubTrigger,
   ContextMenuLabel,
   DropdownMenuLabel,
-} from "@conductor/ui";
-import { ProviderIcon } from "@conductor/ui/ai";
+} from "@eva/ui";
+import { ProviderIcon } from "@eva/ui/ai";
 import {
   AI_MODEL_OPTIONS,
   getAIModelProvider,
   normalizeAIModel,
   type Id,
   api,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   IconArrowMoveRight,
@@ -47,7 +47,7 @@ import {
 import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
 import {
   useAvailableAiModels,
-  useProviderAccounts,
+  useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 
 type GroupedCodebase = FunctionReturnType<
@@ -86,6 +86,7 @@ export interface TaskCardMenuItemsProps {
   assignedTo?: Id<"users">;
   model?: string;
   providerAccountId?: Id<"userProviderAccounts">;
+  createdBy?: Id<"users">;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
   groupedCodebases?: GroupedCodebase[];
@@ -105,6 +106,7 @@ export function TaskCardMenuItems({
   assignedTo,
   model,
   providerAccountId,
+  createdBy,
   projectId,
   repoId,
   groupedCodebases,
@@ -163,12 +165,17 @@ export function TaskCardMenuItems({
     normalizedModel,
   );
   const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+    useTaskOwnerProviderAccounts(id);
   const hasAccounts = accounts.length > 0;
   const selectedComposite = toComposite(
     providerAccountId ?? null,
     normalizedModel,
   );
+
+  const isOwner =
+    currentUserId !== undefined &&
+    createdBy !== undefined &&
+    currentUserId === createdBy;
 
   const applyModelSelection = (compositeOrModelId: string) => {
     if (compositeOrModelId.includes("::")) {
@@ -179,6 +186,10 @@ export function TaskCardMenuItems({
         modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
       ).find((option) => option.id === modelId);
       if (!matched) return;
+      if (!isOwner) {
+        updateTask({ id, model: matched.id });
+        return;
+      }
       updateTask({
         id,
         model: matched.id,
@@ -303,13 +314,15 @@ export function TaskCardMenuItems({
             )}
             <MenuSeparator />
             <RadioItem value="unassigned">Unassigned</RadioItem>
-            {(users ?? [])
-              .filter((user) => user.role === "dev")
-              .map((user) => (
-                <RadioItem key={user._id} value={user._id}>
-                  {user.fullName ?? user.firstName ?? "Unknown"}
-                </RadioItem>
-              ))}
+            {(users ?? []).flatMap((user) =>
+              user.role === "dev"
+                ? [
+                    <RadioItem key={user._id} value={user._id}>
+                      {user.fullName ?? user.firstName ?? "Unknown"}
+                    </RadioItem>,
+                  ]
+                : [],
+            )}
           </RadioGroup>
         </SubContent>
       </Sub>
@@ -422,13 +435,15 @@ export function TaskCardMenuItems({
                     value={normalizedModel}
                     onValueChange={applyModelSelection}
                   >
-                    {opts
-                      .filter((o) => getAIModelProvider(o.id) === provider)
-                      .map((option) => (
-                        <RadioItem key={option.id} value={option.id}>
-                          {option.label}
-                        </RadioItem>
-                      ))}
+                    {opts.flatMap((option) =>
+                      getAIModelProvider(option.id) === provider
+                        ? [
+                            <RadioItem key={option.id} value={option.id}>
+                              {option.label}
+                            </RadioItem>,
+                          ]
+                        : [],
+                    )}
                   </RadioGroup>
                 </SubContent>
               </Sub>

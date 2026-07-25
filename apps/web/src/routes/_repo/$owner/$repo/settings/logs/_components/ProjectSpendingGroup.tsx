@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   Badge,
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@conductor/ui";
-import { ProviderIcon } from "@conductor/ui/ai";
+} from "@eva/ui";
+import { ProviderIcon } from "@eva/ui/ai";
 import { IconChevronRight, IconLayoutKanban } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { formatDurationMsShort } from "@conductor/shared/duration";
+import dayjs from "@eva/shared/dates";
+import { formatDurationMsShort } from "@eva/shared/duration";
 import {
   parseResultEvent,
   getTotalInputTokens,
@@ -32,18 +32,20 @@ interface ProjectSpendingGroupProps {
   totalCost: number;
 }
 
+function EntityTypeIcon({ entityType }: { entityType: string }) {
+  return createElement(iconFor(entityType), {
+    size: 14,
+    className: "shrink-0 text-muted-foreground",
+  });
+}
+
 function LogRow({ log }: { log: LogEntry }) {
   const evt = parseResultEvent(log.rawResultEvent);
   return (
     <div className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/25">
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {(() => {
-            const Icon = iconFor(log.entityType);
-            return (
-              <Icon size={14} className="shrink-0 text-muted-foreground" />
-            );
-          })()}
+          <EntityTypeIcon entityType={log.entityType} />
           <span className="truncate text-sm">{log.entityTitle}</span>
           <Badge
             variant="secondary"

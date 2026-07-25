@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, expect } from "vitest";
 import { evaluateAttemptHealth } from "../runtime/cliAttempt.js";
 import {
   callbackState as S,
@@ -19,7 +18,7 @@ test("evaluateAttemptHealth terminates on fatal heartbeat message", () => {
     processLabel: "test",
     toolStallErrorMessage: "",
   });
-  assert.equal(result.shouldTerminate, true);
+  expect(result.shouldTerminate).toBe(true);
   resetStateForTests();
 });
 
@@ -34,7 +33,7 @@ test("evaluateAttemptHealth allows silence while tool in flight without stall", 
     processLabel: "test",
     toolStallErrorMessage: "",
   });
-  assert.equal(result.shouldTerminate, false);
+  expect(result.shouldTerminate).toBe(false);
   resetStateForTests();
 });
 
@@ -48,7 +47,7 @@ test("evaluateAttemptHealth allows long stdout silence while idle", () => {
     processLabel: "test",
     toolStallErrorMessage: "",
   });
-  assert.equal(result.timedOutForNoOutput, false);
-  assert.equal(result.shouldTerminate, false);
+  expect(result.timedOutForNoOutput).toBe(false);
+  expect(result.shouldTerminate).toBe(false);
   resetStateForTests();
 });

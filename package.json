@@ -1,24 +1,26 @@
 {
   "private": true,
+  "engines": {
+    "pnpm": ">=10 <11"
+  },
   "scripts": {
-    "dev": "pnpm --filter @conductor/web dev",
-    "convex": "pnpm --filter @conductor/backend dev",
-    "convex:deploy": "pnpm --filter @conductor/backend run deploy",
-    "convex:all": "pnpm --filter @conductor/backend run dev:all",
+    "dev": "pnpm --filter @eva/web dev",
+    "convex": "pnpm --filter @eva/backend dev",
+    "convex:deploy": "pnpm --filter @eva/backend run deploy",
+    "convex:all": "pnpm --filter @eva/backend run dev:all",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
     "ext:dev:once": "pnpm --filter eva-assist-extension dev:once",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
-    "lint": "eslint .",
-    "lint:oxlint": "oxlint -c .oxlintrc.json .",
-    "prepare": "husky"
+    "lint": "oxlint -c .oxlintrc.json .",
+    "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
+    "deadcode": "knip",
+    "prepare": "husky",
+    "doctor": "npx react-doctor@latest"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",
-    "*.{ts,tsx}": [
-      "eslint",
-      "oxlint -c .oxlintrc.json"
-    ]
+    "*.{ts,tsx}": "oxlint -c .oxlintrc.json"
   },
   "pnpm": {
     "overrides": {
@@ -41,17 +43,12 @@
     }
   },
   "devDependencies": {
-    "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^9.0.0",
     "husky": "^9.1.7",
+    "knip": "6.27.0",
     "lint-staged": "^16.2.7",
     "oxlint": "1.74.0",
     "prettier": "^3.8.1",
-    "typescript": "^5.9.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript": "^5.9.0"
   },
-  "dependencies": {
-    "@tanstack/react-hotkeys": "^0.3.2",
-    "embla-carousel-react": "^8.6.0"
-  }
+  "packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48"
 }

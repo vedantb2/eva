@@ -1,5 +1,12 @@
 import type { JsonObject, ProgressStep } from "../types.js";
 import { shortenPath } from "../utils.js";
+import {
+  capCommand,
+  capContentPreview,
+  extractClaudeEdits,
+  extractFilePaths,
+  pickToolCallId,
+} from "./toolResultCapture.js";
 
 /** Converts an opencode tool call event part into a UI progress step object. */
 export function opencodeToolToStep(part: JsonObject): ProgressStep {
@@ -25,87 +32,114 @@ export function opencodeToolToStep(part: JsonObject): ProgressStep {
           ? input.path
           : "";
   const path = rawPath ? shortenPath(rawPath) : "";
+  const toolUseId =
+    pickToolCallId(part) ??
+    (typeof part.callID === "string" && part.callID.trim()
+      ? part.callID.trim()
+      : undefined);
+
+  let step: ProgressStep;
   switch (tool) {
     case "read":
-      return {
+      step = {
         type: "read",
         label: "Reading file...",
         detail: path || undefined,
         path: rawPath || undefined,
         status: "active",
       };
+      break;
     case "glob":
-      return {
+      step = {
         type: "search_files",
         label: "Searching files...",
         detail: typeof input.pattern === "string" ? input.pattern : undefined,
         status: "active",
       };
+      break;
     case "grep":
-      return {
+      step = {
         type: "search_code",
         label: "Searching code...",
         detail: typeof input.pattern === "string" ? input.pattern : undefined,
         status: "active",
       };
-    case "write":
-      return {
+      break;
+    case "write": {
+      const content =
+        typeof input.content === "string" ? input.content : undefined;
+      step = {
         type: "write",
         label: "Creating file...",
         detail: path || undefined,
         path: rawPath || undefined,
+        contentPreview: content ? capContentPreview(content) : undefined,
         status: "active",
       };
+      break;
+    }
     case "edit":
-      return {
+      step = {
         type: "edit",
         label: "Editing file...",
         detail: path || undefined,
         path: rawPath || undefined,
+        edits: extractClaudeEdits(input),
         status: "active",
       };
-    case "bash":
-      return {
+      break;
+    case "bash": {
+      const rawCommand = typeof input.command === "string" ? input.command : "";
+      step = {
         type: "bash",
         label: "Running command...",
-        detail:
-          typeof input.command === "string"
-            ? input.command.slice(0, 300)
-            : undefined,
+        detail: rawCommand ? rawCommand.slice(0, 300) : undefined,
+        command: rawCommand ? capCommand(rawCommand) : undefined,
         status: "active",
       };
+      break;
+    }
     case "webfetch":
-      return {
+      step = {
         type: "web_fetch",
         label: "Fetching URL...",
         detail: typeof input.url === "string" ? input.url : undefined,
         status: "active",
       };
+      break;
     case "websearch":
-      return {
+      step = {
         type: "web_search",
         label: "Searching web...",
         detail: typeof input.query === "string" ? input.query : undefined,
         status: "active",
       };
+      break;
     case "task":
-      return {
+      step = {
         type: "subtask",
         label: "Running agent...",
         detail:
           typeof input.description === "string" ? input.description : undefined,
         status: "active",
       };
+      break;
     case "todowrite":
     case "todoread":
-      return { type: "tool", label: "Updating tasks...", status: "active" };
+      step = { type: "tool", label: "Updating tasks...", status: "active" };
+      break;
     default:
-      return {
+      step = {
         type: "tool",
         label: "Using " + tool + "...",
         status: "active",
       };
+      break;
   }
+  if (toolUseId) {
+    step.toolUseId = toolUseId;
+  }
+  return step;
 }
 
 function resolveCursorToolCall(toolCall: JsonObject): {
@@ -200,102 +234,95 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
     "globPattern",
   ]);
   const tool = kind || displayName.toLowerCase();
+  let step: ProgressStep;
   if (tool.includes("read")) {
-    return {
+    step = {
       type: "read",
       label: "Reading file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  }
-  if (tool.includes("write") || tool.includes("create")) {
-    return {
+  } else if (tool.includes("write") || tool.includes("create")) {
+    step = {
       type: "write",
       label: "Creating file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  }
-  if (
+  } else if (
     tool.includes("edit") ||
     tool.includes("patch") ||
     tool.includes("apply") ||
     tool.includes("replace") ||
     tool.includes("strreplace")
   ) {
-    return {
+    step = {
       type: "edit",
       label: "Editing file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
+      edits: extractClaudeEdits(args),
     };
-  }
-  if (tool.includes("delete") || tool.includes("remove")) {
-    return {
+  } else if (tool.includes("delete") || tool.includes("remove")) {
+    step = {
       type: "edit",
       label: "Deleting file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  }
-  if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
-    return {
+  } else if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
+    step = {
       type: "search_files",
       label: "Searching files...",
       detail: query || path || undefined,
       status: "active",
     };
-  }
-  if (tool.includes("grep") || tool.includes("search")) {
-    return {
+  } else if (tool.includes("grep") || tool.includes("search")) {
+    step = {
       type: tool.includes("file") ? "search_files" : "search_code",
       label: tool.includes("file") ? "Searching files..." : "Searching code...",
       detail: query || path || undefined,
       status: "active",
     };
-  }
-  if (
+  } else if (
     tool.includes("bash") ||
     tool.includes("shell") ||
     tool.includes("exec") ||
     tool.includes("command") ||
     tool.includes("terminal")
   ) {
-    return {
+    step = {
       type: "bash",
       label: "Running command...",
       detail: command ? command.slice(0, 300) : undefined,
+      command: command ? capCommand(command) : undefined,
       status: "active",
     };
-  }
-  if (
+  } else if (
     tool.includes("webfetch") ||
     tool.includes("web_fetch") ||
     (tool.includes("fetch") && !tool.includes("search"))
   ) {
-    return {
+    step = {
       type: "web_fetch",
       label: "Fetching URL...",
       detail: query || undefined,
       status: "active",
     };
-  }
-  if (tool.includes("websearch") || tool.includes("web_search")) {
-    return {
+  } else if (tool.includes("websearch") || tool.includes("web_search")) {
+    step = {
       type: "web_search",
       label: "Searching web...",
       detail: query || undefined,
       status: "active",
     };
-  }
-  if (tool.includes("todo")) {
-    return { type: "tool", label: "Updating tasks...", status: "active" };
-  }
-  if (tool.includes("mcp")) {
+  } else if (tool.includes("todo")) {
+    step = { type: "tool", label: "Updating tasks...", status: "active" };
+  } else if (tool.includes("mcp")) {
     const server = pickString([
       "server",
       "serverName",
@@ -303,18 +330,24 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       "toolName",
       "tool_name",
     ]);
-    return {
+    step = {
       type: "tool",
       label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
       status: "active",
     };
+  } else {
+    const fallbackName = displayName || kind || "tool";
+    step = {
+      type: "tool",
+      label: "Using " + fallbackName + "...",
+      status: "active",
+    };
   }
-  const fallbackName = displayName || kind || "tool";
-  return {
-    type: "tool",
-    label: "Using " + fallbackName + "...",
-    status: "active",
-  };
+  const toolUseId = pickToolCallId(toolCall);
+  if (toolUseId) {
+    step.toolUseId = toolUseId;
+  }
+  return step;
 }
 
 /** Converts a Claude tool call into a UI progress step object. */
@@ -347,36 +380,44 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
           typeof input.pattern === "string" ? String(input.pattern) : undefined,
         status: "active",
       };
-    case "Write":
+    case "Write": {
+      const content =
+        typeof input.content === "string" ? input.content : undefined;
       return {
         type: "write",
         label: "Creating file...",
         detail: path || undefined,
         path: rawPath || undefined,
+        contentPreview: content ? capContentPreview(content) : undefined,
         status: "active",
       };
-    case "Edit":
+    }
+    case "Edit": {
+      const edits = extractClaudeEdits(input);
       return {
         type: "edit",
         label: "Editing file...",
         detail: path || undefined,
         path: rawPath || undefined,
+        edits,
         status: "active",
       };
+    }
     case "Bash":
-    case "bash":
+    case "bash": {
+      const rawCommand =
+        typeof input.command === "string" ? String(input.command) : "";
       return {
         type: "bash",
         label:
           input.run_in_background === true
             ? "Running in background..."
             : "Running command...",
-        detail:
-          typeof input.command === "string"
-            ? String(input.command).slice(0, 300)
-            : undefined,
+        detail: rawCommand ? rawCommand.slice(0, 300) : undefined,
+        command: rawCommand ? capCommand(rawCommand) : undefined,
         status: "active",
       };
+    }
     case "KillShell":
       return {
         type: "bash",
@@ -543,94 +584,116 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
   ]);
   const normalizedDescription = descriptionValue.toLowerCase();
   const pathDetail = pathValue ? shortenPath(String(pathValue)) : "";
+  const itemId =
+    typeof item.id === "string" && item.id.trim() ? item.id.trim() : undefined;
+
+  const withId = (step: ProgressStep): ProgressStep => {
+    if (itemId) step.toolUseId = itemId;
+    return step;
+  };
+
+  if (
+    normalizedType.includes("file_change") ||
+    normalizedType === "filechange"
+  ) {
+    const files = extractFilePaths(item);
+    return withId({
+      type: "edit",
+      label: "Editing file...",
+      detail: files[0] ? shortenPath(files[0]) : pathDetail || undefined,
+      path: files[0] || pathValue || undefined,
+      files: files.length > 0 ? files : undefined,
+      status: "active",
+    });
+  }
 
   if (normalizedType === "mcp_tool_call") {
     if (normalizedDescription.includes("fetch_file")) {
-      return {
+      return withId({
         type: "read",
         label: "Reading file...",
         detail: descriptionValue || undefined,
         status: "active",
-      };
+      });
     }
     if (
       normalizedDescription.includes("search") ||
       normalizedDescription.includes("list_repositories") ||
       normalizedDescription.includes("list_mcp_resources")
     ) {
-      return {
+      return withId({
         type: "search_code",
         label: "Searching code...",
         detail: descriptionValue || undefined,
         status: "active",
-      };
+      });
     }
-    return {
+    return withId({
       type: "tool",
       label: "Using MCP...",
       detail: descriptionValue || undefined,
       status: "active",
-    };
+    });
   }
 
   if (normalizedType.includes("web")) {
-    return {
+    return withId({
       type: normalizedType.includes("search") ? "web_search" : "web_fetch",
       label: normalizedType.includes("search")
         ? "Searching web..."
         : "Fetching URL...",
       detail: queryValue || pathDetail || undefined,
       status: "active",
-    };
+    });
   }
   if (normalizedType.includes("read")) {
-    return {
+    return withId({
       type: "read",
       label: "Reading file...",
       detail: pathDetail || undefined,
       path: pathValue || undefined,
       status: "active",
-    };
+    });
   }
   if (normalizedType.includes("grep") || normalizedType.includes("search")) {
-    return {
+    return withId({
       type: normalizedType.includes("file") ? "search_files" : "search_code",
       label: normalizedType.includes("file")
         ? "Searching files..."
         : "Searching code...",
       detail: queryValue || pathDetail || undefined,
       status: "active",
-    };
+    });
   }
   if (normalizedType.includes("glob") || normalizedType.includes("list")) {
-    return {
+    return withId({
       type: "search_files",
       label: "Searching files...",
       detail: queryValue || pathDetail || undefined,
       status: "active",
-    };
+    });
   }
   if (normalizedType.includes("write") || normalizedType.includes("create")) {
-    return {
+    return withId({
       type: "write",
       label: "Creating file...",
       detail: pathDetail || undefined,
       path: pathValue || undefined,
       status: "active",
-    };
+    });
   }
   if (
     normalizedType.includes("edit") ||
     normalizedType.includes("patch") ||
     normalizedType.includes("apply")
   ) {
-    return {
+    return withId({
       type: "edit",
       label: "Editing file...",
       detail: pathDetail || undefined,
       path: pathValue || undefined,
       status: "active",
-    };
+    });
   }
   if (
     normalizedType.includes("command") ||
@@ -638,25 +701,26 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
     normalizedType.includes("bash") ||
     normalizedType.includes("exec")
   ) {
-    return {
+    return withId({
       type: "bash",
       label: "Running command...",
       detail: commandValue || descriptionValue || undefined,
+      command: commandValue ? capCommand(commandValue) : undefined,
       status: "active",
-    };
+    });
   }
   if (normalizedType.includes("agent")) {
-    return {
+    return withId({
       type: "subtask",
       label: "Running agent...",
       detail: descriptionValue || undefined,
       status: "active",
-    };
+    });
   }
-  return {
+  return withId({
     type: "tool",
     label: "Using " + itemType + "...",
     detail: descriptionValue || pathDetail || queryValue || undefined,
     status: "active",
-  };
+  });
 }

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Card,
@@ -15,13 +15,13 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
 import { TeamCard } from "./_components/TeamCard";
 
 export function TeamsClient() {
-  const teams = useQuery(api.teams.list) ?? [];
+  const teams = useQuery(api.teams.list);
   const createTeam = useMutation(api.teams.create);
   const deleteTeam = useMutation(api.teams.remove).withOptimisticUpdate(
     (localStore, args) => {
@@ -50,9 +50,8 @@ export function TeamsClient() {
       setDeleteTarget(null);
     } catch {
       setDeleteTarget(null);
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   };
 
   const [createDialog, setCreateDialog] = useState({
@@ -163,9 +162,16 @@ export function TeamsClient() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {teams.map((team) => (
-          <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
-        ))}
+        {teams === undefined
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-36 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))
+          : teams.map((team) => (
+              <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
+            ))}
       </div>
 
       <TeamDeleteDialog
@@ -175,7 +181,7 @@ export function TeamsClient() {
         isDeleting={isDeleting}
       />
 
-      {teams.length === 0 && (
+      {teams !== undefined && teams.length === 0 && (
         <Card className="mt-8">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <IconUsers size={48} className="mb-4 text-muted-foreground/50" />

@@ -4,13 +4,12 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
-  useCallback,
+  useSyncExternalStore,
 } from "react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 
 export type AccentColor =
   | "teal"
@@ -60,6 +59,9 @@ const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
   fontFamily: "inter",
   letterSpacing: "tight",
 };
+
+/** localStorage key for early-paint custom theme hint (read by index.html). */
+export const CUSTOM_THEME_HINT_KEY = "eva-custom-theme-hint";
 
 export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
   return {
@@ -382,6 +384,21 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
     LETTER_SPACING_VALUES[letterSpacing].value,
   );
 
+  // Persist hint so the next document paint can apply fonts/radius before React.
+  try {
+    localStorage.setItem(
+      CUSTOM_THEME_HINT_KEY,
+      JSON.stringify({
+        accentColor,
+        radius,
+        fontFamily,
+        letterSpacing,
+      }),
+    );
+  } catch {
+    // Ignore quota / private mode failures — live query still wins.
+  }
+
   // If using cyan (CSS default), remove any custom style element so base CSS applies
   if (accentColor === "cyan") {
     const el = document.getElementById("custom-theme-accent");
@@ -433,7 +450,12 @@ export { ACCENT_COLORS, RADIUS_VALUES };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useThemeMode();
-  const [mounted, setMounted] = useState(false);
+  // Client-only gate without setState-in-effect (SSR snapshot = false).
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const syncedTheme = useQuery(api.auth.getTheme);
   const setThemeMutation = useMutation(api.auth.setTheme).withOptimisticUpdate(
     (localStore, args) => {
@@ -446,10 +468,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   ).withOptimisticUpdate((localStore, args) => {
     localStore.setQuery(api.auth.getCustomTheme, {}, args.customTheme);
   });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (syncedTheme === undefined || syncedTheme === null) return;
@@ -465,29 +483,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyCustomThemeVars(customTheme, isDark);
   }, [syncedCustomTheme, theme]);
 
-  const setTheme = useCallback(
-    (next: "light" | "dark" | "system") => {
-      setNextTheme(next);
-      if (next === "light" || next === "dark") {
-        setThemeMutation({ theme: next });
-      }
-    },
-    [setNextTheme, setThemeMutation],
-  );
+  const setTheme = (next: "light" | "dark" | "system") => {
+    setNextTheme(next);
+    if (next === "light" || next === "dark") {
+      setThemeMutation({ theme: next });
+    }
+  };
 
-  const toggleTheme = useCallback(() => {
+  const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-  }, [theme, setTheme]);
+  };
 
-  const setCustomTheme = useCallback(
-    (customTheme: CustomTheme) => {
-      setCustomThemeMutation({ customTheme });
-      const isDark = theme === "dark";
-      applyCustomThemeVars(customTheme, isDark);
-    },
-    [setCustomThemeMutation, theme],
-  );
+  const setCustomTheme = (customTheme: CustomTheme) => {
+    setCustomThemeMutation({ customTheme });
+    const isDark = theme === "dark";
+    applyCustomThemeVars(customTheme, isDark);
+  };
 
   const customTheme: CustomTheme = syncedCustomTheme ?? {};
 

@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 
 type Repo = NonNullable<
   FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>
@@ -76,18 +76,18 @@ export function RepoProvider({
     ? `/${owner}/${name}--${resolvedAppName}`
     : `/${owner}/${name}`;
 
-  const value = useMemo(() => {
-    if (!repo) return undefined;
-    return {
-      repo,
-      repoId: repo._id,
-      basePath,
-      owner,
-      name,
-      installationId: repo.installationId,
-      rootDirectory: repo.rootDirectory,
-    };
-  }, [repo, basePath, owner, name]);
+  const value =
+    repo === undefined || repo === null
+      ? undefined
+      : {
+          repo,
+          repoId: repo._id,
+          basePath,
+          owner,
+          name,
+          installationId: repo.installationId,
+          rootDirectory: repo.rootDirectory,
+        };
 
   if (repo === undefined) {
     return (

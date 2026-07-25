@@ -180,7 +180,7 @@ export const listActiveSandboxes = internalQuery({
 /**
  * Internal: stops one task preview sandbox. Mirrors the public `stopTaskSandbox`
  * mutation minus the auth check — sets `stopping` and schedules the existing
- * finalize action (Daytona stop → mark closed → event log). Re-validates state
+ * finalize action (sandbox stop → mark closed → event log). Re-validates state
  * so a sandbox a user restarted between the scan and this call is left alone.
  */
 export const stopTask = internalMutation({

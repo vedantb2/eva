@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ReviewComment } from "@/lib/reviewComments";
 
 interface PendingReviewCommentsValue {
@@ -30,30 +23,27 @@ export function PendingReviewCommentsProvider({
 }) {
   const [comments, setComments] = useState<ReviewComment[]>([]);
 
-  const add = useCallback((comment: ReviewComment) => {
+  const add = (comment: ReviewComment) => {
     setComments((current) => [...current, comment]);
-  }, []);
+  };
 
-  const remove = useCallback((commentId: string) => {
+  const remove = (commentId: string) => {
     setComments((current) =>
       current.filter((comment) => comment.id !== commentId),
     );
-  }, []);
+  };
 
-  const clear = useCallback(() => {
+  const clear = () => {
     setComments([]);
-  }, []);
+  };
 
-  const value = useMemo(
-    (): PendingReviewCommentsValue => ({
-      comments,
-      add,
-      remove,
-      clear,
-      openDiffsTab: onOpenDiffsTab,
-    }),
-    [comments, add, remove, clear, onOpenDiffsTab],
-  );
+  const value: PendingReviewCommentsValue = {
+    comments,
+    add,
+    remove,
+    clear,
+    openDiffsTab: onOpenDiffsTab,
+  };
 
   return (
     <PendingReviewCommentsContext value={value}>

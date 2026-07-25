@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CSSProperties } from "react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import type { GitStatus, GitStatusEntry } from "@pierre/trees";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { treeThemeVars } from "./treeTheme";
 
 interface DiffFileTreeProps {
   /** Changed file paths, in diff order. */
@@ -19,24 +19,6 @@ interface DiffFileTreeProps {
    */
   onSelect: (path: string) => void;
 }
-
-/**
- * Maps HeroUI surface tokens onto the tree's themeable custom properties. They
- * inherit through the tree's shadow DOM and resolve to `rgb(var(--token))`, so
- * they re-resolve automatically when the `.dark` class toggles. `colorScheme`
- * (set per render below) pins the tree's `light-dark()` git-status and icon
- * colours to the app theme, since those key off `color-scheme`, not the class.
- * Typed via index signature so CSS custom properties are allowed.
- */
-const treeThemeVars: CSSProperties & Record<`--${string}`, string> = {
-  "--trees-bg-override": "rgb(var(--background))",
-  "--trees-fg-override": "rgb(var(--foreground))",
-  "--trees-fg-muted-override": "rgb(var(--muted-foreground))",
-  "--trees-bg-muted-override": "rgb(var(--muted))",
-  "--trees-border-color-override": "rgb(var(--border))",
-  "--trees-accent-override": "rgb(var(--primary))",
-  "--trees-focus-ring-color-override": "rgb(var(--ring))",
-};
 
 /**
  * Left-hand file tree for the Diffs tab. Renders the changed files as a
@@ -60,7 +42,7 @@ export function DiffFileTree({
   const { model } = useFileTree({
     paths: files,
     gitStatus,
-    density: "compact",
+    density: "default",
     flattenEmptyDirectories: true,
     initialExpansion: "open",
     initialSelectedPaths: initialSelectedPath ? [initialSelectedPath] : [],

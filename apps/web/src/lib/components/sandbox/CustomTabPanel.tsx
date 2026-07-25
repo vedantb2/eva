@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Spinner, Button } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Spinner, Button } from "@eva/ui";
 import {
   IconRefresh,
   IconMaximize,
   IconExternalLink,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 type PanelState = "loading" | "running" | "error";
@@ -21,6 +20,11 @@ interface CustomTabPanelProps {
   port: number;
   sandboxId: string | undefined;
   isActive: boolean;
+  /**
+   * False while another sandbox tab is selected. Keeps the iframe mounted
+   * (parent hides this panel) but pauses readiness polling.
+   */
+  isForeground?: boolean;
   repoId: Id<"githubRepos">;
 }
 
@@ -31,97 +35,133 @@ const MAX_ATTEMPTS = 40;
  * same auth proxy as the Preview tab and shown in an iframe. Unlike the Editor /
  * Desktop panels there is no start/stop gate — the service (Supabase, Convex,
  * ...) is started by the app's own dev / startup commands, so this auto-polls
- * `getPreviewUrl` until the port is reachable. Mounted only while active, so
- * inactive custom tabs don't poll.
+ * `getPreviewUrl` until the port is reachable.
+ *
+ * Stays mounted while hidden so returning to the tab restores the iframe
+ * without re-polling; polling only runs while the tab is foreground.
  */
 export function CustomTabPanel({
   name,
   port,
   sandboxId,
   isActive,
+  isForeground = true,
   repoId,
 }: CustomTabPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<PanelState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  // Bumped by Retry so the poll effect restarts without clearing a cached URL
+  // on ordinary foreground toggles.
+  const [retryNonce, setRetryNonce] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
   // Bumped on every config change so an in-flight poll continuation bails
   // instead of re-arming after the sandbox stopped or the tab unmounted.
   const generation = useRef(0);
+  const foregroundRef = useRef(isForeground);
+  foregroundRef.current = isForeground;
 
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
-  const stopPolling = useCallback(() => {
+  const stopPolling = () => {
     clearTimeout(pollTimer.current);
     pollTimer.current = undefined;
-  }, []);
+  };
 
-  const fetchUrl = useCallback(async () => {
-    if (!sandboxId || !isActive) return;
-    const gen = generation.current;
-    try {
-      const data = await getPreviewUrl({
-        sandboxId,
-        port,
-        checkReady: true,
-        repoId,
-      });
-      if (gen !== generation.current) return;
-      if (data.ready) {
-        await dismissDaytonaWarning(data.url);
-        setUrl(data.url);
-        setState("running");
-        setIframeKey((k) => k + 1);
-        return;
-      }
-      attempts.current += 1;
-      if (attempts.current >= MAX_ATTEMPTS) {
-        setError(`${name} did not become reachable on port ${port}.`);
-        setState("error");
-        return;
-      }
-      pollTimer.current = setTimeout(fetchUrl, 3000);
-    } catch (err) {
-      if (gen !== generation.current) return;
-      setError(err instanceof Error ? err.message : `Failed to load ${name}.`);
-      setState("error");
-    }
-  }, [sandboxId, isActive, getPreviewUrl, port, repoId, name]);
-
+  // Clear cached URL when the sandbox / port identity changes (not on tab hide).
   useEffect(() => {
-    generation.current += 1;
-    stopPolling();
-    attempts.current = 0;
-    if (isActive && sandboxId) {
-      setUrl(null);
-      setError(null);
-      setState("loading");
-      fetchUrl();
-    }
-    return stopPolling;
-  }, [isActive, sandboxId, port, fetchUrl, stopPolling]);
-
-  const retry = useCallback(() => {
     generation.current += 1;
     stopPolling();
     attempts.current = 0;
     setUrl(null);
     setError(null);
     setState("loading");
-    fetchUrl();
-  }, [fetchUrl, stopPolling]);
+    return stopPolling;
+  }, [isActive, sandboxId, port, retryNonce]);
 
-  const toggleFullscreen = useCallback(() => {
+  // Poll only while the sandbox is up and this tab is foreground; keep iframe
+  // state when the user switches away.
+  useEffect(() => {
+    stopPolling();
+    if (!isActive || !sandboxId || !isForeground) {
+      return stopPolling;
+    }
+    // Already resolved — keep the cached iframe, do not re-poll.
+    if (url !== null && state === "running") {
+      return stopPolling;
+    }
+    if (state === "error") {
+      return stopPolling;
+    }
+
+    const gen = generation.current;
+
+    const fetchUrl = async () => {
+      if (!foregroundRef.current) return;
+      try {
+        const data = await getPreviewUrl({
+          sandboxId,
+          port,
+          checkReady: true,
+          repoId,
+        });
+        if (gen !== generation.current) return;
+        if (!foregroundRef.current) return;
+        if (data.ready) {
+          if (gen !== generation.current) return;
+          setUrl(data.url);
+          setState("running");
+          setIframeKey((k) => k + 1);
+          return;
+        }
+        attempts.current += 1;
+        if (attempts.current >= MAX_ATTEMPTS) {
+          setError(`${name} did not become reachable on port ${port}.`);
+          setState("error");
+          return;
+        }
+        pollTimer.current = setTimeout(() => {
+          void fetchUrl();
+        }, 3000);
+      } catch (err) {
+        if (gen !== generation.current) return;
+        setError(
+          err instanceof Error ? err.message : `Failed to load ${name}.`,
+        );
+        setState("error");
+      }
+    };
+
+    void fetchUrl();
+    return stopPolling;
+  }, [
+    isActive,
+    sandboxId,
+    port,
+    isForeground,
+    url,
+    state,
+    name,
+    repoId,
+    getPreviewUrl,
+    retryNonce,
+  ]);
+
+  const retry = () => {
+    setRetryNonce((n) => n + 1);
+  };
+
+  const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
       containerRef.current.requestFullscreen();
     }
-  }, []);
+  };
 
   if (!isActive || !sandboxId) {
     return (

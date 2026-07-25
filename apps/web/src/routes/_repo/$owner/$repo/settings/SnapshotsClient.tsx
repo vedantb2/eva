@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import {
   isSnapshotSettingsTab,
@@ -20,7 +20,7 @@ import {
   TabsTrigger,
   TabsContent,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   CronScheduleCard,
@@ -33,7 +33,7 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import { formatDurationMs } from "@conductor/shared/duration";
+import { formatDurationMs } from "@eva/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
@@ -67,6 +67,7 @@ export function SnapshotsClient({
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
   const buildCommandsText = snapshot?.buildCommands?.join("\n") ?? "";
+  const seedCommandsText = snapshot?.seedCommands?.join("\n") ?? "";
   const isEnabled = snapshot?.enabled === true;
 
   // Save on change for schedule
@@ -76,6 +77,7 @@ export function SnapshotsClient({
       schedule: newSchedule,
       workflowRef: workflowRef.trim() || undefined,
       buildCommands: snapshot?.buildCommands,
+      seedCommands: snapshot?.seedCommands,
     });
   };
 
@@ -86,6 +88,7 @@ export function SnapshotsClient({
       schedule,
       workflowRef: newBranch.trim() || undefined,
       buildCommands: snapshot?.buildCommands,
+      seedCommands: snapshot?.seedCommands,
     });
   };
 
@@ -101,6 +104,21 @@ export function SnapshotsClient({
       schedule,
       workflowRef: workflowRef.trim() || undefined,
       buildCommands: parsed.length > 0 ? parsed : undefined,
+      seedCommands: snapshot?.seedCommands,
+    });
+  };
+
+  // Save on blur for seed commands
+  const handleSeedCommandsBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    if (next === seedCommandsText) return;
+    const parsed = parseCommandLines(next);
+    saveRepoSnapshot({
+      repoId,
+      schedule,
+      workflowRef: workflowRef.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
+      seedCommands: parsed.length > 0 ? parsed : undefined,
     });
   };
 
@@ -116,9 +134,8 @@ export function SnapshotsClient({
       await startBuild({ repoSnapshotId: snapshot._id, appRepoId: repoId });
     } catch {
       // Error already shown in UI via build status
-    } finally {
-      setBuilding(false);
     }
+    setBuilding(false);
   };
 
   const isRunning =
@@ -141,21 +158,24 @@ export function SnapshotsClient({
   const baseImageReady =
     lastBuild?.status === "success" && !isRunning && !isSeeding;
 
-  const handleSnapshotsTabChange = useCallback(
-    (value: string) => {
-      if (!isSnapshotSettingsTab(value)) return;
-      navigate({
-        to: `${basePath}/settings/snapshots/${value}`,
-      });
-    },
-    [basePath, navigate],
-  );
+  const handleSnapshotsTabChange = (value: string) => {
+    if (!isSnapshotSettingsTab(value)) return;
+    navigate({
+      to: `${basePath}/settings/snapshots/${value}`,
+    });
+  };
 
   if (snapshot === undefined) {
     return (
       <PageWrapper title="Snapshots" comfortable>
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[28rem] space-y-4"
+          aria-busy="true"
+          aria-label="Loading snapshots"
+        >
+          <div className="h-9 w-80 max-w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-48 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <div className="h-32 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       </PageWrapper>
     );
@@ -261,20 +281,41 @@ export function SnapshotsClient({
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 One command per line. Runs as user <code>eva</code> in{" "}
-                <code>/tmp/repo</code> after <code>pnpm install</code>, baked
-                permanently into the snapshot. Use for codegen, build steps, or
-                anything that should not re-run on every sandbox boot.
+                <code>/tmp/repo</code> after <code>pnpm install</code>, before
+                services start, baked permanently into the snapshot. Use for
+                codegen and build steps.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+            <h3 className="text-sm font-medium">Seed Commands</h3>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                One-time data seeding, run with services up
+              </label>
+              <textarea
+                key={`seed-${snapshot?._id ?? "none"}`}
+                defaultValue={seedCommandsText}
+                onBlur={handleSeedCommandsBlur}
+                className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="cd packages/backend && npx convex env set MY_KEY 'value'&#10;cd packages/backend && npx convex import seed.zip --yes"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                One command per line. Runs once per seeded snapshot build, after
+                background daemons and startup commands, so services like{" "}
+                <code>convex dev</code> are ready. Never re-runs on sandbox boot
+                — unlike startup commands (repo settings), which run here and on
+                every boot.
               </p>
             </div>
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Requires sandbox provider credentials in team or repo environment
-            variables: set <code className="font-mono">SANDBOX_PROVIDER</code>{" "}
-            to <code className="font-mono">daytona</code> (
-            <code className="font-mono">DAYTONA_API_KEY</code>) or{" "}
-            <code className="font-mono">vercel</code> (
-            <code className="font-mono">VERCEL_TOKEN</code>, team, and project).
+            Requires Vercel Sandbox credentials in team or repo environment
+            variables: <code className="font-mono">VERCEL_TOKEN</code>,{" "}
+            <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
+            <code className="font-mono">VERCEL_PROJECT_ID</code>.
           </p>
         </TabsContent>
 
@@ -361,10 +402,9 @@ export function SnapshotsClient({
               <div className="rounded-surface border border-border bg-card p-4 space-y-3">
                 <h3 className="text-sm font-medium">Base Image</h3>
                 <p className="text-xs text-muted-foreground">
-                  Provider-native base snapshot with toolchain,{" "}
+                  Base snapshot with toolchain,{" "}
                   <code className="font-mono text-[11px]">pnpm install</code>,
-                  and your build commands. Daytona builds a declarative Image;
-                  Vercel captures a running sandbox as{" "}
+                  and your build commands. Eva captures a running sandbox as{" "}
                   <code className="font-mono text-[11px]">snap_*</code>. This is
                   what sandboxes boot from unless a seeded snapshot exists.
                   Rebuild Now always refreshes this — no seed file needed.
@@ -593,6 +633,7 @@ function ConfigFilesSection({
     setChunkCount(totalChunks);
     setError(null);
 
+    let uploadError: Error | undefined;
     try {
       // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
       // storage IDs. Sequential keeps memory bounded and progress monotonic;
@@ -614,40 +655,55 @@ function ConfigFilesSection({
         });
         const responseText = await result.text();
         if (!result.ok) {
-          throw new Error(
+          uploadError = new Error(
             `Upload failed at chunk ${i + 1}/${totalChunks} (status ${result.status}): ${responseText}`,
           );
+          break;
         }
         const storageId = parseStorageIdResponse(responseText);
         if (!storageId) {
-          throw new Error(
+          uploadError = new Error(
             `Invalid response from storage at chunk ${i + 1}/${totalChunks}`,
           );
+          break;
         }
         chunkIds.push(storageId);
         setUploadedBytes(end);
       }
 
-      // Save file record with all chunk IDs in order
-      await saveFile({
-        repoId,
-        chunks: chunkIds,
-        fileName: file.name,
-        fileSize: file.size,
-      });
+      if (!uploadError) {
+        // Save file record with all chunk IDs in order
+        await saveFile({
+          repoId,
+          chunks: chunkIds,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message);
-    } finally {
       setUploading(false);
       setUploadedBytes(0);
       setTotalBytes(0);
       setChunkIndex(0);
       setChunkCount(0);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      return;
+    }
+    if (uploadError) {
+      setError(uploadError.message);
+    }
+    setUploading(false);
+    setUploadedBytes(0);
+    setTotalBytes(0);
+    setChunkIndex(0);
+    setChunkCount(0);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 

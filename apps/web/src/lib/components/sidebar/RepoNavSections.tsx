@@ -1,28 +1,22 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
   AutomationsIcon,
   DesignsIcon,
   DocumentsIcon,
+  ReviewsIcon,
   ProjectsIcon,
   QuickTasksIcon,
-  SessionsIcon,
   SettingsIcon,
   StatsIcon,
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
-import { type api } from "@conductor/backend";
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-} from "@conductor/ui";
+import { type api } from "@eva/backend";
+import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
@@ -99,7 +93,7 @@ export function RepoNavSections({
     }));
   };
 
-  const repoNavigation = useMemo(() => {
+  const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
       {
         label: "BUILD",
@@ -125,11 +119,6 @@ export function RepoNavSections({
             href: `${repoBasePath}/quick-tasks`,
             icon: QuickTasksIcon,
           },
-          {
-            name: "Sessions",
-            href: `${repoBasePath}/sessions`,
-            icon: SessionsIcon,
-          },
         ],
       },
       {
@@ -139,6 +128,11 @@ export function RepoNavSections({
             name: "Documents",
             href: `${repoBasePath}/docs`,
             icon: DocumentsIcon,
+          },
+          {
+            name: "Reviews",
+            href: `${repoBasePath}/reviews`,
+            icon: ReviewsIcon,
           },
           {
             name: "Testing Arena",
@@ -169,14 +163,13 @@ export function RepoNavSections({
       },
     ];
     if (isDev) return allGroups;
-    return allGroups
-      .filter((g) => !g.devOnly)
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((i) => !i.devOnly),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [repoBasePath, isDev]);
+    return allGroups.flatMap((g) => {
+      if (g.devOnly) return [];
+      const items = g.items.filter((i) => !i.devOnly);
+      if (items.length === 0) return [];
+      return [{ ...g, items }];
+    });
+  })();
 
   const navItemClass = (isActive: boolean) =>
     sidebarNavLinkClass(isActive, collapsed);
@@ -186,8 +179,7 @@ export function RepoNavSections({
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {
-      const showActiveCount =
-        (item.name === "Sessions" || item.name === "Designs") && repo;
+      const showActiveCount = item.name === "Designs" && repo;
       return (
         <SharedLayoutNavSurface
           key={item.name}
@@ -210,12 +202,7 @@ export function RepoNavSections({
               )}
             />
             <span className="truncate">{item.name}</span>
-            {showActiveCount && repo && (
-              <ActiveCountBadge
-                repoId={repo._id}
-                type={item.name === "Sessions" ? "sessions" : "designs"}
-              />
-            )}
+            {showActiveCount && repo && <ActiveCountBadge repoId={repo._id} />}
             {item.name === "Automations" && repo && (
               <UnreadAutomationsBadge repoId={repo._id} />
             )}

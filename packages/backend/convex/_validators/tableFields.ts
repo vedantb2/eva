@@ -13,6 +13,7 @@ import {
   evaluationStatusValidator,
   evalFixStatusValidator,
   phaseValidator,
+  prRecapOriginValidator,
   prRecapStatusValidator,
   priorityValidator,
   reactionTargetValidator,
@@ -96,6 +97,43 @@ export const entityNumIdFields = {
   deletedAt: v.optional(v.number()),
 };
 
+import type { Infer } from "convex/values";
+
+export const backgroundAgentEntryFields = {
+  toolUseId: v.string(),
+  taskId: v.optional(v.string()),
+  description: v.optional(v.string()),
+  status: v.string(),
+  backgrounded: v.optional(v.boolean()),
+  startedAt: v.number(),
+  settledAt: v.optional(v.number()),
+};
+
+export const backgroundAgentEntryValidator = v.object(
+  backgroundAgentEntryFields,
+);
+
+export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
+
+export const pendingTurnFields = {
+  prompt: v.string(),
+  requestedAt: v.number(),
+  turnKind: v.optional(
+    v.union(v.literal("conversational"), v.literal("agent")),
+  ),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: v.optional(aiModelValidator),
+};
+
+export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
+
+export const chatDaemonEntityFields = {
+  pendingTurn: pendingTurnValidator,
+  syntheticTurnMessageId: v.optional(v.id("messages")),
+  backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
+  pendingTaskStops: v.optional(v.array(v.string())),
+};
+
 export const agentTaskFields = {
   ...entityNumIdFields,
   title: v.string(),
@@ -116,15 +154,20 @@ export const agentTaskFields = {
   // launch in `signAndLaunchScript`.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
   baseBranch: v.optional(v.string()),
-  // Per-task override for the repo-level `screenshotsVideosEnabled` setting.
-  // undefined = inherit repo. true = force on. false = force off. Resolved at
-  // run time in `_taskWorkflow/queries.ts` (`getTaskData`) where the agent
-  // prompt and sandbox env var are computed.
+  // Per-task proof capture. undefined = inherit project -> default (off).
+  // true = force on. false = force off. Resolved at run time in
+  // `_taskWorkflow/queries.ts` (`getTaskData`) where the agent prompt and
+  // sandbox env var are computed.
   screenshotsVideosEnabled: v.optional(v.boolean()),
   // Per-task override for whether an audit runs after a successful run.
-  // undefined = inherit project -> default ("project tasks audit"). true =
-  // force on. false = force off. Resolved in `getTaskData` (`runAuditEnabled`).
+  // undefined = inherit project -> default. true = force on. false = force
+  // off. Resolved in `getTaskData` (`runAuditEnabled`).
   runAuditEnabled: v.optional(v.boolean()),
+  // Per-task-sandbox-chat switches, separate from the run-level proof/audit
+  // above. Absent = off. Toggled from the sandbox chat composer options menu;
+  // read when a chat turn runs (proof prompt) / completes (audit).
+  chatCaptureProofEnabled: v.optional(v.boolean()),
+  chatRunAuditEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
@@ -144,9 +187,14 @@ export const agentTaskFields = {
   // Resolved dev server port + full command for the current sandbox. Stored
   // so the task panel can route the preview iframe to the right port and
   // auto-run the dev server in the first terminal pane. Populated by
-  // taskSandboxReady from startSessionServices() output.
+  // taskSandboxReady from startSessionServices() output. User Preview port
+  // changes also patch `devPort` (sticky, mirrors sessions).
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  // Sticky Preview URL path for this task sandbox (e.g. "/dashboard").
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes).
+  terminalHistoryTail: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   // The change-request comment that put this task back to "todo" via "Make
   // changes". Project-task change runs start later (Build Project), decoupled
@@ -154,6 +202,16 @@ export const agentTaskFields = {
   // `triggeringCommentId` when the run is created, then cleared. Lets the
   // timeline label project re-runs "made changes" like quick-task re-runs.
   pendingChangeRequestCommentId: v.optional(v.id("taskComments")),
+  ...chatDaemonEntityFields,
+  // Last model used in sandbox chat; page-open prewarm matches the composer.
+  lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  // Soft UX lock while the agent drives the shared desktop Chrome via
+  // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
+  agentBrowsingAt: v.optional(v.number()),
 };
 
 export const agentRunFields = {
@@ -188,6 +246,14 @@ export const agentRunFields = {
   // label). Stored at insert so history stays readable if the account is
   // renamed or deleted later.
   credentialSourceLabel: v.optional(v.string()),
+  // Snapshot of the model used for this run. Absent on runs created before
+  // this field existed.
+  model: v.optional(aiModelValidator),
+  // Per-run proof/audit override. Set when a run trigger passes an explicit
+  // choice (the request-changes composer, default off). Absent = fall back to
+  // the task/project default. Resolved in `getTaskData`.
+  screenshotsVideosEnabled: v.optional(v.boolean()),
+  runAuditEnabled: v.optional(v.boolean()),
 };
 
 export const sessionFields = {
@@ -196,6 +262,11 @@ export const sessionFields = {
   userId: v.id("users"),
   title: v.string(),
   branchName: v.optional(v.string()),
+  // Base branch this session checks out from and creates its branch off of.
+  // Chosen at creation (defaults to the repo default). Persisted so sandbox
+  // restarts/restores rebuild the session branch from the same base instead of
+  // silently falling back to the repo default.
+  baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   prState: v.optional(
     v.union(
@@ -224,6 +295,21 @@ export const sessionFields = {
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
   lastModel: v.optional(aiModelValidator),
+  // Sticky composer effort for this session (mirrors lastModel). Without this,
+  // effort only lived in localStorage and reloads fell back to the model
+  // default (Claude → high), silently undoing a Medium pick.
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  // Sticky thinking / 1M context toggles (same contract as lastReasoningLevel).
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  // Sticky composer mode (edit / plan). Absent → client default "edit".
+  lastMode: v.optional(sessionModeValidator),
+  // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
+  // viewport stays tab-local; port reuses `devPort` below.
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes). Cap
+  // keeps sessions.get reads small; full scrollback stays in sessionStorage.
+  terminalHistoryTail: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
@@ -234,28 +320,14 @@ export const sessionFields = {
   // prompt; runAuditEnabled fires an audit after each successful agent turn.
   captureProofEnabled: v.optional(v.boolean()),
   runAuditEnabled: v.optional(v.boolean()),
-  // Daemon-pull turn dispatch: startExecute writes the built prompt here and the
-  // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
-  // the workflow's durable step queue. Absent between turns.
-  pendingTurn: v.optional(
-    v.object({
-      prompt: v.string(),
-      requestedAt: v.number(),
-      turnKind: v.optional(
-        v.union(v.literal("conversational"), v.literal("agent")),
-      ),
-      // Input image attachments for this turn; the daemon downloads these and
-      // hands the agent local file paths when it claims the turn.
-      attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-      // Model this turn targets. When set, only a daemon booted for that model
-      // may claim it. Absent on in-flight turns staged before this field existed.
-      model: v.optional(aiModelValidator),
-    }),
-  ),
+  ...chatDaemonEntityFields,
   // Soft UX lock while the agent drives the shared desktop Chrome via
-  // agent-browser CDP. Set/cleared by MCP browser_lock / browser_unlock;
-  // cleared on turn end. Drives Browser-tab auto-switch + takeover overlay.
   agentBrowsingAt: v.optional(v.number()),
+  // True while a new session's sandbox finishes pulling the latest base branch
+  // and reinstalling drifted dependencies, after early-ready already unlocked
+  // chat. `claimPendingTurn` withholds the queued first turn until this clears,
+  // so the agent never runs against a stale snapshot checkout or baked modules.
+  sandboxSetupPending: v.optional(v.boolean()),
 };
 
 export const syncSettingFields = {
@@ -320,7 +392,6 @@ export const githubRepoFields = {
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
-  screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
   // Clean-shutdown commands run before snapshotting a seeded sandbox so on-disk
@@ -345,9 +416,12 @@ export const githubRepoFields = {
   // lists. Per-app (not shared across monorepo siblings). Resolved to a URL by
   // list/listByTeam via ctx.storage.getUrl.
   logoStorageId: v.optional(v.id("_storage")),
+  // Optional display name shown in the sidebar / repo lists instead of the
+  // GitHub name (or monorepo leaf). Per-app; empty clears back to the default.
+  label: v.optional(v.string()),
 };
 
-/** Eva team (personal or shared). Logo is resolved to `logoUrl` in list/get. */
+/** Eva team (personal or shared). Logo/background resolve to URLs in list/get. */
 export const teamFields = {
   name: v.string(),
   createdBy: v.id("users"),
@@ -356,6 +430,8 @@ export const teamFields = {
   // Convex storage id of an uploaded team icon. Resolved to a URL by
   // teams.list / teams.get / users.listTeamWithMembers via ctx.storage.getUrl.
   logoStorageId: v.optional(v.id("_storage")),
+  // Wide banner image shown behind the app sidebar header for this team's repos.
+  backgroundStorageId: v.optional(v.id("_storage")),
 };
 
 export const projectFields = {
@@ -376,8 +452,13 @@ export const projectFields = {
   reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
   // Dev port + full command for the active project preview sandbox.
   // Populated by `projectSandboxReady` from `startSessionServices` output.
+  // User Preview port changes also patch `devPort` (sticky, mirrors sessions).
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  // Sticky Preview URL path for this project sandbox (e.g. "/dashboard").
+  previewPath: v.optional(v.string()),
+  // Last ~500 lines of the Preview Console PTY (debounced client writes).
+  terminalHistoryTail: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   phase: phaseValidator,
   /** How the project was created: AI interview/plan vs tasks-only container. */
@@ -386,9 +467,13 @@ export const projectFields = {
   ),
   priority: v.optional(priorityValidator),
   // Per-project tri-state defaults inherited by member tasks (task override
-  // wins). undefined = inherit repo/global default. Resolved in `getTaskData`.
+  // wins). undefined = inherit default (off). Resolved in `getTaskData`.
   screenshotsVideosEnabled: v.optional(v.boolean()),
   runAuditEnabled: v.optional(v.boolean()),
+  // Per-project-sandbox-chat switches, separate from the task defaults above.
+  // Absent = off. Toggled from the project sandbox chat composer options menu.
+  chatCaptureProofEnabled: v.optional(v.boolean()),
+  chatRunAuditEnabled: v.optional(v.boolean()),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),
@@ -412,6 +497,16 @@ export const projectFields = {
   // Whose credential this project's model preference is tied to (null/absent =
   // team). Mirrors agentTasks.providerAccountId for the project metadata picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  ...chatDaemonEntityFields,
+  // Last model used in sandbox chat; page-open prewarm matches the composer.
+  lastChatModel: v.optional(aiModelValidator),
+  // Sticky sandbox-chat traits (mirrors sessions.lastReasoningLevel / …).
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  // Soft UX lock while the agent drives the shared desktop Chrome via
+  // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
+  agentBrowsingAt: v.optional(v.number()),
 };
 
 export const projectDetailsFields = {
@@ -482,13 +577,24 @@ export const messageFields = {
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  // Agent-captured proof media (recordings/screenshots), in capture order.
+  // Supersedes imageStorageId/videoStorageId, which remain only for
+  // pre-migration docs.
+  mediaStorageIds: v.optional(v.array(v.id("_storage"))),
   // User-attached input images (pasted/dropped in the composer), stored via
   // Convex file storage. Delivered to the agent as files it can read.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   pendingQuestion: v.optional(v.string()),
+  // Convex-side guard only — synthetic continuations are rendered like normal
+  // turns; the UI does not read this flag.
+  isSyntheticTurn: v.optional(v.boolean()),
   // Snapshot of which credential powered this chat turn ("Team" or the
   // account label). Set on user messages at send/dequeue time.
   credentialSourceLabel: v.optional(v.string()),
+  // Model + effort chosen in the composer for this user turn. Snapshotted at
+  // send/dequeue so the chat can show a provider icon + tooltip later.
+  model: v.optional(aiModelValidator),
+  reasoningLevel: v.optional(reasoningLevelValidator),
 };
 
 export const queuedMessageFields = {
@@ -499,6 +605,8 @@ export const queuedMessageFields = {
     v.id("agentTasks"),
   ),
   content: v.string(),
+  /** Compact chat-display text; `content` remains the full agent message. */
+  displayContent: v.optional(v.string()),
   createdAt: v.number(),
   // Sort key for queue run order. Enqueue sets Date.now() (appends to the end);
   // the reorder mutation rewrites this to 0-based positions. Optional so the
@@ -571,7 +679,7 @@ export const taskSubscriberFields = {
 
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
-// token. One row per Daytona sandbox; rotated every time the helper is
+// token. One row per sandbox; rotated every time the helper is
 // reinstalled.
 // App-wide singleton settings (a single row). Currently holds the daily
 // sandbox auto-stop schedule: a wall-clock time + IANA timezone at which the
@@ -605,6 +713,7 @@ export const docFields = {
   prNumber: v.optional(v.number()),
   headSha: v.optional(v.string()),
   prRecapStatus: v.optional(prRecapStatusValidator),
+  prRecapOrigin: v.optional(prRecapOriginValidator),
   prRecapError: v.optional(v.string()),
   pendingAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   description: v.optional(v.string()),
@@ -697,11 +806,14 @@ export const draftFields = {
   repoId: v.id("githubRepos"),
   kind: v.union(
     v.literal("taskComment"),
+    v.literal("taskChat"),
+    v.literal("projectChat"),
     v.literal("sessionChat"),
     v.literal("designChat"),
   ),
   taskId: v.optional(v.id("agentTasks")),
   parentCommentId: v.optional(v.id("taskComments")),
+  projectId: v.optional(v.id("projects")),
   sessionId: v.optional(v.id("sessions")),
   designSessionId: v.optional(v.id("designSessions")),
   content: v.string(),
@@ -732,6 +844,14 @@ export const draftTarget = v.union(
     kind: v.literal("taskComment"),
     taskId: v.id("agentTasks"),
     parentCommentId: v.optional(v.id("taskComments")),
+  }),
+  v.object({
+    kind: v.literal("taskChat"),
+    taskId: v.id("agentTasks"),
+  }),
+  v.object({
+    kind: v.literal("projectChat"),
+    projectId: v.id("projects"),
   }),
   v.object({
     kind: v.literal("sessionChat"),

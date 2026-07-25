@@ -3,6 +3,9 @@ import type { Terminal } from "@xterm/xterm";
 const MAX_TERMINAL_HISTORY_CHARS = 500_000;
 const FLUSH_DELAY_MS = 250;
 const IMMEDIATE_FLUSH_CHARS = 4096;
+/** Lines kept when syncing session console history to Convex. */
+export const TERMINAL_HISTORY_TAIL_LINES = 500;
+const TERMINAL_HISTORY_TAIL_MAX_CHARS = 100_000;
 
 type JsonValue =
   | null
@@ -75,7 +78,12 @@ export function parseTerminalControlMessage(
   };
 }
 
-export type PtyProtocol = "daytona" | "vercel";
+/**
+ * Vercel is the only sandbox provider, so the backend's `ptyProtocol` is
+ * `v.literal("vercel")`. Kept as a named type rather than inlined because the
+ * terminal still negotiates protocol with the server per connection.
+ */
+export type PtyProtocol = "vercel";
 
 type VercelPtyOutboundMessage =
   | {
@@ -102,6 +110,9 @@ export function sendVercelPtyControl(
 }
 
 const VERCEL_PTY_CWD = "/tmp/repo";
+/** Must match packages/backend/convex/_sandbox/vercelEnvFile.ts */
+const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
+const EVA_ENV_SOURCE_CMD = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`;
 
 function safeVercelSessionName(sessionName: string | undefined): string {
   const source =
@@ -122,7 +133,12 @@ export function startVercelPty(
   // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
   // existing session so reconnects don't thrash create/destroy.
   // alternate-screen off: keep output in xterm scrollback (Console scrollbar).
+  // status off: the status bar shrinks tmux's scroll region by one row, and
+  // xterm only pushes lines into scrollback when a scroll spans the FULL
+  // viewport — with the bar on, nothing ever reaches scrollback (no scrollbar).
   // mouse off (global + session): never let tmux capture the wheel.
+  // New tmux sessions start bash with sandbox env sourced so typed commands
+  // (e.g. pnpm run dev) see the same secrets as agent exec / auto-launch.
   sendVercelPtyControl(ws, {
     type: "start",
     command: "bash",
@@ -131,13 +147,15 @@ export function startVercelPty(
       [
         `cd ${cwd} 2>/dev/null || cd /vercel/sandbox || true`,
         `if command -v tmux >/dev/null 2>&1; then`,
-        `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName}`,
+        `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName} -c ${cwd} -- bash -c '${EVA_ENV_SOURCE_CMD}; exec bash -i'`,
         `  tmux set-option -g mouse off`,
         `  tmux set-option -t ${sessionName} mouse off`,
         `  tmux set-option -t ${sessionName} alternate-screen off`,
+        `  tmux set-option -t ${sessionName} status off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,
         `  exec tmux attach-session -t ${sessionName}`,
         `fi`,
+        `${EVA_ENV_SOURCE_CMD}`,
         `exec bash -l`,
       ].join("\n"),
     ],
@@ -176,6 +194,29 @@ function boundedTerminalHistory(value: string): string {
     : value;
 }
 
+/** Last `maxLines` newline-delimited lines; also caps char length. */
+export function terminalHistoryTail(
+  text: string,
+  maxLines: number = TERMINAL_HISTORY_TAIL_LINES,
+): string {
+  if (maxLines <= 0 || text.length === 0) return "";
+  let linesFound = 0;
+  let sliceFrom = 0;
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (text[i] === "\n") {
+      linesFound += 1;
+      if (linesFound === maxLines) {
+        sliceFrom = i + 1;
+        break;
+      }
+    }
+  }
+  const byLines = text.slice(sliceFrom);
+  return byLines.length > TERMINAL_HISTORY_TAIL_MAX_CHARS
+    ? byLines.slice(-TERMINAL_HISTORY_TAIL_MAX_CHARS)
+    : byLines;
+}
+
 export function buildTerminalHistoryKey(
   owner: TerminalHistoryOwner,
   sandboxId: string,
@@ -187,7 +228,7 @@ export function buildTerminalHistoryKey(
       : owner.kind === "task"
         ? owner.taskId
         : owner.projectId;
-  return `conductor:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
+  return `eva:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
 }
 
 export function createTerminalHistoryWriter(

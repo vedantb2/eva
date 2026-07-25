@@ -21,11 +21,10 @@ const stateBadgeConfig: Record<
   {
     label: string;
     variant: "warning" | "default" | "success" | "destructive";
-    pulse?: boolean;
   }
 > = {
   pending: { label: "Pending", variant: "warning" },
-  running: { label: "Running", variant: "default", pulse: true },
+  running: { label: "Running", variant: "default" },
   completed: { label: "Completed", variant: "success" },
   error: { label: "Error", variant: "destructive" },
 };
@@ -82,10 +81,7 @@ export const SandboxTabsList = ({
         {children}
       </TabsList>
       {badge && (
-        <Badge
-          className={cn("mr-3", badge.pulse && "animate-pulse")}
-          variant={badge.variant}
-        >
+        <Badge className="mr-3" variant={badge.variant}>
           {badge.label}
         </Badge>
       )}

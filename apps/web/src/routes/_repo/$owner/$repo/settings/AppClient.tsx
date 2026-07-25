@@ -1,10 +1,10 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Input } from "@conductor/ui";
+import { Input } from "@eva/ui";
 import { parseCommandLines } from "./_utils";
 import { LogoSettingsSection } from "./_components/LogoSettingsSection";
 
@@ -164,11 +164,12 @@ export function AppClient() {
               placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Runs <strong>once</strong> per sandbox (a
-              marker is left, so it is skipped on resume and baked into a seeded
-              snapshot). Use for one-time data <strong>seeding</strong> that
-              depends on services being up — put the services themselves in
-              Background Commands. Commands have a 10-minute timeout each.
+              One command per line. Runs during seeded snapshot builds{" "}
+              <strong>and on every fresh sandbox boot</strong>, so commands must
+              be safe to re-run (readiness gates, docker restarts). Put one-time
+              data <strong>seeding</strong> in Seed Commands (Snapshots
+              settings) and long-running services in Background Commands.
+              Commands have a 10-minute timeout each.
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
 
@@ -50,6 +50,7 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
   return (
     <EnvVarsTable
       vars={teamEnvVars}
+      scope="team"
       onUpsert={async (key, value, sandboxExclude) => {
         await upsertTeamVar({ teamId, key, value, sandboxExclude });
       }}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconCheck, IconFolder } from "@tabler/icons-react";
 
 export interface MonorepoApp {

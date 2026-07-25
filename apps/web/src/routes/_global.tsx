@@ -1,11 +1,19 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+} from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
+import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider } from "@/lib/contexts/SidebarContext";
+import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
+import { SearchProvider } from "@/lib/contexts/SearchContext";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
   beforeLoad: ({ context }) => {
@@ -17,9 +25,25 @@ export const Route = createFileRoute("/_global")({
 });
 
 function GlobalMainContent() {
-  // Global pages are rail-only (w-16); the wider repo sidebar never mounts here.
+  const { pathname } = useLocation();
+  const { collapsed } = useSidebar();
+  const isSessionsLanding =
+    pathname === "/sessions" || pathname === "/sessions/";
+  // Sessions landing shows the wide second column; collapsed hides it (rail only).
+  const paddingClass = isSessionsLanding
+    ? collapsed
+      ? "lg:pl-16"
+      : "lg:pl-[var(--eva-sidebar-width,20rem)]"
+    : "lg:pl-16";
+
   return (
-    <div className="relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 lg:pl-16">
+    <div
+      className={cn(
+        // No padding transition: animating pl-* during route changes counts as CLS.
+        "relative flex min-h-screen flex-col pt-14 lg:pt-0",
+        paddingClass,
+      )}
+    >
       <div className="relative flex flex-1 flex-col bg-background">
         <div
           aria-hidden
@@ -38,12 +62,15 @@ function GlobalLayout() {
     <AuthGate>
       <SidebarProvider>
         <PageTitleProvider>
-          <FollowProvider>
-            <Sidebar />
-            <GlobalMainContent />
-            <FollowOverlay />
-            <NotificationToastStream />
-          </FollowProvider>
+          <SearchProvider>
+            <FollowProvider>
+              <Sidebar />
+              <GlobalMainContent />
+              <SpotlightSearch />
+              <FollowOverlay />
+              <NotificationToastStream />
+            </FollowProvider>
+          </SearchProvider>
         </PageTitleProvider>
       </SidebarProvider>
     </AuthGate>

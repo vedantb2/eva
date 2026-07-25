@@ -1,12 +1,14 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { motion } from "motion/react";
-import { api } from "@conductor/backend";
+import { m } from "motion/react";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { repoHref } from "@/lib/utils/repoUrl";
 import { RepoLogo } from "@/lib/components/RepoLogo";
+import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
+import { appLeafName, repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import {
   Card,
   CardContent,
@@ -14,7 +16,7 @@ import {
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconBrandGithub,
   IconPlugConnectedX,
@@ -22,6 +24,7 @@ import {
   IconEyeOff,
   IconPhoto,
   IconPhotoOff,
+  IconPencil,
 } from "@tabler/icons-react";
 
 export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -35,6 +38,7 @@ export function RepoCard({
   index: number;
   onManageApps: () => void;
 }) {
+  const [renameOpen, setRenameOpen] = useState(false);
   const toggleHidden = useMutation(
     api.githubRepos.toggleHidden,
   ).withOptimisticUpdate((localStore, args) => {
@@ -56,7 +60,7 @@ export function RepoCard({
     if (file) uploadLogo(repo._id, file);
   };
   return (
-    <motion.div
+    <m.div
       key={repo._id}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -91,9 +95,7 @@ export function RepoCard({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
-                      {repo.rootDirectory
-                        ? repo.rootDirectory.split("/").pop()
-                        : repo.name}
+                      {repoDisplayLabel(repo)}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {repo.owner}/{repo.name}
@@ -113,6 +115,10 @@ export function RepoCard({
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
+          <ContextMenuItem onClick={() => setRenameOpen(true)}>
+            <IconPencil size={16} />
+            Rename
+          </ContextMenuItem>
           <ContextMenuItem onClick={onManageApps}>
             <IconFolders size={16} />
             Manage apps
@@ -142,6 +148,13 @@ export function RepoCard({
         className="hidden"
         onChange={handleLogoSelected}
       />
-    </motion.div>
+      <RepoLabelDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        repoId={repo._id}
+        label={repo.label}
+        fallbackName={appLeafName(repo)}
+      />
+    </m.div>
   );
 }

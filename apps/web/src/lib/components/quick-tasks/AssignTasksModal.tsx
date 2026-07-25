@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useState } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -20,7 +20,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 interface AssignTasksModalProps {
   isOpen: boolean;
@@ -84,9 +84,11 @@ export function AssignTasksModal({
       setSelectedUserId("");
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const getUserLabel = (user: {

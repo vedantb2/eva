@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Button, Checkbox, Spinner, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Checkbox, Spinner, cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -70,9 +70,11 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
         autoRun,
       });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   if (issues.length === 0) {

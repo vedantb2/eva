@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 const PREVIEW_SANDBOX_ALLOWED_PHASES = [
   "in_progress",
@@ -51,49 +51,45 @@ export function useProjectSandbox(
       : "skip",
   );
 
-  const handleStartSandbox = useCallback(async () => {
+  const handleStartSandbox = async () => {
     setIsStartingLocal(true);
     try {
       await startProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to start project sandbox:", err);
-    } finally {
-      setIsStartingLocal(false);
     }
-  }, [startProjectSandboxMutation, projectId]);
+    setIsStartingLocal(false);
+  };
 
-  const handleStopSandbox = useCallback(async () => {
+  const handleStopSandbox = async () => {
     setIsStoppingLocal(true);
     try {
       await stopProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to stop project sandbox:", err);
-    } finally {
-      setIsStoppingLocal(false);
     }
-  }, [stopProjectSandboxMutation, projectId]);
+    setIsStoppingLocal(false);
+  };
 
-  const handleRetryStartupCommands = useCallback(async () => {
+  const handleRetryStartupCommands = async () => {
     setIsRetryingStartupCommands(true);
     try {
       await retryStartupCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to retry project startup commands:", err);
-    } finally {
-      setIsRetryingStartupCommands(false);
     }
-  }, [retryStartupCommandsMutation, projectId]);
+    setIsRetryingStartupCommands(false);
+  };
 
-  const handleRunBackgroundCommands = useCallback(async () => {
+  const handleRunBackgroundCommands = async () => {
     setIsRunningBackgroundCommands(true);
     try {
       await runBackgroundCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to run project background commands:", err);
-    } finally {
-      setIsRunningBackgroundCommands(false);
     }
-  }, [runBackgroundCommandsMutation, projectId]);
+    setIsRunningBackgroundCommands(false);
+  };
 
   return {
     canStartSandbox,

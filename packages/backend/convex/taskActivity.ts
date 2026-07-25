@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import type { Infer } from "convex/values";
 import { taskActivityFieldValidator } from "./validators";
 import { authQuery, hasTaskAccess } from "./functions";
+import { shouldCoalesceTaskActivity } from "./taskActivityCoalesce";
 
 const taskActivityDocValidator = v.object({
   _id: v.id("taskActivity"),
@@ -41,12 +42,42 @@ export async function logTaskActivity(
   newValue: string | undefined,
 ): Promise<void> {
   if (oldValue === newValue) return;
+
+  const now = Date.now();
+  const events = await ctx.db
+    .query("taskActivity")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+
+  // Newest first — coalesce into the latest matching same-field edit.
+  const recent = events.toSorted((a, b) => b.createdAt - a.createdAt);
+  for (const event of recent) {
+    if (
+      !shouldCoalesceTaskActivity(
+        {
+          field: event.field,
+          userId: event.userId,
+          createdAt: event.createdAt,
+        },
+        { field, userId, now },
+      )
+    ) {
+      continue;
+    }
+    // Keep the original oldValue so from→to still reflects the first edit.
+    await ctx.db.patch(event._id, {
+      newValue,
+      createdAt: now,
+    });
+    return;
+  }
+
   await ctx.db.insert("taskActivity", {
     taskId,
     field,
     oldValue,
     newValue,
     userId,
-    createdAt: Date.now(),
+    createdAt: now,
   });
 }

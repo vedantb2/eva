@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input } from "@conductor/ui";
+import { Button, Input } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import {
@@ -110,9 +110,11 @@ export function ProjectPlanTab({
       if (segment) {
         navigate({ to: `${basePath}/projects/${segment}` });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   if (!parsedSpec) {

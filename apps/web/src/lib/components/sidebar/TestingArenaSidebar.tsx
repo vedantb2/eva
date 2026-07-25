@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { Link } from "@tanstack/react-router";
 import {
   Button,
@@ -16,9 +16,9 @@ import {
   SearchInput,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
-import { compactRelativeTime } from "@conductor/shared/dates";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
 import {
@@ -60,38 +60,35 @@ export function TestingArenaSidebar({
     setShowTestAllModal(true);
   }, [createRequestId]);
 
-  const filteredDocs = useMemo(() => {
+  const filteredDocs = (() => {
     if (!docs) return [];
     const q = searchQuery.toLowerCase().trim();
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
-  }, [docs, searchQuery]);
+  })();
 
   // Only docs with content can be evaluated; the rest are skipped.
-  const testableDocs = useMemo(
-    () => (docs ?? []).filter((d) => d.content.trim().length > 0),
-    [docs],
-  );
+  const testableDocs = (docs ?? []).filter((d) => d.content.trim().length > 0);
 
   const handleTestAll = async () => {
     setShowTestAllModal(false);
     if (testableDocs.length === 0) return;
     setIsTestingAll(true);
     try {
-      for (const doc of testableDocs) {
-        // One failure should not abort the whole batch.
-        try {
-          await startEvaluation({
+      // Fire all evaluations; one failure must not abort the batch.
+      await Promise.allSettled(
+        testableDocs.map((doc) =>
+          startEvaluation({
             docId: doc._id,
             repoId,
             branchName: branch !== "main" ? branch : undefined,
-          });
-        } catch {
-          // Skip this doc and continue with the rest.
-        }
-      }
-    } finally {
+          }),
+        ),
+      );
+    } catch (error) {
       setIsTestingAll(false);
+      throw error;
     }
+    setIsTestingAll(false);
   };
 
   return (

@@ -2,8 +2,8 @@
 
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import type { api } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { IconArrowRight } from "@tabler/icons-react";
 
 type TaskActivityEvent = NonNullable<
@@ -98,7 +98,9 @@ export function TaskActivityItem({
     const merged = event.newValue === "merged";
     return (
       <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-        <span className="flex size-4 shrink-0 items-center justify-center" />
+        <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
+          <span className="size-1.5 rounded-full bg-border" />
+        </span>
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-foreground">GitHub</span>
           {merged
@@ -107,11 +109,15 @@ export function TaskActivityItem({
           <span className="font-medium text-foreground/80">
             {merged ? "Done" : "Cancelled"}
           </span>
+          <span className="text-muted-foreground/50" aria-hidden>
+            {" "}
+            ·{" "}
+          </span>
+          <RelativeDateTime
+            at={event.createdAt}
+            className="text-muted-foreground/70"
+          />
         </span>
-        <RelativeDateTime
-          at={event.createdAt}
-          className="shrink-0 text-muted-foreground/70"
-        />
       </div>
     );
   }
@@ -128,9 +134,8 @@ export function TaskActivityItem({
 
   return (
     <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-      {/* Fixed slot reserves the avatar's width so it fills in without shifting
-          the text once the user record resolves. */}
-      <span className="flex size-4 shrink-0 items-center justify-center">
+      {/* Fixed slot on the shared timeline rail — bg masks the connector. */}
+      <span className="relative z-10 flex size-4 shrink-0 items-center justify-center bg-background">
         {event.userId && actor ? (
           <UserInitials
             userId={event.userId}
@@ -138,7 +143,9 @@ export function TaskActivityItem({
             size="sm"
             hideLastSeen
           />
-        ) : null}
+        ) : (
+          <span className="size-1.5 rounded-full bg-border" />
+        )}
       </span>
       <span className="min-w-0 flex-1 truncate">
         <span className="font-medium text-foreground">{actorName}</span>
@@ -156,11 +163,15 @@ export function TaskActivityItem({
             </span>
           </>
         )}
+        <span className="text-muted-foreground/50" aria-hidden>
+          {" "}
+          ·{" "}
+        </span>
+        <RelativeDateTime
+          at={event.createdAt}
+          className="text-muted-foreground/70"
+        />
       </span>
-      <RelativeDateTime
-        at={event.createdAt}
-        className="shrink-0 text-muted-foreground/70"
-      />
     </div>
   );
 }

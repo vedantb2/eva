@@ -6,15 +6,15 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-} from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
-import dayjs from "@conductor/shared/dates";
-import type { Id } from "@conductor/backend";
+} from "@eva/ui";
+import { UserInitials } from "@eva/shared";
+import dayjs from "@eva/shared/dates";
+import type { Id } from "@eva/backend";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -51,7 +51,7 @@ export function ChatMessage({
   );
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
@@ -117,6 +117,6 @@ export function ChatMessage({
           </div>
         )}
       </AIMessage>
-    </motion.div>
+    </m.div>
   );
 }

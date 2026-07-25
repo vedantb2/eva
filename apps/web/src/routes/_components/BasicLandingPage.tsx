@@ -3,8 +3,8 @@
 import type { ComponentType } from "react";
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { useNavigate } from "@tanstack/react-router";
-import { motion, type Variants } from "motion/react";
-import { Button, cn } from "@conductor/ui";
+import { m, type Variants } from "motion/react";
+import { Button, cn } from "@eva/ui";
 import { LANDING_PLATFORM_SECTIONS } from "./landingTaskDetailFixtures";
 
 const isDev = import.meta.env.DEV;
@@ -48,14 +48,14 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-5 py-16 sm:px-8 lg:px-12">
-        <motion.div
+        <m.div
           variants={STAGGER_CONTAINER}
           initial="hidden"
           animate="show"
           className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16"
         >
           <div className="flex flex-col gap-8">
-            <motion.div variants={STAGGER_ITEM} className="flex flex-col gap-5">
+            <m.div variants={STAGGER_ITEM} className="flex flex-col gap-5">
               <div className="flex items-center gap-4">
                 <div className="flex size-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-muted/50 p-3">
                   <img
@@ -85,9 +85,9 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
                 <span className="text-primary/80">&gt;</span> ready · projects ·
                 sessions · quick tasks · docs
               </p>
-            </motion.div>
+            </m.div>
 
-            <motion.div
+            <m.div
               variants={STAGGER_ITEM}
               className="flex flex-col gap-3 sm:flex-row sm:items-center"
             >
@@ -105,10 +105,10 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
                   Sign in
                 </Button>
               </SignInButton>
-            </motion.div>
+            </m.div>
 
             {isDev ? (
-              <motion.div variants={STAGGER_ITEM}>
+              <m.div variants={STAGGER_ITEM}>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -119,11 +119,11 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
                 >
                   Sign in as Eva
                 </Button>
-              </motion.div>
+              </m.div>
             ) : null}
           </div>
 
-          <motion.div
+          <m.div
             variants={STAGGER_ITEM}
             className="grid grid-cols-1 gap-3 sm:grid-cols-2"
           >
@@ -136,8 +136,8 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
                 className={cn(index === 0 && "sm:col-span-2 lg:col-span-1")}
               />
             ))}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       </div>
     </main>
   );

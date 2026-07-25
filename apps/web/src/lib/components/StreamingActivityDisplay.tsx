@@ -4,9 +4,9 @@ import {
   Reasoning,
   ReasoningTrigger,
   CollapsibleContent,
-} from "@conductor/ui";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { formatDuration } from "@conductor/shared/duration";
+} from "@eva/ui";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { formatDuration } from "@eva/shared/duration";
 
 export function StreamingActivityDisplay({
   activity,

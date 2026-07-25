@@ -1,7 +1,6 @@
-import { useCallback } from "react";
-import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { useAction } from "convex/react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
 import {
   SandboxIframeService,
@@ -14,14 +13,17 @@ const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
 interface DesktopPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
   surface?: "browser" | "desktop";
-  /** When set with a fresh agentBrowsingAt, shows the takeover overlay. */
-  sessionId?: Id<"sessions">;
+  /** When fresh, shows the takeover overlay (session/task/project sandboxes). */
   agentBrowsingAt?: number;
+  /**
+   * Clears the agent-browsing soft lock (session/task/project-specific
+   * mutation, provided by the caller). Takeover overlay only renders when set.
+   */
+  onReleaseLock?: () => void;
   /** True while Computer/Browser desktop is starting or running. */
   onRunningChange?: (running: boolean) => void;
 }
@@ -84,49 +86,43 @@ function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
 export function DesktopPanel({
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   surface = "desktop",
-  sessionId,
   agentBrowsingAt,
+  onReleaseLock,
   onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
-  const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
-  const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
-  const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
+  const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
+  const launchChromeInDesktop = useAction(api.sandbox.launchChromeInDesktop);
 
-  const startAction = useCallback(async (): Promise<StartResult> => {
+  const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
     await toggleDesktopServer({ sandboxId, repoId, action: "start" });
     return { success: true };
-  }, [sandboxId, repoId, toggleDesktopServer]);
+  };
 
-  const stopAction = useCallback(async () => {
+  const stopAction = async () => {
     if (!sandboxId) return;
     await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
-  }, [sandboxId, repoId, toggleDesktopServer]);
+  };
 
-  const handleReady = useCallback(() => {
+  const handleReady = () => {
     if (!sandboxId) return;
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
-  }, [sandboxId, repoId, launchChromeInDesktop]);
+  };
 
-  const handleStateChange = useCallback(
-    (state: SandboxIframeServiceState) => {
-      onRunningChange?.(state === "starting" || state === "running");
-    },
-    [onRunningChange],
-  );
+  const handleStateChange = (state: SandboxIframeServiceState) => {
+    onRunningChange?.(state === "starting" || state === "running");
+  };
 
   const showLockOverlay =
-    sessionId !== undefined && isAgentBrowsingActive(agentBrowsingAt);
+    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt);
 
-  const handleTakeControl = useCallback(() => {
-    if (!sessionId) return;
-    void releaseBrowserLock({ sessionId });
-  }, [sessionId, releaseBrowserLock]);
+  const handleTakeControl = () => {
+    onReleaseLock?.();
+  };
 
   return (
     <div className="relative h-full min-h-0">
@@ -134,7 +130,6 @@ export function DesktopPanel({
         cacheNamespace="desktop-scale"
         cacheKey={cacheKey}
         sandboxId={sandboxId}
-        vercelSandboxId={vercelSandboxId}
         isActive={isActive}
         repoId={repoId}
         port={6080}

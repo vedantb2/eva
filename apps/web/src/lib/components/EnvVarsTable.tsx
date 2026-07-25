@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconClipboard,
@@ -35,7 +35,14 @@ import {
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { EnvVarProviderSlots } from "@/lib/components/EnvVarProviderSlots";
 import { parseEnvVars } from "./_utils/parseEnvVars";
-import { KNOWN_ENV_VAR_KEYS } from "./_utils/knownEnvVars";
+import {
+  KNOWN_ENV_VARS,
+  INFRA_ENV_VARS,
+  CONVEX_ENV_VARS,
+  SLOT_ENV_VAR_KEYS,
+  filterSlotsForScope,
+  type EnvVarScope,
+} from "./_utils/knownEnvVars";
 
 export interface EnvVar {
   key: string;
@@ -57,6 +64,8 @@ interface EnvVarsTableProps {
     sandboxExclude: boolean,
   ) => Promise<void>;
   description: string;
+  /** Repo tab shows VERCEL_PROJECT_ID; team tab omits repo-only infra slots. */
+  scope?: EnvVarScope;
   readOnly?: boolean;
 }
 
@@ -67,6 +76,7 @@ export function EnvVarsTable({
   onRemove,
   onToggleSandboxExclude,
   description,
+  scope = "repo",
   readOnly = false,
 }: EnvVarsTableProps) {
   const [adding, setAdding] = useState(false);
@@ -193,18 +203,20 @@ export function EnvVarsTable({
     const parsed = parseEnvVars(bulkText);
     if (parsed.length === 0) return;
     setBulkSaving(true);
-    for (const { key, value } of parsed) {
-      await onUpsert(key, value, false);
-    }
+    await Promise.all(
+      parsed.map(({ key, value }) => onUpsert(key, value, false)),
+    );
     setBulkSaving(false);
     setShowBulkPaste(false);
     setBulkText("");
   };
 
   const parsedPreview = parseEnvVars(bulkText);
-  // Known agent-auth keys are surfaced in the provider slots above, so keep
-  // them out of the free-form table to avoid showing them twice.
-  const freeformVars = vars?.filter((v) => !KNOWN_ENV_VAR_KEYS.has(v.key));
+  const agentSlots = filterSlotsForScope(KNOWN_ENV_VARS, scope);
+  const infraSlots = filterSlotsForScope(INFRA_ENV_VARS, scope);
+  const convexSlots = filterSlotsForScope(CONVEX_ENV_VARS, scope);
+  // Known slot keys are surfaced above — keep them out of the free-form table.
+  const freeformVars = vars?.filter((v) => !SLOT_ENV_VAR_KEYS.has(v.key));
   const sandboxVars = (
     freeformVars?.filter((v) => !v.sandboxExclude) ?? []
   ).sort((a, b) => a.key.localeCompare(b.key));
@@ -429,18 +441,50 @@ export function EnvVarsTable({
         )}
       </div>
       {vars !== undefined && (
-        <div className="mb-6">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Coding agents
-          </p>
-          <EnvVarProviderSlots
-            vars={vars}
-            onUpsert={onUpsert}
-            onReveal={onReveal}
-            onRemove={onRemove}
-            readOnly={readOnly}
-          />
-        </div>
+        <>
+          <div className="mb-6">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Coding agents
+            </p>
+            <EnvVarProviderSlots
+              entries={agentSlots}
+              vars={vars}
+              onUpsert={onUpsert}
+              onReveal={onReveal}
+              onRemove={onRemove}
+              readOnly={readOnly}
+            />
+          </div>
+          <div className="mb-6">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Infrastructure
+            </p>
+            <EnvVarProviderSlots
+              entries={infraSlots}
+              defaultSandboxExclude
+              vars={vars}
+              onUpsert={onUpsert}
+              onReveal={onReveal}
+              onRemove={onRemove}
+              readOnly={readOnly}
+              removeDialogDescription="Sandbox provisioning may fail until you paste it again."
+            />
+          </div>
+          <div className="mb-6">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Convex
+            </p>
+            <EnvVarProviderSlots
+              entries={convexSlots}
+              vars={vars}
+              onUpsert={onUpsert}
+              onReveal={onReveal}
+              onRemove={onRemove}
+              readOnly={readOnly}
+              removeDialogDescription="The sandboxed app may lose access to its Convex backend until you paste it again."
+            />
+          </div>
+        </>
       )}
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">

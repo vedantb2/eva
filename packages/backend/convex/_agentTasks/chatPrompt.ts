@@ -13,6 +13,7 @@ interface BuildAgentTaskChatPromptArgs {
   rootDirectory: string;
   customInstructionsBlock: string;
   systemPrompt: string | undefined;
+  captureProof: boolean;
 }
 
 /**
@@ -42,6 +43,6 @@ ${args.message}`;
     args.rootDirectory,
     args.customInstructionsBlock,
     args.systemPrompt,
-    false,
+    args.captureProof,
   );
 }

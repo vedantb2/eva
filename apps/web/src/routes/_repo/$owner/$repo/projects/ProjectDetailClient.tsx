@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { useNavigate } from "@tanstack/react-router";
+import { api } from "@eva/backend";
 import {
   Tooltip,
   TooltipTrigger,
@@ -19,10 +20,10 @@ import {
   DropdownMenuSeparator,
   DialogBody,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
@@ -33,6 +34,7 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 import {
@@ -51,8 +53,7 @@ import {
   IconMessage,
   IconServerBolt,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { useNavigate } from "@tanstack/react-router";
+import dayjs from "@eva/shared/dates";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
@@ -114,6 +115,7 @@ export function ProjectDetailClient({
     isSandboxStopping,
     sandboxStartupActivity,
     sandboxId: projectSandboxId,
+    handleStartSandbox,
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
@@ -125,6 +127,14 @@ export function ProjectDetailClient({
     project?.sandboxId,
     project?.reviewProjectSandboxStatus,
   );
+
+  const prewarmChatDaemon = useMutation(
+    api.projectChatWorkflow.prewarmChatDaemon,
+  );
+  useEffect(() => {
+    if (!isSandboxActive || !projectSandboxId) return;
+    void prewarmChatDaemon({ projectId });
+  }, [projectId, isSandboxActive, projectSandboxId, prewarmChatDaemon]);
 
   const isSandboxSurface = surface === "sandbox";
 
@@ -141,6 +151,37 @@ export function ProjectDetailClient({
     });
   };
 
+  // Chat file chips → Files tab + `?file=` (same pattern as sessions).
+  const openFile = (path: string) => {
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,
+      search: (prev) => ({ ...prev, file: path }),
+    });
+  };
+
+  // Auto-switch to Browser + expand sandbox panel on lock transition only
+  // (undefined → set). Mirrors SessionDetailClient's pattern. Don't fight the
+  // user if they switch away mid-lock.
+  const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
+  const [expandRightSignal, setExpandRightSignal] = useState(0);
+  const agentBrowsingAt =
+    project === null || project === undefined
+      ? undefined
+      : project.agentBrowsingAt;
+  useEffect(() => {
+    const prev = prevAgentBrowsingAt.current;
+    prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (agentBrowsingAt === undefined || prev !== undefined) return;
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/browser`,
+      search: true,
+    });
+    setExpandRightSignal((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentBrowsingAt]);
+
   const handleStopBuild = async () => {
     if (!project) return;
     setIsStoppingBuild(true);
@@ -148,12 +189,11 @@ export function ProjectDetailClient({
       await cancelBuild({ projectId: projectId });
     } catch (err) {
       console.error("Failed to stop build:", err);
-    } finally {
-      setIsStoppingBuild(false);
     }
+    setIsStoppingBuild(false);
   };
 
-  const handleCreatePr = useCallback(async () => {
+  const handleCreatePr = async () => {
     setPrError(null);
     setIsCreatingPr(true);
     try {
@@ -162,12 +202,11 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
       setPrError(message);
-    } finally {
-      setIsCreatingPr(false);
     }
-  }, [createProjectPrAction, projectId]);
+    setIsCreatingPr(false);
+  };
 
-  const handleResolveConflicts = useCallback(async () => {
+  const handleResolveConflicts = async () => {
     setPrError(null);
     setIsResolvingConflicts(true);
     try {
@@ -176,10 +215,9 @@ export function ProjectDetailClient({
       const message =
         err instanceof Error ? err.message : "Failed to resolve conflicts";
       setPrError(message);
-    } finally {
-      setIsResolvingConflicts(false);
     }
-  }, [resolveProjectConflicts, projectId]);
+    setIsResolvingConflicts(false);
+  };
 
   if (project === undefined) {
     return (
@@ -221,13 +259,10 @@ export function ProjectDetailClient({
     }
   })();
   const hasPlanContext = Boolean(parsedSpec);
-  const showMoreMenu =
-    canCreatePr ||
-    hasDeployedPreview ||
-    showRetryStartupCommands ||
-    showRunBackgroundCommands ||
-    showResolveConflicts ||
-    hasPlanContext;
+  const hasSandboxCommandItems =
+    showRetryStartupCommands || showRunBackgroundCommands;
+  const hasPrLinkItems =
+    canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -242,7 +277,6 @@ export function ProjectDetailClient({
         projectId={projectId}
         projectNumId={projectNumId}
         sandboxId={projectSandboxId}
-        vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
         prUrl={project.prUrl}
@@ -250,6 +284,10 @@ export function ProjectDetailClient({
         devCommand={project.devCommand}
         terminalPanes={project.terminalPanes}
         sandboxTab={tab}
+        onStartSandbox={
+          canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
+        }
+        isSandboxStarting={isSandboxStarting}
       />
     ) : (
       <div className="flex h-full items-center justify-center p-8">
@@ -264,15 +302,19 @@ export function ProjectDetailClient({
 
   const projectSandboxContent = (
     <ResizablePanelLayout
-      storageKey="project-sandbox-collapsed"
-      leftDefaultSize="30%"
+      storageKey="project-sandbox-panel"
+      leftDefaultSize="40%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
       defaultRightCollapsed={false}
-      leftPanel={() => (
+      expandRightSignal={expandRightSignal}
+      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
         <ProjectSandboxChatPanel
           projectId={projectId}
           isSandboxActive={isSandboxActive}
+          onOpenFile={openFile}
+          sandboxCollapsed={rightPanelCollapsed}
+          onToggleSandbox={onToggleRightPanel}
         />
       )}
       rightPanel={projectSandboxPanel}
@@ -306,115 +348,122 @@ export function ProjectDetailClient({
             {prError && <p className="text-xs text-destructive">{prError}</p>}
             <div className="flex items-center gap-1.5 sm:gap-2">
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
-              {showMoreMenu && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="sm">
-                      <IconDots size={16} />
-                      <span className="hidden sm:inline">More</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {showResolveConflicts && (
-                      <DropdownMenuItem
-                        onClick={() => setShowResolveConfirm(true)}
-                        disabled={isResolvingConflicts}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="icon-sm" aria-label="More">
+                    <IconDots size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {showResolveConflicts && (
+                    <DropdownMenuItem
+                      onClick={() => setShowResolveConfirm(true)}
+                      disabled={isResolvingConflicts}
+                    >
+                      {isResolvingConflicts ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconHammer size={14} />
+                      )}
+                      Resolve Conflicts
+                    </DropdownMenuItem>
+                  )}
+                  {showResolveConflicts && hasSandboxCommandItems ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {showRetryStartupCommands && (
+                    <DropdownMenuItem
+                      onClick={() => setShowStartupCommandsConfirm(true)}
+                      disabled={isRetryingStartupCommands}
+                    >
+                      {isRetryingStartupCommands ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={14} />
+                      )}
+                      Run Startup Commands
+                    </DropdownMenuItem>
+                  )}
+                  {showRunBackgroundCommands && (
+                    <DropdownMenuItem
+                      onClick={handleRunBackgroundCommands}
+                      disabled={isRunningBackgroundCommands}
+                    >
+                      {isRunningBackgroundCommands ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconServerBolt size={14} />
+                      )}
+                      Run Background Commands
+                    </DropdownMenuItem>
+                  )}
+                  {(showResolveConflicts || hasSandboxCommandItems) &&
+                  hasPrLinkItems ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {canCreatePr && (
+                    <DropdownMenuItem
+                      onClick={handleCreatePr}
+                      disabled={isCreatingPr}
+                    >
+                      {isCreatingPr ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconGitPullRequest size={14} />
+                      )}
+                      Create PR
+                    </DropdownMenuItem>
+                  )}
+                  {project.prUrl ? (
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={project.prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
-                        {isResolvingConflicts ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconHammer size={14} />
-                        )}
-                        Resolve Conflicts
+                        <IconGitPullRequest size={14} />
+                        View PR
+                      </a>
+                    </DropdownMenuItem>
+                  ) : null}
+                  {hasDeployedPreview && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <DropdownMenuItem disabled>
+                            <IconBrandVercel size={14} />
+                            View Preview
+                          </DropdownMenuItem>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Please start sandbox and view changes through the
+                        preview tab there instead
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {hasPlanContext && (
+                    <>
+                      {(showResolveConflicts ||
+                        hasSandboxCommandItems ||
+                        hasPrLinkItems) && <DropdownMenuSeparator />}
+                      <DropdownMenuItem onClick={() => setShowPlanModal(true)}>
+                        <IconFileText size={14} />
+                        View Plan
                       </DropdownMenuItem>
-                    )}
-                    {showRetryStartupCommands && (
-                      <DropdownMenuItem
-                        onClick={() => setShowStartupCommandsConfirm(true)}
-                        disabled={isRetryingStartupCommands}
-                      >
-                        {isRetryingStartupCommands ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconRefresh size={14} />
-                        )}
-                        Run Startup Commands
+                      <DropdownMenuItem onClick={() => setShowChatModal(true)}>
+                        <IconMessage size={14} />
+                        View Interview History
                       </DropdownMenuItem>
-                    )}
-                    {showRunBackgroundCommands && (
-                      <DropdownMenuItem
-                        onClick={handleRunBackgroundCommands}
-                        disabled={isRunningBackgroundCommands}
-                      >
-                        {isRunningBackgroundCommands ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconServerBolt size={14} />
-                        )}
-                        Run Background Commands
-                      </DropdownMenuItem>
-                    )}
-                    {canCreatePr && (
-                      <DropdownMenuItem
-                        onClick={handleCreatePr}
-                        disabled={isCreatingPr}
-                      >
-                        {isCreatingPr ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconGitPullRequest size={14} />
-                        )}
-                        Create PR
-                      </DropdownMenuItem>
-                    )}
-                    {hasDeployedPreview && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <DropdownMenuItem disabled>
-                              <IconBrandVercel size={14} />
-                              View Preview
-                            </DropdownMenuItem>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Please start sandbox and view changes through the
-                          preview tab there instead
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {hasPlanContext && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setShowPlanModal(true)}
-                        >
-                          <IconFileText size={14} />
-                          View Plan
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setShowChatModal(true)}
-                        >
-                          <IconMessage size={14} />
-                          View Interview History
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {project.prUrl && (
-                <Button variant="secondary" size="sm" asChild>
-                  <a
-                    href={project.prUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconGitPullRequest size={16} />
-                    <span className="hidden sm:inline">View PR</span>
-                  </a>
-                </Button>
-              )}
+                    </>
+                  )}
+                  {(showResolveConflicts ||
+                    hasSandboxCommandItems ||
+                    hasPrLinkItems ||
+                    hasPlanContext) && <DropdownMenuSeparator />}
+                  <CopyLinkMenuItem />
+                </DropdownMenuContent>
+              </DropdownMenu>
               {isSandboxActive && !isSandboxStopping ? (
                 <Button
                   variant="destructive"
@@ -445,7 +494,7 @@ export function ProjectDetailClient({
                     <IconTerminal2 size={16} />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   )}
                   <span className="hidden sm:inline">
                     {isSandboxStopping
@@ -487,7 +536,8 @@ export function ProjectDetailClient({
         ) : null
       }
     >
-      <ProjectMetadataBar projectId={projectId} />
+      {/* Status/metadata bar is detail-only — sandbox stays flush like sessions. */}
+      {isSandboxSurface ? null : <ProjectMetadataBar projectId={projectId} />}
       <div className="flex min-h-0 flex-1 flex-col">
         {isSandboxSurface ? (
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -551,9 +601,11 @@ export function ProjectDetailClient({
                     projectId: projectId,
                   });
                   setIsBuildModalOpen(false);
-                } finally {
+                } catch (error) {
                   setIsStartingBuild(false);
+                  throw error;
                 }
+                setIsStartingBuild(false);
               }}
             >
               <IconHammer size={16} />

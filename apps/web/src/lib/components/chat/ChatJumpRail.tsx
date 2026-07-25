@@ -1,15 +1,13 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
-  useMemo,
   useState,
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 
 /** Matches t3code `TIMELINE_MINIMAP_ITEM_SPACING` — compact rail, not full-height. */
@@ -80,19 +78,15 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
     () => new Set(),
   );
 
-  const ticks = useMemo(
-    (): Tick[] =>
-      messages.map((message) => {
-        const userText = toPreview(message.content);
-        const assistantText = message.reply ? toPreview(message.reply) : "";
-        return {
-          id: message.id,
-          userText: userText.length > 0 ? userText : "Message",
-          assistantText: assistantText.length > 0 ? assistantText : null,
-        };
-      }),
-    [messages],
-  );
+  const ticks: Tick[] = messages.map((message) => {
+    const userText = toPreview(message.content);
+    const assistantText = message.reply ? toPreview(message.reply) : "";
+    return {
+      id: message.id,
+      userText: userText.length > 0 ? userText : "Message",
+      assistantText: assistantText.length > 0 ? assistantText : null,
+    };
+  });
 
   useEffect(() => {
     const viewport = scrollRef.current;
@@ -123,62 +117,50 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
     return () => observer.disconnect();
   }, [scrollRef, ticks]);
 
-  const scrollToTick = useCallback(
-    (id: string) => {
-      const viewport = scrollRef.current;
-      const target = viewport?.querySelector<HTMLElement>(
-        `[data-message-id="${id}"]`,
-      );
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    },
-    [scrollRef],
-  );
+  const scrollToTick = (id: string) => {
+    const viewport = scrollRef.current;
+    const target = viewport?.querySelector<HTMLElement>(
+      `[data-message-id="${id}"]`,
+    );
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  const resolveHoverIndexFromPointer = useCallback(
-    (event: MouseEvent<HTMLElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect();
-      return resolveIndexFromPointer({
-        itemCount: ticks.length,
-        railTop: rect.top,
-        railHeight: rect.height,
-        pointerY: event.clientY,
-      });
-    },
-    [ticks.length],
-  );
+  const resolveHoverIndexFromPointer = (event: MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return resolveIndexFromPointer({
+      itemCount: ticks.length,
+      railTop: rect.top,
+      railHeight: rect.height,
+      pointerY: event.clientY,
+    });
+  };
 
-  const moveHoverIndex = useCallback(
-    (delta: number) => {
-      setHoverIndex((current) => {
-        const base = current ?? 0;
-        return Math.max(0, Math.min(ticks.length - 1, base + delta));
-      });
-    },
-    [ticks.length],
-  );
+  const moveHoverIndex = (delta: number) => {
+    setHoverIndex((current) => {
+      const base = current ?? 0;
+      return Math.max(0, Math.min(ticks.length - 1, base + delta));
+    });
+  };
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>) => {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        moveHoverIndex(1);
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        moveHoverIndex(-1);
-      } else if (event.key === "Home") {
-        event.preventDefault();
-        setHoverIndex(0);
-      } else if (event.key === "End") {
-        event.preventDefault();
-        setHoverIndex(ticks.length - 1);
-      } else if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        const active = hoverIndex !== null ? (ticks[hoverIndex] ?? null) : null;
-        if (active) scrollToTick(active.id);
-      }
-    },
-    [hoverIndex, moveHoverIndex, scrollToTick, ticks],
-  );
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveHoverIndex(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveHoverIndex(-1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setHoverIndex(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setHoverIndex(ticks.length - 1);
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      const active = hoverIndex !== null ? (ticks[hoverIndex] ?? null) : null;
+      if (active) scrollToTick(active.id);
+    }
+  };
 
   if (ticks.length < MIN_VISIBLE_TICKS) return null;
 

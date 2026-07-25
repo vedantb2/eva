@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   Badge,
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@conductor/ui";
-import { ProviderIcon } from "@conductor/ui/ai";
+} from "@eva/ui";
+import { ProviderIcon } from "@eva/ui/ai";
 import { IconChevronRight, IconCode } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { formatDurationMsShort } from "@conductor/shared/duration";
+import { AnimatePresence, m } from "motion/react";
+import dayjs from "@eva/shared/dates";
+import { formatDurationMsShort } from "@eva/shared/duration";
 import {
   parseResultEvent,
   getTotalInputTokens,
@@ -48,17 +49,34 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
         <IconCode size={12} />
         {open ? "Hide raw" : "View raw"}
       </button>
-      {open && (
-        <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
-          {formatted}
-        </pre>
-      )}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <m.div
+            key="raw-event"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+              {formatted}
+            </pre>
+          </m.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
 
+function LogTypeIcon({ type }: { type: string }) {
+  return createElement(iconFor(type), {
+    size: 16,
+    className: "shrink-0 text-muted-foreground",
+  });
+}
+
 export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
-  const Icon = iconFor(type);
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
@@ -66,7 +84,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
           size={14}
           className="chevron-icon shrink-0 text-muted-foreground transition-transform"
         />
-        <Icon size={16} className="shrink-0 text-muted-foreground" />
+        <LogTypeIcon type={type} />
         <span className="tracking-[-0.01em]">{labelFor(type)}</span>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
           {formatCost(total)}

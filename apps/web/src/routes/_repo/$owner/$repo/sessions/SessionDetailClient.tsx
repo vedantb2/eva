@@ -1,15 +1,16 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
+import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
 
 export function SessionDetailClient({
   sessionId,
@@ -17,6 +18,7 @@ export function SessionDetailClient({
   onSandboxTabChange,
   onOpenFile,
   onViewDiff,
+  isRouteActive = true,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -24,8 +26,13 @@ export function SessionDetailClient({
   onSandboxTabChange: (tab: string) => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile: (path: string) => void;
-  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
+  /** Opens the PR tab (Diffs sub-tab); optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
+  /**
+   * False while this session shell is kept mounted but another session is
+   * shown — Preview must not clear/refetch from sibling URL churn.
+   */
+  isRouteActive?: boolean;
 }) {
   const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -58,11 +65,38 @@ export function SessionDetailClient({
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
+    // Don't prewarm (which resumes the VM) when the PR is already terminal —
+    // auto-stop below owns teardown for merged/closed sessions.
+    if (
+      session !== null &&
+      session !== undefined &&
+      isSessionPrReadOnly(session.prState)
+    ) {
+      return;
+    }
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
+  }, [sessionId, sandboxId, sandboxStatus, session, prewarmDaemon]);
+
+  // Recover sandboxes left running after a PR merge/close (webhook may have
+  // only patched prState before auto-stop existed, or the stop raced).
+  const prAutoStopKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (session === null || session === undefined) return;
+    if (!isSessionPrReadOnly(session.prState)) {
+      prAutoStopKey.current = null;
+      return;
+    }
+    if (session.status !== "active" && session.status !== "starting") {
+      return;
+    }
+    const key = `${sessionId}:${session.prState}:${session.status}`;
+    if (prAutoStopKey.current === key) return;
+    prAutoStopKey.current = key;
+    void stopSandboxMutation({ sessionId });
+  }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // cleared once the Vercel sandbox's stop call completes. Showing the spinner
   // (and disabling Start) for its full duration prevents the stop/start race
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
@@ -76,17 +110,23 @@ export function SessionDetailClient({
       setIsStopPending(true);
       try {
         await stopSandboxMutation({ sessionId });
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
-  const openDiffsTab = useCallback(() => {
-    onSandboxTabChange("diffs");
-  }, [onSandboxTabChange]);
+  const openDiffsTab = () => {
+    if (onViewDiff) {
+      onViewDiff();
+      return;
+    }
+    onSandboxTabChange("review");
+  };
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only
   // (undefined → set). Don't fight the user if they switch away mid-lock.
@@ -99,10 +139,11 @@ export function SessionDetailClient({
   useEffect(() => {
     const prev = prevAgentBrowsingAt.current;
     prevAgentBrowsingAt.current = agentBrowsingAt;
+    if (!isRouteActive) return;
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     onSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-  }, [agentBrowsingAt, onSandboxTabChange]);
+  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive]);
 
   if (session === undefined) {
     return (
@@ -119,6 +160,9 @@ export function SessionDetailClient({
   }
 
   const isSandboxActive = session.status === "active";
+  const isArchived = session.archived === true;
+  // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
+  const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
 
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
@@ -145,20 +189,26 @@ export function SessionDetailClient({
             }
             isSandboxStopping={isSandboxStopping || isStopPending}
             onSandboxToggle={handleSandboxToggle}
-            isArchived={session.archived === true}
+            isArchived={isArchived}
+            isReadOnly={isReadOnly}
             deploymentStatus={session.deploymentStatus}
             sandboxCollapsed={rightPanelCollapsed}
             onToggleSandbox={onToggleRightPanel}
             onOpenFile={onOpenFile}
             onViewDiff={onViewDiff}
+            onOpenPrdTab={() => {
+              onSandboxTabChange("prd");
+              setExpandRightSignal((n) => n + 1);
+            }}
+            backgroundAgents={session.backgroundAgents}
           />
         )}
         rightPanel={
           <SandboxPanel
             sessionId={sessionId}
             sandboxId={session.sandboxId}
-            vercelSandboxId={session.vercelSandboxId}
             isActive={isSandboxActive}
+            isRouteActive={isRouteActive}
             repoId={session.repoId}
             prUrl={session.prUrl}
             // Prefer session (set after services start); fall back to app
@@ -167,13 +217,21 @@ export function SessionDetailClient({
             devCommand={session.devCommand ?? repo.devCommand}
             terminalPanes={session.terminalPanes}
             planContent={session.planContent}
-            isArchived={session.archived === true}
+            isArchived={isReadOnly}
             activeTab={activeSandboxTab}
             onTabChange={onSandboxTabChange}
             agentBrowsingAt={session.agentBrowsingAt}
+            onStartSandbox={
+              isReadOnly || isSandboxStopping || isStopPending
+                ? undefined
+                : () => {
+                    void handleSandboxToggle("start");
+                  }
+            }
+            isSandboxStarting={isSandboxStarting}
           />
         }
-        leftDefaultSize="30%"
+        leftDefaultSize="40%"
         leftMinWidthPx={350}
         rightMinWidthPx={300}
         storageKey="sandbox-collapsed"

@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, getProjectWithAccess, hasActiveRun } from "../functions";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { buildProjectBranchName } from "./helpers";
 import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
@@ -11,6 +11,8 @@ import {
   clearSandboxStartupActivity,
 } from "../_sandbox/startupActivity";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { clearPendingQuestionsForEntity } from "../pendingQuestions";
+import { normalizeAIModel } from "../validators";
 
 const PREVIEW_ALLOWED_PHASES = [
   "in_progress",
@@ -74,7 +76,7 @@ export const startProjectSandbox = authMutation({
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.startProjectPreviewSandbox,
+        internal.sandbox.startProjectPreviewSandbox,
         startArgs,
       );
     } else {
@@ -92,8 +94,8 @@ export const startProjectSandbox = authMutation({
 /**
  * Re-runs startup commands for a project's preview sandbox by kicking off the
  * regular sandbox startup workflow with `forceStartupCommands: true`. Used to
- * recover when startup commands previously failed (the marker file is created
- * regardless of failure, so a normal start would skip them).
+ * recover when seed/import failed. Normal Start only relaunches background
+ * daemons; this is the explicit path that re-runs startupCommands.
  *
  * Auto-starts the sandbox if it isn't running yet — same workflow path either
  * way, just with the force flag set so commands always re-execute.
@@ -176,7 +178,7 @@ export const runProjectBackgroundCommands = authMutation({
       throw new Error("Start the sandbox before running background commands");
     }
 
-    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.runBackgroundCommands, {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
     });
@@ -252,8 +254,9 @@ export const resolveProjectConflicts = authMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         carrier.providerAccountId,
-        ctx.userId,
+        carrier.createdBy,
       ),
+      model: normalizeAIModel(carrier.model),
     });
     await ctx.db.patch(carrier._id, {
       status: "in_progress",
@@ -275,6 +278,8 @@ export const resolveProjectConflicts = authMutation({
           baseBranch,
           isFirstTaskOnBranch: false,
           model: carrier.model ?? repo.defaultModel,
+          providerAccountId: carrier.providerAccountId,
+          credentialOwnerUserId: carrier.createdBy,
           userId: ctx.userId,
           mode: "resolve_conflicts",
         },
@@ -306,11 +311,11 @@ export const resolveProjectConflicts = authMutation({
 });
 
 /**
- * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the user can
+ * Stops the preview sandbox. Keeps `sandboxId` so the user can
  * resume the same paused filesystem on next start.
  *
  * Marks the project as `"stopping"` synchronously so the UI can show a spinner
- * and disable the Start button until the real Daytona stop (~10s) completes.
+ * and disable the Start button until the sandbox stop completes.
  */
 export const stopProjectSandbox = authMutation({
   args: { projectId: v.id("projects") },
@@ -346,6 +351,10 @@ export const stopProjectSandbox = authMutation({
       `project-sandbox-startup-${args.projectId}`,
     );
 
+    // Stopping kills the paused turn, so any blocking AskUserQuestion can
+    // never be claimed — clear it or it hides the composer forever.
+    await clearPendingQuestionsForEntity(ctx.db, String(args.projectId));
+
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "stopping",
@@ -369,7 +378,7 @@ export const finalizeStopProjectSandbox = internalAction({
   handler: async (ctx, args) => {
     let stopError: string | undefined;
     try {
-      await ctx.runAction(internal.daytona.stopSandbox, {
+      await ctx.runAction(internal.sandbox.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
@@ -499,7 +508,7 @@ export const projectSandboxStarting = internalMutation({
   },
 });
 
-/** Persists the sandbox id as soon as Daytona creates it, before long startup steps. */
+/** Persists the sandbox id as soon as the sandbox is created, before long startup steps. */
 export const projectSandboxAllocated = internalMutation({
   args: {
     projectId: v.id("projects"),

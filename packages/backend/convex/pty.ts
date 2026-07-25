@@ -2,30 +2,14 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import {
-  resolveSandboxCredentials,
-  resolveDaytonaApiKey,
-} from "./envVarResolver";
-import { getSandboxHandle } from "./_daytona/helpers";
+import { resolveSandboxCredentials } from "./envVarResolver";
+import { getSandboxHandle } from "./_sandbox_runtime/helpers";
 import { unwrapVercelSandbox } from "./_sandbox/vercelProvider";
-import { unwrapDaytonaSandbox } from "./_sandbox/daytonaProvider";
 import { ownerArg, resolveOwner } from "./_pty/owners";
-import {
-  createPtyInWorkspace,
-  ensurePtySessionReady,
-  getToolboxBaseUrl,
-} from "./_pty/daytona";
 import {
   connectVercelInteractive,
   ensureVercelSharedTerminal,
 } from "./_pty/vercel";
-
-/** Returns the explicit PTY instance id when provided and non-empty, else null. */
-function toExplicitPtyId(ptyInstanceId: string | undefined): string | null {
-  return ptyInstanceId !== undefined && ptyInstanceId.length > 0
-    ? ptyInstanceId
-    : null;
-}
 
 /** Connects to or creates a PTY for a session or task, returning the WebSocket URL. */
 export const connectPty = action({
@@ -39,7 +23,7 @@ export const connectPty = action({
     wsUrl: v.string(),
     ptySessionId: v.string(),
     isNewPty: v.boolean(),
-    ptyProtocol: v.union(v.literal("daytona"), v.literal("vercel")),
+    ptyProtocol: v.literal("vercel"),
     ptyAuthToken: v.optional(v.string()),
     sharedPtySessionName: v.optional(v.string()),
     initialOutput: v.optional(v.string()),
@@ -51,7 +35,7 @@ export const connectPty = action({
     wsUrl: string;
     ptySessionId: string;
     isNewPty: boolean;
-    ptyProtocol: "daytona" | "vercel";
+    ptyProtocol: "vercel";
     ptyAuthToken?: string;
     sharedPtySessionName?: string;
     initialOutput?: string;
@@ -68,121 +52,36 @@ export const connectPty = action({
     if (resolved.isStoppingOrClosed) {
       throw new Error("Sandbox is not running. Start the sandbox first.");
     }
-    const { credentials } = await resolveSandboxCredentials(
+    await resolveSandboxCredentials(ctx, resolved.repoId);
+
+    const handle = await getSandboxHandle(
       ctx,
       resolved.repoId,
+      resolved.sandboxId,
     );
-
-    if (credentials.kind === "vercel") {
-      const handle = await getSandboxHandle(
-        ctx,
-        resolved.repoId,
-        resolved.sandboxId,
-      );
-      const shared = await ensureVercelSharedTerminal(
-        handle,
-        args.ptyInstanceId,
-      );
-      const vercelSandbox = unwrapVercelSandbox(handle);
-      const { wsUrl, ptySessionId, authToken } = await connectVercelInteractive(
-        vercelSandbox,
-        shared.sessionName,
-      );
-      return {
-        wsUrl,
-        ptySessionId,
-        isNewPty: shared.isNewPty,
-        ptyProtocol: "vercel",
-        initialOutput: shared.initialOutput,
-        ptyAuthToken: authToken,
-        sharedPtySessionName: shared.sessionName,
-      };
-    }
-
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, resolved.repoId);
-    const sandbox = unwrapDaytonaSandbox(
-      await getSandboxHandle(ctx, resolved.repoId, resolved.sandboxId),
+    const shared = await ensureVercelSharedTerminal(handle, args.ptyInstanceId);
+    const vercelSandbox = unwrapVercelSandbox(handle);
+    const { wsUrl, ptySessionId, authToken } = await connectVercelInteractive(
+      vercelSandbox,
+      shared.sessionName,
     );
-
-    const explicitId = toExplicitPtyId(args.ptyInstanceId);
-
-    let ptyId: string;
-    let isNewPty: boolean;
-
-    if (explicitId) {
-      const result = await ensurePtySessionReady(
-        sandbox,
-        explicitId,
-        args.cols,
-        args.rows,
-      );
-      ptyId = explicitId;
-      isNewPty = result.isNewPty;
-    } else {
-      // Legacy default-terminal flow — only sessions take this branch in
-      // practice; tasks always pass an explicit ptyInstanceId from the
-      // multi-pane UI.
-      ptyId = resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
-      isNewPty = false;
-
-      if (resolved.defaultPtyId) {
-        try {
-          await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
-        } catch {
-          const handle = await createPtyInWorkspace(
-            sandbox,
-            ptyId,
-            args.cols,
-            args.rows,
-          );
-          await handle.disconnect();
-          isNewPty = true;
-        }
-      } else {
-        try {
-          const handle = await createPtyInWorkspace(
-            sandbox,
-            ptyId,
-            args.cols,
-            args.rows,
-          );
-          await handle.disconnect();
-        } catch (e) {
-          const errMsg = e instanceof Error ? e.message : String(e);
-          if (errMsg.includes("already exists")) {
-            await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
-          } else {
-            throw e;
-          }
-        }
-        if (resolved.setDefaultPtyId) {
-          await resolved.setDefaultPtyId(ptyId);
-        }
-        isNewPty = true;
-      }
-    }
-
-    const [toolboxUrl, previewLink] = await Promise.all([
-      getToolboxBaseUrl(sandbox.id, daytonaApiKey),
-      sandbox.getPreviewLink(1),
-    ]);
-    const toolboxUrlObj = new URL(toolboxUrl);
-    toolboxUrlObj.protocol = "https:";
-    let baseUrl = toolboxUrlObj.toString();
-    if (!baseUrl.endsWith("/")) baseUrl += "/";
-    baseUrl += sandbox.id;
-    const wsUrl = `${baseUrl.replace(/^https/, "wss")}/process/pty/${ptyId}/connect?DAYTONA_SANDBOX_AUTH_KEY=${previewLink.token}`;
-
     return {
       wsUrl,
-      ptySessionId: ptyId,
-      isNewPty,
-      ptyProtocol: "daytona",
+      ptySessionId,
+      isNewPty: shared.isNewPty,
+      ptyProtocol: "vercel",
+      initialOutput: shared.initialOutput,
+      ptyAuthToken: authToken,
+      sharedPtySessionName: shared.sessionName,
     };
   },
 });
 
-/** Resizes an existing PTY session to the given column and row dimensions. */
+/**
+ * Resizes an existing PTY session to the given column and row dimensions.
+ * Vercel interactive PTY is controller-hosted — resize is handled client-side,
+ * so this is a no-op kept for API compatibility with existing callers.
+ */
 export const resizePty = action({
   args: {
     owner: ownerArg,
@@ -195,45 +94,16 @@ export const resizePty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const resolved = await resolveOwner(ctx, args.owner);
-    const { credentials } = await resolveSandboxCredentials(
-      ctx,
-      resolved.repoId,
-    );
-
-    // Vercel interactive PTY is controller-hosted — resize is handled client-side.
-    if (credentials.kind === "vercel") {
-      return null;
-    }
-
-    const explicitId = toExplicitPtyId(args.ptyInstanceId);
-    const ptyId = explicitId
-      ? explicitId
-      : resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
-
-    const sandbox = unwrapDaytonaSandbox(
-      await getSandboxHandle(ctx, resolved.repoId, resolved.sandboxId),
-    );
-    try {
-      await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
-    } catch (error) {
-      // PTY session may not exist yet (startup) or may have disconnected
-      // Log warning but don't throw - resize is best-effort
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("not found")) {
-        console.warn(
-          `[pty] resizePty: PTY session ${ptyId} not found, ignoring`,
-        );
-      } else {
-        throw error;
-      }
-    }
-
+    await resolveOwner(ctx, args.owner);
     return null;
   },
 });
 
-/** Kills the PTY session for a sandbox and clears the stored PTY session ID. */
+/**
+ * Kills the PTY session for a sandbox.
+ * Vercel interactive PTY ends when the WebSocket closes — nothing to kill,
+ * so this is a no-op kept for API compatibility with existing callers.
+ */
 export const disconnectPty = action({
   args: {
     owner: ownerArg,
@@ -244,36 +114,7 @@ export const disconnectPty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const resolved = await resolveOwner(ctx, args.owner);
-    const { credentials } = await resolveSandboxCredentials(
-      ctx,
-      resolved.repoId,
-    );
-
-    // Vercel interactive PTY ends when the WebSocket closes — nothing to kill.
-    if (credentials.kind === "vercel") {
-      return null;
-    }
-
-    const explicitId = toExplicitPtyId(args.ptyInstanceId);
-
-    const ptyId = explicitId
-      ? explicitId
-      : resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
-
-    const sandbox = unwrapDaytonaSandbox(
-      await getSandboxHandle(ctx, resolved.repoId, resolved.sandboxId),
-    );
-    try {
-      await sandbox.process.killPtySession(ptyId);
-    } catch {
-      // PTY may already be dead
-    }
-
-    if (!explicitId && resolved.setDefaultPtyId) {
-      await resolved.setDefaultPtyId("");
-    }
-
+    await resolveOwner(ctx, args.owner);
     return null;
   },
 });

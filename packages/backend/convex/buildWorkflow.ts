@@ -10,8 +10,9 @@ import {
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
+import { normalizeAIModel } from "./validators";
 
 // --- Workflow ---
 
@@ -153,8 +154,9 @@ export const startTaskForBuild = internalMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
-        args.userId,
+        task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {
@@ -182,6 +184,8 @@ export const startTaskForBuild = internalMutation({
           FALLBACK_GIT_BASE_BRANCH,
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: args.userId,
       },
     );

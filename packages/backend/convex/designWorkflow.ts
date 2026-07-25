@@ -169,6 +169,7 @@ export const designSessionWorkflow = workflow.define({
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    credentialOwnerUserId: v.optional(v.id("users")),
     personaId: v.optional(v.id("designPersonas")),
     userId: v.id("users"),
     numDesigns: v.optional(v.number()),
@@ -196,7 +197,7 @@ export const designSessionWorkflow = workflow.define({
     }
 
     await step.runAction(
-      internal.daytona.launchOnExistingSandbox,
+      internal.sandbox.launchOnExistingSandbox,
       {
         sandboxId: sessionData.sandboxId,
         entityId: args.designSessionId,
@@ -209,6 +210,7 @@ export const designSessionWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
         allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
         repoId: sessionData.repoId,

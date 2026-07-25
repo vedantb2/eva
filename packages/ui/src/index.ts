@@ -29,6 +29,7 @@ export * from "./ui/separator";
 export * from "./ui/sheet";
 export * from "./ui/sonner";
 export * from "./ui/spinner";
+export * from "./ui/switch";
 export * from "./ui/tabs";
 export * from "./ui/textarea";
 export * from "./ui/table";

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
-import { Button, Checkbox, Spinner, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
+import { Button, Checkbox, Spinner, cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -68,9 +68,11 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
         autoRun,
       });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   return (

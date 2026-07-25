@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Context,
   ContextTrigger,
@@ -14,9 +14,8 @@ import {
   ContextOutputUsage,
   ContextCacheReadUsage,
   ContextCacheWriteUsage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { parseResultEvent } from "@/lib/utils/logs";
-import { useMemo } from "react";
 
 // Model context window sizes (in tokens). Used for the usage percentage display;
 // not for cost (cost comes from Claude's `total_cost_usd` in the result event).
@@ -124,7 +123,7 @@ export function EntityContextUsage({
   entityId,
 }: EntityContextUsageProps) {
   const logs = useQuery(api.logs.getByEntityId, { repoId, entityId });
-  const aggregated = useMemo(() => aggregateUsage(logs), [logs]);
+  const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }
 
@@ -140,6 +139,6 @@ export function ProjectContextUsage({
   projectId,
 }: ProjectContextUsageProps) {
   const logs = useQuery(api.logs.getByProjectId, { repoId, projectId });
-  const aggregated = useMemo(() => aggregateUsage(logs), [logs]);
+  const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }

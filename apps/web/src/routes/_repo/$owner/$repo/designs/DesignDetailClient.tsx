@@ -1,11 +1,10 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { useEffect, useState } from "react";
+import { Spinner } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
@@ -27,20 +26,20 @@ export function DesignDetailClient({
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
   const [isStopPending, setIsStopPending] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // cleared once the Vercel sandbox's stop call completes. Showing the spinner
   // (and disabling Start) for its full duration prevents the stop/start race
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
   const isSandboxActive = session?.status === "active";
 
-  const fetchPreviewUrl = useCallback(async () => {
+  async function fetchPreviewUrl() {
     if (!session?.sandboxId) {
       setPreviewUrl(null);
       return;
@@ -62,26 +61,22 @@ export function DesignDetailClient({
         repoId: session.repoId,
         checkReady: true,
       });
-      await dismissDaytonaWarning(data.url);
       setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);
     }
-  }, [session?.sandboxId, session?.status, getPreviewUrl, session?.repoId]);
+  }
 
   useEffect(() => {
-    fetchPreviewUrl();
-  }, [fetchPreviewUrl]);
+    void fetchPreviewUrl();
+  }, [session?.sandboxId, session?.status, session?.repoId]);
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
   const lastAssistantHasNoContent =
     !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
 
-  const latestVariations = useMemo(
-    () => getLatestVariations(messagesList),
-    [messagesList],
-  );
+  const latestVariations = getLatestVariations(messagesList);
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
@@ -93,9 +88,11 @@ export function DesignDetailClient({
       try {
         await stopSandboxMutation({ id: designSessionId });
         setPreviewUrl(null);
-      } finally {
+      } catch (error) {
         setIsStopPending(false);
+        throw error;
       }
+      setIsStopPending(false);
     }
   };
 

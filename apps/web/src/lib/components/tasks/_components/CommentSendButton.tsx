@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, cn } from "@conductor/ui";
+import { Button, cn } from "@eva/ui";
 import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 

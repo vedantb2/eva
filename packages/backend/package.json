@@ -1,5 +1,5 @@
 {
-  "name": "@conductor/backend",
+  "name": "@eva/backend",
   "version": "1.0.0",
   "private": true,
   "exports": {
@@ -10,11 +10,11 @@
     "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 convex dev",
     "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
+    "typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
-    "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts callback-src/tests/backgroundShells.test.ts",
-    "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
-    "test:ui-task-prompt": "node --import tsx --test tests/uiTaskPrompt.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "predeploy": "pnpm run build:callback",
     "deploy": "convex deploy"
   },
@@ -23,12 +23,12 @@
   "description": "",
   "dependencies": {
     "@clerk/backend": "^2.30.1",
-    "@conductor/shared": "workspace:*",
+    "@eva/shared": "workspace:*",
+    "@convex-dev/action-cache": "^0.3.1",
     "@convex-dev/crons": "^0.2.0",
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",
     "@convex-dev/workflow": "^0.3.4",
-    "@daytonaio/sdk": "^0.167.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@octokit/auth-app": "^8.1.2",
     "@sendgrid/mail": "^8.1.6",
@@ -38,6 +38,7 @@
     "@tiptap/pm": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
     "@vercel/sandbox": "^2.4.0",
+    "ai": "^6.0.164",
     "convex": "^1.40.0",
     "convex-helpers": "0.1.114",
     "jose": "^6.0.11",
@@ -54,7 +55,7 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
-    "tsx": "^4.19.4",
-    "typescript": "7.0.1-rc"
+    "typescript": "7.0.1-rc",
+    "vitest": "^3.2.4"
   }
 }

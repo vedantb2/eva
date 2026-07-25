@@ -1,7 +1,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useState } from "react";
 import {
   Button,
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconEdit, IconTrash, IconUsers } from "@tabler/icons-react";
 
 export function PersonaDropdown({

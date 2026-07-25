@@ -1,11 +1,11 @@
 "use node";
 
 /**
- * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts).
- * Mirrors ./daytonaProvider.ts but targets `@vercel/sandbox` v2 (persistent
- * sandboxes, sub-second snapshot restore — see the Phase 0 spike results).
+ * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts),
+ * targeting `@vercel/sandbox` v2 (persistent sandboxes, sub-second snapshot
+ * restore — see the Phase 0 spike results).
  *
- * Design notes / provider deltas vs Daytona:
+ * Design notes / provider deltas vs Daytona (the original, now-removed provider):
  * - Identity: Vercel addresses sandboxes by `name`, not a separate id. We expose
  *   `handle.id === sandbox.name` and resolve `get(sandboxId)` via `Sandbox.get({ name })`.
  * - Resources: the neutral create params carry no vCPU count, so we default it
@@ -13,11 +13,14 @@
  * - Lifecycle: Vercel is persistent-by-default and auto-resumes on `get`, so
  *   `start()` is a no-op and `archive()` maps to `stop()` (stop auto-snapshots).
  * - git: no native git client — implemented over the shell via runCommand.
- * - PTY/desktop/volumes are intentionally omitted for now: Vercel's PTY is a
- *   client-connect WebSocket (`openInteractive`) rather than the push-callback
- *   model of the neutral SandboxPty, and Drives (volumes) are beta. These are
- *   the "wired last" capabilities called out in the contract; consumers that
- *   need them stay on Daytona until they're designed for both providers.
+ * - PTY: implemented, but NOT via the neutral `SandboxPty` interface, so
+ *   `this.pty` stays undefined here. Vercel's PTY is a client-connect WebSocket
+ *   (`openInteractive`) rather than the push-callback model SandboxPty assumes,
+ *   so terminals are wired one layer up in ../pty.ts, which returns a
+ *   `ptyProtocol: v.literal("vercel")` discriminator and hands the browser a ws
+ *   URL. See ../_pty/vercel.ts (tmux-backed shared panes).
+ * - desktop: implemented, see VercelDesktop below (TigerVNC + websockify/noVNC).
+ * - volumes: the one genuine gap. `ensureVolume` throws — Drives are still beta.
  */
 
 import { Sandbox } from "@vercel/sandbox";
@@ -35,6 +38,18 @@ import type {
   SandboxSnapshotInfo,
   SandboxState,
 } from "./provider";
+import {
+  KEEP_LAST_SNAPSHOTS,
+  vercelSnapshotCreateOptions,
+} from "./vercelSnapshotOptions";
+import { EVA_ENV_FILE } from "./vercelEnvFile";
+
+export {
+  EVA_ENV_FILE,
+  ensureEvaEnvInteractiveHookScript,
+  renderEvaEnvFile,
+  tmuxNewSessionWithEvaEnv,
+} from "./vercelEnvFile";
 
 /** Vercel API credentials, passed on every SDK call. */
 interface VercelCredentials {
@@ -48,23 +63,19 @@ const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 // repo/team env (~6 KB+). Instead of passing env at create, we write it to this
 // file in the sandbox and source it on every exec — no size cap, and it persists
 // across get()/resume like any other file.
-export const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
-
-/** Renders env vars as sourceable `export K='V'` lines (single-quote-escaped). */
-export function renderEvaEnvFile(env: Record<string, string>): string {
-  return (
-    Object.entries(env)
-      .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
-      .join("\n") + "\n"
-  );
-}
 
 /** Prefix that sources the eva env file (if present) before a command. */
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
-/** Vercel exposes at most 4 ports; default to the eva dev + proxy range if unset. */
+/** Vercel exposes at most 4 ports; default assumes Next on 3000 + Supabase API. */
 const MAX_PORTS = 4;
 const STOP_CONFIRMATION_TIMEOUT_MS = 180_000;
 const STOP_CONFIRMATION_POLL_MS = 1_000;
+/**
+ * Ceiling on the snapshot-registration POST. Deliberately far above its normal
+ * few-seconds latency: this catches a wedged request, not a slow capture (the
+ * capture runs server-side after the POST returns). See createSnapshot.
+ */
+const SNAPSHOT_REQUEST_TIMEOUT_MS = 120_000;
 export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
   3000, 8080, 6080, 54321,
 ];
@@ -198,6 +209,20 @@ class VercelDesktop implements SandboxDesktop {
   constructor(private readonly handle: VercelSandboxHandle) {}
 
   async start(): Promise<void> {
+    // ffmpeg: required by `agent-browser record` (WebM encode). Runs BEFORE the
+    // health/install logic below because older snapshots bake the VNC stack but
+    // not ffmpeg — both the healthy early-return and the INSTALLED=1 guard would
+    // skip it forever. Idempotent (`command -v` gate) and soft-failing.
+    await this.handle.exec(
+      [
+        "if ! command -v ffmpeg >/dev/null 2>&1; then",
+        "  sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+        "  sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+        "fi",
+      ].join("\n"),
+      { timeoutSeconds: 180 },
+    );
+
     // Idempotent: if a live (non-zombie) stack is already healthy, keep it.
     // Re-killing a working Xvnc mid-session blacks the Computer tab and races
     // Chrome relaunch. websockify listens on 16080 (internal); exposed 6080 is
@@ -605,7 +630,11 @@ class VercelSandboxHandle implements SandboxHandle {
     });
   }
 
-  async start(timeoutSeconds: number): Promise<void> {
+  async start(
+    timeoutSeconds: number,
+    opts?: { resumeAfterStop?: boolean },
+  ): Promise<void> {
+    const resumeAfterStop = opts?.resumeAfterStop === true;
     // Explicit resume via get(resume:true) — the SDK's native resume path (one
     // getSandbox API call that provisions a fresh session, sub-second on warm
     // hosts). The previous exec("true") kick went through withResume, which on
@@ -617,22 +646,29 @@ class VercelSandboxHandle implements SandboxHandle {
     let observed: SandboxState = this.state;
     if (observed === "running") return;
 
-    // If a stop is in flight, NEVER issue resume:true — the SDK waits the stop
-    // out and then wakes the VM (auto-restart after the user clicked Stop).
-    // Wait for a terminal stopped state with resume:false, then refuse to start
-    // so in-flight resume/start callers fail cleanly instead of resurrecting.
+    // If a stop is in flight, NEVER issue resume:true while it runs — the SDK
+    // waits the stop out and then wakes the VM (auto-restart after the user
+    // clicked Stop). Wait for a terminal stopped state with resume:false
+    // first. What happens next depends on caller intent: explicit
+    // user-initiated starts (resumeAfterStop) proceed to resume from the
+    // fresh snapshot — e.g. Start clicked while a previous run's teardown was
+    // still snapshotting — while background callers refuse, so a stale
+    // in-flight resume cannot resurrect a sandbox the user just stopped.
     let resolved = await this.resolveSessionStatus();
     if (
       resolved.kind === "status" &&
       this.isStopInFlightStatus(resolved.status)
     ) {
       console.log(
-        `[vercel] start refused while ${resolved.status} sandbox=${this.sandbox.name}; waiting for stop to finish`,
+        `[vercel] start ${resumeAfterStop ? "waiting out in-flight stop" : "refused"} while ${resolved.status} sandbox=${this.sandbox.name}`,
       );
       await this.waitForStopConfirmation();
-      throw new Error(
-        `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-      );
+      if (!resumeAfterStop) {
+        throw new Error(
+          `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+        );
+      }
+      await this.refresh();
     }
 
     // Retry loop: a resume issued while a previous stop is still snapshotting
@@ -647,12 +683,16 @@ class VercelSandboxHandle implements SandboxHandle {
         this.isStopInFlightStatus(resolved.status)
       ) {
         console.log(
-          `[vercel] start aborted — stop began mid-resume sandbox=${this.sandbox.name}`,
+          `[vercel] start: stop began mid-resume sandbox=${this.sandbox.name}; ${resumeAfterStop ? "waiting it out before resuming" : "aborting"}`,
         );
         await this.waitForStopConfirmation();
-        throw new Error(
-          `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-        );
+        if (!resumeAfterStop) {
+          throw new Error(
+            `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+          );
+        }
+        await this.refresh();
+        continue;
       }
       // Still resolving (listSessions error / race) — do not resume yet.
       if (resolved.kind === "unknown") {
@@ -679,9 +719,12 @@ class VercelSandboxHandle implements SandboxHandle {
             `[vercel] start hit stop-in-flight API error sandbox=${this.sandbox.name}: ${lastError}`,
           );
           await this.waitForStopConfirmation();
-          throw new Error(
-            `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
-          );
+          if (!resumeAfterStop) {
+            throw new Error(
+              `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+            );
+          }
+          // Stop confirmed terminal — loop around and retry the resume.
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -723,6 +766,9 @@ class VercelSandboxHandle implements SandboxHandle {
       console.log(
         `[vercel] stop requested sandbox=${this.sandbox.name} status=${attached}`,
       );
+      // stop() auto-snapshots persistent sandboxes — enforce retention first
+      // so older sandboxes created before create-time policy still stay at 1.
+      await this.ensureSnapshotRetention();
       await this.sandbox.stop();
       await this.waitForStopConfirmation();
       return;
@@ -751,15 +797,80 @@ class VercelSandboxHandle implements SandboxHandle {
     console.log(
       `[vercel] stop via sessionId sandbox=${this.sandbox.name} sessionId=${listed.sessionId} status=${listed.status}`,
     );
+    await this.ensureSnapshotRetention();
     await this.stopSessionById(listed.sessionId);
     await this.waitForStopConfirmation();
+  }
+
+  /** Apply keepLastSnapshots=1 so stop/snapshot do not pile up snap_* objects. */
+  private async ensureSnapshotRetention(): Promise<void> {
+    await this.sandbox.update({ keepLastSnapshots: KEEP_LAST_SNAPSHOTS });
   }
   async archive(): Promise<void> {
     // No separate cold-storage archive on Vercel — stop() auto-snapshots.
     await this.stop();
   }
-  async delete(): Promise<void> {
-    await this.sandbox.delete();
+
+  /**
+   * Delete every snap_* listed for this sandbox name, optionally keeping seed
+   * captures. Vercel's sandbox.delete() is documented to cascade, but in
+   * practice snap_* objects (especially expiration:0 seed captures) remain and
+   * continue to bill Snapshot Storage — see project Snapshots dashboard.
+   */
+  private async deleteSnapshotsForSandbox(
+    sandboxName: string,
+    preserveSnapshotIds: ReadonlySet<string>,
+  ): Promise<number> {
+    const { Snapshot } = await import("@vercel/sandbox");
+    // list() yields plain metadata (`id`, no .delete()) — re-hydrate to delete.
+    const listed = await Snapshot.list({
+      ...this.creds,
+      name: sandboxName,
+    });
+    let deleted = 0;
+    for await (const meta of listed) {
+      if (preserveSnapshotIds.has(meta.id)) continue;
+      if (String(meta.status) === "deleted") continue;
+      try {
+        const snap = await Snapshot.get({
+          ...this.creds,
+          snapshotId: meta.id,
+        });
+        await snap.delete();
+        deleted += 1;
+      } catch (error) {
+        console.warn(
+          `[vercel] snapshot.delete failed sandbox=${sandboxName} snapshotId=${meta.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    return deleted;
+  }
+
+  async delete(options?: {
+    preserveSnapshotIds?: ReadonlyArray<string>;
+  }): Promise<void> {
+    const sandboxName = this.sandbox.name;
+    const preserve = new Set(options?.preserveSnapshotIds ?? []);
+    const before = await this.deleteSnapshotsForSandbox(sandboxName, preserve);
+    try {
+      await this.sandbox.delete();
+    } catch (error) {
+      console.warn(
+        `[vercel] sandbox.delete failed name=${sandboxName}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    // Cascade is unreliable — sweep again for anything left after sandbox gone.
+    const after = await this.deleteSnapshotsForSandbox(sandboxName, preserve);
+    if (before + after > 0) {
+      console.log(
+        `[vercel] delete sandbox=${sandboxName} purgedSnapshots=${before + after} preserved=${preserve.size}`,
+      );
+    }
   }
   async refresh(): Promise<void> {
     // Re-fetch the sandbox to pick up current status. resume:false is CRITICAL:
@@ -792,20 +903,47 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async createSnapshot(
-    _params: CreateSnapshotParams,
+    params: CreateSnapshotParams,
   ): Promise<{ snapshotId: string }> {
-    // Vercel snapshots are id-addressed (name is ignored). A persistent
-    // sandbox also auto-snapshots on every stop, so without a retention
-    // policy a long-lived seed-prep sandbox's lineage of snap_* objects
-    // grows unbounded. Cap it at the single most recent snapshot and delete
-    // evicted ones immediately — this is in ADDITION to (not a replacement
-    // for) snapshotWorkflow's own delete-before-capture step, which targets
-    // the previous seeded snapshot by name across sandbox lineages.
-    await this.sandbox.update({
-      keepLastSnapshots: { count: 1, deleteEvicted: true },
-    });
-    const snap = await this.sandbox.snapshot({ expiration: 0 });
-    return { snapshotId: snap.snapshotId };
+    // Vercel snapshots are id-addressed (name is ignored for addressing).
+    // Retention is also set at create/stop; re-apply here so explicit captures
+    // still evict older snap_* objects. snapshotWorkflow separately deletes the
+    // previous seeded snapshot by name across sandbox lineages.
+    await this.ensureSnapshotRetention();
+
+    // `sandbox.snapshot` is a single POST that registers the snapshot and
+    // returns its id; the capture itself continues server-side. It answers in
+    // seconds, which is what lets callers poll completion across separate
+    // workflow steps instead of awaiting a multi-minute capture inline.
+    //
+    // The bound below is not a capture timeout — it cannot be, since aborting
+    // would discard the very id callers need to poll with. It exists so a wedged
+    // request (or a `withResume` that stalls waking a stopped sandbox — the SDK
+    // resumes before snapshotting) surfaces a describable error instead of
+    // running into Convex's ~600s action ceiling, which kills the action with no
+    // message. Aborting is acceptable here only because at this point the action
+    // was already doomed.
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      SNAPSHOT_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const snap = await this.sandbox.snapshot({
+        expiration: 0,
+        signal: controller.signal,
+      });
+      return { snapshotId: snap.snapshotId };
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `vercel createSnapshot (name=${params.name ?? "unnamed"}, sandbox=${this.sandbox.name}) did not return within ${SNAPSHOT_REQUEST_TIMEOUT_MS / 1000}s. This POST only registers the snapshot, so a stall here means the API or the pre-snapshot resume is wedged — not that the capture is slow.`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async writeFile(path: string, content: string | Uint8Array): Promise<void> {
@@ -822,6 +960,7 @@ class VercelSandboxClient implements SandboxClient {
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
     // env is written to a file post-create (see EVA_ENV_FILE) rather than passed
     // here — Vercel's create-time env cap is 4 KB and eva's env exceeds it.
+    const persistent = params.lifecycle.ephemeral !== true;
     const base = {
       ...this.creds,
       // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
@@ -830,7 +969,8 @@ class VercelSandboxClient implements SandboxClient {
       // resumes have headroom; eva stops sandboxes explicitly (snapshot/stop),
       // and Vercel bills only active CPU + provisioned memory while running.
       timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
-      persistent: params.lifecycle.ephemeral !== true,
+      persistent,
+      ...vercelSnapshotCreateOptions(persistent),
       resources: { vcpus: DEFAULT_VCPUS },
       ports: (params.ports ?? VERCEL_DEFAULT_EXPOSED_PORTS).slice(0, MAX_PORTS),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
@@ -842,6 +982,9 @@ class VercelSandboxClient implements SandboxClient {
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
         : await Sandbox.create({ ...base, runtime: "node24" });
+      console.log(
+        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"}`,
+      );
       // Env is NOT written here. writeFiles is the first sandbox I/O and absorbs
       // Vercel's first-command boot penalty (seconds–tens of seconds). Callers
       // (createSandbox) fire onSandboxAcquired first, then write EVA_ENV_FILE.
@@ -906,7 +1049,6 @@ class VercelSandboxClient implements SandboxClient {
 
   async ensureVolume(_name: string): Promise<{ id: string; ready: boolean }> {
     // Persistent named volumes map to Vercel Drives (beta) — not wired yet.
-    // Consumers needing CLI-persistence volumes stay on Daytona for now.
     throw new Error(
       "Vercel provider does not implement named volumes yet (Drives, beta — Phase 2 follow-up).",
     );

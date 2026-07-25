@@ -1,14 +1,9 @@
 "use client";
 
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import type { Id } from "@conductor/backend";
-import { compactRelativeTime } from "@conductor/shared/dates";
-import {
-  cn,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@conductor/ui";
+import type { Id } from "@eva/backend";
+import { compactRelativeTime } from "@eva/shared/dates";
+import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
@@ -66,32 +61,32 @@ export function SidebarSessionItem({
         <DynamicLink
           to={href}
           onClick={onNavigate}
-          className="block rounded-menu-item px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+          className="block rounded-menu-item px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex items-center justify-between gap-2">
-            <MarqueeOnHover
-              className={cn(
-                "min-w-0 text-sm transition-colors duration-200",
-                isSelected
-                  ? "font-medium text-sidebar-primary"
-                  : "text-sidebar-foreground",
-              )}
-            >
-              {title}
-            </MarqueeOnHover>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {prUrl && (
-                <IconGitPullRequest
-                  size={14}
-                  className={cn("shrink-0", prStateIconColor(prState))}
-                  title={`PR: ${prState || "unknown"}`}
-                />
-              )}
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <span
                 className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
                 title={statusStyle.label}
               />
+              <MarqueeOnHover
+                className={cn(
+                  "min-w-0 text-sm transition-colors duration-200",
+                  isSelected
+                    ? "font-medium text-sidebar-primary"
+                    : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
+                )}
+              >
+                {title}
+              </MarqueeOnHover>
             </div>
+            {prUrl ? (
+              <IconGitPullRequest
+                size={14}
+                className={cn("shrink-0", prStateIconColor(prState))}
+                title={`PR: ${prState || "unknown"}`}
+              />
+            ) : null}
           </div>
         </DynamicLink>
       </HoverCardTrigger>

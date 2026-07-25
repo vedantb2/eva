@@ -1,5 +1,5 @@
 /**
- * Sandbox labels/tags for Daytona (`labels`) and Vercel (`tags`).
+ * Computes Vercel sandbox tags from caller-supplied labels.
  *
  * Vercel allows at most 5 tags per sandbox. Auto-tagging runs only when
  * `ENVIRONMENT` is set on the Convex deployment; otherwise caller labels

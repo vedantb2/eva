@@ -9,4 +9,10 @@ dist
 tsconfig.buildinfo
 packages/backend/callback-src/.build
 mcp.json
+videoeva-staging-backup.zip
 video
+# Local staging DB backup (large, never commit)
+eva-staging-backup.zip
+
+# TanStack Router temp cache
+apps/web/.tanstack/

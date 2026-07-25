@@ -1,7 +1,7 @@
 "use client";
 
-import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ConfigModelField } from "./ConfigModelField";

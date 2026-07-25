@@ -66,8 +66,8 @@ export function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
-  repoOwner: string,
-  repoName: string,
+  _repoOwner: string,
+  _repoName: string,
   changeRequests?: ChangeRequestPromptInput[],
   projectContext?: { title: string; description?: string },
   systemPrompt?: string,
@@ -139,6 +139,7 @@ export function buildProofPrompt(
   rootDirectory: string,
   implementationSummary?: string | null,
   systemPrompt?: string,
+  runtime?: { devPort?: number; devCommand?: string },
 ): string {
   const uiTask = detectUiImplementationTask({
     title: task.title,
@@ -147,32 +148,50 @@ export function buildProofPrompt(
   const summarySection = implementationSummary?.trim()
     ? `\n## Implementation summary (from the coding agent):\n${implementationSummary.trim()}\n`
     : "";
+  const devPort = runtime?.devPort ?? 3000;
+  const devCommand = runtime?.devCommand?.trim() || "pnpm run dev";
+  const appUrl = `http://localhost:${devPort}`;
 
   return `You are in PROOF CAPTURE MODE. Do NOT edit source code, commit, or push.
 
-The implementation is already committed on this branch. Your only job is to capture visual proof of the change using agent-browser.
+The implementation is already committed on this branch. Your job is to read the git diff, decide exactly what UI changed, then capture that with agent-browser.
 
 ## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
 ${summarySection}
-## How to decide WHAT to capture:
-- Think about which page/route the changes affect. If a settings form was edited, navigate to /settings. If a dashboard widget changed, go to /dashboard.
-- Look at recently modified files — map them to the routes/pages they render.
-- Always navigate to the SPECIFIC page that demonstrates the change, never just screenshot the homepage or a random page.
+## Runtime (platform may have started these — still verify):
+- App URL: ${appUrl}
+- Dev command (if the app is not listening): \`${devCommand}\` in the background, then wait until ${appUrl} responds
+- Background services (Convex / local backend / etc.) must be running so new functions from this branch are deployed. If the page shows Convex errors ("Could not find public function", "Server Error", missing query/mutation, connection refused), check \`/tmp/bg-*.log\` and \`pgrep -af convex\`, restart the repo background command if needed, wait for deploy to finish, then reload before capturing.
+
+## Step 0 — Review the diff (REQUIRED before any capture):
+1. \`cd /tmp/repo && git log --oneline -5\`
+2. \`git show --stat HEAD\` (and \`git show HEAD\` / \`git diff HEAD~1..HEAD\` for the hunks)
+3. From the diff, write a short plan before capturing:
+   - Which files changed
+   - Which user-visible UI each file affects (label, badge, table cell, route, copy, etc.)
+   - Which URL path(s) to open on ${appUrl}
+   - What must be visible in the capture for a reviewer to confirm the diff
+4. Do NOT skip this. Do NOT capture a random page. The capture must match the diff.
 ${buildUiProofCaptureHint(uiTask)}
 
-## Steps (default: video):
-1. Clear any leftover captures: \`rm -rf recordings screenshots && mkdir -p recordings screenshots\`
+## Capture paths (REQUIRED — repo root, not the app subdirectory):
+- Write ONLY to \`/tmp/repo/recordings/\` and \`/tmp/repo/screenshots/\`
+- Clear leftovers first: \`rm -rf /tmp/repo/recordings /tmp/repo/screenshots && mkdir -p /tmp/repo/recordings /tmp/repo/screenshots\`
+
+## Steps (after the diff plan):
+1. Clear capture dirs as above
 2. Run \`agent-browser set viewport 1920 1080\`
-3. Start the dev server in the background, wait for ready
-4. Navigate to the page that shows the change: \`agent-browser open http://localhost:3000/<relevant-route>\`
-5. Wait minimum 5 seconds after each navigation for the page to fully render before capturing or navigating further.
-6. Record a video walkthrough: \`agent-browser record start recordings/proof.webm\`, navigate through each affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
-7. Screenshot fallback only when video is impractical (e.g. a tiny copy tweak with no meaningful interaction to show): \`agent-browser screenshot\` and save to screenshots/ in repo root. If in doubt, record a video.
-8. **Verify proof quality**: Review the recording (or screenshot) output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
-9. Kill the dev server
-If the dev server fails or the page errors, screenshot the error state with \`agent-browser screenshot\` anyway.
-If the change is EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit), do not invent UI proof — exit successfully without captures.
+3. Confirm the app is up on ${appUrl} (curl or open). If not, start \`${devCommand}\` in the background and wait for ready
+4. Confirm backend services are healthy (no Convex/runtime error banners on a simple page load). Fix/restart before capturing
+5. Open the route(s) from your diff plan: \`agent-browser open ${appUrl}/<route-from-diff>\`
+6. Wait minimum 5 seconds after each navigation for the page to fully render
+7. Default: record a video that shows the changed UI from the diff: \`agent-browser record start /tmp/repo/recordings/proof.webm\`, navigate/scroll so the changed element is obvious, then \`agent-browser record stop\`. A few seconds after \`record start\`, verify the .webm exists and is growing (\`ls -la /tmp/repo/recordings/\`) — ffmpeg writes it progressively, so a missing/0-byte file means recording is broken (usually no ffmpeg); do NOT retry-loop, fall back to screenshots (step 8)
+8. For tiny copy/style tweaks, a screenshot of the exact changed element is enough: \`agent-browser screenshot\` → \`/tmp/repo/screenshots/proof.png\`. Even a one-character text change must be captured on the live page.
+9. **Verify against the diff (required):** Re-read the diff plan. The capture MUST show the same UI the hunks changed (e.g. if the diff adds a badge next to a filename, the badge must be in frame). Reject and re-capture if you see Convex/runtime errors, "Server Error", loading spinner, blank/error boundary, or a page that does not show the diff. Fix the stack and re-capture once.
+10. Leave the app/backend running (do not kill them)
+
+Only if the diff is EXCLUSIVELY non-rendering backend (cron, migration, internal API with no UI) may you exit without captures — and you must still have run the git review above.
 
 ## Rules:
 - Do NOT edit source files, run typecheck, commit, or push
@@ -181,13 +200,46 @@ If the change is EXCLUSIVELY backend logic with no rendering impact (e.g. a cron
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
 }
 
+/**
+ * Second-chance proof prompt after a turn left no media. Forces a real file
+ * under /tmp/repo even for tiny UI tweaks — skipping capture is not allowed.
+ */
+export function buildProofRetryPrompt(
+  task: { title: string; description?: string },
+  rootDirectory: string,
+  runtime?: { devPort?: number; devCommand?: string },
+): string {
+  const devPort = runtime?.devPort ?? 3000;
+  const devCommand = runtime?.devCommand?.trim() || "pnpm run dev";
+  const appUrl = `http://localhost:${devPort}`;
+
+  return `You are in PROOF CAPTURE RETRY MODE. The previous proof turn left NO media files. That is unacceptable.
+
+Task: ${task.title}
+${task.description ? `Description: ${task.description}` : ""}
+
+You MUST leave at least one file before you finish:
+- Prefer: \`/tmp/repo/recordings/proof.webm\` (video walkthrough)
+- Or: \`/tmp/repo/screenshots/proof.png\` (screenshot of the changed UI from the diff)
+
+Steps:
+1. Review the diff first: \`cd /tmp/repo && git show --stat HEAD && git show HEAD\` — note the exact UI/route the hunks change
+2. \`rm -rf /tmp/repo/recordings /tmp/repo/screenshots && mkdir -p /tmp/repo/recordings /tmp/repo/screenshots\`
+3. Ensure the app is up at ${appUrl} (start \`${devCommand}\` in the background if needed). Ensure Convex/backend is healthy — do not capture error pages.
+4. \`agent-browser set viewport 1920 1080\`
+5. Open the route implied by the diff, wait 5s, and capture that changed UI (even a one-character copy change)
+6. \`ls -la /tmp/repo/recordings /tmp/repo/screenshots\` and confirm a non-empty file exists that shows the diff
+
+Do NOT exit without a media file. Do NOT edit source, commit, or push.${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
 /** Builds a prompt for resolving merge conflicts against the base branch. */
 export function buildConflictResolutionPrompt(
   branchName: string,
   baseBranch: string,
   rootDirectory: string,
-  repoOwner: string,
-  repoName: string,
+  _repoOwner: string,
+  _repoName: string,
   systemPrompt?: string,
 ): string {
   return `You are resolving merge conflicts. Do NOT re-implement or change any feature — only resolve conflicts and ensure compatibility with the latest base branch.

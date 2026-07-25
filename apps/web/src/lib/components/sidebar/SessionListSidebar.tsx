@@ -2,9 +2,9 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import type { Id } from "@conductor/backend";
+import { useEffect, useRef, useState } from "react";
+import { m, AnimatePresence } from "motion/react";
+import type { Id } from "@eva/backend";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import {
   Button,
@@ -21,7 +21,7 @@ import {
   SearchInput,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArchive,
   IconArchiveOff,
@@ -62,7 +62,10 @@ interface SessionListSidebarProps<T extends SessionItem> {
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
-  onCreate: (title: string) => Promise<string>;
+  /** Title modal create (designs). Prefer `onCreateNavigate` for coding sessions. */
+  onCreate?: (title: string) => Promise<string>;
+  /** Navigate to a composer landing page instead of opening the title modal. */
+  onCreateNavigate?: () => void;
   onArchive: (session: T) => Promise<void>;
   onUnarchive?: (session: T) => Promise<void>;
   onRename?: (session: T, newTitle: string) => Promise<void>;
@@ -85,6 +88,7 @@ export function SessionListSidebar<T extends SessionItem>({
   onNavigate,
   createRequestId,
   onCreate,
+  onCreateNavigate,
   onArchive,
   onUnarchive,
   onRename,
@@ -118,32 +122,33 @@ export function SessionListSidebar<T extends SessionItem>({
 
   const currentSessionNumId = routeNumIdFromPath(pathname, baseUrl);
 
-  const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return query
+  const search = searchQuery.toLowerCase().trim();
+  const filteredSessions = !sessions
+    ? []
+    : search
       ? sessions.filter((session) =>
-          session.title.toLowerCase().includes(query),
+          session.title.toLowerCase().includes(search),
         )
       : sessions;
-  }, [sessions, searchQuery]);
 
-  const filteredArchivedSessions = useMemo(() => {
-    if (!archivedSessions) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return query
+  const filteredArchivedSessions = !archivedSessions
+    ? []
+    : search
       ? archivedSessions.filter((session) =>
-          session.title.toLowerCase().includes(query),
+          session.title.toLowerCase().includes(search),
         )
       : archivedSessions;
-  }, [archivedSessions, searchQuery]);
 
   useEffect(() => {
     if (createRequestId === undefined) return;
     if (createRequestId <= lastCreateRequestIdRef.current) return;
     lastCreateRequestIdRef.current = createRequestId;
+    if (onCreateNavigate) {
+      onCreateNavigate();
+      return;
+    }
     setIsCreateModalOpen(true);
-  }, [createRequestId]);
+  }, [createRequestId, onCreateNavigate]);
 
   const handleArchive = async () => {
     if (!sessionToArchive) return;
@@ -160,13 +165,15 @@ export function SessionListSidebar<T extends SessionItem>({
         navigate({ to: baseUrl });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsArchiving(false);
+      throw error;
     }
+    setIsArchiving(false);
   };
 
   const handleCreate = async () => {
-    if (!newSessionTitle.trim()) return;
+    if (!onCreate || !newSessionTitle.trim()) return;
     setIsCreating(true);
     try {
       const id = await onCreate(newSessionTitle.trim());
@@ -174,9 +181,19 @@ export function SessionListSidebar<T extends SessionItem>({
       setIsCreateModalOpen(false);
       navigate({ to: `${baseUrl}/${id}` });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
+  };
+
+  const handleCreateClick = () => {
+    if (onCreateNavigate) {
+      onCreateNavigate();
+      return;
+    }
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -194,7 +211,7 @@ export function SessionListSidebar<T extends SessionItem>({
           size="icon-sm"
           variant="ghost"
           className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={handleCreateClick}
           title={createTitle}
         >
           <IconPlus size={16} />
@@ -282,7 +299,7 @@ export function SessionListSidebar<T extends SessionItem>({
                       return (
                         <ContextMenu key={session._id}>
                           <ContextMenuTrigger asChild>
-                            <motion.div
+                            <m.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
@@ -297,12 +314,12 @@ export function SessionListSidebar<T extends SessionItem>({
                                   to={`${baseUrl}/${entityPathSegment(session) ?? session._id}`}
                                   onClick={onNavigate}
                                   className={cn(
-                                    "block",
                                     sidebarNavListItemClass(isSelected),
+                                    "justify-between gap-2",
                                     !isSelected && "text-sidebar-foreground/60",
                                   )}
                                 >
-                                  <MarqueeOnHover className="text-sm">
+                                  <MarqueeOnHover className="min-w-0 text-sm">
                                     {session.title}
                                   </MarqueeOnHover>
                                   <RelativeDateTime
@@ -310,7 +327,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                       session.updatedAt ?? session._creationTime
                                     }
                                     className={cn(
-                                      "text-xs text-muted-foreground/60 transition-opacity",
+                                      "shrink-0 text-xs text-muted-foreground/60 transition-opacity",
                                       isSelected
                                         ? "opacity-100"
                                         : "opacity-0 group-hover:opacity-100",
@@ -318,7 +335,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                   />
                                 </DynamicLink>
                               </SharedLayoutNavSurface>
-                            </motion.div>
+                            </m.div>
                           </ContextMenuTrigger>
                           <ContextMenuContent
                             onClick={(e) => e.stopPropagation()}

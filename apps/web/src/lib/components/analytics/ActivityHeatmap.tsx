@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -11,8 +10,8 @@ import {
   ContributionGraphCalendar,
   ContributionGraphFooter,
   ContributionGraphLegend,
-} from "@conductor/ui";
-import type { Activity } from "@conductor/ui";
+} from "@eva/ui";
+import type { Activity } from "@eva/ui";
 import { IconFlame } from "@tabler/icons-react";
 import { Widget } from "@/lib/components/Widget";
 
@@ -102,12 +101,8 @@ function formatDate(dateStr: string): string {
 }
 
 export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
-  const { activities, totalCount, currentStreak, longestStreak } =
-    useMemo(() => {
-      const { activities, totalCount } = toActivities(data);
-      const { currentStreak, longestStreak } = computeStreak(data);
-      return { activities, totalCount, currentStreak, longestStreak };
-    }, [data]);
+  const { activities, totalCount } = toActivities(data);
+  const { currentStreak, longestStreak } = computeStreak(data);
 
   return (
     <Widget contentClassName="p-5">

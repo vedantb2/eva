@@ -3,18 +3,11 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import {
-  Card,
-  CardContent,
-  Button,
-  Input,
-  Spinner,
-  Badge,
-} from "@conductor/ui";
+import { Card, CardContent, Button, Input, Spinner, Badge } from "@eva/ui";
 import {
   IconFolders,
   IconPlus,

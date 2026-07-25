@@ -14,6 +14,24 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
+import {
+  assertProviderAccountOwnedBy,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+
+async function finalizeOpenSyntheticTurnOnCancel(
+  ctx: MutationCtx,
+  syntheticTurnMessageId: Id<"messages"> | undefined,
+  streaming: Doc<"streamingActivity"> | null,
+): Promise<void> {
+  if (syntheticTurnMessageId === undefined) return;
+  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
+  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+  }
+}
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
@@ -43,6 +61,39 @@ export const startExecute = authMutation({
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
+    const isOwner = ctx.userId === credentialOwnerUserId;
+    // Owner-sticky: only the session owner may change the personal account.
+    // Collaborators always use the sticky account already on the session.
+    let stickyProviderAccountId = session.providerAccountId;
+    if (isOwner) {
+      stickyProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        args.providerAccountId,
+        credentialOwnerUserId,
+      );
+      // If the chosen account no longer matches the model provider, fall back
+      // to the owner's default for that provider (or Team). Explicit Team
+      // (undefined) stays Team.
+      if (stickyProviderAccountId) {
+        const account = await ctx.db.get(stickyProviderAccountId);
+        if (!account || account.provider !== getAIModelProvider(args.model)) {
+          stickyProviderAccountId = await resolveDefaultProviderAccountId(
+            ctx.db,
+            credentialOwnerUserId,
+            args.model,
+          );
+        }
+      }
+    }
+
+    // Wipe any stale streaming row before staging the placeholder. The daemon's
+    // post-completion reconcile heartbeat (finalizeTurn -> setFinalizingState)
+    // races saveResult's clearStreamingActivity; when it loses, a row holding
+    // the finished turn's full activity survives, and the new placeholder below
+    // would flash the previous turn's thinking trace until the next heartbeat.
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
     // poll instead of waiting on the workflow's durable step queue. We must
@@ -87,11 +138,19 @@ export const startExecute = authMutation({
             },
           }
         : { pendingTurn: undefined }),
-      // Persist the session's chosen account so the page-open prewarm (which has
-      // no per-message context) injects the same credential. Undefined clears
-      // back to the team credential.
-      providerAccountId: args.providerAccountId,
+      // Persist the session owner's sticky account for page-open prewarm.
+      providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
+      lastMode: args.mode,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
       updatedAt: Date.now(),
     });
 
@@ -101,7 +160,7 @@ export const startExecute = authMutation({
     if (usesDaemonPull && session.sandboxId) {
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
         sandboxId: session.sandboxId,
         sessionId: args.sessionId,
         repoId: session.repoId,
@@ -111,7 +170,8 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         allowedTools: MODE_TOOLS[effectiveMode],
-        providerAccountId: args.providerAccountId,
+        providerAccountId: stickyProviderAccountId,
+        credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
       });
     }
@@ -127,7 +187,8 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        providerAccountId: args.providerAccountId,
+        providerAccountId: stickyProviderAccountId,
+        credentialOwnerUserId,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -164,7 +225,8 @@ export const prewarmDaemon = authMutation({
     // Match edit-mode defaults so the first real message does not immediately
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
     // leaves the chat stuck on Working).
-    await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
@@ -172,6 +234,7 @@ export const prewarmDaemon = authMutation({
       model: normalizeAIModel(session.lastModel),
       allowedTools: MODE_TOOLS.edit,
       providerAccountId: session.providerAccountId,
+      credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
     });
     return null;
@@ -183,6 +246,8 @@ export const enqueueMessage = authMutation({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
+    /** Compact chat-display text when `message` is a rich agent prompt. */
+    displayContent: v.optional(v.string()),
     mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
@@ -195,6 +260,7 @@ export const enqueueMessage = authMutation({
   handler: async (ctx, args) => {
     const content = args.message.trim();
     if (!content) return null;
+    const displayContent = args.displayContent?.trim();
 
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
@@ -204,6 +270,7 @@ export const enqueueMessage = authMutation({
     await ctx.db.insert("queuedMessages", {
       parentId: args.sessionId,
       content,
+      displayContent: displayContent || undefined,
       createdAt: Date.now(),
       order: Date.now(),
       userId: ctx.userId,
@@ -215,7 +282,20 @@ export const enqueueMessage = authMutation({
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
-    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
+    await ctx.db.patch(args.sessionId, {
+      lastModel: args.model,
+      lastMode: args.mode,
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -241,7 +321,7 @@ export const cancelExecution = authMutation({
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });
@@ -263,14 +343,25 @@ export const cancelExecution = authMutation({
       latest.activeWorkflowId !== workflowIdToCancel;
 
     if (!newerTurnStaged && !newerWorkflowTracked) {
+      const syntheticTurnMessageId = latest.syntheticTurnMessageId;
       const last = await ctx.db
         .query("messages")
         .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
         .order("desc")
         .first();
-      if (last && last.role === "assistant" && last.finishedAt === undefined) {
+      if (
+        last &&
+        last.role === "assistant" &&
+        last.finishedAt === undefined &&
+        last._id !== syntheticTurnMessageId
+      ) {
         await finalizeCancelledAssistantMessage(ctx, last, streaming);
       }
+      await finalizeOpenSyntheticTurnOnCancel(
+        ctx,
+        syntheticTurnMessageId,
+        streaming,
+      );
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));
@@ -278,6 +369,7 @@ export const cancelExecution = authMutation({
     const sessionPatch: {
       activeWorkflowId?: undefined;
       pendingTurn?: undefined;
+      syntheticTurnMessageId?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
 
@@ -292,6 +384,9 @@ export const cancelExecution = authMutation({
       latest.pendingTurn?.requestedAt === pendingRequestedAt
     ) {
       sessionPatch.pendingTurn = undefined;
+    }
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      sessionPatch.syntheticTurnMessageId = undefined;
     }
 
     await ctx.db.patch(args.sessionId, sessionPatch);

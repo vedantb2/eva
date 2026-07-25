@@ -1,28 +1,32 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { aiProviderValidator } from "./validators";
+import { resolveUserDisplayFirstName } from "./_userProviderAccounts/defaults";
 
 const credentialValidator = v.object({ key: v.string(), value: v.string() });
+
+const accountListItemValidator = v.object({
+  _id: v.id("userProviderAccounts"),
+  _creationTime: v.number(),
+  provider: aiProviderValidator,
+  label: v.string(),
+  accentColor: v.optional(v.string()),
+  credentials: v.array(credentialValidator),
+  updatedAt: v.number(),
+});
 
 /**
  * Lists the authenticated user's provider accounts, masking credential values.
  * Powers both the Accounts settings page and the model picker's account groups.
+ * `label` is always the user's first name (derived), not a free-text field.
  */
 export const list = authQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("userProviderAccounts"),
-      _creationTime: v.number(),
-      provider: aiProviderValidator,
-      label: v.string(),
-      accentColor: v.optional(v.string()),
-      credentials: v.array(credentialValidator),
-      updatedAt: v.number(),
-    }),
-  ),
+  returns: v.array(accountListItemValidator),
   handler: async (ctx) => {
+    const displayName =
+      (await resolveUserDisplayFirstName(ctx.db, ctx.userId)) ?? "Personal";
     const rows = await ctx.db
       .query("userProviderAccounts")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -31,7 +35,41 @@ export const list = authQuery({
       _id: row._id,
       _creationTime: row._creationTime,
       provider: row.provider,
-      label: row.label,
+      label: displayName,
+      accentColor: row.accentColor,
+      credentials: row.credentials.map((entry) => ({
+        key: entry.key,
+        value: "••••••",
+      })),
+      updatedAt: row.updatedAt,
+    }));
+  },
+});
+
+/**
+ * Lists the task owner's personal provider accounts (masked) for the model
+ * picker. Teammates with task access can see which accounts power the sticky
+ * credential; only the owner can change the selection.
+ */
+export const listForTaskOwner = authQuery({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.array(accountListItemValidator),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      return [];
+    }
+    const displayName =
+      (await resolveUserDisplayFirstName(ctx.db, task.createdBy)) ?? "Personal";
+    const rows = await ctx.db
+      .query("userProviderAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", task.createdBy))
+      .collect();
+    return rows.map((row) => ({
+      _id: row._id,
+      _creationTime: row._creationTime,
+      provider: row.provider,
+      label: displayName,
       accentColor: row.accentColor,
       credentials: row.credentials.map((entry) => ({
         key: entry.key,
@@ -93,9 +131,9 @@ export const createInternal = internalMutation({
 });
 
 /**
- * Updates an existing account's label, accent, and pre-encrypted credentials.
- * Asserts ownership. Provider is immutable (it determines which credential keys
- * apply). Internal only.
+ * Updates an existing account's accent and pre-encrypted credentials.
+ * Asserts ownership. Provider is immutable. Label is always overwritten from
+ * the owner's first name. Internal only.
  */
 export const updateInternal = internalMutation({
   args: {

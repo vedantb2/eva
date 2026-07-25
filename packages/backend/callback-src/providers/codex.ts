@@ -3,6 +3,7 @@ import {
   getCodexAgentMessageText,
   getCodexThreadId,
 } from "../parse/toolSteps.js";
+import { probeCodexItemResult } from "../parse/toolResultCapture.js";
 import {
   syncCodexStateToPersist,
   writeCodexSessionState,
@@ -90,8 +91,22 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     typeof event.item.type === "string" &&
     event.item.type !== "agent_message"
   ) {
+    const result = probeCodexItemResult(
+      event.item,
+      event.type === "item.failed",
+    );
     if (typeof event.item.id === "string") {
-      events.push({ kind: "complete_tool", trackingId: event.item.id });
+      events.push(
+        result
+          ? {
+              kind: "complete_tool",
+              trackingId: event.item.id,
+              result,
+            }
+          : { kind: "complete_tool", trackingId: event.item.id },
+      );
+    } else if (result) {
+      events.push({ kind: "complete_tool", result });
     } else {
       events.push({ kind: "mark_last_complete" });
     }

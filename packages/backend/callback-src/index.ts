@@ -8,6 +8,7 @@ import {
 import {
   ALLOWED_TOOLS,
   CLAUDE_ATTEMPT_MODE,
+  CLAIM_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -21,7 +22,7 @@ import {
   RUN_ID,
   SCRIPT_STARTED_AT,
   WORK_DIR,
-  mcpArg,
+  hasMcpConfig,
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
@@ -36,9 +37,9 @@ import {
 import {
   appendDiagnosticTail,
   buildErrorMessage,
+  deliverCompletionWithMedia,
   extractResultEvent,
   hasToolActivity,
-  uploadAndAttachSandboxMedia,
   writeDoneFile,
 } from "./runtime/completion.js";
 import {
@@ -52,6 +53,7 @@ import {
   readGitHeadSha,
   readResponseJson,
 } from "./utils.js";
+import { serializeSteps } from "./parse/stepBudget.js";
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -83,14 +85,12 @@ try {
 
 S.lastStepType = "thinking";
 
-// Persistent warm-session daemon path (Claude, sessions only). Keeps one warm
-// query() across turns instead of respawning per turn. Self-contained — it runs
-// its own preflight/streaming/completion loop and never returns (process.exit),
-// so the one-shot flow below is left completely untouched for every other case.
+// Persistent warm-session daemon path (Claude, any entity with CLAIM_MUTATION).
+// Keeps one warm query() across turns instead of respawning per turn.
 if (
   CLAUDE_ATTEMPT_MODE === "sdk-daemon" &&
   PROVIDER === "claude" &&
-  ENTITY_ID_FIELD === "sessionId"
+  CLAIM_MUTATION
 ) {
   await runSdkDaemon();
 }
@@ -168,7 +168,7 @@ log(
     " sessionId=" +
     (process.env.CLAUDE_SESSION_ID || "none") +
     " mcp=" +
-    (mcpArg ? "yes" : "no"),
+    (hasMcpConfig ? "yes" : "no"),
 );
 
 try {
@@ -275,7 +275,7 @@ try {
   }
 
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(S.accumulatedSteps);
+  const activityLog = serializeSteps(S.accumulatedSteps);
 
   let completionSuccess = finalResultEvent
     ? !finalResultEvent.isError
@@ -329,13 +329,7 @@ try {
   }
 
   try {
-    // Completion first so screenshots:attachMedia can patch the assistant message.
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs,
-    );
-    await uploadAndAttachSandboxMedia();
+    await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {
@@ -375,7 +369,7 @@ try {
                   : "Claude") +
             " CLI",
     ),
-    activityLog: JSON.stringify(S.accumulatedSteps),
+    activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {

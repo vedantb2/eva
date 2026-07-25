@@ -3,7 +3,9 @@ import { existsSync, readFileSync } from "fs";
 import {
   ALLOWED_TOOLS,
   BLOCKING_QUESTIONS_ENABLED,
+  CLAIM_MUTATION,
   CLAUDE_RUNTIME_CONFIG_DIR,
+  ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
@@ -39,6 +41,7 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
  */
 export type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
   interrupt?: () => Promise<void>;
+  stopTask?: (taskId: string) => Promise<void>;
 };
 
 export type JsonLike =
@@ -159,12 +162,9 @@ function readPromptText(): string {
 }
 
 export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
-  // Mirror the CLI flags claudeBaseCmd passes today:
-  //   --append-system-prompt  -> preset claude_code + append
-  //   --dangerously-skip-permissions -> bypassPermissions + allow flag
-  //   --allowedTools           -> allowedTools[]
-  //   --settings / --mcp-config -> extraArgs passthrough (verbatim CLI flags)
-  //   --session-id / --resume  -> sessionId / resume
+  // Map SDK option shapes from the existing config (model, system prompt,
+  // allowed tools, MCP, permissions, session resume). Formerly mirrored
+  // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
   if (existsSync(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
@@ -172,13 +172,27 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
+export {
+  ESCALATION_SENTINEL,
+  isEscalationReply,
+  shouldHoldConversationalStream,
+} from "./conversationalEscalation.js";
+
+const CONVERSATIONAL_SYSTEM_PROMPT = `Reply briefly and directly. Do not use tools.
+
+If the request needs any of the following, reply with EXACTLY <<EVA_ESCALATE>> and nothing else:
+- repo files, code, or codebase inspection
+- project or database data
+- Eva platform actions (tasks, docs, queries, MCP tools)
+- context from earlier turns in this coding session`;
+
 /** Fresh one-shot query for conversational turns: no resume, no tools, no MCP. */
 export function buildConversationalSdkOptions(): SdkOptions {
   return {
     cwd: WORK_DIR,
     model: "haiku",
     pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: "Reply briefly and directly. Do not use tools.",
+    systemPrompt: CONVERSATIONAL_SYSTEM_PROMPT,
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     allowedTools: [],
@@ -233,8 +247,10 @@ function buildSdkOptionsFromParts(
   // that delays turn completion after the visible reply.
   // Policy A: delete CLAUDE_CODE_DISABLE_BACKGROUND_TASKS so session SDK
   // children can Bash-background (panel tracks/kills). Do not set the key to
-  // undefined — some spawn paths stringify it. launch.ts still sets =1 for
-  // tasks/projects/CLI; Agent/Task bg is stripped in buildCanUseTool.
+  // undefined — some spawn paths stringify it. Only warm daemons (CLAIM_MUTATION
+  // set) and session attempts may background — one-shot task/project runs exit
+  // after `result`, which would kill any backgrounded child, so launch.ts's =1
+  // must survive for them.
   const env: Record<string, string | undefined> = {
     ...process.env,
     CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
@@ -243,8 +259,12 @@ function buildSdkOptionsFromParts(
     DISABLE_TELEMETRY: "1",
     DISABLE_AUTOUPDATER: "1",
     DISABLE_ERROR_REPORTING: "1",
+    // Defer MCP/tool schemas when they exceed ~10% of context (agent turns only).
+    ENABLE_TOOL_SEARCH: "auto",
   };
-  delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  if (CLAIM_MUTATION || ENTITY_ID_FIELD === "sessionId") {
+    delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
+  }
 
   const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
     claudeEffort === "low" ||
@@ -288,14 +308,13 @@ function buildSdkOptionsFromParts(
 }
 
 /**
- * Runs one Claude turn via the Agent SDK instead of spawning `claude -p`.
+ * Runs one Claude turn via the Agent SDK (`query()`).
  *
  * Integration model: every SDKMessage the query yields is serialized to a JSON
- * line and pushed through the exact same realtime pipeline the CLI's stdout
- * used (`processRealtimeStdoutChunk` -> claudeParseLine -> canonical events ->
- * accumulated steps / session capture / result detection), so streaming,
- * activity, session persistence and completion behave identically to the CLI
- * path with zero parser changes.
+ * line and pushed through the realtime pipeline (`processRealtimeStdoutChunk`
+ * -> claudeParseLine -> canonical events -> accumulated steps / session
+ * capture / result detection), so streaming, activity, session persistence and
+ * completion share the same parser as other stream-json providers.
  */
 export async function runClaudeSdkAttempt(
   sessionMode: SessionMode,

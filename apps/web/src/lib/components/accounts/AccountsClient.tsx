@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { PROVIDER_LABELS } from "./_credentialSpec";
 import { AddAccountDialog, type EditingAccount } from "./AddAccountDialog";
@@ -56,9 +56,9 @@ export function AccountsClient() {
     <PageWrapper title="Accounts" comfortable>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-prose text-xs text-muted-foreground">
-          Add your own coding-agent accounts. When you pick one in a session or
-          task, its credentials run the agent instead of the shared team
-          credentials, so the usage bills to your account.
+          Add your own coding-agent accounts. Tasks, sessions, and projects you
+          create default to your account for that provider (otherwise Team).
+          Collaborators&apos; Make changes still bill your sticky account.
         </p>
         <Button size="sm" onClick={openCreate} className="shrink-0">
           <IconPlus size={16} className="mr-1.5" />

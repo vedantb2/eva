@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Button,
@@ -21,22 +21,10 @@ import {
   SearchInput,
   Spinner,
   Textarea,
-  cn,
-} from "@conductor/ui";
-import {
-  IconFile,
-  IconGitMerge,
-  IconPlus,
-  IconTrash,
-  IconUpload,
-} from "@tabler/icons-react";
+} from "@eva/ui";
+import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import {
-  searchParser,
-  DOC_VIEWER_DEFAULT_TAB,
-  DOC_RECAP_DEFAULT_TAB,
-  docListFilterParser,
-} from "@/lib/search-params";
+import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -65,25 +53,27 @@ export function DocsSidebar({
 }: DocsSidebarProps) {
   const navigate = useNavigate();
   const convex = useConvex();
-  const docs = useQuery(api.docs.list, { repoId });
+  const docs = useQuery(api.docs.list, {
+    repoId,
+    excludeEvaRecaps: true,
+  });
   const createDoc = useMutation(api.docs.create);
   const removeDoc = useMutation(api.docs.remove).withOptimisticUpdate(
     (localStore, args) => {
-      const current = localStore.getQuery(api.docs.list, { repoId });
+      const current = localStore.getQuery(api.docs.list, {
+        repoId,
+        excludeEvaRecaps: true,
+      });
       if (current !== undefined) {
         localStore.setQuery(
           api.docs.list,
-          { repoId },
+          { repoId, excludeEvaRecaps: true },
           current.filter((d) => d._id !== args.id),
         );
       }
     },
   );
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
-  const [docListFilter, setDocListFilter] = useQueryState(
-    "docFilter",
-    docListFilterParser,
-  );
   const [docToDelete, setDocToDelete] = useState<{
     id: Id<"docs">;
     title: string;
@@ -105,19 +95,13 @@ export function DocsSidebar({
     setIsCreateDialogOpen(true);
   }, [createRequestId]);
 
-  const filteredDocs = useMemo(() => {
+  const filteredDocs = (() => {
     if (!docs) return [];
-    const byKind = docs.filter((doc) =>
-      docListFilter === "pr-recaps"
-        ? doc.kind === "pr-recap"
-        : doc.kind !== "pr-recap",
-    );
+    // PR recaps live under Reviews now — Documents is non-recap only.
+    const byKind = docs.filter((doc) => doc.kind !== "pr-recap");
     const q = searchQuery.toLowerCase().trim();
     return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
-  }, [docs, searchQuery, docListFilter]);
-
-  const defaultDocTab = (kind: string | undefined) =>
-    kind === "pr-recap" ? DOC_RECAP_DEFAULT_TAB : DOC_VIEWER_DEFAULT_TAB;
+  })();
 
   const handleCreateDoc = async () => {
     if (!newDocTitle.trim()) return;
@@ -130,7 +114,10 @@ export function DocsSidebar({
       });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsCreating(false);
+        return;
+      }
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
       navigate({
@@ -138,9 +125,11 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       onNavigate?.();
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   };
 
   const readFileContent = (file: File): Promise<string> =>
@@ -181,7 +170,10 @@ export function DocsSidebar({
       const id = await createDoc({ repoId, title, content: prdContent });
       const created = await convex.query(api.docs.get, { id });
       const segment = created ? entityPathSegment(created) : null;
-      if (!segment) return;
+      if (!segment) {
+        setIsUploading(false);
+        return;
+      }
       setIsCreateDialogOpen(false);
       setShowUploadSection(false);
       setPastedPrdContent("");
@@ -193,9 +185,8 @@ export function DocsSidebar({
       onNavigate?.();
     } catch (error) {
       console.error("PRD upload failed", error);
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleUploadSelect = async (
@@ -242,9 +233,11 @@ export function DocsSidebar({
         navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
-    } finally {
+    } catch (error) {
       setIsDeleting(false);
+      throw error;
     }
+    setIsDeleting(false);
   };
 
   return (
@@ -266,36 +259,15 @@ export function DocsSidebar({
           className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
-        {docListFilter !== "pr-recaps" ? (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0 text-sidebar-primary"
-            onClick={() => setIsCreateDialogOpen(true)}
-            title="New document"
-          >
-            <IconPlus size={16} />
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="flex gap-1 px-2 pb-2">
-        {(
-          [
-            ["documents", "Documents"],
-            ["pr-recaps", "PR recaps"],
-          ] as const
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={docListFilter === value ? "secondary" : "ghost"}
-            className="h-7 flex-1 px-2 text-xs"
-            onClick={() => setDocListFilter(value)}
-          >
-            {label}
-          </Button>
-        ))}
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateDialogOpen(true)}
+          title="New document"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">
@@ -303,7 +275,7 @@ export function DocsSidebar({
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : docs.length === 0 ? (
+        ) : filteredDocs.length === 0 && !searchQuery.trim() ? (
           <div className="p-4 text-center">
             <IconFile
               size={28}
@@ -320,7 +292,7 @@ export function DocsSidebar({
             {filteredDocs.map((doc) => {
               const segment = entityPathSegment(doc);
               if (!segment) return null;
-              const href = `${basePath}/docs/${segment}/${defaultDocTab(doc.kind)}`;
+              const href = `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`;
               const isSelected = pathname.startsWith(
                 `${basePath}/docs/${segment}`,
               );
@@ -348,17 +320,6 @@ export function DocsSidebar({
                           onClick={onNavigate}
                           className={sidebarNavLinkClass(isSelected)}
                         >
-                          {doc.kind === "pr-recap" ? (
-                            <IconGitMerge
-                              size={16}
-                              className={cn(
-                                "shrink-0",
-                                isSelected
-                                  ? "text-sidebar-primary"
-                                  : "text-muted-foreground",
-                              )}
-                            />
-                          ) : null}
                           <span className="min-w-0 flex-1 truncate">
                             {doc.title}
                           </span>

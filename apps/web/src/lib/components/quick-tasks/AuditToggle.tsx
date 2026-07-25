@@ -1,37 +1,24 @@
 "use client";
 
-import { IconChecklist, IconClipboardOff } from "@tabler/icons-react";
-import {
-  TriStateOverrideToggle,
-  type TriStateValue,
-} from "./TriStateOverrideToggle";
-
-export type AuditToggleValue = TriStateValue;
+import { Switch } from "@eva/ui";
 
 interface AuditToggleProps {
-  value: AuditToggleValue;
-  /** Resolved default when inherited (project default, else "project tasks audit"). */
-  inheritedDefault: boolean;
-  onChange: (next: AuditToggleValue) => void;
+  value: boolean;
+  onChange: (next: boolean) => void;
   disabled?: boolean;
 }
 
-/** Tri-state per-task/project override for whether an audit runs after a run. */
-export function AuditToggle({
-  value,
-  inheritedDefault,
-  onChange,
-  disabled,
-}: AuditToggleProps) {
+/** On/off task default for running an audit after a run. */
+export function AuditToggle({ value, onChange, disabled }: AuditToggleProps) {
   return (
-    <TriStateOverrideToggle
-      label="Audit"
-      value={value}
-      inheritedDefault={inheritedDefault}
-      onChange={onChange}
-      onIcon={IconChecklist}
-      offIcon={IconClipboardOff}
-      disabled={disabled}
-    />
+    <label className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground">
+      <Switch
+        checked={value}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        aria-label="Run audit"
+      />
+      <span className={value ? "text-foreground" : undefined}>Audit</span>
+    </label>
   );
 }

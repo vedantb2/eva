@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import type { TypingUser } from "@/lib/hooks/useTypingPresence";
 
 function typingLabel(users: TypingUser[]): string {

@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import {
+  authAction,
+  authQuery,
+  authMutation,
+  hasRepoAccess,
+} from "./functions";
 import { allocateNumId, entityVisible, isEntityDeleted } from "./numId";
 import {
   internalMutation,
@@ -8,7 +13,9 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { components, internal } from "./_generated/api";
+import { extractPrNumberFromUrl } from "./_projects/prSync";
 import {
+  prRecapOriginValidator,
   prRecapStatusValidator,
   roleValidator,
   docKindValidator,
@@ -24,6 +31,7 @@ import {
   hasCodebaseRepoAccess,
   resolveCodebaseDocsRepoId,
 } from "./_githubRepos/helpers";
+import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
 
 const docValidator = v.object({
   _id: v.id("docs"),
@@ -36,6 +44,8 @@ export const list = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     kind: v.optional(docKindValidator),
+    /** When true, hide Eva-origin sandbox PR recaps from the Documents sidebar. */
+    excludeEvaRecaps: v.optional(v.boolean()),
   },
   returns: v.array(docValidator),
   handler: async (ctx, args) => {
@@ -57,6 +67,13 @@ export const list = authQuery({
         const isCurrentRepo = siblingId === args.repoId;
         const isSharedRecap = doc.kind === "pr-recap";
         if (!isCurrentRepo && !isSharedRecap) continue;
+        if (
+          args.excludeEvaRecaps === true &&
+          doc.kind === "pr-recap" &&
+          doc.prRecapOrigin === "eva"
+        ) {
+          continue;
+        }
         if (isEntityDeleted(doc)) continue;
         seen.add(doc._id);
         docs.push(doc);
@@ -419,6 +436,8 @@ async function upsertPrRecapDocImpl(
     prRecapStatus: "pending" | "ready" | "error";
     prRecapError?: string;
     clearActiveWorkflowId?: boolean;
+    /** Set only when provided — never clear on refresh so Eva origin survives webhook. */
+    prRecapOrigin?: "eva";
   },
 ): Promise<Id<"docs">> {
   const now = Date.now();
@@ -479,6 +498,9 @@ async function upsertPrRecapDocImpl(
       // not wipe a previously generated walkthrough.
       ...(args.html !== undefined ? { html: args.html } : {}),
       ...(args.clearActiveWorkflowId ? { activeWorkflowId: undefined } : {}),
+      ...(args.prRecapOrigin !== undefined
+        ? { prRecapOrigin: args.prRecapOrigin }
+        : {}),
     });
     return existing._id;
   }
@@ -494,6 +516,9 @@ async function upsertPrRecapDocImpl(
     headSha: args.headSha,
     prRecapStatus: args.prRecapStatus,
     prRecapError: args.prRecapError,
+    ...(args.prRecapOrigin !== undefined
+      ? { prRecapOrigin: args.prRecapOrigin }
+      : {}),
     contentUpdatedAt: now,
     createdAt: now,
     updatedAt: now,
@@ -515,6 +540,7 @@ export const upsertPrRecapDoc = internalMutation({
     prRecapStatus: prRecapStatusValidator,
     prRecapError: v.optional(v.string()),
     clearActiveWorkflowId: v.optional(v.boolean()),
+    prRecapOrigin: v.optional(prRecapOriginValidator),
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => upsertPrRecapDocImpl(ctx, args),
@@ -587,6 +613,7 @@ export const startPrRecap = internalMutation({
     pendingPlaceholder: v.optional(v.string()),
     reviewerFeedback: v.optional(v.array(reviewerFeedbackItemValidator)),
     consumeAgentCommentIds: v.optional(v.array(v.id("docComments"))),
+    prRecapOrigin: v.optional(prRecapOriginValidator),
   },
   returns: v.object({
     docId: v.id("docs"),
@@ -612,6 +639,11 @@ export const startPrRecap = internalMutation({
         ? "_Revising recap from feedback…_"
         : "_Generating recap…_");
 
+    // Explicit origin wins; otherwise tag Eva-managed PRs so docs Reviews hides them.
+    const prRecapOrigin =
+      args.prRecapOrigin ??
+      ((await isEvaOwnedPullRequest(ctx, args.prUrl)) ? "eva" : undefined);
+
     const docId: Id<"docs"> = await upsertPrRecapDocImpl(ctx, {
       repoId: docsRepoId,
       prUrl: args.prUrl,
@@ -620,6 +652,7 @@ export const startPrRecap = internalMutation({
       headSha: args.headSha,
       content: placeholder,
       prRecapStatus: "pending",
+      ...(prRecapOrigin !== undefined ? { prRecapOrigin } : {}),
     });
 
     const workflowId = await workflow.start(
@@ -707,5 +740,69 @@ export const reviseRecapFromFeedback = authMutation({
     });
 
     return null;
+  },
+});
+
+/**
+ * Panel Generate/Regenerate — allows drafts, skips prRecapsEnabled (explicit intent).
+ */
+export const generatePrRecap = authAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    prUrl: v.string(),
+  },
+  returns: v.object({
+    docId: v.id("docs"),
+    workflowId: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ docId: Id<"docs">; workflowId: string }> => {
+    const context = await ctx.runQuery(
+      internal._prRecapWorkflow.start.getManualRecapContext,
+      { repoId: args.repoId, userId: ctx.userId },
+    );
+    if (!context) {
+      throw new Error("Not authorized");
+    }
+
+    const prNumber = extractPrNumberFromUrl(args.prUrl);
+    if (prNumber === null) {
+      throw new Error("Invalid pull request URL");
+    }
+
+    const metadata = await ctx.runAction(
+      internal._github.prRecapService.fetchPrMetadata,
+      {
+        installationId: context.installationId,
+        owner: context.owner,
+        repo: context.name,
+        prNumber,
+      },
+    );
+
+    const authorLogin = metadata.authorLogin?.toLowerCase() ?? "";
+    if (
+      authorLogin.startsWith("dependabot") ||
+      authorLogin.startsWith("renovate")
+    ) {
+      throw new Error("Bot-authored pull requests are not recapped");
+    }
+
+    const result: { docId: Id<"docs">; workflowId: string } =
+      await ctx.runMutation(internal.docs.startPrRecap, {
+        repoId: context.workflowRepoId,
+        userId: ctx.userId,
+        installationId: context.installationId,
+        owner: context.owner,
+        name: context.name,
+        prUrl: metadata.prUrl,
+        prNumber: metadata.prNumber,
+        prTitle: metadata.prTitle,
+        headSha: metadata.headSha,
+        prRecapOrigin: "eva",
+      });
+    return result;
   },
 });

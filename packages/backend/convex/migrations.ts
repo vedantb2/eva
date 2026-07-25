@@ -15,8 +15,11 @@ export {
 } from "./_migrations/projectPhases";
 export { removeSnapshotWarmupFields } from "./_migrations/removeSnapshotWarmupFields";
 export { removeSessionStartupRequestedAt } from "./_migrations/removeSessionStartupRequestedAt";
+export { removeProjectIdField } from "./_migrations/removeProjectIdField";
 export {
   backfillNumIds,
   backfillNumIdsForEntityType,
 } from "./_migrations/backfillNumIds";
 export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";
+export { backfillEvaPrRecapOrigin } from "./_migrations/backfillEvaPrRecapOrigin";
+export { excludeConvexUrlFromSandbox } from "./_migrations/excludeConvexUrlFromSandbox";

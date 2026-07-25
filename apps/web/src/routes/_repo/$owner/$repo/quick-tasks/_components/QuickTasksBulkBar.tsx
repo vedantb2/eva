@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconFolders,
   IconTrash,
@@ -131,7 +131,7 @@ export function QuickTasksBulkBar({
   return (
     <AnimatePresence initial={false}>
       {isSelecting && (
-        <motion.div
+        <m.div
           key="quick-tasks-bulk-bar"
           className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]"
           initial={{ opacity: 0, y: 20 }}
@@ -172,10 +172,9 @@ export function QuickTasksBulkBar({
                     type="button"
                     aria-label="More actions"
                     disabled={!hasSelection}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
                   >
                     <IconDots size={17} />
-                    <span className="hidden sm:inline">More</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" sideOffset={8}>
@@ -229,7 +228,7 @@ export function QuickTasksBulkBar({
               </Tooltip>
             </div>
           </TooltipProvider>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

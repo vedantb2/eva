@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc, Id } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
@@ -22,26 +21,23 @@ export function useDocMentionNavigate(repoBasePath: string) {
   const navigate = useNavigate();
   const convex = useConvex();
 
-  return useCallback(
-    async (docId: Id<"docs">, knownDocs?: Array<Doc<"docs">>) => {
-      const cached = knownDocs?.find((doc) => doc._id === docId);
-      const cachedSegment = docPathSegment(cached);
-      if (cachedSegment) {
-        navigate({
-          to: `${repoBasePath}/docs/${cachedSegment}/${DOC_VIEWER_DEFAULT_TAB}`,
-        });
-        return;
-      }
-
-      const doc = await convex.query(api.docs.get, { id: docId });
-      const segment = docPathSegment(doc);
-      if (!segment) {
-        return;
-      }
+  return async (docId: Id<"docs">, knownDocs?: Array<Doc<"docs">>) => {
+    const cached = knownDocs?.find((doc) => doc._id === docId);
+    const cachedSegment = docPathSegment(cached);
+    if (cachedSegment) {
       navigate({
-        to: `${repoBasePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+        to: `${repoBasePath}/docs/${cachedSegment}/${DOC_VIEWER_DEFAULT_TAB}`,
       });
-    },
-    [convex, navigate, repoBasePath],
-  );
+      return;
+    }
+
+    const doc = await convex.query(api.docs.get, { id: docId });
+    const segment = docPathSegment(doc);
+    if (!segment) {
+      return;
+    }
+    navigate({
+      to: `${repoBasePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+    });
+  };
 }

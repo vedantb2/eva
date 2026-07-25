@@ -1,0 +1,7 @@
+# Gate pushes on TypeScript. Uses local `tsc` only — never `convex codegen`
+# here, because codegen uploads to the linked deployment.
+echo "pre-push: typechecking @eva/web..."
+pnpm --filter @eva/web typecheck || exit 1
+
+echo "pre-push: typechecking @eva/backend (convex)..."
+pnpm --filter @eva/backend typecheck || exit 1

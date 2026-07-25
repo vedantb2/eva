@@ -10,6 +10,7 @@ import {
   trackSessionWorkflow,
 } from "../workflowWatchdog";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -57,23 +58,32 @@ export async function startNextQueuedSessionMessage(
     return false;
   }
 
+  // Wipe any stale streaming row before the new turn's placeholder appears —
+  // the daemon's post-completion reconcile heartbeat can land after
+  // saveResult's clear and resurrect the finished turn's activity (see
+  // startExecute in _sessions/execution.ts for the full race).
+  await clearStreamingActivity(ctx, String(sessionId));
+
   const now = Date.now();
   await ctx.db.insert("messages", {
     parentId: sessionId,
     role: "user",
-    content: nextMessage.content,
+    content: nextMessage.displayContent ?? nextMessage.content,
     timestamp: now,
     userId: nextMessage.userId,
     mode: nextMessage.mode,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      session.providerAccountId,
+      session.createdBy ?? session.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {
+    const credentialOwnerUserId = session.createdBy ?? session.userId;
     const workflowId = await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionExecuteWorkflow,
@@ -85,17 +95,15 @@ export async function startNextQueuedSessionMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: session.providerAccountId,
+        credentialOwnerUserId,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
     );
 
-    // Keep the session's persisted account in step with the dequeued message so
-    // a concurrent page-open prewarm injects the same credential.
     await ctx.db.patch(sessionId, {
       updatedAt: now,
-      providerAccountId: nextMessage.providerAccountId,
     });
     await trackSessionWorkflow(
       ctx,
@@ -154,8 +162,10 @@ export async function startNextQueuedDesignMessage(
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
       nextMessage.providerAccountId,
-      nextMessage.userId,
+      session.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   const assistantMessageId = await ctx.db.insert("messages", {
@@ -178,6 +188,7 @@ export async function startNextQueuedDesignMessage(
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
         providerAccountId: nextMessage.providerAccountId,
+        credentialOwnerUserId: session.userId,
         personaId: nextMessage.personaId,
         userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,
@@ -235,9 +246,11 @@ export async function startNextQueuedProjectChatMessage(
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      project.providerAccountId,
+      project.userId,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {
@@ -251,7 +264,8 @@ export async function startNextQueuedProjectChatMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: project.providerAccountId,
+        credentialOwnerUserId: project.userId,
         userId: nextMessage.userId,
       },
     );
@@ -311,9 +325,11 @@ export async function startNextQueuedTaskChatMessage(
     attachmentStorageIds: nextMessage.attachmentStorageIds,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
-      nextMessage.providerAccountId,
-      nextMessage.userId,
+      task.providerAccountId,
+      task.createdBy,
     ),
+    model: nextMessage.model,
+    reasoningLevel: nextMessage.reasoningLevel,
   });
 
   try {
@@ -327,7 +343,8 @@ export async function startNextQueuedTaskChatMessage(
         reasoningLevel: nextMessage.reasoningLevel,
         thinkingEnabled: nextMessage.thinkingEnabled,
         use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
         userId: nextMessage.userId,
       },
     );

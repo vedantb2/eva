@@ -1,7 +1,6 @@
-import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   TASK_STATUSES,
   type DisplayTaskStatus,
@@ -33,13 +32,17 @@ const DEFAULTS: QuickTaskFilters = {
   user: "all",
   assignee: "all",
   tags: [],
-  sortField: "lastRun",
+  // Default to updatedAt so any task change (edits, activity, status) bubbles
+  // the card to the top of its kanban column — not only agent runs.
+  sortField: "updated",
   sortDir: "desc",
   timeRange: "all",
   statuses: [...TASK_STATUSES],
 };
 
-const STORAGE_KEY = "quick-task-filters";
+// v2: product default sort flipped lastRun → updated; bump key so existing
+// localStorage does not keep the old default sticky for returning users.
+const STORAGE_KEY = "quick-task-filters-v2";
 
 export function useQuickTaskFilters(): [
   QuickTaskFilters,
@@ -50,12 +53,9 @@ export function useQuickTaskFilters(): [
     DEFAULTS,
   );
 
-  const setParams = useCallback(
-    (patch: Partial<QuickTaskFilters>) => {
-      setFilters((prev) => ({ ...prev, ...patch }));
-    },
-    [setFilters],
-  );
+  const setParams = (patch: Partial<QuickTaskFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
 
   return [filters, setParams];
 }
@@ -166,8 +166,6 @@ export function useFilteredQuickTasks(
 ): QuickTask[] {
   const [filters] = useQuickTaskFilters();
   const groupByStatus = options?.groupByStatus ?? false;
-  return useMemo(() => {
-    const sorted = applyQuickTaskFilters(tasks ?? [], filters);
-    return groupByStatus ? groupByStatusOrder(sorted) : sorted;
-  }, [tasks, filters, groupByStatus]);
+  const sorted = applyQuickTaskFilters(tasks ?? [], filters);
+  return groupByStatus ? groupByStatusOrder(sorted) : sorted;
 }

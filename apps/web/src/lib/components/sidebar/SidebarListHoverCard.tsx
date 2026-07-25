@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
-import { compactRelativeTime } from "@conductor/shared/dates";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
+import { compactRelativeTime } from "@eva/shared/dates";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 
 /** Soft-limit so huge doc bodies aren't copied into every hover portal. */
 const PREVIEW_SOFT_MAX = 280;

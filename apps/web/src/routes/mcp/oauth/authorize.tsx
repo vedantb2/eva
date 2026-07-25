@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SignInButton, useAuth } from "@clerk/clerk-react";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@conductor/backend";
-import { Button, Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import {
   clearMcpOauthParams,
   mcpOauthParamsSchema,

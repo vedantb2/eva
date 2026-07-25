@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge, KanbanBoard } from "@conductor/ui";
-import type { ReactNode, RefCallback } from "react";
-import { useCallback } from "react";
+import { Badge, KanbanBoard } from "@eva/ui";
+import { useCallback, type ReactNode, type RefCallback } from "react";
+
 import type { IconCircle } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 
@@ -10,6 +10,8 @@ export { TASK_STATUSES as KANBAN_STATUSES };
 
 export interface ColumnConfig {
   bg: string;
+  /** Soft column wash tinted to the status/phase colour. */
+  cardBg?: string;
   text: string;
   label: string;
   icon: typeof IconCircle;
@@ -49,7 +51,7 @@ export function KanbanColumn({
     <KanbanBoard
       id={id}
       disabled={!droppable}
-      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip"
+      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip ${config.cardBg ?? "bg-muted/40"}`}
     >
       <div className="flex flex-row items-center justify-between p-2 flex-shrink-0">
         <Badge

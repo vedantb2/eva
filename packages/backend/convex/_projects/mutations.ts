@@ -6,6 +6,7 @@ import {
   phaseValidator,
   priorityValidator,
   aiModelValidator,
+  reasoningLevelValidator,
 } from "../validators";
 import {
   authMutation,
@@ -23,6 +24,16 @@ import {
 } from "./helpers";
 import { scheduleProjectPrSync } from "./prSync";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
+import {
+  assertProviderAccountOwnedBy,
+  reconcileProviderAccountForModel,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
@@ -38,6 +49,10 @@ export const create = authMutation({
     baseBranch: v.optional(v.string()),
     priority: v.optional(priorityValidator),
     skipPlanning: v.optional(v.boolean()),
+    model: v.optional(aiModelValidator),
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
@@ -46,6 +61,16 @@ export const create = authMutation({
     }
     const skipPlanning = args.skipPlanning ?? false;
     const numId = await allocateNumId(ctx.db, args.repoId, "projects");
+    const repo = await ctx.db.get(args.repoId);
+    const model = args.model ?? repo?.defaultModel;
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -58,6 +83,8 @@ export const create = authMutation({
       projectStartDate: Date.now(),
       priority: args.priority,
       numId,
+      model,
+      providerAccountId,
     });
     if (skipPlanning) {
       await ctx.db.patch(projectId, {
@@ -101,11 +128,18 @@ export const update = authMutation({
     // Tri-state proof/audit defaults for member tasks. null clears the override.
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
     runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // Per-project-sandbox-chat switches (plain on/off). Flow through the generic
+    // spread below since they are never null.
+    chatCaptureProofEnabled: v.optional(v.boolean()),
+    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    // `id` must be omitted — leaving it in the rest-spread patches a stray
+    // `id` field onto the document and breaks projects:list return validation.
     const {
+      id: _projectId,
       generatedSpec,
       projectLead,
       priority,
@@ -117,6 +151,7 @@ export const update = authMutation({
       runAuditEnabled,
       ...fields
     } = args;
+    void _projectId;
     const updates: Record<
       string,
       string | number | boolean | Array<string> | undefined
@@ -130,8 +165,34 @@ export const update = authMutation({
     if (codeReviewer !== undefined)
       updates.codeReviewer = codeReviewer ?? undefined;
     if (model !== undefined) updates.model = model ?? undefined;
-    if (providerAccountId !== undefined)
-      updates.providerAccountId = providerAccountId ?? undefined;
+    let nextProviderAccountId = project.providerAccountId;
+    if (providerAccountId !== undefined) {
+      if (ctx.userId !== project.userId) {
+        throw new Error(
+          "Only the project owner can change the provider account",
+        );
+      }
+      nextProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        providerAccountId,
+        project.userId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
+    // Explicit account in this update wins; only reconcile when model alone changes.
+    if (
+      model !== undefined &&
+      providerAccountId === undefined &&
+      ctx.userId === project.userId
+    ) {
+      nextProviderAccountId = await reconcileProviderAccountForModel(
+        ctx.db,
+        project.userId,
+        model ?? undefined,
+        nextProviderAccountId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
     if (phase !== undefined) updates.phase = phase;
     // null -> undefined: these must not flow through the generic spread, which
     // would write null into the doc instead of clearing the field.
@@ -294,7 +355,7 @@ export const clearProjectSandbox = authMutation({
       vercelSandboxId: project.vercelSandboxId,
     });
     if (deleteId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
         sandboxId: deleteId,
         repoId: project.repoId,
       });
@@ -335,6 +396,124 @@ export const updateLastConversationMessage = authMutation({
     if (args.content !== undefined) last.content = args.content;
     if (args.activityLog !== undefined) last.activityLog = args.activityLog;
     await setProjectConversation(ctx.db, args.id, messages);
+    return null;
+  },
+});
+
+/** Sticky Preview path for a project sandbox. No `updatedAt` bump. */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("projects"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/** Sticky Preview port for a project sandbox (`devPort`). No `updatedAt` bump. */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("projects"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/** Clears the agent-browsing soft lock so the user can take over the shared browser. */
+export const releaseBrowserLock = authMutation({
+  args: { id: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      agentBrowsingAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the project doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("projects"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat model (`lastChatModel`). No `updatedAt` bump — picker
+ * changes are not conversation activity. Distinct from `projects.model`
+ * (metadata / build prefs).
+ */
+export const setChatModel = authMutation({
+  args: {
+    id: v.id("projects"),
+    model: aiModelValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.db.patch(args.id, { lastChatModel: args.model });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat traits (effort / thinking / 1M). No `updatedAt` bump.
+ * Only provided fields are patched.
+ */
+export const setTraits = authMutation({
+  args: {
+    id: v.id("projects"),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
     return null;
   },
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +18,11 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -91,18 +91,18 @@ export function NewProjectModal({
 
   const getDescription = () => editorRef.current?.getMarkdown() ?? description;
 
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
     setPriority(undefined);
     setSkipPlanning(defaultSkipPlanning);
-  }, [defaultBranch, defaultSkipPlanning]);
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     resetForm();
     onClose();
-  }, [resetForm, onClose]);
+  };
 
   const canSubmit = !isLoading && !!title.trim() && !!description.trim();
   const submitDisabledReason = getSubmitDisabledReason(
@@ -133,9 +133,11 @@ export function NewProjectModal({
       } else {
         navigate({ to: basePath + "/projects/" + projectId });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   useHotkey(

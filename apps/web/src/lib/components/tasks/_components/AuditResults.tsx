@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Badge,
   Accordion,
@@ -14,7 +14,7 @@ import {
   Button,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 
 type AuditDoc = FunctionReturnType<typeof api.audits.listByTask>[number];
@@ -117,9 +117,11 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
       );
       await runFixes({ auditId: auditData._id, selectedFailures });
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsRunning(false);
+      throw error;
     }
+    setIsRunning(false);
   }
 
   return (
@@ -158,80 +160,84 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
           )}
 
           <Accordion type="multiple" className="space-y-2">
-            {auditData.sections
-              .filter((section) => section.results.length > 0)
-              .map((section) => (
-                <AccordionItem
-                  key={section.name}
-                  value={section.name}
-                  className="rounded-surface border border-border bg-card px-3"
-                >
-                  <AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{section.name}</span>
-                      <Badge
-                        variant={
-                          section.results.every((i) => i.passed)
-                            ? "success"
-                            : "destructive"
-                        }
-                      >
-                        {section.results.filter((i) => i.passed).length}/
-                        {section.results.length}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2">
-                      {sortedResults(section.results).map((item, i) => {
-                        const severity: AuditSeverity =
-                          item.severity ?? "medium";
-                        const failure: AuditFailure = {
-                          section: section.name,
-                          requirement: item.requirement,
-                          detail: item.detail,
-                          severity,
-                        };
-                        const key = failureKey(failure);
-                        return (
-                          <div
-                            key={i}
-                            className="flex items-start gap-2 text-sm"
+            {auditData.sections.flatMap((section) =>
+              section.results.length === 0
+                ? []
+                : [
+                    <AccordionItem
+                      key={section.name}
+                      value={section.name}
+                      className="rounded-surface border border-border bg-card px-3"
+                    >
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{section.name}</span>
+                          <Badge
+                            variant={
+                              section.results.every((i) => i.passed)
+                                ? "success"
+                                : "destructive"
+                            }
                           >
-                            {item.passed ? (
-                              <IconCheck
-                                size={16}
-                                className="text-success mt-0.5 flex-shrink-0"
-                              />
-                            ) : isFixing ? (
-                              <SeverityBadge severity={severity} />
-                            ) : (
-                              <Checkbox
-                                checked={selected.has(key)}
-                                onCheckedChange={() => toggleFailure(failure)}
-                                className="mt-0.5 flex-shrink-0"
-                              />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                {!item.passed && !isFixing && (
+                            {section.results.filter((i) => i.passed).length}/
+                            {section.results.length}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2">
+                          {sortedResults(section.results).map((item, i) => {
+                            const severity: AuditSeverity =
+                              item.severity ?? "medium";
+                            const failure: AuditFailure = {
+                              section: section.name,
+                              requirement: item.requirement,
+                              detail: item.detail,
+                              severity,
+                            };
+                            const key = failureKey(failure);
+                            return (
+                              <div
+                                key={i}
+                                className="flex items-start gap-2 text-sm"
+                              >
+                                {item.passed ? (
+                                  <IconCheck
+                                    size={16}
+                                    className="text-success mt-0.5 flex-shrink-0"
+                                  />
+                                ) : isFixing ? (
                                   <SeverityBadge severity={severity} />
+                                ) : (
+                                  <Checkbox
+                                    checked={selected.has(key)}
+                                    onCheckedChange={() =>
+                                      toggleFailure(failure)
+                                    }
+                                    className="mt-0.5 flex-shrink-0"
+                                  />
                                 )}
-                                <span className="font-medium">
-                                  {item.requirement}
-                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {!item.passed && !isFixing && (
+                                      <SeverityBadge severity={severity} />
+                                    )}
+                                    <span className="font-medium">
+                                      {item.requirement}
+                                    </span>
+                                  </div>
+                                  <p className="text-muted-foreground">
+                                    {item.detail}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-muted-foreground">
-                                {item.detail}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+                            );
+                          })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>,
+                  ],
+            )}
           </Accordion>
 
           {failures.length > 0 && !isFixing && (

@@ -137,8 +137,11 @@ export const registerClient = internalMutation({
  * Returns null if not found or expired (24h TTL).
  */
 export const getClient = internalQuery({
-  args: { clientId: v.string() },
-  handler: async (ctx, { clientId }) => {
+  // `now` is passed in by the caller: computing Date.now() inside a query makes
+  // the TTL check nondeterministic — Convex caches query results by data
+  // dependencies, so an expired registration could keep being served.
+  args: { clientId: v.string(), now: v.number() },
+  handler: async (ctx, { clientId, now }) => {
     const client = await ctx.db
       .query("mcpClientRegistrations")
       .withIndex("by_clientId", (q) => q.eq("clientId", clientId))
@@ -147,7 +150,7 @@ export const getClient = internalQuery({
     if (!client) return null;
 
     // 24h TTL for client registrations
-    if (Date.now() - client.registeredAt > CLIENT_TTL_MS) {
+    if (now - client.registeredAt > CLIENT_TTL_MS) {
       return null;
     }
 

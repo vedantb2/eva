@@ -1,25 +1,19 @@
-import {
-  api,
-  findAIModelOption,
-  normalizeAIModel,
-  type Id,
-} from "@conductor/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
+import { m, AnimatePresence } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
-import {
-  ChatBody,
-  type ChatBodyQueuedMessage,
-} from "@/lib/components/chat/ChatBody";
+import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
+import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionModeDropdown } from "./_components/SessionModeDropdown";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
@@ -33,6 +27,7 @@ import {
   useSessionSettings,
   type SessionMode,
 } from "@/lib/hooks/useSessionSettings";
+import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import {
   useAvailableAiModels,
   useProviderAccounts,
@@ -40,6 +35,7 @@ import {
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -66,6 +62,8 @@ interface ChatPanelProps {
   isSandboxStopping?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
+  /** Archive or PR merged/closed — hides composer and shows read-only banner. */
+  isReadOnly?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
@@ -73,6 +71,9 @@ interface ChatPanelProps {
   onOpenFile?: (path: string) => void;
   /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
+  /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
+  onOpenPrdTab?: () => void;
+  backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -96,23 +97,38 @@ export function ChatPanel({
   isSandboxToggling,
   isSandboxStopping = false,
   onSandboxToggle,
-  isArchived,
+  isArchived = false,
+  isReadOnly = false,
   deploymentStatus,
   sandboxCollapsed,
   onToggleSandbox,
   onOpenFile,
   onViewDiff,
+  onOpenPrdTab,
+  backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
+  const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
+  // Model + mode + traits + account are owned by Convex.
+  const {
+    model,
+    setModel,
+    mode: stickyMode,
+    setMode: setStickyMode,
+    traits,
+    setTraits,
+    providerAccountId: stickyProviderAccountId,
+    setProviderAccountId: setStickyProviderAccountId,
+  } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
     setMode,
-    model,
-    setModel,
     displayTraits,
     executionTraits,
     onTraitsChange,
@@ -120,10 +136,26 @@ export function ChatPanel({
     setProviderAccountId,
   } = useSessionSettings(sessionId, {
     defaultModel,
+    model,
+    onModelChange: setModel,
+    mode: stickyMode,
+    onModeChange: setStickyMode,
+    traits,
+    onTraitsPersist: setTraits,
+    providerAccountId: stickyProviderAccountId,
+    onProviderAccountChange: (next) => {
+      setStickyProviderAccountId(
+        next === null ? null : (resolveAccountId(next) ?? null),
+      );
+    },
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+  const currentUserId = useQuery(api.auth.me);
+  const isOwner =
+    currentUserId !== undefined &&
+    session !== undefined &&
+    session !== null &&
+    currentUserId === (session.createdBy ?? session.userId);
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,
@@ -153,6 +185,7 @@ export function ChatPanel({
     mode,
     model,
     executionTraits,
+    reasoningLevel: displayTraits.effortLevel,
     providerAccountId,
     resolveAccountId,
     accounts,
@@ -163,28 +196,16 @@ export function ChatPanel({
     entityId: sessionId,
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const handleAnswerBlockingQuestion = useCallback(
-    async (toolUseId: string, answers: Record<string, string>) => {
-      await answerPendingQuestion({
-        entityId: sessionId,
-        toolUseId,
-        answer: JSON.stringify(answers),
-      });
-    },
-    [answerPendingQuestion, sessionId],
-  );
-
-  const formatQueuedInfo = useCallback(
-    (message: ChatBodyQueuedMessage): string | undefined => {
-      const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
-      const detailParts = [
-        modeLabel,
-        message.model ? findAIModelOption(message.model).label : null,
-      ].filter((part): part is string => Boolean(part));
-      return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
-    },
-    [],
-  );
+  const handleAnswerBlockingQuestion = async (
+    toolUseId: string,
+    answers: Record<string, string>,
+  ) => {
+    await answerPendingQuestion({
+      entityId: sessionId,
+      toolUseId,
+      answer: JSON.stringify(answers),
+    });
+  };
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
@@ -228,13 +249,37 @@ export function ChatPanel({
 
   const beforeQueuedContent = isStartupStreaming ? startupStreamingNode : null;
 
+  const hasPlanContent =
+    typeof planContent === "string" && planContent.trim().length > 0;
+  // Compact card above composer only in plan mode with the sandbox collapsed.
+  const showCompactPlanCard =
+    mode === "plan" && hasPlanContent && sandboxCollapsed !== false;
+  // When the card is hidden but a plan exists, show a slim Plan Ready strip.
+  const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
+
+  const handleApprovePlan = () => {
+    setMode("edit");
+  };
+
+  const handleViewPlan = () => {
+    setMode("plan");
+    if (sandboxCollapsed === false) {
+      onOpenPrdTab?.();
+    }
+  };
+
   const preInputContent = (
     <>
+      <BackgroundAgentsChip
+        sessionId={sessionId}
+        backgroundAgents={backgroundAgents}
+        isReadOnly={isReadOnly}
+      />
       <BackgroundProcessesPanel sessionId={sessionId} />
       <PendingReviewCommentChips />
-      {mode === "plan" && planContent && sandboxCollapsed !== false ? (
+      {showCompactPlanCard && planContent ? (
         <AnimatePresence initial={false}>
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -243,22 +288,28 @@ export function ChatPanel({
             <SessionPrdPlanView
               sessionId={sessionId}
               planContent={planContent}
-              onApprovePlan={() => setMode("edit")}
+              onApprovePlan={handleApprovePlan}
               variant="compact"
-              isArchived={isArchived}
+              isArchived={isReadOnly}
             />
-          </motion.div>
+          </m.div>
         </AnimatePresence>
+      ) : null}
+      {showPlanReadyBanner && planContent ? (
+        <ComposerPlanReadyBanner
+          planContent={planContent}
+          onViewPlan={handleViewPlan}
+          onApprovePlan={handleApprovePlan}
+          isArchived={isReadOnly}
+        />
       ) : null}
     </>
   );
 
   const toolsBefore = (
-    <>
-      <SessionModeDropdown mode={mode} onModeChange={setMode} />
-      <SessionOptionsMenu sessionId={sessionId} />
-    </>
+    <SessionModeDropdown mode={mode} onModeChange={setMode} />
   );
+  const optionsSubmenu = <SessionOptionsMenu sessionId={sessionId} />;
 
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
@@ -274,10 +325,15 @@ export function ChatPanel({
       ? "Describe the product requirements... / for skills · @ for docs"
       : "Ask Eva anything... / for skills · @ for docs";
 
+  const readOnlyMessage = getSessionReadOnlyMessage({
+    isArchived,
+    prState,
+  });
+
   return (
     <ChatPageWrapper
       title={title}
-      isArchived={isArchived}
+      readOnlyMessage={readOnlyMessage}
       headerLeft={headerLeft}
       headerRight={headerRight}
     >
@@ -294,7 +350,7 @@ export function ChatPanel({
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
         isInputDisabled={!isSandboxActive}
-        isArchived={isArchived}
+        isArchived={isReadOnly}
         placeholder={placeholder}
         emptyStateTitle={emptyStateTitle}
         emptyStateOverride={emptyStateOverride}
@@ -307,20 +363,24 @@ export function ChatPanel({
           />
         }
         toolsBefore={toolsBefore}
+        optionsSubmenu={optionsSubmenu}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
         accounts={accounts}
         accountId={providerAccountId}
-        onAccountChange={setProviderAccountId}
+        onAccountChange={(next) => {
+          if (!isOwner) return;
+          setProviderAccountId(next);
+        }}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        formatQueuedInfo={formatQueuedInfo}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        attachmentMode="sessionFiles"
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
       />

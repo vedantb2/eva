@@ -12,10 +12,14 @@ import {
   auditCompleteEvent,
   proofCompleteEvent,
 } from "./events";
-import { buildAuditPrompt, buildProofPrompt } from "./prompts";
+import {
+  buildAuditPrompt,
+  buildProofPrompt,
+  buildProofRetryPrompt,
+} from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
-import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "../_sandbox_runtime/prepareSandboxSteps";
 
 const PR_STEP_RETRY = {
   retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
@@ -38,6 +42,8 @@ export const taskExecutionWorkflow = workflow.define({
     isFirstTaskOnBranch: v.boolean(),
     model: v.optional(aiModelValidator),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    /** Entity owner for personal-credential decrypt (task.createdBy). */
+    credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
     mode: v.optional(runModeValidator),
   },
@@ -68,6 +74,7 @@ export const taskExecutionWorkflow = workflow.define({
       const data = await step.runQuery(internal.taskWorkflow.getTaskData, {
         taskId: args.taskId,
         repoId: args.repoId,
+        runId: args.runId,
         projectId: args.projectId,
         branchName: args.branchName,
         mode: args.mode,
@@ -78,7 +85,7 @@ export const taskExecutionWorkflow = workflow.define({
       // run completes). Quick-task sandboxes are persistent (stop/pause, not
       // delete-on-completion — see "Persistent Quick-Task Sandboxes" in the
       // changelog), so `ephemeral` is always false: a first run that ended up
-      // ephemeral would be deleted by Daytona on auto-stop, leaving
+      // ephemeral would be deleted on auto-stop, leaving
       // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;
@@ -108,7 +115,7 @@ export const taskExecutionWorkflow = workflow.define({
 
       // Always run implementation on the task's selected model. Proof capture
       // is a separate post-push step that uses repo.proofModel.
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
         prompt: data.prompt,
@@ -123,6 +130,7 @@ export const taskExecutionWorkflow = workflow.define({
         taskProofCaptureEnabled: false,
         requireTaskCommit: true,
         providerAccountId: args.providerAccountId,
+        credentialOwnerUserId: args.credentialOwnerUserId,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
@@ -162,7 +170,7 @@ export const taskExecutionWorkflow = workflow.define({
 
       if (finalSuccess && sandboxId) {
         try {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
+          await step.runAction(internal.sandbox.pushSandboxBranch, {
             sandboxId,
             installationId: args.installationId,
             repoOwner: data.repoOwner,
@@ -201,16 +209,29 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      // Proof capture runs after push so PR enrichment can include media, and
-      // uses proofModel (not the implementation model). Soft-fail like audit.
+      // Proof capture runs after push so PR enrichment can include media,
+      // and uses repo.proofModel (falls back to the task model). Soft-fail
+      // like audit. Retry once if the first turn left no media file.
       if (
         finalSuccess &&
         sandboxId &&
         data.screenshotsVideosEnabled &&
         args.mode !== "resolve_conflicts"
       ) {
+        const proofModel = data.proofModel ?? args.model;
+        const proofRuntime = {
+          devPort: data.devPort,
+          devCommand: data.devCommand,
+        };
         try {
-          await step.runAction(internal.daytona.launchProof, {
+          // Revive Convex/etc. + start the app so proof does not screenshot
+          // "function not found" / connection errors from a cold backend.
+          await step.runAction(internal.sandbox.prepareProofSandbox, {
+            sandboxId,
+            repoId: args.repoId,
+            taskId: args.taskId,
+          });
+          await step.runAction(internal.sandbox.launchProof, {
             sandboxId,
             prompt: buildProofPrompt(
               {
@@ -219,18 +240,66 @@ export const taskExecutionWorkflow = workflow.define({
               },
               data.rootDirectory,
               completionResult,
+              undefined,
+              proofRuntime,
             ),
             taskId: String(args.taskId),
             runId: args.runId,
             userId: args.userId,
             repoId: args.repoId,
-            model: data.proofModel ?? args.model,
+            model: proofModel,
+            rootDirectory: data.rootDirectory,
           });
           const proofResult = await step.awaitEvent(proofCompleteEvent);
           if (!proofResult.success) {
             console.error(
               `[task-workflow] run=${args.runId} proof step failed: ${proofResult.error ?? "unknown"}`,
             );
+          }
+
+          // Prefer waiting briefly over an immediate retry — media used to land
+          // after handleProofCompletion (race), which spuriously launched a
+          // second full proof capture.
+          const hasMedia = await step.runAction(
+            internal.sandbox.waitForProofMedia,
+            { taskId: args.taskId, runId: args.runId },
+          );
+          if (!hasMedia) {
+            console.error(
+              `[task-workflow] run=${args.runId} proof left no media; retrying once with hard capture prompt`,
+            );
+            await step.runMutation(
+              internal.taskProof.clearMessageProofsForRun,
+              { taskId: args.taskId, runId: args.runId },
+            );
+            await step.runAction(internal.sandbox.prepareProofSandbox, {
+              sandboxId,
+              repoId: args.repoId,
+              taskId: args.taskId,
+            });
+            await step.runAction(internal.sandbox.launchProof, {
+              sandboxId,
+              prompt: buildProofRetryPrompt(
+                {
+                  title: data.taskTitle,
+                  description: data.taskDescription,
+                },
+                data.rootDirectory,
+                proofRuntime,
+              ),
+              taskId: String(args.taskId),
+              runId: args.runId,
+              userId: args.userId,
+              repoId: args.repoId,
+              model: proofModel,
+              rootDirectory: data.rootDirectory,
+            });
+            const retryResult = await step.awaitEvent(proofCompleteEvent);
+            if (!retryResult.success) {
+              console.error(
+                `[task-workflow] run=${args.runId} proof retry failed: ${retryResult.error ?? "unknown"}`,
+              );
+            }
           }
         } catch (proofError) {
           console.error(
@@ -331,6 +400,23 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
+      if (completionPrUrl) {
+        try {
+          await step.runMutation(
+            internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
+            {
+              repoId: args.repoId,
+              userId: args.userId,
+              prUrl: completionPrUrl,
+            },
+          );
+        } catch (recapError) {
+          console.error(
+            `[task-workflow] run=${args.runId} scheduleEvaPrRecap failed: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
+          );
+        }
+      }
+
       // Surface a PR-step failure to the user even though the run is otherwise
       // successful — the commits are already on GitHub, so we keep success: true
       // (no auto-retry, no sandbox-preserve), but record the error in the
@@ -367,7 +453,7 @@ export const taskExecutionWorkflow = workflow.define({
             },
           );
 
-          await step.runAction(internal.daytona.launchAudit, {
+          await step.runAction(internal.sandbox.launchAudit, {
             sandboxId,
             prompt: buildAuditPrompt(auditCategories),
             taskId: String(args.taskId),
@@ -449,7 +535,7 @@ export const taskExecutionWorkflow = workflow.define({
         !preserveSandboxOnFailure &&
         !keepTaskSandboxActiveAfterRun
       ) {
-        await step.runAction(internal.daytona.stopSandbox, {
+        await step.runAction(internal.sandbox.stopSandbox, {
           sandboxId,
           repoId: args.repoId,
         });
@@ -528,7 +614,7 @@ export const taskExecutionWorkflow = workflow.define({
         !keepTaskSandboxActiveAfterRun
       ) {
         try {
-          await step.runAction(internal.daytona.stopSandbox, {
+          await step.runAction(internal.sandbox.stopSandbox, {
             sandboxId,
             repoId: args.repoId,
           });

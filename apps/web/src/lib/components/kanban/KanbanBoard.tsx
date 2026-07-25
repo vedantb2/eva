@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode, RefCallback } from "react";
-import { useState, useMemo, useCallback } from "react";
+import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   type DragEndEvent,
   type DragStartEvent,
@@ -12,20 +12,22 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import {
   KanbanProvider,
   KanbanCard,
   type KanbanItem,
   type KanbanColumnDef,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,
   type TaskStatus,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 interface BaseTask {
   _id: string;
@@ -74,42 +76,26 @@ export function KanbanBoard<T extends BaseTask>({
     }),
   );
 
-  const itemsById = useMemo(() => {
-    const map = new Map<string, T>();
-    for (const item of items) {
-      map.set(item._id, item);
-    }
-    return map;
-  }, [items]);
+  const itemsById = new Map(items.map((item) => [item._id, item]));
 
-  const kanbanData: KanbanItem[] = useMemo(
-    () =>
-      items.map((item) => ({
-        id: item._id,
-        name: item.title,
-        column: item.status,
-      })),
-    [items],
-  );
+  const kanbanData: KanbanItem[] = items.map((item) => ({
+    id: item._id,
+    name: item.title,
+    column: item.status,
+  }));
 
-  const itemsByStatus = useMemo(() => {
-    const map = new Map<string, T[]>();
-    for (const status of KANBAN_STATUSES) {
-      map.set(status, []);
-    }
-    for (const item of items) {
-      map.get(item.status)?.push(item);
-    }
-    return map;
-  }, [items]);
+  const itemsByStatus = new Map<string, T[]>();
+  for (const status of KANBAN_STATUSES) {
+    itemsByStatus.set(status, []);
+  }
+  for (const item of items) {
+    itemsByStatus.get(item.status)?.push(item);
+  }
 
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const status of KANBAN_STATUSES) {
-      counts[status] = itemsByStatus.get(status)?.length ?? 0;
-    }
-    return counts;
-  }, [itemsByStatus]);
+  const countByStatus: Record<string, number> = {};
+  for (const status of KANBAN_STATUSES) {
+    countByStatus[status] = itemsByStatus.get(status)?.length ?? 0;
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = itemsById.get(String(event.active.id));
@@ -199,28 +185,30 @@ export function KanbanBoard<T extends BaseTask>({
           }`}
         >
           <AnimatePresence initial={false}>
-            {KANBAN_STATUSES.filter((status) =>
-              visibleStatuses.has(status),
-            ).map((status) => (
-              <motion.div
-                key={status}
-                layout
-                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <VirtualKanbanColumn
-                  status={status}
-                  items={itemsByStatus.get(status) ?? []}
-                  count={countByStatus[status] ?? 0}
-                  headerExtra={columnExtra?.(status)}
-                  renderCard={renderCard}
-                  onItemClick={onItemClick}
-                />
-              </motion.div>
-            ))}
+            {KANBAN_STATUSES.flatMap((status) =>
+              visibleStatuses.has(status)
+                ? [
+                    <m.div
+                      key={status}
+                      layout
+                      className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <VirtualKanbanColumn
+                        status={status}
+                        items={itemsByStatus.get(status) ?? []}
+                        count={countByStatus[status] ?? 0}
+                        headerExtra={columnExtra?.(status)}
+                        renderCard={renderCard}
+                        onItemClick={onItemClick}
+                      />
+                    </m.div>,
+                  ]
+                : [],
+            )}
           </AnimatePresence>
         </div>
       </KanbanProvider>
@@ -243,13 +231,9 @@ function VirtualKanbanColumn<T extends BaseTask>({
   renderCard: (item: T) => ReactNode;
   onItemClick: (item: T) => void;
 }) {
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
-
-  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
-    (node: HTMLDivElement | null) => {
-      setScrollParent(node);
-    },
-    [],
+  const { owner, name } = useRepo();
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/quick-tasks/kanban/${status}`,
   );
 
   const itemIds = useMemo(() => items.map((item) => item._id), [items]);

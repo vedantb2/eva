@@ -64,6 +64,7 @@ export const getRepoSnapshot = authQuery({
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      seedCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
       baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
@@ -178,8 +179,8 @@ export const getSeedableAppRepos = internalQuery({
  * Siblings that still carry a seededSnapshotName but are NO LONGER seedable
  * (e.g. an app that dropped its stopCommands, or the monorepo parent). The
  * per-app rebuild loop only deletes snapshots for CURRENTLY seedable apps, so
- * without cleanup an ex-seedable app's seeded-<repoId> snapshot lingers in
- * Daytona forever. The build workflow uses this to delete those snapshots and
+ * without cleanup an ex-seedable app's seeded-<repoId> snapshot lingers
+ * forever. The build workflow uses this to delete those snapshots and
  * clear the stale name.
  */
 export const getOrphanedSeededApps = internalQuery({
@@ -344,7 +345,7 @@ export const setSeededSnapshotNameForAll = internalMutation({
  * (data.sql / backup zips live on the parent). When this matches the value
  * stored at the last successful seeded capture, the build workflow skips
  * re-seeding: the resulting snapshot's data would be identical, and rebuilding
- * it only contends with the concurrent base-image build on Daytona.
+ * it only contends with the concurrent base-image build on Vercel.
  */
 export const getSeedFingerprint = internalQuery({
   args: {
@@ -394,6 +395,7 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: v.string(),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      seedCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
       baseSnapshotId: v.optional(v.string()),
     }),
@@ -407,9 +409,49 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: doc.snapshotName,
       workflowRef: doc.workflowRef,
       buildCommands: doc.buildCommands,
+      seedCommands: doc.seedCommands,
       imageFingerprint: doc.imageFingerprint,
       baseSnapshotId: doc.baseSnapshotId,
     };
+  },
+});
+
+/**
+ * snap_* / seeded ids that must survive orphan cleanup for this monorepo
+ * (current base Image + per-app seeded captures).
+ */
+export const listProtectedSnapshotIds = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return [];
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", repo.owner).eq("name", repo.name),
+      )
+      .collect();
+    const protectedIds = new Set<string>();
+    for (const sibling of siblings) {
+      if (sibling.seededSnapshotName !== undefined) {
+        protectedIds.add(sibling.seededSnapshotName);
+      }
+      const snapConfig = await ctx.db
+        .query("repoSnapshots")
+        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+        .first();
+      if (snapConfig?.baseSnapshotId !== undefined) {
+        protectedIds.add(snapConfig.baseSnapshotId);
+      }
+      if (
+        snapConfig?.snapshotName !== undefined &&
+        snapConfig.snapshotName.startsWith("snap_")
+      ) {
+        protectedIds.add(snapConfig.snapshotName);
+      }
+    }
+    return [...protectedIds];
   },
 });
 
@@ -451,6 +493,7 @@ export const saveRepoSnapshot = authMutation({
     schedule: snapshotScheduleValidator,
     workflowRef: v.optional(v.string()),
     buildCommands: v.optional(v.array(v.string())),
+    seedCommands: v.optional(v.array(v.string())),
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
@@ -478,6 +521,7 @@ export const saveRepoSnapshot = authMutation({
         cronJobId,
         workflowRef: args.workflowRef,
         buildCommands: args.buildCommands,
+        seedCommands: args.seedCommands,
         updatedAt: Date.now(),
       });
       return appSpecific._id;
@@ -510,6 +554,7 @@ export const saveRepoSnapshot = authMutation({
             enabled: true,
             workflowRef: args.workflowRef,
             buildCommands: args.buildCommands,
+            seedCommands: args.seedCommands,
             baseSnapshotId: siblingSnapshot.baseSnapshotId,
             createdAt: now,
             updatedAt: now,
@@ -539,6 +584,7 @@ export const saveRepoSnapshot = authMutation({
       enabled: true,
       workflowRef: args.workflowRef,
       buildCommands: args.buildCommands,
+      seedCommands: args.seedCommands,
       createdAt: now,
       updatedAt: now,
     });
@@ -554,6 +600,32 @@ export const saveRepoSnapshot = authMutation({
     }
 
     return id;
+  },
+});
+
+/**
+ * Sets a repo's snapshot seed commands directly (internal, CLI/ops use) —
+ * mirrors githubRepos:setRepoCommandsInternal for the repoSnapshots row.
+ * An empty array clears the field. Fails if the repo has no snapshot config.
+ */
+export const setSeedCommandsInternal = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    seedCommands: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const config = await ctx.db
+      .query("repoSnapshots")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+    if (!config) throw new Error("No snapshot config found for this repo");
+    await ctx.db.patch(config._id, {
+      seedCommands:
+        args.seedCommands.length > 0 ? args.seedCommands : undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 
@@ -585,7 +657,7 @@ export const setSnapshotEnabled = authMutation({
   },
 });
 
-/** Deletes a snapshot config, its cron job, and the remote Daytona snapshot. */
+/** Deletes a snapshot config, its cron job, and the remote sandbox snapshot. */
 export const deleteRepoSnapshot = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
@@ -598,7 +670,7 @@ export const deleteRepoSnapshot = authMutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.snapshotActions.deleteDaytonaSnapshot,
+      internal.snapshotActions.deleteSeededSnapshot,
       { snapshotName: config.snapshotName, repoId: config.repoId },
     );
 

@@ -1,5 +1,7 @@
 import { unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
+  CLAIM_MUTATION,
+  COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -10,13 +12,19 @@ import {
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
+  OPEN_SYNTHETIC_TURN_MUTATION,
   REPO_ID,
   RUN_ID,
+  UPDATE_BACKGROUND_AGENTS_MUTATION,
 } from "../config.js";
+import {
+  resolveDaemonPaths,
+  resolveLegacySessionDaemonPaths,
+} from "./daemonPaths.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import {
+  deliverCompletionWithMedia,
   extractResultEvent,
-  uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
   flushStreaming,
@@ -26,6 +34,7 @@ import {
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendToRawLogFile,
   appendToRawOutput,
@@ -41,28 +50,27 @@ import {
   loadSdk,
   type SdkUserMessage,
 } from "./claudeSdk.js";
+import {
+  isEscalationReply,
+  shouldHoldConversationalStream,
+} from "./conversationalEscalation.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
+import { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
+
+export { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The daemon writes its pid + entity so the backend's prewarm alive-check can
-// confirm a live, matching daemon (and skip respawning one). Prompts are no
-// longer delivered by file: the daemon PULLS each turn from Convex via
-// claimPendingTurn (daemon-pull), so there is no prompt/ready file to poll.
-export const DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
-export const DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-// Model+tools signature this daemon booted with. The prewarm alive-check reads
-// it to detect a model/tools change and respawn rather than reuse the daemon.
-export const DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
-
-// Public Convex mutation the daemon polls to atomically claim the next staged
-// turn's prompt for THIS session (ENTITY_ID). Mirrors how COMPLETION_MUTATION is
-// invoked over /api/mutation with the sandbox CONVEX_TOKEN identity.
-const CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
+// Entity-scoped daemon marker paths (see daemonPaths.ts). Legacy session paths
+// are cleaned up on exit when this daemon is session-scoped.
+const daemonPaths = resolveDaemonPaths();
+export const DAEMON_PID_FILE = daemonPaths.pid;
+export const DAEMON_ENTITY_FILE = daemonPaths.entity;
+export const DAEMON_OPTS_FILE = daemonPaths.opts;
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the
@@ -86,6 +94,63 @@ const WATCHDOG_TICK_MS = 5000;
 let turnActive = false;
 let turnStartedAtMs = 0;
 let lastMessageAtMs = 0;
+
+type TurnKind = "conversational" | "agent";
+
+type ClaimedTurn = {
+  prompt: string;
+  turnKind: TurnKind;
+  attachmentUrls: string[];
+};
+
+type DaemonMessage = Record<string, JsonValue>;
+
+type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
+
+type WarmRunner = {
+  push: (text: string) => void;
+  waitMessage: () => Promise<DaemonMessage | null>;
+  drainPending: () => DaemonMessage[];
+  hasPending: () => boolean;
+  stopTask: (taskId: string) => Promise<void>;
+};
+
+type WarmConversationalRunner = WarmRunner;
+
+type BackgroundAgentEntry = {
+  toolUseId: string;
+  taskId?: string;
+  description?: string;
+  status: string;
+  backgrounded?: boolean;
+  startedAt: number;
+  settledAt?: number;
+};
+
+let daemonTurn: DaemonTurn | null = null;
+let pendingClaimedTurn: ClaimedTurn | null = null;
+let daemonExiting = false;
+let openingSyntheticTurn = false;
+let lastIdleActivityAtMs = Date.now();
+let agentTurnOutput = "";
+let agentTurnStartedAt = 0;
+let sawFirstMessageThisTurn = { value: false };
+let sawAssistantThisTurn = { value: false };
+
+const recognisedSubagentToolUseIds = new Set<string>();
+const settledSubagentToolUseIds = new Set<string>();
+const unsettledBackgroundAgents = new Map<string, BackgroundAgentEntry>();
+const pendingAgentStops = new Set<string>();
+let currentAgentRunner: WarmRunner | null = null;
+
+function entityMutationArgs(
+  fields: Record<string, JsonValue>,
+): Record<string, JsonValue> {
+  return {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    ...fields,
+  };
+}
 
 function beginWatchedTurn(): void {
   turnActive = true;
@@ -116,7 +181,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       success: false,
       result: null,
       error,
-      activityLog: JSON.stringify(S.accumulatedSteps),
+      activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     });
   } catch {
@@ -145,24 +210,30 @@ function startTurnWatchdog(): void {
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
-      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+      if (daemonTurn?.kind === "synthetic") {
+        void failSyntheticTurn(
+          "The assistant exceeded the maximum turn runtime.",
+        );
+      } else {
+        void failTurnAndExit(
+          "The assistant exceeded the maximum turn runtime.",
+        );
+      }
     } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
       turnActive = false;
-      void failTurnAndExit(
-        "The assistant stopped responding. Please try again.",
-      );
+      if (daemonTurn?.kind === "synthetic") {
+        void failSyntheticTurn(
+          "The assistant stopped responding. Please try again.",
+        );
+      } else {
+        void failTurnAndExit(
+          "The assistant stopped responding. Please try again.",
+        );
+      }
     }
   }, WATCHDOG_TICK_MS);
   timer.unref?.();
 }
-
-type TurnKind = "conversational" | "agent";
-
-type ClaimedTurn = {
-  prompt: string;
-  turnKind: TurnKind;
-  attachmentUrls: string[];
-};
 
 /**
  * A queue-backed async iterable of user messages that BLOCKS when empty and
@@ -288,7 +359,7 @@ async function finalizeTurn(
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const activityLog = JSON.stringify(S.accumulatedSteps);
+  const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
   const completionArgs: Record<string, string | boolean | null> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -304,15 +375,11 @@ async function finalizeTurn(
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  // Send completion FIRST — this resolves the workflow's awaitEvent and surfaces
-  // the reply. Everything that follows is recovery bookkeeping that must not sit
-  // on the reply-critical path.
+  // Proof: media before completion so the workflow's hasMediaForRun check does
+  // not spuriously retry. Chat/coding: completion first so attachMedia can patch
+  // the assistant message that was just written.
   const completionSentAt = Date.now();
-  await callConvexWithRetry(
-    "mutation",
-    COMPLETION_MUTATION ?? "",
-    completionArgs,
-  );
+  await deliverCompletionWithMedia(completionArgs);
   log(
     "daemon: turn finalized success=" +
       success +
@@ -322,17 +389,6 @@ async function finalizeTurn(
       (Date.now() - completionSentAt) +
       "ms)",
   );
-  // Upload agent recordings/screenshots after completion so attachMedia patches
-  // the assistant message that was just written. One-shot path already did this;
-  // sdk-daemon turns previously skipped it, so chat never showed the media.
-  try {
-    await uploadAndAttachSandboxMedia();
-  } catch (e) {
-    log(
-      "daemon: media upload failed: " +
-        (e instanceof Error ? e.message : String(e)),
-    );
-  }
   // Persist the Claude transcript to the volume for restart recovery, and send a
   // final streaming reconcile. Both run AFTER completion so the ~5s synchronous
   // transcript copy never delays the reply the user is waiting on. The sandbox
@@ -383,7 +439,6 @@ function readClaimedAttachmentUrls(payload: {
   }
   return field.filter((url): url is string => typeof url === "string");
 }
-
 function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   const prompt = readClaimedPrompt(result);
   if (prompt === null) {
@@ -407,10 +462,589 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   };
 }
 
-type DaemonMessage = Record<string, JsonValue>;
+function readSyntheticTurnMessageId(result: JsonValue): string | null {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload =
+    typeof inner === "object" && inner !== null && !Array.isArray(inner)
+      ? inner
+      : result;
+  const messageId = payload.messageId;
+  return typeof messageId === "string" ? messageId : null;
+}
+
+function readParentToolUseId(message: DaemonMessage): string | null {
+  const parentField = message.parent_tool_use_id;
+  if (typeof parentField === "string" && parentField.trim()) {
+    return parentField.trim();
+  }
+  return null;
+}
+
+function readStringField(
+  message: DaemonMessage,
+  field: string,
+): string | undefined {
+  const value = message[field];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function recogniseSubagentToolUses(message: DaemonMessage): void {
+  if (message.type !== "assistant") {
+    return;
+  }
+  const nested = message.message;
+  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+    return;
+  }
+  const content = nested.content;
+  if (!Array.isArray(content)) {
+    return;
+  }
+  for (const block of content) {
+    if (typeof block !== "object" || block === null || Array.isArray(block)) {
+      continue;
+    }
+    if (block.type !== "tool_use") {
+      continue;
+    }
+    const name = block.name;
+    if (name !== "Agent" && name !== "Task") {
+      continue;
+    }
+    const id = block.id;
+    if (typeof id === "string" && id.trim()) {
+      recognisedSubagentToolUseIds.add(id.trim());
+    }
+  }
+}
+
+function shouldDropSubagentMessage(message: DaemonMessage): boolean {
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return settledSubagentToolUseIds.has(parentId);
+}
+
+/**
+ * Synara-compatible mint gate: only open a synthetic turn for main-context
+ * assistant/stream traffic, or messages routed under a recognised Agent/Task
+ * tool_use id. Between-turn system/task/telemetry noise must not mint — a
+ * background Bash exit would otherwise open an empty bubble that the watchdog
+ * fails as "The assistant stopped responding".
+ */
+function shouldMintSyntheticTurn(message: DaemonMessage): boolean {
+  if (message.type === "assistant" || message.type === "stream_event") {
+    return true;
+  }
+  const parentId = readParentToolUseId(message);
+  if (parentId === null) {
+    return false;
+  }
+  return recognisedSubagentToolUseIds.has(parentId);
+}
+
+function completeSubtaskStep(toolUseId: string): void {
+  for (const step of S.accumulatedSteps) {
+    if (step.type === "subtask" && step.toolUseId === toolUseId) {
+      step.status = "complete";
+    }
+  }
+}
+
+function settleSubagent(toolUseId: string, terminalStatus: string): void {
+  settledSubagentToolUseIds.add(toolUseId);
+  const entry = unsettledBackgroundAgents.get(toolUseId);
+  unsettledBackgroundAgents.delete(toolUseId);
+  completeSubtaskStep(toolUseId);
+  if (entry) {
+    void syncBackgroundAgentsToConvex([
+      {
+        ...entry,
+        status: terminalStatus,
+        settledAt: Date.now(),
+      },
+    ]);
+  }
+}
+
+function toConvexBackgroundAgent(
+  entry: BackgroundAgentEntry,
+): Record<string, string | number | boolean> {
+  const payload: Record<string, string | number | boolean> = {
+    toolUseId: entry.toolUseId,
+    status: entry.status,
+    startedAt: entry.startedAt,
+  };
+  if (entry.taskId) {
+    payload.taskId = entry.taskId;
+  }
+  if (entry.description) {
+    payload.description = entry.description;
+  }
+  if (entry.backgrounded === true) {
+    payload.backgrounded = true;
+  }
+  if (entry.settledAt !== undefined) {
+    payload.settledAt = entry.settledAt;
+  }
+  return payload;
+}
+
+async function syncBackgroundAgentsToConvex(
+  agents: BackgroundAgentEntry[],
+): Promise<void> {
+  if (agents.length === 0) {
+    return;
+  }
+  try {
+    await callConvexWithRetry(
+      "mutation",
+      UPDATE_BACKGROUND_AGENTS_MUTATION ?? "",
+      entityMutationArgs({
+        agents: agents.map(toConvexBackgroundAgent),
+      }),
+    );
+  } catch {
+    /* best-effort */
+  }
+}
+
+function findAgentByTaskId(taskId: string): BackgroundAgentEntry | undefined {
+  for (const entry of unsettledBackgroundAgents.values()) {
+    if (entry.taskId === taskId) {
+      return entry;
+    }
+  }
+  return undefined;
+}
+
+function markAgentsBackgrounded(taskIds: string[]): void {
+  const patches: BackgroundAgentEntry[] = [];
+  for (const taskId of taskIds) {
+    const entry = findAgentByTaskId(taskId);
+    if (!entry || entry.backgrounded === true) {
+      continue;
+    }
+    entry.backgrounded = true;
+    patches.push({ ...entry });
+  }
+  if (patches.length > 0) {
+    void syncBackgroundAgentsToConvex(patches);
+  }
+}
+
+async function dispatchPendingAgentStops(
+  agentRunner: WarmRunner,
+): Promise<void> {
+  const pendingStops: string[] = [];
+  pendingAgentStops.forEach((toolUseId) => {
+    pendingStops.push(toolUseId);
+  });
+  for (const toolUseId of pendingStops) {
+    const entry = unsettledBackgroundAgents.get(toolUseId);
+    if (!entry?.taskId) {
+      continue;
+    }
+    pendingAgentStops.delete(toolUseId);
+    try {
+      await agentRunner.stopTask(entry.taskId);
+      log("daemon: stopTask dispatched taskId=" + entry.taskId);
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log("daemon: stopTask failed — " + messageText);
+      pendingAgentStops.add(toolUseId);
+    }
+  }
+}
+
+function handleBackgroundTasksChanged(message: DaemonMessage): void {
+  if (
+    message.type !== "system" ||
+    message.subtype !== "background_tasks_changed"
+  ) {
+    return;
+  }
+  const tasksField = message.tasks;
+  if (!Array.isArray(tasksField)) {
+    return;
+  }
+  const taskIds: string[] = [];
+  for (const task of tasksField) {
+    if (typeof task !== "object" || task === null || Array.isArray(task)) {
+      continue;
+    }
+    const taskIdField = task.task_id;
+    const taskId =
+      typeof taskIdField === "string" && taskIdField.trim()
+        ? taskIdField.trim()
+        : undefined;
+    if (taskId) {
+      taskIds.push(taskId);
+    }
+  }
+  // Mark backgrounded idempotently from the full roster (markAgentsBackgrounded
+  // skips already-marked entries). Do NOT consume diffNewBackgroundTaskIds here:
+  // the parse layer owns that dedup set and diffs it to push the "Agent moved to
+  // background" notice step — consuming it first leaves that diff empty and
+  // the notice never renders.
+  markAgentsBackgrounded(taskIds);
+}
+
+function handleSystemTaskMessage(message: DaemonMessage): void {
+  if (message.type !== "system") {
+    return;
+  }
+  const subtype = message.subtype;
+  if (typeof subtype !== "string") {
+    return;
+  }
+  const toolUseId = readStringField(message, "tool_use_id");
+  if (subtype === "task_started" && toolUseId) {
+    const entry: BackgroundAgentEntry = {
+      toolUseId,
+      taskId: readStringField(message, "task_id"),
+      description: readStringField(message, "description"),
+      status: "running",
+      startedAt: Date.now(),
+    };
+    unsettledBackgroundAgents.set(toolUseId, entry);
+    void syncBackgroundAgentsToConvex([entry]);
+    if (currentAgentRunner) {
+      void dispatchPendingAgentStops(currentAgentRunner);
+    }
+    return;
+  }
+  if (
+    (subtype === "task_updated" || subtype === "task_notification") &&
+    toolUseId
+  ) {
+    const status = readStringField(message, "status");
+    const terminal =
+      status === "completed" ||
+      status === "failed" ||
+      status === "killed" ||
+      status === "stopped" ||
+      subtype === "task_notification";
+    if (terminal) {
+      settleSubagent(toolUseId, status ?? "completed");
+    }
+  }
+}
+
+async function failSyntheticTurn(error: string): Promise<void> {
+  if (daemonTurn?.kind !== "synthetic") {
+    return;
+  }
+  log("daemon: failing synthetic turn — " + error);
+  const messageId = daemonTurn.messageId;
+  try {
+    await flushStreaming();
+    for (const step of S.accumulatedSteps) {
+      step.status = "complete";
+    }
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({
+        messageId,
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(S.accumulatedSteps),
+      }),
+    );
+  } catch {
+    /* best-effort */
+  }
+  endWatchedTurn();
+  resetTurnState();
+  daemonTurn = null;
+  agentTurnOutput = "";
+}
+
+async function ensureSyntheticTurn(): Promise<void> {
+  if (daemonTurn !== null || openingSyntheticTurn) {
+    return;
+  }
+  openingSyntheticTurn = true;
+  try {
+    const result = await callConvexWithRetry(
+      "mutation",
+      OPEN_SYNTHETIC_TURN_MUTATION ?? "",
+      entityMutationArgs({}),
+    );
+    const messageId = readSyntheticTurnMessageId(result);
+    if (messageId === null) {
+      log("daemon: openSyntheticTurn returned no messageId");
+      return;
+    }
+    resetTurnState();
+    daemonTurn = { kind: "synthetic", messageId };
+    agentTurnStartedAt = Date.now();
+    sawFirstMessageThisTurn = { value: false };
+    sawAssistantThisTurn = { value: false };
+    S.activeAttemptStartedAt = agentTurnStartedAt;
+    beginWatchedTurn();
+    log("daemon: synthetic turn opened messageId=" + messageId);
+  } finally {
+    openingSyntheticTurn = false;
+  }
+}
+
+async function finalizeSyntheticTurn(output: string): Promise<void> {
+  if (daemonTurn?.kind !== "synthetic") {
+    return;
+  }
+  const messageId = daemonTurn.messageId;
+  await flushStreaming();
+  const resultEvent = extractResultEvent(output);
+  for (const step of S.accumulatedSteps) {
+    step.status = "complete";
+  }
+  const activityLog = serializeSteps(S.accumulatedSteps);
+  const success = resultEvent ? !resultEvent.isError : false;
+  const completionArgs: Record<string, JsonValue> = entityMutationArgs({
+    messageId,
+    success,
+    result: resultEvent?.result ?? S.rawOutput,
+    error: resultEvent?.isError ? resultEvent.result : null,
+    activityLog,
+  });
+  if (S.pendingQuestionData) {
+    completionArgs.pendingQuestion = S.pendingQuestionData;
+  }
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
+    completionArgs,
+  );
+  syncClaudeStateToPersist("daemon-synthetic-turn");
+  endWatchedTurn();
+  resetTurnState();
+  daemonTurn = null;
+  agentTurnOutput = "";
+  log("daemon: synthetic turn finalized success=" + success);
+}
+
+function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
+  // Do not drain the agent pump here: buffered post-result / background-agent
+  // messages must stay queued so the main loop can open a synthetic turn (or
+  // attribute them into this real turn once it is live).
+  resetTurnState();
+  daemonTurn = { kind: "real" };
+  agentTurnStartedAt = Date.now();
+  sawFirstMessageThisTurn = { value: false };
+  sawAssistantThisTurn = { value: false };
+  beginWatchedTurn();
+  agentRunner.push(turn.prompt);
+  S.activeAttemptStartedAt = agentTurnStartedAt;
+  agentTurnOutput = "";
+  log("daemon: real turn started");
+}
+
+function startClaimWatcher(
+  agentRunner: WarmRunner,
+  _convRunner: WarmConversationalRunner,
+): void {
+  void (async () => {
+    while (!daemonExiting) {
+      if (callbackScriptWentStaleOnDisk()) {
+        log("daemon: callback script updated on disk — exiting for respawn");
+        daemonExiting = true;
+        return;
+      }
+      try {
+        const claimed = await callConvexWithRetry(
+          "mutation",
+          CLAIM_MUTATION ?? "",
+          entityMutationArgs({ model: MODEL }),
+        );
+        const stopIds = readStopTaskToolUseIds(claimed);
+        for (const toolUseId of stopIds) {
+          pendingAgentStops.add(toolUseId);
+        }
+        await dispatchPendingAgentStops(agentRunner);
+        const turn = readClaimedTurn(claimed);
+        if (turn !== null) {
+          await materializeTurnAttachments(turn);
+          lastIdleActivityAtMs = Date.now();
+          // claimPendingTurn already cleared session.pendingTurn atomically, so
+          // any branch that does not park/start the claim loses that prompt.
+          // Normal startExecute queues while a real turn/workflow is active, so
+          // the discard paths below should stay unreachable — log clearly if not.
+          if (turn.turnKind === "conversational") {
+            if (daemonTurn === null && pendingClaimedTurn === null) {
+              pendingClaimedTurn = turn;
+            } else if (
+              daemonTurn?.kind === "synthetic" &&
+              pendingClaimedTurn === null
+            ) {
+              pendingClaimedTurn = turn;
+            } else {
+              log(
+                "daemon: conversational claim discarded — turn already active (prompt lost; pendingTurn was already cleared)",
+              );
+            }
+          } else if (daemonTurn === null) {
+            pendingClaimedTurn = turn;
+          } else if (daemonTurn.kind === "synthetic") {
+            pendingClaimedTurn = turn;
+          } else {
+            log(
+              "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)",
+            );
+          }
+        }
+      } catch {
+        /* retry on next poll */
+      }
+      await sleep(PROMPT_POLL_INTERVAL_MS);
+    }
+  })();
+}
+
+async function handleClaimedTurn(
+  turn: ClaimedTurn,
+  agentRunner: WarmRunner,
+  convRunner: WarmConversationalRunner,
+): Promise<void> {
+  if (turn.turnKind === "conversational") {
+    const outcome = await runConversationalWarmTurn(convRunner, turn.prompt);
+    if (outcome === "escalated") {
+      startRealAgentTurn({ ...turn, turnKind: "agent" }, agentRunner);
+    }
+    return;
+  }
+  startRealAgentTurn(turn, agentRunner);
+}
+
+async function runDaemonMessagePump(
+  agentRunner: WarmRunner,
+  convRunner: WarmConversationalRunner,
+): Promise<void> {
+  while (!daemonExiting) {
+    if (daemonTurn === null && pendingClaimedTurn !== null) {
+      const turn = pendingClaimedTurn;
+      pendingClaimedTurn = null;
+      await handleClaimedTurn(turn, agentRunner, convRunner);
+      continue;
+    }
+
+    if (
+      daemonTurn === null &&
+      pendingClaimedTurn === null &&
+      unsettledBackgroundAgents.size === 0 &&
+      Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS
+    ) {
+      log("daemon: idle timeout — exiting");
+      return;
+    }
+
+    if (daemonTurn === null && !agentRunner.hasPending()) {
+      await sleep(PROMPT_POLL_INTERVAL_MS);
+      continue;
+    }
+
+    const message = await agentRunner.waitMessage();
+    if (message === null) {
+      if (turnActive) {
+        if (daemonTurn?.kind === "synthetic") {
+          await failSyntheticTurn(
+            "The assistant ended without a reply. Please try again.",
+          );
+        } else {
+          await failTurnAndExit(
+            "The assistant ended without a reply. Please try again.",
+          );
+        }
+      }
+      return;
+    }
+
+    lastIdleActivityAtMs = Date.now();
+
+    if (shouldDropSubagentMessage(message)) {
+      const messageType = typeof message.type === "string" ? message.type : "?";
+      log("daemon: dropped settled subagent message type=" + messageType);
+      continue;
+    }
+
+    recogniseSubagentToolUses(message);
+    handleSystemTaskMessage(message);
+    handleBackgroundTasksChanged(message);
+
+    if (message.type === "result" && daemonTurn === null) {
+      log("daemon: result with no live turn — ignored");
+      continue;
+    }
+
+    if (daemonTurn === null) {
+      if (!shouldMintSyntheticTurn(message)) {
+        const messageType =
+          typeof message.type === "string" ? message.type : "?";
+        log(
+          "daemon: between-turn " +
+            messageType +
+            " consumed without minting a synthetic turn",
+        );
+        continue;
+      }
+      await ensureSyntheticTurn();
+      if (daemonTurn === null) {
+        continue;
+      }
+      agentTurnOutput = "";
+    }
+
+    noteWatchedMessage();
+    const processed = handleDaemonMessage(
+      message,
+      agentTurnOutput,
+      agentTurnStartedAt,
+      sawFirstMessageThisTurn,
+      sawAssistantThisTurn,
+    );
+    agentTurnOutput = processed.output;
+    if (!processed.isResult) {
+      continue;
+    }
+
+    endWatchedTurn();
+    const resultAt = Date.now();
+    log(
+      "daemon[timing]: result message +" +
+        (resultAt - agentTurnStartedAt) +
+        "ms after turn start",
+    );
+
+    if (daemonTurn?.kind === "synthetic") {
+      await finalizeSyntheticTurn(agentTurnOutput);
+    } else {
+      await finalizeTurn(agentTurnOutput);
+      log(
+        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
+      );
+      daemonTurn = null;
+    }
+    // Leave any already-queued SDK messages in the pump. The next loop
+    // iteration will ensureSyntheticTurn() / handle them — draining here
+    // orphaned background-agent "report back" continuations (session 43).
+
+    if (pendingClaimedTurn !== null && daemonTurn === null) {
+      const parked = pendingClaimedTurn;
+      pendingClaimedTurn = null;
+      await handleClaimedTurn(parked, agentRunner, convRunner);
+    }
+  }
+}
 
 /** Processes one SDK message through the streaming pipeline. */
-function processDaemonMessage(
+function handleDaemonMessage(
   message: DaemonMessage,
   output: string,
   turnStartedAt: number,
@@ -474,6 +1108,42 @@ function extractAssistantTextFromMessage(
   return text.length > 0 ? text : null;
 }
 
+/** Appends live text_delta tokens (or replaces with a full assistant text). */
+function appendConversationalStreamText(
+  message: DaemonMessage,
+  previous: string,
+): string {
+  const full = extractAssistantTextFromMessage(message);
+  if (full !== null) {
+    return full;
+  }
+  if (message.type !== "stream_event") {
+    return previous;
+  }
+  const event = message.event;
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    return previous;
+  }
+  if (event.type !== "content_block_delta") {
+    return previous;
+  }
+  const delta = event.delta;
+  if (typeof delta !== "object" || delta === null || Array.isArray(delta)) {
+    return previous;
+  }
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    return previous + delta.text;
+  }
+  return previous;
+}
+
+function extractResultText(message: DaemonMessage): string | null {
+  if (message.type !== "result") {
+    return null;
+  }
+  return typeof message.result === "string" ? message.result : null;
+}
+
 function appendSyntheticResultLine(output: string, replyText: string): string {
   const line =
     JSON.stringify({
@@ -484,11 +1154,6 @@ function appendSyntheticResultLine(output: string, replyText: string): string {
     }) + "\n";
   return trimBufferHead(output + line);
 }
-
-type WarmConversationalRunner = {
-  push: (text: string) => void;
-  waitMessage: () => Promise<DaemonMessage | null>;
-};
 
 /**
  * Persistent conversational query (Haiku, no tools/MCP/resume). Booted once at
@@ -545,7 +1210,91 @@ function createWarmConversationalRunner(
     return message ?? null;
   };
 
-  return { push, waitMessage };
+  const drainPending = (): DaemonMessage[] => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+
+  const hasPending = (): boolean => pending.length > 0;
+
+  const stopTask = async (_taskId: string): Promise<void> => {
+    log("daemon: stopTask ignored on conversational runner");
+  };
+
+  return { push, waitMessage, drainPending, hasPending, stopTask };
+}
+
+/**
+ * Session-lifetime agent query pump. Same queue-backed shape as the
+ * conversational runner so turn boundaries are state changes, not loop exits.
+ */
+function createWarmAgentRunner(
+  sdk: Awaited<ReturnType<typeof loadSdk>>,
+  options: ReturnType<typeof buildSdkOptions>,
+): WarmRunner {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm agent query()");
+  const query = sdk.query({ prompt: iterable, options });
+
+  const pending: DaemonMessage[] = [];
+  let notify: (() => void) | null = null;
+  let pumpFinished = false;
+
+  const wakeWaiters = (): void => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log("daemon: agent query pump failed — " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+
+  const waitMessage = async (): Promise<DaemonMessage | null> => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise<void>((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+
+  const drainPending = (): DaemonMessage[] => {
+    const drained = pending.slice();
+    pending.length = 0;
+    return drained;
+  };
+
+  const hasPending = (): boolean => pending.length > 0;
+
+  const stopTask = async (taskId: string): Promise<void> => {
+    if (typeof query.stopTask === "function") {
+      await query.stopTask(taskId);
+      return;
+    }
+    log("daemon: stopTask unavailable on SDK query handle");
+  };
+
+  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 
 /** Drops post-assistant SDK messages until the turn's result line is consumed. */
@@ -563,11 +1312,15 @@ async function drainUntilConversationalResult(
   }
 }
 
-/** Feed a prompt into the warm conversational query and wait for its result. */
+/**
+ * Feed a prompt into the warm conversational query and wait for its result.
+ * Returns `"escalated"` when Haiku asks for the full agent path (sentinel);
+ * the caller re-dispatches the same turn without waiting for a new claim.
+ */
 async function runConversationalWarmTurn(
   runner: WarmConversationalRunner,
   prompt: string,
-): Promise<void> {
+): Promise<"completed" | "escalated"> {
   resetTurnState();
   const turnStartedAt = Date.now();
   S.activeAttemptStartedAt = turnStartedAt;
@@ -577,6 +1330,71 @@ async function runConversationalWarmTurn(
   let output = "";
   const sawFirstMessageThisTurn = { value: false };
   const sawAssistantThisTurn = { value: false };
+  // Hold stream_event flushes while text is still a prefix of the escalation
+  // sentinel so `<<EVA_ESCALATE>>` never flashes in the UI.
+  let holdStreaming = true;
+  const heldLines: string[] = [];
+  let streamedText = "";
+
+  const releaseOrHoldStream = (line: string): void => {
+    if (!holdStreaming) {
+      processRealtimeStdoutChunk(line);
+      return;
+    }
+    if (shouldHoldConversationalStream(streamedText)) {
+      heldLines.push(line);
+      return;
+    }
+    holdStreaming = false;
+    for (const held of heldLines) {
+      processRealtimeStdoutChunk(held);
+    }
+    heldLines.length = 0;
+    processRealtimeStdoutChunk(line);
+  };
+
+  const processConversationalMessage = (
+    message: DaemonMessage,
+  ): { isResult: boolean } => {
+    const messageType = typeof message.type === "string" ? message.type : "?";
+    if (!sawFirstMessageThisTurn.value) {
+      sawFirstMessageThisTurn.value = true;
+      log(
+        "daemon[timing]: first SDK message (" +
+          messageType +
+          ") +" +
+          (Date.now() - turnStartedAt) +
+          "ms after turn start",
+      );
+    }
+    if (!sawAssistantThisTurn.value && messageType === "assistant") {
+      sawAssistantThisTurn.value = true;
+      log(
+        "daemon[timing]: first assistant msg +" +
+          (Date.now() - turnStartedAt) +
+          "ms after turn start",
+      );
+    }
+    const line = JSON.stringify(message) + "\n";
+    appendToRawLogFile(line);
+    output = trimBufferHead(output + line);
+    appendToRawOutput(line);
+    streamedText = appendConversationalStreamText(message, streamedText);
+    releaseOrHoldStream(line);
+    return { isResult: message.type === "result" };
+  };
+
+  const escalateTurn = async (): Promise<"escalated"> => {
+    endWatchedTurn();
+    resetTurnState();
+    await drainUntilConversationalResult(runner);
+    log(
+      "daemon[timing]: conversational escalated +" +
+        (Date.now() - turnStartedAt) +
+        "ms",
+    );
+    return "escalated";
+  };
 
   while (true) {
     const message = await runner.waitMessage();
@@ -588,17 +1406,13 @@ async function runConversationalWarmTurn(
       );
     }
     noteWatchedMessage();
-    const processed = processDaemonMessage(
-      message,
-      output,
-      turnStartedAt,
-      sawFirstMessageThisTurn,
-      sawAssistantThisTurn,
-    );
-    output = processed.output;
+    const processed = processConversationalMessage(message);
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        if (isEscalationReply(replyText)) {
+          return escalateTurn();
+        }
         endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt = Date.now();
@@ -615,9 +1429,16 @@ async function runConversationalWarmTurn(
         );
         resetTurnState();
         await drainUntilConversationalResult(runner);
-        return;
+        return "completed";
       }
       continue;
+    }
+    const resultText = extractResultText(message);
+    if (
+      (resultText !== null && isEscalationReply(resultText)) ||
+      isEscalationReply(streamedText)
+    ) {
+      return escalateTurn();
     }
     endWatchedTurn();
     const resultAt = Date.now();
@@ -633,7 +1454,7 @@ async function runConversationalWarmTurn(
         "ms",
     );
     resetTurnState();
-    return;
+    return "completed";
   }
 }
 
@@ -657,9 +1478,9 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
-/** Mirrors attachmentExtensionForMimeType in convex/_daytona/attachments.ts. */
+/** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
 function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim() ?? "";
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   switch (type) {
     case "image/jpeg":
       return ".jpg";
@@ -669,17 +1490,27 @@ function attachmentExtensionForMimeType(mimeType: string): string {
       return ".webp";
     case "image/svg+xml":
       return ".svg";
-    default:
+    case "image/png":
       return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      if (type.startsWith("image/")) return ".png";
+      return ".bin";
   }
 }
 
 /**
- * Downloads this turn's input images into the sandbox filesystem and appends a
- * note pointing the agent at them, so a claimed turn's prompt references files
- * that already exist on disk (no race — the daemon owns ordering). Uses the same
- * flat `/tmp/eva-attachment-<n>.<ext>` scheme + note text as the CLI launch path
- * (convex/_daytona/attachments.ts). Failed downloads are skipped.
+ * Downloads this turn's input attachments into the sandbox filesystem and
+ * appends a note pointing the agent at them, so a claimed turn's prompt
+ * references files that already exist on disk (no race — the daemon owns
+ * ordering). Uses the same flat `/tmp/eva-attachment-<n>.<ext>` scheme + note
+ * text as the CLI launch path (convex/_sandbox_runtime/attachments.ts). Failed
+ * downloads are skipped.
  */
 async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
   if (turn.attachmentUrls.length === 0) return;
@@ -710,29 +1541,7 @@ async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
   }
   if (paths.length === 0) return;
   const list = paths.map((p) => `- ${p}`).join("\n");
-  turn.prompt += `\n\n---\nThe user attached the following image file(s). View them with your file-reading tool before responding:\n${list}`;
-}
-
-async function waitForNextTurn(): Promise<ClaimedTurn | null> {
-  const idleDeadline = Date.now() + IDLE_EXIT_MS;
-  while (Date.now() < idleDeadline) {
-    if (callbackScriptWentStaleOnDisk()) {
-      log("daemon: callback script updated on disk — exiting for respawn");
-      return null;
-    }
-    const claimed = await callConvexWithRetry(
-      "mutation",
-      CLAIM_PENDING_TURN_MUTATION,
-      { sessionId: ENTITY_ID ?? "", model: MODEL },
-    );
-    const turn = readClaimedTurn(claimed);
-    if (turn !== null) {
-      await materializeTurnAttachments(turn);
-      return turn;
-    }
-    await sleep(PROMPT_POLL_INTERVAL_MS);
-  }
-  return null;
+  turn.prompt += `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
 }
 
 /**
@@ -743,6 +1552,17 @@ async function waitForNextTurn(): Promise<ClaimedTurn | null> {
  * launchOnExistingSandbox respawn) if this process dies.
  */
 export async function runSdkDaemon(): Promise<void> {
+  if (!CLAIM_MUTATION) {
+    log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
+    process.exit(1);
+  }
+  if (!OPEN_SYNTHETIC_TURN_MUTATION || !COMPLETE_SYNTHETIC_TURN_MUTATION) {
+    log(
+      "daemon: synthetic turn mutation env vars are required in sdk-daemon mode",
+    );
+    process.exit(1);
+  }
+
   writeFileSync(DAEMON_PID_FILE, String(process.pid));
   writeFileSync(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
@@ -760,8 +1580,8 @@ export async function runSdkDaemon(): Promise<void> {
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
   const convRunner = createWarmConversationalRunner(sdk);
-  const { push, iterable } = createPromptStream();
-  const query = sdk.query({ prompt: iterable, options });
+  const agentRunner = createWarmAgentRunner(sdk, options);
+  currentAgentRunner = agentRunner;
 
   log(
     "runSdkDaemon started (entityId=" +
@@ -771,102 +1591,15 @@ export async function runSdkDaemon(): Promise<void> {
       ")",
   );
 
-  // Feed the first turn. Daemon-pull: the prompt is no longer uploaded to a
-  // file — every turn (including the first, whether this daemon was booted by a
-  // session-open prewarm or by the turn's own workflow) is PULLED from Convex
-  // via claimPendingTurn. The expensive boot (spawning the claude CLI, MCP init,
-  // API handshake) already happened above when query() was created, so here we
-  // just wait for the first staged prompt to appear.
-  log("daemon: warm query() live, waiting for first prompt (pull)");
+  // Daemon-pull: the claim watcher polls claimPendingTurn every 50ms while the
+  // agent pump consumes the session-lifetime SDK stream (including synthetic
+  // continuations between real turns).
+  log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  let nextTurn = await waitForNextTurn();
-  if (nextTurn === null) {
-    log("daemon: idle timeout before first prompt — exiting");
-    try {
-      unlinkSync(DAEMON_PID_FILE);
-    } catch {
-      /* ignore */
-    }
-    await stopStreamingLoops();
-    process.exit(0);
-  }
+  startClaimWatcher(agentRunner, convRunner);
 
   try {
-    while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
-      nextTurn = await waitForNextTurn();
-    }
-    if (nextTurn === null) {
-      log("daemon: idle timeout after conversational turns — exiting");
-    } else {
-      let turnStartedAt = Date.now();
-      const sawFirstMessageThisTurn = { value: false };
-      const sawAssistantThisTurn = { value: false };
-      beginWatchedTurn();
-      push(nextTurn.prompt);
-      S.activeAttemptStartedAt = turnStartedAt;
-
-      let output = "";
-      for await (const message of query) {
-        if (
-          typeof message !== "object" ||
-          message === null ||
-          Array.isArray(message)
-        ) {
-          continue;
-        }
-        noteWatchedMessage();
-        const processed = processDaemonMessage(
-          message,
-          output,
-          turnStartedAt,
-          sawFirstMessageThisTurn,
-          sawAssistantThisTurn,
-        );
-        output = processed.output;
-        if (!processed.isResult) {
-          continue;
-        }
-
-        endWatchedTurn();
-        const resultAt = Date.now();
-        log(
-          "daemon[timing]: result message +" +
-            (resultAt - turnStartedAt) +
-            "ms after push",
-        );
-        await finalizeTurn(output);
-        log(
-          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
-        );
-        resetTurnState();
-        output = "";
-
-        let upcoming = await waitForNextTurn();
-        while (upcoming !== null && upcoming.turnKind === "conversational") {
-          await runConversationalWarmTurn(convRunner, upcoming.prompt);
-          upcoming = await waitForNextTurn();
-        }
-        if (upcoming === null) {
-          log("daemon: idle timeout — exiting");
-          break;
-        }
-        log("daemon: next agent turn received");
-        turnStartedAt = Date.now();
-        sawFirstMessageThisTurn.value = false;
-        sawAssistantThisTurn.value = false;
-        S.activeAttemptStartedAt = turnStartedAt;
-        beginWatchedTurn();
-        push(upcoming.prompt);
-      }
-      // The agent query stream closed. If a turn was still in flight (no result
-      // emitted), surface a failure so the workflow's awaitEvent resolves.
-      if (turnActive) {
-        return failTurnAndExit(
-          "The assistant ended without a reply. Please try again.",
-        );
-      }
-    }
+    await runDaemonMessagePump(agentRunner, convRunner);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed — " + messageText);
@@ -876,7 +1609,7 @@ export async function runSdkDaemon(): Promise<void> {
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
-        activityLog: JSON.stringify(S.accumulatedSteps),
+        activityLog: serializeSteps(S.accumulatedSteps),
       });
     } catch {
       /* ignore */
@@ -884,6 +1617,26 @@ export async function runSdkDaemon(): Promise<void> {
   } finally {
     try {
       unlinkSync(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_ENTITY_FILE);
+      unlinkSync(DAEMON_OPTS_FILE);
+      if (ENTITY_ID_FIELD === "sessionId") {
+        const legacy = resolveLegacySessionDaemonPaths();
+        try {
+          unlinkSync(legacy.pid);
+        } catch {
+          /* ignore */
+        }
+        try {
+          unlinkSync(legacy.entity);
+        } catch {
+          /* ignore */
+        }
+        try {
+          unlinkSync(legacy.opts);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }

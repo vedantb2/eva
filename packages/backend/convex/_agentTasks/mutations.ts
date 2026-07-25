@@ -5,6 +5,7 @@ import {
   taskStatusValidator,
   aiModelValidator,
   priorityValidator,
+  reasoningLevelValidator,
 } from "../validators";
 import { createNotification } from "../notifications";
 import { ensureSubscribed, notifySubscribers } from "../taskSubscribers";
@@ -19,9 +20,19 @@ import { allocateNumId } from "../numId";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { logTaskActivity } from "../taskActivity";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
+import {
+  assertProviderAccountOwnedBy,
+  reconcileProviderAccountForModel,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
+import {
+  assertStickyPreviewPort,
+  normalizeStickyPreviewPath,
+  truncateTerminalHistoryTail,
+} from "../_sandbox/stickyPreview";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -72,6 +83,9 @@ export const update = authMutation({
     screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
     // null = clear the override (inherit project/default). undefined = no change.
     runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
+    // Per-task-sandbox-chat switches (plain on/off, no inherit). Absent = no change.
+    chatCaptureProofEnabled: v.optional(v.boolean()),
+    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -101,8 +115,35 @@ export const update = authMutation({
     if (args.assignedTo !== undefined)
       updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
-    if (args.providerAccountId !== undefined)
-      updates.providerAccountId = args.providerAccountId ?? undefined;
+    // Only the task owner may set a personal account; must be their own.
+    let nextProviderAccountId = task.providerAccountId;
+    if (args.providerAccountId !== undefined) {
+      if (ctx.userId !== task.createdBy) {
+        throw new Error("Only the task owner can change the provider account");
+      }
+      nextProviderAccountId = await assertProviderAccountOwnedBy(
+        ctx.db,
+        args.providerAccountId,
+        task.createdBy,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
+    // Owner changes model alone → keep matching personal account or re-default.
+    // When providerAccountId is also in this update (picker chose Team/personal
+    // with the model), the explicit account wins — do not reconcile over it.
+    if (
+      args.model !== undefined &&
+      args.providerAccountId === undefined &&
+      ctx.userId === task.createdBy
+    ) {
+      nextProviderAccountId = await reconcileProviderAccountForModel(
+        ctx.db,
+        task.createdBy,
+        args.model,
+        nextProviderAccountId,
+      );
+      updates.providerAccountId = nextProviderAccountId;
+    }
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
@@ -111,6 +152,10 @@ export const update = authMutation({
         args.screenshotsVideosEnabled ?? undefined;
     if (args.runAuditEnabled !== undefined)
       updates.runAuditEnabled = args.runAuditEnabled ?? undefined;
+    if (args.chatCaptureProofEnabled !== undefined)
+      updates.chatCaptureProofEnabled = args.chatCaptureProofEnabled;
+    if (args.chatRunAuditEnabled !== undefined)
+      updates.chatRunAuditEnabled = args.chatRunAuditEnabled;
     await ctx.db.patch(args.id, updates);
 
     if (args.title !== undefined && args.title !== task.title) {
@@ -430,7 +475,10 @@ export const createQuickTask = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    // null = Team; omitted = default to creator's personal account for model.
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     projectId: v.optional(v.id("projects")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
@@ -455,6 +503,15 @@ export const createQuickTask = authMutation({
     }
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;
     const numId = await allocateNumId(ctx.db, args.repoId, "agentTasks");
+    const model = args.model ?? repo.defaultModel;
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
     const taskId = await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -464,8 +521,8 @@ export const createQuickTask = authMutation({
       updatedAt: now,
       createdBy: ctx.userId,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
-      model: args.model ?? repo.defaultModel,
-      providerAccountId: args.providerAccountId,
+      model,
+      providerAccountId,
       projectId: args.projectId,
       taskNumber,
       tags: normalizeTaskTags(args.tags),
@@ -729,6 +786,121 @@ export const deleteCascade = authMutation({
     for (const taskId of tasksToDelete) {
       await softDeleteAgentTask(ctx, taskId);
     }
+    return null;
+  },
+});
+
+/** Sticky Preview path for a task sandbox. No `updatedAt` bump. */
+export const setPreviewPath = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    path: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      previewPath: normalizeStickyPreviewPath(args.path),
+    });
+    return null;
+  },
+});
+
+/** Sticky Preview port for a task sandbox (`devPort`). No `updatedAt` bump. */
+export const setPreviewPort = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    port: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    assertStickyPreviewPort(args.port);
+    await ctx.db.patch(args.id, { devPort: args.port });
+    return null;
+  },
+});
+
+/** Clears the agent-browsing soft lock so the user can take over the shared browser. */
+export const releaseBrowserLock = authMutation({
+  args: { id: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      agentBrowsingAt: undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
+ * bump. Server re-truncates so a buggy client cannot inflate the task doc.
+ */
+export const setTerminalHistoryTail = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    tail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.id, {
+      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
+    });
+    return null;
+  },
+});
+
+/**
+ * Sticky sandbox-chat traits (effort / thinking / 1M). No `updatedAt` bump.
+ * Only provided fields are patched.
+ */
+export const setTraits = authMutation({
+  args: {
+    id: v.id("agentTasks"),
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Task not found");
+    }
+    if (
+      args.reasoningLevel === undefined &&
+      args.thinkingEnabled === undefined &&
+      args.use1mContext === undefined
+    ) {
+      return null;
+    }
+    await ctx.db.patch(args.id, {
+      ...(args.reasoningLevel !== undefined
+        ? { lastReasoningLevel: args.reasoningLevel }
+        : {}),
+      ...(args.thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: args.thinkingEnabled }
+        : {}),
+      ...(args.use1mContext !== undefined
+        ? { lastUse1mContext: args.use1mContext }
+        : {}),
+    });
     return null;
   },
 });

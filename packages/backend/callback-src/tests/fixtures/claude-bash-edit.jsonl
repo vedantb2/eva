@@ -1,0 +1,6 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_bash1","name":"Bash","input":{"command":"git status"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_bash1","content":"On branch main\nnothing to commit","is_error":false}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_edit1","name":"Edit","input":{"file_path":"/tmp/repo/src/App.tsx","old_string":"const x = 1","new_string":"const x = 2"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_edit1","content":"ok"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_write1","name":"Write","input":{"file_path":"/tmp/repo/src/new.ts","content":"export const a = 1;\n"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_write1","content":[{"type":"text","text":"Wrote file"}],"is_error":false}]}}

@@ -1,12 +1,12 @@
 "use client";
 
-import { useElapsedSeconds } from "@conductor/ui";
+import { useElapsedSeconds } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { useEffect, useState, useCallback } from "react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
+import { useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
@@ -26,6 +26,8 @@ export type QuickTaskSandboxRouting = {
   sandboxTab: TaskRouteSandboxTab;
   onSandboxTabChange: (tab: TaskRouteSandboxTab) => void;
   onExitSandboxView: () => void;
+  /** Opens Files tab with `?file=` set (chat file chips). */
+  onOpenFile: (path: string) => void;
 };
 
 export type ProjectTaskDetailRouting = {
@@ -119,6 +121,16 @@ export function useTaskDetail(
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
+  const derivedBaseBranch =
+    task?.baseBranch?.trim() ||
+    repoForTask?.defaultBaseBranch?.trim() ||
+    FALLBACK_GIT_BASE_BRANCH;
+  const [prevDerivedBaseBranch, setPrevDerivedBaseBranch] =
+    useState(derivedBaseBranch);
+  if (derivedBaseBranch !== prevDerivedBaseBranch) {
+    setPrevDerivedBaseBranch(derivedBaseBranch);
+    setBaseBranch(derivedBaseBranch);
+  }
   const [embeddedShowSandbox, setEmbeddedShowSandbox] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
@@ -147,18 +159,15 @@ export function useTaskDetail(
         ? routing.project.detailTab
         : internalActiveTab;
 
-  const setActiveTab = useCallback(
-    (tab: TaskDetailTab) => {
-      if (routing?.mode === "quick-detail") {
-        routing.quick.onDetailTabChange(tab);
-      } else if (routing?.mode === "project-detail") {
-        routing.project.onDetailTabChange(tab);
-      } else {
-        setInternalActiveTab(tab);
-      }
-    },
-    [routing],
-  );
+  const setActiveTab = (tab: TaskDetailTab) => {
+    if (routing?.mode === "quick-detail") {
+      routing.quick.onDetailTabChange(tab);
+    } else if (routing?.mode === "project-detail") {
+      routing.project.onDetailTabChange(tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
+  };
 
   const showSandbox =
     routing?.mode === "quick-sandbox"
@@ -166,16 +175,6 @@ export function useTaskDetail(
       : routing?.mode === "quick-detail"
         ? false
         : embeddedShowSandbox;
-
-  useEffect(() => {
-    const fromTask = task?.baseBranch?.trim();
-    if (fromTask) {
-      setBaseBranch(fromTask);
-      return;
-    }
-    const fromRepo = repoForTask?.defaultBaseBranch?.trim();
-    setBaseBranch(fromRepo || FALLBACK_GIT_BASE_BRANCH);
-  }, [task?.baseBranch, repoForTask?.defaultBaseBranch]);
 
   const handleStartExecution = async () => {
     setIsStarting(true);
@@ -185,9 +184,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsStarting(false);
     }
+    setIsStarting(false);
   };
 
   const handleResolveConflicts = async () => {
@@ -198,9 +196,8 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsStarting(false);
     }
+    setIsStarting(false);
   };
 
   const handleStopExecution = async () => {
@@ -209,9 +206,8 @@ export function useTaskDetail(
       await cancelExecution({ taskId });
     } catch (err) {
       console.error("Failed to stop execution:", err);
-    } finally {
-      setIsStopping(false);
     }
+    setIsStopping(false);
   };
 
   const canStartSandbox =
@@ -237,50 +233,47 @@ export function useTaskDetail(
       : "skip",
   );
 
-  const openSandboxAfterStart = useCallback(() => {
+  const openSandboxAfterStart = () => {
     if (routing?.mode === "quick-detail") {
       routing.quick.onOpenSandboxView("preview");
     } else {
       setEmbeddedShowSandbox(true);
     }
-  }, [routing]);
+  };
 
-  const handleStartSandbox = useCallback(async () => {
+  const handleStartSandbox = async () => {
     setIsSandboxStarting(true);
     try {
       await startTaskSandboxMutation({ taskId });
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to start sandbox:", err);
-    } finally {
-      setIsSandboxStarting(false);
     }
-  }, [startTaskSandboxMutation, taskId, openSandboxAfterStart]);
+    setIsSandboxStarting(false);
+  };
 
-  const handleStopSandbox = useCallback(async () => {
+  const handleStopSandbox = async () => {
     setIsSandboxStopping(true);
     try {
       await stopTaskSandboxMutation({ taskId });
     } catch (err) {
       console.error("Failed to stop sandbox:", err);
-    } finally {
-      setIsSandboxStopping(false);
     }
-  }, [stopTaskSandboxMutation, taskId]);
+    setIsSandboxStopping(false);
+  };
 
-  const handleRetryStartupCommands = useCallback(async () => {
+  const handleRetryStartupCommands = async () => {
     setIsRetryingStartupCommands(true);
     try {
       await retryStartupCommandsMutation({ taskId });
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to retry startup commands:", err);
-    } finally {
-      setIsRetryingStartupCommands(false);
     }
-  }, [retryStartupCommandsMutation, taskId, openSandboxAfterStart]);
+    setIsRetryingStartupCommands(false);
+  };
 
-  const handleRunDevServer = useCallback(async () => {
+  const handleRunDevServer = async () => {
     setIsRunningDevServer(true);
     try {
       await runDevServerMutation({ taskId });
@@ -288,12 +281,11 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to run dev server";
       setExecutionError(message);
-    } finally {
-      setIsRunningDevServer(false);
     }
-  }, [runDevServerMutation, taskId, setExecutionError]);
+    setIsRunningDevServer(false);
+  };
 
-  const handleRunBackgroundCommands = useCallback(async () => {
+  const handleRunBackgroundCommands = async () => {
     setIsRunningBackgroundCommands(true);
     try {
       await runBackgroundCommandsMutation({ taskId });
@@ -303,10 +295,9 @@ export function useTaskDetail(
           ? err.message
           : "Failed to run background commands";
       setExecutionError(message);
-    } finally {
-      setIsRunningBackgroundCommands(false);
     }
-  }, [runBackgroundCommandsMutation, taskId, setExecutionError]);
+    setIsRunningBackgroundCommands(false);
+  };
 
   const devServerCommandLabel = (() => {
     const fromTask = task?.devCommand?.trim();
@@ -316,7 +307,7 @@ export function useTaskDetail(
     return "Auto-detected from package.json (e.g. pnpm run dev)";
   })();
 
-  const handleCreatePr = useCallback(async () => {
+  const handleCreatePr = async () => {
     setIsCreatingPr(true);
     try {
       await createTaskPrAction({ taskId });
@@ -324,12 +315,11 @@ export function useTaskDetail(
       const message =
         err instanceof Error ? err.message : "Failed to create PR";
       setExecutionError(message);
-    } finally {
-      setIsCreatingPr(false);
     }
-  }, [createTaskPrAction, taskId]);
+    setIsCreatingPr(false);
+  };
 
-  const handleToggleSandboxView = useCallback(() => {
+  const handleToggleSandboxView = () => {
     if (routing?.mode === "quick-sandbox") {
       routing.quick.onExitSandboxView();
       return;
@@ -339,7 +329,7 @@ export function useTaskDetail(
       return;
     }
     setEmbeddedShowSandbox((prev) => !prev);
-  }, [routing]);
+  };
 
   const status = task?.status;
   const isRunWrappingUp =

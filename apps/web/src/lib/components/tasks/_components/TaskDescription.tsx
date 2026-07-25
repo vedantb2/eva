@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { cn } from "@conductor/ui";
+import { useState, useRef } from "react";
+import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UI_TASK_DESCRIPTION_HINT } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import {
@@ -15,7 +14,6 @@ import {
 import { ReactionBar } from "./ReactionBar";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import { useReactions } from "./TaskReactionsProvider";
-import { insertUiTaskDescriptionTemplate } from "../_utils/insertUiTaskDescription";
 
 /**
  * Descriptions are authored and stored as Markdown. Legacy/imported content can
@@ -47,7 +45,6 @@ export function TaskDescription({
   const { basePath } = useRepo();
   const { groups, toggle } = useReactions("description", taskId);
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(stripHtml(description ?? ""));
   const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
 
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
@@ -98,28 +95,28 @@ export function TaskDescription({
   );
 
   const desc = stripHtml(description ?? "");
+  const [editValue, setEditValue] = useState(desc);
 
-  useEffect(() => {
-    if (!isEditing) {
-      setEditValue(desc);
-    }
-  }, [desc, isEditing]);
+  // Keep the draft synced to the server text while not editing.
+  if (!isEditing && editValue !== desc) {
+    setEditValue(desc);
+  }
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     const tokenized = mentionRef.current?.tokenize(editValue) ?? editValue;
     const trimmed = tokenized.trim();
     if (canEditTaskText && trimmed !== desc) {
       updateTask({ id: taskId, description: trimmed });
     }
     setIsEditing(false);
-  }, [canEditTaskText, desc, editValue, taskId, updateTask]);
+  };
 
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (!isEditing && canEditTaskText) {
       setEditValue(desc);
       setIsEditing(true);
     }
-  }, [isEditing, canEditTaskText, desc]);
+  };
 
   return (
     <div className="group">
@@ -142,20 +139,10 @@ export function TaskDescription({
               value={editValue}
               onValueChange={setEditValue}
               onBlur={handleSave}
-              placeholder={`Add description... ${UI_TASK_DESCRIPTION_HINT}`}
+              placeholder="Add description..."
               minHeight="min-h-[160px]"
               className="rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
             />
-            <button
-              type="button"
-              className="hit-target mt-1 inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() =>
-                setEditValue(insertUiTaskDescriptionTemplate(editValue))
-              }
-            >
-              Add UI details
-            </button>
           </div>
         ) : desc ? (
           <MarkdownMentionText

@@ -7,7 +7,11 @@ export const RESERVED_APP_TAB_SLUGS = new Set([
   "computer",
   // Legacy Computer-tab URL segment — keep reserved so custom tabs can't collide.
   "desktop",
+  // Legacy Diffs-tab URL segment — redirect to `review`.
   "diffs",
+  // Legacy Review-tab URL segment — redirect to `review`.
+  "pr",
+  "review",
   "files",
   "prd",
 ]);

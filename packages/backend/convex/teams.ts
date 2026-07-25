@@ -9,12 +9,13 @@ import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import { teamFields } from "./_validators/tableFields";
 
-/** Team doc fields plus resolved logo URL and membership role for list/get. */
+/** Team doc fields plus resolved media URLs and membership role for list/get. */
 const teamWithLogoValidator = v.object({
   _id: v.id("teams"),
   _creationTime: v.number(),
   ...teamFields,
   logoUrl: v.optional(v.union(v.string(), v.null())),
+  backgroundUrl: v.optional(v.union(v.string(), v.null())),
   displayName: v.string(),
   userRole: v.union(v.literal("owner"), v.literal("member")),
 });
@@ -32,14 +33,17 @@ async function resolveDisplayName(
   return `${ownerName}'s Team`;
 }
 
-/** Resolves `logoStorageId` to a public URL for UI rendering. */
-async function attachLogoUrl(
+/** Resolves logo/background storage ids to public URLs for UI rendering. */
+async function attachTeamMediaUrls(
   ctx: QueryCtx | MutationCtx,
   team: Doc<"teams">,
-): Promise<{ logoUrl: string | null }> {
+): Promise<{ logoUrl: string | null; backgroundUrl: string | null }> {
   return {
     logoUrl: team.logoStorageId
       ? await ctx.storage.getUrl(team.logoStorageId)
+      : null,
+    backgroundUrl: team.backgroundStorageId
+      ? await ctx.storage.getUrl(team.backgroundStorageId)
       : null,
   };
 }
@@ -136,7 +140,7 @@ export const list = authQuery({
       if (team) {
         teams.push({
           ...team,
-          ...(await attachLogoUrl(ctx, team)),
+          ...(await attachTeamMediaUrls(ctx, team)),
           displayName: await resolveDisplayName(ctx, team, ctx.userId),
           userRole: membership.role,
         });
@@ -171,7 +175,7 @@ export const get = authQuery({
 
     return {
       ...team,
-      ...(await attachLogoUrl(ctx, team)),
+      ...(await attachTeamMediaUrls(ctx, team)),
       displayName: await resolveDisplayName(ctx, team, ctx.userId),
       userRole: membership.role,
     };
@@ -244,6 +248,45 @@ export const setLogo = authMutation({
   },
 });
 
+/** Generates a short-lived upload URL for a team sidebar background (any member). */
+export const generateBackgroundUploadUrl = authMutation({
+  args: { teamId: v.id("teams") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new Error("Team not found");
+    await assertTeamMember(ctx.db, args.teamId, ctx.userId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Sets (or clears with null) a team's sidebar background banner.
+ * Deletes the previously stored image so replace/remove does not leave orphans.
+ */
+export const setBackground = authMutation({
+  args: {
+    teamId: v.id("teams"),
+    storageId: v.union(v.id("_storage"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new Error("Team not found");
+    await assertTeamMember(ctx.db, args.teamId, ctx.userId);
+
+    const previousId = team.backgroundStorageId;
+    if (previousId && previousId !== args.storageId) {
+      await ctx.storage.delete(previousId);
+    }
+
+    await ctx.db.patch(args.teamId, {
+      backgroundStorageId: args.storageId ?? undefined,
+    });
+    return null;
+  },
+});
+
 /** Deletes a team and cleans up all memberships, repo associations, and env vars. Only owners can delete non-personal teams. */
 export const remove = authMutation({
   args: { id: v.id("teams") },
@@ -293,6 +336,9 @@ export const remove = authMutation({
 
     if (team.logoStorageId) {
       await ctx.storage.delete(team.logoStorageId);
+    }
+    if (team.backgroundStorageId) {
+      await ctx.storage.delete(team.backgroundStorageId);
     }
 
     await ctx.db.delete(args.id);

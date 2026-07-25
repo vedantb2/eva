@@ -1,11 +1,14 @@
 "use node";
 
 import type { SandboxHandle } from "../_sandbox/provider";
-import { defaultTerminalPtyId } from "../_daytona/devServer";
-import { workspaceDirShell } from "../_daytona/helpers";
+import { defaultTerminalPtyId } from "../_sandbox_runtime/devServer";
+import { workspaceDirShell } from "../_sandbox_runtime/helpers";
+import {
+  EVA_ENV_FILE,
+  tmuxNewSessionWithEvaEnv,
+} from "../_sandbox/vercelEnvFile";
 import { tmuxSessionName } from "./vercel";
 
-const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 const CONSOLE_LAUNCH_SCRIPT = "/tmp/eva-console-dev.sh";
 
 /**
@@ -71,15 +74,18 @@ export async function launchDevServerInVercelConsole(
     )
   ).output.trim();
   if (hasSession !== "yes") {
-    await handle.exec(`tmux new-session -d -s ${sessionName} -c ${workspace}`, {
+    await handle.exec(tmuxNewSessionWithEvaEnv(sessionName, workspace), {
       cwd: "/",
       timeoutSeconds: 15,
     });
   }
   // mouse off always — tmux mouse mode breaks Console into history/copy-mode.
   // alternate-screen off keeps output in xterm scrollback (visible scrollbar).
+  // status off: the status bar shrinks tmux's scroll region by one row, and
+  // xterm only pushes scrolled lines into scrollback when the scroll spans the
+  // full viewport — with the bar on, the Console scrollbar never appears.
   await handle.exec(
-    `tmux set-option -g mouse off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} history-limit 50000`,
+    `tmux set-option -g mouse off; tmux set-option -t ${sessionName} mouse off; tmux set-option -t ${sessionName} alternate-screen off; tmux set-option -t ${sessionName} status off; tmux set-option -t ${sessionName} history-limit 50000`,
     { cwd: "/", timeoutSeconds: 5 },
   );
 

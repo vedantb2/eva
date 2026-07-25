@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { SortingState } from "@tanstack/react-table";
 import {
@@ -13,19 +13,20 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { TableVirtuoso } from "react-virtuoso";
-import { DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
+import { DataTableColumnHeader, type ColumnDef } from "@eva/ui";
+import { UserInitials } from "@eva/shared";
 import { IconGitBranch } from "@tabler/icons-react";
 import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
-import { compactRelativeTime } from "@conductor/shared/dates";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -158,8 +159,11 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
-  const { basePath, repo } = useRepo();
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  "use no memo";
+  const { basePath, repo, owner, name } = useRepo();
+  const { scrollParent, scrollRef } = usePersistedScrollParent(
+    `${owner}/${name}/projects/table`,
+  );
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
   ]);
@@ -208,10 +212,6 @@ export function ProjectsTableView({
       }
     },
   );
-
-  const scrollRef = useCallback((node: HTMLDivElement | null) => {
-    setScrollParent(node);
-  }, []);
 
   const resolvedColumns = useMemo<ColumnDef<Project, unknown>[]>(() => {
     return columns.map((col) => {

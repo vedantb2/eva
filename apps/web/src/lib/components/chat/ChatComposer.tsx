@@ -13,21 +13,24 @@ import {
   type PromptInputMessage,
   type ModelOption,
   type ModelAccount,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
-  MAX_IMAGE_ATTACHMENTS,
-  MAX_IMAGE_ATTACHMENT_BYTES,
-  imageAttachmentErrorMessage,
-  useUploadImageAttachments,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_ATTACHMENT_BYTES,
+  chatAttachmentAccept,
+  chatAttachmentErrorMessage,
+  useUploadChatAttachments,
   ChatAttachmentPreview,
+  type ChatAttachmentMode,
 } from "@/lib/components/chat/imageAttachments";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
+import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useCallback, useMemo, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useRef, type ReactNode } from "react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -38,7 +41,7 @@ import {
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
-} from "@conductor/backend";
+} from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -79,10 +82,13 @@ interface ChatComposerProps {
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
   toolsBefore?: React.ReactNode;
-  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
+  /** Optional "Options" submenu inside the composer "+" menu. */
+  optionsSubmenu?: ReactNode;
   draft?: ChatDraftSeed;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
+  /** Session coding chat can attach HTML/MD/TXT; others stay images-only. */
+  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatComposer({
@@ -107,68 +113,63 @@ export function ChatComposer({
   beforeQueuedContent,
   preInputContent,
   toolsBefore,
-  formatQueuedInfo,
+  optionsSubmenu,
   draft,
   isDraftLoading,
   hasPendingContext = false,
+  attachmentMode = "images",
 }: ChatComposerProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
-  const uploadImageAttachments = useUploadImageAttachments();
+  const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
 
-  const handleSubmit = useCallback(
-    async (text: string, files: PromptInputMessage["files"]) => {
-      const visible = text.trim();
-      const imageCount = files.filter((file) =>
-        file.mediaType?.startsWith("image/"),
-      ).length;
-      const attachmentStorageIds = await uploadImageAttachments(files);
-      if (attachmentStorageIds.length < imageCount) {
-        toast.error("Some images could not be uploaded.");
-      }
-      if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
-        return;
-      }
-      const content = mentionRef.current?.tokenize(visible) ?? visible;
-      await onSend(
-        content,
-        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
-      );
-    },
-    [onSend, uploadImageAttachments, hasPendingContext],
-  );
+  const handleSubmit = async (
+    text: string,
+    files: PromptInputMessage["files"],
+  ) => {
+    const visible = text.trim();
+    const attachmentStorageIds = await uploadChatAttachments(files);
+    if (files.length > 0 && attachmentStorageIds.length < files.length) {
+      toast.error("Some attachments could not be uploaded.");
+    }
+    if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
+      return;
+    }
+    const content = mentionRef.current?.tokenize(visible) ?? visible;
+    await onSend(
+      content,
+      attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
+    );
+  };
 
   const handlePromptSubmit = async ({ text, files }: PromptInputMessage) => {
     if (isInputDisabled) return;
     await handleSubmit(text, files);
   };
 
-  const queuedMessageItems = useMemo(
-    () =>
-      queuedMessages.map((message) => ({
-        id: message._id,
-        content: message.content,
-        info: formatQueuedInfo?.(message),
-      })),
-    [queuedMessages, formatQueuedInfo],
-  );
+  const queuedMessageItems = queuedMessages.map((message) => ({
+    id: message._id,
+    content: message.displayContent ?? message.content,
+    model: message.model,
+    reasoningLevel: message.reasoningLevel,
+  }));
 
   return (
     <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
             {beforeQueuedContent}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       <QueuedMessagesPanel
@@ -185,7 +186,7 @@ export function ChatComposer({
               as="span"
               text={`${display}${suffix}`}
               repoBasePath={repoBasePath}
-              className="text-xs leading-snug text-foreground/90"
+              className="text-xs leading-4 text-foreground/90"
             />
           );
         }}
@@ -232,11 +233,13 @@ export function ChatComposer({
             )}
             <PromptInput
               onSubmit={handlePromptSubmit}
-              accept="image/*"
+              accept={chatAttachmentAccept(attachmentMode)}
               multiple
-              maxFiles={MAX_IMAGE_ATTACHMENTS}
-              maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
-              onError={(err) => toast.error(imageAttachmentErrorMessage(err))}
+              maxFiles={MAX_CHAT_ATTACHMENTS}
+              maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
+              onError={(err) =>
+                toast.error(chatAttachmentErrorMessage(attachmentMode, err))
+              }
             >
               <ChatAttachmentPreview />
               <MentionTextarea
@@ -253,7 +256,16 @@ export function ChatComposer({
               />
               <PromptInputFooter>
                 <PromptInputTools>
+                  <ComposerPlusMenu
+                    docs={docs}
+                    skills={skills}
+                    mentionRef={mentionRef}
+                    attachmentMode={attachmentMode}
+                    optionsSubmenu={optionsSubmenu}
+                  />
                   {toolsBefore}
+                </PromptInputTools>
+                <div className="flex min-w-0 items-center gap-1">
                   <ModelSelect
                     value={model}
                     options={modelOptions}
@@ -296,8 +308,6 @@ export function ChatComposer({
                       }
                     />
                   ) : null}
-                </PromptInputTools>
-                <div className="flex min-w-0 items-center gap-1">
                   <PromptInputSpeech />
                   {isExecuting ? (
                     <Button

@@ -1,8 +1,8 @@
-import { useEffect, useCallback, useRef, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 const THROTTLE_MS = 50;
 /** Hide remote cursors that have not moved recently (presence can lag behind tab close). */
@@ -48,13 +48,16 @@ export function useLiveCursors(
   const lastSentRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
-  const sendUpdate = useCallback(
-    (x: number, y: number) => {
-      updateCursor({ roomId, x, y }).catch(console.error);
-    },
-    [updateCursor, roomId],
-  );
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), CURSOR_ACTIVE_MS / 2);
+    return () => clearInterval(id);
+  }, []);
+
+  const sendUpdate = (x: number, y: number) => {
+    updateCursor({ roomId, x, y }).catch(console.error);
+  };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -96,25 +99,22 @@ export function useLiveCursors(
     };
   }, [sendUpdate]);
 
-  return useMemo(() => {
-    if (!presenceState) return [];
-    const now = Date.now();
-    const cursors: RemoteCursor[] = [];
-    for (const member of presenceState) {
-      if (member.userId === userId) continue;
-      if (!member.online) continue;
-      const d = member.data;
-      if (typeof d !== "object" || d === null) continue;
-      if (!isCursorData(d)) continue;
-      if (now - d.updatedAt > CURSOR_ACTIVE_MS) continue;
-      cursors.push({
-        userId: member.userId,
-        x: d.x,
-        y: d.y,
-        firstName: d.firstName,
-        accentColor: d.accentColor,
-      });
-    }
-    return cursors;
-  }, [presenceState, userId]);
+  if (!presenceState) return [];
+  const cursors: RemoteCursor[] = [];
+  for (const member of presenceState) {
+    if (member.userId === userId) continue;
+    if (!member.online) continue;
+    const d = member.data;
+    if (typeof d !== "object" || d === null) continue;
+    if (!isCursorData(d)) continue;
+    if (now - d.updatedAt > CURSOR_ACTIVE_MS) continue;
+    cursors.push({
+      userId: member.userId,
+      x: d.x,
+      y: d.y,
+      firstName: d.firstName,
+      accentColor: d.accentColor,
+    });
+  }
+  return cursors;
 }

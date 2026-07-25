@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { RepoHomeClient } from "./RepoHomeClient";
+import { NewSessionComposer } from "./sessions/_components/NewSessionComposer";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/")({
-  component: RepoHomeClient,
+  component: NewSessionComposer,
 });

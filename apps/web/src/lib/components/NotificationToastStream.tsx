@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
-import { Badge, Button, Card, CardContent } from "@conductor/ui";
+import { Badge, Button, Card, CardContent } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   NotificationIcon,
@@ -16,6 +17,10 @@ import {
 
 const TOAST_LIMIT = 4;
 const TOAST_TTL_MS = 9000;
+
+/** Matches `--motion-base` / `--motion-ease-out` in globals.css. */
+const TOAST_DURATION_S = 0.22;
+const TOAST_REDUCED_DURATION_S = 0.15;
 
 type ToastEntry = {
   notification: Notification;
@@ -45,6 +50,7 @@ export function NotificationToastStream() {
     }
   });
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const seenNotificationIdsRef = useRef<Set<Id<"notifications">> | null>(null);
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
 
@@ -121,65 +127,83 @@ export function NotificationToastStream() {
     navigate({ to: "/inbox" });
   };
 
-  if (toasts.length === 0) {
-    return null;
-  }
+  // Keep the fixed host mounted so AnimatePresence can play exit animations.
+  const toastEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
+  const toastTransition = reduceMotion
+    ? { duration: TOAST_REDUCED_DURATION_S }
+    : { duration: TOAST_DURATION_S, ease: toastEase };
+  const toastEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
+  const toastRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const toastExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
 
   return (
-    <div className="pointer-events-none fixed right-4 top-20 z-40 flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-2">
-      {toasts.map((entry) => {
-        const notification = entry.notification;
-        const config = getNotificationAppearance(notification);
-        return (
-          <Card
-            key={notification._id}
-            className="pointer-events-auto bg-popover shadow-lg"
-          >
-            <CardContent className="p-3">
-              <div className="flex items-start gap-3">
-                <NotificationIcon notification={notification} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-snug">
-                      {notification.title}
-                    </p>
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      onClick={() => dismissToast(notification._id)}
-                      aria-label="Dismiss notification"
-                    >
-                      <IconX size={14} />
-                    </Button>
+    <div
+      className="pointer-events-none fixed right-4 top-20 z-40 flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-2"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
+      <AnimatePresence initial={false}>
+        {toasts.map((entry) => {
+          const notification = entry.notification;
+          const config = getNotificationAppearance(notification);
+          return (
+            <m.div
+              key={notification._id}
+              layout={!reduceMotion}
+              initial={toastEnter}
+              animate={toastRest}
+              exit={toastExit}
+              transition={toastTransition}
+              className="pointer-events-auto"
+            >
+              <Card className="bg-popover shadow-lg">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    <NotificationIcon notification={notification} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium leading-snug">
+                          {notification.title}
+                        </p>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() => dismissToast(notification._id)}
+                          aria-label="Dismiss notification"
+                        >
+                          <IconX size={14} />
+                        </Button>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge
+                          variant={config.badgeVariant}
+                          className="h-4 px-1.5 py-0 text-[10px]"
+                        >
+                          {config.label}
+                        </Badge>
+                        <RelativeDateTime
+                          at={notification.createdAt}
+                          className="text-xs text-muted-foreground"
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => openNotification(notification)}
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Badge
-                      variant={config.badgeVariant}
-                      className="h-4 px-1.5 py-0 text-[10px]"
-                    >
-                      {config.label}
-                    </Badge>
-                    <RelativeDateTime
-                      at={notification.createdAt}
-                      className="text-xs text-muted-foreground"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => openNotification(notification)}
-                    >
-                      Open
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+                </CardContent>
+              </Card>
+            </m.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

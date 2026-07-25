@@ -1,8 +1,6 @@
 import { v } from "convex/values";
-import type { GenericDatabaseReader } from "convex/server";
 import { internal } from "./_generated/api";
 import { internalQuery } from "./_generated/server";
-import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
@@ -12,7 +10,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 import {
   buildPrRecapPrompt,
   parsePrRecapOutput,
@@ -22,10 +20,11 @@ import {
   type PrRecapOutcome,
 } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   findSiblingRepos,
   pickDefaultVisibleAppRepo,
+  resolveSandboxRepoId,
 } from "./_githubRepos/helpers";
 
 const prRecapCompleteEvent = defineEvent({
@@ -132,7 +131,7 @@ export const prRecapWorkflow = workflow.define({
           skipStartupCommands: true,
         }));
 
-        await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        await step.runAction(internal.sandbox.launchOnExistingSandbox, {
           sandboxId,
           entityId: String(args.docId),
           streamingEntityId: `pr-recap:${String(args.docId)}`,
@@ -178,7 +177,7 @@ export const prRecapWorkflow = workflow.define({
     } finally {
       if (sandboxId) {
         try {
-          await step.runAction(internal.daytona.deleteSandbox, {
+          await step.runAction(internal.sandbox.deleteSandbox, {
             sandboxId,
             repoId: sandboxRepoId,
           });
@@ -189,49 +188,6 @@ export const prRecapWorkflow = workflow.define({
     }
   },
 });
-
-/**
- * Picks which githubRepos row to use for sandbox credentials. Prefers the
- * default visible app when it has VERCEL_PROJECT_ID; otherwise any sibling
- * (or the workflow repo itself) that defines that key. Falls back to the
- * workflow repo for Daytona / single-app codebases.
- */
-async function resolveSandboxRepoId(
-  ctx: { db: GenericDatabaseReader<DataModel> },
-  workflowRepoId: Id<"githubRepos">,
-  siblings: Array<Doc<"githubRepos">>,
-): Promise<Id<"githubRepos">> {
-  async function hasVercelProjectId(
-    repoId: Id<"githubRepos">,
-  ): Promise<boolean> {
-    const envDoc = await ctx.db
-      .query("repoEnvVars")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first();
-    return (
-      envDoc?.vars.some((entry) => entry.key === "VERCEL_PROJECT_ID") === true
-    );
-  }
-
-  const preferred = pickDefaultVisibleAppRepo(siblings);
-  if (preferred && (await hasVercelProjectId(preferred._id))) {
-    return preferred._id;
-  }
-
-  for (const sibling of siblings) {
-    if (sibling._id === workflowRepoId) continue;
-    if (sibling.rootDirectory === undefined) continue;
-    if (await hasVercelProjectId(sibling._id)) {
-      return sibling._id;
-    }
-  }
-
-  if (await hasVercelProjectId(workflowRepoId)) {
-    return workflowRepoId;
-  }
-
-  return preferred?._id ?? workflowRepoId;
-}
 
 /** Loads repo settings needed for PR recap generation. */
 export const getRepoData = internalQuery({
@@ -252,7 +208,7 @@ export const getRepoData = internalQuery({
     const siblings = await findSiblingRepos(ctx.db, args.repoId);
     const linkRepo = pickDefaultVisibleAppRepo(siblings);
     const sandboxRepoId = await resolveSandboxRepoId(
-      ctx,
+      ctx.db,
       args.repoId,
       siblings,
     );

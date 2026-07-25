@@ -3,11 +3,11 @@ import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
-import { evaluationReportFields } from "./validators";
+import { evaluationReportFields, normalizeAIModel } from "./validators";
 import { allocateNumId } from "./numId";
 import { ensureSubscribed } from "./taskSubscribers";
 import { workflow } from "./workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "./_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 
@@ -138,8 +138,9 @@ export const autoStartTask = internalMutation({
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
-        args.userId,
+        task.createdBy,
       ),
+      model: normalizeAIModel(task.model),
     });
 
     await ctx.db.patch(args.taskId, {
@@ -163,6 +164,8 @@ export const autoStartTask = internalMutation({
           ),
           isFirstTaskOnBranch: true,
           model: task.model ?? repo.defaultModel,
+          providerAccountId: task.providerAccountId,
+          credentialOwnerUserId: task.createdBy,
           userId: args.userId,
         },
       );

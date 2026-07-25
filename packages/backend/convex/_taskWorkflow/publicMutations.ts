@@ -19,6 +19,7 @@ import {
   getTaskRunStreamingEntityId,
   recordCompletionLog,
   sendCompletionEvent,
+  upsertActivityLog,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -279,6 +280,10 @@ export const handleProofCompletion = authMutation({
       throw new Error(`Failed to deliver proof completion event: ${detail}`);
     }
 
+    if (args.activityLog) {
+      await upsertActivityLog(ctx, args.runId, args.activityLog, "proof");
+    }
+
     const task = await ctx.db.get(args.taskId);
     if (task?.repoId) {
       await recordCompletionLog(ctx, {
@@ -409,7 +414,7 @@ export const cancelExecution = authMutation({
       // workflow.cancel() aborts execution before the workflow's own sandbox
       // cleanup step runs, so we stop the execution sandbox here.
       if (run.sandboxId && run.repoId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.stopSandbox, {
           sandboxId: run.sandboxId,
           repoId: run.repoId,
         });

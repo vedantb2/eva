@@ -1,8 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
 import { IconFileText } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -18,9 +17,20 @@ export function DraftsClient() {
 
   if (commentDrafts === undefined || taskDrafts === undefined) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner />
-      </div>
+      <PageWrapper title="Drafts" comfortable>
+        <div
+          className="flex min-h-[20rem] flex-col gap-2"
+          aria-busy="true"
+          aria-label="Loading drafts"
+        >
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-surface border border-border bg-muted/60"
+            />
+          ))}
+        </div>
+      </PageWrapper>
     );
   }
 

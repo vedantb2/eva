@@ -2,14 +2,22 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-} from "@conductor/ui";
+  ProviderIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  cn,
+  formatModelDisplayLabel,
+} from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
-import { motion } from "motion/react";
-import dayjs from "@conductor/shared/dates";
-import { formatDuration } from "@conductor/shared/duration";
+import { m } from "motion/react";
+import dayjs from "@eva/shared/dates";
+import { formatDuration } from "@eva/shared/duration";
+import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
+import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   StreamingActivityDisplay,
@@ -17,28 +25,86 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import { UserAttachmentImages } from "@/lib/components/chat/imageAttachments";
-import {
-  ChangedFilesCard,
-  collectChangedFiles,
-} from "@/lib/components/chat/ChangedFilesCard";
+import { UserMessageAttachments } from "@/lib/components/chat/imageAttachments";
+import { ChangedFilesCard } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
-import type { ParsedQuestion } from "@/lib/components/chat/chatBodyUtils";
-import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import type {
+  ParsedQuestion,
+  ChatBodyMessage,
+} from "@/lib/components/chat/chatBodyUtils";
+import { getAssistantTurnState } from "@/lib/components/chat/chatBodyUtils";
 
 const EVA_ICON = <EvaIcon />;
+
+/** Matches `.rounded-surface`, but squares the avatar-side corner (iMessage). */
+function userBubbleRadius(isOtherUser: boolean): string {
+  const r = "clamp(0.75rem, var(--radius), 1.25rem)";
+  // CSS order: top-left, top-right, bottom-right, bottom-left
+  return isOtherUser ? `${r} ${r} ${r} 0` : `${r} ${r} 0 ${r}`;
+}
+
+/** Provider mark under an assistant turn; tooltip lists model, effort, account. */
+function MessageModelIcon({
+  model,
+  reasoningLevel,
+  credentialSourceLabel,
+}: {
+  model: string;
+  reasoningLevel?: string;
+  credentialSourceLabel?: string;
+}) {
+  const option = findAIModelOption(model);
+  const modelLabel = formatModelDisplayLabel(option.provider, option.label);
+  const effortLabel = reasoningLevel
+    ? getReasoningLevelLabel(reasoningLevel)
+    : null;
+  const parts = [modelLabel];
+  if (effortLabel) parts.push(effortLabel);
+  if (credentialSourceLabel) parts.push(credentialSourceLabel);
+  const tooltip = parts.join(" · ");
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/70"
+          aria-label={tooltip}
+        >
+          <ProviderIcon provider={option.provider} size={12} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 interface ChatMessageProps {
   message: ChatBodyMessage;
   repoBasePath: string;
   isLast: boolean;
+  /** True when this user turn belongs to a teammate (left-aligned). */
+  isOtherUser?: boolean;
+  /** First name shown above teammate bubbles. */
+  senderFirstName?: string;
+  /**
+   * Preceding user turn's model snapshot — shown under the assistant reply
+   * (model lives on the user message at send/dequeue time).
+   */
+  turnModel?: string;
+  turnReasoningLevel?: string;
+  /** "Team" or the selected userProviderAccounts label/first name. */
+  turnCredentialSourceLabel?: string;
   streamingActivity?: string;
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
   activePendingQuestion?: ParsedQuestion[] | null;
-  isExecuting: boolean;
+  /**
+   * True only while an answer mutation/send is in flight. Must NOT mirror
+   * turn `isExecuting` — AskUserQuestion keeps the turn executing while it
+   * waits for the user, which would permanently disable the card.
+   */
+  isQuestionLoading?: boolean;
   onQuestionAnswer: (answer: string) => Promise<void>;
   onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
@@ -49,11 +115,16 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   repoBasePath,
   isLast,
+  isOtherUser = false,
+  senderFirstName,
+  turnModel,
+  turnReasoningLevel,
+  turnCredentialSourceLabel,
   streamingActivity,
   streamingContent,
   blockingQuestions,
   activePendingQuestion,
-  isExecuting,
+  isQuestionLoading = false,
   onQuestionAnswer,
   onBlockingAnswer,
   onOpenFile,
@@ -70,32 +141,41 @@ export const ChatMessage = memo(function ChatMessage({
     );
   }
 
-  const isStreamingPlaceholder =
-    message.role === "assistant" &&
-    !message.content &&
-    message.finishedAt === undefined;
-  const showQuestions = isStreamingPlaceholder || isLast;
-  const changedFiles =
-    !isStreamingPlaceholder &&
-    message.role === "assistant" &&
-    message.activityLog
-      ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
-      : [];
+  const { isStreamingPlaceholder, showQuestions, changedFiles } =
+    getAssistantTurnState(message, isLast);
 
   return (
-    <motion.div
+    <m.div
       key={message._id}
       data-message-id={message._id}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
     >
-      <AIMessage from={message.role}>
+      <AIMessage
+        from={message.role}
+        className={
+          isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
+        }
+      >
+        {isOtherUser && senderFirstName ? (
+          <span className="px-1 text-[11px] font-medium text-muted-foreground">
+            {senderFirstName}
+          </span>
+        ) : null}
         <MessageContent
           className={
             message.role === "user"
-              ? "group rounded-surface bg-secondary text-foreground px-4 py-3"
+              ? cn(
+                  "group bg-secondary px-4 py-3 text-foreground",
+                  isOtherUser && "group-[.is-user]:ml-0",
+                )
               : "px-1 py-2"
+          }
+          style={
+            message.role === "user"
+              ? { borderRadius: userBubbleRadius(isOtherUser) }
+              : undefined
           }
         >
           {isStreamingPlaceholder ? (
@@ -106,7 +186,7 @@ export const ChatMessage = memo(function ChatMessage({
                 startedAt={message.timestamp}
                 onOpenFile={onOpenFile}
               />
-              {isLast && streamingContent ? (
+              {streamingContent ? (
                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
                   {streamingContent}
                 </MessageResponse>
@@ -117,7 +197,7 @@ export const ChatMessage = memo(function ChatMessage({
                     questions={blockingQuestions}
                     onAnswer={onQuestionAnswer}
                     onAnswerStructured={onBlockingAnswer}
-                    isLoading={isExecuting}
+                    isLoading={isQuestionLoading}
                   />
                 </div>
               ) : showQuestions && activePendingQuestion ? (
@@ -125,7 +205,7 @@ export const ChatMessage = memo(function ChatMessage({
                   <MultipleChoiceQuestion
                     questions={activePendingQuestion}
                     onAnswer={onQuestionAnswer}
-                    isLoading={isExecuting}
+                    isLoading={isQuestionLoading}
                   />
                 </div>
               ) : null}
@@ -155,50 +235,83 @@ export const ChatMessage = memo(function ChatMessage({
                       onViewDiff={onViewDiff}
                     />
                   ) : null}
-                  {message.imageUrl && (
-                    <ScreenshotPreview url={message.imageUrl} />
+                  {(message.media ?? []).map((entry, index) =>
+                    entry.url ? (
+                      entry.contentType?.startsWith("video/") ? (
+                        <VideoPreview key={index} url={entry.url} />
+                      ) : (
+                        <ScreenshotPreview key={index} url={entry.url} />
+                      )
+                    ) : null,
                   )}
-                  {message.videoUrl && <VideoPreview url={message.videoUrl} />}
                   {showQuestions && activePendingQuestion ? (
                     <div className="mt-3">
                       <MultipleChoiceQuestion
                         questions={activePendingQuestion}
                         onAnswer={onQuestionAnswer}
+                        isLoading={isQuestionLoading}
                       />
                     </div>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <UserAttachmentImages urls={message.attachmentUrls} />
+                  <UserMessageAttachments
+                    attachments={
+                      message.attachments ??
+                      message.attachmentUrls?.map((url) => ({
+                        url,
+                        contentType: url ? "image/*" : null,
+                      }))
+                    }
+                  />
                   {message.content ? (
-                    <ReviewCommentMessage
-                      text={message.content}
-                      repoBasePath={repoBasePath}
-                    />
+                    <CollapsibleUserMessageBody text={message.content}>
+                      <ReviewCommentMessage
+                        text={message.content}
+                        repoBasePath={repoBasePath}
+                      />
+                    </CollapsibleUserMessageBody>
                   ) : null}
                 </>
               )}
             </>
           )}
         </MessageContent>
-        {message.role === "assistant" && message.content ? (
-          <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-            <ChatMessageActions
-              copyText={message.content}
-              className="ml-0.5"
-              revealOnHover={false}
-            />
-            {message.finishedAt && message.timestamp ? (
-              <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                {formatDuration(message.timestamp, message.finishedAt)}
-              </span>
+        {message.role === "assistant" ? (
+          <div className="mt-0.5 flex items-center gap-2">
+            {turnModel ? (
+              <MessageModelIcon
+                model={turnModel}
+                reasoningLevel={turnReasoningLevel}
+                credentialSourceLabel={turnCredentialSourceLabel}
+              />
+            ) : null}
+            {message.content ? (
+              <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                <ChatMessageActions
+                  copyText={message.content}
+                  className="ml-0.5"
+                  revealOnHover={false}
+                />
+                {message.finishedAt && message.timestamp ? (
+                  <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                    {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                    {formatDuration(message.timestamp, message.finishedAt)}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}
         {message.role === "user" && (
-          <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
+          <div
+            className={cn(
+              "mt-0.5 flex items-center gap-2",
+              isOtherUser ? "mr-auto justify-start" : "ml-auto justify-end",
+            )}
+          >
+            {isOtherUser ? <UserMessageAvatar userId={message.userId} /> : null}
             <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
               {message.content ? (
                 <ChatMessageActions
@@ -219,21 +332,16 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                 </div>
               )}
-              {message.credentialSourceLabel ? (
-                <span className="text-[11px] text-muted-foreground/60">
-                  {message.credentialSourceLabel}
-                </span>
-              ) : null}
               {message.timestamp && (
                 <span className="text-[11px] text-muted-foreground/60">
                   {dayjs(message.timestamp).format("h:mm A")}
                 </span>
               )}
             </div>
-            <UserMessageAvatar userId={message.userId} />
+            {isOtherUser ? null : <UserMessageAvatar userId={message.userId} />}
           </div>
         )}
       </AIMessage>
-    </motion.div>
+    </m.div>
   );
 });

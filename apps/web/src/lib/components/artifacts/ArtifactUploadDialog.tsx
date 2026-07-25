@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -21,7 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconUpload } from "@tabler/icons-react";
 import { parseArtifactMeta, parseStorageId } from "./_meta";
 
@@ -73,15 +73,25 @@ export function ArtifactUploadDialog({
   };
 
   const onSubmit = async () => {
-    setUploading(true);
     setError(null);
-    try {
-      const teamId =
-        defaultTeamId ?? teams.find((t) => t._id === selectedTeamId)?._id;
-      if (!teamId) throw new Error("Choose a team.");
-      if (!html) throw new Error("Choose an artifact HTML file.");
-      if (!name.trim()) throw new Error("Give the artifact a name.");
 
+    const teamId =
+      defaultTeamId ?? teams.find((t) => t._id === selectedTeamId)?._id;
+    if (!teamId) {
+      setError("Choose a team.");
+      return;
+    }
+    if (!html) {
+      setError("Choose an artifact HTML file.");
+      return;
+    }
+    if (!name.trim()) {
+      setError("Give the artifact a name.");
+      return;
+    }
+
+    setUploading(true);
+    try {
       const uploadUrl = await generateUploadUrl({});
       const res = await fetch(uploadUrl, {
         method: "POST",
@@ -89,7 +99,11 @@ export function ArtifactUploadDialog({
         body: html,
       });
       const storageId = parseStorageId(await res.text());
-      if (!res.ok || !storageId) throw new Error("Upload failed.");
+      if (!res.ok || !storageId) {
+        setError("Upload failed.");
+        setUploading(false);
+        return;
+      }
 
       await create({
         name: name.trim(),
@@ -102,9 +116,10 @@ export function ArtifactUploadDialog({
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
       setUploading(false);
+      return;
     }
+    setUploading(false);
   };
 
   const bareTools = declaredTools

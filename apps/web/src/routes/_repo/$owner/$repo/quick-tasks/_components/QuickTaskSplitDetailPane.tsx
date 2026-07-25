@@ -1,7 +1,8 @@
 "use client";
 
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { QuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
@@ -31,6 +32,7 @@ export function QuickTaskSplitDetailPane({
   navSurface,
 }: QuickTaskSplitDetailPaneProps) {
   const { repo } = useRepo();
+  const reduceMotion = useReducedMotion();
   const {
     selectedTask,
     prevTaskId,
@@ -77,9 +79,22 @@ export function QuickTaskSplitDetailPane({
           </div>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <QuickTaskTaskPageContent taskId={taskId} routeState={routeState} />
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <m.div
+          key={taskId}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={reduceMotion ? undefined : { opacity: 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.15, ease: [0.22, 1, 0.36, 1] }
+          }
+        >
+          <QuickTaskTaskPageContent taskId={taskId} routeState={routeState} />
+        </m.div>
+      </AnimatePresence>
     </div>
   );
 }

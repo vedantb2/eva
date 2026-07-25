@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
@@ -39,7 +39,7 @@ import {
   TabsTrigger,
   TabsContent,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
@@ -107,13 +107,19 @@ export function GroupTasksModal({
     useState<Id<"projects"> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("new");
-  const [orderedTasks, setOrderedTasks] = useState<Task[]>([]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setOrderedTasks(selectedTasks);
-    }
-  }, [isOpen, selectedTasks]);
+  const [orderedTasks, setOrderedTasks] = useState(selectedTasks);
+  const [syncKey, setSyncKey] = useState<{ open: boolean; ids: string }>({
+    open: false,
+    ids: "",
+  });
+  const selectedIds = selectedTasks.map((task) => task._id).join(",");
+  // Reset order when the modal opens or the selection set changes.
+  if (isOpen && (!syncKey.open || syncKey.ids !== selectedIds)) {
+    setSyncKey({ open: true, ids: selectedIds });
+    setOrderedTasks(selectedTasks);
+  } else if (!isOpen && syncKey.open) {
+    setSyncKey({ open: false, ids: "" });
+  }
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const createFromTasks = useMutation(api.projects.createFromTasks);
@@ -155,9 +161,11 @@ export function GroupTasksModal({
       if (segment) {
         navigate({ to: `${basePath}/projects/${segment}` });
       }
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const handleAddToProject = async () => {
@@ -171,9 +179,11 @@ export function GroupTasksModal({
       setSelectedProjectId(null);
       onSuccess();
       onClose();
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   return (
@@ -246,38 +256,37 @@ export function GroupTasksModal({
                   No active projects
                 </p>
               )}
-              {projects
-                ?.filter(
-                  (p) =>
-                    p.phase === "in_progress" ||
-                    p.phase === "business_review" ||
-                    p.phase === "code_review" ||
-                    p.phase === "completed",
-                )
-                .map((project) => (
-                  <button
-                    key={project._id}
-                    type="button"
-                    onClick={() => setSelectedProjectId(project._id)}
-                    className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
-                      selectedProjectId === project._id
-                        ? "ring-2 ring-primary bg-accent"
-                        : "bg-muted hover:bg-muted/70"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">
-                        {project.title}
-                      </span>
-                      <ProjectPhaseBadge phase={project.phase} />
-                    </div>
-                    {project.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                        {project.description}
-                      </p>
-                    )}
-                  </button>
-                ))}
+              {projects?.flatMap((project) =>
+                project.phase === "in_progress" ||
+                project.phase === "business_review" ||
+                project.phase === "code_review" ||
+                project.phase === "completed"
+                  ? [
+                      <button
+                        key={project._id}
+                        type="button"
+                        onClick={() => setSelectedProjectId(project._id)}
+                        className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
+                          selectedProjectId === project._id
+                            ? "ring-2 ring-primary bg-accent"
+                            : "bg-muted hover:bg-muted/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 justify-between">
+                          <span className="text-sm font-medium truncate">
+                            {project.title}
+                          </span>
+                          <ProjectPhaseBadge phase={project.phase} />
+                        </div>
+                        {project.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                            {project.description}
+                          </p>
+                        )}
+                      </button>,
+                    ]
+                  : [],
+              )}
             </div>
           </TabsContent>
         </Tabs>

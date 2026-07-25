@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
 
 /**
@@ -15,6 +15,7 @@ export function useTeamLogoUpload() {
 
   const uploadLogo = async (teamId: Id<"teams">, file: File) => {
     setUploading(true);
+    let uploadError: Error | undefined;
     try {
       const uploadUrl = await generateUploadUrl({ teamId });
       const result = await fetch(uploadUrl, {
@@ -24,17 +25,24 @@ export function useTeamLogoUpload() {
       });
       const responseText = await result.text();
       if (!result.ok) {
-        throw new Error(
+        uploadError = new Error(
           `Logo upload failed (status ${result.status}): ${responseText}`,
         );
+      } else {
+        const storageId = parseStorageId(responseText);
+        if (!storageId) {
+          uploadError = new Error("Invalid response from storage");
+        } else {
+          await setLogo({ teamId, storageId });
+        }
       }
-      const storageId = parseStorageId(responseText);
-      if (!storageId) {
-        throw new Error("Invalid response from storage");
-      }
-      await setLogo({ teamId, storageId });
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
+    }
+    setUploading(false);
+    if (uploadError) {
+      throw uploadError;
     }
   };
 

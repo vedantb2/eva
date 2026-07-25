@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
@@ -9,16 +10,22 @@ import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { LiveCursors } from "@/lib/components/LiveCursors";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,
 });
 
-function MainContent({ children: _children }: { children: React.ReactNode }) {
+function MainContent({ children: _children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
+
   return (
     <div
-      className={`relative flex h-screen flex-col overflow-hidden pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-36" : "lg:pl-80"}`}
+      className={cn(
+        "relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0",
+        // Default 20rem matches prior lg:pl-80 until localStorage hydrates.
+        collapsed ? "lg:pl-16" : "lg:pl-[var(--eva-sidebar-width,20rem)]",
+      )}
     >
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <div

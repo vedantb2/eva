@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import { Button, Input, Textarea } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Input, Textarea } from "@eva/ui";
 import { IconPlus } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
-import { useCallback, useState } from "react";
+import type { Id } from "@eva/backend";
+import { useState } from "react";
 
 export function AddCategoryForm(props: {
   repoId: Id<"githubRepos">;
@@ -15,7 +15,7 @@ export function AddCategoryForm(props: {
   const [description, setDescription] = useState("");
   const createCategory = useMutation(api.auditCategories.create);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) return;
     await createCategory({
       repoId: props.repoId,
@@ -25,7 +25,7 @@ export function AddCategoryForm(props: {
     });
     setName("");
     setDescription("");
-  }, [name, description, createCategory, props.repoId, props.appId]);
+  };
 
   return (
     <div className="grid gap-3">

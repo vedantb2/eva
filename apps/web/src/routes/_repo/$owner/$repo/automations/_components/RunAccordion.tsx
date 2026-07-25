@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import {
   ActivityTasks,
   Badge,
@@ -10,7 +10,7 @@ import {
   useElapsedSeconds,
   formatElapsed,
   Spinner as UISpinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconAlertTriangle,
   IconCheck,
@@ -19,9 +19,9 @@ import {
   IconExternalLink,
   IconPlayerStop,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
-import { formatDuration } from "@conductor/shared/duration";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import dayjs from "@eva/shared/dates";
+import { formatDuration } from "@eva/shared/duration";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";

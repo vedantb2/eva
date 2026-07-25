@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconFilter, IconList, IconLayoutKanban } from "@tabler/icons-react";
 import {
   TimeRangeFilter,

@@ -2,6 +2,7 @@
 
 import type { Sandbox } from "@vercel/sandbox";
 import type { SandboxHandle } from "../_sandbox/provider";
+import { ensureEvaEnvInteractiveHookScript } from "../_sandbox/vercelEnvFile";
 
 /** Browser WebSockets cannot set headers — pass the interactive token as a query param. */
 function buildVercelInteractiveWsUrl(url: string, token: string): string {
@@ -30,6 +31,19 @@ export async function ensureVercelSharedTerminal(
     "command -v tmux >/dev/null 2>&1 || sudo dnf install -y tmux >/dev/null 2>&1",
     { cwd: "/", timeoutSeconds: 120 },
   );
+  // Login/interactive bash (and new Console panes) should see repo secrets.
+  try {
+    await handle.exec(ensureEvaEnvInteractiveHookScript(), {
+      cwd: "/",
+      timeoutSeconds: 15,
+    });
+  } catch (error) {
+    console.warn(
+      `[vercel] ensureEvaEnvInteractiveHook failed on ${handle.id}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
   const existing = await handle.exec(
     `tmux has-session -t ${sessionName} >/dev/null 2>&1 && echo existing || echo missing`,
     { cwd: "/", timeoutSeconds: 5 },

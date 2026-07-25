@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Spinner } from "@conductor/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import {
@@ -72,7 +71,7 @@ export function QuickTasksClient() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const users = useQuery(api.users.listAll);
 
-  const projectNames = useMemo(() => {
+  const projectNames = (() => {
     const map = new Map<string, string>();
     if (projects) {
       for (const p of projects) {
@@ -80,9 +79,9 @@ export function QuickTasksClient() {
       }
     }
     return map;
-  }, [projects]);
+  })();
 
-  const allTags = useMemo(() => {
+  const allTags = (() => {
     if (!tasks) return [];
     const tagSet = new Set<string>();
     for (const t of tasks) {
@@ -93,35 +92,37 @@ export function QuickTasksClient() {
       }
     }
     return [...tagSet].sort();
-  }, [tasks]);
+  })();
 
   const quickTasks = useFilteredQuickTasks(tasks);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
-  const taskIdSet = useMemo(() => {
+  const taskIdSet = (() => {
     const set = new Set<string>();
     if (tasks) {
       for (const t of tasks) set.add(t._id);
     }
     return set;
-  }, [tasks]);
+  })();
 
-  useEffect(() => {
-    if (!isSelecting) return;
-    setSelectedIds((prev) => {
-      let changed = false;
-      const next = new Set<Id<"agentTasks">>();
-      for (const id of prev) {
-        if (taskIdSet.has(id)) {
-          next.add(id);
-        } else {
-          changed = true;
-        }
+  // Drop selections for tasks that disappeared (adjust during render).
+  if (isSelecting) {
+    let needsPrune = false;
+    for (const id of selectedIds) {
+      if (!taskIdSet.has(id)) {
+        needsPrune = true;
+        break;
       }
-      return changed ? next : prev;
-    });
-  }, [taskIdSet, isSelecting]);
+    }
+    if (needsPrune) {
+      const next = new Set<Id<"agentTasks">>();
+      for (const id of selectedIds) {
+        if (taskIdSet.has(id)) next.add(id);
+      }
+      setSelectedIds(next);
+    }
+  }
 
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
@@ -143,7 +144,7 @@ export function QuickTasksClient() {
     setActiveBulkAction(null);
   };
 
-  const activeFilterLabels = useMemo(() => {
+  const activeFilterLabels = (() => {
     const labels: Array<{ key: string; label: string }> = [];
     if (project === "all") {
       labels.push({ key: "project", label: "All Projects" });
@@ -191,7 +192,7 @@ export function QuickTasksClient() {
       });
     }
     return labels;
-  }, [project, projects, user, users, assignee, statuses, tags, timeRange]);
+  })();
 
   const clearFilter = (key: string) => {
     switch (key) {
@@ -271,18 +272,38 @@ export function QuickTasksClient() {
 
   if (tasks === undefined) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner />
-      </div>
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <div
+          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          aria-busy="true"
+          aria-label="Loading quick tasks"
+        >
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-1 gap-3">
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+          </div>
+        </div>
+      </PageWrapper>
     );
   }
 
   // URL points at a task that is still resolving or no longer exists.
   if (numIdParam !== undefined && taskResolve.status === "loading") {
     return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </div>
+      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
+        <div
+          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          aria-busy="true"
+          aria-label="Loading task"
+        >
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-1 gap-3">
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+          </div>
+        </div>
+      </PageWrapper>
     );
   }
 
@@ -362,7 +383,7 @@ export function QuickTasksClient() {
           )}
           <AnimatePresence mode="wait" initial={false}>
             {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -380,10 +401,11 @@ export function QuickTasksClient() {
                   description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
                   actionLabel="Create Quick Task"
                   onAction={() => setIsCreating(true)}
+                  animate={!hasAnyTasks}
                 />
-              </motion.div>
+              </m.div>
             ) : view === "kanban" ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-board"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -399,9 +421,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                 />
-              </motion.div>
+              </m.div>
             ) : view === "table" ? (
-              <motion.div
+              <m.div
                 key="quick-tasks-table"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -417,9 +439,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                 />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 key="quick-tasks-list"
                 className="flex min-w-0 flex-1 min-h-0"
                 initial={{ opacity: 0, y: 8 }}
@@ -443,7 +465,7 @@ export function QuickTasksClient() {
                   }
                   navSurface={routeState?.surface ?? "detail"}
                 />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
           {hasQuickTasks && (

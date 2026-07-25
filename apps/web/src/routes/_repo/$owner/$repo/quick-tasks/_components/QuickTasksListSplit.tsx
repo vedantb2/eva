@@ -1,7 +1,7 @@
 "use client";
 
 import { IconChecklist } from "@tabler/icons-react";
-import type { Id, api } from "@conductor/backend";
+import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
@@ -46,7 +46,7 @@ export function QuickTasksListSplit({
   return (
     <QuickTaskHeaderActionsSlotProvider>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:flex-row">
-        <div className="flex h-1/2 w-full min-h-0 shrink-0 flex-col overflow-hidden md:h-full md:w-2/5 lg:w-1/3">
+        <div className="flex h-1/2 w-full min-h-0 shrink-0 flex-col overflow-hidden md:h-full md:w-1/3 lg:w-1/4">
           <QuickTasksListView
             tasks={tasks}
             projectNames={projectNames}
@@ -57,7 +57,7 @@ export function QuickTasksListSplit({
             selectedTaskId={selectedTaskId}
           />
         </div>
-        <div className="ui-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
           {selectedTaskId ? (
             <QuickTaskSplitDetailPane
               key={selectedTaskId}

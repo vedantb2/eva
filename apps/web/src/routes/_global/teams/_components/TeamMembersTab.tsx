@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Card,
@@ -20,9 +20,9 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconTrash, IconUserPlus } from "@tabler/icons-react";
-import { UserInitials } from "@conductor/shared";
+import { UserInitials } from "@eva/shared";
 
 type Member = FunctionReturnType<typeof api.teamMembers.list>[number];
 

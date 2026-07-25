@@ -99,13 +99,16 @@ export function TypographySection({
                 active={isActive}
                 onClick={() => onFontChange(key)}
               >
-                {isActive && (
-                  <IconCheck
-                    size={14}
-                    className="shrink-0 text-primary"
-                    strokeWidth={2.5}
-                  />
-                )}
+                <IconCheck
+                  size={14}
+                  className={
+                    isActive
+                      ? "shrink-0 text-primary opacity-100"
+                      : "shrink-0 text-primary opacity-0"
+                  }
+                  strokeWidth={2.5}
+                  aria-hidden={!isActive}
+                />
                 <span style={{ fontFamily: font.stack }}>{font.label}</span>
               </OptionButton>
             );

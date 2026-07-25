@@ -15,6 +15,10 @@ import {
   buildTaskNotificationMessage,
 } from "./helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
+import {
+  assertProviderAccountOwnedBy,
+  resolveDefaultProviderAccountId,
+} from "../_userProviderAccounts/defaults";
 
 /** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
@@ -95,7 +99,9 @@ export const activateDraft = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    providerAccountId: v.optional(
+      v.union(v.id("userProviderAccounts"), v.null()),
+    ),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     screenshotsVideosEnabled: v.optional(v.boolean()),
@@ -110,12 +116,21 @@ export const activateDraft = authMutation({
     const repo = task.repoId ? await ctx.db.get(task.repoId) : null;
     const project = task.projectId ? await ctx.db.get(task.projectId) : null;
 
+    const providerAccountId =
+      args.providerAccountId === undefined
+        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, args.model)
+        : await assertProviderAccountOwnedBy(
+            ctx.db,
+            args.providerAccountId,
+            ctx.userId,
+          );
+
     await ctx.db.patch(args.id, {
       title: args.title,
       description: args.description,
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model,
-      providerAccountId: args.providerAccountId,
+      providerAccountId,
       status: "todo",
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),

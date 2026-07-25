@@ -134,17 +134,30 @@ export function ModelPickerContent<TModel extends string>({
   options,
   accounts,
   onSelect,
+  canSelectTeamWhilePersonal = true,
 }: {
   value: TModel;
   accountId: string | null;
   options: ReadonlyArray<ModelOption<TModel>>;
   accounts?: ReadonlyArray<ModelAccount>;
   onSelect: (modelId: TModel, accountId: string | null) => void;
+  canSelectTeamWhilePersonal?: boolean;
 }) {
   const instances = useMemo(
     () => buildPickerInstances(options, accounts),
     [options, accounts],
   );
+
+  const selectedPersonalAccount = accountId
+    ? accounts?.find((account) => account.id === accountId)
+    : undefined;
+  const lockedTeamProvider = selectedPersonalAccount?.provider;
+  const lockedTeamKey = lockedTeamProvider
+    ? teamInstanceKey(lockedTeamProvider)
+    : undefined;
+  const lockedTeamLabel = selectedPersonalAccount
+    ? `${getProviderLabel(selectedPersonalAccount.provider)} Team is unavailable while using ${selectedPersonalAccount.label}'s personal account`
+    : undefined;
 
   const initialInstanceKey = useMemo(() => {
     if (accountId) {
@@ -270,12 +283,12 @@ export function ModelPickerContent<TModel extends string>({
   }, [instances]);
 
   return (
-    <div
-      className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
-      data-model-picker-content
-    >
-      {!isSearching ? (
-        <TooltipProvider delayDuration={300}>
+    <TooltipProvider delayDuration={300}>
+      <div
+        className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
+        data-model-picker-content
+      >
+        {!isSearching ? (
           <div className="w-12 shrink-0 overflow-hidden border-r border-border bg-muted/30">
             <div
               ref={railContentRef}
@@ -292,15 +305,31 @@ export function ModelPickerContent<TModel extends string>({
                 const showBadge =
                   Boolean(instance.accentColor) ||
                   (providerCounts.get(instance.provider) ?? 0) > 1;
+                const isPersonalTeamVariant =
+                  lockedTeamKey !== undefined && instance.key === lockedTeamKey;
+                const isLockedTeam =
+                  isPersonalTeamVariant && !canSelectTeamWhilePersonal;
+                const showTeamLockedHint =
+                  isPersonalTeamVariant && lockedTeamLabel !== undefined;
                 return (
                   <Tooltip key={instance.key}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         data-model-picker-instance={instance.key}
-                        className="relative isolate flex aspect-square w-full cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted"
+                        disabled={isLockedTeam}
+                        className={cn(
+                          "relative isolate flex aspect-square w-full items-center justify-center rounded-md transition-colors",
+                          isPersonalTeamVariant
+                            ? "opacity-40"
+                            : "hover:bg-muted",
+                          isLockedTeam
+                            ? "cursor-not-allowed"
+                            : "cursor-pointer hover:bg-muted",
+                        )}
                         aria-label={instance.label}
                         onClick={() => {
+                          if (isLockedTeam) return;
                           setSelectedInstanceKey(instance.key);
                           window.requestAnimationFrame(() => {
                             focusSearch();
@@ -316,115 +345,139 @@ export function ModelPickerContent<TModel extends string>({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="left" sideOffset={8}>
-                      {instance.label}
+                      {showTeamLockedHint ? lockedTeamLabel : instance.label}
                     </TooltipContent>
                   </Tooltip>
                 );
               })}
             </div>
           </div>
-        </TooltipProvider>
-      ) : null}
+        ) : null}
 
-      {/*
+        {/*
         Key only on the rail instance — NOT on isSearching. Remounting when the
         first search character lands unmounts the input and drops focus (the
         "click twice" bug). Row filtering already switches search vs rail views.
       */}
-      <Command
-        key={selectedInstanceKey}
-        className="flex min-w-0 flex-1 flex-col rounded-none border-0 bg-muted/40"
-        defaultValue={activeCompositeKey || undefined}
-      >
-        <div className="px-4 pt-2.5">
-          <div className="flex items-center gap-2 border-b border-border/70 pb-2.5 transition-colors focus-within:border-ring">
-            <IconSearch
-              className="size-4 shrink-0 text-muted-foreground/55"
-              aria-hidden
-            />
-            <CommandPrimitive.Input
-              ref={searchInputRef}
-              value={search}
-              onValueChange={setSearch}
-              placeholder="Search models..."
-              className="h-auto w-full bg-transparent py-0 text-sm outline-none placeholder:text-muted-foreground"
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-            />
+        <Command
+          key={selectedInstanceKey}
+          className="flex min-w-0 flex-1 flex-col rounded-none border-0 bg-muted/40"
+          defaultValue={activeCompositeKey || undefined}
+        >
+          <div className="px-4 pt-2.5">
+            <div className="flex items-center gap-2 border-b border-border/70 pb-2.5 transition-colors focus-within:border-ring">
+              <IconSearch
+                className="size-4 shrink-0 text-muted-foreground/55"
+                aria-hidden
+              />
+              <CommandPrimitive.Input
+                ref={searchInputRef}
+                value={search}
+                onValueChange={setSearch}
+                placeholder="Search models..."
+                className="h-auto w-full bg-transparent py-0 text-sm outline-none placeholder:text-muted-foreground"
+                onMouseDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="relative min-h-0 flex-1">
-          {showTopFade ? (
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-muted/40 to-transparent"
-              aria-hidden
-            />
-          ) : null}
-          {showBottomFade ? (
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-gradient-to-t from-muted/40 to-transparent"
-              aria-hidden
-            />
-          ) : null}
+          <div className="relative min-h-0 flex-1">
+            {showTopFade ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-muted/40 to-transparent"
+                aria-hidden
+              />
+            ) : null}
+            {showBottomFade ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-gradient-to-t from-muted/40 to-transparent"
+                aria-hidden
+              />
+            ) : null}
 
-          <CommandList
-            className="max-h-none h-full flex-1 overflow-y-auto overscroll-contain px-1.5 py-1.5"
-            onScroll={(event) => updateScrollFades(event.currentTarget)}
-            ref={(node) => {
-              if (node) updateScrollFades(node);
-            }}
-          >
-            <CommandEmpty>No models found</CommandEmpty>
-            {rows.map((row) => {
-              const isActive = row.compositeKey === activeCompositeKey;
-              const showBadge =
-                Boolean(row.instance.accentColor) ||
-                (providerCounts.get(row.instance.provider) ?? 0) > 1;
-              return (
-                <CommandItem
-                  key={row.compositeKey}
-                  value={row.compositeKey}
-                  keywords={[
-                    row.modelLabel,
-                    getProviderLabel(row.instance.provider),
-                    row.instance.label,
-                  ]}
-                  onSelect={() => {
-                    const option = options.find(
-                      (entry) => entry.id === row.modelId,
-                    );
-                    if (!option) return;
-                    onSelect(option.id, row.instance.accountId);
-                  }}
-                  className="flex cursor-pointer flex-col items-stretch gap-1 rounded-md px-2 py-2.5 data-[selected=true]:bg-muted"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                      {row.modelLabel}
-                    </span>
-                    {isActive ? (
-                      <IconCheck
-                        className="size-3.5 shrink-0 text-primary"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </div>
-                  <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground/70">
-                    <InstanceIcon
-                      instance={row.instance}
-                      size={12}
-                      showBadge={showBadge}
-                      indicatorBackground="rgb(var(--muted))"
-                    />
-                    <span className="truncate">{rowFooter(row.instance)}</span>
-                  </div>
-                </CommandItem>
-              );
-            })}
-          </CommandList>
-        </div>
-      </Command>
-    </div>
+            <CommandList
+              className="max-h-none h-full flex-1 overflow-y-auto overscroll-contain px-1.5 py-1.5"
+              onScroll={(event) => updateScrollFades(event.currentTarget)}
+              ref={(node) => {
+                if (node) updateScrollFades(node);
+              }}
+            >
+              <CommandEmpty>No models found</CommandEmpty>
+              {rows.map((row) => {
+                const isActive = row.compositeKey === activeCompositeKey;
+                const showBadge =
+                  Boolean(row.instance.accentColor) ||
+                  (providerCounts.get(row.instance.provider) ?? 0) > 1;
+                const isPersonalTeamVariant =
+                  lockedTeamKey !== undefined &&
+                  row.instance.key === lockedTeamKey;
+                const isLockedTeamRow =
+                  isPersonalTeamVariant && !canSelectTeamWhilePersonal;
+                const showTeamLockedHint =
+                  isPersonalTeamVariant && lockedTeamLabel !== undefined;
+                return (
+                  <CommandItem
+                    key={row.compositeKey}
+                    value={row.compositeKey}
+                    disabled={isLockedTeamRow}
+                    keywords={[
+                      row.modelLabel,
+                      getProviderLabel(row.instance.provider),
+                      row.instance.label,
+                    ]}
+                    onSelect={() => {
+                      if (isLockedTeamRow) return;
+                      const option = options.find(
+                        (entry) => entry.id === row.modelId,
+                      );
+                      if (!option) return;
+                      onSelect(option.id, row.instance.accountId);
+                    }}
+                    className={cn(
+                      "flex flex-col items-stretch gap-1 rounded-md px-2 py-2.5 data-[selected=true]:bg-muted",
+                      isPersonalTeamVariant && "opacity-50",
+                      isLockedTeamRow ? "cursor-not-allowed" : "cursor-pointer",
+                    )}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex min-w-0 flex-col items-stretch gap-1">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                              {row.modelLabel}
+                            </span>
+                            {isActive ? (
+                              <IconCheck
+                                className="size-3.5 shrink-0 text-primary"
+                                aria-hidden
+                              />
+                            ) : null}
+                          </div>
+                          <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground/70">
+                            <InstanceIcon
+                              instance={row.instance}
+                              size={12}
+                              showBadge={showBadge}
+                              indicatorBackground="rgb(var(--muted))"
+                            />
+                            <span className="truncate">
+                              {rowFooter(row.instance)}
+                            </span>
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      {showTeamLockedHint ? (
+                        <TooltipContent>{lockedTeamLabel}</TooltipContent>
+                      ) : null}
+                    </Tooltip>
+                  </CommandItem>
+                );
+              })}
+            </CommandList>
+          </div>
+        </Command>
+      </div>
+    </TooltipProvider>
   );
 }

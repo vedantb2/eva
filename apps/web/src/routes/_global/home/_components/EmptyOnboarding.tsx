@@ -1,5 +1,5 @@
-import { motion } from "motion/react";
-import { Card, CardContent, Button } from "@conductor/ui";
+import { m } from "motion/react";
+import { Card, CardContent, Button } from "@eva/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -11,7 +11,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
   ];
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
@@ -83,7 +83,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PLATFORM_SECTIONS.map((section, index) => (
-            <motion.div
+            <m.div
               key={section.label}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -101,10 +101,10 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
                   </p>
                 </CardContent>
               </Card>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

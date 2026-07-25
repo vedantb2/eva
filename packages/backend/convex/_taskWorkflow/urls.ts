@@ -65,3 +65,15 @@ export function buildEvaDocUrl(
   const segment = repoSegment(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/docs/${docNumId}/${docTab}`;
 }
+
+/** Builds a link to a PR under Reviews (keyed by GitHub PR number). */
+export function buildEvaReviewUrl(
+  repoOwner: string,
+  repoName: string,
+  prNumber: number,
+  reviewTab: "overview" | "recap" | "diff" = "recap",
+  rootDirectory?: string,
+): string {
+  const segment = repoSegment(repoName, rootDirectory);
+  return `${getEvaBaseUrl()}/${repoOwner}/${segment}/reviews/${prNumber}/${reviewTab}`;
+}

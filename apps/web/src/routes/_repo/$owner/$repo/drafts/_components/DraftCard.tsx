@@ -3,9 +3,9 @@
 import { useMutation, useConvex } from "convex/react";
 import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Badge, Button, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Badge, Button, cn } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -23,6 +23,8 @@ function kindLabel(model: DraftCardModel): string {
   if (kind === "taskComment") {
     return parentCommentId ? "Reply" : "Comment";
   }
+  if (kind === "taskChat") return "Task chat";
+  if (kind === "projectChat") return "Project chat";
   if (kind === "sessionChat") return "Session";
   return "Design";
 }
@@ -63,6 +65,26 @@ async function resolveTaskActivityPath(
   return `${basePath}/quick-tasks/${taskSegment}`;
 }
 
+/** Opens the surface where the task sandbox chat draft was written. */
+async function resolveTaskChatPath(
+  convex: ConvexReactClient,
+  basePath: string,
+  taskId: Id<"agentTasks">,
+  taskProjectId: Id<"projects"> | undefined,
+): Promise<string | null> {
+  const root = await resolveTaskActivityPath(
+    convex,
+    basePath,
+    taskId,
+    taskProjectId,
+  );
+  if (!root) return null;
+  // Quick tasks have a dedicated sandbox route; project tasks embed sandbox
+  // in the detail layout, so land on activity.
+  if (taskProjectId) return root;
+  return `${root}/sandbox/preview`;
+}
+
 export function DraftCard({ model, basePath }: DraftCardProps) {
   const navigate = useNavigate();
   const convex = useConvex();
@@ -87,8 +109,14 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
       return;
     }
 
-    const { kind, taskId, taskProjectId, sessionId, designSessionId } =
-      model.row;
+    const {
+      kind,
+      taskId,
+      taskProjectId,
+      projectId,
+      sessionId,
+      designSessionId,
+    } = model.row;
 
     if (kind === "taskComment" && taskId) {
       void (async () => {
@@ -101,6 +129,35 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         if (path) {
           await navigate({ to: path });
         }
+      })();
+      return;
+    }
+
+    if (kind === "taskChat" && taskId) {
+      void (async () => {
+        const path = await resolveTaskChatPath(
+          convex,
+          basePath,
+          taskId,
+          taskProjectId,
+        );
+        if (path) {
+          await navigate({ to: path });
+        }
+      })();
+      return;
+    }
+
+    if (kind === "projectChat" && projectId) {
+      void (async () => {
+        const project = await convex.query(api.projects.get, { id: projectId });
+        const segment = project ? entityPathSegment(project) : null;
+        if (!segment) {
+          return;
+        }
+        await navigate({
+          to: `${basePath}/projects/${segment}/sandbox/preview`,
+        });
       })();
       return;
     }

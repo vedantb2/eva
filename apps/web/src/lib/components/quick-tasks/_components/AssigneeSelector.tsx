@@ -10,12 +10,12 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconUserPlus, IconCheck } from "@tabler/icons-react";
-import { getUserInitials, UserInitials } from "@conductor/shared";
+import { getUserInitials, UserInitials } from "@eva/shared";
 import { Facehash } from "facehash";
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];

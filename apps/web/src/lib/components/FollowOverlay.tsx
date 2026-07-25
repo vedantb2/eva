@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
 import { IconX } from "@tabler/icons-react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button } from "@eva/ui";
 import { useFollow } from "@/lib/contexts/FollowContext";
 
 export function FollowOverlay() {

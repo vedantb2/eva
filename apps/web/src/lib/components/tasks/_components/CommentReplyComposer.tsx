@@ -3,9 +3,9 @@
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
@@ -84,9 +84,8 @@ function CommentReplyComposerForm({
       mentionRef.current?.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   return (

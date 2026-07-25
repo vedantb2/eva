@@ -15,11 +15,11 @@ export const SANDBOX_STATUS_STYLES: Record<
     label: "Sandbox active",
   },
   starting: {
-    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+    dot: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
     label: "Sandbox starting",
   },
   stopping: {
-    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+    dot: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
     label: "Sandbox stopping",
   },
   closed: {

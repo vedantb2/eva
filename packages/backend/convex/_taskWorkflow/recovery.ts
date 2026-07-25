@@ -25,7 +25,7 @@ export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 // confirmed the callback PID is still alive.
 export const STALE_TOOL_ACTIVE_THRESHOLD_MS = 1_500_000;
 
-/** Checks whether an error message indicates a Daytona infrastructure/network issue. */
+/** Checks whether an error message indicates a sandbox infrastructure/network issue. */
 export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   const message = errorMsg.toLowerCase();
   if (
@@ -177,7 +177,7 @@ export async function cleanUpStaleRun(
   await cancelTrackedWorkflow(ctx, params.activeWorkflowId);
 
   if (params.sandboxId && params.repoId) {
-    await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
       sandboxId: params.sandboxId,
       repoId: params.repoId,
     });
@@ -189,7 +189,7 @@ export async function cleanUpStaleRun(
       // sandbox is still running.
       await ctx.scheduler.runAfter(
         0,
-        internal.daytona.captureDiagnosticsAndStopSandbox,
+        internal.sandbox.captureDiagnosticsAndStopSandbox,
         {
           sandboxId: params.sandboxId,
           repoId: params.repoId,

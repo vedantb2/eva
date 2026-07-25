@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   Button,
   Tooltip,
@@ -16,7 +15,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import {
   IconPlus,
@@ -41,7 +40,7 @@ import {
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import { useQuickTaskFilters } from "../_utils";
 
 type QuickTaskView = "kanban" | "list" | "table";
@@ -49,8 +48,8 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 
 const SORT_FIELDS = [
-  "lastRun",
   "updated",
+  "lastRun",
   "created",
   "title",
   "priority",
@@ -139,8 +138,8 @@ export function QuickTasksToolbar({
     { statuses, assignee, tags, sortField, sortDir, timeRange },
     setParams,
   ] = useQuickTaskFilters();
-  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
-  const selectedTags = useMemo(() => new Set(tags), [tags]);
+  const visibleStatuses = new Set(statuses);
+  const selectedTags = new Set(tags);
 
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
 
@@ -248,7 +247,7 @@ export function QuickTasksToolbar({
       )}
       <AnimatePresence initial={false} mode="popLayout">
         {hasQuickTasks && !isSelecting ? (
-          <motion.div
+          <m.div
             key="quick-task-select-action"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -269,7 +268,7 @@ export function QuickTasksToolbar({
               </TooltipTrigger>
               <TooltipContent className="sm:hidden">Select</TooltipContent>
             </Tooltip>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       {hasQuickTasks && (

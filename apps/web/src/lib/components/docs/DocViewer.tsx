@@ -1,7 +1,7 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { type api } from "@conductor/backend";
+import { type api } from "@eva/backend";
 import type { DocViewerTab } from "@/lib/search-params";
 import { DocPrdViewer } from "./_components/DocPrdViewer";
 import { DocRecapViewer } from "./_components/DocRecapViewer";

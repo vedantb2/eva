@@ -7,7 +7,11 @@ const CODE_TASK_PATTERN =
 const CODE_CONTEXT_PATTERN =
   /\b(apps\/|packages\/|\.tsx?\b|\.jsx?\b|src\/|convex\/|glob\b|grep\b|file tree|codebase)\b/i;
 
-/** Tool/MCP/platform actions need the full agent daemon (MCP config + coding tools). */
+/**
+ * Latency pre-filter: skip a Haiku conversational round-trip on obvious MCP /
+ * platform asks. Not a correctness guard — false negatives self-heal when the
+ * conversational turn escalates via <<EVA_ESCALATE>> in the sandbox daemon.
+ */
 const TOOL_OR_MCP_PATTERN =
   /\b(mcp|eva\s+mcp|convex\s+query|test\s+query|query\s+(?:the\s+)?(?:project|database|db|convex)|run\s+(?:a\s+)?(?:test\s+)?query|use\s+(?:the\s+)?eva)\b/i;
 

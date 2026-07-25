@@ -4,41 +4,36 @@ import { v } from "convex/values";
 import { z } from "zod";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import {
-  resolveAllEnvVars,
-  resolveDaytonaApiKey,
-  resolveSandboxCredentials,
-} from "./envVarResolver";
+import { resolveSandboxCredentials } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
-  getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
   execHandle,
   getSandboxHandle,
   type SandboxConfigFile,
-} from "./_daytona/helpers";
-import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
+} from "./_sandbox_runtime/helpers";
 import {
-  getSnapshot,
-  deleteSnapshotByName,
-  waitForSnapshotRemoval,
-} from "./_daytona/snapshots";
+  createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
+} from "./_sandbox_runtime/git";
 import { getSandboxClient } from "./_sandbox/factory";
-import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
-import { Image } from "@daytonaio/sdk";
-import { Sandbox } from "@vercel/sandbox";
-import type { Id } from "./_generated/dataModel";
+import {
+  buildConvexBackgroundScriptBody,
+  isConvexBackendCommand,
+} from "./_sandbox_runtime/convexLocalBackend";
+import { Sandbox, Snapshot } from "@vercel/sandbox";
 import { SANDBOX_TAG } from "./_sandbox/tags";
 
-const DAYTONA_API_URL = "https://app.daytona.io/api";
 const SEED_PREP_LABEL_KEY = SANDBOX_TAG.purpose;
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 
 // Pinned Supabase CLI version installed on fresh Vercel sandboxes (no base
-// Image toolchain baked in). Matches the version baked into the Daytona
-// Image (buildSnapshotImage) so seed behaviour is identical across providers.
+// toolchain baked in).
 const SUPABASE_CLI_VERSION = "2.90.0";
+// Pinned GitHub CLI for Vercel seeds. Amazon Linux dnf repos don't ship it,
+// so we install the official release tarball.
+const GH_CLI_VERSION = "2.72.0";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -49,6 +44,18 @@ function shouldCaptureSupabaseState(commands: string[]): boolean {
       lower.includes("seed:sql")
     );
   });
+}
+
+/**
+ * Startup cmds that must run after background daemons.
+ * Only a pure filesystem move (the ENTIRE command is one `mv` of a
+ * sandbox-config file into the repo, nothing chained) can run before daemons.
+ * Chained commands (e.g. `mv …data.sql … && pnpm seed:sql && rm …`) must stay
+ * post-daemon: the chained work needs daemon-started services (Postgres,
+ * `convex dev`'s CONVEX_DEPLOYMENT bootstrap for `npx convex env/import`).
+ */
+function startupCommandNeedsDaemon(command: string): boolean {
+  return !/^\s*mv\s+\S*sandbox-config\/\S+\s+\S+\s*$/.test(command);
 }
 
 function seededRuntimeStateCaptureLines(
@@ -62,9 +69,11 @@ function seededRuntimeStateCaptureLines(
     'if [ "$REQUIRE_SUPABASE_DUMP" != "1" ]; then',
     '  echo "repo does not require Supabase state capture; skipping"',
     "elif ! docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
-    "  if docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
-    "    docker start supabase_db_web >/dev/null",
-    "  else",
+    // Fall back to a from-scratch start when `docker start` fails — a warm
+    // prep sandbox can carry a half-cleaned docker state (stopped container
+    // whose network was pruned by a prior `supabase stop`).
+    "  if ! { docker ps -a --filter name=supabase_db_web -q | grep -q . && docker start supabase_db_web >/dev/null 2>&1; }; then",
+    "    docker ps -aq --filter name=supabase | xargs -r docker rm -f",
     "    ( cd /tmp/repo && pnpm start-db ) || true",
     "  fi",
     "fi",
@@ -83,678 +92,13 @@ function seededRuntimeStateCaptureLines(
   ];
 }
 
-// Bump when buildSnapshotImage's content changes (new tools, base image, or
-// layer commands) so existing image fingerprints invalidate and the next build
-// rebuilds the Image even though repo/config inputs are unchanged.
+// Bump when the Vercel seed-prep toolchain/build inputs change in a way that
+// should invalidate existing image fingerprints (see getImageFingerprint)
+// even though repo/config inputs are unchanged.
 const IMAGE_DEF_VERSION = 1;
 
-// "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
-const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
-
-/**
- * Sandbox entrypoint script — base64-encoded to avoid Dockerfile RUN escaping.
- * Decoded contents:
- *
- *   #!/bin/bash
- *   sudo bash -c '
- *     rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid \
- *           /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc \
- *           /run/docker/containerd/containerd-debug.sock 2>/dev/null || true
- *     setsid dockerd </dev/null >/var/log/dockerd.log 2>&1 &
- *   '
- *   exec sleep infinity
- *
- * Daytona runs the snapshot's entrypoint in a dedicated session that's
- * re-launched on every resume from auto-stop. This script starts dockerd
- * (cleaning up stale pidfiles/sockets first) so Docker survives the
- * stop/resume cycle without needing Eva's backend to call ensureDockerDaemon.
- * ensureDockerDaemon remains as a defensive fallback for older snapshots and
- * cold-start races.
- */
-const EVA_ENTRYPOINT_B64 =
-  "IyEvYmluL2Jhc2gKIyBFdmEgc2FuZGJveCBlbnRyeXBvaW50IOKAlCBzdGFydHMgZG9ja2VyZCwgdGhlbiBzbGVlcHMuIERheXRvbmEgcmUtcnVucyB0aGlzCiMgb24gZXZlcnkgcmVzdW1lIGZyb20gYXV0by1zdG9wLCBzbyBkb2NrZXJkIHN1cnZpdmVzIHRoZSByZXN1bWUgY3ljbGUgd2l0aG91dAojIG5lZWRpbmcgRXZhJ3MgYmFja2VuZCB0byBjYWxsIGVuc3VyZURvY2tlckRhZW1vbi4gZW5zdXJlRG9ja2VyRGFlbW9uIHN0YXlzIGFzCiMgYSBkZWZlbnNpdmUgZmFsbGJhY2sgZm9yIG9sZGVyIHNuYXBzaG90cyBhbmQgY29sZC1zdGFydCByYWNlcy4Kc3VkbyBiYXNoIC1jICcKICBybSAtZiAvdmFyL3J1bi9kb2NrZXIucGlkIC92YXIvcnVuL2RvY2tlci5zb2NrIC9ydW4vZG9ja2VyL2NvbnRhaW5lcmQvY29udGFpbmVyZC5waWQgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sudHRycGMgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLWRlYnVnLnNvY2sgMj4vZGV2L251bGwgfHwgdHJ1ZQogIHNldHNpZCBkb2NrZXJkIDwvZGV2L251bGwgPi92YXIvbG9nL2RvY2tlcmQubG9nIDI+JjEgJgonCmV4ZWMgc2xlZXAgaW5maW5pdHkK";
-
-// Boundary schemas for the small Daytona/GitHub JSON responses this module reads.
-const urlResponseSchema = z.object({ url: z.string() });
+// Boundary schema for the small GitHub JSON responses this module reads.
 const shaResponseSchema = z.object({ sha: z.string() });
-
-/** Safely extracts a URL string from an unknown JSON response. */
-function extractUrl(data: unknown): string | null {
-  const parsed = urlResponseSchema.safeParse(data);
-  return parsed.success ? parsed.data.url : null;
-}
-
-/**
- * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
- * The key difference is using `git clone` (with an installation token) instead of COPY
- * so this can run from a Convex action without local filesystem access.
- */
-function buildSnapshotImage(
-  token: string,
-  owner: string,
-  repoName: string,
-  branch: string,
-  configFiles: SandboxConfigFile[] = [],
-  buildCommands: string[] = [],
-): Image {
-  const appSlug = process.env.GITHUB_APP_SLUG;
-  const botUserId = process.env.GITHUB_BOT_USER_ID;
-  if (!appSlug || !botUserId) {
-    throw new Error(
-      "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
-    );
-  }
-  const gitConfigCmd = `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`;
-
-  const baseImage = Image.base("node:20-bookworm")
-    .runCommands(
-      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
-      // GUI/VNC/X11 packages for desktop mode
-      "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
-      // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
-      // before dns in nsswitch.conf, causing getaddrinfo() to fail for external hosts
-      "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
-      // Daytona sandboxes do not support IPv6 — force IPv4 DNS resolution
-      "echo 'precedence ::ffff:0:0/96 100' > /etc/gai.conf",
-      // Chrome
-      'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
-      // Docker Engine (includes Docker Compose V2 plugin)
-      "curl -fsSL https://get.docker.com | VERSION=28.3.3 sh",
-      // Docker daemon config: explicit DNS, lower MTU for nested Docker, disable IPv6
-      'mkdir -p /etc/docker && echo \'{"dns":["1.1.1.1","8.8.8.8"],"mtu":1400,"ipv6":false,"ip6tables":false,"max-concurrent-downloads":3}\' > /etc/docker/daemon.json',
-      // Passwordless sudo for eva (base64-encoded to avoid parentheses breaking Dockerfile RUN)
-      `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
-      // Install sandbox entrypoint script (starts dockerd on every Daytona resume)
-      `printf %s ${EVA_ENTRYPOINT_B64}|base64 -d>/usr/local/bin/eva-entrypoint.sh&&chmod 755 /usr/local/bin/eva-entrypoint.sh`,
-      // Cleanup
-      "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
-      // Node/pnpm setup
-      "corepack enable",
-      "ln -s /usr/bin/fdfind /usr/local/bin/fd",
-      "git lfs install --system",
-      // Global npm packages
-      // claude-agent-sdk backs the flag-gated SDK runner (CLAUDE_ATTEMPT_MODE=sdk);
-      // the callback dynamically imports it from the global npm root.
-      "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @anthropic-ai/claude-agent-sdk@0.3.201",
-      // Code-server
-      "curl -fsSL https://code-server.dev/install.sh | sh",
-      // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)
-      "curl -fsSL https://github.com/supabase/cli/releases/download/v2.90.0/supabase_2.90.0_linux_amd64.deb -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
-      // Create user and workspace
-      "useradd -m -s /bin/bash eva && usermod -aG docker eva && mkdir -p /workspace && chown eva:eva /workspace",
-    )
-    .dockerfileCommands(["USER eva"])
-    .workdir("/workspace")
-    .runCommands(
-      // Pin pnpm to a Node-20-compatible version. Without this, `corepack enable` lets
-      // pnpm download the latest version on first invocation — pnpm v11+ requires Node
-      // v22.13+ and uses `node:sqlite`, which crashes on node:20-bookworm.
-      "corepack prepare pnpm@10.33.4 --activate",
-      // Git config
-      gitConfigCmd,
-      // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
-      "curl -fsS https://cursor.com/install | bash",
-      // Claude plugins
-      "mkdir -p /home/eva/.claude/plugins/marketplaces",
-      "git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official",
-      "git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93",
-      "git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins",
-      `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
-    )
-    .env({
-      PNPM_HOME: "/home/eva/.pnpm",
-      NODE_PATH: "/usr/lib/node_modules",
-      PATH: "/home/eva/.pnpm:/home/eva/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      // Use Docker Hub instead of ECR — Daytona sandboxes can't reach public.ecr.aws reliably
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: "docker.io",
-    })
-    .runCommands(
-      "mkdir -p /home/eva/.pnpm",
-      // Clone the target repo
-      `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
-      // Stage config files outside the repo so they survive `git clean -fd` at
-      // sandbox-startup time. The runtime helper copySandboxConfigFilesToWorkspace
-      // copies them into the workspace after the worktree is normalized.
-      // Each file's commands are joined with && into a single RUN so multi-chunk
-      // downloads (curl chunks to /tmp, cat into final file, rm chunks) all live
-      // in one Docker layer — otherwise intermediate layers would balloon image
-      // size with /tmp blobs.
-      "mkdir -p /home/eva/sandbox-config",
-      ...filterDownloadableConfigFiles(configFiles).map((f) =>
-        buildConfigFileDownloadCommands(f, "/home/eva/sandbox-config").join(
-          " && ",
-        ),
-      ),
-      // Mirror them into the workspace too so the build itself has them
-      // available (e.g. if a build command reads them).
-      ...(filterDownloadableConfigFiles(configFiles).length > 0
-        ? ["cp -a /home/eva/sandbox-config/. /tmp/repo/"]
-        : []),
-    )
-    .workdir("/tmp/repo")
-    .runCommands(
-      // Install dependencies
-      "pnpm install --frozen-lockfile",
-    );
-
-  // Append user-defined build commands as additional RUN layers (one per
-  // command for granular Docker caching). Run after pnpm install so the repo
-  // and node_modules are available; executed as user `eva` in /tmp/repo.
-  const withBuildCommands =
-    buildCommands.length > 0
-      ? baseImage.runCommands(...buildCommands)
-      : baseImage;
-
-  // Set the sandbox entrypoint last so it lands at the end of the Dockerfile
-  // and isn't clobbered by later layers. Daytona re-runs this on every resume,
-  // so dockerd survives auto-stop/resume without Eva intervention.
-  return withBuildCommands.entrypoint(["/usr/local/bin/eva-entrypoint.sh"]);
-}
-
-/**
- * Workflow step 1: Resolve config, delete old snapshot, and kick off the build
- * via a direct POST to the Daytona API (returns immediately without blocking).
- * Returns { snapshotName, repoId } on success, or null if an error was recorded.
- */
-export const kickOffSnapshotBuild = internalAction({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    repoSnapshotId: v.id("repoSnapshots"),
-  },
-  returns: v.union(
-    v.object({
-      snapshotName: v.string(),
-      repoId: v.id("githubRepos"),
-    }),
-    v.null(),
-  ),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ snapshotName: string; repoId: Id<"githubRepos"> } | null> => {
-    const config = await ctx.runQuery(
-      internal.repoSnapshots.getRepoSnapshotInternal,
-      { repoSnapshotId: args.repoSnapshotId },
-    );
-    if (!config) {
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: "Snapshot config not found",
-      });
-      return null;
-    }
-
-    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: config.repoId,
-    });
-    if (!repo) {
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: "GitHub repo not found",
-      });
-      return null;
-    }
-
-    let token: string;
-    try {
-      token = await getInstallationToken(repo.installationId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: `Failed to get GitHub installation token: ${message}`,
-      });
-      return null;
-    }
-
-    let daytonaApiKey: string;
-    try {
-      const envVars = await resolveAllEnvVars(ctx, config.repoId);
-      const key = envVars.DAYTONA_API_KEY;
-      if (!key) {
-        throw new Error(
-          "DAYTONA_API_KEY not found in team or repo environment variables",
-        );
-      }
-      daytonaApiKey = key;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: message,
-      });
-      return null;
-    }
-
-    const _daytona = getDaytona(daytonaApiKey);
-    const branch = config.workflowRef ?? "main";
-
-    // Query sandbox config files for this repo
-    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
-      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-      { repoId: config.repoId },
-    );
-
-    const buildCommands = config.buildCommands ?? [];
-
-    // Build the Image definition and extract the Dockerfile content
-    const image = buildSnapshotImage(
-      token,
-      repo.owner,
-      repo.name,
-      branch,
-      configFiles,
-      buildCommands,
-    );
-
-    const configFileCount = filterDownloadableConfigFiles(configFiles).length;
-    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-      buildId: args.buildId,
-      chunk:
-        `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n` +
-        (configFileCount > 0
-          ? `Including ${configFileCount} sandbox config file(s): ${configFiles.map((f) => f.fileName).join(", ")}\n`
-          : "") +
-        (buildCommands.length > 0
-          ? `Running ${buildCommands.length} custom build command(s) after pnpm install.\n`
-          : ""),
-    });
-
-    // POST directly to Daytona API to create the snapshot (returns immediately).
-    // We use fetch instead of daytona.snapshot.create() because create() blocks
-    // until the build finishes, which can exceed the Convex action timeout.
-    const resp = await fetch(`${DAYTONA_API_URL}/snapshots`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${daytonaApiKey}`,
-      },
-      body: JSON.stringify({
-        name: config.snapshotName,
-        buildInfo: {
-          dockerfileContent: image.dockerfile,
-          contextHashes: [],
-        },
-        cpu: 4,
-        memory: 16,
-        disk: 10,
-      }),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: `Daytona API error (${resp.status}): ${body}`,
-      });
-      return null;
-    }
-
-    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-      buildId: args.buildId,
-      chunk: "Snapshot build initiated on Daytona. Polling for progress...\n",
-    });
-
-    return { snapshotName: config.snapshotName, repoId: config.repoId };
-  },
-});
-
-/**
- * Workflow step 2 (called in a loop): Checks snapshot build state and streams
- * build logs from the Daytona API. Returns the current snapshot state string.
- * Each invocation is a fresh action with its own timeout.
- */
-export const pollSnapshotProgress = internalAction({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    snapshotName: v.string(),
-    repoId: v.id("githubRepos"),
-    attempt: v.number(),
-  },
-  returns: v.string(),
-  handler: async (ctx, args): Promise<string> => {
-    // Check if the build was already completed (e.g. by a retry or race)
-    const buildStatus: string | null = await ctx.runQuery(
-      internal.repoSnapshots.getBuildStatus,
-      { buildId: args.buildId },
-    );
-    if (buildStatus !== "running") {
-      return buildStatus ?? "error";
-    }
-
-    const envVars = await resolveAllEnvVars(ctx, args.repoId);
-    const daytonaApiKey = envVars.DAYTONA_API_KEY;
-    if (!daytonaApiKey) {
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: "DAYTONA_API_KEY not found",
-      });
-      return "error";
-    }
-
-    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
-    const snapshot = await getSnapshot(client, args.snapshotName);
-    if (!snapshot) {
-      // The base snapshot was just kicked off, so a missing one is unexpected;
-      // throw so the workflow step fails (matches the prior get-throws path).
-      throw new Error(`Snapshot ${args.snapshotName} not found`);
-    }
-    const state = snapshot.state;
-
-    // Terminal states: fetch build logs and complete the build
-    if (isTerminalSnapshotState(state)) {
-      // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls).
-      // Both the URL endpoint AND the returned log-stream URL require Bearer auth.
-      let logs = "";
-      try {
-        const logsResp = await fetch(
-          `${DAYTONA_API_URL}/snapshots/${snapshot.id}/build-logs-url`,
-          {
-            headers: { Authorization: `Bearer ${daytonaApiKey}` },
-          },
-        );
-        if (logsResp.ok) {
-          const logsData: unknown = await logsResp.json();
-          const url = extractUrl(logsData);
-          if (url) {
-            const logStream = await fetch(url, {
-              headers: { Authorization: `Bearer ${daytonaApiKey}` },
-            });
-            if (logStream.ok) {
-              logs = await logStream.text();
-            }
-          }
-        }
-      } catch {
-        // Log fetching is best-effort — don't fail the completion for it
-      }
-
-      if (state === "active") {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "success",
-          logs:
-            (logs ? logs + "\n" : "") +
-            `[Poll ${args.attempt}] Snapshot build completed successfully.\n`,
-        });
-        return "active";
-      }
-
-      const reason = snapshot.errorReason || "Unknown error";
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs:
-          (logs ? logs + "\n" : "") +
-          `[Poll ${args.attempt}] Snapshot state: ${state}\n`,
-        error: `Snapshot build failed: ${reason}`,
-      });
-      return state;
-    }
-
-    // Still building — log progress
-    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-      buildId: args.buildId,
-      chunk: `[Poll ${args.attempt}] Snapshot state: ${state}. Waiting...\n`,
-    });
-
-    return state;
-  },
-});
-
-/**
- * Workflow step 0: Deletes the existing snapshot and waits for removal to complete.
- * daytona.snapshot.delete() returns immediately but the snapshot enters a "removing"
- * state — creating a new one with the same name will 409 until removal finishes.
- */
-export const deleteExistingSnapshot = internalAction({
-  args: {
-    snapshotName: v.string(),
-    repoId: v.id("githubRepos"),
-    buildId: v.id("snapshotBuilds"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const envVars = await resolveAllEnvVars(ctx, args.repoId);
-    const daytonaApiKey = envVars.DAYTONA_API_KEY;
-    if (!daytonaApiKey) {
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: "DAYTONA_API_KEY not found",
-      });
-      return null;
-    }
-
-    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
-
-    const deleted = await deleteSnapshotByName(client, args.snapshotName);
-    if (deleted) {
-      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-        buildId: args.buildId,
-        chunk: "Deleting existing snapshot, waiting for removal...\n",
-      });
-      await waitForSnapshotRemoval(client, args.snapshotName);
-    }
-
-    return null;
-  },
-});
-
-/** Deletes a Daytona snapshot via the Daytona SDK. */
-export const deleteDaytonaSnapshot = internalAction({
-  args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const envVars = await resolveAllEnvVars(ctx, args.repoId);
-    const daytonaApiKey = envVars.DAYTONA_API_KEY;
-
-    if (!daytonaApiKey) {
-      throw new Error(
-        "DAYTONA_API_KEY not found in team or repo environment variables",
-      );
-    }
-
-    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
-    await deleteSnapshotByName(client, args.snapshotName);
-    return null;
-  },
-});
-
-/**
- * Deletes seed-prep sandboxes that were created by the snapshot workflow and
- * no longer have a product owner in Convex. This is intentionally label-gated:
- * older unlabelled leaks still need a one-off guarded audit, while the workflow
- * can safely self-heal everything it creates after this change.
- */
-export const sweepSeedPrepSandboxes = internalAction({
-  args: {
-    repoId: v.id("githubRepos"),
-    scopedRepoIds: v.optional(v.array(v.id("githubRepos"))),
-    buildId: v.optional(v.id("snapshotBuilds")),
-  },
-  returns: v.object({
-    scanned: v.number(),
-    matched: v.number(),
-    deleted: v.number(),
-    skippedReferenced: v.number(),
-    failed: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const referenced = new Set(
-      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
-    );
-    const scopedRepoIdStrings: string[] = args.scopedRepoIds ?? [];
-
-    let scanned = 0;
-    let matched = 0;
-    let deleted = 0;
-    let skippedReferenced = 0;
-    let failed = 0;
-    let page = 1;
-    const limit = 100;
-
-    while (true) {
-      // SDK signature is list(labels?, page?, limit?). Passing {page,limit} as
-      // the first arg made it a labels filter (JSON-stringified), matching no
-      // sandboxes — so this sweep silently listed nothing and never cleaned up.
-      // Pass labels=undefined to list all; page/limit are numbers.
-      const result = await daytona.list(undefined, page, limit);
-      const items = result.items;
-      scanned += items.length;
-
-      for (const sandbox of items) {
-        if (sandbox.labels[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) {
-          continue;
-        }
-        const sandboxRepoId = sandbox.labels[SANDBOX_TAG.repoId];
-        if (
-          scopedRepoIdStrings.length > 0 &&
-          (sandboxRepoId === undefined ||
-            !scopedRepoIdStrings.includes(sandboxRepoId))
-        ) {
-          continue;
-        }
-        matched += 1;
-        if (referenced.has(sandbox.id)) {
-          skippedReferenced += 1;
-          continue;
-        }
-        try {
-          await sandbox.delete();
-          deleted += 1;
-          await ctx.runMutation(
-            internal.sandboxGitCredentials.deleteBySandboxId,
-            { sandboxId: sandbox.id },
-          );
-        } catch (e) {
-          failed += 1;
-          console.warn(
-            `[snapshot] failed to delete seed-prep sandbox ${sandbox.id}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-          );
-        }
-      }
-
-      if (items.length < limit) break;
-      page += 1;
-    }
-
-    if (args.buildId) {
-      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-        buildId: args.buildId,
-        chunk:
-          `[seed-prep sweep] scanned=${scanned}, matched=${matched}, deleted=${deleted}, ` +
-          `referenced=${skippedReferenced}, failed=${failed}\n`,
-      });
-    }
-
-    return { scanned, matched, deleted, skippedReferenced, failed };
-  },
-});
-
-/**
- * Ops sweep: deletes Daytona sandboxes not referenced by any session, task,
- * agent run, project, design session, doc, or automation run. These are orphans
- * left by failed sandbox creates/starts (e.g. a create that timed out client-
- * side while Daytona kept building it, or a start that threw after create).
- * Defaults to a DRY RUN — pass dryRun:false to actually delete. Returns the
- * orphan ids so they can be eyeballed before deleting.
- */
-export const sweepOrphanSandboxes = internalAction({
-  args: {
-    repoId: v.id("githubRepos"),
-    dryRun: v.optional(v.boolean()),
-  },
-  returns: v.object({
-    dryRun: v.boolean(),
-    scanned: v.number(),
-    orphaned: v.number(),
-    deleted: v.number(),
-    failed: v.number(),
-    orphans: v.array(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
-    const referenced = new Set(
-      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
-    );
-    // Default to a dry run so nothing is deleted unless explicitly requested.
-    const dryRun = args.dryRun !== false;
-
-    let scanned = 0;
-    let orphaned = 0;
-    let deleted = 0;
-    let failed = 0;
-    const orphans: string[] = [];
-    let page = 1;
-    const limit = 100;
-
-    while (true) {
-      // SDK signature is list(labels?, page?, limit?). Passing {page,limit} as
-      // the first arg made it a labels filter (JSON-stringified), matching no
-      // sandboxes — so this sweep silently listed nothing and never cleaned up.
-      // Pass labels=undefined to list all; page/limit are numbers.
-      const result = await daytona.list(undefined, page, limit);
-      const items = result.items;
-      scanned += items.length;
-
-      for (const sandbox of items) {
-        if (referenced.has(sandbox.id)) {
-          continue;
-        }
-        orphaned += 1;
-        const label = sandbox.labels[SEED_PREP_LABEL_KEY]
-          ? "seed-prep"
-          : "other";
-        orphans.push(`${sandbox.id} (${label})`);
-        if (dryRun) {
-          continue;
-        }
-        try {
-          await sandbox.delete();
-          deleted += 1;
-          await ctx.runMutation(
-            internal.sandboxGitCredentials.deleteBySandboxId,
-            { sandboxId: sandbox.id },
-          );
-        } catch (e) {
-          failed += 1;
-          console.warn(
-            `[orphan sweep] failed to delete ${sandbox.id}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-          );
-        }
-      }
-
-      if (items.length < limit) break;
-      page += 1;
-    }
-
-    console.log(
-      `[orphan sweep] dryRun=${dryRun} scanned=${scanned} orphaned=${orphaned} deleted=${deleted} failed=${failed}`,
-    );
-    return { dryRun, scanned, orphaned, deleted, failed, orphans };
-  },
-});
 
 /**
  * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
@@ -850,15 +194,21 @@ export const launchSeedRun = internalAction({
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
     // Branch to hard-reset /tmp/repo to (refs must already be fetched — the
-    // workflow runs daytona.fetchBaseBranch first, which owns git auth).
+    // workflow runs sandbox.fetchBaseBranch first, which owns git auth).
     branch: v.string(),
     // Repo build commands (pnpm install / codegen etc), run after the reset so
     // the captured snapshot carries fresh node_modules and build artifacts.
     buildCommands: v.array(v.string()),
+    // Seed-once commands (env set, convex import) run in the post-daemon phase
+    // so services like `convex dev` are up. Build-time only — sandbox boots
+    // never re-run these, unlike startup commands.
+    seedCommands: v.array(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    // Validates Vercel credentials are configured for this repo; the sandbox
+    // handle itself is resolved separately below via getSandboxHandle.
+    await resolveSandboxCredentials(ctx, args.repoId);
     const startupCommands: string[] | null = await ctx.runQuery(
       internal.repoSnapshots.getStartupCommands,
       { repoId: args.repoId },
@@ -882,9 +232,9 @@ export const launchSeedRun = internalAction({
       "set -x",
       "rm -f /tmp/.seedrun-done",
     ];
-    // Daytona bakes its whole agent-CLI toolchain (claude, codex, opencode,
-    // cursor-agent, supabase, docker, ...) into the sandbox's Image via
-    // buildSnapshotImage — every fresh Daytona sandbox already has them.
+    // Daytona used to bake its whole agent-CLI toolchain (claude, codex,
+    // opencode, cursor-agent, supabase, docker, ...) into the sandbox's Image
+    // at build time — every fresh Daytona sandbox already had them.
     //
     // Vercel has NO equivalent custom Image: a fresh Vercel sandbox boots
     // bare `node24` with none of this installed. The ONLY place the CLIs get
@@ -895,76 +245,70 @@ export const launchSeedRun = internalAction({
     // OTHER than that seeded snapshot (i.e. bare node24, because no seed
     // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
     // — this is expected, not a bug; see getRepoSnapshotName.
-    if (credentials.kind === "vercel") {
-      lines.push(
-        'echo "SEEDRUN-STAGE:toolchain"',
-        // Staging dirs eva's commands hardcode as /home/eva/... — the Vercel
-        // sandbox user is not literally "eva", so pre-create + open them up.
-        "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
-        'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
-        "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
-        // Start dockerd detached and wait for it to come up.
-        'sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
-        'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
-        'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
-        "git config --global --add safe.directory '*'",
-        // Pinned Supabase CLI (tarball — same pinned version as the Daytona Image's .deb install).
-        `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
-        'sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-        'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
-        'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
-        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
-        // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
-        // Amazon Linux has no openbox/fluxbox packages — Chrome runs on Xvnc
-        // without a WM (same as the GUI reference).
-        'sudo rm -rf /opt/novnc /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
-        "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
-        'sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
-        'curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1 || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
-        "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
-        "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
-        "mkdir -p /home/eva/.claude/plugins/marketplaces",
-        'git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
-        'git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
-        'git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
-        `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
-        // Persist PATH additions into the sandbox filesystem itself (not just
-        // the current shell) so agent CLIs survive into the captured snap_*
-        // and are found by every later session exec:
-        //   - /etc/profile.d runs for every `bash -lc` login-shell exec (see
-        //     SOURCE_ENV / exec() in vercelProvider.ts) — the durable fix.
-        //   - .bashrc/.eva-env.sh are best-effort belt-and-suspenders; note
-        //     .eva-env.sh gets fully REWRITTEN by every session create() with
-        //     that session's env vars (vercelProvider.ts renderEnvFile), so
-        //     /etc/profile.d is what actually has to carry this across boots.
-        'echo "SEEDRUN-STAGE:path-setup"',
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /home/eva/.bashrc",
-        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /vercel/sandbox/.eva-env.sh",
-      );
+    // Every install below must be idempotent: seed-prep often boots from a
+    // warm base Image snap that already has the toolchain, and re-running
+    // rpm/git-clone must skip (not fail) when the artifact is present.
+    lines.push(
+      'echo "SEEDRUN-STAGE:toolchain"',
+      "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
+      'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+      "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+      // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
+      // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
+      // still completes if the mirror is unavailable.
+      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+      'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
+      'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
+      "git config --global --add safe.directory '*'",
+      `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+      // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
+      // release tarball (dnf has no `gh` package by default).
+      `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
+      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+      'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+      'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
+      "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
+      // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
+      '[ -d /opt/novnc ] || { sudo rm -rf /opt/noVNC; sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc; } || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+      "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
+      'command -v google-chrome-stable >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1 || sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
+      '[ -x /home/eva/.local/bin/cursor-agent ] || [ -x /home/eva/.local/bin/agent ] || { curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1; } || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
+      "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
+      "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
+      "mkdir -p /home/eva/.claude/plugins/marketplaces",
+      '[ -d /home/eva/.claude/plugins/marketplaces/claude-plugins-official/.git ] || git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
+      '[ -d /home/eva/.claude/plugins/marketplaces/Dammyjay93/.git ] || git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
+      '[ -d /home/eva/.claude/plugins/marketplaces/maister-plugins/.git ] || git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
+      `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+      'echo "SEEDRUN-STAGE:path-setup"',
+      "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
+      'grep -qF "/home/eva/.local/bin" /home/eva/.bashrc 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /home/eva/.bashrc',
+      'grep -qF "/home/eva/.local/bin" /vercel/sandbox/.eva-env.sh 2>/dev/null || echo \'export PATH="/home/eva/.local/bin:/usr/local/bin:$PATH"\' >> /vercel/sandbox/.eva-env.sh',
+    );
 
-      // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
-      // sandbox the way they are into the Daytona Image — download them here so
-      // the update stage below can copy them into /tmp/repo before install.
-      const configFiles: SandboxConfigFile[] = await ctx.runQuery(
-        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-        { repoId: args.repoId },
-      );
-      const downloadableFiles = filterDownloadableConfigFiles(configFiles);
-      if (downloadableFiles.length > 0) {
-        lines.push('echo "SEEDRUN-STAGE:config-files"');
-        downloadableFiles.forEach((file, i) => {
-          const commands = buildConfigFileDownloadCommands(
-            file,
-            "/home/eva/sandbox-config",
+    // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
+    // sandbox the way they are into the Daytona Image — download them here so
+    // the update stage below can copy them into /tmp/repo before install.
+    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+      { repoId: args.repoId },
+    );
+    const downloadableFiles = filterDownloadableConfigFiles(configFiles);
+    if (downloadableFiles.length > 0) {
+      lines.push('echo "SEEDRUN-STAGE:config-files"');
+      downloadableFiles.forEach((file, i) => {
+        const commands = buildConfigFileDownloadCommands(
+          file,
+          "/home/eva/sandbox-config",
+        );
+        commands.forEach((command) => {
+          lines.push(
+            `( ${command} ) || { echo "SEEDRUN-FAILED:config-${i}"; exit 1; }`,
           );
-          commands.forEach((command) => {
-            lines.push(
-              `( ${command} ) || { echo "SEEDRUN-FAILED:config-${i}"; exit 1; }`,
-            );
-          });
         });
-      }
+      });
     }
     // ---- update: latest code + fresh deps/artifacts ----
     lines.push(
@@ -972,56 +316,82 @@ export const launchSeedRun = internalAction({
       'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
       `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
     );
-    if (credentials.kind === "vercel") {
-      lines.push(
-        // Mirror config files into the repo tree, same as the Daytona Image does
-        // post-clone (they are staged outside the repo so they survive git clean).
-        "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
-        'echo "SEEDRUN-STAGE:install"',
-        'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
-      );
-    }
+    lines.push(
+      // Mirror config files into the repo tree (staged outside the repo so
+      // they survive git clean).
+      "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
+      'echo "SEEDRUN-STAGE:install"',
+      'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
+    );
     // Vercel node24 base has no container runtime. Install Docker if missing,
     // then ensure the daemon is running and the socket is group-accessible so
     // startup/background commands can run `docker ps` without sudo. Kept as a
     // defensive re-check even though the toolchain stage above already starts
     // dockerd — idempotent, so harmless when it is already running.
-    if (credentials.kind === "vercel") {
-      lines.push(
-        'echo "SEEDRUN-STAGE:docker-bootstrap"',
-        // Install Docker if not already present (skip on warm snapshots that
-        // already have it baked in).
-        'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
-        // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
-        'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
-        // Open the socket so non-root `docker` commands work (background/startup
-        // commands run as the sandbox user without sudo).
-        "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
-        // Block until the daemon is fully ready.
-        "until docker info >/dev/null 2>&1; do sleep 1; done",
-      );
-    }
+    lines.push(
+      'echo "SEEDRUN-STAGE:docker-bootstrap"',
+      // Install Docker if not already present (skip on warm snapshots that
+      // already have it baked in).
+      'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
+      // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
+      'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+      // Open the socket so non-root `docker` commands work (background/startup
+      // commands run as the sandbox user without sudo).
+      "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+      // Block until the daemon is fully ready.
+      "until docker info >/dev/null 2>&1; do sleep 1; done",
+    );
     args.buildCommands.forEach((command, i) => {
       lines.push(
         `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
+      );
+    });
+    // Split startup around daemons: pure sandbox-config file moves run before
+    // daemons so the files are in place when `convex dev` boots; everything
+    // else (env set, imports, readiness waits) runs after the daemons start.
+    const startup = startupCommands ?? [];
+    const preDaemonStartup: string[] = [];
+    const postDaemonStartup: string[] = [];
+    for (const command of startup) {
+      if (startupCommandNeedsDaemon(command)) {
+        postDaemonStartup.push(command);
+      } else {
+        preDaemonStartup.push(command);
+      }
+    }
+    lines.push('echo "SEEDRUN-STAGE:startup-pre-daemon"');
+    preDaemonStartup.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-pre-${i}"; exit 1; }`,
       );
     });
     // ---- daemons: launch each background command detached (b64 per command
     // so quoting inside user commands can never break the script) ----
     lines.push('echo "SEEDRUN-STAGE:daemons"');
     (backgroundCommands ?? []).forEach((command, i) => {
-      const cb64 = Buffer.from(command, "utf8").toString("base64");
+      // Convex daemons need the same plant/agent-mode wrapper as
+      // runBackgroundCommands (anonymous CLI rejects --local-backend-version).
+      const scriptBody = isConvexBackendCommand(command)
+        ? buildConvexBackgroundScriptBody(command)
+        : command;
+      const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       lines.push(
         `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
       );
     });
-    // ---- seed ----
-    lines.push('echo "SEEDRUN-STAGE:startup"');
-    (startupCommands ?? []).forEach((command, i) => {
-      // Subshell so `cd`/env in one command can't leak into the next, matching
-      // how runSandboxCommand executed them as separate execs.
+    // ---- seed (post-daemon) ----
+    lines.push('echo "SEEDRUN-STAGE:startup-post-daemon"');
+    postDaemonStartup.forEach((command, i) => {
       lines.push(
-        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-post-${i}"; exit 1; }`,
+      );
+    });
+    // Seed-once commands run last, after the per-boot startup commands (whose
+    // readiness gates guarantee services are actually up for env set / import).
+    lines.push('echo "SEEDRUN-STAGE:seed-commands"');
+    args.seedCommands.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:seed-${i}"; exit 1; }`,
       );
     });
     lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));
@@ -1051,7 +421,7 @@ export const launchSeedRun = internalAction({
     if (!alreadyRunning.includes("ALREADY-RUNNING")) {
       // Never inline the script as base64 in a shell command — carepulse's
       // startup/background arrays make the payload far larger than ARG_MAX.
-      // Use the provider writeFile API (Vercel writeFiles / Daytona upload).
+      // Use the provider writeFile API instead.
       await execHandle(
         sandbox,
         "rm -f /tmp/.seedrun-done /tmp/seedrun.log /tmp/seedrun.sh",
@@ -1163,14 +533,12 @@ export const createSeedPrepSandbox = internalAction({
       args.repoId,
     );
     const client = getSandboxClient(credentials);
-    // For Vercel, snapshot IDs are `snap_*`; Daytona uses `snapshot-*` /
-    // `seeded-*` names. Passing a Daytona name to the Vercel adapter 404s —
-    // instead we fall back to a fresh sandbox (no snapshot source) so the first
-    // Vercel build can bootstrap the chain by cloning the repo from scratch.
-    const effectiveImageSnapshot =
-      credentials.kind === "vercel" && !args.imageSnapshot.startsWith("snap_")
-        ? undefined
-        : args.imageSnapshot;
+    // Vercel snapshot IDs are `snap_*`. If a non-`snap_*` name is passed (e.g.
+    // a stale/legacy value), fall back to a fresh sandbox (no snapshot source)
+    // so the first build can bootstrap the chain by cloning the repo from scratch.
+    const effectiveImageSnapshot = !args.imageSnapshot.startsWith("snap_")
+      ? undefined
+      : args.imageSnapshot;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -1191,7 +559,6 @@ export const createSeedPrepSandbox = internalAction({
       { ...sandboxEnvVars, REPO_ID: args.repoId },
       seedPrepLifecycle,
       effectiveImageSnapshot,
-      undefined, // volumes
       undefined, // onSandboxAcquired
       undefined, // onProgress
       { mode: "all" }, // syncStrategy
@@ -1209,19 +576,28 @@ export const createSeedPrepSandbox = internalAction({
 });
 
 /**
- * Provider-agnostic delete of a seed-prep sandbox. Used by the snapshot build
- * workflow after the seed run completes (success or failure) so the sandbox does
- * not linger. Works for both Daytona and Vercel providers.
+ * Deletes a seed-prep sandbox. Used by the snapshot build workflow after the
+ * seed run completes (success or failure) so the sandbox does not linger.
  */
 export const deleteSeedPrepSandbox = internalAction({
-  args: { repoId: v.id("githubRepos"), sandboxId: v.string() },
+  args: {
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+    /** Keep this snap_* when tearing down the prep sandbox (successful seed). */
+    preserveSnapshotId: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const client = getSandboxClient(credentials);
     try {
       const handle = await client.get(args.sandboxId);
-      await handle.delete();
+      await handle.delete({
+        preserveSnapshotIds:
+          args.preserveSnapshotId !== undefined
+            ? [args.preserveSnapshotId]
+            : undefined,
+      });
     } catch (e) {
       // Best-effort: log but do not fail the build if delete fails.
       console.error(
@@ -1234,28 +610,18 @@ export const deleteSeedPrepSandbox = internalAction({
   },
 });
 
-// Trigger timeout (seconds) for the seeded-snapshot capture. The SDK's
-// _experimental_createSnapshot fires the POST then blocks polling the sandbox
-// state until the capture finishes OR this timeout elapses. We keep it small so
-// the trigger action returns quickly (the snapshot keeps building server-side)
-// and the workflow polls completion across separate steps — see
-// triggerSeededSnapshot. Comfortable for the POST; short enough to never near
-// Convex's 600s per-action ceiling.
-const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
-
 /**
- * Seeded-snapshot build — TRIGGER step. Captures the (clean-stopped) sandbox's
- * filesystem — including the seeded Docker volumes — into a reusable snapshot.
+ * Seeded-snapshot build — TRIGGER step. Registers a snapshot of the
+ * (clean-stopped) sandbox's filesystem, including the seeded Docker volumes.
  *
- * Non-blocking by design: a seeded snapshot carries the whole seeded DB volume
- * and its capture routinely runs for many minutes. The SDK helper blocks the
- * caller polling the sandbox state for the entire capture, which exceeds
- * Convex's hard 600s action limit — the action gets killed mid-await (the
- * "unawaited operation" warning) and the app silently drops to the base Image.
- * Instead we fire the POST with a short timeout so the helper bails fast with a
- * DaytonaTimeoutError (the snapshot keeps building server-side), then poll
- * completion in separate workflow steps via pollSeededSnapshotState. Any
- * non-timeout error is a real failure and propagates to the per-app fallback.
+ * Non-blocking: the underlying POST returns as soon as the snapshot is
+ * registered, while the capture itself keeps running server-side for minutes — a
+ * seeded snapshot carries the whole DB volume. That is what makes the
+ * trigger-then-poll split work: completion is observed by
+ * pollSeededSnapshotState across separate workflow steps, so no single action
+ * awaits the capture and risks Convex's hard 600s limit.
+ *
+ * Errors propagate to the per-app fallback (base Image + fresh clone).
  */
 export const triggerSeededSnapshot = internalAction({
   args: {
@@ -1263,10 +629,11 @@ export const triggerSeededSnapshot = internalAction({
     sandboxId: v.string(),
     seededName: v.string(),
   },
-  // Returns the effective snapshot identifier used by the provider.
-  // For Daytona this equals seededName (name IS the id); for Vercel it is the
-  // `snap_*` id returned by the API. The workflow must use this value — not
-  // seededName — when polling and writing seededSnapshotName to the DB.
+  // Returns the effective snapshot identifier used by the provider. On the
+  // now-removed Daytona provider this equaled seededName (name IS the id); on
+  // Vercel it is the `snap_*` id returned by the API. The workflow must use
+  // this value — not seededName — when polling and writing seededSnapshotName
+  // to the DB.
   returns: v.object({ snapshotId: v.string() }),
   handler: async (ctx, args): Promise<{ snapshotId: string }> => {
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
@@ -1274,7 +641,6 @@ export const triggerSeededSnapshot = internalAction({
     const handle = await client.get(args.sandboxId);
     const { snapshotId } = await handle.createSnapshot({
       name: args.seededName,
-      timeoutSeconds: SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
     });
     return { snapshotId };
   },
@@ -1317,12 +683,6 @@ export const pollSeededSnapshotState = internalAction({
  * explicitly on every path, so this only catches leaks (e.g. a crash between
  * creating a sandbox and deleting it). Never throws — a failure here must not
  * fail the build.
- *
- * The provider-neutral SandboxClient contract (_sandbox/provider.ts) has no
- * "list sandboxes" method, so this reuses the label-gated Daytona sweep
- * (sweepSeedPrepSandboxes) which lists via the Daytona SDK directly. On
- * Vercel there is no equivalent list API; the sandbox's own autoStop/ephemeral
- * lifecycle plus the explicit per-step deletes are relied on instead.
  */
 export const stopAllRepoSandboxes = internalAction({
   args: { seedableRepoIds: v.array(v.id("githubRepos")) },
@@ -1335,14 +695,7 @@ export const stopAllRepoSandboxes = internalAction({
         ctx,
         primaryRepoId,
       );
-      if (credentials.kind === "daytona") {
-        await ctx.runAction(internal.snapshotActions.sweepSeedPrepSandboxes, {
-          repoId: primaryRepoId,
-          scopedRepoIds: args.seedableRepoIds,
-        });
-        return null;
-      }
-      // Vercel: delete every seed-prep sandbox tagged for these repos so none
+      // Delete every seed-prep sandbox tagged for these repos so none
       // keep running/billing. Filtered STRICTLY by the seed-prep purpose tag +
       // repoId — session/task sandboxes use eva.purpose=persistent|ephemeral
       // and are never matched. This is a safety net; the workflow already
@@ -1392,11 +745,10 @@ export const stopAllRepoSandboxes = internalAction({
 });
 
 /**
- * Provider-agnostic delete of a seeded snapshot by its id/name. Resolves the
- * repo's provider (Daytona or Vercel) and calls the neutral deleteSnapshot, so
- * previous `snap_*` (Vercel) or `seeded-*` (Daytona) captures don't accumulate
- * — the single-snapshot build makes a fresh capture each run. Best-effort: a
- * missing/foreign-provider snapshot just no-ops (deleteSnapshot returns false).
+ * Deletes a seeded snapshot by its id/name so previous `snap_*` captures don't
+ * accumulate — the single-snapshot build makes a fresh capture each run.
+ * Best-effort: a missing snapshot, or a legacy `seeded-*` name left over from
+ * the now-removed Daytona provider, just no-ops (deleteSnapshot returns false).
  */
 export const deleteSeededSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
@@ -1421,5 +773,96 @@ export const deleteSeededSnapshot = internalAction({
       );
     }
     return null;
+  },
+});
+
+/**
+ * One-shot / ops cleanup: delete every Vercel snap_* in the project that is not
+ * (1) the current base Image / per-app seeded capture, or (2) still owned by an
+ * existing sandbox (session / quick-task / project resume snaps). Use after
+ * ephemeral automation sandboxes left never-expiring orphans behind.
+ */
+export const purgeUnreferencedVercelSnapshots = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.object({
+    protectedCount: v.number(),
+    liveSandboxCount: v.number(),
+    deletedCount: v.number(),
+    skippedCount: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    protectedCount: number;
+    liveSandboxCount: number;
+    deletedCount: number;
+    skippedCount: number;
+  }> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const creds = {
+      token: credentials.token,
+      teamId: credentials.teamId,
+      projectId: credentials.projectId,
+    };
+    const protectedIds = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listProtectedSnapshotIds, {
+        repoId: args.repoId,
+      }),
+    );
+
+    // Protect resume snaps for every sandbox that still exists — otherwise this
+    // purge would wipe session/task/project filesystem state.
+    let liveSandboxCount = 0;
+    const sandboxes = await Sandbox.list(creds);
+    for await (const sandbox of sandboxes) {
+      liveSandboxCount += 1;
+      const currentId = sandbox.currentSnapshotId;
+      if (typeof currentId === "string" && currentId.length > 0) {
+        protectedIds.add(currentId);
+      }
+      const owned = await Snapshot.list({ ...creds, name: sandbox.name });
+      for await (const meta of owned) {
+        protectedIds.add(meta.id);
+      }
+    }
+
+    const listed = await Snapshot.list(creds);
+    let deletedCount = 0;
+    let skippedCount = 0;
+    // list() yields plain metadata (`id`, no .delete()) — re-hydrate to delete.
+    for await (const meta of listed) {
+      if (protectedIds.has(meta.id)) {
+        skippedCount += 1;
+        continue;
+      }
+      if (String(meta.status) === "deleted") {
+        skippedCount += 1;
+        continue;
+      }
+      try {
+        const snap = await Snapshot.get({
+          ...creds,
+          snapshotId: meta.id,
+        });
+        await snap.delete();
+        deletedCount += 1;
+      } catch (error) {
+        console.warn(
+          `[snapshot] purgeUnreferencedVercelSnapshots: failed ${meta.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    console.log(
+      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} liveSandboxes=${liveSandboxCount} deleted=${deletedCount} skipped=${skippedCount}`,
+    );
+    return {
+      protectedCount: protectedIds.size,
+      liveSandboxCount,
+      deletedCount,
+      skippedCount,
+    };
   },
 });

@@ -1,28 +1,18 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
+import { Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 interface ActiveCountBadgeProps {
   repoId: Id<"githubRepos">;
-  type: "sessions" | "designs";
 }
 
-export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
-  const sessionCount = useQuery(
-    api.sessions.countActive,
-    type === "sessions" ? { repoId } : "skip",
-  );
-  const designCount = useQuery(
-    api.designSessions.countActive,
-    type === "designs" ? { repoId } : "skip",
-  );
+export function ActiveCountBadge({ repoId }: ActiveCountBadgeProps) {
+  const designCount = useQuery(api.designSessions.countActive, { repoId });
 
-  const count = type === "sessions" ? sessionCount : designCount;
-
-  if (!count) {
+  if (!designCount) {
     return null;
   }
 
@@ -31,12 +21,9 @@ export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
       variant="secondary"
       className="ml-auto gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
     >
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-      </span>
+      <span className="h-2 w-2 rounded-full bg-success" />
       <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-        {count}
+        {designCount}
       </span>
     </Badge>
   );

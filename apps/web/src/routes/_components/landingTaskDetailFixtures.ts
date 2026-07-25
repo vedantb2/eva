@@ -1,4 +1,4 @@
-import type { ActivityStep } from "@conductor/ui";
+import type { ActivityStep } from "@eva/ui";
 import {
   IconCode,
   IconFileText,

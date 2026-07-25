@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -14,7 +13,6 @@ import {
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Kpi } from "@/lib/components/analytics/Kpi";
-import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
 import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
@@ -31,24 +29,21 @@ export function LogsClient() {
     entityTypes: logEntityTypesParser,
   });
 
-  const visibleTypes = useMemo(() => new Set(entityTypes), [entityTypes]);
+  const visibleTypes = new Set(entityTypes);
 
-  const handleTypeToggle = useCallback(
-    (type: string, allTypes: string[]) => {
-      const next = new Set(visibleTypes.size === 0 ? allTypes : visibleTypes);
-      if (next.has(type)) {
-        if (next.size === 1) return;
-        next.delete(type);
-      } else {
-        next.add(type);
-      }
-      const isAll = allTypes.every((t) => next.has(t));
-      void setEntityParams({ entityTypes: isAll ? [] : [...next] });
-    },
-    [visibleTypes, setEntityParams],
-  );
+  const handleTypeToggle = (type: string, allTypes: string[]) => {
+    const next = new Set(visibleTypes.size === 0 ? allTypes : visibleTypes);
+    if (next.has(type)) {
+      if (next.size === 1) return;
+      next.delete(type);
+    } else {
+      next.add(type);
+    }
+    const isAll = allTypes.every((t) => next.has(t));
+    void setEntityParams({ entityTypes: isAll ? [] : [...next] });
+  };
 
-  const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
+  const startTime = getStartTime(timeRange);
 
   // Fetch every log in range — group-key filtering happens on the client so
   // project-tagged entries can roll up into the "project" group regardless of
@@ -63,7 +58,7 @@ export function LogsClient() {
     startTime: startTime ?? undefined,
   });
 
-  const filteredLogs = useMemo(() => {
+  const filteredLogs = (() => {
     if (!logs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
     return logs.filter((log) => {
@@ -75,7 +70,7 @@ export function LogsClient() {
       }
       return true;
     });
-  }, [logs, visibleTypes, searchQuery]);
+  })();
 
   const {
     totalCost,
@@ -86,7 +81,7 @@ export function LogsClient() {
     totalDuration,
     grouped,
     availableTypes,
-  } = useMemo(() => {
+  } = (() => {
     if (!filteredLogs)
       return {
         totalCost: 0,
@@ -145,14 +140,14 @@ export function LogsClient() {
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
     };
-  }, [filteredLogs]);
+  })();
 
-  const projectGroups = useMemo(() => {
+  const projectGroups = (() => {
     if (!projectLogs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
 
     return projectLogs
-      .map((group) => {
+      .flatMap((group) => {
         const filtered = query
           ? group.logs.filter(
               (log) =>
@@ -160,22 +155,24 @@ export function LogsClient() {
                 group.projectTitle.toLowerCase().includes(query),
             )
           : group.logs;
+        if (filtered.length === 0) return [];
 
         let totalCostForProject = 0;
         for (const log of filtered) {
           totalCostForProject += parseResultEvent(log.rawResultEvent).costUsd;
         }
 
-        return {
-          projectId: group.projectId,
-          projectTitle: group.projectTitle,
-          logs: filtered,
-          totalCost: totalCostForProject,
-        };
+        return [
+          {
+            projectId: group.projectId,
+            projectTitle: group.projectTitle,
+            logs: filtered,
+            totalCost: totalCostForProject,
+          },
+        ];
       })
-      .filter((g) => g.logs.length > 0)
       .sort((a, b) => b.totalCost - a.totalCost);
-  }, [projectLogs, searchQuery]);
+  })();
 
   const isProjectView = logView === "project";
   const isLoading = isProjectView
@@ -205,8 +202,20 @@ export function LogsClient() {
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[28rem] space-y-5"
+          aria-busy="true"
+          aria-label="Loading logs"
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-20 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))}
+          </div>
+          <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">

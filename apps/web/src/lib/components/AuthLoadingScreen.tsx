@@ -12,7 +12,7 @@ export function AuthLoadingScreen() {
       aria-busy="true"
       aria-label="Loading"
     >
-      <LogoMark size={32} className="animate-pulse text-primary" />
+      <LogoMark size={32} className="text-primary" />
     </div>
   );
 }

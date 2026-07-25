@@ -2,8 +2,8 @@
 
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { useNavigate } from "@tanstack/react-router";
-import { motion, type Variants } from "motion/react";
-import { Button } from "@conductor/ui";
+import { m, type Variants } from "motion/react";
+import { Button } from "@eva/ui";
 import { LandingCapabilityGrid } from "./LandingCapabilityGrid";
 import { LandingTaskDetailMock } from "./LandingTaskDetailMock";
 import { LandingWorkflowStrip } from "./LandingWorkflowStrip";
@@ -58,7 +58,7 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-between px-5 py-10 sm:px-8 sm:py-14 lg:px-12 lg:py-16">
-        <motion.div
+        <m.div
           variants={STAGGER_CONTAINER}
           initial="hidden"
           animate="show"
@@ -66,7 +66,7 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
         >
           <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-10 xl:gap-14">
             <div className="flex flex-col gap-8 sm:gap-9">
-              <motion.div variants={STAGGER_ITEM} className="space-y-7">
+              <m.div variants={STAGGER_ITEM} className="space-y-7">
                 <div className="relative">
                   <div
                     aria-hidden
@@ -102,9 +102,9 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
 
                 <LandingWorkflowStrip />
                 <LandingCapabilityGrid />
-              </motion.div>
+              </m.div>
 
-              <motion.div
+              <m.div
                 variants={STAGGER_ITEM}
                 className="flex flex-col gap-3 sm:flex-row sm:items-center"
               >
@@ -125,10 +125,10 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
                     Sign in
                   </Button>
                 </SignInButton>
-              </motion.div>
+              </m.div>
 
               {isDev ? (
-                <motion.div variants={STAGGER_ITEM}>
+                <m.div variants={STAGGER_ITEM}>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -139,22 +139,22 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
                   >
                     Sign in as Eva
                   </Button>
-                </motion.div>
+                </m.div>
               ) : null}
             </div>
 
-            <motion.div variants={MOCK_ITEM} className="landing-mock-stage">
+            <m.div variants={MOCK_ITEM} className="landing-mock-stage">
               <p className="mb-3 hidden font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground/50 lg:block">
                 Product preview
               </p>
               <div className="landing-mock-float">
                 <LandingTaskDetailMock />
               </div>
-            </motion.div>
+            </m.div>
           </div>
-        </motion.div>
+        </m.div>
 
-        <motion.p
+        <m.p
           variants={STAGGER_ITEM}
           initial="hidden"
           animate="show"
@@ -162,7 +162,7 @@ export function NewLandingPage({ agentRedirect }: NewLandingPageProps) {
           className="mt-12 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/55 sm:mt-16"
         >
           Built for engineering teams shipping from real codebases
-        </motion.p>
+        </m.p>
       </div>
     </main>
   );

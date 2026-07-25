@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
@@ -29,7 +28,7 @@ export function QuickTaskTaskPageContent({
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
-  const allTags = useMemo(() => {
+  const allTags = (() => {
     if (!tasks) return [];
     const tagSet = new Set<string>();
     for (const t of tasks) {
@@ -38,9 +37,9 @@ export function QuickTaskTaskPageContent({
       }
     }
     return [...tagSet].sort();
-  }, [tasks]);
+  })();
 
-  const routing = useMemo(() => {
+  const routing = (() => {
     if (!pathSegment) return undefined;
 
     if (routeState.surface === "sandbox") {
@@ -50,13 +49,28 @@ export function QuickTaskTaskPageContent({
         quick: {
           sandboxTab,
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
-            navigate({
+            if (tab === "review") {
+              void navigate({
+                to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+                search: true,
+              });
+              return;
+            }
+            void navigate({
               to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
+              // Keep diffFile across sandbox tabs.
+              search: true,
             });
           },
           onExitSandboxView: () => {
             navigate({
               to: `${basePath}/quick-tasks/${pathSegment}`,
+            });
+          },
+          onOpenFile: (path: string) => {
+            navigate({
+              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/files`,
+              search: (prev) => ({ ...prev, file: path }),
             });
           },
         },
@@ -74,13 +88,19 @@ export function QuickTaskTaskPageContent({
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
-          navigate({
+          if (sandboxTab === "review") {
+            void navigate({
+              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+            });
+            return;
+          }
+          void navigate({
             to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
           });
         },
       },
     };
-  }, [basePath, navigate, pathSegment, routeState]);
+  })();
 
   if (!pathSegment || !routing) {
     return (

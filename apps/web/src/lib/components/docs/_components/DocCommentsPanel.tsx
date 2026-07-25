@@ -1,12 +1,12 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQueryState } from "nuqs";
 import { docCommentFilterParser } from "@/lib/search-params";
-import { Button, cn } from "@conductor/ui";
+import { Button, cn } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { DocCommentThread } from "./DocCommentThread";
 import { DocNewCommentComposer } from "./DocNewCommentComposer";

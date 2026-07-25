@@ -54,27 +54,13 @@ export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
 
-const repoStatsRanges: ["1d", "3d", "1w", "1m", "3m", "6m", "1y", "all"] = [
-  "1d",
-  "3d",
-  "1w",
-  "1m",
-  "3m",
-  "6m",
-  "1y",
-  "all",
-];
-export const repoStatsRangeParser = parseAsStringLiteral(repoStatsRanges)
-  .withDefault("all")
-  .withOptions(searchOptions);
-
 const sandboxTabs = [
   "preview",
   "browser",
   "editor",
   "terminal",
   "computer",
-  "diffs",
+  "review",
   "files",
   "prd",
 ] as const;
@@ -95,12 +81,24 @@ export function isLegacyDesktopSandboxTab(s: string): boolean {
   return s === "desktop";
 }
 
+/** Old Diffs-tab URL segment; redirect to `review/diffs`. */
+export function isLegacyDiffsSandboxTab(s: string): boolean {
+  return s === "diffs";
+}
+
+/** Old Review-tab URL segment (`pr`); redirect to `review`. */
+export function isLegacyPrSandboxTab(s: string): boolean {
+  return s === "pr";
+}
+
 const taskRouteSandboxTabs = [
   "preview",
+  "browser",
   "editor",
   "terminal",
   "computer",
-  "diffs",
+  "review",
+  "files",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
@@ -108,30 +106,103 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return taskRouteSandboxTabs.some((tab) => tab === s);
 }
 
-// Layout for the Diffs tab, persisted in the URL so it survives reloads/sharing.
+const prPanelTabs = ["overview", "diffs", "recap"] as const;
+export type PrPanelTab = (typeof prPanelTabs)[number];
+
+export function isPrPanelTab(s: string): s is PrPanelTab {
+  return prPanelTabs.some((tab) => tab === s);
+}
+
+// Layout for the Diffs tab — path segment (`/review/diffs/unified`).
 const diffViews = ["unified", "split"] as const;
 export type DiffView = (typeof diffViews)[number];
+export function isDiffView(s: string): s is DiffView {
+  return s === "unified" || s === "split";
+}
+
+export type ReviewPathTarget =
+  | { kind: "overview" }
+  | { kind: "recap" }
+  | { kind: "diffs"; diffView: DiffView };
+
+/**
+ * Map legacy `?prTab=` / `?diffView=` (or defaults) onto a Review path target.
+ * Used when redirecting bare `/review` and old query-backed URLs.
+ */
+export function reviewPathFromSearch(search: {
+  prTab?: unknown;
+  diffView?: unknown;
+}): ReviewPathTarget {
+  if (typeof search.prTab === "string" && isPrPanelTab(search.prTab)) {
+    if (search.prTab === "overview") return { kind: "overview" };
+    if (search.prTab === "recap") return { kind: "recap" };
+  }
+  const diffView =
+    typeof search.diffView === "string" && isDiffView(search.diffView)
+      ? search.diffView
+      : "unified";
+  return { kind: "diffs", diffView };
+}
 export const diffViewParser = parseAsStringLiteral(diffViews)
   .withDefault("unified")
   .withOptions(tabOptions);
 
-// Path of the file selected in the Diffs tab file tree, persisted in the URL so
-// the highlighted/scrolled-to file survives reload and is shareable.
-// Percent-encode so "/" never appears raw in the query string — nuqs leaves
-// slashes unencoded, which breaks TanStack path matching on sandbox tabs
-// (e.g. .../diffs?diffFile=apps/foo → invalid $sandboxTab → redirect to preview).
-export const diffFileParser = createParser({
-  parse: (value) => {
+/**
+ * Nuqs's TanStack adapter used to do `to: pathname + '?diffFile=…'`. TanStack
+ * resolvePath keeps the `?…` inside `$sandboxTab`, so beforeLoad must peel it
+ * off and redirect to a clean tab + real search params.
+ */
+export function splitCorruptedSandboxTabParam(raw: string): {
+  tab: string;
+  diffFile?: string;
+  diffView?: DiffView;
+} | null {
+  const q = raw.indexOf("?");
+  if (q === -1) return null;
+  const tab = raw.slice(0, q);
+  const params = new URLSearchParams(raw.slice(q + 1));
+  const diffFileRaw = params.get("diffFile");
+  let diffFile: string | undefined;
+  if (diffFileRaw !== null) {
     try {
-      return decodeURIComponent(value);
+      // Old nuqs serialize double-encoded; decode until stable or one pass.
+      diffFile = diffFileRaw.includes("%")
+        ? decodeURIComponent(diffFileRaw)
+        : diffFileRaw;
     } catch {
-      return value;
+      diffFile = diffFileRaw;
     }
-  },
-  serialize: (value) => encodeURIComponent(value),
-})
-  .withDefault("")
-  .withOptions(searchOptions);
+  }
+  const diffViewRaw = params.get("diffView");
+  const diffView: DiffView | undefined =
+    diffViewRaw === "unified" || diffViewRaw === "split"
+      ? diffViewRaw
+      : undefined;
+  return { tab, diffFile, diffView };
+}
+
+/** Search fields used by the PR/Diffs tab (quick-tasks validateSearch must allow these). */
+export function parseDiffSearchFields(search: {
+  diffFile?: string;
+  diffView?: string;
+  prTab?: string;
+}): {
+  diffFile: string | undefined;
+  diffView: DiffView | undefined;
+  prTab: PrPanelTab | undefined;
+} {
+  return {
+    diffFile: typeof search.diffFile === "string" ? search.diffFile : undefined,
+    diffView:
+      search.diffView === "unified" || search.diffView === "split"
+        ? search.diffView
+        : undefined,
+    prTab:
+      typeof search.prTab === "string" && isPrPanelTab(search.prTab)
+        ? search.prTab
+        : undefined,
+  };
+}
 
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)
@@ -158,7 +229,9 @@ export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
   return snapshotSettingsTabs.some((tab) => tab === s);
 }
 
-const docViewerTabs = ["content", "html"] as const;
+// `content`/`html` are PRD docs; `recap`/`summary` are PR-recap docs.
+// Legacy recap URLs still use `html`/`content` and canonicalize at the viewer.
+const docViewerTabs = ["content", "html", "recap", "summary"] as const;
 export type DocViewerTab = (typeof docViewerTabs)[number];
 
 export function isDocViewerTab(s: string): s is DocViewerTab {
@@ -166,6 +239,14 @@ export function isDocViewerTab(s: string): s is DocViewerTab {
 }
 
 export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
+
+/** Canonical recap sub-tabs (legacy `html`→recap, `content`→summary). */
+export type RecapDocTab = "recap" | "summary";
+
+export function canonicalizeRecapDocTab(tab: DocViewerTab): RecapDocTab {
+  if (tab === "summary" || tab === "content") return "summary";
+  return "recap";
+}
 
 const docModes = ["editing", "suggesting", "viewing"] as const;
 export type DocMode = (typeof docModes)[number];
@@ -193,13 +274,42 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
-const docListFilters = ["documents", "pr-recaps"] as const;
+const docListFilters = ["documents", "reviews"] as const;
 export type DocListFilter = (typeof docListFilters)[number];
-export const docListFilterParser = parseAsStringLiteral(docListFilters)
+
+/** Accepts legacy `pr-recaps` and rewrites it to `reviews` on serialize. */
+export const docListFilterParser = createParser({
+  parse(queryValue) {
+    if (queryValue === "reviews" || queryValue === "pr-recaps") {
+      return "reviews";
+    }
+    if (queryValue === "documents") return "documents";
+    return null;
+  },
+  serialize(value) {
+    return value;
+  },
+})
   .withDefault("documents")
   .withOptions(searchOptions);
 
-export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "html";
+export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "recap";
+
+const reviewTabs = ["overview", "recap", "diff"] as const;
+export type ReviewTab = (typeof reviewTabs)[number];
+export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
+
+export function isReviewTab(s: string): s is ReviewTab {
+  return reviewTabs.some((tab) => tab === s);
+}
+
+const pullRequestListStates = ["open", "closed", "all"] as const;
+export type PullRequestListState = (typeof pullRequestListStates)[number];
+export const pullRequestListStateParser = parseAsStringLiteral(
+  pullRequestListStates,
+)
+  .withDefault("open")
+  .withOptions(searchOptions);
 
 const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)
@@ -219,7 +329,7 @@ export function isEnvVarScope(s: string): s is EnvVarScope {
   return envVarScopes.some((scope) => scope === s);
 }
 
-const teamDetailTabs = ["members", "repos", "env", "artifacts"] as const;
+const teamDetailTabs = ["members", "codebases", "env", "artifacts"] as const;
 export type TeamDetailTab = (typeof teamDetailTabs)[number];
 
 export function isTeamDetailTab(s: string): s is TeamDetailTab {

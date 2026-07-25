@@ -15,6 +15,9 @@ import {
   WrenchIcon,
   MessageSquareIcon,
   ListTodoIcon,
+  InfoIcon,
+  AnchorIcon,
+  LoaderCircleIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -22,6 +25,17 @@ import { useEffect, useState } from "react";
 export interface TodoItem {
   content: string;
   status: "pending" | "in_progress" | "completed";
+}
+
+export interface ActivityStepOutput {
+  text: string;
+  exitCode?: number;
+  truncated?: boolean;
+}
+
+export interface ActivityStepEdit {
+  oldText: string;
+  newText: string;
 }
 
 export interface ActivityStep {
@@ -41,7 +55,10 @@ export interface ActivityStep {
     | "response"
     | "question"
     | "todos"
-    | "tool";
+    | "tool"
+    | "notice"
+    | "hook"
+    | "status";
   label: string;
   detail?: string;
   /** Full, unshortened path for file-type steps. Powers the chat File Viewer. */
@@ -53,6 +70,31 @@ export interface ActivityStep {
   parentToolUseId?: string;
   /** Todo checklist snapshot (type "todos" only). */
   todos?: TodoItem[];
+  /** Bash command (fuller than detail, capped). */
+  command?: string;
+  /** Tool result transcript (tail-capped). */
+  output?: ActivityStepOutput;
+  /** Edit before/after snippets. */
+  edits?: ActivityStepEdit[];
+  /** Codex file_change paths. */
+  files?: string[];
+  /** Write tool content head preview. */
+  contentPreview?: string;
+  /** True when the tool failed or exited non-zero. */
+  isError?: boolean;
+  /** Wall time from push → complete (ms). */
+  durationMs?: number;
+}
+
+/** True when the step has expandable rich detail to show. */
+export function stepHasRichDetail(step: ActivityStep): boolean {
+  return Boolean(
+    step.command ||
+    step.output ||
+    (step.edits && step.edits.length > 0) ||
+    (step.files && step.files.length > 0) ||
+    step.contentPreview,
+  );
 }
 
 export function EvaThinkingIcon({ className }: { className?: string }) {
@@ -84,6 +126,9 @@ export const stepConfig = {
   question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
   todos: { icon: ListTodoIcon, defaultLabel: "Task list" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
+  notice: { icon: InfoIcon, defaultLabel: "Notice" },
+  hook: { icon: AnchorIcon, defaultLabel: "Hook" },
+  status: { icon: LoaderCircleIcon, defaultLabel: "Status" },
 };
 
 const SPINNER_VERBS = [

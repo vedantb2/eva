@@ -4,6 +4,7 @@ export type {
   DataModel,
   TableNames,
 } from "./convex/_generated/dataModel";
+export type { BackgroundAgentEntry } from "./convex/_validators/tableFields";
 export { api, internal } from "./convex/_generated/api";
 export {
   AI_MODEL_OPTIONS,

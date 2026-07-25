@@ -189,13 +189,13 @@ export const updateConfig = authMutation({
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
     domains: v.optional(v.array(v.string())),
-    screenshotsVideosEnabled: v.optional(v.boolean()),
     devPort: v.optional(v.union(v.number(), v.null())),
     devCommand: v.optional(v.string()),
     startupCommands: v.optional(v.array(v.string())),
     backgroundCommands: v.optional(v.array(v.string())),
     stopCommands: v.optional(v.array(v.string())),
     systemPrompt: v.optional(v.string()),
+    label: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -240,12 +240,6 @@ export const updateConfig = authMutation({
       });
     }
 
-    if (args.screenshotsVideosEnabled !== undefined) {
-      await ctx.db.patch(args.repoId, {
-        screenshotsVideosEnabled: args.screenshotsVideosEnabled,
-      });
-    }
-
     // Per-app dev config: empty/null clears the override so detection falls back.
     if (args.devPort !== undefined) {
       await ctx.db.patch(args.repoId, {
@@ -287,6 +281,13 @@ export const updateConfig = authMutation({
       await ctx.db.patch(args.repoId, {
         systemPrompt:
           args.systemPrompt.trim().length > 0 ? args.systemPrompt : undefined,
+      });
+    }
+
+    if (args.label !== undefined) {
+      const trimmed = args.label.trim();
+      await ctx.db.patch(args.repoId, {
+        label: trimmed.length > 0 ? trimmed : undefined,
       });
     }
 

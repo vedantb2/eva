@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useState } from "react";
 import {
   Dialog,
@@ -13,8 +13,8 @@ import {
   DialogFooter,
   Button,
   Spinner,
-} from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
+} from "@eva/ui";
+import dayjs from "@eva/shared/dates";
 import {
   ScheduleDateTimePicker,
   useScheduleDateTime,
@@ -33,6 +33,7 @@ export function ScheduleTasksModal({
   selectedTaskIds,
   onSuccess,
 }: ScheduleTasksModalProps) {
+  "use no memo";
   const schedule = useMutation(api.agentTasks.scheduleExecution);
   const updateSchedule = useMutation(api.agentTasks.updateScheduledExecution);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +42,12 @@ export function ScheduleTasksModal({
     useScheduleDateTime();
 
   const count = selectedTaskIds.size;
+
+  function handleClose() {
+    setError(null);
+    reset();
+    onClose();
+  }
 
   const handleSchedule = async () => {
     if (!timestamp) return;
@@ -66,6 +73,7 @@ export function ScheduleTasksModal({
       );
       const scheduledCount = results.filter(Boolean).length;
       if (scheduledCount === count) {
+        setIsLoading(false);
         onSuccess();
         handleClose();
         return;
@@ -82,16 +90,9 @@ export function ScheduleTasksModal({
     } catch (err) {
       console.error("Failed to schedule tasks:", err);
       setError("Failed to schedule selected tasks.");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
-
-  function handleClose() {
-    setError(null);
-    reset();
-    onClose();
-  }
 
   return (
     <Dialog

@@ -1,4 +1,5 @@
 import { opencodeToolToStep } from "../parse/toolSteps.js";
+import { probeOpencodeStateResult } from "../parse/toolResultCapture.js";
 import {
   syncOpencodeStateToPersist,
   writeOpencodeSessionState,
@@ -48,11 +49,27 @@ export function opencodeParseLine(event: JsonObject): CanonicalEvent[] {
         : {};
     const status = typeof state.status === "string" ? state.status : "";
     if (status === "running") {
-      events.push({ kind: "push_step", step: opencodeToolToStep(event.part) });
+      const step = opencodeToolToStep(event.part);
+      const trackingId = step.toolUseId;
+      events.push(
+        trackingId
+          ? { kind: "push_step", step, trackingId }
+          : { kind: "push_step", step },
+      );
       return events;
     }
     if (status === "completed" || status === "error") {
-      events.push({ kind: "complete_tool" });
+      const step = opencodeToolToStep(event.part);
+      const result = probeOpencodeStateResult(state);
+      events.push(
+        result
+          ? {
+              kind: "complete_tool",
+              trackingId: step.toolUseId,
+              result,
+            }
+          : { kind: "complete_tool", trackingId: step.toolUseId },
+      );
       return events;
     }
     return events;

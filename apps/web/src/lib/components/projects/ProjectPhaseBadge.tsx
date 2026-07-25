@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
-import type { Doc } from "@conductor/backend";
+import { Badge } from "@eva/ui";
+import type { Doc } from "@eva/backend";
 import {
   IconNotes,
   IconCheck,
@@ -39,6 +39,7 @@ export const phaseConfig: Record<
   ProjectPhase,
   {
     bg: string;
+    cardBg: string;
     bar: string;
     text: string;
     label: string;
@@ -47,6 +48,7 @@ export const phaseConfig: Record<
 > = {
   draft: {
     bg: "bg-secondary",
+    cardBg: "bg-secondary/60",
     bar: "bg-muted-foreground/50",
     text: "text-muted-foreground",
     label: "Draft",
@@ -54,6 +56,7 @@ export const phaseConfig: Record<
   },
   finalized: {
     bg: "bg-blue-500/10",
+    cardBg: "bg-blue-500/5",
     bar: "bg-blue-500",
     text: "text-blue-600 dark:text-blue-400",
     label: "Finalized",
@@ -61,6 +64,7 @@ export const phaseConfig: Record<
   },
   in_progress: {
     bg: "bg-status-progress-bg",
+    cardBg: "bg-status-progress-subtle",
     bar: "bg-status-progress-bar",
     text: "text-status-progress",
     label: "In Progress",
@@ -68,6 +72,7 @@ export const phaseConfig: Record<
   },
   business_review: {
     bg: "bg-status-business-review-bg",
+    cardBg: "bg-status-business-review-subtle",
     bar: "bg-status-business-review-bar",
     text: "text-status-business-review",
     label: "Business Review",
@@ -75,6 +80,7 @@ export const phaseConfig: Record<
   },
   code_review: {
     bg: "bg-status-code-review-bg",
+    cardBg: "bg-status-code-review-subtle",
     bar: "bg-status-code-review-bar",
     text: "text-status-code-review",
     label: "Code Review",
@@ -82,6 +88,7 @@ export const phaseConfig: Record<
   },
   completed: {
     bg: "bg-status-done-bg",
+    cardBg: "bg-status-done-subtle",
     bar: "bg-status-done-bar",
     text: "text-status-done",
     label: "Merged",
@@ -89,6 +96,7 @@ export const phaseConfig: Record<
   },
   cancelled: {
     bg: "bg-status-cancelled-bg",
+    cardBg: "bg-status-cancelled-subtle",
     bar: "bg-status-cancelled-bar",
     text: "text-status-cancelled",
     label: "Cancelled",

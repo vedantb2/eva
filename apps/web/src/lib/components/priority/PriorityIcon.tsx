@@ -1,4 +1,4 @@
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import type { Priority } from "./priorityMeta";
 
 interface PriorityIconProps {

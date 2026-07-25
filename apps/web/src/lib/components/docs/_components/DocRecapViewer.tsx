@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
+import {
+  canonicalizeRecapDocTab,
+  type DocViewerTab,
+} from "@/lib/search-params";
 import {
   ActivityTasks,
   Button,
@@ -21,7 +24,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCopy,
@@ -35,7 +38,7 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { DocContentTab } from "./DocContentTab";
 import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -48,7 +51,9 @@ export function DocRecapViewer({
 }) {
   const navigate = useNavigate();
   const { basePath } = useRepo();
-  const streaming = useQuery(api.streaming.get, { entityId: doc._id });
+  const streaming = useQuery(api.streaming.get, {
+    entityId: `pr-recap:${doc._id}`,
+  });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const docComments =
     useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];
@@ -70,39 +75,50 @@ export function DocRecapViewer({
     !doc.activeWorkflowId &&
     doc.prRecapStatus !== "pending";
 
-  const toggleComments = useCallback(() => {
+  const toggleComments = () => {
     setCommentsOpen((v) => !v);
     setHistoryPanelOpen(false);
     setSuggestionsOpen(false);
-  }, []);
-  const toggleHistory = useCallback(() => {
+  };
+  const toggleHistory = () => {
     setHistoryPanelOpen((v) => !v);
     setCommentsOpen(false);
     setSuggestionsOpen(false);
-  }, []);
-  const toggleSuggestions = useCallback(() => {
+  };
+  const toggleSuggestions = () => {
     setSuggestionsOpen((v) => !v);
     setCommentsOpen(false);
     setHistoryPanelOpen(false);
-  }, []);
+  };
 
-  const handleDocTabChange = useCallback(
-    (value: string) => {
-      if (!isDocViewerTab(value)) return;
-      navigate({
-        to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
-        search: (prev) => prev,
-      });
-    },
-    [basePath, doc, navigate],
-  );
+  const viewTab = canonicalizeRecapDocTab(activeTab);
 
-  const handleCopy = useCallback(async () => {
+  // Legacy `/html` and `/content` on recap docs → `/recap` and `/summary`.
+  useEffect(() => {
+    if (activeTab === viewTab) return;
+    const segment = entityPathSegment(doc);
+    if (!segment) return;
+    void navigate({
+      to: `${basePath}/docs/${segment}/${viewTab}`,
+      search: (prev) => prev,
+      replace: true,
+    });
+  }, [activeTab, basePath, doc, navigate, viewTab]);
+
+  const handleDocTabChange = (value: string) => {
+    if (value !== "recap" && value !== "summary") return;
+    navigate({
+      to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      search: (prev) => prev,
+    });
+  };
+
+  const handleCopy = async () => {
     await navigator.clipboard.writeText(doc.content);
     setCopied(true);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [doc.content]);
+  };
 
   useEffect(() => {
     return () => {
@@ -113,14 +129,16 @@ export function DocRecapViewer({
   const isRecapPending = doc.prRecapStatus === "pending";
   const isRecapErrored = doc.prRecapStatus === "error";
 
-  const handleReviseRecap = useCallback(async () => {
+  const handleReviseRecap = async () => {
     setIsRevising(true);
     try {
       await reviseRecap({ docId: doc._id });
-    } finally {
+    } catch (error) {
       setIsRevising(false);
+      throw error;
     }
-  }, [doc._id, reviseRecap]);
+    setIsRevising(false);
+  };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -231,17 +249,17 @@ export function DocRecapViewer({
       )}
 
       <Tabs
-        value={activeTab}
+        value={viewTab}
         onValueChange={handleDocTabChange}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="html">Walkthrough</TabsTrigger>
-            <TabsTrigger value="content">Markdown</TabsTrigger>
+            <TabsTrigger value="recap">Recap</TabsTrigger>
+            <TabsTrigger value="summary">Summary</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
-            {activeTab === "content" && (
+            {viewTab === "summary" && (
               <>
                 <Button
                   size="sm"
@@ -277,21 +295,21 @@ export function DocRecapViewer({
         </div>
 
         <TabsContent
-          value="html"
+          value="recap"
           className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
         >
           {doc.html ? (
-            <HtmlPreviewFrame html={doc.html} title="PR walkthrough" />
+            <HtmlPreviewFrame html={doc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No walkthrough generated yet. It is created the next time this
-              recap runs.
+              No recap generated yet. It is created the next time this review
+              runs.
             </p>
           )}
         </TabsContent>
 
         <TabsContent
-          value="content"
+          value="summary"
           className="mt-3 min-h-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
         >
           <DocContentTab

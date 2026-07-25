@@ -1,8 +1,7 @@
-import { useMemo } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -17,27 +16,22 @@ import {
   getStartTime,
   getBucketSize,
 } from "@/lib/components/analytics/TimeRangeFilter";
-import { Spinner } from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconPercentage,
   IconUsers,
   IconChecklist,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 
 export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  const { startTime, bucketSize, timelineStart } = useMemo(() => {
-    const start = getStartTime(timeRange);
-    return {
-      startTime: start,
-      bucketSize: getBucketSize(timeRange),
-      timelineStart: start ?? dayjs().subtract(90, "day").valueOf(),
-    };
-  }, [timeRange]);
+  const start = getStartTime(timeRange);
+  const startTime = start;
+  const bucketSize = getBucketSize(timeRange);
+  const timelineStart = start ?? dayjs().subtract(90, "day").valueOf();
 
   const impactStats = useQuery(api.analytics.getImpactStats, {
     repoId: repo._id,
@@ -75,20 +69,33 @@ export function StatsClient() {
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
+        <div
+          className="min-h-[36rem] space-y-6"
+          aria-busy="true"
+          aria-label="Loading stats"
+        >
+          <div className="h-40 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
+            ))}
+          </div>
+          <div className="h-56 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : (
         <div className="space-y-6">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
             <ActivityHeatmap data={heatmap} />
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
@@ -107,9 +114,9 @@ export function StatsClient() {
               />
               <Kpi
                 icon={IconPercentage}
-                label="Ship Rate"
+                label="Cook Rate"
                 value={`${impactStats.shipRate}%`}
-                subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
+                subtitle={`${impactStats.tasksCompleted} of ${impactStats.tasksRan} settled tasks`}
                 currentValue={impactStats.shipRate}
                 previousValue={
                   "prevShipRate" in impactStats
@@ -135,9 +142,9 @@ export function StatsClient() {
                 }
               />
             </KpiGroup>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -149,11 +156,10 @@ export function StatsClient() {
             <SessionFunnel
               totalSessions={impactStats.totalSessions}
               sessionsWithPr={impactStats.sessionsWithPr}
-              shipRate={impactStats.shipRate}
             />
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -163,7 +169,7 @@ export function StatsClient() {
               <ActivityTimelineChart timeline={timeline} />
             </div>
             <Leaderboard entries={leaderboard} />
-          </motion.div>
+          </m.div>
         </div>
       )}
     </PageWrapper>

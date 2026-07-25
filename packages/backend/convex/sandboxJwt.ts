@@ -24,10 +24,12 @@ export const mintSandboxSessionTokens = internalAction({
     repoId: v.id("githubRepos"),
     enableMcp: v.boolean(),
     // Optional launch-entity identity embedded in the MCP-internal token so
-    // session-scoped tools (browser_start/lock/unlock) can resolve the session
-    // without the agent passing an id.
+    // entity-scoped tools (browser_start/lock/unlock) can resolve the
+    // session/task/project without the agent passing an id.
     entityId: v.optional(v.string()),
-    entityKind: v.optional(v.literal("session")),
+    entityKind: v.optional(
+      v.union(v.literal("session"), v.literal("task"), v.literal("project")),
+    ),
   },
   returns: v.object({
     sandboxToken: v.string(),

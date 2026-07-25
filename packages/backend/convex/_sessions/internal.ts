@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
-import { sessionValidator } from "./helpers";
-import { internal } from "../_generated/api";
+import { DEFAULT_SESSION_TITLE, sessionValidator } from "./helpers";
 import { deploymentStatusValidator } from "../validators";
 
 const prStateValidator = v.union(
@@ -77,48 +76,42 @@ export const setPrState = internalMutation({
   },
 });
 
-/** Marks a session's PR ready for review and archives the sandbox (internal use). */
-export const markReadyAndArchive = internalMutation({
-  args: { id: v.id("sessions") },
+/** Detaches a foreign-auto-merged PR from its session so the session stays writable. No-op if the session's PR has since changed. */
+export const clearPrUrlIfMatches = internalMutation({
+  args: { id: v.id("sessions"), expectedPrUrl: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
-    if (!session) return null;
-
-    if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.archiveSandbox, {
-        sandboxId: session.sandboxId,
-        repoId: session.repoId,
-      });
-    }
-
+    if (!session || session.prUrl !== args.expectedPrUrl) return null;
     await ctx.db.patch(args.id, {
-      prState: "open",
-      archived: true,
-      status: "closed",
+      prUrl: undefined,
+      prState: undefined,
       updatedAt: Date.now(),
     });
     return null;
   },
 });
 
+// Soft UX lock for agent-driven browsing moved to
+// `internal.mcp.browserLock.setAgentBrowsingAt` (generalized to
+// sessions/tasks/projects); MCP browser_lock / browser_unlock call that now.
+
 /**
- * Soft UX lock for agent-driven browsing. MCP browser_lock / browser_unlock
- * call this; the session UI reacts to `agentBrowsingAt` for auto-switch + overlay.
+ * Applies an LLM-generated session title only while the placeholder remains.
+ * Manual renames (anything other than DEFAULT_SESSION_TITLE) are never overwritten.
  */
-export const setAgentBrowsingAt = internalMutation({
+export const applyGeneratedTitle = internalMutation({
   args: {
-    sessionId: v.string(),
-    locked: v.boolean(),
+    sessionId: v.id("sessions"),
+    title: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sessionId = ctx.db.normalizeId("sessions", args.sessionId);
-    if (!sessionId) return null;
-    const session = await ctx.db.get(sessionId);
+    const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    await ctx.db.patch(sessionId, {
-      agentBrowsingAt: args.locked ? Date.now() : undefined,
+    if (session.title !== DEFAULT_SESSION_TITLE) return null;
+    await ctx.db.patch(args.sessionId, {
+      title: args.title,
       updatedAt: Date.now(),
     });
     return null;

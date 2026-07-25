@@ -1,0 +1,92 @@
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { expect, test } from "vitest";
+import { applyCanonicalEvents, parseToCanonical } from "../parse/canonical.js";
+import { callbackState as S, resetStateForTests } from "../runtime/state.js";
+import type { JsonObject } from "../types.js";
+import { tryParseJson } from "../utils.js";
+
+const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
+
+function loadFixtureLines(name: string): JsonObject[] {
+  const raw = readFileSync(join(fixturesDir, name), "utf8");
+  const lines: JsonObject[] = [];
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parsed = tryParseJson(trimmed);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      lines.push(parsed);
+    }
+  }
+  return lines;
+}
+
+function applyFixture(name: string, provider: string): void {
+  resetStateForTests();
+  for (const event of loadFixtureLines(name)) {
+    applyCanonicalEvents(parseToCanonical(event, provider));
+  }
+}
+
+test("claude captures bash output, edit diffs, and write preview", () => {
+  applyFixture("claude-bash-edit.jsonl", "claude");
+  const bash = S.accumulatedSteps.find((s) => s.toolUseId === "toolu_bash1");
+  expect(bash?.type).toBe("bash");
+  expect(bash?.command).toContain("git status");
+  expect(bash?.output?.text).toContain("On branch main");
+  expect(bash?.status).toBe("complete");
+
+  const edit = S.accumulatedSteps.find((s) => s.toolUseId === "toolu_edit1");
+  expect(edit?.type).toBe("edit");
+  expect(edit?.edits?.[0]?.oldText).toBe("const x = 1");
+  expect(edit?.edits?.[0]?.newText).toBe("const x = 2");
+
+  const write = S.accumulatedSteps.find((s) => s.toolUseId === "toolu_write1");
+  expect(write?.type).toBe("write");
+  expect(write?.contentPreview).toContain("export const a");
+  expect(write?.output?.text).toContain("Wrote file");
+});
+
+test("codex sets toolUseId, file_change files, and failed isError", () => {
+  applyFixture("codex-shell-filechange.jsonl", "codex");
+  const shell = S.accumulatedSteps.find((s) => s.toolUseId === "item_shell1");
+  expect(shell?.type).toBe("bash");
+  expect(shell?.toolUseId).toBe("item_shell1");
+  expect(shell?.output?.text).toContain("PASS");
+  expect(shell?.output?.exitCode).toBe(0);
+
+  const files = S.accumulatedSteps.find((s) => s.toolUseId === "item_fc1");
+  expect(files?.type).toBe("edit");
+  expect(files?.files).toEqual(["/tmp/repo/src/a.ts", "/tmp/repo/src/b.ts"]);
+
+  const failed = S.accumulatedSteps.find((s) => s.toolUseId === "item_fail1");
+  expect(failed?.isError).toBe(true);
+  expect(failed?.output?.exitCode).toBe(1);
+});
+
+test("cursor pairs call_id and attaches result output", () => {
+  applyFixture("cursor-tool-pair.jsonl", "cursor");
+  expect(S.accumulatedSteps).toHaveLength(1);
+  const step = S.accumulatedSteps[0];
+  expect(step?.toolUseId).toBe("call_cursor1");
+  expect(step?.type).toBe("bash");
+  expect(step?.command).toContain("ls -la");
+  expect(step?.output?.text).toContain("total 12");
+  expect(step?.output?.exitCode).toBe(0);
+  expect(step?.status).toBe("complete");
+});
+
+test("opencode captures output, exit, error, and durationMs", () => {
+  applyFixture("opencode-tool.jsonl", "opencode");
+  const ok = S.accumulatedSteps.find((s) => s.toolUseId === "part_oc1");
+  expect(ok?.type).toBe("bash");
+  expect(ok?.output?.text).toContain("/tmp/repo");
+  expect(ok?.output?.exitCode).toBe(0);
+  expect(ok?.durationMs).toBe(100);
+
+  const err = S.accumulatedSteps.find((s) => s.toolUseId === "part_oc2");
+  expect(err?.isError).toBe(true);
+  expect(err?.output?.text).toContain("exit status 1");
+});

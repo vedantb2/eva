@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Spinner,
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
@@ -127,6 +127,15 @@ export function ProjectChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [initialMessages]);
 
+  const askQuestion = async () => {
+    setIsLoading(true);
+    await startProjectInterview({
+      projectId: projectId,
+      featureDescription: rawInput,
+      previousAnswers: [], // Session persistence provides context
+    });
+  };
+
   useEffect(() => {
     if (isLocked || isLoading) return;
     const hasAssistant = initialMessages.some((m) => m.role === "assistant");
@@ -134,15 +143,6 @@ export function ProjectChatTab({
       void askQuestion();
     }
   }, []);
-
-  const askQuestion = useCallback(async () => {
-    setIsLoading(true);
-    await startProjectInterview({
-      projectId: projectId,
-      featureDescription: rawInput,
-      previousAnswers: [], // Session persistence provides context
-    });
-  }, [projectId, rawInput, startProjectInterview]);
 
   const handleStartInterview = () => {
     void askQuestion();
@@ -160,9 +160,11 @@ export function ProjectChatTab({
       setIsLoading(false);
       onClear?.();
       setConfirmClearOpen(false);
-    } finally {
+    } catch (error) {
       setIsClearing(false);
+      throw error;
     }
+    setIsClearing(false);
   };
 
   const currentQuestion: ParsedQuestion | null = (() => {
@@ -250,7 +252,7 @@ export function ProjectChatTab({
           )}
           <div ref={messagesEndRef} />
         </ConversationContent>
-        <ConversationScrollButton />
+        <ConversationScrollButton resetKey={projectId} />
       </Conversation>
       <div className="p-3 sm:p-4 space-y-3 max-w-5xl mx-auto w-full">
         {showQuestion && (

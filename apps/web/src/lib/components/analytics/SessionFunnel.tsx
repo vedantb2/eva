@@ -1,19 +1,19 @@
 "use client";
 
-import { Progress } from "@conductor/ui";
+import { Progress } from "@eva/ui";
 import { Widget } from "@/lib/components/Widget";
 
 interface SessionFunnelProps {
   totalSessions: number;
   sessionsWithPr: number;
-  shipRate: number;
 }
 
 export function SessionFunnel({
   totalSessions,
   sessionsWithPr,
-  shipRate,
 }: SessionFunnelProps) {
+  const sessionPrRate =
+    totalSessions > 0 ? Math.round((sessionsWithPr / totalSessions) * 100) : 0;
   return (
     <Widget title="Session to PR Funnel">
       <div className="space-y-3">
@@ -39,8 +39,8 @@ export function SessionFunnel({
         </div>
         <div className="pt-2">
           <p className="text-sm text-muted-foreground">
-            Ship Rate:{" "}
-            <span className="font-bold text-foreground">{shipRate}%</span>
+            Session PR rate:{" "}
+            <span className="font-bold text-foreground">{sessionPrRate}%</span>
           </p>
         </div>
       </div>

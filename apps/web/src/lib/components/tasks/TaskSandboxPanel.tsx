@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
-import type { Id } from "@conductor/backend";
+import { useEffect, useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -11,11 +13,13 @@ import {
 } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
+import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /**
@@ -33,12 +37,14 @@ interface TaskSandboxPanelProps {
   prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
+  onStartSandbox?: () => void;
+  isSandboxStarting?: boolean;
 }
 
 /**
  * Right-side sandbox panel for a quick task — mirrors the session sandbox
- * panel. Exposes Preview, Terminal, Editor, and Desktop tabs (PRD is omitted
- * since it's a session-only concept).
+ * panel (Preview, Browser, Terminal, Diffs, Files, Editor/Computer via +).
+ * PRD stays session-only.
  *
  * All shared multi-pane / preview / PTY logic lives in the `sandbox/` module
  * so this file is just a thin orchestrator.
@@ -46,7 +52,6 @@ interface TaskSandboxPanelProps {
 export function TaskSandboxPanel({
   taskId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   devPort,
@@ -55,8 +60,18 @@ export function TaskSandboxPanel({
   prUrl,
   activeTab,
   onTabChange,
+  onStartSandbox,
+  isSandboxStarting,
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
+
+  const task = useQuery(api.agentTasks.get, { id: taskId });
+  const setPreviewPath = useMutation(api.agentTasks.setPreviewPath);
+  const setPreviewPort = useMutation(api.agentTasks.setPreviewPort);
+  const setTerminalHistoryTail = useMutation(
+    api.agentTasks.setTerminalHistoryTail,
+  );
+  const releaseBrowserLock = useMutation(api.agentTasks.releaseBrowserLock);
 
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
@@ -68,6 +83,9 @@ export function TaskSandboxPanel({
     isActive,
     repoId,
     devPort,
+    onPortPersist: (port) => {
+      void setPreviewPort({ id: taskId, port });
+    },
   });
 
   const panes = useSandboxPanes({
@@ -87,13 +105,10 @@ export function TaskSandboxPanel({
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
-  const handleTabChange = useCallback(
-    (tab: string) => {
-      if (!isSessionSandboxTab(tab) || tab === "prd") return;
-      onTabChange(tab);
-    },
-    [onTabChange],
-  );
+  const handleTabChange = (tab: string) => {
+    if (!isSessionSandboxTab(tab) || tab === "prd") return;
+    onTabChange(tab);
+  };
 
   const {
     computerTabOpen,
@@ -102,6 +117,13 @@ export function TaskSandboxPanel({
     openComputer,
     closeComputer,
   } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
+  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
+    `task:${taskIdStr}`,
+    tabBarValue,
+    handleTabChange,
+  );
+
+  const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
     <div className="h-full flex flex-col">
@@ -112,26 +134,53 @@ export function TaskSandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={panes.enabledTabs}
+        enabledTabs={enabledTabs}
+        showFilesTab
+        agentBrowsingAt={task?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
         onCloseComputer={closeComputer}
+        editorTabOpen={editorTabOpen}
+        onOpenEditor={openEditor}
+        onCloseEditor={closeEditor}
       />
       <div className="flex-1 overflow-hidden bg-card">
+        <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
+          <FilesPanel
+            sandboxId={sandboxId}
+            repoId={repoId}
+            isActive={isActive}
+          />
+        </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}
           panes={panes}
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={taskIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
+          agentBrowsingAt={task?.agentBrowsingAt}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ id: taskId })}
+          // Backend starts the app in the Console tmux session after startup.
+          runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
+          onStartSandbox={onStartSandbox}
+          isSandboxStarting={isSandboxStarting}
+          stickyPreviewPath={task?.previewPath}
+          onStickyPreviewPathChange={(path) => {
+            void setPreviewPath({ id: taskId, path });
+          }}
+          stickyTerminalHistoryTail={
+            task === undefined ? undefined : (task?.terminalHistoryTail ?? "")
+          }
+          onStickyTerminalHistoryTailChange={(tail) => {
+            void setTerminalHistoryTail({ id: taskId, tail });
+          }}
         />
       </div>
     </div>

@@ -1,13 +1,15 @@
-import { api } from "@conductor/backend";
-import type { AIModel, Id, ModelTraitsExecutionArgs } from "@conductor/backend";
-import type { ModelAccount } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
+import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
-import { useCallback } from "react";
+import type { OptimisticLocalStore } from "convex/browser";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
+
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 export type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
@@ -19,11 +21,65 @@ function optimisticMessageId(): Id<"messages"> {
   return crypto.randomUUID() as Id<"messages">;
 }
 
+function applyAddMessageOptimistically(
+  localStore: OptimisticLocalStore,
+  args: FunctionArgs<typeof api.sessions.addMessage>,
+  accounts: ReadonlyArray<ModelAccount>,
+) {
+  if (args.role !== "user") return;
+  const existing = localStore.getQuery(api.messages.listByParent, {
+    parentId: args.id,
+  });
+  if (existing === undefined) return;
+
+  const now = Date.now();
+  const userMsg: SessionMessage = {
+    _id: optimisticMessageId(),
+    _creationTime: now,
+    parentId: args.id,
+    role: "user",
+    content: args.content,
+    timestamp: now,
+    mode: args.mode,
+    activityLog: "",
+    media: undefined,
+    attachmentStorageIds: args.attachmentStorageIds,
+    attachmentUrls: undefined,
+    attachments: undefined,
+    credentialSourceLabel: resolveCredentialSourceLabel(
+      args.providerAccountId,
+      accounts,
+    ),
+    model: args.model,
+    reasoningLevel: args.reasoningLevel,
+  };
+  const assistantPlaceholder: SessionMessage = {
+    _id: optimisticMessageId(),
+    _creationTime: now + 1,
+    parentId: args.id,
+    role: "assistant",
+    content: "",
+    timestamp: now + 1,
+    mode: args.mode,
+    activityLog: "",
+    media: undefined,
+    attachmentUrls: undefined,
+    attachments: undefined,
+  };
+  localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
+    ...existing,
+    userMsg,
+    assistantPlaceholder,
+  ]);
+}
+
 interface UseSessionSendParams {
   sessionId: Id<"sessions">;
   mode: SessionMode;
   model: AIModel;
   executionTraits: ModelTraitsExecutionArgs;
+  /** Effective effort shown in the composer; snapshotted onto the user message. */
+  reasoningLevel?: ModelTraitsExecutionArgs["reasoningLevel"];
   providerAccountId: string | null;
   resolveAccountId: (
     id: string | null,
@@ -37,6 +93,7 @@ export function useSessionSend({
   mode,
   model,
   executionTraits,
+  reasoningLevel,
   providerAccountId,
   resolveAccountId,
   accounts,
@@ -44,51 +101,8 @@ export function useSessionSend({
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
-    (localStore, args) => {
-      if (args.role !== "user") return;
-      const existing = localStore.getQuery(api.messages.listByParent, {
-        parentId: args.id,
-      });
-      if (existing === undefined) return;
-
-      const now = Date.now();
-      const userMsg: SessionMessage = {
-        _id: optimisticMessageId(),
-        _creationTime: now,
-        parentId: args.id,
-        role: "user",
-        content: args.content,
-        timestamp: now,
-        mode: args.mode,
-        activityLog: "",
-        imageUrl: undefined,
-        videoUrl: undefined,
-        attachmentStorageIds: args.attachmentStorageIds,
-        attachmentUrls: undefined,
-        credentialSourceLabel: resolveCredentialSourceLabel(
-          args.providerAccountId,
-          accounts,
-        ),
-      };
-      const assistantPlaceholder: SessionMessage = {
-        _id: optimisticMessageId(),
-        _creationTime: now + 1,
-        parentId: args.id,
-        role: "assistant",
-        content: "",
-        timestamp: now + 1,
-        mode: args.mode,
-        activityLog: "",
-        imageUrl: undefined,
-        videoUrl: undefined,
-        attachmentUrls: undefined,
-      };
-      localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
-        ...existing,
-        userMsg,
-        assistantPlaceholder,
-      ]);
-    },
+    (localStore, args) =>
+      applyAddMessageOptimistically(localStore, args, accounts),
   );
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
@@ -96,82 +110,71 @@ export function useSessionSend({
     api.sessionWorkflow.cancelExecution,
   );
 
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting = lastAssistantHasNoContent;
+  const isExecuting = isAssistantTurnInProgress(messages);
 
-  const handleSend = useCallback(
-    async (content: string, attachmentStorageIds?: Id<"_storage">[]) => {
-      const finalContent = appendReviewCommentsToPrompt(
-        content,
-        review?.comments ?? [],
-      );
-      if (isExecuting) {
-        await enqueueMessage({
-          sessionId,
-          message: finalContent,
-          mode,
-          model,
-          ...executionTraits,
-          providerAccountId: resolveAccountId(providerAccountId),
-          attachmentStorageIds,
-        });
-        review?.clear();
-        return;
-      }
-      const accountId = resolveAccountId(providerAccountId);
-      void Promise.all([
-        addMessage({
+  const handleSend = async (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => {
+    const finalContent = appendReviewCommentsToPrompt(
+      content,
+      review?.comments ?? [],
+    );
+    if (isExecuting) {
+      await enqueueMessage({
+        sessionId,
+        message: finalContent,
+        mode,
+        model,
+        ...executionTraits,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+        providerAccountId: resolveAccountId(providerAccountId),
+        attachmentStorageIds,
+      });
+      review?.clear();
+      return;
+    }
+    const accountId = resolveAccountId(providerAccountId);
+    void Promise.all([
+      addMessage({
+        id: sessionId,
+        role: "user",
+        content: finalContent,
+        mode,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+        model,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+      }),
+      startExecution({
+        sessionId,
+        message: finalContent,
+        mode,
+        model,
+        ...executionTraits,
+        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+        providerAccountId: accountId,
+        attachmentStorageIds,
+      }),
+    ])
+      .catch(async (error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send message";
+        await addMessage({
           id: sessionId,
-          role: "user",
-          content: finalContent,
+          role: "assistant",
+          content: `Error: ${errorMessage}`,
           mode,
-          attachmentStorageIds,
-          providerAccountId: accountId,
-        }),
-        startExecution({
-          sessionId,
-          message: finalContent,
-          mode,
-          model,
-          ...executionTraits,
-          providerAccountId: accountId,
-          attachmentStorageIds,
-        }),
-      ])
-        .catch(async (error) => {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to send message";
-          await addMessage({
-            id: sessionId,
-            role: "assistant",
-            content: `Error: ${errorMessage}`,
-            mode,
-          });
-        })
-        .finally(() => {
-          review?.clear();
         });
-    },
-    [
-      isExecuting,
-      enqueueMessage,
-      addMessage,
-      startExecution,
-      sessionId,
-      mode,
-      model,
-      executionTraits,
-      providerAccountId,
-      resolveAccountId,
-      review,
-    ],
-  );
+      })
+      .finally(() => {
+        review?.clear();
+      });
+  };
 
-  const handleCancel = useCallback(async () => {
+  const handleCancel = async () => {
     await cancelExecutionMutation({ sessionId });
-  }, [cancelExecutionMutation, sessionId]);
+  };
 
   return { isExecuting, handleSend, handleCancel };
 }

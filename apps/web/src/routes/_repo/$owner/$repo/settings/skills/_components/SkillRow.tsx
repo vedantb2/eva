@@ -1,9 +1,9 @@
 "use client";
 
-import { type api } from "@conductor/backend";
+import { type api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
 import { SkillContentDialog } from "./SkillContentDialog";
 

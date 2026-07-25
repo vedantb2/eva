@@ -31,13 +31,26 @@ export const upsert = action({
   args: {
     accountId: v.optional(v.id("userProviderAccounts")),
     provider: aiProviderValidator,
-    label: v.string(),
+    /** Ignored — label is always the user's first name. */
+    label: v.optional(v.string()),
     accentColor: v.optional(v.string()),
     credentials: v.array(credentialInputValidator),
   },
   returns: v.id("userProviderAccounts"),
   handler: async (ctx, args): Promise<Id<"userProviderAccounts">> => {
     const userId = await requireUserId(ctx);
+    const user = await ctx.runQuery(internal.users.getDisplayNameInternal, {
+      userId,
+    });
+    const firstName = user?.firstName?.trim();
+    const fullName = user?.fullName?.trim();
+    const label =
+      firstName && firstName.length > 0
+        ? firstName
+        : fullName && fullName.length > 0
+          ? fullName
+          : "Personal";
+    void args.label;
     const encrypted = args.credentials.map((entry) => ({
       key: entry.key,
       value: encryptValue(entry.value),
@@ -46,7 +59,7 @@ export const upsert = action({
       await ctx.runMutation(internal.userProviderAccounts.updateInternal, {
         accountId: args.accountId,
         userId,
-        label: args.label,
+        label,
         accentColor: args.accentColor,
         credentials: encrypted,
       });
@@ -55,7 +68,7 @@ export const upsert = action({
     return await ctx.runMutation(internal.userProviderAccounts.createInternal, {
       userId,
       provider: args.provider,
-      label: args.label,
+      label,
       accentColor: args.accentColor,
       credentials: encrypted,
     });

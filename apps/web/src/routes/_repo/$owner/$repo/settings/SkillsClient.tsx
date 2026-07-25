@@ -2,11 +2,11 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { SkillRow } from "./skills/_components/SkillRow";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -42,9 +42,8 @@ export function SkillsClient() {
           ? syncError.message
           : "Failed to sync skills from GitHub.",
       );
-    } finally {
-      setSyncing(false);
     }
+    setSyncing(false);
   };
 
   return (
@@ -62,8 +61,10 @@ export function SkillsClient() {
         <div>
           <h3 className="text-sm font-medium">Repo Skills</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Synced from <code>.agents/skills</code>. Type <code>/</code> in
-            session, task, or project chat to invoke a harness skill.
+            Synced from <code>.agents/skills</code> on the base branch. Auto-
+            syncs on push (when skills change) and every 6 hours; use Sync from
+            GitHub to refresh now. Type <code>/</code> in session, task, or
+            project chat to invoke a harness skill.
           </p>
         </div>
 

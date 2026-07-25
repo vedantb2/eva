@@ -1,8 +1,8 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { type api } from "@conductor/backend";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import { type api } from "@eva/backend";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@eva/ui";
 import {
   phaseConfig,
   type ProjectPhase,
@@ -65,16 +65,17 @@ export function TimelineBar({ name, phase, progress }: TimelineBarProps) {
             <span className="text-xs font-medium">
               {done}/{total} tasks done · {pct}%
             </span>
-            {TASK_STATUSES.filter((s) => (progress?.[s] ?? 0) > 0).map((s) => {
+            {TASK_STATUSES.flatMap((s) => {
+              if ((progress?.[s] ?? 0) <= 0) return [];
               const Icon = statusConfig[s].icon;
-              return (
+              return [
                 <span
                   key={s}
                   className={`flex items-center gap-1.5 text-xs ${statusConfig[s].text}`}
                 >
                   <Icon size={12} /> {progress?.[s]} {statusConfig[s].label}
-                </span>
-              );
+                </span>,
+              ];
             })}
           </div>
         ) : (

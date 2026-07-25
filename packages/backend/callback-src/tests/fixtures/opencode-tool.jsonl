@@ -1,0 +1,4 @@
+{"type":"tool_use","part":{"id":"part_oc1","tool":"bash","state":{"status":"running","input":{"command":"pwd"}}}}
+{"type":"tool_use","part":{"id":"part_oc1","tool":"bash","state":{"status":"completed","output":"/tmp/repo\n","metadata":{"exit":0},"time":{"start":1000,"end":1100},"input":{"command":"pwd"}}}}
+{"type":"tool_use","part":{"id":"part_oc2","tool":"bash","state":{"status":"running","input":{"command":"exit 1"}}}}
+{"type":"tool_use","part":{"id":"part_oc2","tool":"bash","state":{"status":"error","error":"exit status 1","metadata":{"exit":1},"input":{"command":"exit 1"}}}}

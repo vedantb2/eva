@@ -1,3 +1,4 @@
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -10,6 +11,8 @@ import {
   deriveProjectPhaseFromPrEvent,
   isProjectReviewPhase,
 } from "./_projects/prSync";
+import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
+import { requestSessionSandboxStop } from "./_sessions/sandbox";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -109,6 +112,8 @@ export const handleSessionPrEvent = internalMutation({
     action: v.string(),
     draft: v.optional(v.boolean()),
     merged: v.optional(v.boolean()),
+    prNumber: v.optional(v.number()),
+    mergeCommitSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -131,6 +136,40 @@ export const handleSessionPrEvent = internalMutation({
       prState: nextState,
       updatedAt: Date.now(),
     });
+
+    // Merged/closed sessions are read-only — stop any live sandbox so VMs
+    // aren't left running forever after the PR terminal event.
+    if (
+      (nextState === "merged" || nextState === "closed") &&
+      (session.status === "active" ||
+        session.status === "starting" ||
+        session.status === "stopping" ||
+        session.sandboxId !== undefined)
+    ) {
+      await requestSessionSandboxStop(ctx, session._id);
+    }
+
+    // A "merged" event can be a false positive: GitHub marks this session's PR
+    // merged whenever its commit SHAs land on the base branch via ANY PR (a
+    // "tip-copy" — e.g. a duplicate PR created from the same branch tip).
+    // Schedule a delayed check that confirms the merge commit is actually
+    // associated with this PR number, and detaches/reopens the session if not.
+    if (
+      nextState === "merged" &&
+      args.prNumber !== undefined &&
+      args.mergeCommitSha !== undefined
+    ) {
+      await ctx.scheduler.runAfter(
+        15_000,
+        internal.github.verifySessionPrMerged,
+        {
+          sessionId: session._id,
+          prUrl: args.prUrl,
+          prNumber: args.prNumber,
+          mergeCommitSha: args.mergeCommitSha,
+        },
+      );
+    }
     return null;
   },
 });
@@ -248,7 +287,7 @@ export const handlePrClosed = internalMutation({
           vercelSandboxId: project.vercelSandboxId,
         });
         if (deleteId) {
-          await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+          await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
             sandboxId: deleteId,
             repoId: project.repoId,
           });
@@ -278,6 +317,51 @@ export const handlePrClosed = internalMutation({
 
 const RECAP_BOT_LOGIN_PREFIXES = ["dependabot", "renovate"];
 
+/**
+ * On push to a repo's configured base branch, schedule a skill sync when the
+ * commit set touches `.agents/skills` (or when path lists are empty — e.g.
+ * some force-pushes — so we still converge).
+ */
+export const handlePushForSkillSync = internalMutation({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    branch: v.string(),
+    touchedSkillsPath: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+    if (siblings.length === 0) return null;
+
+    const workflowRepo =
+      siblings.find(
+        (repo) =>
+          repo.parentRepoId === undefined && repo.rootDirectory === undefined,
+      ) ??
+      siblings.find((repo) => repo.parentRepoId === undefined) ??
+      siblings[0];
+    if (!workflowRepo || workflowRepo.connected === false) return null;
+
+    const baseBranch =
+      workflowRepo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    if (args.branch !== baseBranch) return null;
+    if (!args.touchedSkillsPath) return null;
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal._repoSkills.sync.syncRepoInternal,
+      { repoId: workflowRepo._id },
+    );
+    return null;
+  },
+});
+
 /** Starts or refreshes a PR recap doc + workflow when a pull request is updated. */
 export const handlePrRecapEvent = internalMutation({
   args: {
@@ -289,6 +373,7 @@ export const handlePrRecapEvent = internalMutation({
     headSha: v.string(),
     draft: v.optional(v.boolean()),
     authorLogin: v.optional(v.string()),
+    branchName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -319,6 +404,12 @@ export const handlePrRecapEvent = internalMutation({
       siblings.find((repo) => repo.rootDirectory === undefined) ??
       connectedRepo;
 
+    const evaOwned = await isEvaOwnedPullRequest(
+      ctx,
+      args.prUrl,
+      args.branchName,
+    );
+
     await ctx.runMutation(internal.docs.startPrRecap, {
       repoId: workflowRepo._id,
       userId: connectedRepo.connectedBy,
@@ -329,6 +420,7 @@ export const handlePrRecapEvent = internalMutation({
       prNumber: args.prNumber,
       prTitle: args.prTitle,
       headSha: args.headSha,
+      ...(evaOwned ? { prRecapOrigin: "eva" } : {}),
     });
 
     return null;

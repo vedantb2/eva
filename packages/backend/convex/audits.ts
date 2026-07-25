@@ -1,4 +1,9 @@
-export { listByTask, getActivityLog, getBySession } from "./_audits/queries";
+export {
+  listByTask,
+  getActivityLog,
+  getBySession,
+  getByProject,
+} from "./_audits/queries";
 
 export {
   startSessionAudit,
@@ -6,5 +11,11 @@ export {
   handleSessionCompletion,
   fail,
 } from "./_audits/sessionAudit";
+
+export {
+  maybeStartTaskChatAudit,
+  maybeStartProjectChatAudit,
+  handleChatAuditCompletion,
+} from "./_audits/chatAudit";
 
 export { runSelectedFixes, saveAuditFixSandboxId } from "./_audits/fixes";

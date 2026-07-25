@@ -1,5 +1,5 @@
-import { motion } from "motion/react";
-import { Card, CardContent, Button } from "@conductor/ui";
+import { m } from "motion/react";
+import { Card, CardContent, Button } from "@eva/ui";
 import { IconX, IconSparkles } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -7,10 +7,10 @@ export { PLATFORM_SECTIONS };
 
 export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
+    <m.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
       <Card className="ui-surface-strong mb-6 overflow-hidden">
@@ -60,6 +60,6 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </m.div>
   );
 }

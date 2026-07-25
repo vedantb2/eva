@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useConvex } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
@@ -18,21 +18,28 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCode,
   IconCopy,
+  IconDownload,
   IconFileExport,
   IconPencil,
   IconX,
 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
-import { api } from "@conductor/backend";
+import type { Id } from "@eva/backend";
+import { api } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import {
+  buildProposedPlanMarkdownFilename,
+  downloadPlanAsMarkdownFile,
+  normalizePlanMarkdownForExport,
+  proposedPlanTitle,
+} from "./planExport";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -66,12 +73,22 @@ export function SessionPrdPlanView({
 
   const showEdit = !isArchived && editingSnapshot === null;
 
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(planContent);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(
+      normalizePlanMarkdownForExport(planContent),
+    );
     setCopied(true);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [planContent]);
+  };
+
+  const handleDownload = () => {
+    if (!planContent.trim()) return;
+    downloadPlanAsMarkdownFile(
+      buildProposedPlanMarkdownFilename(planContent),
+      normalizePlanMarkdownForExport(planContent),
+    );
+  };
 
   useEffect(() => {
     return () => {
@@ -79,20 +96,20 @@ export function SessionPrdPlanView({
     };
   }, []);
 
-  const handleStartEdit = useCallback(() => {
+  const handleStartEdit = () => {
     setEditingSnapshot(planContent);
     setEditKey((k) => k + 1);
-  }, [planContent]);
+  };
 
-  const handleCancelEdit = useCallback(() => {
+  const handleCancelEdit = () => {
     setEditingSnapshot(null);
-  }, []);
+  };
 
-  const handleEditorReady = useCallback((getMarkdown: () => string | null) => {
+  const handleEditorReady = (getMarkdown: () => string | null) => {
     getMarkdownRef.current = getMarkdown;
-  }, []);
+  };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     const markdown = getMarkdownRef.current();
     if (markdown === null) return;
     setIsSaving(true);
@@ -102,12 +119,14 @@ export function SessionPrdPlanView({
         planContent: markdown,
       });
       setEditingSnapshot(null);
-    } finally {
+    } catch (error) {
       setIsSaving(false);
+      throw error;
     }
-  }, [sessionId, updatePlanContent]);
+    setIsSaving(false);
+  };
 
-  const handleSaveAsDocument = useCallback(async () => {
+  const handleSaveAsDocument = async () => {
     if (!planContent.trim()) return;
     setIsSavingDoc(true);
     try {
@@ -118,20 +137,16 @@ export function SessionPrdPlanView({
         return;
       }
       navigate({ to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}` });
-    } finally {
+    } catch (error) {
       setIsSavingDoc(false);
+      throw error;
     }
-  }, [
-    basePath,
-    convex,
-    createDocFromSession,
-    navigate,
-    planContent,
-    sessionId,
-  ]);
+    setIsSavingDoc(false);
+  };
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";
+  const planTitle = proposedPlanTitle(planContent) ?? "Product Requirements";
 
   return (
     <Plan
@@ -142,13 +157,14 @@ export function SessionPrdPlanView({
       )}
     >
       <PlanHeader className={cn("p-4", isPanel && "shrink-0")}>
-        <PlanTitle>Product Requirements</PlanTitle>
+        <PlanTitle>{planTitle}</PlanTitle>
         <PlanAction>
           <Button
             size="icon"
             variant="ghost"
             className="size-8"
             onClick={handleCopy}
+            disabled={!hasContent}
             aria-label={copied ? "Copied" : "Copy PRD"}
           >
             {copied ? (
@@ -156,6 +172,16 @@ export function SessionPrdPlanView({
             ) : (
               <IconCopy className="size-4" />
             )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={handleDownload}
+            disabled={!hasContent}
+            aria-label="Download PRD as markdown"
+          >
+            <IconDownload className="size-4" />
           </Button>
           <PlanTrigger />
         </PlanAction>

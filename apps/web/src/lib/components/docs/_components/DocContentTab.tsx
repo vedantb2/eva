@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -9,13 +9,13 @@ import type { Transaction } from "@tiptap/pm/state";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { docModeParser, type DocMode } from "@/lib/search-params";
 import { nanoid } from "nanoid";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconMessage } from "@tabler/icons-react";
 import { FloatingToc } from "../FloatingToc";
 import { DocCommentsPanel } from "./DocCommentsPanel";
@@ -69,6 +69,7 @@ export function DocContentTab({
   onToggleSuggestions: () => void;
   onSuggestionCount: (count: number) => void;
 }) {
+  "use no memo";
   const [mode] = useQueryState("mode", docModeParser);
   const isPrRecap = doc.kind === "pr-recap";
   const effectiveMode: DocMode = isPrRecap ? "viewing" : mode;
@@ -80,21 +81,20 @@ export function DocContentTab({
   // recreating the editor when auth resolves.
   const currentUserId = useQuery(api.auth.me);
   const userIdRef = useRef<string | null>(null);
-  userIdRef.current = currentUserId ?? null;
+  useEffect(() => {
+    userIdRef.current = currentUserId ?? null;
+  }, [currentUserId]);
   // Clicking a highlight routes here; the ref lets the (memoized once) editor
   // extension reach the latest handler without recreating the editor.
   const anchorClickRef = useRef<(anchorId: string) => void>(() => undefined);
-  const extensions = useMemo(
-    () => [
-      ...baseEditorExtensions,
-      SuggestChangesKit.configure({ getUserId: () => userIdRef.current }),
-      DocCommentMark,
-      DocCommentHighlight.configure({
-        onAnchorClick: (anchorId) => anchorClickRef.current(anchorId),
-      }),
-    ],
-    [],
-  );
+  const extensions = [
+    ...baseEditorExtensions,
+    SuggestChangesKit.configure({ getUserId: () => userIdRef.current }),
+    DocCommentMark,
+    DocCommentHighlight.configure({
+      onAnchorClick: (anchorId) => anchorClickRef.current(anchorId),
+    }),
+  ];
 
   const sync = useTiptapSync(api.prosemirrorSync, doc._id);
 
@@ -115,7 +115,7 @@ export function DocContentTab({
   // roots plus the anchor currently being composed.
   const comments =
     useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];
-  const openAnchorIds = useMemo(() => {
+  const openAnchorIds = (() => {
     const ids = new Set<string>();
     for (const c of comments) {
       if (!c.parentId && c.resolvedAt === undefined && c.anchorId) {
@@ -124,7 +124,7 @@ export function DocContentTab({
     }
     if (composingAnchorId) ids.add(composingAnchorId);
     return ids;
-  }, [comments, composingAnchorId]);
+  })();
 
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const [tocContent, setTocContent] = useState(doc.content);
@@ -265,21 +265,20 @@ export function DocContentTab({
   }, [editor]);
 
   // Highlight click -> focus its thread in the panel.
-  anchorClickRef.current = (anchorId: string) => {
-    setActiveAnchorId(anchorId);
-    if (!commentsOpen) onToggleComments();
-  };
+  useEffect(() => {
+    anchorClickRef.current = (anchorId: string) => {
+      setActiveAnchorId(anchorId);
+      if (!commentsOpen) onToggleComments();
+    };
+  }, [commentsOpen, onToggleComments]);
 
   // Panel thread click -> scroll the editor to the anchored text.
-  const handleAnchorActivate = useCallback(
-    (anchorId: string) => {
-      setActiveAnchorId(anchorId);
-      if (editor) scrollToAnchor(editor, anchorId);
-    },
-    [editor],
-  );
+  const handleAnchorActivate = (anchorId: string) => {
+    setActiveAnchorId(anchorId);
+    if (editor) scrollToAnchor(editor, anchorId);
+  };
 
-  const handleStartComment = useCallback(() => {
+  const handleStartComment = () => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
     if (from === to) return;
@@ -291,42 +290,39 @@ export function DocContentTab({
     setComposingAnchorText(text);
     setActiveAnchorId(anchorId);
     if (!commentsOpen) onToggleComments();
-  }, [editor, commentsOpen, onToggleComments]);
+  };
 
-  const handleCancelCompose = useCallback(() => {
+  const handleCancelCompose = () => {
     if (editor && composingAnchorId)
       removeCommentAnchor(editor, composingAnchorId);
     setComposingAnchorId(null);
     setComposingAnchorText(null);
-  }, [editor, composingAnchorId]);
+  };
 
-  const handleCommentCreated = useCallback(() => {
+  const handleCommentCreated = () => {
     setComposingAnchorId(null);
     setComposingAnchorText(null);
-  }, []);
+  };
 
-  const handleRestoreVersion = useCallback(
-    (pmContent: string) => {
-      if (!editor) return;
-      // Snapshot the current state first so the restore is itself reversible
-      // (dedupe in saveVersion makes this free when nothing changed).
-      saveVersion({
-        docId: doc._id,
-        content: editor.getMarkdown(),
-        pmContent: JSON.stringify(editor.state.doc.toJSON()),
-      });
-      try {
-        const json = JSON.parse(pmContent);
-        // Apply with skip meta so the restore is not turned into a tracked
-        // suggestion while in Suggesting mode.
-        setContentUntracked(editor, json);
-      } catch {
-        // ignore malformed snapshots
-      }
-      setSelectedVersionId(null);
-    },
-    [editor, doc._id, saveVersion],
-  );
+  const handleRestoreVersion = (pmContent: string) => {
+    if (!editor) return;
+    // Snapshot the current state first so the restore is itself reversible
+    // (dedupe in saveVersion makes this free when nothing changed).
+    saveVersion({
+      docId: doc._id,
+      content: editor.getMarkdown(),
+      pmContent: JSON.stringify(editor.state.doc.toJSON()),
+    });
+    try {
+      const json = JSON.parse(pmContent);
+      // Apply with skip meta so the restore is not turned into a tracked
+      // suggestion while in Suggesting mode.
+      setContentUntracked(editor, json);
+    } catch {
+      // ignore malformed snapshots
+    }
+    setSelectedVersionId(null);
+  };
 
   if (sync.isLoading || (!sync.extension && sync.initialContent === null)) {
     return (

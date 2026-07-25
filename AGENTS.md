@@ -20,6 +20,7 @@ Implementation:
 - Never use the non-null assertion operator `!`.
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
+- With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
 - Minimize surface area of change.
 - Co-locate logic where it naturally belongs.
 - Avoid premature abstractions.
@@ -95,6 +96,9 @@ Plan Mode
 - At the end of each plan, give me a list of unresolved questions to answer, if any.
 - Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one
 - Use the AskUserQuestion tool
+
+Sandbox provider is Vercel; Daytona is legacy — prefer Vercel paths for sandbox/preview work.
+Sandboxes do not support IPv6 — all networking must use IPv4
 
 Philosophy
 This codebase will outlive you. Every shortcut becomes someone else's burden. Every ack compounds into technical debt that slows the whole team down.

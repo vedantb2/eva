@@ -1,5 +1,5 @@
-import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, PERSONALISATION_PRESETS } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   HoverCard,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Facehash } from "facehash";
 import type { ReactNode } from "react";
@@ -291,9 +291,6 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
                   (presence.online ? "bg-success" : "bg-muted-foreground/40")
                 }
               />
-              {presence.online ? (
-                <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-success/35" />
-              ) : null}
             </span>
             <span
               className={

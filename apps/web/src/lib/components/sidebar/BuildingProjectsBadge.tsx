@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-  Badge,
-} from "@conductor/ui";
+import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { IconFolder, IconLoader2 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { entityPathSegment } from "@/lib/numId";
 
@@ -62,7 +57,7 @@ export function BuildingProjectsBadge({
           )}
           {sandboxProjects.length > 0 && (
             <span className="flex items-center gap-1.5">
-              <PulseDot />
+              <StatusDot />
               <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {sandboxProjects.length}
               </span>
@@ -120,7 +115,7 @@ export function BuildingProjectsBadge({
               <Section
                 label="Sandbox"
                 count={sandboxProjects.length}
-                glyph={<PulseDot />}
+                glyph={<StatusDot />}
               >
                 {sandboxProjects.map((project) => (
                   <ProjectRow
@@ -186,11 +181,6 @@ function ProjectRow({ title, to }: ProjectRowProps) {
   );
 }
 
-function PulseDot() {
-  return (
-    <span className="relative flex h-2 w-2">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
-      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-    </span>
-  );
+function StatusDot() {
+  return <span className="h-2 w-2 rounded-full bg-success" />;
 }

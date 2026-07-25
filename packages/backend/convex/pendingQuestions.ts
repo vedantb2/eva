@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import type { DatabaseWriter } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
 /**
@@ -12,6 +14,35 @@ import { authQuery, authMutation } from "./functions";
  * post/claim, the signed-in user for answer/getActive) — no per-entity check,
  * since the row only carries the model's own question text.
  */
+
+/**
+ * Deletes all question rows for an entity. Called when the entity's sandbox
+ * stops: the paused turn is dead, so an unanswered question can never be
+ * claimed — leaving it would hide the composer behind a question the UI may
+ * no longer render.
+ */
+export async function clearPendingQuestionsForEntity(
+  db: DatabaseWriter,
+  entityId: string,
+): Promise<void> {
+  const rows = await db
+    .query("pendingQuestions")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .collect();
+  for (const row of rows) {
+    await db.delete(row._id);
+  }
+}
+
+/** One-off ops escape hatch: clear stale rows for an entity via `npx convex run`. */
+export const clearForEntity = internalMutation({
+  args: { entityId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await clearPendingQuestionsForEntity(ctx.db, args.entityId);
+    return null;
+  },
+});
 
 const activeQuestionValidator = v.union(
   v.object({ toolUseId: v.string(), payload: v.string() }),

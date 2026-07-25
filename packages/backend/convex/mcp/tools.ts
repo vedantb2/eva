@@ -20,7 +20,7 @@ interface McpCredentials {
   clerkUserId: string;
   scopedRepoId?: string;
   entityId?: string;
-  entityKind?: "session";
+  entityKind?: "session" | "task" | "project";
 }
 
 interface RepoInfo {
@@ -78,7 +78,7 @@ export function registerTools(
 
   async function resolveTargetWithAccess(
     repoId: string,
-    deployKey: string,
+    _deployKey: string,
     userId: string,
     environment: "staging" | "prod",
   ): Promise<RepoCredentials> {
@@ -1113,32 +1113,71 @@ Do NOT use this for session walkthrough recordings, screen captures, or screensh
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Session browser tools (shared desktop Chrome via CDP — sessions only)
+  // Media tools (host a sandbox file at a public URL for PR comments/Linear issues)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  function requireSessionEntity():
-    | { sessionId: string }
+  server.tool(
+    "upload_media",
+    `Host a sandbox file (screenshot, recording, image) so it can be embedded outside Eva — e.g. in a GitHub PR comment or a Linear issue. Returns a one-time uploadUrl: POST the raw bytes to it from the sandbox (\`curl -s -X POST '<uploadUrl>' -H 'Content-Type: image/png' --data-binary @screenshots/before.png\`), read the storageId from the JSON response, then call get_media_url with that storageId to get the permanent public URL.
+
+Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat — Eva attaches those automatically.`,
+    {},
+    async () => {
+      await getContext();
+      const uploadUrl = await ctx.runMutation(
+        internal.mcp.media.generateUploadUrl,
+        {},
+      );
+      return textResult({ uploadUrl });
+    },
+  );
+
+  server.tool(
+    "get_media_url",
+    "Exchange a storageId from upload_media for the file's permanent public URL (plus contentType/size). Embed the URL in PR comments (`![before](url)`) or pass it to external APIs like Linear attachments.",
+    {
+      storageId: z
+        .string()
+        .describe("The storageId returned by upload_media's JSON response"),
+    },
+    async ({ storageId }) => {
+      await getContext();
+      const result = await ctx.runQuery(internal.mcp.media.getUrl, {
+        storageId,
+      });
+      if (result === null) return errorResult("Unknown storageId.");
+      return textResult(result);
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Browser tools (shared desktop Chrome via CDP — session/task/project sandboxes)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function requireBrowserEntity():
+    | { entityKind: "session" | "task" | "project"; entityId: string }
     | ReturnType<typeof errorResult> {
-    if (entityKind !== "session" || entityId === undefined) {
+    if (entityKind === undefined || entityId === undefined) {
       return errorResult(
-        "browser_* tools are only available inside a session sandbox (token has no session entity).",
+        "browser_* tools require a session, task, or project sandbox (token has no entity).",
       );
     }
-    return { sessionId: entityId };
+    return { entityKind, entityId };
   }
 
   server.tool(
     "browser_start",
-    "Start the session's shared desktop Chrome (CDP on port 9222) so the user can watch live in the Browser tab. Then run `agent-browser connect 9222` once and use agent-browser commands against that browser. Session sandboxes only.",
+    "Start the sandbox's shared desktop Chrome (CDP on port 9222) so the user can watch live in the Browser tab. Then run `agent-browser connect 9222` once and use agent-browser commands against that browser.",
     {},
     async () => {
-      const session = requireSessionEntity();
-      if ("isError" in session) return session;
+      const entity = requireBrowserEntity();
+      if ("isError" in entity) return entity;
 
       const result = await ctx.runAction(
-        internal.daytona.startDesktopForBrowserSession,
+        internal.sandbox.startDesktopForBrowserEntity,
         {
-          sessionId: session.sessionId,
+          entityKind: entity.entityKind,
+          entityId: entity.entityId,
           clerkUserId,
         },
       );
@@ -1151,14 +1190,15 @@ Do NOT use this for session walkthrough recordings, screen captures, or screensh
 
   server.tool(
     "browser_lock",
-    "Signal that you are actively driving the shared browser. Switches the user's session UI to the Browser tab and shows a takeover overlay. Call before interacting; pair with browser_unlock when done.",
+    "Signal that you are actively driving the shared browser. Switches the user's UI to the Browser tab and shows a takeover overlay. Call before interacting; pair with browser_unlock when done.",
     {},
     async () => {
-      const session = requireSessionEntity();
-      if ("isError" in session) return session;
+      const entity = requireBrowserEntity();
+      if ("isError" in entity) return entity;
 
-      await ctx.runMutation(internal.sessions.setAgentBrowsingAt, {
-        sessionId: session.sessionId,
+      await ctx.runMutation(internal.mcp.browserLock.setAgentBrowsingAt, {
+        entityKind: entity.entityKind,
+        entityId: entity.entityId,
         locked: true,
       });
       return textResult({ locked: true });
@@ -1170,11 +1210,12 @@ Do NOT use this for session walkthrough recordings, screen captures, or screensh
     "Clear the agent-browsing soft lock so the user can interact freely in the Browser/Computer tab again.",
     {},
     async () => {
-      const session = requireSessionEntity();
-      if ("isError" in session) return session;
+      const entity = requireBrowserEntity();
+      if ("isError" in entity) return entity;
 
-      await ctx.runMutation(internal.sessions.setAgentBrowsingAt, {
-        sessionId: session.sessionId,
+      await ctx.runMutation(internal.mcp.browserLock.setAgentBrowsingAt, {
+        entityKind: entity.entityKind,
+        entityId: entity.entityId,
         locked: false,
       });
       return textResult({ locked: false });

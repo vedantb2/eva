@@ -5,25 +5,26 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Spinner,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconBrandVercel,
   IconDots,
   IconGitPullRequest,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
   IconPlayerPlay,
   IconPlayerStop,
   IconSend,
   IconSparkles,
 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
@@ -96,11 +97,11 @@ export function SessionChatHeader({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            size="sm"
+            size="icon-sm"
             variant="secondary"
+            aria-label="More"
             className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
-            More
             <IconDots size={14} />
           </Button>
         </DropdownMenuTrigger>
@@ -112,6 +113,7 @@ export function SessionChatHeader({
             <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
+          {(deploymentStatus || prUrl) && <DropdownMenuSeparator />}
           {deploymentStatus && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -141,22 +143,15 @@ export function SessionChatHeader({
               View PR
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
+          <CopyLinkMenuItem />
         </DropdownMenuContent>
       </DropdownMenu>
       {onToggleSandbox && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
-          onClick={onToggleSandbox}
-          title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
-        >
-          {sandboxCollapsed ? (
-            <IconLayoutSidebarRightExpand className="size-4" />
-          ) : (
-            <IconLayoutSidebarRightCollapse className="size-4" />
-          )}
-        </Button>
+        <SandboxPanelToggleButton
+          collapsed={sandboxCollapsed === true}
+          onToggle={onToggleSandbox}
+        />
       )}
     </>
   );

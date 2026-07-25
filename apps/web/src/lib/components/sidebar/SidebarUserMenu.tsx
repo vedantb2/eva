@@ -14,9 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useClerk } from "@clerk/clerk-react";
-import { UserInitials } from "@conductor/shared";
+import { UserInitials } from "@eva/shared";
 import {
   IconUserCog,
   IconLogout,

@@ -5,23 +5,30 @@ import {
   ConversationScrollButton,
   type ModelOption,
   type ModelAccount,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
+import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
+import { useState } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
+  api,
   type AIModel,
   type Id,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
   buildMessageHistory,
   findLastUserMessageIndex,
+  findPrecedingUserTurn,
+  firstNameFromUser,
+  isOtherUserChatMessage,
   parsePendingQuestion,
   type ChatBodyMessage,
   type ChatBodyQueuedMessage,
@@ -90,10 +97,10 @@ interface ChatBodyProps {
   preInputContent?: React.ReactNode;
   /** Optional slot inserted before the model selector (session mode dropdown). */
   toolsBefore?: React.ReactNode;
+  /** Optional "Options" submenu inside the composer "+" menu. */
+  optionsSubmenu?: React.ReactNode;
   /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
-  /** Optional formatter for queued message info tooltips. Falls back to none. */
-  formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
   /**
    * Draft seed to restore. When provided, the PromptInputProvider is seeded
    * with the stored draft text and mention maps, and a ChatDraftSync child
@@ -120,6 +127,8 @@ interface ChatBodyProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
+  /** Session coding chat can attach HTML/MD/TXT; default images-only. */
+  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatBody({
@@ -152,75 +161,125 @@ export function ChatBody({
   beforeQueuedContent,
   preInputContent,
   toolsBefore,
+  optionsSubmenu,
   emptyStateOverride,
-  formatQueuedInfo,
   draft,
   isDraftLoading,
   onOpenFile,
   onViewDiff,
   hasPendingContext,
+  attachmentMode = "images",
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
+  // Prefer the unfinished Working bubble over a newer system alert so streamed
+  // tokens / pending questions stay attached to the live turn.
+  const activeAssistantTurn = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (!message || message.isSystemAlert) continue;
+      if (
+        message.role === "assistant" &&
+        !message.content &&
+        message.finishedAt === undefined
+      ) {
+        return message;
+      }
+      return undefined;
+    }
+    return undefined;
+  })();
+  const activeAssistantTurnId = activeAssistantTurn?._id;
 
-  const [questionDismissed, setQuestionDismissed] = useState(false);
+  const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
+    string | null
+  >(null);
+  // Submit-in-flight only — not turn execution. Blocking AskUserQuestion leaves
+  // the turn executing while waiting for the user; mirroring that would lock the UI.
+  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const pendingQuestionRaw =
-    streamingPendingQuestion ?? lastMessage?.pendingQuestion;
-  const activePendingQuestion = useMemo(
-    () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
-    [questionDismissed, pendingQuestionRaw],
-  );
+    streamingPendingQuestion ??
+    activeAssistantTurn?.pendingQuestion ??
+    lastMessage?.pendingQuestion;
+  const questionDismissed =
+    pendingQuestionRaw !== undefined &&
+    pendingQuestionRaw !== null &&
+    pendingQuestionRaw !== "" &&
+    dismissedQuestionKey === pendingQuestionRaw;
+  const activePendingQuestion = questionDismissed
+    ? null
+    : parsePendingQuestion(pendingQuestionRaw);
   // A blocking AskUserQuestion (Agent SDK) takes precedence over the
   // fire-and-forget path: it keeps the turn paused until the user answers.
-  const blockingQuestions = useMemo(
-    () =>
-      blockingQuestion ? parsePendingQuestion(blockingQuestion.payload) : null,
-    [blockingQuestion],
+  const blockingQuestions = blockingQuestion
+    ? parsePendingQuestion(blockingQuestion.payload)
+    : null;
+  // The blocking card is normally hosted by the streaming placeholder message.
+  // If that placeholder is gone (run died, sandbox restarted) the unanswered
+  // question would otherwise be unrenderable while still hiding the composer —
+  // render it standalone so the user can always answer and unblock the chat.
+  const hasStreamingPlaceholder = messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      !message.content &&
+      message.finishedAt === undefined,
   );
 
-  useEffect(() => {
+  const handleQuestionAnswer = async (answer: string) => {
     if (pendingQuestionRaw) {
-      setQuestionDismissed(false);
+      setDismissedQuestionKey(pendingQuestionRaw);
     }
-  }, [pendingQuestionRaw]);
-
-  const handleQuestionAnswer = useCallback(
-    async (answer: string) => {
-      setQuestionDismissed(true);
+    setIsAnsweringQuestion(true);
+    try {
       await onSend(answer);
-    },
-    [onSend],
-  );
+    } finally {
+      setIsAnsweringQuestion(false);
+    }
+  };
 
-  const handleBlockingAnswer = useCallback(
-    async (answers: Record<string, string>) => {
-      if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+  const handleBlockingAnswer = async (answers: Record<string, string>) => {
+    if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+    setIsAnsweringQuestion(true);
+    try {
       await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
-    },
-    [blockingQuestion, onAnswerBlockingQuestion],
-  );
+    } finally {
+      setIsAnsweringQuestion(false);
+    }
+  };
 
-  const messageHistory = useMemo(
-    () => buildMessageHistory(messages),
-    [messages],
-  );
+  const messageHistory = buildMessageHistory(messages);
 
-  const lastUserMessageIndex = useMemo(
-    () => findLastUserMessageIndex(messages),
-    [messages],
-  );
+  const lastUserMessageIndex = findLastUserMessageIndex(messages);
 
-  const jumpRailMessages = useMemo(
-    () => buildJumpRailTicks(messages),
-    [messages],
-  );
+  const jumpRailMessages = buildJumpRailTicks(messages);
+
+  const currentUserId = useQuery(api.auth.me);
+  const users = useQuery(api.users.listAll);
+  const firstNameByUserId = (() => {
+    const map = new Map<Id<"users">, string>();
+    for (const user of users ?? []) {
+      const name = firstNameFromUser(user);
+      if (name) map.set(user._id, name);
+    }
+    return map;
+  })();
 
   const renderMessage = (message: ChatBodyMessage) => {
     const isLast = message._id === lastMessageId;
+    const isActiveAssistantTurn = message._id === activeAssistantTurnId;
     const isStreamingPlaceholder =
       message.role === "assistant" &&
       !message.content &&
       message.finishedAt === undefined;
+    const isOtherUser = isOtherUserChatMessage(message, currentUserId);
+    const senderFirstName =
+      isOtherUser && message.userId
+        ? firstNameByUserId.get(message.userId)
+        : undefined;
+    const precedingUser =
+      message.role === "assistant"
+        ? findPrecedingUserTurn(messages, message._id)
+        : undefined;
 
     return (
       <ChatMessage
@@ -228,17 +287,26 @@ export function ChatBody({
         message={message}
         repoBasePath={repoBasePath}
         isLast={isLast}
+        isOtherUser={isOtherUser}
+        senderFirstName={senderFirstName}
+        turnModel={precedingUser?.model}
+        turnReasoningLevel={precedingUser?.reasoningLevel}
+        turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
         streamingActivity={
           isStreamingPlaceholder ? streamingActivity : undefined
         }
-        streamingContent={isLast ? streamingContent : undefined}
+        streamingContent={
+          isActiveAssistantTurn || isLast ? streamingContent : undefined
+        }
         blockingQuestions={
           isStreamingPlaceholder ? blockingQuestions : undefined
         }
         activePendingQuestion={
-          isStreamingPlaceholder || isLast ? activePendingQuestion : undefined
+          isStreamingPlaceholder || isActiveAssistantTurn || isLast
+            ? activePendingQuestion
+            : undefined
         }
-        isExecuting={isExecuting}
+        isQuestionLoading={isAnsweringQuestion}
         onQuestionAnswer={handleQuestionAnswer}
         onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}
@@ -266,8 +334,16 @@ export function ChatBody({
               </ChatLastTurn>
             </>
           )}
+          {blockingQuestions && !hasStreamingPlaceholder ? (
+            <MultipleChoiceQuestion
+              questions={blockingQuestions}
+              onAnswer={handleQuestionAnswer}
+              onAnswerStructured={handleBlockingAnswer}
+              isLoading={isAnsweringQuestion}
+            />
+          ) : null}
         </ConversationContent>
-        <ConversationScrollButton />
+        <ConversationScrollButton resetKey={conversationId} />
         <ChatJumpRail messages={jumpRailMessages} />
       </Conversation>
       {!isArchived && !activePendingQuestion && !blockingQuestions && (
@@ -293,10 +369,11 @@ export function ChatBody({
           beforeQueuedContent={beforeQueuedContent}
           preInputContent={preInputContent}
           toolsBefore={toolsBefore}
-          formatQueuedInfo={formatQueuedInfo}
+          optionsSubmenu={optionsSubmenu}
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
+          attachmentMode={attachmentMode}
         />
       )}
     </>

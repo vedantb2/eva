@@ -7,7 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconBell,
   IconKey,

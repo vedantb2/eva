@@ -2,9 +2,21 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { Tooltip, TooltipTrigger, TooltipContent, cn } from "@conductor/ui";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  cn,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+  ModelSelect,
+} from "@eva/ui";
+import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
+import { api, normalizeAIModel } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
@@ -16,6 +28,11 @@ import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
 import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
+import {
+  useAvailableAiModels,
+  useTaskOwnerProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
+import { canEditTaskModel } from "./task-detail-constants";
 
 export interface TaskActivityComposerFormProps {
   taskId: Id<"agentTasks">;
@@ -53,13 +70,32 @@ export function TaskActivityComposerForm({
 
   const [commentText, setCommentText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Per-run proof/audit choice for this change request. Transient (default off,
+  // reset after submit) so a change request never repeats these steps unless
+  // explicitly asked for this run.
+  const [captureProof, setCaptureProof] = useState(false);
+  const [runAudit, setRunAudit] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const updateTask = useMutation(api.agentTasks.update);
 
   const currentUserId = useQuery(api.auth.me);
+  const task = useQuery(api.agentTasks.get, { id: taskId });
+  const currentModel = normalizeAIModel(task?.model);
+  const { options: modelOptions } = useAvailableAiModels(
+    task?.repoId,
+    currentModel,
+  );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useTaskOwnerProviderAccounts(taskId);
+  const isOwner =
+    currentUserId !== undefined &&
+    task?.createdBy !== undefined &&
+    currentUserId === task.createdBy;
+  const canEditModel = canEditTaskModel(task?.status);
   const { typingUsers, onActivity, stopTyping } = useTypingPresence(
     `typing:task:${taskId}`,
     currentUserId,
@@ -99,9 +135,8 @@ export function TaskActivityComposerForm({
       await createComment({ taskId, content });
     } catch (err) {
       console.error("Failed to add comment:", err);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const handleSubmitRequestChanges = async () => {
@@ -119,10 +154,25 @@ export function TaskActivityComposerForm({
         requestsChanges: true,
       });
       if (isProjectTask) {
+        // No immediate run — persist proof/audit on the task so the next
+        // Build Project / ordered run picks them up (same resolution as
+        // TaskRunOptionsMenu defaults).
+        await updateTask({
+          id: taskId,
+          screenshotsVideosEnabled: captureProof,
+          runAuditEnabled: runAudit,
+        });
         await updateStatus({ id: taskId, status: "todo" });
       } else {
-        await startExecution({ id: taskId, triggeringCommentId: commentId });
+        await startExecution({
+          id: taskId,
+          triggeringCommentId: commentId,
+          screenshotsVideosEnabled: captureProof,
+          runAuditEnabled: runAudit,
+        });
       }
+      setCaptureProof(false);
+      setRunAudit(false);
       onRequestChangesSubmitted();
     } catch (err) {
       const message =
@@ -132,15 +182,15 @@ export function TaskActivityComposerForm({
             ? "Failed to queue changes"
             : "Failed to start execution";
       setExecutionError(message);
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   const disabledReason = requestChangesBlockedReason;
   const canRequestChanges = disabledReason === undefined;
   const effectiveRequestingChanges = canRequestChanges && requestingChanges;
   const isMakeChangesGated = requestingChanges && !canRequestChanges;
+  const changeRequestOptionCount = (captureProof ? 1 : 0) + (runAudit ? 1 : 0);
 
   // Mirror the sessions/sandbox chat composer (PromptInput): a bordered card
   // wraps a borderless input with a footer row of controls, rather than
@@ -192,48 +242,163 @@ export function TaskActivityComposerForm({
           />
         )}
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={effectiveRequestingChanges}
-                  aria-label="Make changes"
-                  disabled={!canRequestChanges}
-                  onClick={() => {
-                    setRequestingChanges(!requestingChanges);
-                    clearExecutionError();
-                  }}
-                  className={cn(
-                    "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                    !canRequestChanges && "cursor-not-allowed opacity-50",
-                  )}
-                >
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={effectiveRequestingChanges}
+                    aria-label="Make changes"
+                    disabled={!canRequestChanges}
+                    onClick={() => {
+                      setRequestingChanges(!requestingChanges);
+                      clearExecutionError();
+                    }}
+                    className={cn(
+                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
+                      !canRequestChanges && "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
+                        effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
+                      )}
+                    />
+                  </button>
                   <span
                     className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
-                      effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
+                      "text-xs select-none",
+                      canRequestChanges
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Make changes
+                  </span>
+                </span>
+              </TooltipTrigger>
+              {disabledReason !== undefined && (
+                <TooltipContent>{disabledReason}</TooltipContent>
+              )}
+            </Tooltip>
+            {/* Model + Options: same for quick and project tasks; disabled until Make changes. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <ModelSelect
+                    value={currentModel}
+                    options={modelOptions}
+                    onValueChange={() => undefined}
+                    accounts={accounts}
+                    accountId={task?.providerAccountId ?? null}
+                    onSelectionChange={(nextModel, nextAccountId) => {
+                      if (!canEditModel) return;
+                      if (isOwner) {
+                        updateTask({
+                          id: taskId,
+                          model: nextModel,
+                          providerAccountId:
+                            resolveAccountId(nextAccountId) ?? null,
+                        });
+                        return;
+                      }
+                      updateTask({ id: taskId, model: nextModel });
+                    }}
+                    canSelectTeamWhilePersonal={isOwner}
+                    disabled={!effectiveRequestingChanges || !canEditModel}
+                    className={cn(
+                      "h-6 max-w-44",
+                      (!effectiveRequestingChanges || !canEditModel) &&
+                        "opacity-50",
                     )}
                   />
-                </button>
-                <span
-                  className={cn(
-                    "text-xs select-none",
-                    canRequestChanges
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Make changes
                 </span>
-              </span>
-            </TooltipTrigger>
-            {disabledReason !== undefined && (
-              <TooltipContent>{disabledReason}</TooltipContent>
-            )}
-          </Tooltip>
+              </TooltipTrigger>
+              <TooltipContent>
+                {!canEditModel
+                  ? "Locked when the task is done or cancelled"
+                  : effectiveRequestingChanges
+                    ? "Model for this task (saved on change)"
+                    : "Turn on Make changes to pick a model"}
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <DropdownMenuTrigger
+                      asChild
+                      disabled={!effectiveRequestingChanges}
+                    >
+                      <button
+                        type="button"
+                        disabled={!effectiveRequestingChanges}
+                        className={cn(
+                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+                          !effectiveRequestingChanges
+                            ? "cursor-not-allowed text-muted-foreground opacity-50"
+                            : "hover:bg-muted hover:text-foreground",
+                          effectiveRequestingChanges &&
+                            (captureProof || runAudit)
+                            ? "text-foreground"
+                            : effectiveRequestingChanges
+                              ? "text-muted-foreground"
+                              : null,
+                        )}
+                        aria-label={
+                          changeRequestOptionCount > 0
+                            ? `Change-request options, ${changeRequestOptionCount} enabled`
+                            : "Change-request options"
+                        }
+                      >
+                        <IconAdjustmentsHorizontal className="size-3.5" />
+                        Options
+                        {changeRequestOptionCount > 0 ? (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                            {changeRequestOptionCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    </DropdownMenuTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {effectiveRequestingChanges
+                    ? isProjectTask
+                      ? "Extra steps for the next project build of this task"
+                      : "Extra steps for this change request"
+                    : "Turn on Make changes to set proof/audit"}
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>
+                  {isProjectTask
+                    ? "Extra steps on next build"
+                    : "Extra steps this run"}
+                </DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={captureProof}
+                  onCheckedChange={(checked) =>
+                    setCaptureProof(checked === true)
+                  }
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Capture proof
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={runAudit}
+                  onCheckedChange={(checked) => setRunAudit(checked === true)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Run audit
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <span>

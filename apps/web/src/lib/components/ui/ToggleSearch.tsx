@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   Button,
   Input,
@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconSearch, IconX } from "@tabler/icons-react";
 
 // "compact" is the small toolbar pill; "large" is the taller, wider,
@@ -42,7 +42,7 @@ export function ToggleSearch({
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       {showInput ? (
-        <motion.div
+        <m.div
           key="toggle-search-input"
           initial={{ opacity: 0, width: 0 }}
           animate={{ opacity: 1, width: "auto" }}
@@ -96,9 +96,9 @@ export function ToggleSearch({
               </button>
             )}
           </div>
-        </motion.div>
+        </m.div>
       ) : (
-        <motion.div
+        <m.div
           key="toggle-search-icon"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -118,7 +118,7 @@ export function ToggleSearch({
             </TooltipTrigger>
             <TooltipContent>{tooltipLabel}</TooltipContent>
           </Tooltip>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

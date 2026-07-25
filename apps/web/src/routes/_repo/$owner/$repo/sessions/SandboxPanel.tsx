@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
@@ -24,7 +24,6 @@ import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   /**
    * False while another session is shown but this shell stays mounted.
@@ -49,7 +48,6 @@ interface SandboxPanelProps {
 export function SandboxPanel({
   sessionId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   isRouteActive = true,
   repoId,
@@ -205,7 +203,6 @@ export function SandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={sessionIdStr}

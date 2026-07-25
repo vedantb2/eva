@@ -5,7 +5,7 @@ import {
   SIDEBAR_MAX_WIDTH_PX,
   SIDEBAR_MIN_WIDTH_PX,
 } from "@/lib/contexts/SidebarContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface SidebarResizeHandleProps {
   width: number;

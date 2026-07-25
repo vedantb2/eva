@@ -1174,7 +1174,7 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
       if ("isError" in entity) return entity;
 
       const result = await ctx.runAction(
-        internal.daytona.startDesktopForBrowserEntity,
+        internal.sandbox.startDesktopForBrowserEntity,
         {
           entityKind: entity.entityKind,
           entityId: entity.entityId,

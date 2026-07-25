@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Popover, PopoverTrigger, PopoverContent, Button } from "@conductor/ui";
+import { Popover, PopoverTrigger, PopoverContent, Button } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { IconCalendarClock } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import {
   ScheduleDateTimePicker,
   ScheduleDateTimeActions,

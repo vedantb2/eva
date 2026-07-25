@@ -186,7 +186,7 @@ ${buildUiProofCaptureHint(uiTask)}
 4. Confirm backend services are healthy (no Convex/runtime error banners on a simple page load). Fix/restart before capturing
 5. Open the route(s) from your diff plan: \`agent-browser open ${appUrl}/<route-from-diff>\`
 6. Wait minimum 5 seconds after each navigation for the page to fully render
-7. Default: record a video that shows the changed UI from the diff: \`agent-browser record start /tmp/repo/recordings/proof.webm\`, navigate/scroll so the changed element is obvious, then \`agent-browser record stop\`
+7. Default: record a video that shows the changed UI from the diff: \`agent-browser record start /tmp/repo/recordings/proof.webm\`, navigate/scroll so the changed element is obvious, then \`agent-browser record stop\`. A few seconds after \`record start\`, verify the .webm exists and is growing (\`ls -la /tmp/repo/recordings/\`) — ffmpeg writes it progressively, so a missing/0-byte file means recording is broken (usually no ffmpeg); do NOT retry-loop, fall back to screenshots (step 8)
 8. For tiny copy/style tweaks, a screenshot of the exact changed element is enough: \`agent-browser screenshot\` → \`/tmp/repo/screenshots/proof.png\`. Even a one-character text change must be captured on the live page.
 9. **Verify against the diff (required):** Re-read the diff plan. The capture MUST show the same UI the hunks changed (e.g. if the diff adds a badge next to a filename, the badge must be in frame). Reject and re-capture if you see Convex/runtime errors, "Server Error", loading spinner, blank/error boundary, or a page that does not show the diff. Fix the stack and re-capture once.
 10. Leave the app/backend running (do not kill them)

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
@@ -9,7 +9,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconGitBranch,
   IconTrash,

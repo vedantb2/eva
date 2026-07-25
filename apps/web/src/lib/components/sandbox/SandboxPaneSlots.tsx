@@ -1,7 +1,7 @@
 "use client";
 
-import type { Doc, Id } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import type { Doc, Id } from "@eva/backend";
+import { cn } from "@eva/ui";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
@@ -23,8 +23,6 @@ interface SandboxPaneSlotsProps {
   preview: SandboxPreviewApi;
   owner: PtyOwner;
   sandboxId: string | undefined;
-  /** Vercel sandbox name; when set, the Daytona preview hint is hidden. */
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /** sessionStorage cache namespace for editor / desktop URL caches. */
@@ -75,7 +73,6 @@ export function SandboxPaneSlots({
   preview,
   owner,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   cacheKey,
@@ -142,7 +139,6 @@ export function SandboxPaneSlots({
             <WebPreviewPanel
               isActive={isActive}
               sandboxId={sandboxId}
-              vercelSandboxId={vercelSandboxId}
               previewInfo={preview.previewInfo}
               isLoading={preview.isLoading}
               error={preview.error}
@@ -151,7 +147,7 @@ export function SandboxPaneSlots({
               port={preview.effectivePort}
               onPortChange={preview.setPort}
               pathStorageKey={[
-                "conductor",
+                "eva",
                 owner.kind,
                 cacheKey,
                 "preview-path",
@@ -180,7 +176,7 @@ export function SandboxPaneSlots({
         }
       >
         <ConsoleDock
-          storageKey={`conductor:${owner.kind}:${cacheKey}:console`}
+          storageKey={`eva:${owner.kind}:${cacheKey}:console`}
           preview={previewRegion}
           renderConsole={(visible) =>
             consolePane ? (
@@ -205,7 +201,6 @@ export function SandboxPaneSlots({
         <EditorPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
         />
@@ -256,7 +251,6 @@ export function SandboxPaneSlots({
         <DesktopPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           surface={activeTab === "browser" ? "browser" : "desktop"}

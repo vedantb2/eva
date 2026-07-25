@@ -3,14 +3,14 @@
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   IconChevronRight,
   IconGitPullRequest,
   IconPercentage,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { StatsIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { OnlineTeamAvatars } from "@/lib/components/sidebar/TeamMembers";
 

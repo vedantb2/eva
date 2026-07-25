@@ -1,9 +1,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { useQueryState } from "nuqs";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button, Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import {
   IconFileText,
   IconCopy,
@@ -60,7 +60,7 @@ export function FileViewerPanel({
   repoId,
   isActive,
 }: FileViewerPanelProps) {
-  const readSandboxFile = useAction(api.daytona.readSandboxFile);
+  const readSandboxFile = useAction(api.sandbox.readSandboxFile);
   const [filePath] = useQueryState("file", fileViewerPathParser);
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<ViewerState>(() => {

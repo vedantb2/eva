@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Button, Input, Card, CardContent, Badge } from "@conductor/ui";
+import { Button, Input, Card, CardContent, Badge } from "@eva/ui";
 import {
   IconCheck,
   IconPencil,

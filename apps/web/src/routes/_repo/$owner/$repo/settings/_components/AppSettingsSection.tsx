@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import { Input } from "@eva/ui";
+import type { Id } from "@eva/backend";
 import { isAppRepo } from "../_utils";
 import { DomainsSection } from "./DomainsSection";
 

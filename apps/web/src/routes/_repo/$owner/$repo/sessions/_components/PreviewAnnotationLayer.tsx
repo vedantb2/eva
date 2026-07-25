@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useWebPreview } from "@conductor/ui";
+import { useWebPreview } from "@eva/ui";
 import {
   buildAnnotationDisplay,
   buildAnnotationPrompt,

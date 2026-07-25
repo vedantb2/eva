@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Checkbox, Spinner } from "@conductor/ui";
+import { Checkbox, Spinner } from "@eva/ui";
 
 export function NotificationsSettingsClient() {
   const enabled = useQuery(api.auth.getEmailNotificationsEnabled);

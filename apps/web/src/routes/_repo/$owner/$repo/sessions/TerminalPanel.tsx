@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -90,7 +90,7 @@ export function TerminalPanel({
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const ptyProtocolRef = useRef<PtyProtocol>("daytona");
+  const ptyProtocolRef = useRef<PtyProtocol>("vercel");
   const intentionalCloseRef = useRef(false);
   /** Set when the Vercel interactive shell sends an exit frame — do not reconnect. */
   const shellExitedRef = useRef(false);

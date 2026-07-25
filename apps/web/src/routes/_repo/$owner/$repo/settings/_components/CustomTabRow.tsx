@@ -2,9 +2,9 @@
 
 import { useState, createElement } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
-import { Button, Input, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
+import { Button, Input, cn } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import {
   RESERVED_APP_TAB_SLUGS,

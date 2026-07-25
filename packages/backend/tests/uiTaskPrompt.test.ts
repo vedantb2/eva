@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isUiImplementationTask } from "@conductor/shared/uiTaskPrompt";
+import { isUiImplementationTask } from "@eva/shared/uiTaskPrompt";
 import {
   buildImplementationSteps,
   buildSummarySection,

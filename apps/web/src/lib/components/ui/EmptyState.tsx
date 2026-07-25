@@ -1,7 +1,7 @@
 "use client";
 
 import { IconPlus } from "@tabler/icons-react";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { m, useReducedMotion, type Variants } from "motion/react";
 
 interface EmptyStateProps {

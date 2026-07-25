@@ -1,4 +1,4 @@
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authQuery, hasRepoAccess } from "./functions";

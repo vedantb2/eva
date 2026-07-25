@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MessageActions, MessageAction, cn } from "@conductor/ui";
+import { MessageActions, MessageAction, cn } from "@eva/ui";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 

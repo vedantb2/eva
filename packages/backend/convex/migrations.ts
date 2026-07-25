@@ -22,3 +22,4 @@ export {
 } from "./_migrations/backfillNumIds";
 export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";
 export { backfillEvaPrRecapOrigin } from "./_migrations/backfillEvaPrRecapOrigin";
+export { excludeConvexUrlFromSandbox } from "./_migrations/excludeConvexUrlFromSandbox";

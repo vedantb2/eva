@@ -2,16 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Spinner, Button } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Spinner, Button } from "@eva/ui";
 import {
   IconRefresh,
   IconMaximize,
   IconExternalLink,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 type PanelState = "loading" | "running" | "error";
@@ -65,7 +64,7 @@ export function CustomTabPanel({
   const foregroundRef = useRef(isForeground);
   foregroundRef.current = isForeground;
 
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
   const stopPolling = () => {
     clearTimeout(pollTimer.current);
@@ -112,7 +111,6 @@ export function CustomTabPanel({
         if (gen !== generation.current) return;
         if (!foregroundRef.current) return;
         if (data.ready) {
-          await dismissDaytonaWarning(data.url);
           if (gen !== generation.current) return;
           setUrl(data.url);
           setState("running");

@@ -9,7 +9,7 @@ import {
   type AIModel,
   type ReasoningLevel,
   type StoredModelTraits,
-} from "@conductor/backend";
+} from "@eva/backend";
 
 const SESSION_MODES = ["edit", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
 };
 
 function storageKey(sessionId: string) {
-  return `conductor:session-settings:${sessionId}`;
+  return `eva:session-settings:${sessionId}`;
 }
 
 export function useSessionSettings(

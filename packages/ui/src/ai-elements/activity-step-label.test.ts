@@ -195,12 +195,12 @@ describe("deriveStepRowPresentation", () => {
         step({
           type: "bash",
           label: "Running in background...",
-          detail: "pnpm dev --filter @conductor/web",
+          detail: "pnpm dev --filter @eva/web",
         }),
         true,
       ),
     ).toEqual({
-      text: "Running in background pnpm dev --filter @conductor/web",
+      text: "Running in background pnpm dev --filter @eva/web",
       commandKind: "terminal",
     });
   });

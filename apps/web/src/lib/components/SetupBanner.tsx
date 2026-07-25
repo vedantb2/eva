@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 
@@ -24,11 +24,6 @@ const REQUIRED_KEYS: Array<{
     keys: ["CLAUDE_CODE_OAUTH_TOKEN"],
     required: true,
     description: "OAuth token for Claude Code CLI authentication in sandboxes",
-  },
-  {
-    keys: ["DAYTONA_API_KEY"],
-    required: true,
-    description: "API key for provisioning and managing Daytona sandboxes",
   },
   {
     keys: ["CODEX_AUTH_JSON", "CODEX_AUTH_JSON_BASE64"],

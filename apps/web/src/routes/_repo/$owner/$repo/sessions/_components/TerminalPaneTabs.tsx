@@ -1,5 +1,5 @@
 import { IconTerminal2, IconX } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface TerminalPaneTabsProps {
   termIds: string[];

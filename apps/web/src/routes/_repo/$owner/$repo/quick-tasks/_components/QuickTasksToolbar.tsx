@@ -15,7 +15,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import {
   IconPlus,
@@ -40,7 +40,7 @@ import {
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import { useQuickTaskFilters } from "../_utils";
 
 type QuickTaskView = "kanban" | "list" | "table";

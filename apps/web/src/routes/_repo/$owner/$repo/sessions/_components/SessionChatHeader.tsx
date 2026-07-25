@@ -11,7 +11,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconBrandVercel,
   IconDots,
@@ -21,7 +21,7 @@ import {
   IconSend,
   IconSparkles,
 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";

@@ -78,7 +78,12 @@ export function parseTerminalControlMessage(
   };
 }
 
-export type PtyProtocol = "daytona" | "vercel";
+/**
+ * Vercel is the only sandbox provider, so the backend's `ptyProtocol` is
+ * `v.literal("vercel")`. Kept as a named type rather than inlined because the
+ * terminal still negotiates protocol with the server per connection.
+ */
+export type PtyProtocol = "vercel";
 
 type VercelPtyOutboundMessage =
   | {
@@ -223,7 +228,7 @@ export function buildTerminalHistoryKey(
       : owner.kind === "task"
         ? owner.taskId
         : owner.projectId;
-  return `conductor:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
+  return `eva:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
 }
 
 export function createTerminalHistoryWriter(

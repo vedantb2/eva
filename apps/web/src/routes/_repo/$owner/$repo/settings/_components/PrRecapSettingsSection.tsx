@@ -1,7 +1,7 @@
 "use client";
 
-import { Checkbox } from "@conductor/ui";
-import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
+import { Checkbox } from "@eva/ui";
+import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ConfigModelField } from "./ConfigModelField";
 

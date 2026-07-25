@@ -1,6 +1,6 @@
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
 import {
   SandboxIframeService,
@@ -13,7 +13,6 @@ const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
 interface DesktopPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
@@ -87,7 +86,6 @@ function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
 export function DesktopPanel({
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   surface = "desktop",
@@ -96,8 +94,8 @@ export function DesktopPanel({
   onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
-  const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
-  const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
+  const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
+  const launchChromeInDesktop = useAction(api.sandbox.launchChromeInDesktop);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
@@ -132,7 +130,6 @@ export function DesktopPanel({
         cacheNamespace="desktop-scale"
         cacheKey={cacheKey}
         sandboxId={sandboxId}
-        vercelSandboxId={vercelSandboxId}
         isActive={isActive}
         repoId={repoId}
         port={6080}

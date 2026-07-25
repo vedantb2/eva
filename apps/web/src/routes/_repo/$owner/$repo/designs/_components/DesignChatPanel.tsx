@@ -6,7 +6,7 @@ import {
   getReasoningLevelLabel,
   modelHasTraits,
   type Id,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRef, useState } from "react";
 import {
@@ -29,7 +29,7 @@ import {
   TraitsMenu,
   toast,
   type PromptInputMessage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   MAX_IMAGE_ATTACHMENTS,
   MAX_IMAGE_ATTACHMENT_BYTES,
@@ -51,7 +51,7 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import {
   useAvailableAiModels,

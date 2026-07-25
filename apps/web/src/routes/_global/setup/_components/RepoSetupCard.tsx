@@ -1,4 +1,4 @@
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import {
   IconBrandGithub,
   IconCheck,

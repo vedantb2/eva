@@ -5,8 +5,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   usePromptInputController,
   usePromptInputAttachments,
-} from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+} from "@eva/ui";
+import type { Id } from "@eva/backend";
 import {
   MentionEditor,
   type MentionEditorHandle,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Card, CardContent, cn } from "@conductor/ui";
+import { Card, CardContent, cn } from "@eva/ui";
 import {
   type Icon as TablerIcon,
   IconTrendingUp,

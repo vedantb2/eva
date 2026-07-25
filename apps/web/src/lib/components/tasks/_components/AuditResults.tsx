@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Badge,
   Accordion,
@@ -14,7 +14,7 @@ import {
   Button,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 
 type AuditDoc = FunctionReturnType<typeof api.audits.listByTask>[number];

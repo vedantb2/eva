@@ -1,4 +1,4 @@
-import { isUiImplementationTask } from "@conductor/shared/uiTaskPrompt";
+import { isUiImplementationTask } from "@eva/shared/uiTaskPrompt";
 
 export const UI_LOCATE_STEP = `1. **Locate the UI (required before editing):** Before changing any file, find the exact control the task refers to.
    - If the description includes **Route**, **Control**, or **Acceptance**, treat those as authoritative.

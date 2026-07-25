@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   Button,
@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -90,7 +90,7 @@ export function CommentActivityItem({
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
   const { groups, toggle } = useReactions("comment", comment._id);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -236,6 +236,7 @@ export function CommentActivityItem({
         <MarkdownMentionText
           text={comment.content}
           repoBasePath={basePath}
+          repoId={repo._id}
           atKind="user"
           className="pl-6 text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         />

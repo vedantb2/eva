@@ -1,8 +1,8 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import { type api } from "@conductor/backend";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import { type api } from "@eva/backend";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@eva/ui";
 import {
   phaseConfig,
   type ProjectPhase,

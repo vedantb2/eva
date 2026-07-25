@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   isSessionSandboxTab,
   type SandboxTab,
@@ -28,7 +28,6 @@ interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
   projectNumId?: number;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   prUrl?: string;
@@ -44,7 +43,6 @@ export function ProjectSandboxPanel({
   projectId,
   projectNumId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   prUrl,
@@ -168,7 +166,6 @@ export function ProjectSandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={projectIdStr}

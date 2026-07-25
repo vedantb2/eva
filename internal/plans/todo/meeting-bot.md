@@ -157,7 +157,7 @@ Required:
 
 ## Notes
 
-- This is a standalone project — no overlap with Conductor codebase
+- This is a standalone project — no overlap with Eva codebase
 - Essentially building a custom Microsoft Copilot for Meetings
 - Startup-grade product, not a weekend project
 - Foundation step: create a bot that can join a Teams meeting and receive audio

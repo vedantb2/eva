@@ -88,6 +88,13 @@ export const startExecute = authMutation({
       }
     }
 
+    // Wipe any stale streaming row before staging the placeholder. The daemon's
+    // post-completion reconcile heartbeat (finalizeTurn -> setFinalizingState)
+    // races saveResult's clearStreamingActivity; when it loses, a row holding
+    // the finished turn's full activity survives, and the new placeholder below
+    // would flash the previous turn's thinking trace until the next heartbeat.
+    await clearStreamingActivity(ctx, String(args.sessionId));
+
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
     // poll instead of waiting on the workflow's durable step queue. We must
     // reproduce, in this mutation, the exact side effects the workflow's first
@@ -153,7 +160,7 @@ export const startExecute = authMutation({
     if (usesDaemonPull && session.sandboxId) {
       const effectiveMode: "edit" | "plan" =
         args.mode === "plan" ? "plan" : "edit";
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
         sandboxId: session.sandboxId,
         sessionId: args.sessionId,
         repoId: session.repoId,
@@ -219,7 +226,7 @@ export const prewarmDaemon = authMutation({
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
     // leaves the chat stuck on Working).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
@@ -314,7 +321,7 @@ export const cancelExecution = authMutation({
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });

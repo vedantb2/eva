@@ -7,10 +7,10 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";

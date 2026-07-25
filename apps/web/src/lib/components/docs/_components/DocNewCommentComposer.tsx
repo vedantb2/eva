@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button, Textarea } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Textarea } from "@eva/ui";
 import { useState } from "react";
 
 export function DocNewCommentComposer({

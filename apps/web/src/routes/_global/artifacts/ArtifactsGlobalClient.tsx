@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ArtifactList } from "@/lib/components/artifacts/ArtifactList";
 import { ArtifactUploadDialog } from "@/lib/components/artifacts/ArtifactUploadDialog";

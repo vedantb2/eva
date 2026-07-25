@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
-import { Badge, Button, Card, CardContent } from "@conductor/ui";
+import { Badge, Button, Card, CardContent } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";

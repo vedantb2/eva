@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { m } from "motion/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { repoHref } from "@/lib/utils/repoUrl";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -16,7 +16,7 @@ import {
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconBrandGithub,
   IconPlugConnectedX,

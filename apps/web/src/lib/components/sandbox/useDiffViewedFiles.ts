@@ -11,8 +11,8 @@ export function useDiffViewedFiles(prUrl: string | undefined): {
   setViewed: (path: string, viewed: boolean) => void;
 } {
   const storageKey = prUrl
-    ? `conductor:pr-diff-viewed:${prUrl}`
-    : "conductor:pr-diff-viewed:none";
+    ? `eva:pr-diff-viewed:${prUrl}`
+    : "eva:pr-diff-viewed:none";
 
   const [viewedPaths, setViewedPaths] = useLocalStorage<string[]>(
     storageKey,

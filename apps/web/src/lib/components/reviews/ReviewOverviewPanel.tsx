@@ -3,9 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button, Spinner, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Spinner, cn } from "@eva/ui";
 import {
   IconAlertTriangle,
   IconCircleCheck,

@@ -29,7 +29,7 @@ import {
   getSelectionAnchorRect,
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
-import { UserProfileHoverCardBody } from "@conductor/shared";
+import { UserProfileHoverCardBody } from "@eva/shared";
 
 const DEFAULT_EDITOR_CLASS =
   "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";

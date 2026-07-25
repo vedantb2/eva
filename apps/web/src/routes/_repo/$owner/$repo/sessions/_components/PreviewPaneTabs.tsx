@@ -1,5 +1,5 @@
 import { IconWorld, IconX } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface PreviewPaneTabsProps {
   previewIds: string[];

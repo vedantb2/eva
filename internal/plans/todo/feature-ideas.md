@@ -1,4 +1,4 @@
-# Feature Ideas for Conductor
+# Feature Ideas for Eva
 
 Curated list of features to improve AI usage and UX, based on full codebase scan. Excludes the 3 features already planned (task screenshots, MCP in sandbox, reports/charts).
 

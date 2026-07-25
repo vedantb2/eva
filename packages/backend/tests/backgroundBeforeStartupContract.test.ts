@@ -6,12 +6,12 @@ import { expect, test } from "vitest";
 const testsDir = dirname(fileURLToPath(import.meta.url));
 
 const sessionsSource = readFileSync(
-  join(testsDir, "../convex/_daytona/sessions.ts"),
+  join(testsDir, "../convex/_sandbox_runtime/sessions.ts"),
   "utf8",
 );
 
 const prepareStepsSource = readFileSync(
-  join(testsDir, "../convex/_daytona/prepareSandboxSteps.ts"),
+  join(testsDir, "../convex/_sandbox_runtime/prepareSandboxSteps.ts"),
   "utf8",
 );
 
@@ -66,10 +66,10 @@ test("sessions.ts runs background before startup for every owner kind", () => {
 
 test("prepareSandboxSteps runs background before startup", () => {
   const backgroundAt = prepareStepsSource.indexOf(
-    "internal.daytona.runBackgroundCommands",
+    "internal.sandbox.runBackgroundCommands",
   );
   const startupAt = prepareStepsSource.indexOf(
-    "internal.daytona.runStartupCommands",
+    "internal.sandbox.runStartupCommands",
   );
   expect(backgroundAt).toBeGreaterThan(-1);
   expect(startupAt).toBeGreaterThan(-1);

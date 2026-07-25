@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import { Card, CardContent } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Card, CardContent } from "@eva/ui";
 import { Link } from "@tanstack/react-router";
 import { IconUsers } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";

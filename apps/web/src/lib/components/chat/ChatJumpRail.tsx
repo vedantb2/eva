@@ -7,7 +7,7 @@ import {
   type MouseEvent,
 } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 
 /** Matches t3code `TIMELINE_MINIMAP_ITEM_SPACING` — compact rail, not full-height. */

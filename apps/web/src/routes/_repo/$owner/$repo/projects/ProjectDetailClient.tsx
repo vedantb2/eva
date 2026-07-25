@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Tooltip,
   TooltipTrigger,
@@ -20,10 +20,10 @@ import {
   DropdownMenuSeparator,
   DialogBody,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
@@ -53,7 +53,7 @@ import {
   IconMessage,
   IconServerBolt,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
@@ -277,7 +277,6 @@ export function ProjectDetailClient({
         projectId={projectId}
         projectNumId={projectNumId}
         sandboxId={projectSandboxId}
-        vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
         prUrl={project.prUrl}

@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { useNavigate } from "@tanstack/react-router";
 import { m, type Variants } from "motion/react";
-import { Button, cn } from "@conductor/ui";
+import { Button, cn } from "@eva/ui";
 import { LANDING_PLATFORM_SECTIONS } from "./landingTaskDetailFixtures";
 
 const isDev = import.meta.env.DEV;

@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
+import { api, PERSONALISATION_PRESETS } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Textarea, Button, Spinner } from "@conductor/ui";
+import { Textarea, Button, Spinner } from "@eva/ui";
 import { useEffect, useRef } from "react";
 import { RolePresetPicker } from "./RolePresetPicker";
 

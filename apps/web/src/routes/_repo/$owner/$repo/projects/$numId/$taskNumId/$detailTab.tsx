@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import {

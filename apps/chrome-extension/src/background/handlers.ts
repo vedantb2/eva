@@ -1,5 +1,5 @@
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { withAuth, getCreatorInitials } from "./convex";
 import { resolveRepoForUrl } from "./repo-matching";
 import {

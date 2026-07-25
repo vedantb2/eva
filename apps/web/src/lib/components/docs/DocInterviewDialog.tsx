@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   ActivityTasks,
@@ -18,7 +18,7 @@ import {
   Textarea,
   getSpeechRecognition,
   useSpeechRecognition,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconTrash,
   IconMicrophone,
@@ -27,7 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

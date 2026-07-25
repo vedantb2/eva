@@ -18,21 +18,21 @@ import {
   ProviderIcon,
   formatModelDisplayLabel,
   findModelOption,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
-import dayjs, { formatExactDateTime } from "@conductor/shared/dates";
-import { UserInitials } from "@conductor/shared";
+import dayjs, { formatExactDateTime } from "@eva/shared/dates";
+import { UserInitials } from "@eva/shared";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
-import { AI_MODEL_OPTIONS, getAIModelProvider } from "@conductor/backend";
-import type { api } from "@conductor/backend";
+import { AI_MODEL_OPTIONS, getAIModelProvider } from "@eva/backend";
+import type { api } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { getUserDisplayName } from "./task-detail-constants";
 import type { TaskComment } from "../_utils/commentThread";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { formatDuration } from "@conductor/shared/duration";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { formatDuration } from "@eva/shared/duration";
 import { RunActivityLog } from "../RunActivityLog";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";

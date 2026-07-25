@@ -1,7 +1,7 @@
 "use client";
 
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";

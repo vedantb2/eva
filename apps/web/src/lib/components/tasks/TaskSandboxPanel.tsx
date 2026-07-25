@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -20,7 +20,6 @@ import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /**
@@ -53,7 +52,6 @@ interface TaskSandboxPanelProps {
 export function TaskSandboxPanel({
   taskId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   devPort,
@@ -161,7 +159,6 @@ export function TaskSandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={taskIdStr}

@@ -1,5 +1,5 @@
-import { type Doc, type Id } from "@conductor/backend";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { type Doc, type Id } from "@eva/backend";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import {

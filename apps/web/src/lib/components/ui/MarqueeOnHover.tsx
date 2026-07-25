@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 /** Pixels per second the revealed text travels — constant speed so long labels don't whip by. */
 const MARQUEE_SPEED_PX_PER_S = 60;

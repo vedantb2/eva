@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";

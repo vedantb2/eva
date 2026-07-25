@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";

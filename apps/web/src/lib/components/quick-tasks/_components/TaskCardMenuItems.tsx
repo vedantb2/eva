@@ -17,15 +17,15 @@ import {
   DropdownMenuSubTrigger,
   ContextMenuLabel,
   DropdownMenuLabel,
-} from "@conductor/ui";
-import { ProviderIcon } from "@conductor/ui/ai";
+} from "@eva/ui";
+import { ProviderIcon } from "@eva/ui/ai";
 import {
   AI_MODEL_OPTIONS,
   getAIModelProvider,
   normalizeAIModel,
   type Id,
   api,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   IconArrowMoveRight,

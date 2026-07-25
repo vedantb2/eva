@@ -2,15 +2,8 @@
 
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@conductor/backend";
-import {
-  Button,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  cn,
-} from "@conductor/ui";
+import { api, type Id } from "@eva/backend";
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@eva/ui";
 import { IconGitPullRequest, IconRefresh } from "@tabler/icons-react";
 import { isDiffView, isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
 import { prNumberFromGithubUrl } from "@/lib/githubPr";
@@ -32,7 +25,7 @@ interface DiffToolbarState {
 }
 
 /**
- * Sandbox Review tab: Overview + Diffs + Recap via `@conductor/ui` Tabs. Path
+ * Sandbox Review tab: Overview + Diffs + Recap via `@eva/ui` Tabs. Path
  * segments (`…/review/overview`, `…/review/diffs/…`, `…/review/recap`) are
  * preferred; `?prTab=` remains a redirect/fallback.
  * Defaults to Recap when a ready recap exists and no tab is in the URL yet.

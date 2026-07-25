@@ -17,8 +17,8 @@ import {
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
-import { api } from "@conductor/backend";
-import { Button, Spinner, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Spinner, cn } from "@eva/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";

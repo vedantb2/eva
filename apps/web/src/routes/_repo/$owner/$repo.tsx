@@ -10,7 +10,7 @@ import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { LiveCursors } from "@/lib/components/LiveCursors";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,

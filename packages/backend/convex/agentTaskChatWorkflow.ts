@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -31,7 +31,7 @@ import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
-import { TASK_CHAT_DAEMON_MUTATIONS } from "./_daytona/daemonPaths";
+import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -231,7 +231,7 @@ export const startExecute = authMutation({
     });
 
     if (usesDaemonPull && task.sandboxId && task.repoId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
         sandboxId: task.sandboxId,
         repoId: task.repoId,
         userId: ctx.userId,
@@ -353,14 +353,14 @@ export const cancelExecution = authMutation({
 
     if (task.sandboxId && task.repoId) {
       if (task.activeWorkflowId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.killEntityDaemon, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.killEntityDaemon, {
           sandboxId: task.sandboxId,
           repoId: task.repoId,
           entityIdField: "taskId",
           entityId: String(args.taskId),
         });
       } else {
-        await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: task.sandboxId,
           repoId: task.repoId,
         });
@@ -522,7 +522,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     }
 
     const validation = await step.runAction(
-      internal.daytona.validateSandbox,
+      internal.sandbox.validateSandbox,
       { sandboxId: activeSandboxId, repoId: data.repoId },
       { retry: false },
     );
@@ -548,7 +548,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         model: args.model,
       });
 
-      await step.runAction(internal.daytona.prewarmEntityDaemon, {
+      await step.runAction(internal.sandbox.prewarmEntityDaemon, {
         sandboxId: activeSandboxId,
         repoId: data.repoId,
         userId: args.userId,
@@ -569,7 +569,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         entityTable: "agentTasks",
       });
     } else {
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId: activeSandboxId,
         entityId: args.taskId,
         prompt: data.prompt,
@@ -597,7 +597,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
 
     if (result.success && activeSandboxId && data.branchName) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: activeSandboxId,
           installationId: data.installationId,
           repoOwner: data.repoOwner,
@@ -845,7 +845,7 @@ export const prewarmChatDaemon = authMutation({
     if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
       userId: ctx.userId,

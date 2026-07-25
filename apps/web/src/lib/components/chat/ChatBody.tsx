@@ -5,7 +5,7 @@ import {
   ConversationScrollButton,
   type ModelOption,
   type ModelAccount,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
@@ -20,7 +20,7 @@ import {
   type Id,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,

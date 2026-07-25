@@ -1,6 +1,6 @@
 "use client";
 
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";

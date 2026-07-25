@@ -16,10 +16,10 @@ import {
   IconProgress,
   IconPencil,
 } from "@tabler/icons-react";
-import { Avatar, AvatarFallback } from "@conductor/ui";
-import type { BadgeProps } from "@conductor/ui";
+import { Avatar, AvatarFallback } from "@eva/ui";
+import type { BadgeProps } from "@eva/ui";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 
 export type Notification = FunctionReturnType<
   typeof api.notifications.list

@@ -12,7 +12,7 @@ import type {
   FontFamily,
   LetterSpacing,
 } from "@/lib/contexts/ThemeContext";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { AppearanceSection } from "./_components/AppearanceSection";
 import { PresetsSection } from "./_components/PresetsSection";

@@ -9,7 +9,7 @@ import {
   setProjectConversation,
   buildProjectBranchName,
 } from "./helpers";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 /** Converts a finalized project spec into tasks with dependencies and sets the project to business_review. */
 export const startDevelopment = authMutation({

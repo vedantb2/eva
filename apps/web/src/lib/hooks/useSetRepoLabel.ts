@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 /** Updates a repo's display label with optimistic list + detail cache patches. */
 export function useSetRepoLabel(teamId?: Id<"teams">) {

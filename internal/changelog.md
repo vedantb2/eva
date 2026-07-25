@@ -1,8 +1,17 @@
 # Changelog
 
-## Data @-mentions for sessions, projects, and quick tasks - 2026-07-24
+## Data @-mentions for sessions, projects, and quick tasks - 2026-07-25
 
 `@` in composers only listed documents, so referencing past chats or related work meant pasting links. The picker is now **Data** (docs + sessions + projects + quick tasks) with type badges; comments keep People and add the same Data entries. Docs still inline into the agent prompt; other kinds inject an Eva MCP fetch hint so the agent loads them on demand.
+
+## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-25
+
+- Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
+- Reason for change: Convex platform "Transient error while executing action" (0ms) is not retried for actions, so sessions could wedge on Stop forever until a manual re-click.
+
+## Claude Agent SDK only (CLI spawn removed) - 2026-07-25
+
+Claude no longer has a `claude -p` attempt mode — the Agent SDK (`sdk` / `sdk-daemon`, default `sdk-daemon`) is the only Claude runtime. Unset `CLAUDE_ATTEMPT_MODE` now means the warm daemon path, so prod flips on deploy without an env change. Codex, OpenCode, and Cursor keep their CLI spawn paths. Follow-up env-var cleanup is tracked in `internal/plans/todo/claude-cli-removal-followups.md`.
 
 ## Agents can host captures at public URLs (upload_media MCP) - 2026-07-24
 

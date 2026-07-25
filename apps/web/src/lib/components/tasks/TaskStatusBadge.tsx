@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
+import { Badge } from "@eva/ui";
 import {
   IconCircle,
   IconClock,

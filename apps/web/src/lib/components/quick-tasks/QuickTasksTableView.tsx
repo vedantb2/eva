@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { SortingState } from "@tanstack/react-table";
 import {
@@ -15,13 +15,13 @@ import {
 import { TableVirtuoso } from "react-virtuoso";
 import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials } from "@conductor/shared";
-import { Badge, DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
+import { UserInitials } from "@eva/shared";
+import { Badge, DataTableColumnHeader, type ColumnDef } from "@eva/ui";
 import {
   statusConfig,
   TASK_STATUSES,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { compactRelativeTime } from "@conductor/shared/dates";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";

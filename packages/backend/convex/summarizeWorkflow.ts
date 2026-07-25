@@ -13,7 +13,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 
 const summarizeCompleteEvent = defineEvent({
   name: "summarizeComplete",
@@ -48,7 +48,7 @@ export const summarizeSessionWorkflow = workflow.define({
       ephemeral: false,
     });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+    await step.runAction(internal.sandbox.launchOnExistingSandbox, {
       sandboxId,
       entityId: args.sessionId,
       streamingEntityId: `summary:${args.sessionId}`,

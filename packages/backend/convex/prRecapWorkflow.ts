@@ -10,7 +10,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 import {
   buildPrRecapPrompt,
   parsePrRecapOutput,
@@ -20,7 +20,7 @@ import {
   type PrRecapOutcome,
 } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   findSiblingRepos,
   pickDefaultVisibleAppRepo,
@@ -131,7 +131,7 @@ export const prRecapWorkflow = workflow.define({
           skipStartupCommands: true,
         }));
 
-        await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        await step.runAction(internal.sandbox.launchOnExistingSandbox, {
           sandboxId,
           entityId: String(args.docId),
           streamingEntityId: `pr-recap:${String(args.docId)}`,
@@ -177,7 +177,7 @@ export const prRecapWorkflow = workflow.define({
     } finally {
       if (sandboxId) {
         try {
-          await step.runAction(internal.daytona.deleteSandbox, {
+          await step.runAction(internal.sandbox.deleteSandbox, {
             sandboxId,
             repoId: sandboxRepoId,
           });

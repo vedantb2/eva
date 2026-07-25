@@ -1,5 +1,5 @@
 import { m } from "motion/react";
-import { Card, CardContent, Button } from "@conductor/ui";
+import { Card, CardContent, Button } from "@eva/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 

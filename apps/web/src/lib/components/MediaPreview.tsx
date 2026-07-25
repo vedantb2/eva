@@ -20,7 +20,7 @@ import {
   VideoPlayerTimeDisplay,
   VideoPlayerTimeRange,
   VideoPlayerVolumeRange,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 export function VideoPreview({
   url,

@@ -10,6 +10,7 @@ import {
   trackSessionWorkflow,
 } from "../workflowWatchdog";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -56,6 +57,12 @@ export async function startNextQueuedSessionMessage(
     await ctx.db.patch(sessionId, { updatedAt: Date.now() });
     return false;
   }
+
+  // Wipe any stale streaming row before the new turn's placeholder appears —
+  // the daemon's post-completion reconcile heartbeat can land after
+  // saveResult's clear and resurrect the finished turn's activity (see
+  // startExecute in _sessions/execution.ts for the full race).
+  await clearStreamingActivity(ctx, String(sessionId));
 
   const now = Date.now();
   await ctx.db.insert("messages", {

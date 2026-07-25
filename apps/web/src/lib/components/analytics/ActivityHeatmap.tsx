@@ -10,8 +10,8 @@ import {
   ContributionGraphCalendar,
   ContributionGraphFooter,
   ContributionGraphLegend,
-} from "@conductor/ui";
-import type { Activity } from "@conductor/ui";
+} from "@eva/ui";
+import type { Activity } from "@eva/ui";
 import { IconFlame } from "@tabler/icons-react";
 import { Widget } from "@/lib/components/Widget";
 

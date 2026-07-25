@@ -1478,7 +1478,7 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
-/** Mirrors attachmentExtensionForMimeType in convex/_daytona/attachments.ts. */
+/** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
 function attachmentExtensionForMimeType(mimeType: string): string {
   const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   switch (type) {
@@ -1509,7 +1509,7 @@ function attachmentExtensionForMimeType(mimeType: string): string {
  * appends a note pointing the agent at them, so a claimed turn's prompt
  * references files that already exist on disk (no race — the daemon owns
  * ordering). Uses the same flat `/tmp/eva-attachment-<n>.<ext>` scheme + note
- * text as the CLI launch path (convex/_daytona/attachments.ts). Failed
+ * text as the CLI launch path (convex/_sandbox_runtime/attachments.ts). Failed
  * downloads are skipped.
  */
 async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {

@@ -15,10 +15,10 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
-import type { Id, api } from "@conductor/backend";
+} from "@eva/ui";
+import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { UserInitials } from "@conductor/shared";
+import { UserInitials } from "@eva/shared";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
@@ -34,7 +34,7 @@ import {
   PRIORITY_LABELS,
   type Priority,
 } from "@/lib/components/priority/priorityMeta";
-import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
+import dayjs, { compactRelativeTime } from "@eva/shared/dates";
 import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";

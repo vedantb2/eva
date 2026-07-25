@@ -209,7 +209,7 @@ export const publishAuditFixBranch = internalAction({
     }
 
     try {
-      await ctx.runAction(internal.daytona.pushSandboxBranch, {
+      await ctx.runAction(internal.sandbox.pushSandboxBranch, {
         sandboxId: pushData.sandboxId,
         installationId: pushData.installationId,
         repoOwner: pushData.repoOwner,

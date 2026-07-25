@@ -679,7 +679,7 @@ export const taskSubscriberFields = {
 
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
-// token. One row per Daytona sandbox; rotated every time the helper is
+// token. One row per sandbox; rotated every time the helper is
 // reinstalled.
 // App-wide singleton settings (a single row). Currently holds the daily
 // sandbox auto-stop schedule: a wall-clock time + IANA timezone at which the

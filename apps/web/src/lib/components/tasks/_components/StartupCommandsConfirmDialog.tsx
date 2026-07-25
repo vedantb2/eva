@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconLoader2 } from "@tabler/icons-react";
 
 export function StartupCommandsConfirmDialog({

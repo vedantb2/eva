@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   resolveNewTaskBaseBranch,
   resolveTaskWorkflowBaseBranch,

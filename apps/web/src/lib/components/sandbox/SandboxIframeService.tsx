@@ -3,19 +3,16 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useAction } from "convex/react";
 import { useSessionStorage } from "usehooks-ts";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Spinner, Button } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Spinner, Button } from "@eva/ui";
 import {
-  IconAlertTriangle,
   IconRefresh,
   IconMaximize,
   IconExternalLink,
   IconPlayerStop,
-  IconX,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 export type SandboxIframeServiceState =
@@ -39,11 +36,6 @@ interface SandboxIframeServiceProps {
   cacheNamespace: string;
   cacheKey: string;
   sandboxId: string | undefined;
-  /**
-   * Vercel sandbox name; when set, the Daytona preview-interstitial hint is
-   * hidden (Vercel services go through the auth proxy and never show it).
-   */
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   port: number;
@@ -91,7 +83,6 @@ export function SandboxIframeService({
   cacheNamespace,
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
   port,
@@ -112,13 +103,13 @@ export function SandboxIframeService({
   iframeAllow,
   onStateChange,
 }: SandboxIframeServiceProps) {
-  // Scope the cache key by sandboxId — Daytona signed URLs embed the sandbox
-  // ID in the subdomain, so a URL cached against a destroyed sandbox would
+  // Scope the cache key by sandboxId — Vercel signed URLs embed the sandbox
+  // ID in the domain, so a URL cached against a destroyed sandbox would
   // 400 with "Sandbox not found" once the sandbox is recreated for the same
   // session/task. useSessionStorage re-reads automatically when the key
   // changes (e.g. on sandbox swap).
   const [cachedUrl, setCachedUrl] = useSessionStorage<string | null>(
-    `conductor:${cacheNamespace}:${cacheKey}:${sandboxId ?? "no-sandbox"}`,
+    `eva:${cacheNamespace}:${cacheKey}:${sandboxId ?? "no-sandbox"}`,
     null,
   );
 
@@ -127,7 +118,6 @@ export function SandboxIframeService({
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
-  const [warningHintDismissed, setWarningHintDismissed] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -144,7 +134,7 @@ export function SandboxIframeService({
     setIframeKey((k) => k + 1);
   };
 
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 
   const stopPolling = () => {
     clearTimeout(pollTimer.current);
@@ -174,7 +164,6 @@ export function SandboxIframeService({
           repoId,
         });
         if (data.ready) {
-          await dismissDaytonaWarning(data.url);
           acceptReady(data.url);
           return;
         }
@@ -222,7 +211,6 @@ export function SandboxIframeService({
         repoId,
       });
       if (existing.ready) {
-        await dismissDaytonaWarning(existing.url);
         acceptReady(existing.url);
         return;
       }
@@ -336,60 +324,41 @@ export function SandboxIframeService({
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       {url && state === "running" && (
-        <>
-          <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-8"
-              onClick={refreshIframe}
+        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={refreshIframe}
+          >
+            <IconRefresh className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={toggleFullscreen}
+          >
+            <IconMaximize className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="size-8" asChild>
+            <a
+              href={stripPreviewGrant(url)}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <IconRefresh className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-8"
-              onClick={toggleFullscreen}
-            >
-              <IconMaximize className="w-4 h-4" />
-            </Button>
-            <Button size="icon" variant="ghost" className="size-8" asChild>
-              <a
-                href={stripPreviewGrant(url)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <IconExternalLink className="w-4 h-4" />
-              </a>
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-8 text-destructive hover:bg-destructive/10"
-              onClick={stop}
-            >
-              <IconPlayerStop className="w-4 h-4" />
-            </Button>
-          </div>
-          {!warningHintDismissed && !vercelSandboxId ? (
-            <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
-              <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <p className="flex-1 leading-relaxed">
-                If you see a preview warning, click Accept, then click the
-                refresh button above.
-              </p>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-5 w-5 shrink-0 text-warning/70 hover:bg-warning/20 hover:text-warning"
-                onClick={() => setWarningHintDismissed(true)}
-              >
-                <IconX size={12} />
-              </Button>
-            </div>
-          ) : null}
-        </>
+              <IconExternalLink className="w-4 h-4" />
+            </a>
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-destructive hover:bg-destructive/10"
+            onClick={stop}
+          >
+            <IconPlayerStop className="w-4 h-4" />
+          </Button>
+        </div>
       )}
       <div className="flex-1 min-h-0 relative">
         {state === "starting" && (

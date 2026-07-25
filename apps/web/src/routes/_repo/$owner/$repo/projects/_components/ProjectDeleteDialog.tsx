@@ -1,4 +1,4 @@
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 interface ProjectDeleteDialogProps {
   project: { id: Id<"projects">; title: string } | null;

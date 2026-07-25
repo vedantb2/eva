@@ -1,5 +1,5 @@
-import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, PERSONALISATION_PRESETS } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   HoverCard,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Facehash } from "facehash";
 import type { ReactNode } from "react";

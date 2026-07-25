@@ -1,7 +1,7 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useNavigate } from "@tanstack/react-router";
 import { IconChevronRight } from "@tabler/icons-react";

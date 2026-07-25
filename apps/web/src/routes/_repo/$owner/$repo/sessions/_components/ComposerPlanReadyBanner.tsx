@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Button, cn } from "@conductor/ui";
+import { Badge, Button, cn } from "@eva/ui";
 import { IconClipboardList, IconCode } from "@tabler/icons-react";
 import { proposedPlanTitle } from "./planExport";
 

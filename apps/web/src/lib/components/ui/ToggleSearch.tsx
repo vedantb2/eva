@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconSearch, IconX } from "@tabler/icons-react";
 
 // "compact" is the small toolbar pill; "large" is the taller, wider,

@@ -17,12 +17,12 @@ import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { TooltipProvider } from "@conductor/ui";
+import { TooltipProvider } from "@eva/ui";
 import { AuthLoadingScreen } from "./AuthLoadingScreen";
 import { WelcomeSetupDialog } from "./onboarding/WelcomeSetupDialog";
 import { clientEnv } from "@/env/client";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 if (!clientEnv.VITE_CONVEX_URL) {
   throw new Error("Missing VITE_CONVEX_URL in your .env file");

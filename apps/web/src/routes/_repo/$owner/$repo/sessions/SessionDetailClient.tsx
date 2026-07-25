@@ -1,11 +1,11 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -96,7 +96,7 @@ export function SessionDetailClient({
   }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
-  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // cleared once the Vercel sandbox's stop call completes. Showing the spinner
   // (and disabling Start) for its full duration prevents the stop/start race
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
@@ -207,7 +207,6 @@ export function SessionDetailClient({
           <SandboxPanel
             sessionId={sessionId}
             sandboxId={session.sandboxId}
-            vercelSandboxId={session.vercelSandboxId}
             isActive={isSandboxActive}
             isRouteActive={isRouteActive}
             repoId={session.repoId}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   Input,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useSetRepoLabel } from "@/lib/hooks/useSetRepoLabel";
 
 interface RepoLabelDialogProps {

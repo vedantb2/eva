@@ -1,14 +1,9 @@
 "use client";
 
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
-import {
-  AvatarStack,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
+import type { api, Id } from "@eva/backend";
+import { AvatarStack, Tooltip, TooltipTrigger, TooltipContent } from "@eva/ui";
+import { UserInitials } from "@eva/shared";
 
 type ProjectProgress = FunctionReturnType<
   typeof api.projects.listTaskProgress

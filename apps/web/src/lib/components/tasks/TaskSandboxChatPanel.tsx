@@ -12,7 +12,7 @@ import {
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
-} from "@conductor/backend";
+} from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { api, Doc, Id } from "@conductor/backend";
+import type { api, Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconGitPullRequest,
   IconBrandVercel,
@@ -29,7 +29,7 @@ import {
   IconRefresh,
   IconServerBolt,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { TaskRunOptionsMenu } from "./TaskRunOptionsMenu";
 import type { TaskStatus } from "../TaskStatusBadge";

@@ -1,6 +1,6 @@
-import { UserInitials } from "@conductor/shared";
-import { Avatar, AvatarFallback } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import { UserInitials } from "@eva/shared";
+import { Avatar, AvatarFallback } from "@eva/ui";
+import type { Id } from "@eva/backend";
 
 export function UserMessageAvatar({
   userId,

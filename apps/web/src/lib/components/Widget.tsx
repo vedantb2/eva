@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface WidgetProps {
   /** Header title (left side). Omit for a header-less widget. */

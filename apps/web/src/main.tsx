@@ -13,6 +13,7 @@ import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
+import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
 import "./fonts";
 import "./globals.css";
 
@@ -24,6 +25,11 @@ if (import.meta.env.DEV) {
 // gets a chance to redirect us off `/mcp/oauth/authorize`. See
 // `mcpOauthStorage.ts` for the full flow.
 saveMcpOauthParamsFromUrl();
+
+// Moves persisted sandbox UI state off the legacy `conductor:` key prefix. Must
+// run before React mounts so the hooks reading these keys see migrated values on
+// first render. Remove once the legacy prefix is safely extinct.
+migrateLegacyStorageKeys();
 
 /**
  * Handles stale deployment detection: closes the Convex WebSocket to prevent

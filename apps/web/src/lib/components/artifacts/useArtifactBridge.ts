@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 
 /**
  * Parent-side half of the artifact bridge. Listens for messages from the

@@ -2,8 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Select,
@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconUserPlus,
   IconFolder,
@@ -33,7 +33,7 @@ import {
   IconBrandVercelFilled,
   IconChevronDown,
 } from "@tabler/icons-react";
-import { UserInitials, getUserInitials } from "@conductor/shared";
+import { UserInitials, getUserInitials } from "@eva/shared";
 import { Facehash } from "facehash";
 import {
   statusConfig,

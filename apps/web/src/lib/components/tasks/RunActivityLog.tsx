@@ -1,11 +1,11 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { ActivityTasks, Spinner } from "@conductor/ui";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { formatDuration } from "@conductor/shared/duration";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { ActivityTasks, Spinner } from "@eva/ui";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { formatDuration } from "@eva/shared/duration";
 
 export function RunActivityLog({
   runId,

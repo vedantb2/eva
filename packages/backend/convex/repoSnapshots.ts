@@ -34,7 +34,6 @@ export {
 
 export {
   getRepo,
-  getRepoSandboxProvider,
   getStartupCommands,
   getBackgroundCommands,
   getStopCommands,

@@ -1,8 +1,8 @@
 "use client";
 
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Virtuoso } from "react-virtuoso";
@@ -32,7 +32,7 @@ import {
   AccordionTrigger,
   AccordionContent,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { QuickTaskCard } from "@/lib/components/quick-tasks/QuickTaskCard";
 import {
   statusConfig,

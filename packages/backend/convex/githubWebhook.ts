@@ -1,4 +1,4 @@
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -287,7 +287,7 @@ export const handlePrClosed = internalMutation({
           vercelSandboxId: project.vercelSandboxId,
         });
         if (deleteId) {
-          await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+          await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
             sandboxId: deleteId,
             repoId: project.repoId,
           });

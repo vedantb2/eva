@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Textarea } from "@conductor/ui";
+import { Button, Textarea } from "@eva/ui";
 import { IconMessage, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 

@@ -5,8 +5,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import { Spinner, Tabs, TabsList, TabsTrigger } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Spinner, Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import {
   IconExternalLink,
   IconFileDiff,

@@ -1,6 +1,6 @@
 "use client";
 
-import { DropdownMenuItem } from "@conductor/ui";
+import { DropdownMenuItem } from "@eva/ui";
 import { IconLink } from "@tabler/icons-react";
 
 /** Copies the current page URL — shared More-menu item for task / project / session headers. */

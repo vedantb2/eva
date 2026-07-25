@@ -1,6 +1,6 @@
 "use client";
 
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import type { ReactNode } from "react";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 

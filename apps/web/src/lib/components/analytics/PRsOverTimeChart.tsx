@@ -2,7 +2,7 @@
 
 import { Suspense, use } from "react";
 import { Widget } from "@/lib/components/Widget";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
 /** Lazy chart.js + react-chartjs-2 so stats pages don't pay the cost up front. */

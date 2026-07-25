@@ -15,7 +15,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 
 /** Shape of the JSON the doc-generation LLM step is expected to return. */
 const generatedDocSchema = z.object({
@@ -129,7 +129,7 @@ export const docInterviewWorkflow = workflow.define({
       vercelSandboxId,
     });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+    await step.runAction(internal.sandbox.launchOnExistingSandbox, {
       sandboxId,
       entityId: args.docId,
       prompt: fullPrompt,
@@ -400,7 +400,7 @@ Output ONLY valid JSON.`;
       vercelSandboxId,
     });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+    await step.runAction(internal.sandbox.launchOnExistingSandbox, {
       sandboxId,
       entityId: args.docId,
       prompt,

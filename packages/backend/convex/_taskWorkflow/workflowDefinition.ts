@@ -19,7 +19,7 @@ import {
 } from "./prompts";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
-import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "../_sandbox_runtime/prepareSandboxSteps";
 
 const PR_STEP_RETRY = {
   retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
@@ -85,7 +85,7 @@ export const taskExecutionWorkflow = workflow.define({
       // run completes). Quick-task sandboxes are persistent (stop/pause, not
       // delete-on-completion — see "Persistent Quick-Task Sandboxes" in the
       // changelog), so `ephemeral` is always false: a first run that ended up
-      // ephemeral would be deleted by Daytona on auto-stop, leaving
+      // ephemeral would be deleted on auto-stop, leaving
       // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;
@@ -115,7 +115,7 @@ export const taskExecutionWorkflow = workflow.define({
 
       // Always run implementation on the task's selected model. Proof capture
       // is a separate post-push step that uses repo.proofModel.
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
         prompt: data.prompt,
@@ -170,7 +170,7 @@ export const taskExecutionWorkflow = workflow.define({
 
       if (finalSuccess && sandboxId) {
         try {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
+          await step.runAction(internal.sandbox.pushSandboxBranch, {
             sandboxId,
             installationId: args.installationId,
             repoOwner: data.repoOwner,
@@ -226,12 +226,12 @@ export const taskExecutionWorkflow = workflow.define({
         try {
           // Revive Convex/etc. + start the app so proof does not screenshot
           // "function not found" / connection errors from a cold backend.
-          await step.runAction(internal.daytona.prepareProofSandbox, {
+          await step.runAction(internal.sandbox.prepareProofSandbox, {
             sandboxId,
             repoId: args.repoId,
             taskId: args.taskId,
           });
-          await step.runAction(internal.daytona.launchProof, {
+          await step.runAction(internal.sandbox.launchProof, {
             sandboxId,
             prompt: buildProofPrompt(
               {
@@ -261,7 +261,7 @@ export const taskExecutionWorkflow = workflow.define({
           // after handleProofCompletion (race), which spuriously launched a
           // second full proof capture.
           const hasMedia = await step.runAction(
-            internal.daytona.waitForProofMedia,
+            internal.sandbox.waitForProofMedia,
             { taskId: args.taskId, runId: args.runId },
           );
           if (!hasMedia) {
@@ -272,12 +272,12 @@ export const taskExecutionWorkflow = workflow.define({
               internal.taskProof.clearMessageProofsForRun,
               { taskId: args.taskId, runId: args.runId },
             );
-            await step.runAction(internal.daytona.prepareProofSandbox, {
+            await step.runAction(internal.sandbox.prepareProofSandbox, {
               sandboxId,
               repoId: args.repoId,
               taskId: args.taskId,
             });
-            await step.runAction(internal.daytona.launchProof, {
+            await step.runAction(internal.sandbox.launchProof, {
               sandboxId,
               prompt: buildProofRetryPrompt(
                 {
@@ -453,7 +453,7 @@ export const taskExecutionWorkflow = workflow.define({
             },
           );
 
-          await step.runAction(internal.daytona.launchAudit, {
+          await step.runAction(internal.sandbox.launchAudit, {
             sandboxId,
             prompt: buildAuditPrompt(auditCategories),
             taskId: String(args.taskId),
@@ -535,7 +535,7 @@ export const taskExecutionWorkflow = workflow.define({
         !preserveSandboxOnFailure &&
         !keepTaskSandboxActiveAfterRun
       ) {
-        await step.runAction(internal.daytona.stopSandbox, {
+        await step.runAction(internal.sandbox.stopSandbox, {
           sandboxId,
           repoId: args.repoId,
         });
@@ -614,7 +614,7 @@ export const taskExecutionWorkflow = workflow.define({
         !keepTaskSandboxActiveAfterRun
       ) {
         try {
-          await step.runAction(internal.daytona.stopSandbox, {
+          await step.runAction(internal.sandbox.stopSandbox, {
             sandboxId,
             repoId: args.repoId,
           });

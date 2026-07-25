@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import type { Id, api } from "@conductor/backend";
+import type { Id, api } from "@eva/backend";
 import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import { entityPathSegment } from "@/lib/numId";

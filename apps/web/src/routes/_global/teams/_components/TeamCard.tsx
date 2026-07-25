@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
-import type { api, Id } from "@conductor/backend";
+import type { api, Id } from "@eva/backend";
 import {
   Card,
   CardHeader,
@@ -11,7 +11,7 @@ import {
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconUsers,
   IconTrash,

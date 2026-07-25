@@ -1,5 +1,5 @@
 {
-  "name": "@conductor/shared",
+  "name": "@eva/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "./uiTaskPrompt": "./src/uiTaskPrompt.ts"
   },
   "peerDependencies": {
-    "@conductor/backend": "workspace:*",
-    "@conductor/ui": "workspace:*",
+    "@eva/backend": "workspace:*",
+    "@eva/ui": "workspace:*",
     "convex": ">=1.0.0",
     "convex-helpers": "0.1.114",
     "dayjs": ">=1.0.0",

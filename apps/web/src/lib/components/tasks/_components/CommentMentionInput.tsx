@@ -2,10 +2,10 @@
 
 import { forwardRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserInitials, UserProfileHoverCardBody } from "@conductor/shared";
-import { cn } from "@conductor/ui";
+import { UserInitials, UserProfileHoverCardBody } from "@eva/shared";
+import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,

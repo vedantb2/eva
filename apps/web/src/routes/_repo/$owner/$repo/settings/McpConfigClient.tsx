@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -16,7 +16,7 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 
 export function McpConfigClient() {

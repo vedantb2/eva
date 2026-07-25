@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api, type Doc, type Id } from "@conductor/backend";
+import { api, type Doc, type Id } from "@eva/backend";
 import { BackgroundAgentsChip as SharedBackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 
 export function BackgroundAgentsChip({

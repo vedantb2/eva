@@ -123,14 +123,22 @@ Eva is an MCP server as well as a client of its own tools, in two directions.
 
 ### Sandbox provider
 
-**Vercel Sandbox is the provider.** It restores snapshots in roughly 0.3 seconds regardless of size, which is what motivated the move. It is the default in `resolveSandboxProviderKind` (`packages/backend/convex/envVarResolver.ts`), so a fresh install needs no `SANDBOX_PROVIDER` setting — only the Vercel credentials in Step 7.
+**Vercel Sandbox is the only provider.** It restores snapshots in roughly 0.3 seconds regardless of size, which is what motivated adopting it. There is no provider setting to configure — supply the Vercel credentials in Step 7 and that is all.
 
-**Daytona is legacy and being removed.** The code is still present and still works: `packages/backend/convex/_sandbox/provider.ts` defines a provider-neutral contract, `_sandbox/factory.ts` is the single switch point, and setting `SANDBOX_PROVIDER=daytona` on a team or repository opts back in. Treat that as a migration escape hatch with a short life, not a supported configuration. Do not build new features against `_daytona/` paths.
+The layout:
 
-Two things about the current state are easy to misread:
+| Path                                    | Role                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `convex/_sandbox/`                      | Provider contract (`provider.ts`) and the Vercel implementation           |
+| `convex/_sandbox_runtime/`              | Sandbox orchestration: launch, git, sessions, exec, proof, desktop, proxy |
+| `convex/sandbox.ts`, `sandboxDaemon.ts` | Public action entrypoints (`internal.sandbox.*`)                          |
+| `convex/_pty/vercel.ts`                 | Terminals (tmux over Vercel's `openInteractive` WebSocket)                |
 
-- **`internal.daytona.*` action names are kept as shared entry points** even where the provider-neutral layer does the work. The name does not mean Daytona is running. These are renamed as part of removing Daytona, not before.
-- **Vercel implements PTY and desktop.** Terminals work on Vercel via tmux plus Vercel's `openInteractive` WebSocket, wired in `convex/_pty/vercel.ts` and dispatched from `convex/pty.ts` on a `ptyProtocol` discriminator rather than through the neutral `SandboxPty` interface, so `vercelProvider.pty` is deliberately undefined. Desktop and computer use run on TigerVNC plus noVNC in `VercelDesktop`. **Named volumes (Drives) are the one genuine gap** — `ensureVolume` throws, since Drives are still beta.
+**Terminals, desktop, and computer use all work.** PTY is wired in `convex/_pty/vercel.ts` and dispatched from `convex/pty.ts`, deliberately not through a provider interface, because Vercel exposes a client-connect WebSocket rather than a push-callback model. Desktop runs on TigerVNC plus noVNC in `VercelDesktop`.
+
+**Named volumes are not implemented.** Vercel Drives are still beta, so `ensureVolume` does not exist and nothing depends on it. Session persistence uses snapshots instead.
+
+Some Daytona-era naming survives on purpose, because live data still references it: a `DAYTONA_UUID` guard in `_sandbox/resolveExistingSandboxId.ts` (old sandbox ids are UUIDs; Vercel names are not), provider inference in `_repoSnapshots/builds.ts` so historical builds still render a correct badge, and `v.literal("daytona")` in the enum validators. Removing those needs a data migration first — see `internal/plans/todo/daytona-legacy-data-cleanup.md`.
 
 ## Self-hosting
 
@@ -272,11 +280,7 @@ Sandbox credentials are stored as **team or repository environment variables** i
 - `VERCEL_TEAM_ID`
 - `VERCEL_PROJECT_ID`
 
-No `SANDBOX_PROVIDER` value is needed. Vercel is the default.
-
 `VERCEL_TOKEN` and `VERCEL_TEAM_ID` may be shared across a monorepo's apps via team environment variables, but **`VERCEL_PROJECT_ID` must be set on each app repository** and is never borrowed from a sibling, or an app would create sandboxes under another app's Vercel project.
-
-Setting `SANDBOX_PROVIDER=daytona` (plus `DAYTONA_API_KEY`) opts a team or repository back onto the legacy provider. An explicit `daytona` on any app in a monorepo applies to its siblings, so the opt-out is not silently overridden by an unset sibling. This escape hatch is being removed.
 
 ### Step 8: Run
 
@@ -333,7 +337,7 @@ If a snapshot is missing or in an error state, sandbox creation falls back to a 
 - Agent CLIs: Claude Code, Codex, opencode (npm), and Cursor (`cursor-agent`, installed via `curl`)
 - agent-browser, Convex CLI, Supabase CLI 2.90.0, `agentation-mcp`, the Claude Agent SDK, and code-server for VS Code in the browser
 
-`ffmpeg` is required by `agent-browser record`. To change the base tooling, edit `buildSnapshotImage()` in `packages/backend/convex/snapshotActions.ts`. For project-specific needs, prefer **Build Commands** and **Config Files** over editing the base tooling definition.
+`ffmpeg` is required by `agent-browser record`. To change the base tooling, edit `launchSeedRun` in `packages/backend/convex/snapshotActions.ts`, which installs the toolchain onto the seed-prep sandbox before capture. For project-specific needs, prefer **Build Commands** and **Config Files** over editing the base tooling definition.
 
 ### When to rebuild
 
@@ -366,6 +370,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md) for coding con
 
 ## Roadmap
 
-- Remove Daytona: implement named volumes on Vercel (Drives), then delete `_daytona/` and rename the `internal.daytona.*` entry points
+- Null out legacy Daytona sandbox ids and drop the `daytona` enum literal, so the compatibility guards can go (`internal/plans/todo/daytona-legacy-data-cleanup.md`)
 - Release Designs to production, beyond the current development-only flag
 - Improved project interview experience

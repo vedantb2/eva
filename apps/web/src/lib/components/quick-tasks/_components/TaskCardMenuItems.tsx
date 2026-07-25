@@ -17,15 +17,10 @@ import {
   DropdownMenuSubTrigger,
   ContextMenuLabel,
   DropdownMenuLabel,
+  ModelPickerContent,
+  modelPickerSurfaceClass,
 } from "@eva/ui";
-import { ProviderIcon } from "@eva/ui/ai";
-import {
-  AI_MODEL_OPTIONS,
-  getAIModelProvider,
-  normalizeAIModel,
-  type Id,
-  api,
-} from "@eva/backend";
+import { normalizeAIModel, type Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   IconArrowMoveRight,
@@ -55,27 +50,6 @@ type GroupedCodebase = FunctionReturnType<
 >[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
-
-const TEAM_KEY = "team";
-
-function toComposite(accountId: string | null, modelId: string): string {
-  return `${accountId ?? TEAM_KEY}::${modelId}`;
-}
-
-function providerLabel(provider: string): string {
-  switch (provider) {
-    case "codex":
-      return "Codex";
-    case "opencode":
-      return "Opencode";
-    case "cursor":
-      return "Cursor";
-    case "claude":
-      return "Claude";
-    default:
-      return provider;
-  }
-}
 
 export interface TaskCardMenuItemsProps {
   variant: "context" | "dropdown";
@@ -166,45 +140,11 @@ export function TaskCardMenuItems({
   );
   const { options: accounts, resolveId: resolveAccountId } =
     useTaskOwnerProviderAccounts(id);
-  const hasAccounts = accounts.length > 0;
-  const selectedComposite = toComposite(
-    providerAccountId ?? null,
-    normalizedModel,
-  );
 
   const isOwner =
     currentUserId !== undefined &&
     createdBy !== undefined &&
     currentUserId === createdBy;
-
-  const applyModelSelection = (compositeOrModelId: string) => {
-    if (compositeOrModelId.includes("::")) {
-      const separator = compositeOrModelId.indexOf("::");
-      const accountKey = compositeOrModelId.slice(0, separator);
-      const modelId = compositeOrModelId.slice(separator + 2);
-      const matched = (
-        modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
-      ).find((option) => option.id === modelId);
-      if (!matched) return;
-      if (!isOwner) {
-        updateTask({ id, model: matched.id });
-        return;
-      }
-      updateTask({
-        id,
-        model: matched.id,
-        providerAccountId:
-          accountKey === TEAM_KEY
-            ? null
-            : (resolveAccountId(accountKey) ?? null),
-      });
-      return;
-    }
-    const matched = (
-      modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS
-    ).find((option) => option.id === compositeOrModelId);
-    if (matched) updateTask({ id, model: matched.id });
-  };
 
   const canRun = status === "todo" || status === "in_progress";
   const StatusIcon = statusConfig[status].icon;
@@ -332,123 +272,26 @@ export function TaskCardMenuItems({
           <IconBrain size={16} />
           Model
         </SubTrigger>
-        <SubContent>
-          {(() => {
-            const opts =
-              modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS;
-            const providers = [
-              ...new Set(opts.map((o) => getAIModelProvider(o.id))),
-            ];
-
-            // With personal accounts: Provider → Team / account → models.
-            if (hasAccounts) {
-              return providers.map((provider) => {
-                const providerModels = opts.filter(
-                  (option) => getAIModelProvider(option.id) === provider,
-                );
-                const providerAccounts = accounts.filter(
-                  (account) => account.provider === provider,
-                );
-
-                return (
-                  <Sub key={provider}>
-                    <SubTrigger>
-                      <ProviderIcon provider={provider} size={14} />
-                      {providerLabel(provider)}
-                    </SubTrigger>
-                    <SubContent>
-                      <Sub>
-                        <SubTrigger>Team</SubTrigger>
-                        <SubContent>
-                          <RadioGroup
-                            value={selectedComposite}
-                            onValueChange={applyModelSelection}
-                          >
-                            {providerModels.map((option) => (
-                              <RadioItem
-                                key={`${TEAM_KEY}-${option.id}`}
-                                value={toComposite(null, option.id)}
-                              >
-                                {option.label}
-                              </RadioItem>
-                            ))}
-                          </RadioGroup>
-                        </SubContent>
-                      </Sub>
-                      {providerAccounts.map((account) => (
-                        <Sub key={account.id}>
-                          <SubTrigger>
-                            <span
-                              className="size-2 shrink-0 rounded-full border border-border"
-                              style={{
-                                backgroundColor:
-                                  account.accentColor ?? "currentColor",
-                              }}
-                            />
-                            {account.label}
-                          </SubTrigger>
-                          <SubContent>
-                            <RadioGroup
-                              value={selectedComposite}
-                              onValueChange={applyModelSelection}
-                            >
-                              {providerModels.map((option) => (
-                                <RadioItem
-                                  key={`${account.id}-${option.id}`}
-                                  value={toComposite(account.id, option.id)}
-                                >
-                                  {option.label}
-                                </RadioItem>
-                              ))}
-                            </RadioGroup>
-                          </SubContent>
-                        </Sub>
-                      ))}
-                    </SubContent>
-                  </Sub>
-                );
+        <SubContent className={modelPickerSurfaceClass}>
+          {/* Same body as QuickTaskModal / ModelSelect — do not hand-roll radios. */}
+          <ModelPickerContent
+            value={normalizedModel}
+            accountId={providerAccountId ?? null}
+            options={modelOptions}
+            accounts={accounts}
+            canSelectTeamWhilePersonal={isOwner}
+            onSelect={(nextModel, nextAccountId) => {
+              if (!isOwner) {
+                updateTask({ id, model: nextModel });
+                return;
+              }
+              updateTask({
+                id,
+                model: nextModel,
+                providerAccountId: resolveAccountId(nextAccountId) ?? null,
               });
-            }
-
-            if (providers.length === 1) {
-              return (
-                <RadioGroup
-                  value={normalizedModel}
-                  onValueChange={applyModelSelection}
-                >
-                  {opts.map((option) => (
-                    <RadioItem key={option.id} value={option.id}>
-                      {option.label}
-                    </RadioItem>
-                  ))}
-                </RadioGroup>
-              );
-            }
-            return providers.map((provider) => (
-              <Sub key={provider}>
-                <SubTrigger>
-                  <ProviderIcon provider={provider} size={14} />
-                  {providerLabel(provider)}
-                </SubTrigger>
-                <SubContent>
-                  <RadioGroup
-                    value={normalizedModel}
-                    onValueChange={applyModelSelection}
-                  >
-                    {opts.flatMap((option) =>
-                      getAIModelProvider(option.id) === provider
-                        ? [
-                            <RadioItem key={option.id} value={option.id}>
-                              {option.label}
-                            </RadioItem>,
-                          ]
-                        : [],
-                    )}
-                  </RadioGroup>
-                </SubContent>
-              </Sub>
-            ));
-          })()}
+            }}
+          />
         </SubContent>
       </Sub>
 

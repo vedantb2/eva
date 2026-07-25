@@ -4,10 +4,11 @@ import { cn } from "@eva/ui";
 import { m } from "motion/react";
 import { createContext, use, useState, type ReactNode } from "react";
 
-const sharedLayoutTransition = {
+// shared-layout pill slide between sidebar rows
+export const sidebarSharedLayoutTransition = {
   type: "spring" as const,
-  stiffness: 520,
-  damping: 38,
+  stiffness: 800,
+  damping: 48,
 };
 
 interface SharedLayoutNavContextValue {
@@ -73,7 +74,7 @@ export function SharedLayoutNavSurface({
       {highlighted ? (
         <m.div
           layoutId={layoutId}
-          transition={sharedLayoutTransition}
+          transition={sidebarSharedLayoutTransition}
           className="pointer-events-none absolute inset-0 rounded-lg bg-sidebar-accent"
         />
       ) : null}

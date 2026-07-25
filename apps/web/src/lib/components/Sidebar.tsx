@@ -298,7 +298,6 @@ export function Sidebar() {
           pathname={pathname}
           onNavigate={closeMobileSidebar}
           userName={user?.fullName || user?.firstName || "User"}
-          userEmail={user?.primaryEmailAddress?.emailAddress}
           showSearch={isRepoRoute}
         />
         {showSidePanel ? (

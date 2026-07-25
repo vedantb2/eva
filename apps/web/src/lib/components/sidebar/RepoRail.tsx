@@ -71,7 +71,6 @@ interface RepoRailProps {
   pathname: string;
   onNavigate: () => void;
   userName: string;
-  userEmail?: string;
   showSearch?: boolean;
 }
 
@@ -147,7 +146,6 @@ function RepoRailView({
   pathname,
   onNavigate,
   userName,
-  userEmail,
   showSearch,
   activeSessionCount,
   activeSandboxRepoIds,
@@ -393,11 +391,7 @@ function RepoRailView({
             </kbd>
           </TooltipContent>
         </Tooltip>
-        <SidebarUserMenu
-          name={userName}
-          email={userEmail}
-          showSearch={showSearch}
-        />
+        <SidebarUserMenu name={userName} showSearch={showSearch} />
         <RailSettingsMenu onNavigate={onNavigate} />
       </div>
     </div>

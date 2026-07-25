@@ -21,6 +21,15 @@ import {
 
 export type { ModelAccount, ModelOption };
 export { findModelOption, formatModelDisplayLabel, getProviderLabel };
+/** Embeddable picker body — use in menus/submenus; use `ModelSelect` for button triggers. */
+export { ModelPickerContent };
+
+/**
+ * Shared chrome for the picker panel (popover + menu submenu). Keep these in
+ * sync so trigger vs embed surfaces cannot drift.
+ */
+export const modelPickerSurfaceClass =
+  "w-[25rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none";
 
 export interface ModelSelectProps<TModel extends string = string> {
   value: TModel;
@@ -51,6 +60,11 @@ export interface ModelSelectProps<TModel extends string = string> {
   canSelectTeamWhilePersonal?: boolean;
 }
 
+/**
+ * Button + popover model picker (create modal, composers, toolbars).
+ * For context/dropdown menus, embed `ModelPickerContent` with
+ * `modelPickerSurfaceClass` instead of nesting this popover.
+ */
 export function ModelSelect<TModel extends string>({
   value,
   onValueChange,
@@ -147,7 +161,7 @@ export function ModelSelect<TModel extends string>({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[25rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none"
+        className={modelPickerSurfaceClass}
         onOpenAutoFocus={(event) => {
           // Let ModelPickerContent own focus (search input); Radix would
           // otherwise park it on the first focusable and fight our layout effect.

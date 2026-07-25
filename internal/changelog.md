@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick-task card menu uses shared model picker - 2026-07-25
+
+Right-click / ⋮ on a quick-task card had a hand-rolled nested radio model tree that drifted from the create-modal picker. The card menu now embeds the same `ModelPickerContent` surface as `ModelSelect`, so account/search UX stays one implementation.
+
 ## Context sidebars: drop search, actions in header - 2026-07-25
 
 Docs, designs, automations, testing arena, reviews, and sessions sidebars each had a search row that competed with the title chrome. Search is gone from those panels; create / test-all actions sit at the right end of the panel header instead, so the list starts immediately under the title.

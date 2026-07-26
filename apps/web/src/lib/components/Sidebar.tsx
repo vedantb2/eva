@@ -24,6 +24,7 @@ import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSi
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
 import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
+import { HomeSidebar } from "@/lib/components/sidebar/HomeSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
@@ -33,6 +34,7 @@ import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
 import { SidebarResizeHandle } from "@/lib/components/sidebar/SidebarResizeHandle";
 import { ContextSidebarHeaderActionProvider } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
+import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -168,7 +170,9 @@ export function Sidebar() {
   // link like /$owner/$repo/.../sessions/$numId/preview) uses the root list.
   const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
   const showGlobalSessionsPanel = isGlobalSessionsLanding || isRepoSessionsPath;
-  const showSidePanel = isRepoRoute || isGlobalSessionsLanding;
+  const showWorkspacePanel = isWorkspacePath(pathname);
+  const showSidePanel =
+    isRepoRoute || isGlobalSessionsLanding || showWorkspacePanel;
 
   useEffect(() => {
     if (isGlobalSessionsLanding || isRepoSessionsPath) {
@@ -204,9 +208,21 @@ export function Sidebar() {
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
-  const contextSidebarTitle = showGlobalSessionsPanel
-    ? "Sessions"
-    : contextSidebarMode === "designs"
+  // Global panels (Sessions, Workspace) are a plain title + list: no repo
+  // header, no team background, no back button.
+  const isFlatPanel = showGlobalSessionsPanel || showWorkspacePanel;
+  const flatPanelTitle = showGlobalSessionsPanel ? "Sessions" : "Workspace";
+  // One key drives the header/nav enter animations and the header-action scope.
+  const panelKey = showGlobalSessionsPanel
+    ? "global-sessions"
+    : showWorkspacePanel
+      ? "workspace"
+      : showContextSidebar
+        ? contextSidebarMode
+        : "main";
+
+  const contextSidebarTitle =
+    contextSidebarMode === "designs"
       ? "Designs"
       : contextSidebarMode === "settings"
         ? "Settings"
@@ -308,15 +324,7 @@ export function Sidebar() {
               collapsed && "lg:hidden",
             )}
           >
-            <ContextSidebarHeaderActionProvider
-              key={
-                showGlobalSessionsPanel
-                  ? "global-sessions"
-                  : showContextSidebar
-                    ? contextSidebarMode
-                    : "main"
-              }
-            >
+            <ContextSidebarHeaderActionProvider key={panelKey}>
               {(headerAction) => (
                 <>
                   <div
@@ -324,14 +332,12 @@ export function Sidebar() {
                       // Always reserve tall header on main repo panel so team
                       // background resolving later does not shift the nav list (CLS).
                       "relative flex items-center overflow-hidden px-3",
-                      !showContextSidebar && !showGlobalSessionsPanel
-                        ? "h-24"
-                        : "h-16",
+                      !showContextSidebar && !isFlatPanel ? "h-24" : "h-16",
                     )}
                   >
                     {teamBackgroundUrl &&
                     !showContextSidebar &&
-                    !showGlobalSessionsPanel ? (
+                    !isFlatPanel ? (
                       <>
                         <img
                           src={teamBackgroundUrl}
@@ -342,27 +348,21 @@ export function Sidebar() {
                       </>
                     ) : null}
                     <m.div
-                      key={
-                        showGlobalSessionsPanel
-                          ? "global-sessions-header"
-                          : showContextSidebar
-                            ? `${contextSidebarMode}-header`
-                            : "main-header"
-                      }
+                      key={`${panelKey}-header`}
                       className={cn(
                         "relative z-10 flex w-full items-center justify-between",
                         teamBackgroundUrl &&
                           !showContextSidebar &&
-                          !showGlobalSessionsPanel &&
+                          !isFlatPanel &&
                           "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-sm",
                       )}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      {showGlobalSessionsPanel ? (
+                      {isFlatPanel ? (
                         <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                          Sessions
+                          {flatPanelTitle}
                         </span>
                       ) : showContextSidebar ? (
                         <>
@@ -460,19 +460,18 @@ export function Sidebar() {
                       }
                     >
                       <m.div
-                        key={
-                          showGlobalSessionsPanel
-                            ? "global-sessions-nav"
-                            : showContextSidebar
-                              ? `${contextSidebarMode}-nav`
-                              : "main-nav"
-                        }
+                        key={`${panelKey}-nav`}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2 }}
                       >
                         {showGlobalSessionsPanel ? (
                           <GlobalSessionsSidebar
+                            pathname={pathname}
+                            onNavigate={closeMobileSidebar}
+                          />
+                        ) : showWorkspacePanel ? (
+                          <HomeSidebar
                             pathname={pathname}
                             onNavigate={closeMobileSidebar}
                           />

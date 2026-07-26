@@ -5,6 +5,7 @@ import {
   useLocation,
 } from "@tanstack/react-router";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -22,8 +23,10 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
-  // Sessions landing shows the wide second column; collapsed hides it (rail only).
-  const paddingClass = isSessionsLanding
+  // Sessions landing and the workspace routes show the wide second column;
+  // collapsed hides it (rail only).
+  const hasSecondColumn = isSessionsLanding || isWorkspacePath(pathname);
+  const paddingClass = hasSecondColumn
     ? collapsed
       ? "lg:pl-16"
       : "lg:pl-[var(--eva-sidebar-width,20rem)]"

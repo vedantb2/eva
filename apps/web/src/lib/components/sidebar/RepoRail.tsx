@@ -16,12 +16,10 @@ import {
   cn,
 } from "@eva/ui";
 import {
-  IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconPencil,
   IconSearch,
-  IconUsers,
 } from "@tabler/icons-react";
 import {
   InboxIcon,
@@ -36,6 +34,7 @@ import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
+import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
   appLeafName,
@@ -115,9 +114,10 @@ function InboxUnreadBadge() {
 }
 
 /**
- * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
- * Sessions), then repos, then collapse / search / account / settings at the
- * bottom. Testing (dev) lives in the settings dropdown.
+ * Far-left icon rail: global destinations (Eva, Inbox, Sessions), then repos,
+ * then collapse / search / account / settings at the bottom. Teams and
+ * Artifacts live in the workspace sidebar behind the Eva tile; Testing (dev)
+ * lives in the settings dropdown.
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
@@ -153,12 +153,13 @@ function RepoRailView({
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { openSearch } = useSearch();
+  // The Eva tile owns the whole workspace panel (Codebases / Teams / Artifacts),
+  // so it stays lit on any of those routes.
   const homeActive =
-    pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
+    pathname === "/" ||
+    pathname.startsWith("/setup") ||
+    isWorkspacePath(pathname);
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
-  const teamsActive = pathname === "/teams" || pathname.startsWith("/teams/");
-  const artifactsActive =
-    pathname === "/artifacts" || pathname.startsWith("/artifacts/");
   const pathParts = pathname.split("/").filter(Boolean);
   const onRepoSessionsPath =
     pathParts.includes("sessions") && pathParts[0] !== "sessions";
@@ -210,32 +211,6 @@ function RepoRailView({
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">Inbox</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/teams"
-              onClick={onNavigate}
-              aria-label="Teams"
-              className={cn(RAIL_TILE_CLASS, railTileActive(teamsActive))}
-            >
-              <IconUsers size={22} className="shrink-0" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Teams</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/artifacts"
-              onClick={onNavigate}
-              aria-label="Artifacts"
-              className={cn(RAIL_TILE_CLASS, railTileActive(artifactsActive))}
-            >
-              <IconLayoutDashboard size={22} className="shrink-0" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Artifacts</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
         <Tooltip>

@@ -16,4 +16,7 @@ export const treeThemeVars: CSSProperties & Record<`--${string}`, string> = {
   "--trees-border-color-override": "rgb(var(--border))",
   "--trees-accent-override": "rgb(var(--primary))",
   "--trees-focus-ring-color-override": "rgb(var(--ring))",
+  // The tree defaults to `system-ui`; point it at the app's own sans stack so
+  // it follows the user's theme font like every other surface.
+  "--trees-font-family-override": "var(--font-sans)",
 };

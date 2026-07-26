@@ -3,6 +3,7 @@ import { IconGitPullRequest } from "@tabler/icons-react";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/reviews/")({
+  staticData: { title: "Reviews" },
   component: ReviewsIndexPage,
 });
 

@@ -6,6 +6,7 @@ import { ClientProvider } from "@/lib/components/ClientProvider";
 import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
+import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
 
 export interface RouterContext {
   isSignedIn: boolean;
@@ -25,6 +26,8 @@ const DevAgentation = import.meta.env.DEV
   : null;
 
 function RootComponent() {
+  useDocumentTitle();
+
   return (
     <ClientProvider>
       <NuqsAdapter>

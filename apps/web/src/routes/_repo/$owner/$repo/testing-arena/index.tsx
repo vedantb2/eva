@@ -3,6 +3,7 @@ import { IconFileText } from "@tabler/icons-react";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/testing-arena/")({
+  staticData: { title: "Testing Arena" },
   component: TestingArenaPage,
 });
 

@@ -10,6 +10,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_global/testing")({
+  staticData: { title: "Testing" },
   validateSearch: searchSchema,
   beforeLoad: () => {
     if (!import.meta.env.DEV) {

@@ -32,6 +32,7 @@ function dedupeRepos(
 }
 
 export const Route = createFileRoute("/_global/settings/sync")({
+  staticData: { title: "Settings" },
   component: SyncSettingsRoute,
 });
 

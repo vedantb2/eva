@@ -7,6 +7,7 @@ import type { GitStatus } from "@pierre/trees";
 import { Accordion, Spinner } from "@eva/ui";
 import { IconGitPullRequest, IconAlertTriangle } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { ResizableSidebar } from "@/lib/components/ResizableSidebar";
 import { DiffFileTree } from "./DiffFileTree";
 import { DiffFileAccordionItem } from "./DiffFileAccordionItem";
 import { DiffsToolbar } from "./DiffsToolbar";
@@ -160,6 +161,64 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const showTree = visibleEntries.length > 0;
   const prNumber = prNumberFromGithubUrl(prUrl);
 
+  const fileDiffs = (
+    <div className="min-h-0 flex-1 overflow-auto">
+      {state.status === "loading" ? (
+        <div className="flex h-full items-center justify-center">
+          <Spinner />
+        </div>
+      ) : state.status === "error" ? (
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+          <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
+          <p className="text-sm text-muted-foreground">
+            Could not load the pull request diff.
+          </p>
+        </div>
+      ) : fileEntries.length === 0 ? (
+        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+          No changes in this pull request yet.
+        </div>
+      ) : visibleEntries.length === 0 ? (
+        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+          No files match “{fileFilter}”.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 p-3">
+          {state.truncated ? (
+            <p className="text-xs text-muted-foreground">
+              Diff is large and has been truncated.
+            </p>
+          ) : null}
+          <Accordion
+            type="multiple"
+            value={openPaths}
+            onValueChange={setOpenPaths}
+            className="flex flex-col gap-3"
+          >
+            {visibleEntries.map((entry) => (
+              <div key={entry.path} ref={setFileRef(entry.path)}>
+                <DiffFileAccordionItem
+                  entry={entry}
+                  diffView={diffView}
+                  resolvedTheme={resolvedTheme}
+                  viewed={isViewed(entry.path)}
+                  onViewedChange={(viewed) =>
+                    handleViewedChange(entry.path, viewed)
+                  }
+                  wrapLines={wrapLines}
+                  repoId={repoId}
+                  baseSha={state.baseSha}
+                  headSha={state.headSha}
+                  repoUrl={state.repoUrl}
+                />
+              </div>
+            ))}
+          </Accordion>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <DiffsToolbar
@@ -190,72 +249,23 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
 
       <div className="flex min-h-0 flex-1">
         {showTree ? (
-          <div className="flex min-h-0 w-64 shrink-0 flex-col border-r border-border">
-            <DiffFileTree
-              key={visibleKey}
-              files={visiblePaths}
-              statuses={statuses}
-              initialSelectedPath={diffFile || null}
-              onSelect={handleSelect}
-            />
-          </div>
-        ) : null}
-
-        <div className="min-h-0 flex-1 overflow-auto">
-          {state.status === "loading" ? (
-            <div className="flex h-full items-center justify-center">
-              <Spinner />
-            </div>
-          ) : state.status === "error" ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-              <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
-              <p className="text-sm text-muted-foreground">
-                Could not load the pull request diff.
-              </p>
-            </div>
-          ) : fileEntries.length === 0 ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              No changes in this pull request yet.
-            </div>
-          ) : visibleEntries.length === 0 ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              No files match “{fileFilter}”.
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 p-3">
-              {state.truncated ? (
-                <p className="text-xs text-muted-foreground">
-                  Diff is large and has been truncated.
-                </p>
-              ) : null}
-              <Accordion
-                type="multiple"
-                value={openPaths}
-                onValueChange={setOpenPaths}
-                className="flex flex-col gap-3"
-              >
-                {visibleEntries.map((entry) => (
-                  <div key={entry.path} ref={setFileRef(entry.path)}>
-                    <DiffFileAccordionItem
-                      entry={entry}
-                      diffView={diffView}
-                      resolvedTheme={resolvedTheme}
-                      viewed={isViewed(entry.path)}
-                      onViewedChange={(viewed) =>
-                        handleViewedChange(entry.path, viewed)
-                      }
-                      wrapLines={wrapLines}
-                      repoId={repoId}
-                      baseSha={state.baseSha}
-                      headSha={state.headSha}
-                      repoUrl={state.repoUrl}
-                    />
-                  </div>
-                ))}
-              </Accordion>
-            </div>
-          )}
-        </div>
+          <ResizableSidebar
+            storageKey="diff-file-tree"
+            sidebar={
+              <DiffFileTree
+                key={visibleKey}
+                files={visiblePaths}
+                statuses={statuses}
+                initialSelectedPath={diffFile || null}
+                onSelect={handleSelect}
+              />
+            }
+          >
+            {fileDiffs}
+          </ResizableSidebar>
+        ) : (
+          fileDiffs
+        )}
       </div>
     </div>
   );

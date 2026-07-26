@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   Group,
-  type Layout,
   Panel,
   type PanelSize,
   Separator,
@@ -19,6 +18,11 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import {
+  LEFT_PANEL_ID,
+  RIGHT_PANEL_ID,
+  usePersistentPanelSize,
+} from "@/lib/hooks/usePersistentPanelSize";
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -44,25 +48,6 @@ interface ResizablePanelLayoutProps {
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
 const MOBILE_PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-// Stable panel ids: the group's Layout is keyed by them, so leaving them to the
-// library's `useId` fallback would make the saved layout unreadable next mount.
-const LEFT_PANEL_ID = "left";
-const RIGHT_PANEL_ID = "right";
-
-/**
- * Turns a group Layout (panel id → flexGrow) into the right panel's share of the
- * group. Computed as a ratio rather than read as a percentage so it holds
- * whatever scale the library normalises flexGrow to.
- */
-function rightPanelPercentage(layout: Layout): number | null {
-  const left = layout[LEFT_PANEL_ID];
-  const right = layout[RIGHT_PANEL_ID];
-  if (left === undefined || right === undefined) return null;
-  const total = left + right;
-  if (total <= 0) return null;
-  return (right / total) * 100;
-}
-
 export function ResizablePanelLayout({
   leftPanel,
   rightPanel,
@@ -79,22 +64,24 @@ export function ResizablePanelLayout({
     storageKey,
     defaultRightCollapsed,
   );
-  // Where the user last dragged the handle. A per-device presentation
-  // preference (it tracks window width), so localStorage rather than Convex —
-  // same reasoning as the collapsed flag above.
-  const [savedRightSize, setSavedRightSize] = useLocalStorage(
-    `${storageKey}:size`,
-    DEFAULT_RIGHT_PANEL_SIZE,
-  );
+  // Where the user last dragged the handle.
+  const {
+    initialSize: initialRightSize,
+    savedSize: savedRightSize,
+    onLayoutChanged,
+  } = usePersistentPanelSize({
+    storageKey,
+    panel: "right",
+    defaultSize: DEFAULT_RIGHT_PANEL_SIZE,
+  });
   const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   // Seeded from storage so expanding after a reload returns to the dragged
   // width instead of the 60% default.
   const lastExpandedSize = useRef<string>(savedRightSize);
-  // Capture the initial values once for defaultSize — neither changes after mount
+  // Captured once for defaultSize — the stored flag does not change after mount
   const [initialCollapsed] = useState(savedCollapsed);
-  const [initialRightSize] = useState(savedRightSize);
 
   const handleToggle = useCallback(() => {
     // Mobile layout has no Panel ref — toggle local state directly.
@@ -130,17 +117,6 @@ export function ResizablePanelLayout({
     }
     setRightCollapsed(collapsed);
     setSavedCollapsed(collapsed);
-  };
-
-  // Persist on `onLayoutChanged`, not the Panel's `onResize`: the latter fires on
-  // every pointer move, which would mean a localStorage write per frame of the
-  // drag. This one fires once, after the pointer is released.
-  const handleLayoutChanged = (layout: Layout) => {
-    const percentage = rightPanelPercentage(layout);
-    // Null when a panel is missing; 0 when collapsed — neither is a width worth
-    // remembering, since collapsed state has its own key.
-    if (percentage === null || percentage === 0) return;
-    setSavedRightSize(`${percentage}%`);
   };
 
   const ctx: PanelContext = {
@@ -185,7 +161,7 @@ export function ResizablePanelLayout({
       id={storageKey}
       orientation="horizontal"
       className="h-full"
-      onLayoutChanged={handleLayoutChanged}
+      onLayoutChanged={onLayoutChanged}
     >
       <Panel
         id={LEFT_PANEL_ID}

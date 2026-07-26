@@ -1,5 +1,14 @@
 # Changelog
 
+## The file tree is draggable - 2026-07-26
+
+Both file trees were pinned to a fixed 256px: too narrow for a deep path, too wide for a flat repo. They now drag, and the width is remembered.
+
+- The Diffs tab tree and the Files tab tree share one `ResizableSidebar`. Because both panels are shared components, this lands on sessions, projects and quick tasks at once, plus the standalone Reviews page.
+- The hairline divider is the drag handle; the pointer target is wider than the visible pixel, so there is no grip to clutter it.
+- Fixes a crash the split-pane persistence introduced: the panel group reports its starting layout from a layout effect, effects run child-first, and `useLocalStorage`'s setter throws until its own effect has run. That first report only echoes back the size we passed in, so it is now skipped.
+- Persistence for both the split pane and the tree sidebar lives in one `usePersistentPanelSize` hook, so there is a single place where the storage key, the write timing and the mount ordering are decided.
+
 ## Split-pane width persists - 2026-07-26
 
 Dragging the divider between the chat and the sandbox was forgotten as soon as the page unmounted. Only the collapsed/expanded flag was stored; the dragged width sat in a ref. Reopening a task always reset the split to 60%, and collapsing then re-expanding lost it too.

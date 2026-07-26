@@ -7,6 +7,7 @@ import { api, type Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 import { toRepoRelativePath } from "@/lib/components/chat/ChangedFilesCard";
+import { ResizableSidebar } from "@/lib/components/ResizableSidebar";
 import { fileViewerPathParser } from "@/lib/search-params";
 import { FileViewerPanel, ViewerNotice } from "./FileViewerPanel";
 import { SandboxFileTree } from "./_components/SandboxFileTree";
@@ -184,9 +185,10 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="flex min-h-0 w-64 shrink-0 flex-col border-r border-border">
-        {listState.kind === "loading" || listState.kind === "idle" ? (
+    <ResizableSidebar
+      storageKey="sandbox-file-tree"
+      sidebar={
+        listState.kind === "loading" || listState.kind === "idle" ? (
           <div className="flex h-full items-center justify-center">
             <Spinner size="sm" />
           </div>
@@ -222,8 +224,9 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
             onRefresh={handleRefresh}
             onSelectFile={handleSelectFile}
           />
-        )}
-      </div>
+        )
+      }
+    >
       <div className="min-h-0 flex-1">
         <FileViewerPanel
           sandboxId={sandboxId}
@@ -231,6 +234,6 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
           isActive={isActive}
         />
       </div>
-    </div>
+    </ResizableSidebar>
   );
 }

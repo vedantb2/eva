@@ -6,6 +6,7 @@ import { Button, Input, Textarea } from "@eva/ui";
 import { IconPlus } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { useState } from "react";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 export function AddCategoryForm(props: {
   repoId: Id<"githubRepos">;
@@ -28,32 +29,26 @@ export function AddCategoryForm(props: {
   };
 
   return (
-    <div className="grid gap-3">
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-          Name
-        </label>
+    <div className="grid gap-4">
+      <SettingsField label="Name">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Performance"
           className="h-8 text-xs"
         />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-          Description
-        </label>
+      </SettingsField>
+      <SettingsField
+        label="Description"
+        description="This description is sent to the AI as instructions for what to audit."
+      >
         <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe what this audit should check for..."
-          className="text-xs min-h-[60px] resize-none"
+          className="min-h-[60px] resize-none text-xs"
         />
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          This description is sent to the AI as instructions for what to audit.
-        </p>
-      </div>
+      </SettingsField>
       <Button
         variant="outline"
         size="sm"

@@ -5,9 +5,11 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Checkbox } from "@eva/ui";
-import { IconTrash } from "@tabler/icons-react";
+import { Button, Checkbox } from "@eva/ui";
+import { IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { AddCategoryForm } from "./audits/_components/AddCategoryForm";
 import { isAppRepo } from "./_utils";
 
@@ -59,17 +61,17 @@ export function AuditsClient() {
 
   return (
     <PageWrapper title="Audits" comfortable>
-      <div className="space-y-6">
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <div>
-            <h3 className="text-sm font-medium">Repo-level Audits</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              These audits run for all tasks across the repo and all apps.
-            </p>
-          </div>
-
-          {repoCategories.length > 0 && (
-            <div className="grid gap-2">
+      <div className="space-y-4">
+        {/* Each scope is one list section plus its own add form, so it is
+            always clear which scope a new category lands in. */}
+        <SettingsSection
+          title="Repo-level Audits"
+          description="These audits run for all tasks across the repo and all apps."
+          // Rows own their padding so the divider spans the card's full width.
+          bodyClassName="p-0"
+        >
+          {repoCategories.length > 0 ? (
+            <div className="divide-y divide-border">
               {repoCategories.map((category) => (
                 <CategoryRow
                   key={category._id}
@@ -81,43 +83,52 @@ export function AuditsClient() {
                 />
               ))}
             </div>
+          ) : (
+            <SettingsEmptyState
+              icon={IconShieldCheck}
+              title="No audit categories yet"
+              description="Add one below to have every task audited against it."
+            />
           )}
+        </SettingsSection>
 
-          {repoCategories.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6">
-              No audit categories configured yet.
-            </p>
-          )}
-
+        <SettingsSection title="Add a repo-level audit">
           <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />
-        </div>
+        </SettingsSection>
 
         {isApp && (
-          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-            <div>
-              <h3 className="text-sm font-medium">App-specific Audits</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Audits that only run for this app.
-              </p>
-            </div>
+          <>
+            <SettingsSection
+              title="App-specific Audits"
+              description="Audits that only run for this app."
+              bodyClassName="p-0"
+            >
+              {appCategories.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {appCategories.map((category) => (
+                    <CategoryRow
+                      key={category._id}
+                      category={category}
+                      onToggle={(enabled) =>
+                        toggleEnabled({ id: category._id, enabled })
+                      }
+                      onRemove={() => removeCategory({ id: category._id })}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SettingsEmptyState
+                  icon={IconShieldCheck}
+                  title="No app-specific audits"
+                  description="This app runs the repo-level audits only."
+                />
+              )}
+            </SettingsSection>
 
-            {appCategories.length > 0 && (
-              <div className="grid gap-2">
-                {appCategories.map((category) => (
-                  <CategoryRow
-                    key={category._id}
-                    category={category}
-                    onToggle={(enabled) =>
-                      toggleEnabled({ id: category._id, enabled })
-                    }
-                    onRemove={() => removeCategory({ id: category._id })}
-                  />
-                ))}
-              </div>
-            )}
-
-            <AddCategoryForm repoId={repoId} appId={repoId} />
-          </div>
+            <SettingsSection title="Add an app-specific audit">
+              <AddCategoryForm repoId={repoId} appId={repoId} />
+            </SettingsSection>
+          </>
         )}
       </div>
     </PageWrapper>
@@ -134,24 +145,28 @@ function CategoryRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-surface border border-border bg-card p-3">
+    // A row inside the audits list section, so the section owns the border.
+    <div className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
       <Checkbox
         checked={category.enabled}
         onCheckedChange={(value) => onToggle(value === true)}
         className="mt-0.5"
       />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium">{category.name}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{category.name}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
           {category.description}
         </p>
       </div>
-      <button
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+        aria-label={`Remove ${category.name}`}
         onClick={onRemove}
-        className="text-muted-foreground hover:text-destructive transition-colors p-1"
       >
         <IconTrash size={14} />
-      </button>
+      </Button>
     </div>
   );
 }

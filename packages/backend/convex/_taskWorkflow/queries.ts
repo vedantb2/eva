@@ -102,6 +102,9 @@ export const getTaskData = internalQuery({
     branchName: v.string(),
     taskTitle: v.string(),
     taskDescription: v.optional(v.string()),
+    // Files the user attached when creating the task; materialized into the
+    // sandbox at launch so the agent can read them.
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     projectSandboxId: v.optional(v.string()),
     projectVercelSandboxId: v.optional(v.string()),
     taskSandboxId: v.optional(v.string()),
@@ -333,6 +336,7 @@ export const getTaskData = internalQuery({
       branchName,
       taskTitle: task.title,
       taskDescription: resolvedTaskDescription ?? task.description,
+      attachmentStorageIds: task.attachmentStorageIds,
       projectSandboxId,
       projectVercelSandboxId,
       taskSandboxId,

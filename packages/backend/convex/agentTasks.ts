@@ -6,6 +6,7 @@ export {
   getAllTasks,
   getDependentTasks,
   getStatusesByIds,
+  listAttachments,
 } from "./_agentTasks/queries";
 
 export {

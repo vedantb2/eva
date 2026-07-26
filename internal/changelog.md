@@ -1,5 +1,18 @@
 # Changelog
 
+## Quick task attachments - 2026-07-26
+
+Files could only reach an agent through a task's chat, so working from a screenshot or a spec meant creating the task, running it, then pasting the file in. Quick tasks now take attachments directly.
+
+- Attach via paperclip, image paste into the description, or drag-and-drop onto the modal; cards render under a **Files** heading below the description.
+- Same rules as the chat composer: images plus `.html`/`.md`/`.txt`, 5 files, 10 MB each, identical rejection copy.
+- Uploads happen on submit rather than on pick, so cancelling the modal never leaves orphaned blobs in storage.
+- Drafts carry attachments through save and activate, so closing the modal with only a file attached and reopening it keeps the file.
+- The agent receives them: `attachmentStorageIds` persists on the task row and the workflow reads it off the doc, so every run path (quick, queued, scheduled, project build, auto-run, MCP, extension) materialises the files into the sandbox with one change.
+- Task detail shows a read-only **Files** section; each card opens the stored file in a new tab.
+- Accept lists, limits, upload, and card rendering moved to a shared `components/attachments` module so chat and quick tasks stay in step; chat keeps its old imports.
+- Known limit: only storage ids are persisted, so original filenames are lost and detail-view labels fall back to content-type names.
+
 ## Full accent palette + surface tones restored - 2026-07-26
 
 The monochrome accent was called **None**/`neutral` while its values were the Tailwind zinc ramp, which blocked adding zinc's siblings. Renamed to **Zinc** (same values, still the default) and added eight more: slate, gray, neutral, stone, plus taupe, mauve, mist and olive — four muted hues Tailwind has no ramp for. 26 accents total. Separately, the pure white / pure black shells introduced alongside the None accent left no tonal step between canvas and cards, so `--background` is back to `244 245 246` light and `5 6 6` dark, with dark cards at `23 24 26`. Rail apps also get Mod+1…9 shortcuts.

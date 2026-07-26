@@ -138,6 +138,10 @@ export const agentTaskFields = {
   ...entityNumIdFields,
   title: v.string(),
   description: v.optional(v.string()),
+  // User-attached input files (paperclip / paste in the quick task composer),
+  // stored via Convex file storage. Materialized into the sandbox as
+  // /tmp/eva-attachment-* at launch so the agent can read them.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   repoId: v.optional(v.id("githubRepos")),
   projectId: v.optional(v.id("projects")),
   tags: v.optional(v.array(v.string())),

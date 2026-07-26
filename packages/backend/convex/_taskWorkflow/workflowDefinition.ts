@@ -131,6 +131,10 @@ export const taskExecutionWorkflow = workflow.define({
         requireTaskCommit: true,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
+        // Read off the task doc rather than the workflow args so every entry
+        // point (quick run, queued, scheduled, project build, auto-run from
+        // findings) delivers the user's attachments without extra plumbing.
+        attachmentStorageIds: data.attachmentStorageIds,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {

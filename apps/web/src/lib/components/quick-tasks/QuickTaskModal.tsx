@@ -63,6 +63,8 @@ import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
+import { TaskFilesSection } from "./_components/TaskFilesSection";
+import { useTaskAttachments } from "./useTaskAttachments";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -140,6 +142,21 @@ export function QuickTaskModal({
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+
+  const attachments = useTaskAttachments();
+  // Files already saved on the open draft, so reopening it keeps them.
+  const draftAttachments = useQuery(
+    api.agentTasks.listAttachments,
+    activeDraftId ? { taskId: activeDraftId } : "skip",
+  );
+  const [hydratedDraftId, setHydratedDraftId] =
+    useState<Id<"agentTasks"> | null>(null);
+  if (activeDraftId && draftAttachments && hydratedDraftId !== activeDraftId) {
+    setHydratedDraftId(activeDraftId);
+    // An empty draft never clears files the user just attached.
+    if (draftAttachments.length > 0) attachments.hydrate(draftAttachments);
+  }
+
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
@@ -188,11 +205,14 @@ export function QuickTaskModal({
     setPriority(undefined);
     setScreenshotsVideosEnabled(false);
     setRunAuditEnabled(false);
+    setHydratedDraftId(null);
+    attachments.reset();
   };
 
   const handleClose = async () => {
     const desc = getDescription().trim();
-    if (title.trim() || desc) {
+    if (title.trim() || desc || attachments.attachments.length > 0) {
+      const attachmentStorageIds = await attachments.upload();
       await saveDraft({
         id: activeDraftId ?? undefined,
         repoId: repo._id,
@@ -200,6 +220,8 @@ export function QuickTaskModal({
         description: desc || undefined,
         baseBranch: branchLockedToProject ? undefined : baseBranch,
         projectId: selectedProjectId,
+        attachmentStorageIds:
+          attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
       });
     }
     resetForm();
@@ -213,6 +235,9 @@ export function QuickTaskModal({
     const taskBaseBranch = branchLockedToProject ? undefined : baseBranch;
     setIsLoading(true);
     try {
+      const attachmentStorageIds = await attachments.upload();
+      const taskAttachmentIds =
+        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined;
       if (activeDraftId) {
         await activateDraft({
           id: activeDraftId,
@@ -225,6 +250,7 @@ export function QuickTaskModal({
           assignedTo,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          attachmentStorageIds: taskAttachmentIds,
         });
       } else {
         await createQuickTask({
@@ -240,6 +266,7 @@ export function QuickTaskModal({
           priority,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          attachmentStorageIds: taskAttachmentIds,
         });
       }
       resetForm();
@@ -313,17 +340,34 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
-            <DescriptionMentionEditor
-              ref={editorRef}
-              value={description}
-              onValueChange={setDescription}
-              placeholder="Add description... @ for data, / for skills."
-              minHeight="min-h-[160px]"
-              className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
-              initialMentionMap={initialDescMaps.mentionMap}
-              initialSkillMap={initialDescMaps.skillMap}
-              completionContext={`the description of a coding task for the repository ${repo.owner}/${repo.name}${title ? `, titled "${title}"` : ""}`}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              const dropped = Array.from(e.dataTransfer.files);
+              if (dropped.length === 0) return;
+              e.preventDefault();
+              attachments.add(dropped);
+            }}
+          >
+            <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+              <DescriptionMentionEditor
+                ref={editorRef}
+                value={description}
+                onValueChange={setDescription}
+                placeholder="Add description... @ for data, / for skills."
+                minHeight="min-h-[160px]"
+                className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
+                initialMentionMap={initialDescMaps.mentionMap}
+                initialSkillMap={initialDescMaps.skillMap}
+                completionContext={`the description of a coding task for the repository ${repo.owner}/${repo.name}${title ? `, titled "${title}"` : ""}`}
+                onImageFiles={attachments.add}
+              />
+            </div>
+
+            <TaskFilesSection
+              attachments={attachments.attachments}
+              onAdd={attachments.add}
+              onRemove={attachments.remove}
             />
           </div>
 

@@ -485,6 +485,7 @@ export const createQuickTask = authMutation({
     priority: v.optional(priorityValidator),
     screenshotsVideosEnabled: v.optional(v.boolean()),
     runAuditEnabled: v.optional(v.boolean()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -530,6 +531,7 @@ export const createQuickTask = authMutation({
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
+      attachmentStorageIds: args.attachmentStorageIds,
       numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);

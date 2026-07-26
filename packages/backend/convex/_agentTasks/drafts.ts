@@ -45,6 +45,7 @@ export const saveDraft = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     projectId: v.optional(v.id("projects")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -69,6 +70,7 @@ export const saveDraft = authMutation({
         title: args.title ?? "",
         description: args.description,
         baseBranch: args.baseBranch,
+        attachmentStorageIds: args.attachmentStorageIds,
         updatedAt: now,
       });
       return args.id;
@@ -77,6 +79,7 @@ export const saveDraft = authMutation({
     const draftId = await ctx.db.insert("agentTasks", {
       title: args.title ?? "",
       description: args.description,
+      attachmentStorageIds: args.attachmentStorageIds,
       repoId: args.repoId,
       status: "draft",
       createdAt: now,
@@ -106,6 +109,7 @@ export const activateDraft = authMutation({
     assignedTo: v.optional(v.id("users")),
     screenshotsVideosEnabled: v.optional(v.boolean()),
     runAuditEnabled: v.optional(v.boolean()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -137,6 +141,7 @@ export const activateDraft = authMutation({
       assignedTo: args.assignedTo,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
+      attachmentStorageIds: args.attachmentStorageIds,
     });
     if (args.assignedTo) {
       await ensureSubscribed(ctx, args.id, args.assignedTo);

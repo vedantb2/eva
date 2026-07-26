@@ -11,6 +11,7 @@ import dayjs from "@eva/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
+import { TaskAttachments } from "./_components/TaskAttachments";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { TaskSubscribers } from "./_components/TaskSubscribers";
 import { TaskReactionsProvider } from "./_components/TaskReactionsProvider";
@@ -280,6 +281,8 @@ export function TaskDetailInline({
                       taskId={taskId}
                       inline={true}
                     />
+
+                    <TaskAttachments taskId={taskId} />
 
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">

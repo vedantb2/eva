@@ -39,6 +39,11 @@ interface DescriptionMentionEditorProps {
    * leaves the editor plain.
    */
   completionContext?: string;
+  /**
+   * Receives images pasted into the editor instead of inserting them as text.
+   * Omitting it drops pasted images, as before.
+   */
+  onImageFiles?: (files: File[]) => void;
 }
 
 export const DescriptionMentionEditor = forwardRef<
@@ -57,6 +62,7 @@ export const DescriptionMentionEditor = forwardRef<
     initialSkillMap,
     disabled,
     completionContext,
+    onImageFiles,
   },
   ref,
 ) {
@@ -104,6 +110,7 @@ export const DescriptionMentionEditor = forwardRef<
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
       disabled={disabled}
+      onImageFiles={onImageFiles}
       suggestion={suggestion}
       onAcceptSuggestion={
         suggestion ? () => onValueChange(value + suggestion) : undefined

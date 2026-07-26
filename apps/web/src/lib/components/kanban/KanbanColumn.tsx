@@ -9,13 +9,16 @@ import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 export { TASK_STATUSES as KANBAN_STATUSES };
 
 /**
- * Width sizing for a kanban column wrapper. Columns grow to fill the board when
- * four or fewer are visible; past that they hold a quarter of the board width
- * (minus the three `gap-3` gutters) and never shrink, so the board scrolls
- * horizontally instead of squishing every column.
+ * Width sizing for a kanban column wrapper. Each breakpoint fixes how many
+ * columns fit on screen — 1 on mobile (with a peek of the next one to signal
+ * the scroll), 2 on tablet, 3 on small desktops, 4 on large ones. The basis
+ * subtracts the `gap-3` gutters between those columns. Columns never shrink, so
+ * extra statuses push the board into a horizontal scroll rather than squishing
+ * every column; boards with fewer columns than the breakpoint allows still grow
+ * to fill the width.
  */
 export const KANBAN_COLUMN_WIDTH_CLASS =
-  "flex-1 sm:flex-[1_0_calc((100%-2.25rem)/4)]";
+  "min-w-[70vw] flex-1 sm:min-w-0 sm:flex-[1_0_calc((100%-0.75rem)/2)] lg:flex-[1_0_calc((100%-1.5rem)/3)] xl:flex-[1_0_calc((100%-2.25rem)/4)]";
 
 interface ColumnConfig {
   bg: string;

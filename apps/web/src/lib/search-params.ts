@@ -304,6 +304,7 @@ export function isAutomationTab(s: string): s is AutomationTab {
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
 
 const inboxFilters = ["all", "unread"] as const;
+export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);

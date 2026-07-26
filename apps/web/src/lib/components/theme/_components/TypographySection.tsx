@@ -52,7 +52,9 @@ export function TypographySection({
   onRadiusChange: (r: RadiusSize) => void;
 }) {
   return (
-    <>
+    // Three labelled sub-groups that read as one block, so the spacing lives
+    // here rather than depending on the parent's stack.
+    <div className="space-y-5">
       <section>
         <SectionLabel>Border Radius</SectionLabel>
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -138,6 +140,6 @@ export function TypographySection({
           ))}
         </div>
       </section>
-    </>
+    </div>
   );
 }

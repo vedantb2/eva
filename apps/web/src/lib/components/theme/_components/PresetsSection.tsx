@@ -3,7 +3,6 @@
 import type { CustomTheme } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
-import { SectionLabel } from "./SectionLabel";
 
 interface Preset {
   name: string;
@@ -74,37 +73,36 @@ export function PresetsSection({
   onApplyPreset: (theme: Required<CustomTheme>) => void;
 }) {
   return (
-    <section>
-      <SectionLabel>Presets</SectionLabel>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-        {PRESETS.map((preset) => {
-          const active = isPresetActive(preset.theme, currentTheme);
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+      {PRESETS.map((preset) => {
+        const active = isPresetActive(preset.theme, currentTheme);
 
-          return (
-            <button
-              key={preset.name}
-              onClick={() => onApplyPreset(preset.theme)}
-              className={cn(
-                "relative flex flex-col items-center gap-2 rounded-surface p-3 text-xs font-medium transition-[background-color,color,box-shadow] sm:gap-3 sm:p-4 sm:text-sm",
-                active
-                  ? "bg-primary/8 text-primary ring-1 ring-primary/20"
-                  : "bg-card/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-            >
-              {active && (
-                <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <IconCheck size={10} strokeWidth={3} />
-                </span>
-              )}
-              <span
-                className="h-4 w-4 shrink-0 rounded-full"
-                style={{ backgroundColor: preset.previewColor }}
-              />
-              {preset.name}
-            </button>
-          );
-        })}
-      </div>
-    </section>
+        return (
+          <button
+            key={preset.name}
+            onClick={() => onApplyPreset(preset.theme)}
+            className={cn(
+              // Matches the other theme pickers: border carries the selected
+              // state, inactive keeps a transparent one to avoid reflow.
+              "relative flex flex-col items-center gap-2 rounded-surface border p-3 text-xs font-medium transition-[background-color,border-color,color] sm:gap-3 sm:p-4 sm:text-sm",
+              active
+                ? "border-border bg-primary/8 text-primary"
+                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            )}
+          >
+            {active && (
+              <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <IconCheck size={10} strokeWidth={3} />
+              </span>
+            )}
+            <span
+              className="h-4 w-4 shrink-0 rounded-full"
+              style={{ backgroundColor: preset.previewColor }}
+            />
+            {preset.name}
+          </button>
+        );
+      })}
+    </div>
   );
 }

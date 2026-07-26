@@ -1,6 +1,7 @@
 "use client";
 
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import {
   useThemeContext,
   resolveCustomTheme,
@@ -71,34 +72,66 @@ export function ThemeSettingsClient() {
 
   return (
     <PageWrapper title="Theme" comfortable>
-      <div className="max-w-2xl space-y-6 sm:space-y-8">
-        <AppearanceSection
-          currentMode={currentMode}
-          onModeChange={handleModeChange}
-        />
-        <PresetsSection
-          currentTheme={resolved}
-          onApplyPreset={handleApplyPreset}
-        />
-        <AccentColorSection
-          accentColor={accentColor}
-          onAccentChange={handleAccentChange}
-        />
-        <TypographySection
-          fontFamily={fontFamily}
-          onFontChange={handleFontChange}
-          letterSpacing={letterSpacing}
-          onLetterSpacingChange={handleLetterSpacingChange}
-          radius={radius}
-          onRadiusChange={handleRadiusChange}
-        />
-        <ThemePreview
-          accentColor={accentColor}
-          radius={radius}
-          fontFamily={fontFamily}
-          letterSpacing={letterSpacing}
-          currentMode={currentMode}
-        />
+      <div className="space-y-4">
+        <SettingsSection
+          title="Appearance"
+          description="Use light, use dark, or follow your system setting."
+          // Capped so the three mode tiles stay a readable size on wide screens.
+          bodyClassName="max-w-2xl"
+        >
+          <AppearanceSection
+            currentMode={currentMode}
+            onModeChange={handleModeChange}
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Presets"
+          description="Apply a ready-made combination of accent, font, radius, and spacing. Any change below moves you off the preset."
+          bodyClassName="max-w-2xl"
+        >
+          <PresetsSection
+            currentTheme={resolved}
+            onApplyPreset={handleApplyPreset}
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Accent Color"
+          description="Drives buttons, links, focus rings, and charts. Zinc keeps the interface monochrome."
+        >
+          <AccentColorSection
+            accentColor={accentColor}
+            onAccentChange={handleAccentChange}
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Type & Shape"
+          description="Corner radius, typeface, and letter spacing, applied across the whole interface."
+        >
+          <TypographySection
+            fontFamily={fontFamily}
+            onFontChange={handleFontChange}
+            letterSpacing={letterSpacing}
+            onLetterSpacingChange={handleLetterSpacingChange}
+            radius={radius}
+            onRadiusChange={handleRadiusChange}
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Preview"
+          description="Your current selection, shown on the common controls."
+        >
+          <ThemePreview
+            accentColor={accentColor}
+            radius={radius}
+            fontFamily={fontFamily}
+            letterSpacing={letterSpacing}
+            currentMode={currentMode}
+          />
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

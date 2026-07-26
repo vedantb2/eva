@@ -154,11 +154,23 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return taskRouteSandboxTabs.some((tab) => tab === s);
 }
 
-const prPanelTabs = ["overview", "diffs", "recap"] as const;
-export type PrPanelTab = (typeof prPanelTabs)[number];
+/**
+ * The review tab set, shared by the standalone Reviews page
+ * (`/reviews/$prNumber/$reviewTab`) and the sandbox Review tab
+ * (`…/review/$tab`). One union so the two surfaces cannot drift apart.
+ */
+const reviewTabs = ["overview", "diffs", "recap"] as const;
+export type ReviewTab = (typeof reviewTabs)[number];
+export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
 
-export function isPrPanelTab(s: string): s is PrPanelTab {
-  return prPanelTabs.some((tab) => tab === s);
+export function isReviewTab(s: string): s is ReviewTab {
+  return reviewTabs.some((tab) => tab === s);
+}
+
+/** Slugs the Diffs tab used to answer to, redirected to the canonical one. */
+export function canonicalReviewTab(s: string): ReviewTab | undefined {
+  if (s === "diff") return "diffs";
+  return isReviewTab(s) ? s : undefined;
 }
 
 // Layout for the Diffs tab — path segment (`/review/diffs/unified`).
@@ -181,7 +193,7 @@ export function reviewPathFromSearch(search: {
   prTab?: unknown;
   diffView?: unknown;
 }): ReviewPathTarget {
-  if (typeof search.prTab === "string" && isPrPanelTab(search.prTab)) {
+  if (typeof search.prTab === "string" && isReviewTab(search.prTab)) {
     if (search.prTab === "overview") return { kind: "overview" };
     if (search.prTab === "recap") return { kind: "recap" };
   }
@@ -233,7 +245,7 @@ export function parseDiffSearchFields(search: {
 }): {
   diffFile: string | undefined;
   diffView: DiffView | undefined;
-  prTab: PrPanelTab | undefined;
+  prTab: ReviewTab | undefined;
 } {
   return {
     diffFile: typeof search.diffFile === "string" ? search.diffFile : undefined,
@@ -242,7 +254,7 @@ export function parseDiffSearchFields(search: {
         ? search.diffView
         : undefined,
     prTab:
-      typeof search.prTab === "string" && isPrPanelTab(search.prTab)
+      typeof search.prTab === "string" && isReviewTab(search.prTab)
         ? search.prTab
         : undefined,
   };
@@ -313,14 +325,6 @@ export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
-
-const reviewTabs = ["overview", "recap", "diff"] as const;
-export type ReviewTab = (typeof reviewTabs)[number];
-export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
-
-export function isReviewTab(s: string): s is ReviewTab {
-  return reviewTabs.some((tab) => tab === s);
-}
 
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];

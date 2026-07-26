@@ -1,5 +1,14 @@
 # Changelog
 
+## One review tab set for both surfaces - 2026-07-26
+
+The standalone Reviews page and the sandbox Review tab each had their own tab orchestrator, and they had already drifted: different tab order, different slugs (`diff` vs `diffs`), two separate tab unions, and one surface remounting panels on every tab switch while the other kept them alive. Any change to a review tab had to be made twice. They now render one shared component.
+
+- New `ReviewTabsPanel` owns the tab row and all three panels. `PrPanel` (sandbox) and `ReviewDetailClient` (standalone) keep only what is genuinely per-surface: how the active tab is read from the URL, the sandbox's default-to-Recap rule, and the standalone's PR title block, passed in as a header slot.
+- One tab union in `search-params.ts` — `ReviewTab` — replacing the duplicate `PrPanelTab`. The Reviews page adopts the sandbox order (Overview, Diffs, Recap) and the `diffs` slug; `…/reviews/N/diff` redirects to `…/reviews/N/diffs`.
+- Both surfaces now keep panels mounted across tab switches, so drafted comments, scroll position, and expanded files survive leaving and returning to Diffs. Previously only the sandbox did.
+- Fixed: the Overview tab did not scroll in the sandbox. It claimed height with `flex-1`, but the sandbox mounts it inside a block container where that never resolves, so the scroll box grew unbounded.
+
 ## Post review comments to GitHub - 2026-07-26
 
 Selecting lines in a diff already drafted a comment, but the only place it could go was the agent's prompt. Those comments can now be submitted to GitHub as a real pull request review.

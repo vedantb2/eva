@@ -11,18 +11,32 @@ import { extractPrNumber } from "./helpers";
 /** Cap the diff we return to the client so huge PRs don't blow the payload. */
 const MAX_DIFF_BYTES = 500_000;
 
+/** Cap a single file's contents fetched for GitHub-style context expansion. */
+const MAX_FILE_BYTES = 400_000;
+
 /** Pushed PR diffs change less often than checks/comments. */
 const PR_DIFF_CACHE_TTL_MS = 120_000;
+
+/** File contents are addressed by commit sha, so they never change. */
+const PR_FILE_CACHE_TTL_MS = 30 * 60_000;
 
 const prDiffResultValidator = v.object({
   diff: v.string(),
   /** True when the diff was clipped at MAX_DIFF_BYTES. */
   truncated: v.boolean(),
+  /** Head/base commits behind the diff — used to fetch full file contents. */
+  headSha: v.string(),
+  baseSha: v.string(),
+  /** `https://github.com/<owner>/<name>`, for per-file "View file" links. */
+  repoUrl: v.string(),
 });
 
 type PrDiffResult = {
   diff: string;
   truncated: boolean;
+  headSha: string;
+  baseSha: string;
+  repoUrl: string;
 };
 
 /**
@@ -42,12 +56,19 @@ export const fetchPrDiff = internalAction({
     if (!repo) throw new Error("Repo not found");
 
     const octokit = await getInstallationOctokit(repo.installationId);
-    const res = await octokit.rest.pulls.get({
-      owner: repo.owner,
-      repo: repo.name,
-      pull_number: args.prNumber,
-      mediaType: { format: "diff" },
-    });
+    const [res, meta] = await Promise.all([
+      octokit.rest.pulls.get({
+        owner: repo.owner,
+        repo: repo.name,
+        pull_number: args.prNumber,
+        mediaType: { format: "diff" },
+      }),
+      octokit.rest.pulls.get({
+        owner: repo.owner,
+        repo: repo.name,
+        pull_number: args.prNumber,
+      }),
+    ]);
     // With the diff media type GitHub returns raw unified-diff text, but octokit
     // types `data` as the PR object — parse to a string at the boundary.
     const fullDiff = z.string().parse(res.data);
@@ -58,13 +79,21 @@ export const fetchPrDiff = internalAction({
       ? fullDiff.slice(0, fullDiff.lastIndexOf("\n", MAX_DIFF_BYTES))
       : fullDiff;
 
-    return { diff, truncated };
+    return {
+      diff,
+      truncated,
+      headSha: meta.data.head.sha,
+      baseSha: meta.data.base.sha,
+      repoUrl: `https://github.com/${repo.owner}/${repo.name}`,
+    };
   },
 });
 
+// V2: the payload gained head/base shas and the repo URL — a bumped name drops
+// V1 entries instead of serving objects that are missing the new fields.
 const prDiffCache = new ActionCache(components.actionCache, {
   action: internal._github.prDiff.fetchPrDiff,
-  name: "prDiffV1",
+  name: "prDiffV2",
   ttl: PR_DIFF_CACHE_TTL_MS,
 });
 
@@ -108,5 +137,147 @@ export const getPrDiff = action({
       { repoId: args.repoId, prNumber },
       { force: args.force === true },
     );
+  },
+});
+
+const prFileContentsValidator = v.object({
+  /** File at the base commit; null when the file was added in this PR. */
+  oldContents: v.union(v.string(), v.null()),
+  /** File at the head commit; null when the file was deleted in this PR. */
+  newContents: v.union(v.string(), v.null()),
+  /** Why contents were withheld, when they were. */
+  skipped: v.union(v.null(), v.literal("too-large"), v.literal("binary")),
+});
+
+type PrFileContents = {
+  oldContents: string | null;
+  newContents: string | null;
+  skipped: null | "too-large" | "binary";
+};
+
+type BlobResult = {
+  contents: string | null;
+  skipped: null | "too-large" | "binary";
+};
+
+// GitHub's contents API returns a union (file / directory / symlink / submodule);
+// only the file shape carries what we need, so parse at the boundary.
+const fileContentsSchema = z.object({
+  type: z.literal("file"),
+  encoding: z.string(),
+  content: z.string(),
+  size: z.number(),
+});
+
+const requestErrorSchema = z.object({ status: z.number() });
+
+/**
+ * Reads one file at one commit. A missing file is not an error: the same path is
+ * absent at the base commit for added files and at the head commit for deleted
+ * ones, so 404 maps to `null` contents.
+ */
+async function readFileAtRef(
+  octokit: Awaited<ReturnType<typeof getInstallationOctokit>>,
+  owner: string,
+  name: string,
+  path: string,
+  ref: string,
+): Promise<BlobResult> {
+  let data: unknown;
+  try {
+    const res = await octokit.rest.repos.getContent({
+      owner,
+      repo: name,
+      path,
+      ref,
+    });
+    data = res.data;
+  } catch (error) {
+    const parsed = requestErrorSchema.safeParse(error);
+    // 403 is how the contents API reports a blob over its own 1MB ceiling.
+    if (parsed.success && parsed.data.status === 404) {
+      return { contents: null, skipped: null };
+    }
+    if (parsed.success && parsed.data.status === 403) {
+      return { contents: null, skipped: "too-large" };
+    }
+    throw error;
+  }
+
+  const file = fileContentsSchema.safeParse(data);
+  if (!file.success) return { contents: null, skipped: null };
+  if (file.data.size > MAX_FILE_BYTES) {
+    return { contents: null, skipped: "too-large" };
+  }
+
+  const buffer = Buffer.from(file.data.content, "base64");
+  // A NUL byte is the same heuristic git uses to call a file binary.
+  if (buffer.includes(0)) return { contents: null, skipped: "binary" };
+
+  return { contents: buffer.toString("utf8"), skipped: null };
+}
+
+/**
+ * Uncached full-file fetch for both sides of a changed file — wrapped by
+ * ActionCache. Auth is enforced by the public wrapper before `fetch`.
+ */
+export const fetchPrFileContents = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    path: v.string(),
+    baseSha: v.string(),
+    headSha: v.string(),
+  },
+  returns: prFileContentsValidator,
+  handler: async (ctx, args): Promise<PrFileContents> => {
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const [old, next] = await Promise.all([
+      readFileAtRef(octokit, repo.owner, repo.name, args.path, args.baseSha),
+      readFileAtRef(octokit, repo.owner, repo.name, args.path, args.headSha),
+    ]);
+
+    return {
+      oldContents: old.contents,
+      newContents: next.contents,
+      skipped: old.skipped ?? next.skipped,
+    };
+  },
+});
+
+const prFileContentsCache = new ActionCache(components.actionCache, {
+  action: internal._github.prDiff.fetchPrFileContents,
+  name: "prFileContentsV1",
+  ttl: PR_FILE_CACHE_TTL_MS,
+});
+
+/**
+ * Full contents of one changed file at both ends of a PR. The Diffs tab uses
+ * this to switch a file from its (context-limited) patch to a diff generated
+ * from whole files, which is what makes GitHub-style "expand unchanged lines"
+ * possible. Loaded per file, on demand — never for the whole PR at once.
+ */
+export const getPrFileContents = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    path: v.string(),
+    baseSha: v.string(),
+    headSha: v.string(),
+  },
+  returns: prFileContentsValidator,
+  handler: async (ctx, args): Promise<PrFileContents> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await prFileContentsCache.fetch(ctx, {
+      repoId: args.repoId,
+      path: args.path,
+      baseSha: args.baseSha,
+      headSha: args.headSha,
+    });
   },
 });

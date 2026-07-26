@@ -27,3 +27,70 @@ export function diffFileStatus(patch: string): GitStatus {
   if (/^rename (from|to) /m.test(patch)) return "renamed";
   return "modified";
 }
+
+/** Reads the old path from a rename patch, so headers can show `old → new`. */
+function renamedFromPatch(patch: string): string | null {
+  const match = patch.match(/^rename from (.+)$/m);
+  return match ? match[1] : null;
+}
+
+/**
+ * Counts changed lines the way GitHub's file header does: `+`/`-` content
+ * lines only, excluding the `+++`/`---` file markers of the patch header.
+ */
+function diffFileStats(patch: string): {
+  additions: number;
+  deletions: number;
+} {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) additions += 1;
+    else if (line.startsWith("-") && !line.startsWith("---")) deletions += 1;
+  }
+  return { additions, deletions };
+}
+
+/** One changed file, with everything the header and body need to render it. */
+export interface DiffFileEntry {
+  /** Self-contained single-file patch. */
+  readonly patch: string;
+  /** The file's (new) path — also the accordion/tree key. */
+  readonly path: string;
+  readonly status: GitStatus;
+  readonly additions: number;
+  readonly deletions: number;
+  /** Old path when the file was renamed or moved. */
+  readonly renamedFrom: string | null;
+  /** GitHub does not render binary contents, and neither can we. */
+  readonly binary: boolean;
+  /**
+   * False for patches with no `@@` hunks — pure renames, mode changes, and
+   * empty new files. There is nothing to diff, so the body says so instead of
+   * rendering an empty code view.
+   */
+  readonly hasHunks: boolean;
+}
+
+/**
+ * Turns a multi-file diff into the per-file entries the Diffs tab renders.
+ * Everything here is derived from the patch text, so a single pass over the
+ * diff gives the tree, the headers, and the totals.
+ */
+export function buildDiffFileEntries(diff: string): DiffFileEntry[] {
+  return splitDiffFiles(diff).map((patch, index) => {
+    const stats = diffFileStats(patch);
+    return {
+      patch,
+      path: fileNameFromPatch(patch, `file-${index}`),
+      status: diffFileStatus(patch),
+      additions: stats.additions,
+      deletions: stats.deletions,
+      renamedFrom: renamedFromPatch(patch),
+      binary:
+        /^GIT binary patch/m.test(patch) ||
+        /^Binary files .* differ$/m.test(patch),
+      hasHunks: /^@@ /m.test(patch),
+    };
+  });
+}

@@ -3,22 +3,13 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
-import {
-  Button,
-  Tabs,
-  TabsBar,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  cn,
-} from "@eva/ui";
-import { IconGitPullRequest, IconRefresh } from "@tabler/icons-react";
-import { isDiffView, isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
+import { Tabs, TabsBar, TabsContent, TabsList, TabsTrigger, cn } from "@eva/ui";
+import { IconGitPullRequest } from "@tabler/icons-react";
+import { isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
 import { prNumberFromGithubUrl } from "@/lib/githubPr";
 import { ReviewOverviewPanel } from "@/lib/components/reviews/ReviewOverviewPanel";
 import { DiffsPanel } from "./DiffsPanel";
 import { PrRecapPanel } from "./PrRecapPanel";
-import { useDiffSearchParams } from "./useDiffSearchParams";
 import { usePrTabParam } from "./usePrTabParam";
 
 interface PrPanelProps {
@@ -27,21 +18,15 @@ interface PrPanelProps {
   isActive: boolean;
 }
 
-interface DiffToolbarState {
-  isLoading: boolean;
-  refresh: () => void;
-}
-
 /**
  * Sandbox Review tab: Overview + Diffs + Recap via `@eva/ui` Tabs. Path
  * segments (`…/review/overview`, `…/review/diffs/…`, `…/review/recap`) are
  * preferred; `?prTab=` remains a redirect/fallback.
  * Defaults to Recap when a ready recap exists and no tab is in the URL yet.
- * Unified/Split + Refresh sit on the same header row and only show for Diffs.
+ * Diff chrome (layout, filter, Refresh) lives in DiffsPanel's own toolbar.
  */
 export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   const { prTab, setPrTab } = usePrTabParam();
-  const { diffView, setDiffView } = useDiffSearchParams();
   const recapDoc = useQuery(
     api.docs.getRecapByPrUrl,
     prUrl ? { repoId, prUrl } : "skip",
@@ -49,7 +34,6 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   const [resolvedDefault, setResolvedDefault] = useState<PrPanelTab | null>(
     null,
   );
-  const [diffToolbar, setDiffToolbar] = useState<DiffToolbarState | null>(null);
   const prNumber =
     prUrl !== undefined ? prNumberFromGithubUrl(prUrl) : undefined;
 
@@ -67,7 +51,6 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
   }
 
   const activeSubTab: PrPanelTab = prTab ?? resolvedDefault ?? "diffs";
-  const showDiffChrome = activeSubTab === "diffs" && prUrl !== undefined;
 
   return (
     <Tabs
@@ -77,43 +60,7 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <TabsBar
-        actions={
-          showDiffChrome ? (
-            <>
-              <Tabs
-                value={diffView}
-                onValueChange={(value) => {
-                  if (isDiffView(value)) setDiffView(value);
-                }}
-              >
-                <TabsList className="h-8">
-                  <TabsTrigger value="unified" className="px-2.5 py-1 text-xs">
-                    Unified
-                  </TabsTrigger>
-                  <TabsTrigger value="split" className="px-2.5 py-1 text-xs">
-                    Split
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => diffToolbar?.refresh()}
-                disabled={diffToolbar === null || diffToolbar.isLoading}
-              >
-                <IconRefresh
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    diffToolbar?.isLoading === true && "animate-spin",
-                  )}
-                />
-                Refresh
-              </Button>
-            </>
-          ) : null
-        }
-      >
+      <TabsBar>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="diffs">Diffs</TabsTrigger>
@@ -151,11 +98,7 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
           activeSubTab !== "diffs" && "hidden",
         )}
       >
-        <DiffsPanel
-          prUrl={prUrl}
-          repoId={repoId}
-          onToolbarStateChange={setDiffToolbar}
-        />
+        <DiffsPanel prUrl={prUrl} repoId={repoId} />
       </TabsContent>
       <TabsContent
         value="recap"

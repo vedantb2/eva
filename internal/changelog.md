@@ -1,5 +1,17 @@
 # Changelog
 
+## Diffs tab matches GitHub's Files changed - 2026-07-26
+
+The Diffs tab had a file tree, per-file Viewed checkboxes, and unified/split, but per-file headers carried only a path and the standalone Reviews page had no diff controls at all. Reading a diff now matches GitHub's Files changed page, on both surfaces.
+
+- New toolbar above the tree and the diff list: files-changed count, `+/−` totals with GitHub's five-square indicator, a `n/m viewed` progress bar, a file filter, Unified/Split, line wrapping, expand/collapse all, and Refresh. It lives in the panel, so the Reviews page gets the same chrome as the sandbox Review tab.
+- Per-file headers gained a status chip (added/modified/deleted/renamed), per-file `+/−` counts and indicator, `old → new` for renames, a pending-comment count, and a kebab menu (copy path, view file on GitHub, load full file). Headers stick to the top of the scroll area while their diff is on screen.
+- Expand unchanged lines: the kebab's **Load full file context** pulls both ends of the file and re-derives the diff from whole files, which is what unlocks the context arrows — a PR patch only carries a few lines around each hunk. Comments stay anchored to the patch, so expanding never shifts an existing comment.
+- Word-level intra-line highlighting and `@@` hunk headers, as on GitHub.
+- Binary files and content-free changes (pure renames, mode changes) say so instead of rendering an empty code view.
+- Backend: `getPrDiff` now also returns head/base shas and the repo URL (cache bumped to `prDiffV2`); new `getPrFileContents` action reads a file at both refs, cached 30 minutes and capped at 400 KB, skipping binaries.
+- Not included: posting review comments, Approve, or Request changes to GitHub; rich diffs for images and rendered markdown; hide-whitespace.
+
 ## Review Overview matches GitHub's PR page - 2026-07-26
 
 The Overview tab showed a description, a comment list, and four meta rows, so anything a reviewer actually decides on — whether checks passed, who approved, what landed, can it merge — still meant opening GitHub. It is now a one-stop review surface, in both the standalone Reviews page and the sandbox Review tab (one shared panel, so both change together).

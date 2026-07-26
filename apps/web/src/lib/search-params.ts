@@ -86,6 +86,23 @@ export const quickTaskTagsParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
 
+/**
+ * The state "no filters applied" means, read off the parsers themselves.
+ *
+ * Both "is anything filtered?" and "clear all filters" have to agree with the
+ * parser defaults, and spelling those out a second time is how `project` ended
+ * up cleared to "all" while the parser defaulted to "none" — leaving ?project=all
+ * in the URL and treating the default as an active filter.
+ */
+export const QUICK_TASK_FILTER_DEFAULTS = {
+  project: quickTaskProjectParser.defaultValue,
+  user: quickTaskUserParser.defaultValue,
+  assignee: quickTaskAssigneeParser.defaultValue,
+  tags: quickTaskTagsParser.defaultValue,
+  statuses: statusesParser.defaultValue,
+  timeRange: quickTaskTimeRangeParser.defaultValue,
+};
+
 // Projects list filters (shareable "what you're looking at" state). View,
 // timelineRange, and timelineZoom are per-user presentation preferences and
 // stay in localStorage — see projects/_utils.ts.

@@ -42,6 +42,7 @@ import {
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
 import { useQuickTaskFilters } from "../_utils";
+import { QUICK_TASK_FILTER_DEFAULTS } from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -175,25 +176,19 @@ export function QuickTasksToolbar({
     setParams({ tags: [...next] });
   };
 
-  // "none" (No Project) is the page default — quick tasks are non-project
-  // tasks — so it does not count as an active filter.
+  // Both sides read the parser defaults, so "cleared" and "not filtered" cannot
+  // disagree. Note the project default is "none" (No Project) — quick tasks are
+  // the non-project ones — so "all" is an active filter here, not the default.
   const hasActiveFilters =
-    projectFilter !== "none" ||
-    userFilter !== "all" ||
-    assignee !== "all" ||
-    visibleStatuses.size !== TASK_STATUSES.length ||
-    selectedTags.size > 0 ||
-    timeRange !== "all";
+    projectFilter !== QUICK_TASK_FILTER_DEFAULTS.project ||
+    userFilter !== QUICK_TASK_FILTER_DEFAULTS.user ||
+    assignee !== QUICK_TASK_FILTER_DEFAULTS.assignee ||
+    visibleStatuses.size !== QUICK_TASK_FILTER_DEFAULTS.statuses.length ||
+    selectedTags.size > QUICK_TASK_FILTER_DEFAULTS.tags.length ||
+    timeRange !== QUICK_TASK_FILTER_DEFAULTS.timeRange;
 
   const clearAllFilters = () => {
-    setParams({
-      project: "none",
-      user: "all",
-      assignee: "all",
-      tags: [],
-      statuses: [...TASK_STATUSES],
-      timeRange: "all",
-    });
+    setParams({ ...QUICK_TASK_FILTER_DEFAULTS });
   };
 
   return (

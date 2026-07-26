@@ -84,7 +84,7 @@ export function usePersistentPanelSize({
  * the two flexGrow values rather than read straight off one of them, so it holds
  * whatever scale the library normalises them to.
  */
-function panelPercentage(
+export function panelPercentage(
   layout: Layout,
   panel: "left" | "right",
 ): number | null {

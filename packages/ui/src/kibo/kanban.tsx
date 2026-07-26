@@ -31,6 +31,7 @@ import {
 import { createPortal } from "react-dom";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
+import { resolveOverColumnId } from "./kanbanDropTarget";
 
 export type KanbanItem = {
   id: string;
@@ -235,18 +236,9 @@ export const KanbanProvider = ({
     onDragStart?.(event);
   };
 
-  // `over` is a column when the pointer is on empty space and a card when it is
-  // on another card; both mean "this column". Resolving it here is what lets a
-  // column highlight while the pointer is over its cards.
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over ? String(event.over.id) : null;
-    if (overId === null) {
-      setOverColumnId(null);
-    } else if (columns.some((column) => column.id === overId)) {
-      setOverColumnId(overId);
-    } else {
-      setOverColumnId(data.find((item) => item.id === overId)?.column ?? null);
-    }
+    setOverColumnId(resolveOverColumnId(overId, columns, data));
     onDragOver?.(event);
   };
 

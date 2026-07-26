@@ -77,11 +77,15 @@ function CommentReplyComposerForm({
     setIsSubmitting(true);
     try {
       await createComment({ taskId, content, parentId });
-      mentionRef.current?.reset();
+      // Read into a local and guarded with ifs rather than `?.`: React Compiler
+      // bails on the whole file when an optional-chaining call sits inside a
+      // try/catch.
+      const mention = mentionRef.current;
+      if (mention) mention.reset();
       setReplyText("");
       clearDraft();
       // Keep focus so a follow-up reply can be typed without re-clicking.
-      mentionRef.current?.focus();
+      if (mention) mention.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
     }

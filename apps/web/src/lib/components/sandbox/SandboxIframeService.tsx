@@ -31,6 +31,21 @@ export interface StartResult {
   logs?: string;
 }
 
+/**
+ * Formats a failed start into a user-facing message, appending sandbox logs
+ * when the action returned any. A helper rather than an inline ternary because
+ * React Compiler bails on a whole file when a conditional or nullish-coalescing
+ * expression sits inside a try/catch, and this runs after the start await.
+ */
+function startErrorMessage(
+  result: { message?: string; logs?: string },
+  fallback: string,
+): string {
+  const message = result.message ?? fallback;
+  if (!result.logs) return message;
+  return `${message}\n\nLogs:\n${result.logs}`;
+}
+
 interface SandboxIframeServiceProps {
   /** sessionStorage namespace for caching the resolved iframe URL. */
   cacheNamespace: string;
@@ -193,10 +208,7 @@ export function SandboxIframeService({
       if (ensureStartedBeforeReady) {
         const result = await startAction();
         if (!result.success) {
-          const msg = result.logs
-            ? `${result.message ?? startFailedError}\n\nLogs:\n${result.logs}`
-            : (result.message ?? startFailedError);
-          setError(msg);
+          setError(startErrorMessage(result, startFailedError));
           setState("error");
           return;
         }
@@ -216,10 +228,7 @@ export function SandboxIframeService({
       }
       const result = await startAction();
       if (!result.success) {
-        const msg = result.logs
-          ? `${result.message ?? startFailedError}\n\nLogs:\n${result.logs}`
-          : (result.message ?? startFailedError);
-        setError(msg);
+        setError(startErrorMessage(result, startFailedError));
         setState("error");
         return;
       }

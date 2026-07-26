@@ -154,12 +154,16 @@ export function GroupTasksModal({
         taskIds,
       });
       const created = await convex.query(api.projects.get, { id: projectId });
-      const segment = created ? entityPathSegment(created) : null;
       setTitle("");
       onSuccess();
       onClose();
-      if (segment) {
-        navigate({ to: `${basePath}/projects/${segment}` });
+      // Nested ifs rather than a ternary: React Compiler bails on the whole
+      // file when a conditional expression sits inside a try/catch.
+      if (created) {
+        const segment = entityPathSegment(created);
+        if (segment) {
+          navigate({ to: `${basePath}/projects/${segment}` });
+        }
       }
     } catch (error) {
       setIsLoading(false);

@@ -80,6 +80,9 @@ export function NewSessionComposer() {
     attachmentStorageIds?: Id<"_storage">[],
   ) => {
     setIsSubmitting(true);
+    // Resolved before the try: React Compiler bails on the whole file when a
+    // nullish-coalescing expression sits inside a try/catch.
+    const accountId = resolveAccountId(providerAccountId) ?? null;
     try {
       const { numId } = await createSession({
         repoId: repo._id,
@@ -93,7 +96,7 @@ export function NewSessionComposer() {
         reasoningLevel: displayTraits.effortLevel,
         thinkingEnabled: displayTraits.thinkingEnabled,
         use1mContext: displayTraits.use1mContext,
-        providerAccountId: resolveAccountId(providerAccountId) ?? null,
+        providerAccountId: accountId,
         attachmentStorageIds,
       });
       clearDraft();

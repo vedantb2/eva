@@ -158,7 +158,9 @@ export function ProjectChatTab({
     try {
       await clearMessagesDb({ id: projectId });
       setIsLoading(false);
-      onClear?.();
+      // Called through an if rather than `?.`: React Compiler bails on the
+      // whole file when an optional-chaining call sits inside a try/catch.
+      if (onClear) onClear();
       setConfirmClearOpen(false);
     } catch (error) {
       setIsClearing(false);

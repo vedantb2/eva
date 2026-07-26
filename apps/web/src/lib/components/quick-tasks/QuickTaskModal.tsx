@@ -72,6 +72,16 @@ type QuickTaskDraft = FunctionReturnType<
   typeof api.agentTasks.listDrafts
 >[number];
 
+/**
+ * Convex treats an empty array and an absent field differently, so empty lists
+ * are sent as undefined. Written as a helper rather than an inline ternary
+ * because React Compiler bails on a whole file when a conditional expression
+ * sits inside a try/catch, and one of the call sites has to run post-await.
+ */
+function undefinedIfEmpty<T>(items: T[]): T[] | undefined {
+  return items.length > 0 ? items : undefined;
+}
+
 interface QuickTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -233,20 +243,25 @@ export function QuickTaskModal({
 
     const desc = getDescription().trim();
     const taskBaseBranch = branchLockedToProject ? undefined : baseBranch;
+    // Built before the try, and the post-await one via undefinedIfEmpty: React
+    // Compiler bails on the whole file when a conditional, logical or
+    // nullish-coalescing expression sits inside a try/catch.
+    const taskDescription = desc || undefined;
+    const taskAccountId = resolveAccountId(providerAccountId) ?? null;
+    const taskTags = undefinedIfEmpty(selectedTags);
     setIsLoading(true);
     try {
       const attachmentStorageIds = await attachments.upload();
-      const taskAttachmentIds =
-        attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined;
+      const taskAttachmentIds = undefinedIfEmpty(attachmentStorageIds);
       if (activeDraftId) {
         await activateDraft({
           id: activeDraftId,
           title: title.trim(),
-          description: desc || undefined,
+          description: taskDescription,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId) ?? null,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          providerAccountId: taskAccountId,
+          tags: taskTags,
           assignedTo,
           screenshotsVideosEnabled,
           runAuditEnabled,
@@ -256,12 +271,12 @@ export function QuickTaskModal({
         await createQuickTask({
           repoId: repo._id,
           title: title.trim(),
-          description: desc || undefined,
+          description: taskDescription,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId) ?? null,
+          providerAccountId: taskAccountId,
           projectId: selectedProjectId,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          tags: taskTags,
           assignedTo,
           priority,
           screenshotsVideosEnabled,

@@ -37,10 +37,13 @@ export function McpConfigClient() {
 
   const handleSave = async () => {
     setSaving(true);
+    // Built before the try: React Compiler bails on the whole file when a
+    // logical expression sits inside a try/catch.
+    const trimmedPrompt = draft.trim() || undefined;
     try {
       await updateMcpRootPrompt({
         repoId,
-        mcpRootPrompt: draft.trim() || undefined,
+        mcpRootPrompt: trimmedPrompt,
       });
       setOpen(false);
     } catch (error) {

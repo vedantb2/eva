@@ -62,6 +62,8 @@ export function TaskFilesSection({
   const handleConfirm = async () => {
     if (!pending || !draftTaskId) return;
     setIsRemoving(true);
+    // Reset is duplicated into the catch instead of using `finally`: React
+    // Compiler bails on the whole file when it meets a `finally` clause.
     try {
       await removeAttachment({
         taskId: draftTaskId,
@@ -69,9 +71,11 @@ export function TaskFilesSection({
       });
       onRemove(pending.key);
       setPending(null);
-    } finally {
+    } catch (error) {
       setIsRemoving(false);
+      throw error;
     }
+    setIsRemoving(false);
   };
 
   return (

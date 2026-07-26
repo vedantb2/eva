@@ -636,11 +636,19 @@ function ConfigFilesSection({
     setError(null);
 
     let uploadError: Error | undefined;
-    try {
-      // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
-      // storage IDs. Sequential keeps memory bounded and progress monotonic;
-      // parallelism would only help for many small chunks, which isn't our case.
-      const chunkIds: Id<"_storage">[] = [];
+    // Built before the try: React Compiler bails on the whole file when a
+    // logical expression sits inside a try/catch.
+    const contentType = file.type || "application/octet-stream";
+    // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
+    // storage IDs. Sequential keeps memory bounded and progress monotonic;
+    // parallelism would only help for many small chunks, which isn't our case.
+    //
+    // Declared outside the try and called from inside it — errors still reach
+    // the same catch — because React Compiler bails on the whole file when a
+    // loop sits inside a try/catch. It reports failures via uploadError, same
+    // as when the loop was inline.
+    const uploadChunks = async () => {
+      const ids: Id<"_storage">[] = [];
       for (let i = 0; i < totalChunks; i++) {
         const start = i * UPLOAD_CHUNK_SIZE_BYTES;
         const end = Math.min(start + UPLOAD_CHUNK_SIZE_BYTES, file.size);
@@ -650,9 +658,7 @@ function ConfigFilesSection({
         const uploadUrl = await generateUploadUrl({ repoId });
         const result = await fetch(uploadUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": file.type || "application/octet-stream",
-          },
+          headers: { "Content-Type": contentType },
           body: chunk,
         });
         const responseText = await result.text();
@@ -669,9 +675,14 @@ function ConfigFilesSection({
           );
           break;
         }
-        chunkIds.push(storageId);
+        ids.push(storageId);
         setUploadedBytes(end);
       }
+      return ids;
+    };
+
+    try {
+      const chunkIds = await uploadChunks();
 
       if (!uploadError) {
         // Save file record with all chunk IDs in order

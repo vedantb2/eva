@@ -351,11 +351,14 @@ function TestingArenaDetailRoute() {
   const handleRunTest = async () => {
     if (!doc) return;
     setIsRunning(true);
+    // Resolved before the try: React Compiler bails on the whole file when a
+    // conditional expression sits inside a try/catch.
+    const branchName = branch !== "main" ? branch : undefined;
     try {
       await startEvaluation({
         docId: doc._id,
         repoId: repo._id,
-        branchName: branch !== "main" ? branch : undefined,
+        branchName,
       });
     } catch (error) {
       setIsRunning(false);

@@ -130,15 +130,19 @@ export function GlobalSessionsSidebar({
                 e.preventDefault();
                 void (async () => {
                   setIsRenaming(true);
+                  // Reset duplicated into the catch instead of `finally`:
+                  // React Compiler bails on the whole file for a `finally`.
                   try {
                     await updateSession({
                       id: sessionToRename.session._id,
                       title: renameValue.trim(),
                     });
                     setSessionToRename(null);
-                  } finally {
+                  } catch (error) {
                     setIsRenaming(false);
+                    throw error;
                   }
+                  setIsRenaming(false);
                 })();
               }
             }}
@@ -158,15 +162,19 @@ export function GlobalSessionsSidebar({
                 if (!sessionToRename || !renameValue.trim()) return;
                 void (async () => {
                   setIsRenaming(true);
+                  // Reset duplicated into the catch instead of `finally`:
+                  // React Compiler bails on the whole file for a `finally`.
                   try {
                     await updateSession({
                       id: sessionToRename.session._id,
                       title: renameValue.trim(),
                     });
                     setSessionToRename(null);
-                  } finally {
+                  } catch (error) {
                     setIsRenaming(false);
+                    throw error;
                   }
+                  setIsRenaming(false);
                 })();
               }}
             >
@@ -225,10 +233,15 @@ export function GlobalSessionsSidebar({
                       navigate({ to: "/sessions" });
                     }
                     setSessionToArchive(null);
-                    onNavigate?.();
-                  } finally {
+                    // `if` rather than `?.`, and the reset duplicated into the
+                    // catch rather than a `finally`: React Compiler bails on
+                    // the whole file for either.
+                    if (onNavigate) onNavigate();
+                  } catch (error) {
                     setIsArchiving(false);
+                    throw error;
                   }
+                  setIsArchiving(false);
                 })();
               }}
             >

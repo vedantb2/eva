@@ -27,12 +27,16 @@ export function TaskAttachments({ taskId }: { taskId: Id<"agentTasks"> }) {
   async function handleConfirm() {
     if (!pending) return;
     setIsRemoving(true);
+    // Reset is duplicated into the catch instead of using `finally`: React
+    // Compiler bails on the whole file when it meets a `finally` clause.
     try {
       await removeAttachment({ taskId, storageId: pending.storageId });
       setPending(null);
-    } finally {
+    } catch (error) {
       setIsRemoving(false);
+      throw error;
     }
+    setIsRemoving(false);
   }
 
   if (!attachments || attachments.length === 0) return null;

@@ -54,10 +54,13 @@ export function DesignDetailClient({
       setPreviewUrl(null);
       return;
     }
+    // Resolved before the try: React Compiler bails on the whole file when a
+    // nullish-coalescing expression sits inside a try/catch.
+    const port = session.devPort ?? 3000;
     try {
       const data = await getPreviewUrl({
         sandboxId: session.sandboxId,
-        port: session.devPort ?? 3000,
+        port,
         repoId: session.repoId,
         checkReady: true,
       });

@@ -91,6 +91,10 @@ export function ArtifactUploadDialog({
     }
 
     setUploading(true);
+    // Built before the try, and the compound guard below split into two: React
+    // Compiler bails on the whole file when a conditional or logical expression
+    // sits inside a try/catch.
+    const artifactDescription = description.trim() || undefined;
     try {
       const uploadUrl = await generateUploadUrl({});
       const res = await fetch(uploadUrl, {
@@ -99,7 +103,12 @@ export function ArtifactUploadDialog({
         body: html,
       });
       const storageId = parseStorageId(await res.text());
-      if (!res.ok || !storageId) {
+      if (!res.ok) {
+        setError("Upload failed.");
+        setUploading(false);
+        return;
+      }
+      if (!storageId) {
         setError("Upload failed.");
         setUploading(false);
         return;
@@ -107,7 +116,7 @@ export function ArtifactUploadDialog({
 
       await create({
         name: name.trim(),
-        description: description.trim() || undefined,
+        description: artifactDescription,
         boundTeamId: teamId,
         declaredTools,
         htmlStorageId: storageId,

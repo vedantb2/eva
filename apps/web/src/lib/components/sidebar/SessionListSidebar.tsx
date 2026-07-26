@@ -145,7 +145,9 @@ export function SessionListSidebar<T extends SessionItem>({
 
       if (currentSessionNumId === sessionToArchive.pathSegment) {
         navigate({ to: baseUrl });
-        onNavigate?.();
+        // Called through an if rather than `?.`: React Compiler bails on the
+        // whole file when an optional-chaining call sits inside a try/catch.
+        if (onNavigate) onNavigate();
       }
     } catch (error) {
       setIsArchiving(false);
@@ -162,7 +164,7 @@ export function SessionListSidebar<T extends SessionItem>({
       setNewSessionTitle("");
       setIsCreateModalOpen(false);
       navigate({ to: `${baseUrl}/${id}` });
-      onNavigate?.();
+      if (onNavigate) onNavigate();
     } catch (error) {
       setIsCreating(false);
       throw error;

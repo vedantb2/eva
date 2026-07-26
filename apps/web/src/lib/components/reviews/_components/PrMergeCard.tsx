@@ -107,6 +107,8 @@ export function PrMergeCard({
 
   const runMerge = async () => {
     setMerging(true);
+    // No `||` in the try and no `finally`: React Compiler bails on the whole
+    // file for either.
     try {
       const result = await mergePr({
         repoId,
@@ -114,15 +116,18 @@ export function PrMergeCard({
         method,
       });
       setConfirming(false);
-      toast.success(result.message || "Pull request merged");
+      if (result.message) {
+        toast.success(result.message);
+      } else {
+        toast.success("Pull request merged");
+      }
       onMerged();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not merge the branch",
       );
-    } finally {
-      setMerging(false);
     }
+    setMerging(false);
   };
 
   return (

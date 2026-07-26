@@ -139,7 +139,11 @@ export function CommentActivityItem({
     setIsSaving(true);
     try {
       await updateComment({ id: comment._id, content });
-      editMentionRef.current?.reset();
+      // Read into a local and guarded with an if rather than `?.`: React
+      // Compiler bails on the whole file when an optional-chaining call sits
+      // inside a try/catch.
+      const editMention = editMentionRef.current;
+      if (editMention) editMention.reset();
       setIsEditing(false);
       setEditText("");
     } catch (err) {

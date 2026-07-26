@@ -38,10 +38,13 @@ export function useArtifactBridge(
           { type: "eva-mcp-result", id, ...payload },
           "*",
         );
+      // Serialised outside the try: React Compiler bails on the whole file when
+      // a nullish-coalescing expression sits inside a try/catch.
+      const argsJson = JSON.stringify(data.args ?? {});
       try {
         const result = await callTool({
           toolName: String(data.name),
-          args: JSON.stringify(data.args ?? {}),
+          args: argsJson,
         });
         reply({ result });
       } catch (err) {

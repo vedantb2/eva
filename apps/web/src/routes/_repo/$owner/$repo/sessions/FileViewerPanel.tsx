@@ -144,11 +144,13 @@ export function FileViewerPanel({
             setState(payload);
           } else {
             fileCache.delete(key);
-            setState(
-              res.status === "too_large"
-                ? { kind: "too_large", size: res.size }
-                : { kind: res.status },
-            );
+            // if/else rather than a ternary: React Compiler bails on the whole
+            // file when a conditional expression sits inside a try/catch.
+            if (res.status === "too_large") {
+              setState({ kind: "too_large", size: res.size });
+            } else {
+              setState({ kind: res.status });
+            }
           }
           return;
         }

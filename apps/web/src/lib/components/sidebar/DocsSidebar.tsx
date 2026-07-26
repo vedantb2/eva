@@ -108,7 +108,15 @@ export function DocsSidebar({
         content: "",
       });
       const created = await convex.query(api.docs.get, { id });
-      const segment = created ? entityPathSegment(created) : null;
+      // Guarded with ifs rather than a ternary, and onNavigate called through
+      // an if rather than `?.`: React Compiler bails on the whole file when a
+      // conditional, logical or optional-chaining expression sits inside a
+      // try/catch.
+      if (!created) {
+        setIsCreating(false);
+        return;
+      }
+      const segment = entityPathSegment(created);
       if (!segment) {
         setIsCreating(false);
         return;
@@ -119,7 +127,7 @@ export function DocsSidebar({
         to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
-      onNavigate?.();
+      if (onNavigate) onNavigate();
     } catch (error) {
       setIsCreating(false);
       throw error;
@@ -164,7 +172,11 @@ export function DocsSidebar({
     try {
       const id = await createDoc({ repoId, title, content: prdContent });
       const created = await convex.query(api.docs.get, { id });
-      const segment = created ? entityPathSegment(created) : null;
+      if (!created) {
+        setIsUploading(false);
+        return;
+      }
+      const segment = entityPathSegment(created);
       if (!segment) {
         setIsUploading(false);
         return;
@@ -177,7 +189,7 @@ export function DocsSidebar({
         to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
-      onNavigate?.();
+      if (onNavigate) onNavigate();
     } catch (error) {
       console.error("PRD upload failed", error);
     }
@@ -190,9 +202,9 @@ export function DocsSidebar({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
     try {
       const prdContent = await readFileContent(file);
-      const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
       await createDocFromPrd({ title, prdContent });
     } catch (error) {
       console.error("PRD upload failed", error);
@@ -211,22 +223,23 @@ export function DocsSidebar({
 
   const handleDelete = async () => {
     if (!docToDelete) return;
+    // Resolved before the try (it needs no await, and the guard above already
+    // proves docToDelete): React Compiler bails on the whole file when a
+    // conditional or logical expression sits inside a try/catch.
+    const docToDeleteSegment = docs?.find((d) => d._id === docToDelete.id);
+    const deletePathSegment = docToDeleteSegment
+      ? entityPathSegment(docToDeleteSegment)
+      : null;
+    const isViewing =
+      deletePathSegment !== null &&
+      routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
     setIsDeleting(true);
     try {
-      const docToDeleteSegment = docToDelete
-        ? docs?.find((d) => d._id === docToDelete.id)
-        : undefined;
-      const deletePathSegment = docToDeleteSegment
-        ? entityPathSegment(docToDeleteSegment)
-        : null;
-      const isViewing =
-        deletePathSegment !== null &&
-        routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
         navigate({ to: `${basePath}/docs`, search: (prev) => prev });
-        onNavigate?.();
+        if (onNavigate) onNavigate();
       }
     } catch (error) {
       setIsDeleting(false);

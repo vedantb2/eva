@@ -106,9 +106,13 @@ export function ProjectPlanTab({
         });
       }
       await startDevelopment({ projectId });
-      const segment = project ? entityPathSegment(project) : null;
-      if (segment) {
-        navigate({ to: `${basePath}/projects/${segment}` });
+      // Nested ifs rather than a ternary: React Compiler bails on the whole
+      // file when a conditional expression sits inside a try/catch.
+      if (project) {
+        const segment = entityPathSegment(project);
+        if (segment) {
+          navigate({ to: `${basePath}/projects/${segment}` });
+        }
       }
     } catch (error) {
       setIsLoading(false);

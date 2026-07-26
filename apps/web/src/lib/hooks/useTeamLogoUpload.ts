@@ -16,11 +16,14 @@ export function useTeamLogoUpload() {
   const uploadLogo = async (teamId: Id<"teams">, file: File) => {
     setUploading(true);
     let uploadError: Error | undefined;
+    // Built outside the try: React Compiler bails on the whole file when a
+    // logical expression sits inside a try/catch.
+    const contentType = file.type || "application/octet-stream";
     try {
       const uploadUrl = await generateUploadUrl({ teamId });
       const result = await fetch(uploadUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: { "Content-Type": contentType },
         body: file,
       });
       const responseText = await result.text();

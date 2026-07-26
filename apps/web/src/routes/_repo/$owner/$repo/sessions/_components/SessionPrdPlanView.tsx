@@ -132,11 +132,19 @@ export function SessionPrdPlanView({
     try {
       const docId = await createDocFromSession({ sessionId });
       const doc = await convex.query(api.docs.get, { id: docId });
-      const segment = doc ? entityPathSegment(doc) : null;
-      if (!segment) {
-        return;
+      // Nested ifs rather than a ternary or early returns: React Compiler bails
+      // on the whole file for a conditional expression inside a try, and an
+      // early return here would skip the setIsSavingDoc(false) below and leave
+      // the button stuck. `finally` would be the natural fix but the compiler
+      // bails on that too.
+      if (doc) {
+        const segment = entityPathSegment(doc);
+        if (segment) {
+          navigate({
+            to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+          });
+        }
       }
-      navigate({ to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}` });
     } catch (error) {
       setIsSavingDoc(false);
       throw error;

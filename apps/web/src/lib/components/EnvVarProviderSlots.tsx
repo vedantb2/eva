@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -187,12 +188,12 @@ export function EnvVarProviderSlots({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{entry.label}</span>
                   {configured && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    <Badge variant="secondary" className="gap-1 text-xs">
                       <IconCheck size={10} /> Configured
-                    </span>
+                    </Badge>
                   )}
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   {entry.hint}
                 </p>
 
@@ -261,11 +262,11 @@ export function EnvVarProviderSlots({
                 {configured && matched && !isEditing && (
                   <div className="mt-1.5">
                     {revealed[matched.key] !== undefined && (
-                      <pre className="mb-1 max-h-24 overflow-auto rounded border border-border bg-background px-2 py-1 font-mono text-[11px] break-all whitespace-pre-wrap">
+                      <pre className="mb-1 max-h-24 overflow-auto rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
                         {revealed[matched.key]}
                       </pre>
                     )}
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                       {matched.key}
                     </span>
                   </div>

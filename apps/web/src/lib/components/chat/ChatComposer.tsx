@@ -274,6 +274,7 @@ export function ChatComposer({
                 initialSkillMap={seed?.skillMap}
                 history={messageHistory}
                 enableImagePaste
+                completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
               <PromptInputFooter>
                 <PromptInputTools>

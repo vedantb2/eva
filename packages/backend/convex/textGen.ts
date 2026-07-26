@@ -1,9 +1,10 @@
 "use node";
 
+import { ActionCache } from "@convex-dev/action-cache";
 import { generateText } from "ai";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
+import { components, internal } from "./_generated/api";
+import { action, internalAction } from "./_generated/server";
 
 /** Cheap gateway model for session titles — one-line change later. */
 const TEXT_GEN_MODEL = "openai/gpt-5-nano";
@@ -54,5 +55,103 @@ export const generateSessionTitle = internalAction({
       console.error("[textGen.generateSessionTitle]", error);
     }
     return null;
+  },
+});
+
+/** Longest prefix we send to the model — the tail is what matters, not the head. */
+const MAX_COMPLETION_INPUT = 2000;
+
+/** Identical prefixes are common (retyping, undo); an hour of reuse is plenty. */
+const COMPLETION_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Trims the model's continuation down to a single clause. The model is asked for
+ * one sentence, but it occasionally adds a second or wraps the whole thing in
+ * quotes, so clip rather than trust.
+ */
+function cleanCompletion(raw: string): string {
+  const firstLine = raw.split("\n")[0] ?? "";
+  let text = firstLine.trim();
+  if (text.startsWith('"') && text.endsWith('"') && text.length >= 2) {
+    text = text.slice(1, -1).trim();
+  }
+  // Keep everything up to and including the first sentence end.
+  const sentenceEnd = text.search(/[.!?](\s|$)/);
+  if (sentenceEnd !== -1) {
+    text = text.slice(0, sentenceEnd + 1);
+  }
+  return text;
+}
+
+/**
+ * Uncached inline-completion call — wrapped by ActionCache below. Auth is
+ * enforced by the public `completeText` wrapper before `fetch`.
+ *
+ * Deliberately does NOT use the flex service tier (unlike `generateSessionTitle`):
+ * this runs while the user waits, so latency beats cost here.
+ */
+export const completeTextInternal = internalAction({
+  args: {
+    text: v.string(),
+    /** What the field is for, e.g. "description of a coding task for acme/web". */
+    contextHint: v.string(),
+  },
+  returns: v.string(),
+  handler: async (_ctx, args): Promise<string> => {
+    try {
+      const { text } = await generateText({
+        model: TEXT_GEN_MODEL,
+        prompt: `You are an inline autocomplete for a text field. The field holds: ${args.contextHint}.
+
+Continue the partial text below from exactly where it stops. Reply with the continuation only — do not repeat any of the existing text, do not add quotes, do not explain. Finish the current sentence in at most 15 words. If the text is already complete or you cannot continue it usefully, reply with nothing.
+
+Partial text:
+${args.text.slice(-MAX_COMPLETION_INPUT)}`,
+        // gpt-5 counts reasoning tokens against maxOutputTokens, so a tight cap
+        // returns an empty string. Keep reasoning off and clip in cleanCompletion.
+        providerOptions: {
+          openai: {
+            reasoningEffort: "minimal",
+            textVerbosity: "low",
+          },
+        },
+        maxOutputTokens: 256,
+        stopSequences: ["\n"],
+      });
+      return cleanCompletion(text);
+    } catch (error) {
+      console.error("[textGen.completeTextInternal]", error);
+      return "";
+    }
+  },
+});
+
+const completionCache = new ActionCache(components.actionCache, {
+  action: internal.textGen.completeTextInternal,
+  name: "inlineCompletionV2",
+  ttl: COMPLETION_CACHE_TTL_MS,
+});
+
+/**
+ * Inline "tab to accept" completion for prose composers (quick task description,
+ * chat composers). Returns the continuation of `text`, or "" when there is
+ * nothing useful to add.
+ *
+ * Throttling is the client's debounce plus this cache — there is no rate limiter
+ * component installed, and identical prefixes cost nothing on repeat.
+ */
+export const completeText = action({
+  args: {
+    text: v.string(),
+    contextHint: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    return await completionCache.fetch(ctx, {
+      text: args.text.slice(-MAX_COMPLETION_INPUT),
+      contextHint: args.contextHint,
+    });
   },
 });

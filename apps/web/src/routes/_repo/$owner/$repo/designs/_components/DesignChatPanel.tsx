@@ -513,6 +513,7 @@ export function DesignChatPanel({
                     initialSkillMap={draftSeed.skillMap}
                     history={messageHistory}
                     enableImagePaste
+                    completionContext={`a message instructing an AI design agent working on the UI of the repository ${basePath.replace(/^\//, "")}`}
                   />
                   <PromptInputFooter>
                     <PromptInputTools>

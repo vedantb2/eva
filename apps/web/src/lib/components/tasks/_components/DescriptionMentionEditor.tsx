@@ -17,6 +17,7 @@ import {
 } from "@/lib/components/mentions";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
+import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
 
@@ -32,6 +33,12 @@ interface DescriptionMentionEditorProps {
   initialSkillMap?: Map<string, string>;
   /** When true, blocks all input. Used while a draft is loading. */
   disabled?: boolean;
+  /**
+   * What this field is for, e.g. "description of a coding task for acme/web".
+   * Providing it turns on inline AI completion (Tab to accept); omitting it
+   * leaves the editor plain.
+   */
+  completionContext?: string;
 }
 
 export const DescriptionMentionEditor = forwardRef<
@@ -49,10 +56,15 @@ export const DescriptionMentionEditor = forwardRef<
     initialMentionMap,
     initialSkillMap,
     disabled,
+    completionContext,
   },
   ref,
 ) {
   const { repo, basePath } = useRepo();
+  const { suggestion, dismiss } = useInlineSuggestion(
+    value,
+    disabled ? undefined : completionContext,
+  );
   const navigate = useNavigate();
   const items = useDataMentionItems(repo._id);
   const navigateToData = useDataMentionNavigate(basePath, repo._id);
@@ -92,6 +104,11 @@ export const DescriptionMentionEditor = forwardRef<
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
       disabled={disabled}
+      suggestion={suggestion}
+      onAcceptSuggestion={
+        suggestion ? () => onValueChange(value + suggestion) : undefined
+      }
+      onDismissSuggestion={dismiss}
       renderMentionChipHoverCard={(id) => (
         <DataMentionHoverCardBody entityId={id} repoId={repo._id} />
       )}

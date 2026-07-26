@@ -31,8 +31,12 @@ import {
 } from "./mentionPopupPosition";
 import { UserProfileHoverCardBody } from "@eva/shared";
 
+// The inline AI suggestion renders as an `::after` pseudo-element fed by
+// `data-suggestion`, mirroring how the placeholder uses `::before`. A pseudo-
+// element is invisible to `extractEditableText` and to the caret, so ghost text
+// never leaks into the editor value or the DOM-resync effect below.
 const DEFAULT_EDITOR_CLASS =
-  "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
+  "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)] data-[suggestion]:after:pointer-events-none data-[suggestion]:after:select-none data-[suggestion]:after:text-muted-foreground/50 data-[suggestion]:after:content-[attr(data-suggestion)]";
 
 export interface MentionItem<TId extends string = string> {
   id: TId;
@@ -78,6 +82,16 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
    * handled (e.g. a history entry was applied) to suppress caret movement.
    */
   onHistoryNavigate?: (direction: "up" | "down") => boolean;
+  /**
+   * Inline AI completion shown as dim ghost text after the caret. Tab accepts it
+   * (via `onAcceptSuggestion`), Escape dismisses it. Only rendered when the
+   * mention/skill picker is closed, which keeps Tab's existing meaning intact.
+   */
+  suggestion?: string;
+  /** Called on Tab while a suggestion is showing. */
+  onAcceptSuggestion?: () => void;
+  /** Called on Escape while a suggestion is showing. */
+  onDismissSuggestion?: () => void;
   renderItem?: (item: TItem, isSelected: boolean) => ReactNode;
   renderSlashItem?: (item: SlashItem, isSelected: boolean) => ReactNode;
   filterSlashItem?: (item: SlashItem, query: string) => boolean;
@@ -246,6 +260,9 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   skillChipClassName = SKILL_CHIP_CLASS,
   onEnterSubmit,
   onHistoryNavigate,
+  suggestion,
+  onAcceptSuggestion,
+  onDismissSuggestion,
   onImageFiles,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
@@ -609,6 +626,21 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       }
     }
 
+    // Inline AI completion. Sits after the picker block so the picker keeps
+    // priority on Tab, and before history recall so Escape reaches it.
+    if (suggestion && !trigger.isOpen) {
+      if (e.key === "Tab" && !e.shiftKey) {
+        e.preventDefault();
+        onAcceptSuggestion?.();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onDismissSuggestion?.();
+        return;
+      }
+    }
+
     // Message-history recall: only when the popup is closed and no modifier
     // is held, so it never competes with the mention picker or shortcuts.
     if (
@@ -858,6 +890,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         data-slot={dataSlot}
         data-placeholder={placeholder ?? ""}
         data-empty={isEmpty ? "true" : undefined}
+        data-suggestion={suggestion}
         contentEditable={!disabled}
         suppressContentEditableWarning
         role="textbox"

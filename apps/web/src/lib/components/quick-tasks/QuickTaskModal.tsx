@@ -323,6 +323,7 @@ export function QuickTaskModal({
               className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
               initialMentionMap={initialDescMaps.mentionMap}
               initialSkillMap={initialDescMaps.skillMap}
+              completionContext={`the description of a coding task for the repository ${repo.owner}/${repo.name}${title ? `, titled "${title}"` : ""}`}
             />
           </div>
 

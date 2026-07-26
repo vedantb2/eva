@@ -57,11 +57,11 @@ export function syncProviderStateToPersist(reason: string): void {
  * persistent daemon earlier in index.ts; non-session flows and daemon fallbacks
  * land here on the one-shot SDK runner.
  */
-export async function runClaudeAttempt(sessionMode: SessionMode) {
+async function runClaudeAttempt(sessionMode: SessionMode) {
   return await runClaudeSdkAttempt(sessionMode);
 }
 
-export async function runCodexAttempt(sessionMode: SessionMode) {
+async function runCodexAttempt(sessionMode: SessionMode) {
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId
       ? " resume " + JSON.stringify(sessionMode.sessionId)
@@ -83,7 +83,7 @@ export async function runCodexAttempt(sessionMode: SessionMode) {
   });
 }
 
-export async function runOpencodeAttempt(sessionMode: SessionMode) {
+async function runOpencodeAttempt(sessionMode: SessionMode) {
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId
       ? " -s " + JSON.stringify(sessionMode.sessionId)
@@ -104,7 +104,7 @@ export async function runOpencodeAttempt(sessionMode: SessionMode) {
   });
 }
 
-export async function runCursorAttempt(sessionMode: SessionMode) {
+async function runCursorAttempt(sessionMode: SessionMode) {
   if (!process.env.CURSOR_API_KEY?.trim()) {
     throw new Error(
       "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",

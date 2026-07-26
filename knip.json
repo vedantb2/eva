@@ -31,9 +31,10 @@
     }
   },
   "ignoreDependencies": ["@tiptap/pm", "lint-staged"],
-  "ignoreBinaries": ["ps", "lint-staged"],
+  "ignoreBinaries": ["ps"],
   "ignoreIssues": {
-    ".husky/**": ["binaries"]
+    ".husky/**": ["binaries"],
+    "packages/backend/convex/prosemirrorSync.ts": ["exports"]
   },
   "rules": {
     "files": "error",

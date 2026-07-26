@@ -55,7 +55,7 @@ import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils"
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
 
 /** localStorage-backed draft seed (no Convex row yet — e.g. new session). */
-export type LocalChatDraft = {
+type LocalChatDraft = {
   initialDisplay: string;
   mentionMap: Map<string, string>;
   skillMap: Map<string, string>;

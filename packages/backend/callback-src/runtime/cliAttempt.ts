@@ -25,8 +25,6 @@ import type {
   CliAttemptResult,
 } from "../types.js";
 
-export { isChildZombie, terminateAttemptProcess } from "./processControl.js";
-
 export function evaluateAttemptHealth(
   input: AttemptHealthInput,
 ): AttemptHealthResult {

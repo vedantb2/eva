@@ -5,7 +5,7 @@ import { m } from "motion/react";
 import { createContext, use, useState, type ReactNode } from "react";
 
 // shared-layout pill slide between sidebar rows
-export const sidebarSharedLayoutTransition = {
+const sidebarSharedLayoutTransition = {
   type: "spring" as const,
   stiffness: 800,
   damping: 48,

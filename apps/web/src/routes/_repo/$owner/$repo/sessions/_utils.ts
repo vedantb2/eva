@@ -4,7 +4,7 @@ const MAX_TERMINAL_HISTORY_CHARS = 500_000;
 const FLUSH_DELAY_MS = 250;
 const IMMEDIATE_FLUSH_CHARS = 4096;
 /** Lines kept when syncing session console history to Convex. */
-export const TERMINAL_HISTORY_TAIL_LINES = 500;
+const TERMINAL_HISTORY_TAIL_LINES = 500;
 const TERMINAL_HISTORY_TAIL_MAX_CHARS = 100_000;
 
 type JsonValue =

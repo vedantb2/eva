@@ -12,13 +12,11 @@ import type { ComponentType } from "react";
 
 // Re-export shared utils
 export {
-  USD_TO_GBP,
   GBP_TO_USD,
   parseResultEvent,
   getTotalInputTokens,
   formatCost,
   formatTokens,
-  type ParsedResultEvent,
 } from "@/lib/utils/logs";
 
 const ENTITY_TYPE_ICONS: Record<
@@ -67,7 +65,7 @@ export function labelFor(entityType: string): string {
 // Group key used by the "By Type" log view. Project-tagged entries (chats,
 // tasks, audits, interviews) collapse into a single "project" group so projects
 // are billed as one line instead of split across project-chat + quickTask etc.
-export const PROJECT_GROUP_KEY = "project";
+const PROJECT_GROUP_KEY = "project";
 
 export function groupKeyFor(log: {
   entityType: string;

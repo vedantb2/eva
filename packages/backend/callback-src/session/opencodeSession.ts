@@ -30,7 +30,7 @@ const store = createSessionStore({
   },
 });
 
-export const readOpencodeSessionState = store.readSessionState;
+const readOpencodeSessionState = store.readSessionState;
 export const writeOpencodeSessionState = store.writeSessionState;
 export function syncOpencodeStateToPersist(): void {
   store.syncStateToPersist("syncOpencodeStateToPersist");
@@ -41,7 +41,7 @@ export function syncOpencodeStateToPersist(): void {
   );
 }
 
-export function hydratePersistedOpencodeState(): void {
+function hydratePersistedOpencodeState(): void {
   store.hydratePersistedState("hydratePersistedOpencodeState");
   const configJson =
     OPENCODE_CONFIG_JSON ||

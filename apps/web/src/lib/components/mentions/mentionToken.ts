@@ -26,7 +26,7 @@ export function mentionTokensToEditableText(content: string): string {
  *
  * Capture groups: mention — [1]=label, [2]=id; skill — [1]=label, [2]=id.
  */
-export function extractMapsFromTokenizedText(content: string): {
+function extractMapsFromTokenizedText(content: string): {
   mentionMap: Map<string, string>;
   skillMap: Map<string, string>;
 } {

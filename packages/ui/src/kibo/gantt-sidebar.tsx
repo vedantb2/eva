@@ -87,7 +87,7 @@ export const GanttSidebarItem: FC<GanttSidebarItemProps> = ({
   );
 };
 
-export type GanttSidebarHeaderProps = {
+type GanttSidebarHeaderProps = {
   title?: string;
   metaLabel?: string;
 };

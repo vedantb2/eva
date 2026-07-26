@@ -32,13 +32,6 @@ import { createPortal } from "react-dom";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
-export type {
-  DragEndEvent as KanbanDragEndEvent,
-  DragStartEvent as KanbanDragStartEvent,
-  DragOverEvent as KanbanDragOverEvent,
-  DragCancelEvent as KanbanDragCancelEvent,
-} from "@dnd-kit/core";
-
 export type KanbanItem = {
   id: string;
   name: string;

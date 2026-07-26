@@ -135,7 +135,7 @@ export function linkLabel(url: string): string {
 }
 
 /** Every supported link URL found in `text`, in document order. */
-export function findLinkUrls(text: string): string[] {
+function findLinkUrls(text: string): string[] {
   return [...text.matchAll(new RegExp(LINK_URL_SOURCE, "g"))].map(
     (match) => match[0],
   );

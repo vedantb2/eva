@@ -27,14 +27,14 @@ export async function fetchWithTimeout(
 }
 
 /** Calculates exponential backoff delay with jitter for retry attempts. */
-export function buildRetryDelayMs(attempt: number): number {
+function buildRetryDelayMs(attempt: number): number {
   const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
 
 /** Calls a Convex mutation or action via HTTP API. */
-export async function callConvex(
+async function callConvex(
   type: ConvexCallType,
   path: string,
   args: JsonObject,
@@ -89,7 +89,7 @@ export async function callConvexWithRetry(
 }
 
 /** Lightweight heartbeat that only bumps streamingActivity.lastUpdatedAt in Convex. */
-export async function callStreamingHeartbeatTouchOnce(
+async function callStreamingHeartbeatTouchOnce(
   entityId: string,
 ): Promise<string | JsonValue> {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -118,7 +118,7 @@ export async function callStreamingHeartbeatTouchOnce(
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
-export async function callStreamingHeartbeatOnce(
+async function callStreamingHeartbeatOnce(
   entityId: string,
   currentActivity: string,
   currentContent: string,

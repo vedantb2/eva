@@ -202,7 +202,7 @@ function formatReviewCommentFence(language: string, contents: string): string {
   return [`${fence}${language}`, contents.trimEnd(), fence].join("\n");
 }
 
-export function formatReviewComment(comment: ReviewComment): string {
+function formatReviewComment(comment: ReviewComment): string {
   return [
     [
       "<review_comment",

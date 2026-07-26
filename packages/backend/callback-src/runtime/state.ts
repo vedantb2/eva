@@ -287,5 +287,3 @@ export function setInFlightToolUsesForTest(n: number): void {
 export function getPendingQuestionForTest(): string {
   return callbackState.pendingQuestionData;
 }
-
-export const accumulatedSteps = callbackState.accumulatedSteps;

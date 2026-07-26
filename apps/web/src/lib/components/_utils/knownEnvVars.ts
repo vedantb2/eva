@@ -15,7 +15,7 @@ import { INFRA_ENV_VARS } from "./infraEnvVars";
 import { slotEnvVarKeys } from "./envVarSlotTypes";
 
 export type { EnvVarSlotEntry, EnvVarScope } from "./envVarSlotTypes";
-export { filterSlotsForScope, slotEnvVarKeys } from "./envVarSlotTypes";
+export { filterSlotsForScope } from "./envVarSlotTypes";
 export { CONVEX_ENV_VARS } from "./convexEnvVars";
 export { INFRA_ENV_VARS } from "./infraEnvVars";
 
@@ -71,6 +71,3 @@ export const KNOWN_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
 export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = new Set(
   slotEnvVarKeys([...KNOWN_ENV_VARS, ...INFRA_ENV_VARS, ...CONVEX_ENV_VARS]),
 );
-
-/** @deprecated Use SLOT_ENV_VAR_KEYS */
-export const KNOWN_ENV_VAR_KEYS = SLOT_ENV_VAR_KEYS;

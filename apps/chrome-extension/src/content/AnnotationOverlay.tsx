@@ -75,7 +75,7 @@ export function setAnnotationsFromRemote(stored: Record<string, StoredPin>) {
   _emit();
 }
 
-export function updateCurrentPins(pins: Record<string, StoredPin>) {
+function updateCurrentPins(pins: Record<string, StoredPin>) {
   _ext = { ..._ext, currentPins: pins, version: _ext.version + 1 };
   _emit();
 }

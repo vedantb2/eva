@@ -17,14 +17,14 @@ function clearCloseTimer(el: HTMLElement): void {
 }
 
 /** Open: scales up from --modal-scale. Clears any in-flight close cleanup. */
-export function openModalSurface(el: HTMLElement): void {
+function openModalSurface(el: HTMLElement): void {
   clearCloseTimer(el);
   el.classList.remove("is-closing");
   el.classList.add("is-open");
 }
 
 /** Close: swap to .is-closing, remove after --modal-close-dur. */
-export function closeModalSurface(el: HTMLElement): void {
+function closeModalSurface(el: HTMLElement): void {
   clearCloseTimer(el);
   el.classList.remove("is-open");
   el.classList.add("is-closing");
@@ -37,7 +37,7 @@ export function closeModalSurface(el: HTMLElement): void {
 }
 
 /** First paint entrance — start at resting scale, then open on next frame. */
-export function primeModalSurface(el: HTMLElement): void {
+function primeModalSurface(el: HTMLElement): void {
   clearCloseTimer(el);
   el.classList.remove("is-open", "is-closing");
   requestAnimationFrame(() => {
@@ -46,7 +46,7 @@ export function primeModalSurface(el: HTMLElement): void {
 }
 
 /** Sync .is-open / .is-closing with Radix data-state on the same node. */
-export function syncModalSurfaceFromDataState(el: HTMLElement): void {
+function syncModalSurfaceFromDataState(el: HTMLElement): void {
   const state = el.getAttribute("data-state");
   if (state === "open") {
     if (!el.classList.contains("is-open")) {
@@ -62,7 +62,7 @@ export function syncModalSurfaceFromDataState(el: HTMLElement): void {
   }
 }
 
-export function disconnectModalSurface(el: HTMLElement): void {
+function disconnectModalSurface(el: HTMLElement): void {
   clearCloseTimer(el);
 }
 

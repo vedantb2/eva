@@ -502,7 +502,7 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
   }
 }
 
-export function getCodexFieldValue(item: JsonObject, keys: string[]): string {
+function getCodexFieldValue(item: JsonObject, keys: string[]): string {
   const sources: JsonObject[] = [item];
   if (
     item.input &&

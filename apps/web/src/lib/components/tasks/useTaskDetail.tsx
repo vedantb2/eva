@@ -16,13 +16,13 @@ const PREVIEW_SANDBOX_ALLOWED_STATUSES = [
   "done",
 ];
 
-export type QuickTaskDetailRouting = {
+type QuickTaskDetailRouting = {
   detailTab: TaskDetailTab;
   onDetailTabChange: (tab: TaskDetailTab) => void;
   onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => void;
 };
 
-export type QuickTaskSandboxRouting = {
+type QuickTaskSandboxRouting = {
   sandboxTab: TaskRouteSandboxTab;
   onSandboxTabChange: (tab: TaskRouteSandboxTab) => void;
   onExitSandboxView: () => void;
@@ -30,7 +30,7 @@ export type QuickTaskSandboxRouting = {
   onOpenFile: (path: string) => void;
 };
 
-export type ProjectTaskDetailRouting = {
+type ProjectTaskDetailRouting = {
   detailTab: TaskDetailTab;
   onDetailTabChange: (tab: TaskDetailTab) => void;
 };
@@ -449,5 +449,3 @@ export function useTaskDetail(
     modalWidthClass,
   };
 }
-
-export type TaskDetailData = ReturnType<typeof useTaskDetail>;

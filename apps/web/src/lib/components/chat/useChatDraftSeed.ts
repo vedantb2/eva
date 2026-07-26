@@ -4,22 +4,22 @@ import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 
 /** Discriminated target shapes accepted by the chat draft APIs. */
-export type SessionChatTarget = {
+type SessionChatTarget = {
   kind: "sessionChat";
   sessionId: Id<"sessions">;
 };
 
-export type DesignChatTarget = {
+type DesignChatTarget = {
   kind: "designChat";
   designSessionId: Id<"designSessions">;
 };
 
-export type TaskChatTarget = {
+type TaskChatTarget = {
   kind: "taskChat";
   taskId: Id<"agentTasks">;
 };
 
-export type ProjectChatTarget = {
+type ProjectChatTarget = {
   kind: "projectChat";
   projectId: Id<"projects">;
 };

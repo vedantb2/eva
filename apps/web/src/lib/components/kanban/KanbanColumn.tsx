@@ -8,7 +8,7 @@ import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 
 export { TASK_STATUSES as KANBAN_STATUSES };
 
-export interface ColumnConfig {
+interface ColumnConfig {
   bg: string;
   /** Soft column wash tinted to the status/phase colour. */
   cardBg?: string;

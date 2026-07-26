@@ -2,7 +2,7 @@ import { activateAnnotation, deactivateAnnotation } from "./AnnotationOverlay";
 
 export type ToolbarMode = "annotate" | "inspect" | null;
 
-export interface ToolbarFeedback {
+interface ToolbarFeedback {
   message: string;
   type: "success" | "error";
   /** When set, the feedback renders as a clickable action (e.g. open Eva). */

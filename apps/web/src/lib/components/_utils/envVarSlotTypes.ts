@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-export interface ProviderLogoProps {
+interface ProviderLogoProps {
   size?: number;
   className?: string;
 }

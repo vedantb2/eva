@@ -7,7 +7,7 @@ import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { previewPortParser } from "@/lib/search-params";
 
-export interface PreviewInfo {
+interface PreviewInfo {
   url: string;
   port: number;
 }

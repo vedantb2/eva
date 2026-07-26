@@ -37,10 +37,10 @@ type SuggestionId = string | number;
  * consistent.
  */
 
-export type SuggestionKind = "insertion" | "deletion" | "modification";
+type SuggestionKind = "insertion" | "deletion" | "modification";
 
 /** A suggestion id encodes its author and creation time: `userId|createdAt|rand`. */
-export function makeSuggestionId(userId: string | null): string {
+function makeSuggestionId(userId: string | null): string {
   const author = userId ?? "unknown";
   // A short random suffix keeps distinct edits in the same millisecond unique;
   // the library reuses an adjacent mark's id when extending one, so continuity
@@ -50,7 +50,7 @@ export function makeSuggestionId(userId: string | null): string {
 }
 
 /** Decodes the author/time packed into a suggestion id. */
-export function parseSuggestionAuthor(id: string): {
+function parseSuggestionAuthor(id: string): {
   userId: string | null;
   createdAt: number | null;
 } {
@@ -201,11 +201,6 @@ export const SuggestChangesKit = Extension.create<SuggestChangesKitOptions>({
     );
   },
 });
-
-/** True once the suggest-changes plugin is present and enabled on the editor. */
-export function suggestChangesEnabled(editor: Editor): boolean {
-  return isSuggestChangesEnabled(editor.state);
-}
 
 /** Enables suggestion tracking for this client (local plugin state only). */
 export function enableSuggesting(editor: Editor): void {

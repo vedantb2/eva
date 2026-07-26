@@ -50,13 +50,6 @@ export const CLAUDE_ATTEMPT_MODE =
  */
 export const BLOCKING_QUESTIONS_ENABLED =
   process.env.ENTITY_ID_FIELD === "sessionId";
-/**
- * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
- * so the CLI/MCP/API connection is live) and wait for the first prompt via the
- * handoff protocol instead of running an initial turn. Lets a session-open
- * trigger pay the boot cost BEFORE the user sends their first message.
- */
-export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 /** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
 export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 /**
@@ -122,15 +115,12 @@ export const CLAUDE_RUNTIME_CONFIG_DIR =
   process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 export const CLAUDE_PERSIST_DIR =
   process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
-export const CLAUDE_BIN_PATH =
-  process.env.CLAUDE_BIN_PATH || "/tmp/claude-cli/bin/claude";
 export const CODEX_RUNTIME_HOME_DIR =
   process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 export const CODEX_PERSIST_DIR =
   process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
-export const CODEX_BIN_PATH =
-  process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
-export const CODEX_STATE_FILE = "session-state.json";
+const CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
+const CODEX_STATE_FILE = "session-state.json";
 export const CODEX_LOCAL_STATE_FILE =
   CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;
 export const CODEX_PERSIST_STATE_FILE =
@@ -146,9 +136,9 @@ export const OPENCODE_RUNTIME_HOME_DIR =
   process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
 export const OPENCODE_PERSIST_DIR =
   process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
-export const OPENCODE_BIN_PATH =
+const OPENCODE_BIN_PATH =
   process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
-export const OPENCODE_STATE_FILE = "session-state.json";
+const OPENCODE_STATE_FILE = "session-state.json";
 export const OPENCODE_LOCAL_STATE_FILE =
   OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
 export const OPENCODE_PERSIST_STATE_FILE =
@@ -166,20 +156,19 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-export const CURSOR_BIN_PATH =
+const CURSOR_BIN_PATH =
   process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
-export const CURSOR_STATE_FILE = "session-state.json";
+const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =
   CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 export const CURSOR_PERSIST_STATE_FILE =
   CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
-export const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "";
-export const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
+const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
 export const CLAUDE_LOCAL_PROJECT_DIR =
   CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 export const CLAUDE_PERSIST_PROJECT_DIR =
   CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
-export const CLAUDE_STATE_FILE_NAME = "session-state.json";
+const CLAUDE_STATE_FILE_NAME = "session-state.json";
 export const CLAUDE_LOCAL_STATE_FILE =
   CLAUDE_RUNTIME_CONFIG_DIR + "/" + CLAUDE_STATE_FILE_NAME;
 export const CLAUDE_PERSIST_STATE_FILE =
@@ -191,7 +180,7 @@ export const CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS = Number(
   process.env.CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS || "5",
 );
 
-export const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
   process.env.GH_TOKEN = GH_TOKEN;
   process.env.GITHUB_TOKEN = GH_TOKEN;
@@ -206,9 +195,9 @@ export const REPO_ID = process.env.REPO_ID;
 // when the user picks a non-default level. Mapped per provider below:
 //   - Claude: Agent SDK `effort` option.
 //   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
-export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
-export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
-export const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
 
 const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
 
@@ -279,13 +268,13 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
 
 export const normalizedCursorModel =
   CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
-export const codexCommand = existsSync(CODEX_BIN_PATH)
+const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
-export const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
+const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
-export const cursorCommand = existsSync(CURSOR_BIN_PATH)
+const cursorCommand = existsSync(CURSOR_BIN_PATH)
   ? JSON.stringify(CURSOR_BIN_PATH)
   : "cursor-agent";
 export const codexPromptCmd = SYSTEM_PROMPT
@@ -302,7 +291,7 @@ export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
-export const cursorPromptExpr = SYSTEM_PROMPT
+const cursorPromptExpr = SYSTEM_PROMPT
   ? '"$(printf %s\\n\\n ' +
     JSON.stringify(SYSTEM_PROMPT) +
     '; cat /tmp/design-prompt.txt)"'

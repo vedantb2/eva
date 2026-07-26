@@ -17,7 +17,7 @@ if (!EVA_URL) {
 }
 
 /** Thrown when there is no synced Clerk session (user not signed in to Eva). */
-export class NotSignedInError extends Error {}
+class NotSignedInError extends Error {}
 
 /** Thrown when the current page's domain maps to no configured repo. */
 export class NoRepoMatchError extends Error {}
@@ -62,7 +62,7 @@ export async function getCreatorInitials(): Promise<string> {
  * The `convex` JWT template matches `applicationID: "convex"` in the backend
  * auth config — without it Convex rejects the token.
  */
-export async function getAuthedClient(): Promise<ConvexHttpClient> {
+async function getAuthedClient(): Promise<ConvexHttpClient> {
   const clerk = await getClerk();
   const token = clerk.session
     ? await clerk.session.getToken({ template: "convex" })

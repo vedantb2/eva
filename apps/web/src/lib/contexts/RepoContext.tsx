@@ -141,5 +141,3 @@ export function useRepo() {
   }
   return context;
 }
-
-export const useRepoContext = useRepo;

@@ -96,7 +96,7 @@ export function useQuickTaskFilters(): [
 
 type QuickTask = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-export function applyQuickTaskFilters(
+function applyQuickTaskFilters(
   tasks: QuickTask[],
   filters: QuickTaskFilters,
 ): QuickTask[] {
@@ -179,7 +179,7 @@ export function applyQuickTaskFilters(
 // in TASK_STATUSES order, preserving the input array's relative order within
 // each bucket. Used so prev/next on the detail page matches the kanban's
 // visual top-to-bottom-then-rightward flow.
-export function groupByStatusOrder(tasks: QuickTask[]): QuickTask[] {
+function groupByStatusOrder(tasks: QuickTask[]): QuickTask[] {
   const byStatus = new Map<string, QuickTask[]>();
   for (const task of tasks) {
     const list = byStatus.get(task.status) ?? [];

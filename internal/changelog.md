@@ -1,5 +1,15 @@
 # Changelog
 
+## Comments and your own messages render as markdown - 2026-07-26
+
+Task comments already rendered as markdown; the same text shown anywhere else came out as raw source. A comment with a list read as a list in the activity feed and as `- one` `- two` in the run timeline, from one field in one document.
+
+- The run timeline's inline comment, the user chat bubble, review-comment cards and the design chat's user turn now go through the same renderer as the activity feed, so one comment cannot look like two different things.
+- Fixed a latent bug on that shared renderer: passing a mention plugin to Streamdown **replaced** its defaults instead of extending them, so GFM was silently off everywhere. Tables, strikethrough, task lists and code-fence languages have never rendered in a comment or a task description until now.
+- Single newlines are line breaks again. People type a comment as lines, not as markdown paragraphs, and the old render silently joined them.
+- Tailwind Typography's grey palette now maps onto the design tokens, so rendered markdown matches the UI text beside it in both themes rather than shipping the plugin's own greys.
+- Input areas are unchanged and stay plain text: markdown is for reading, not for typing into.
+
 ## Switch apps from the composer headline - 2026-07-26
 
 The app name in "what are we building for X?" was decoration. Changing app meant going back to the vertical rail, where the tiles are icon-only and the name lives in a tooltip — so picking the right one was a hover-and-guess exercise.

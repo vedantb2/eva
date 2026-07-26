@@ -27,7 +27,10 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import { AI_MODEL_OPTIONS, getAIModelProvider } from "@eva/backend";
 import type { api } from "@eva/backend";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { getUserDisplayName } from "./task-detail-constants";
 import type { TaskComment } from "../_utils/commentThread";
@@ -313,7 +316,7 @@ function RunInlineComment({
   comment: TaskComment;
   users: Users | undefined;
 }) {
-  const { basePath } = useRepo();
+  const { basePath, repo } = useRepo();
   const author = comment.authorId
     ? users?.find((user) => user._id === comment.authorId)
     : undefined;
@@ -333,9 +336,15 @@ function RunInlineComment({
         </div>
         <RelativeDateTime at={comment.createdAt} className="shrink-0 text-xs" />
       </div>
-      <div className="text-sm text-muted-foreground">
-        <MessageMentionText text={comment.content} repoBasePath={basePath} />
-      </div>
+      {/* Same renderer and `atKind` as CommentActivityItem — this is the same
+          `taskComments.content`, so the two views must not diverge. */}
+      <MarkdownMentionText
+        text={comment.content}
+        repoBasePath={basePath}
+        repoId={repo._id}
+        atKind="user"
+        className={`${MARKDOWN_PROSE_CLASS} text-sm break-words`}
+      />
     </div>
   );
 }

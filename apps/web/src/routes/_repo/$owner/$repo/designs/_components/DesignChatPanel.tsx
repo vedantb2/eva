@@ -60,7 +60,10 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
@@ -407,9 +410,11 @@ export function DesignChatPanel({
                                   }
                                 />
                                 {message.content ? (
-                                  <MessageMentionText
+                                  <MarkdownMentionText
                                     text={message.content}
                                     repoBasePath={basePath}
+                                    repoId={repo._id}
+                                    className={`${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed break-words`}
                                   />
                                 ) : null}
                                 <div className="flex items-center justify-between gap-3">

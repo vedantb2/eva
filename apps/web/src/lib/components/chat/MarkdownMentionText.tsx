@@ -6,7 +6,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
+import remarkBreaks from "remark-breaks";
 import {
   DataMentionChip,
   SkillMentionChip,
@@ -39,6 +40,26 @@ interface MarkdownMentionTextProps {
 
 /** Caps embedded media so markdown screenshots/videos don't dominate the pane. */
 const MARKDOWN_MEDIA_CLASS = "max-h-80 w-auto max-w-full object-contain";
+
+/**
+ * Shared typography for rendered comment/message markdown. First/last margins are
+ * collapsed so a block-level first child doesn't push the body off its baseline.
+ */
+export const MARKDOWN_PROSE_CLASS =
+  "prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0";
+
+/**
+ * `remarkPlugins` REPLACES Streamdown's defaults rather than extending them, so
+ * `defaultRemarkPlugins` (GFM + code-fence meta) must be spread back in — without
+ * it, tables, strikethrough and task lists silently render as literal text.
+ * `remarkBreaks` follows because authors type single newlines expecting a line
+ * break, not markdown's paragraph-continuation behaviour.
+ */
+const REMARK_PLUGINS = [
+  ...Object.values(defaultRemarkPlugins),
+  remarkBreaks,
+  remarkMentionChips,
+];
 
 /** Stop parent click-to-edit handlers when interacting with media. */
 function stopParentClick(e: MouseEvent) {
@@ -112,7 +133,7 @@ export function MarkdownMentionText({
   return (
     <Streamdown
       className={className}
-      remarkPlugins={[remarkMentionChips]}
+      remarkPlugins={REMARK_PLUGINS}
       components={{
         // Replace Streamdown's inline-block image wrapper (download-only hover)
         // with the shared click-to-fullscreen preview used elsewhere.

@@ -5,6 +5,40 @@ function c(name) {
   return `rgb(var(--${name}) / <alpha-value>)`;
 }
 
+/** Raw `rgb()` from a token — prose CSS variables take plain values, not the
+ * `<alpha-value>` placeholder form that `c()` produces for colour utilities. */
+function t(name, alpha) {
+  return alpha === undefined
+    ? `rgb(var(--${name}))`
+    : `rgb(var(--${name}) / ${alpha})`;
+}
+
+/** Maps Tailwind Typography's colour variables onto the design tokens. */
+function proseTokenCss() {
+  return {
+    "--tw-prose-body": t("foreground"),
+    "--tw-prose-headings": t("foreground"),
+    "--tw-prose-lead": t("muted-foreground"),
+    "--tw-prose-links": t("primary"),
+    "--tw-prose-bold": t("foreground"),
+    "--tw-prose-counters": t("muted-foreground"),
+    "--tw-prose-bullets": t("muted-foreground"),
+    "--tw-prose-hr": t("border"),
+    "--tw-prose-quotes": t("foreground"),
+    "--tw-prose-quote-borders": t("border"),
+    "--tw-prose-captions": t("muted-foreground"),
+    "--tw-prose-kbd": t("foreground"),
+    // Used directly as a box-shadow colour, so the translucency is baked in
+    // (upstream default is the heading colour at 10%).
+    "--tw-prose-kbd-shadows": t("foreground", 0.1),
+    "--tw-prose-code": t("foreground"),
+    "--tw-prose-pre-code": t("foreground"),
+    "--tw-prose-pre-bg": t("muted"),
+    "--tw-prose-th-borders": t("border"),
+    "--tw-prose-td-borders": t("border"),
+  };
+}
+
 export const themeExtend = {
   colors: {
     border: c("border"),
@@ -102,6 +136,14 @@ export const themeExtend = {
   fontFamily: {
     sans: ["var(--font-sans)"],
     mono: ["var(--font-mono)"],
+  },
+  // Tailwind Typography ships an unthemed grey palette, which fights the design
+  // tokens wherever rendered markdown sits next to normal UI text. Both the base
+  // and `prose-invert` variable sets point at the same tokens, because the tokens
+  // already flip on `.dark` — so `dark:prose-invert` becomes a harmless no-op.
+  typography: {
+    DEFAULT: { css: proseTokenCss() },
+    invert: { css: proseTokenCss() },
   },
 };
 

@@ -18,7 +18,10 @@ import {
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
 import { getUserDisplayName } from "./task-detail-constants";
 import {
   CommentMentionInput,
@@ -238,7 +241,7 @@ export function CommentActivityItem({
           repoBasePath={basePath}
           repoId={repo._id}
           atKind="user"
-          className="pl-6 text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          className={`${MARKDOWN_PROSE_CLASS} pl-6 text-sm break-words`}
         />
       )}
 

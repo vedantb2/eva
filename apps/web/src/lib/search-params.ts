@@ -120,6 +120,13 @@ export const fileViewerPathParser = parseAsString
   .withDefault("")
   .withOptions(searchOptions);
 
+// Whether a markdown file in the File Viewer shows rendered output or its
+// source. In the URL alongside `?file=` so the choice survives reload.
+const markdownViews = ["rendered", "source"] as const;
+export const markdownViewParser = parseAsStringLiteral(markdownViews)
+  .withDefault("rendered")
+  .withOptions(searchOptions);
+
 export function isSessionSandboxTab(s: string): s is SandboxTab {
   return sandboxTabs.some((tab) => tab === s);
 }

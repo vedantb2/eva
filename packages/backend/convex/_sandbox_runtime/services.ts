@@ -2,7 +2,10 @@
 
 import { v } from "convex/values";
 import { quote } from "shell-quote";
+import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "../_generated/server";
+import type { DataModel, Id } from "../_generated/dataModel";
+import type { SandboxHandle } from "../_sandbox/provider";
 import { api, internal } from "../_generated/api";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
@@ -252,16 +255,46 @@ export const startDesktopForBrowserEntity = internalAction({
 
 /** Cap on how many bytes the File Viewer will read from a single file. */
 const MAX_FILE_VIEWER_BYTES = 512 * 1024;
+/**
+ * Cap on media bytes the File Viewer will base64 out of a sandbox. Base64
+ * inflates by ~4/3, so 4 MB of file is ~5.5 MB of string over the exec
+ * transport — inside Convex's function return limit, and cheap enough for the
+ * browser to hold as a data URL.
+ */
+const MAX_MEDIA_VIEWER_BYTES = 4 * 1024 * 1024;
 const NOT_FOUND_MARKER = "__EVA_NOT_FOUND__";
+const TOO_LARGE_MARKER = "__EVA_TOO_LARGE__";
+
+/**
+ * Resolves the sandbox handle for a File Viewer read, or null when the sandbox
+ * is not running. Throws when the caller is unauthenticated or has no access to
+ * the sandbox's repo.
+ *
+ * Never resumes a stopped sandbox: on Vercel any exec on a stopped VM revives
+ * it (see getPreviewUrl in execution.ts), so we check `handle.state` — which is
+ * fresh, since getSandboxHandle fetches with resume:false — before touching it.
+ */
+async function authorizedRunningHandle(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+  sandboxId: string,
+): Promise<SandboxHandle | null> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Not authenticated");
+
+  // Authorize against the sandbox's repo, same as getPreviewUrl: a null repo
+  // means the caller is neither the connector nor a team member.
+  const repo = await ctx.runQuery(api.githubRepos.get, { id: repoId });
+  if (!repo) throw new Error("Not authorized to access this repository");
+
+  const handle = await getSandboxHandle(ctx, repoId, sandboxId);
+  return handle.state === "running" ? handle : null;
+}
 
 /**
  * Reads a single file's contents out of a running sandbox for the chat File
  * Viewer. Uses a shell `head -c` so the read is size-capped in the sandbox
  * rather than streaming an arbitrarily large file back.
- *
- * Never resumes a stopped sandbox: on Vercel any exec on a stopped VM revives
- * it (see getPreviewUrl in execution.ts), so we check `handle.state` — which is
- * fresh, since getSandboxHandle fetches with resume:false — before touching it.
  */
 export const readSandboxFile = action({
   args: {
@@ -280,16 +313,12 @@ export const readSandboxFile = action({
     v.object({ status: v.literal("binary") }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    // Authorize against the sandbox's repo, same as getPreviewUrl: a null repo
-    // means the caller is neither the connector nor a team member.
-    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
-    if (!repo) throw new Error("Not authorized to access this repository");
-
-    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    if (handle.state !== "running") {
+    const handle = await authorizedRunningHandle(
+      ctx,
+      args.repoId,
+      args.sandboxId,
+    );
+    if (!handle) {
       return { status: "not_running" as const };
     }
 
@@ -320,6 +349,80 @@ export const readSandboxFile = action({
     const size = Number.parseInt(firstLine, 10);
     const truncated = Number.isFinite(size) && size > MAX_FILE_VIEWER_BYTES;
     return { status: "ok" as const, content, truncated };
+  },
+});
+
+/**
+ * Reads an image or video out of a running sandbox as base64 so the File Viewer
+ * can preview it as a data URL. The bytes cannot travel as text — the exec
+ * transport returns a string — so they are encoded in the sandbox.
+ *
+ * Unlike readSandboxFile this refuses rather than truncates: half an image is
+ * not viewable, so anything over the cap comes back as `too_large`.
+ */
+export const readSandboxMediaFile = action({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    path: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      status: v.literal("ok"),
+      base64: v.string(),
+      size: v.number(),
+    }),
+    v.object({ status: v.literal("not_running") }),
+    v.object({ status: v.literal("not_found") }),
+    v.object({ status: v.literal("too_large"), size: v.number() }),
+  ),
+  handler: async (ctx, args) => {
+    const handle = await authorizedRunningHandle(
+      ctx,
+      args.repoId,
+      args.sandboxId,
+    );
+    if (!handle) {
+      return { status: "not_running" as const };
+    }
+
+    // Same output contract as readSandboxFile: a marker or the byte count on
+    // the first line, payload after the first newline. `base64 | tr -d '\n'`
+    // rather than `base64 -w0` so this does not depend on GNU coreutils flags.
+    // The script always exits 0 so execHandle does not throw for a missing file.
+    const p = quote([args.path]);
+    const script =
+      `p=${p}; ` +
+      `if [ ! -f "$p" ]; then echo ${NOT_FOUND_MARKER}; ` +
+      `else sz=$(wc -c < "$p" | tr -d ' '); ` +
+      `if [ "$sz" -gt ${MAX_MEDIA_VIEWER_BYTES} ]; then echo ${TOO_LARGE_MARKER}; echo "$sz"; ` +
+      `else echo "$sz"; base64 "$p" | tr -d '\\n'; fi; fi`;
+    const out = await execHandle(handle, script, 30);
+
+    const newlineIndex = out.indexOf("\n");
+    const firstLine = (
+      newlineIndex === -1 ? out : out.slice(0, newlineIndex)
+    ).trim();
+    if (firstLine === NOT_FOUND_MARKER) {
+      return { status: "not_found" as const };
+    }
+    if (firstLine === TOO_LARGE_MARKER) {
+      const reported = Number.parseInt(
+        out.slice(newlineIndex + 1).trim() || "0",
+        10,
+      );
+      return {
+        status: "too_large" as const,
+        size: Number.isFinite(reported) ? reported : 0,
+      };
+    }
+
+    const size = Number.parseInt(firstLine, 10);
+    return {
+      status: "ok" as const,
+      base64: newlineIndex === -1 ? "" : out.slice(newlineIndex + 1).trim(),
+      size: Number.isFinite(size) ? size : 0,
+    };
   },
 });
 

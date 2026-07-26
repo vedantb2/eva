@@ -1,5 +1,16 @@
 # Changelog
 
+## Images, videos and markdown render in the Files tab - 2026-07-26
+
+The Files tab could only show text. Reading a file goes through a shell exec that returns a string, so every PNG, JPEG and MP4 tripped the NUL-byte check and came back as "This file is binary and cannot be shown" — and a README rendered as raw markdown source.
+
+- Images (png, jpg, gif, webp, avif, bmp, ico, svg) now render inline, click to open fullscreen. SVGs show as vectors rather than as XML.
+- Videos (mp4, webm, mov, m4v, ogv) play inline with the full control bar.
+- Markdown files render by default — headings, tables, fenced code and mermaid — with a header toggle back to highlighted source that persists in the URL.
+- Media bytes come back base64-encoded from the sandbox and are capped at 4 MB; larger files say how big they are instead of failing as binary. Genuine binaries keep the existing notice.
+- Applies everywhere the viewer is used: the session Files tab, the task and project sandbox panels, and file chips clicked in chat.
+- Known gap: relative image links inside rendered markdown stay broken, since sandbox files have no HTTP origin to resolve against.
+
 ## One review tab set for both surfaces - 2026-07-26
 
 The standalone Reviews page and the sandbox Review tab each had their own tab orchestrator, and they had already drifted: different tab order, different slugs (`diff` vs `diffs`), two separate tab unions, and one surface remounting panels on every tab switch while the other kept them alive. Any change to a review tab had to be made twice. They now render one shared component.

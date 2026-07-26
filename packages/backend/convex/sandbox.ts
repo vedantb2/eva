@@ -40,6 +40,7 @@ export {
   launchChromeInDesktop,
   startDesktopForBrowserEntity,
   readSandboxFile,
+  readSandboxMediaFile,
   listSandboxFiles,
 } from "./_sandbox_runtime/services";
 

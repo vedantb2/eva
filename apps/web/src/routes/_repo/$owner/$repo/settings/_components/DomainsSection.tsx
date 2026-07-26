@@ -41,9 +41,9 @@ export function DomainsSection({
         <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
           Domains
         </label>
-        <p className="text-[11px] text-muted-foreground">
-          Hostnames where this app is deployed. The Chrome extension will
-          auto-select this repo when browsing these domains.
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Hostnames where this app is deployed. The Chrome extension
+          auto-selects this repo when browsing these domains.
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export function DomainsSection({
           {domains.map((domain) => (
             <span
               key={domain}
-              className="inline-flex items-center gap-1 rounded-lg bg-muted/50 px-2 py-1 text-xs"
+              className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted px-2 py-1 text-xs"
             >
               {domain}
               <button

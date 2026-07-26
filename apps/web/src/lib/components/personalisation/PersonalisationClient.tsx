@@ -3,6 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api, PERSONALISATION_PRESETS } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { Textarea, Button, Spinner } from "@eva/ui";
 import { useEffect, useRef } from "react";
 import { RolePresetPicker } from "./RolePresetPicker";
@@ -69,62 +70,50 @@ export function PersonalisationClient() {
 
   return (
     <PageWrapper title="Personalisation" comfortable>
-      <div className="space-y-6">
-        {/* Preset section */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-medium">Role Preset</h3>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Controls how responses are communicated, not what code edits are
-              made. Included in every session.
-            </p>
-          </div>
+      <div className="space-y-4">
+        <SettingsSection
+          title="Role Preset"
+          description="Controls how responses are communicated, not what code edits are made. Included in every session."
+        >
+          <div className="space-y-3">
+            <RolePresetPicker
+              activeRole={activeRole}
+              onSelect={(role) => setRole({ role })}
+            />
 
-          <RolePresetPicker
-            activeRole={activeRole}
-            onSelect={(role) => setRole({ role })}
-          />
-
-          {activeRole ? (
-            <div className="rounded-surface border border-border bg-card p-3">
-              <p className="mb-2 text-[11px] font-medium text-muted-foreground">
-                Active preset prompt
+            {activeRole ? (
+              <div className="rounded-surface border border-border bg-muted/40 p-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Active preset prompt
+                </p>
+                <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/80">
+                  {PERSONALISATION_PRESETS[activeRole].prompt}
+                </pre>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No role selected. Choose a preset above to activate it.
               </p>
-              <pre className="whitespace-pre-wrap text-xs font-mono text-foreground/80 leading-relaxed">
-                {PERSONALISATION_PRESETS[activeRole].prompt}
-              </pre>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">
-              No role selected. Click a preset above to activate it.
-            </p>
-          )}
-        </div>
-
-        {/* Custom instructions section */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-medium">Custom Instructions</h3>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Additional instructions injected into every session. Use this to
-              describe your preferences, role-specific context, or recurring
-              guidance.
-            </p>
+            )}
           </div>
+        </SettingsSection>
 
-          <Textarea
-            ref={textareaRef}
-            className="min-h-[160px] text-xs font-mono"
-            placeholder="e.g. Always explain changes in plain English before showing code..."
-            defaultValue={savedValue}
-          />
-
-          <div className="flex justify-end">
+        <SettingsSection
+          title="Custom Instructions"
+          description="Additional instructions injected into every session. Use this to describe your preferences, role-specific context, or recurring guidance."
+          footer={
             <Button size="sm" onClick={handleSave}>
               Save
             </Button>
-          </div>
-        </div>
+          }
+        >
+          <Textarea
+            ref={textareaRef}
+            className="min-h-[160px] font-mono text-xs"
+            placeholder="e.g. Always explain changes in plain English before showing code..."
+            defaultValue={savedValue}
+          />
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

@@ -95,50 +95,53 @@ export function AutomationClient({
         </Button>
       }
     >
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          if (isAutomationTab(v)) {
-            const segment = entityPathSegment(automation);
-            if (!segment) return;
-            navigate({ to: `${basePath}/automations/${segment}/${v}` });
-          }
-        }}
-        className="space-y-4"
-      >
-        <TabsList>
-          <TabsTrigger value="latest">Latest</TabsTrigger>
-          <TabsTrigger value="run-history">Run History</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            if (isAutomationTab(v)) {
+              const segment = entityPathSegment(automation);
+              if (!segment) return;
+              navigate({ to: `${basePath}/automations/${segment}/${v}` });
+            }
+          }}
+        >
+          <div className="flex items-center gap-2 border-b border-border pb-2">
+            <TabsList>
+              <TabsTrigger value="latest">Latest</TabsTrigger>
+              <TabsTrigger value="run-history">Run History</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
 
-      {activeTab === "latest" && (
-        <LatestRun
-          run={runs?.[0]}
-          loading={runs === undefined}
-          actionsEnabled={automation.actionsEnabled === true}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "latest" && (
+          <LatestRun
+            run={runs?.[0]}
+            loading={runs === undefined}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
 
-      {activeTab === "run-history" && (
-        <RunHistory
-          runs={runs?.slice(1)}
-          actionsEnabled={automation.actionsEnabled === true}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "run-history" && (
+          <RunHistory
+            runs={runs?.slice(1)}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
 
-      {activeTab === "settings" && (
-        <SettingsForm
-          automation={automation}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "settings" && (
+          <SettingsForm
+            automation={automation}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
+      </div>
     </PageWrapper>
   );
 }

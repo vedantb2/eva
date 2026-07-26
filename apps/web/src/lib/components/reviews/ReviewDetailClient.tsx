@@ -7,12 +7,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@eva/backend";
 import { Spinner, Tabs, TabsList, TabsTrigger } from "@eva/ui";
-import {
-  IconExternalLink,
-  IconFileDiff,
-  IconFileText,
-  IconLayoutDashboard,
-} from "@tabler/icons-react";
+import { IconExternalLink } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { githubPrUrl } from "@/lib/githubPr";
 import {
@@ -143,18 +138,9 @@ export function ReviewDetailClient({
           </>
         )}
         <TabsList>
-          <TabsTrigger value="overview" className="gap-1.5">
-            <IconLayoutDashboard className="size-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="recap" className="gap-1.5">
-            <IconFileText className="size-4" />
-            Recap
-          </TabsTrigger>
-          <TabsTrigger value="diff" className="gap-1.5">
-            <IconFileDiff className="size-4" />
-            Diff
-          </TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="recap">Recap</TabsTrigger>
+          <TabsTrigger value="diff">Diff</TabsTrigger>
         </TabsList>
       </div>
 

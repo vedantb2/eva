@@ -39,8 +39,8 @@ html {
      * Accent tokens (--primary, --accent, --ring, --chart-1, sidebar
      * accent/primary) and --radius/--font-* are user-defined via the
      * theme settings, so they are left untouched here. */
-    --background: 255 255 255;
-    --app-shell: 255 255 255;
+    --background: 244 245 246;
+    --app-shell: 244 245 246;
     --foreground: 9 9 11;
     --card: 255 255 255;
     --card-foreground: 9 9 11;
@@ -90,7 +90,7 @@ html {
     --status-cancelled-bg: 229 231 235;
     --status-cancelled-subtle: 249 250 251;
     --status-cancelled-bar: 156 163 175;
-    --sidebar: 255 255 255;
+    --sidebar: 244 245 246;
     --sidebar-foreground: 24 24 25;
     --sidebar-primary: 9 9 11;
     --sidebar-primary-foreground: 250 250 250;

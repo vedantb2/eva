@@ -17,6 +17,7 @@ import {
   Spinner,
   Switch,
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
   TabsContent,
@@ -211,12 +212,14 @@ export function SnapshotsClient({
         onValueChange={handleSnapshotsTabChange}
         className="space-y-4"
       >
-        <TabsList>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="builds">Builds</TabsTrigger>
-          <TabsTrigger value="config-files">Config Files</TabsTrigger>
-        </TabsList>
+        <TabsBar className="px-0 pt-0">
+          <TabsList>
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="builds">Builds</TabsTrigger>
+            <TabsTrigger value="config-files">Config Files</TabsTrigger>
+          </TabsList>
+        </TabsBar>
 
         <TabsContent value="configuration" className="space-y-4">
           {snapshot && (

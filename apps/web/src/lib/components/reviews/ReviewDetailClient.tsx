@@ -6,7 +6,7 @@ import { useAction } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@eva/backend";
-import { Spinner, Tabs, TabsList, TabsTrigger } from "@eva/ui";
+import { Spinner, Tabs, TabsBar, TabsList, TabsTrigger } from "@eva/ui";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { githubPrUrl } from "@/lib/githubPr";
@@ -98,7 +98,7 @@ export function ReviewDetailClient({
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="shrink-0 space-y-2 border-b border-border px-3 py-3">
+      <div className="shrink-0 space-y-2 px-3 pt-3">
         {headerState.status === "loading" ? (
           <div className="flex h-10 items-center">
             <Spinner size="sm" />
@@ -137,12 +137,14 @@ export function ReviewDetailClient({
             </div>
           </>
         )}
+      </div>
+      <TabsBar>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="recap">Recap</TabsTrigger>
           <TabsTrigger value="diff">Diff</TabsTrigger>
         </TabsList>
-      </div>
+      </TabsBar>
 
       <div className="flex min-h-0 flex-1 flex-col">
         {tab === "overview" ? (

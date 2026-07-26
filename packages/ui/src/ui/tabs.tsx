@@ -92,6 +92,36 @@ const TabsList = React.forwardRef<
 });
 TabsList.displayName = TabsPrimitive.List.displayName;
 
+/**
+ * Page- and panel-level tab strip: a `TabsList` sitting on the hairline that
+ * divides it from the content below, with an optional trailing slot for
+ * toolbar controls. Every primary tab bar should use this so the divider and
+ * padding stay identical across surfaces; pass `className` only to override
+ * padding (twMerge lets `px-4` win over the default `px-3`).
+ *
+ * Not for the folder-style sandbox tabs or the small `h-8` segmented toggles —
+ * those own their own chrome.
+ */
+const TabsBar = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div"> & { actions?: React.ReactNode }
+>(({ className, children, actions, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2",
+      className,
+    )}
+    {...props}
+  >
+    {children}
+    {actions ? (
+      <div className="ml-auto flex items-center gap-2">{actions}</div>
+    ) : null}
+  </div>
+));
+TabsBar.displayName = "TabsBar";
+
 const TabsTrigger = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -123,4 +153,4 @@ const TabsContent = React.forwardRef<
 ));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
-export { Tabs, TabsList, TabsTrigger, TabsContent };
+export { Tabs, TabsBar, TabsList, TabsTrigger, TabsContent };

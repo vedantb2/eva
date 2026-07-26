@@ -9,6 +9,7 @@ import {
   Button,
   Input,
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
   Textarea,
@@ -106,13 +107,13 @@ export function AutomationClient({
             }
           }}
         >
-          <div className="flex items-center gap-2 border-b border-border pb-2">
+          <TabsBar className="px-0 pt-0">
             <TabsList>
               <TabsTrigger value="latest">Latest</TabsTrigger>
               <TabsTrigger value="run-history">Run History</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
-          </div>
+          </TabsBar>
         </Tabs>
 
         {activeTab === "latest" && (

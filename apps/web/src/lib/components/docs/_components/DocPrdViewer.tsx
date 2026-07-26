@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   Spinner,
   Tabs,
+  TabsBar,
   TabsContent,
   TabsList,
   TabsTrigger,
@@ -300,46 +301,50 @@ export function DocPrdViewer({
         onValueChange={handleDocTabChange}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
+        <TabsBar
+          className="sm:px-4"
+          actions={
+            <div className="flex items-center gap-1">
+              {activeTab === "content" && (
+                <>
+                  <Button
+                    size="sm"
+                    variant={suggestionsOpen ? "secondary" : "ghost"}
+                    className="h-7 px-2"
+                    onClick={toggleSuggestions}
+                  >
+                    <IconPencilCheck size={14} />
+                    <span className="text-xs">Suggestions</span>
+                    {suggestionCount > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {suggestionCount}
+                      </span>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={commentsOpen ? "secondary" : "ghost"}
+                    className="h-7 px-2"
+                    onClick={toggleComments}
+                  >
+                    <IconMessage size={14} />
+                    <span className="text-xs">Comments</span>
+                    {openCommentCount > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {openCommentCount}
+                      </span>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+          }
+        >
           <TabsList>
             <TabsTrigger value="content">Markdown</TabsTrigger>
             <TabsTrigger value="html">HTML</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-1">
-            {activeTab === "content" && (
-              <>
-                <Button
-                  size="sm"
-                  variant={suggestionsOpen ? "secondary" : "ghost"}
-                  className="h-7 px-2"
-                  onClick={toggleSuggestions}
-                >
-                  <IconPencilCheck size={14} />
-                  <span className="text-xs">Suggestions</span>
-                  {suggestionCount > 0 && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      {suggestionCount}
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant={commentsOpen ? "secondary" : "ghost"}
-                  className="h-7 px-2"
-                  onClick={toggleComments}
-                >
-                  <IconMessage size={14} />
-                  <span className="text-xs">Comments</span>
-                  {openCommentCount > 0 && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      {openCommentCount}
-                    </span>
-                  )}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+        </TabsBar>
 
         <TabsContent
           value="content"

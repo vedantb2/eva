@@ -7,7 +7,14 @@ import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
-import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@eva/ui";
+import {
+  Tabs,
+  TabsBar,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Button,
+} from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
@@ -196,12 +203,14 @@ export function TeamDetailClient({
           }
         }}
       >
-        <TabsList className="mb-4">
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="codebases">Codebases</TabsTrigger>
-          <TabsTrigger value="env">Environment Variables</TabsTrigger>
-          <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
-        </TabsList>
+        <TabsBar className="mb-4 px-0 pt-0">
+          <TabsList>
+            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="codebases">Codebases</TabsTrigger>
+            <TabsTrigger value="env">Environment Variables</TabsTrigger>
+            <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
+          </TabsList>
+        </TabsBar>
 
         <TabsContent value="members">
           <TeamMembersTab

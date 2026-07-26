@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@eva/ui";
+import {
+  Button,
+  Tabs,
+  TabsBar,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  cn,
+} from "@eva/ui";
 import { IconGitPullRequest, IconRefresh } from "@tabler/icons-react";
 import { isDiffView, isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
 import { prNumberFromGithubUrl } from "@/lib/githubPr";
@@ -69,46 +77,49 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <TabsBar
+        actions={
+          showDiffChrome ? (
+            <>
+              <Tabs
+                value={diffView}
+                onValueChange={(value) => {
+                  if (isDiffView(value)) setDiffView(value);
+                }}
+              >
+                <TabsList className="h-8">
+                  <TabsTrigger value="unified" className="px-2.5 py-1 text-xs">
+                    Unified
+                  </TabsTrigger>
+                  <TabsTrigger value="split" className="px-2.5 py-1 text-xs">
+                    Split
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => diffToolbar?.refresh()}
+                disabled={diffToolbar === null || diffToolbar.isLoading}
+              >
+                <IconRefresh
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    diffToolbar?.isLoading === true && "animate-spin",
+                  )}
+                />
+                Refresh
+              </Button>
+            </>
+          ) : null
+        }
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="diffs">Diffs</TabsTrigger>
           <TabsTrigger value="recap">Recap</TabsTrigger>
         </TabsList>
-        {showDiffChrome ? (
-          <div className="ml-auto flex items-center gap-2">
-            <Tabs
-              value={diffView}
-              onValueChange={(value) => {
-                if (isDiffView(value)) setDiffView(value);
-              }}
-            >
-              <TabsList className="h-8">
-                <TabsTrigger value="unified" className="px-2.5 py-1 text-xs">
-                  Unified
-                </TabsTrigger>
-                <TabsTrigger value="split" className="px-2.5 py-1 text-xs">
-                  Split
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => diffToolbar?.refresh()}
-              disabled={diffToolbar === null || diffToolbar.isLoading}
-            >
-              <IconRefresh
-                className={cn(
-                  "h-3.5 w-3.5",
-                  diffToolbar?.isLoading === true && "animate-spin",
-                )}
-              />
-              Refresh
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      </TabsBar>
       <TabsContent
         value="overview"
         forceMount

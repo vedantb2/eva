@@ -92,7 +92,10 @@ export function ReviewOverviewPanel({
   const { overview, refreshing } = state;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    // `h-full`, not `flex-1`: the sandbox Review tab mounts this inside a plain
+    // block TabsContent, where a flex item's basis never resolves and the
+    // scroll container ends up unbounded.
+    <div className="h-full overflow-auto">
       <div className="mx-auto max-w-7xl space-y-4 px-4 py-4">
         <div className="flex items-center justify-end">
           <Button

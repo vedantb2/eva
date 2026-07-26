@@ -3,7 +3,10 @@ import type { Id, api } from "@eva/backend";
 import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import { entityPathSegment } from "@/lib/numId";
-import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
+import {
+  KanbanColumn,
+  KANBAN_COLUMN_WIDTH_CLASS,
+} from "@/lib/components/kanban/KanbanColumn";
 import {
   phaseConfig,
   PROJECT_PHASES,
@@ -41,7 +44,7 @@ export function ProjectsKanbanView({
               <m.div
                 key={phase}
                 layout
-                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch"
+                className={`flex min-h-0 min-w-[70vw] sm:min-w-0 self-stretch ${KANBAN_COLUMN_WIDTH_CLASS}`}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}

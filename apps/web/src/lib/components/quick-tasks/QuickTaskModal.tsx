@@ -368,6 +368,7 @@ export function QuickTaskModal({
               attachments={attachments.attachments}
               onAdd={attachments.add}
               onRemove={attachments.remove}
+              draftTaskId={activeDraftId}
             />
           </div>
 

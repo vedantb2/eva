@@ -1,28 +1,78 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { useMutation } from "convex/react";
 import { IconPaperclip } from "@tabler/icons-react";
+import { api, type Id } from "@eva/backend";
 import { AttachmentCard } from "@/lib/components/attachments/AttachmentCard";
-import { chatAttachmentAccept } from "@/lib/components/attachments/attachmentMeta";
+import {
+  chatAttachmentAccept,
+  labelForAttachment,
+} from "@/lib/components/attachments/attachmentMeta";
 import type { TaskAttachment } from "../useTaskAttachments";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface TaskFilesSectionProps {
   attachments: TaskAttachment[];
   onAdd: (files: File[]) => void;
   onRemove: (key: string) => void;
+  /** The draft this composer is editing, when its files are already in storage. */
+  draftTaskId: Id<"agentTasks"> | null;
 }
 
 /**
  * Quick task composer file picker: a paperclip button plus a "Files" list of
  * the attached cards. Pasting an image into the description and dropping files
  * onto the modal both feed the same `onAdd`.
+ *
+ * Removing a file the user just picked is instant — nothing has been stored yet.
+ * A file already saved on a draft is confirmed first, because removing it
+ * deletes the stored blob for good.
  */
 export function TaskFilesSection({
   attachments,
   onAdd,
   onRemove,
+  draftTaskId,
 }: TaskFilesSectionProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const removeAttachment = useMutation(api.agentTasks.removeAttachment);
+  // The stored file awaiting confirmation, held until confirm or cancel.
+  const [pending, setPending] = useState<{
+    key: string;
+    storageId: Id<"_storage">;
+    label: string;
+  } | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const requestRemove = (attachment: TaskAttachment) => {
+    // Not stored yet, or stored but not yet attached to a draft (a failed
+    // submit): dropping it locally is all we can do.
+    if (!attachment.storageId || !draftTaskId) {
+      onRemove(attachment.key);
+      return;
+    }
+    setPending({
+      key: attachment.key,
+      storageId: attachment.storageId,
+      label: labelForAttachment(attachment.name, attachment.contentType),
+    });
+  };
+
+  const handleConfirm = async () => {
+    if (!pending || !draftTaskId) return;
+    setIsRemoving(true);
+    try {
+      await removeAttachment({
+        taskId: draftTaskId,
+        storageId: pending.storageId,
+      });
+      onRemove(pending.key);
+      setPending(null);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2 px-5 pb-2">
@@ -38,7 +88,7 @@ export function TaskFilesSection({
                 name={attachment.name}
                 contentType={attachment.contentType}
                 url={attachment.url}
-                onRemove={() => onRemove(attachment.key)}
+                onRemove={() => requestRemove(attachment)}
               />
             ))}
           </div>
@@ -67,6 +117,25 @@ export function TaskFilesSection({
           }}
         />
       </div>
+
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !isRemoving) setPending(null);
+        }}
+        title="Remove file"
+        description={
+          <>
+            Are you sure you want to remove <strong>{pending?.label}</strong>{" "}
+            from this draft?
+          </>
+        }
+        detail="The file is deleted from storage. This action cannot be undone."
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={handleConfirm}
+        isLoading={isRemoving}
+      />
     </div>
   );
 }

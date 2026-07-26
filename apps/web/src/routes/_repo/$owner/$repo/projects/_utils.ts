@@ -8,7 +8,8 @@ import {
   projectSortFieldParser,
 } from "@/lib/search-params";
 
-type ProjectView = "kanban" | "timeline" | "list" | "table";
+type ProjectView = "kanban" | "timeline" | "list";
+const PROJECT_VIEWS: readonly ProjectView[] = ["kanban", "timeline", "list"];
 export const SORT_FIELDS = ["created", "title", "priority"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 type SortDir = "asc" | "desc";
@@ -70,9 +71,14 @@ export function useProjectFilters(): [
 
   // Merge defaults on read so objects persisted before new keys existed
   // (or before the URL-state split) backfill without a STORAGE_KEY bump.
+  const merged = { ...LOCAL_DEFAULTS, ...localFilters };
   const filters: ProjectFilters = {
-    ...LOCAL_DEFAULTS,
-    ...localFilters,
+    ...merged,
+    // The removed "table" view can still be sitting in a returning user's
+    // storage, so anything that is not a live view falls back to the default.
+    view: PROJECT_VIEWS.includes(merged.view)
+      ? merged.view
+      : LOCAL_DEFAULTS.view,
     ...urlFilters,
   };
 

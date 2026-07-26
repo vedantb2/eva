@@ -26,7 +26,6 @@ import {
   IconFolder,
   IconSettings,
   IconFilter,
-  IconTable,
   IconUser,
   IconTag,
   IconUserCheck,
@@ -44,7 +43,7 @@ import type { api } from "@eva/backend";
 import { useQuickTaskFilters } from "../_utils";
 import { QUICK_TASK_FILTER_DEFAULTS } from "@/lib/search-params";
 
-type QuickTaskView = "kanban" | "list" | "table";
+type QuickTaskView = "kanban" | "list";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 
@@ -228,19 +227,6 @@ export function QuickTasksToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>List view</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={view === "table" ? "secondary" : "ghost"}
-                size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
-                onClick={() => onViewChange("table")}
-              >
-                <IconTable size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Table view</TooltipContent>
           </Tooltip>
         </div>
       )}

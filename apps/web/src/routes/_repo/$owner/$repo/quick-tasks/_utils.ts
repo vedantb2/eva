@@ -20,7 +20,7 @@ import {
   quickTaskTagsParser,
 } from "@/lib/search-params";
 
-type QuickTaskView = "kanban" | "list" | "table";
+type QuickTaskView = "kanban" | "list";
 type SortField =
   | "status"
   | "lastRun"
@@ -55,17 +55,11 @@ const LOCAL_DEFAULTS: QuickTaskLocalFilters = {
   view: "kanban",
 };
 
-// Sort defaults per view, used when the URL carries no explicit sort. The table
-// is a whole-pipeline read, so it opens in workflow order (todo → … → done);
-// the kanban and list already convey status by column/grouping, so recency is
-// the more useful default there.
-const SORT_DEFAULTS: Record<
-  QuickTaskView,
-  { sortField: SortField; sortDir: SortDir }
-> = {
-  kanban: { sortField: "updated", sortDir: "desc" },
-  list: { sortField: "updated", sortDir: "desc" },
-  table: { sortField: "status", sortDir: "asc" },
+// Used when the URL carries no explicit sort. Both views convey status by
+// column/grouping already, so recency is the more useful default.
+const SORT_DEFAULTS: { sortField: SortField; sortDir: SortDir } = {
+  sortField: "updated",
+  sortDir: "desc",
 };
 
 // v2: product default sort flipped lastRun → updated; bump key so existing
@@ -94,16 +88,20 @@ export function useQuickTaskFilters(): [
   });
 
   // Merge defaults on read so objects persisted before the URL-state split
-  // (or missing `view` entirely) backfill without a STORAGE_KEY bump.
-  const local = { ...LOCAL_DEFAULTS, ...localFilters };
-  // Sort is null until the user picks one, so it can fall back per view.
+  // (or missing `view` entirely) backfill without a STORAGE_KEY bump. The
+  // removed "table" view can still be sitting in a returning user's storage,
+  // so anything that is not a live view falls back to the default.
+  const merged = { ...LOCAL_DEFAULTS, ...localFilters };
+  const local: QuickTaskLocalFilters = {
+    view: merged.view === "list" ? "list" : "kanban",
+  };
+  // Sort is null until the user picks one, so it can fall back to the default.
   const { sortField, sortDir, ...url } = urlFilters;
-  const sortDefaults = SORT_DEFAULTS[local.view];
   const filters: QuickTaskFilters = {
     ...local,
     ...url,
-    sortField: sortField ?? sortDefaults.sortField,
-    sortDir: sortDir ?? sortDefaults.sortDir,
+    sortField: sortField ?? SORT_DEFAULTS.sortField,
+    sortDir: sortDir ?? SORT_DEFAULTS.sortDir,
   };
 
   const setParams = (patch: Partial<QuickTaskFilters>) => {

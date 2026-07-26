@@ -14,7 +14,6 @@ import {
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
 import { QuickTasksListSplit } from "./_components/QuickTasksListSplit";
 import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
 import { QuickTaskTaskPageContent } from "./_components/QuickTaskTaskPageContent";
@@ -361,10 +360,10 @@ export function QuickTasksClient() {
         headerRight={
           <QuickTasksToolbar
             view={view}
-            onViewChange={(v: "kanban" | "list" | "table") => {
+            onViewChange={(v: "kanban" | "list") => {
               setParams({ view: v });
               // Only list view renders an open task inline (master/detail
-              // split); kanban/table show the board, so close the task.
+              // split); kanban shows the board, so close the task.
               if (selectedTaskId && v !== "list") {
                 navigate({
                   to: `${basePath}/quick-tasks`,
@@ -432,24 +431,6 @@ export function QuickTasksClient() {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksKanbanBoard
-                  tasks={quickTasks}
-                  projectNames={projectNames}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
-                />
-              </m.div>
-            ) : view === "table" ? (
-              <m.div
-                key="quick-tasks-table"
-                className="flex min-w-0 flex-1 min-h-0"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <QuickTasksTableView
                   tasks={quickTasks}
                   projectNames={projectNames}
                   isSelecting={isSelecting}

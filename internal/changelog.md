@@ -1,5 +1,14 @@
 # Changelog
 
+## Table view is gone - 2026-07-27
+
+Switching away from the quick-tasks table froze the tab hard: a synchronous React render loop that never yielded, so the page took no input and printed nothing. A long instrumentation pass narrowed it to the table's unmount and no further — probes in every component on the path never tripped. The view was the least-used of the three and not worth more days of hunting, so it has been removed rather than fixed.
+
+- Quick tasks keeps kanban and list; projects keeps kanban, timeline and list. The table buttons are gone from both toolbars.
+- Anyone whose stored preference is still `table` lands on kanban instead of an empty pane — both view preferences now validate what they read out of localStorage rather than trusting it.
+- `QuickTasksTableView`, `ProjectsTableView` and the forked `data-table` primitive in `@eva/ui` are deleted, and `@tanstack/react-table` drops out of both packages. `react-virtuoso` stays; kanban and list still virtualise through it.
+- The quick-tasks sort default no longer varies by view, since both remaining views group by status already.
+
 ## Regression tests for the last three days of fixes - 2026-07-26
 
 Nine fixes shipped this week with no test behind them, so each one was free to come back. They now have 43 tests across the three packages. Two of those fixes had left a job half done, and writing the tests is what surfaced it.

@@ -19,6 +19,7 @@ import { UserInitials } from "@eva/shared";
 import { Badge, DataTableColumnHeader, type ColumnDef } from "@eva/ui";
 import {
   statusConfig,
+  statusWorkflowOrder,
   TASK_STATUSES,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { compactRelativeTime } from "@eva/shared/dates";
@@ -67,6 +68,11 @@ const columns: ColumnDef<Task, unknown>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => <StatusCell status={row.original.status} />,
+    // Sort down the pipeline (todo → … → done); the default string compare
+    // would give alphabetical order, which reads as random to the user.
+    sortingFn: (a, b) =>
+      statusWorkflowOrder(a.original.status) -
+      statusWorkflowOrder(b.original.status),
   },
   {
     accessorKey: "priority",
@@ -163,8 +169,10 @@ export function QuickTasksTableView({
   const { scrollParent, scrollRef } = usePersistedScrollParent(
     `${owner}/${name}/quick-tasks/table`,
   );
+  // Default to workflow order so the table opens as a pipeline read: todo at
+  // the top, done at the bottom. Clicking any header still overrides it.
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "createdAt", desc: true },
+    { id: "status", desc: false },
   ]);
 
   const [{ q, statuses }] = useQuickTaskFilters();

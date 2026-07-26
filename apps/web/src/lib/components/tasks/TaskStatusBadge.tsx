@@ -31,6 +31,16 @@ export const TASK_STATUSES: DisplayTaskStatus[] = [
   "cancelled",
 ];
 
+/**
+ * Position of a status in the workflow, for sorting a mixed list into pipeline
+ * order (todo → … → done) instead of alphabetically. Statuses outside
+ * TASK_STATUSES — only "draft" today — sort after every known one.
+ */
+export function statusWorkflowOrder(status: TaskStatus): number {
+  const index = TASK_STATUSES.findIndex((s) => s === status);
+  return index === -1 ? TASK_STATUSES.length : index;
+}
+
 interface TaskStatusBadgeProps {
   status: TaskStatus;
 }

@@ -4,13 +4,14 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
 import {
   TASK_STATUSES,
+  statusWorkflowOrder,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { priorityCompare } from "@/lib/components/priority/priorityMeta";
 import {
   searchParser,
-  sortDirParser,
   statusesParser,
+  quickTaskSortDirParser,
   quickTaskSortFieldParser,
   quickTaskTimeRangeParser,
   quickTaskProjectParser,
@@ -20,7 +21,13 @@ import {
 } from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
-type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
+type SortField =
+  | "status"
+  | "lastRun"
+  | "updated"
+  | "created"
+  | "title"
+  | "priority";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -48,6 +55,19 @@ const LOCAL_DEFAULTS: QuickTaskLocalFilters = {
   view: "kanban",
 };
 
+// Sort defaults per view, used when the URL carries no explicit sort. The table
+// is a whole-pipeline read, so it opens in workflow order (todo → … → done);
+// the kanban and list already convey status by column/grouping, so recency is
+// the more useful default there.
+const SORT_DEFAULTS: Record<
+  QuickTaskView,
+  { sortField: SortField; sortDir: SortDir }
+> = {
+  kanban: { sortField: "updated", sortDir: "desc" },
+  list: { sortField: "updated", sortDir: "desc" },
+  table: { sortField: "status", sortDir: "asc" },
+};
+
 // v2: product default sort flipped lastRun → updated; bump key so existing
 // localStorage does not keep the old default sticky for returning users.
 // Persisted objects from before the URL-state split still carry the old
@@ -68,17 +88,22 @@ export function useQuickTaskFilters(): [
     assignee: quickTaskAssigneeParser,
     tags: quickTaskTagsParser,
     sortField: quickTaskSortFieldParser,
-    sortDir: sortDirParser,
+    sortDir: quickTaskSortDirParser,
     timeRange: quickTaskTimeRangeParser,
     statuses: statusesParser,
   });
 
   // Merge defaults on read so objects persisted before the URL-state split
   // (or missing `view` entirely) backfill without a STORAGE_KEY bump.
+  const local = { ...LOCAL_DEFAULTS, ...localFilters };
+  // Sort is null until the user picks one, so it can fall back per view.
+  const { sortField, sortDir, ...url } = urlFilters;
+  const sortDefaults = SORT_DEFAULTS[local.view];
   const filters: QuickTaskFilters = {
-    ...LOCAL_DEFAULTS,
-    ...localFilters,
-    ...urlFilters,
+    ...local,
+    ...url,
+    sortField: sortField ?? sortDefaults.sortField,
+    sortDir: sortDir ?? sortDefaults.sortDir,
   };
 
   const setParams = (patch: Partial<QuickTaskFilters>) => {
@@ -154,7 +179,12 @@ function applyQuickTaskFilters(
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
-    if (filters.sortField === "lastRun") {
+    if (filters.sortField === "status") {
+      // Workflow order (todo → … → done), not alphabetical. Ties fall back to
+      // most-recently-updated first so each status block stays readable.
+      cmp = statusWorkflowOrder(a.status) - statusWorkflowOrder(b.status);
+      if (cmp === 0) return b.updatedAt - a.updatedAt;
+    } else if (filters.sortField === "lastRun") {
       // Fall back to createdAt so tasks that have never run are sorted by
       // creation time rather than collapsing to 0 and sinking to the bottom.
       const aTime = a.lastRunStartedAt ?? a.createdAt;

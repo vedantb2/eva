@@ -47,17 +47,22 @@ export const timeRangeParser = parseAsStringLiteral(timeRanges)
 // mode is a per-user presentation preference and stays in localStorage —
 // see quick-tasks/_utils.ts.
 const quickTaskSortFields = [
+  "status",
   "lastRun",
   "updated",
   "created",
   "title",
   "priority",
 ] as const;
-export const quickTaskSortFieldParser = parseAsStringLiteral(
-  quickTaskSortFields,
-)
-  .withDefault("updated")
-  .withOptions(searchOptions);
+// No default here (unlike most parsers): the fallback depends on the active
+// view, so quick-tasks/_utils.ts resolves null against a per-view default.
+export const quickTaskSortFieldParser =
+  parseAsStringLiteral(quickTaskSortFields).withOptions(searchOptions);
+
+// Same reason as quickTaskSortFieldParser — the default direction pairs with
+// the per-view default field, so it cannot be baked in here.
+export const quickTaskSortDirParser =
+  parseAsStringLiteral(sortDirections).withOptions(searchOptions);
 
 // Quick Tasks default to "all time" (unlike the generic timeRangeParser's
 // "30d" default used elsewhere), so it needs its own default.

@@ -48,6 +48,7 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 
 const SORT_FIELDS = [
+  "status",
   "updated",
   "lastRun",
   "created",
@@ -88,6 +89,7 @@ interface QuickTasksToolbarProps {
 }
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
+  status: "Status",
   lastRun: "Last Run",
   updated: "Updated",
   created: "Created",

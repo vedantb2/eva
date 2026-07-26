@@ -3,7 +3,7 @@
 import { type api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
-import { Button } from "@eva/ui";
+import { Badge, Button, cn } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
 import { SkillContentDialog } from "./SkillContentDialog";
 
@@ -14,24 +14,25 @@ export function SkillRow({ skill }: { skill: Skill }) {
 
   return (
     <>
+      {/* A row inside the skills list section, so the section owns the border. */}
       <div
-        className={
-          "rounded-surface p-3 " +
-          (skill.available ? "bg-muted/40" : "bg-muted/30 opacity-70")
-        }
+        className={cn(
+          "px-4 py-3 transition-colors hover:bg-muted/40",
+          !skill.available && "opacity-60",
+        )}
       >
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-xs font-medium">{skill.title}</p>
+              <p className="text-sm font-medium">{skill.title}</p>
               {!skill.available ? (
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <Badge variant="secondary" className="text-xs">
                   Stale
-                </span>
+                </Badge>
               ) : null}
             </div>
             {skill.sourcePath ? (
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground/70">
+              <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                 {skill.sourcePath}
               </p>
             ) : null}
@@ -49,7 +50,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
             </Button>
           ) : null}
         </div>
-        <p className="mt-2 line-clamp-3 text-[11px] text-muted-foreground">
+        <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
           {skill.description || "No description found in SKILL.md."}
         </p>
       </div>

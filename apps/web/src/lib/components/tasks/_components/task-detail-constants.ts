@@ -4,9 +4,6 @@ export const NO_PROJECT_VALUE = "__none__";
 export const NEW_PROJECT_VALUE = "__new_project__";
 export const UNASSIGNED_VALUE = "__unassigned__";
 export const NO_PRIORITY_VALUE = "__no_priority__";
-export const SCREENSHOTS_INHERIT_VALUE = "__inherit__";
-export const SCREENSHOTS_ON_VALUE = "__on__";
-export const SCREENSHOTS_OFF_VALUE = "__off__";
 
 /** Model can change on any active task; only terminal statuses lock it. */
 export function canEditTaskModel(status: TaskStatus | undefined): boolean {
@@ -25,10 +22,6 @@ export const DEPLOYMENT_STATUS_CONFIG: Record<
   error: { iconColor: "text-red-500", label: "Deploy failed" },
   queued: { iconColor: "text-blue-500", label: "Queued" },
 };
-
-export function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 export function getUserDisplayName(user: {
   fullName?: string | null;
@@ -53,7 +46,7 @@ export function getUserDisplayName(user: {
 
 export type TaskDetailTab = "activity";
 
-export const TASK_DETAIL_TABS = ["activity"] as const;
+const TASK_DETAIL_TABS = ["activity"] as const;
 
 export function isTaskDetailTab(v: string): v is TaskDetailTab {
   return TASK_DETAIL_TABS.some((tab) => tab === v);

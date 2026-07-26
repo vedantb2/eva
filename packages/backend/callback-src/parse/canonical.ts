@@ -18,16 +18,6 @@ import {
   parseClaudeSdkTaxonomy,
 } from "./sdkTaxonomy.js";
 
-export {
-  codexItemToStep,
-  cursorToolToStep,
-  getCodexAgentMessageText,
-  getCodexFieldValue,
-  getCodexThreadId,
-  opencodeToolToStep,
-  toolCallToStep,
-} from "./toolSteps.js";
-
 /** Push-time timestamps for durationMs (not persisted across serialize). */
 const stepStartedAt = new WeakMap<ProgressStep, number>();
 
@@ -267,10 +257,7 @@ export function parseStreamEvent(line: string): boolean {
 }
 
 /** Appends new text to the current streamed content buffer. */
-export function appendStreamedContent(
-  text: string,
-  isBlockBoundary = false,
-): void {
+function appendStreamedContent(text: string, isBlockBoundary = false): void {
   const nextText = String(text);
   if (!nextText) {
     return;

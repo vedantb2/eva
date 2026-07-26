@@ -105,13 +105,6 @@ export const GanttContext = createContext<GanttContextProps>({
 
 export const useGanttContext = () => useContext(GanttContext);
 
-export const getsDaysIn = (range: Range) => {
-  if (range === "monthly" || range === "quarterly") {
-    return (date: Date) => dayjs(date).daysInMonth();
-  }
-  return (_date: Date) => 1;
-};
-
 export const getDifferenceIn = (range: Range) => {
   if (range === "monthly" || range === "quarterly") {
     return (a: Date, b: Date) => dayjs(a).diff(dayjs(b), "month");
@@ -119,21 +112,21 @@ export const getDifferenceIn = (range: Range) => {
   return (a: Date, b: Date) => dayjs(a).diff(dayjs(b), "day");
 };
 
-export const getInnerDifferenceIn = (range: Range) => {
+const getInnerDifferenceIn = (range: Range) => {
   if (range === "monthly" || range === "quarterly") {
     return (a: Date, b: Date) => dayjs(a).diff(dayjs(b), "day");
   }
   return (a: Date, b: Date) => dayjs(a).diff(dayjs(b), "hour");
 };
 
-export const getStartOf = (range: Range) => {
+const getStartOf = (range: Range) => {
   if (range === "monthly" || range === "quarterly") {
     return (date: Date) => dayjs(date).startOf("month").toDate();
   }
   return (date: Date) => dayjs(date).startOf("day").toDate();
 };
 
-export const getEndOf = (range: Range) => {
+const getEndOf = (range: Range) => {
   if (range === "monthly" || range === "quarterly") {
     return (date: Date) => dayjs(date).endOf("month").toDate();
   }
@@ -147,24 +140,7 @@ export const getAddRange = (range: Range) => {
   return (date: Date, n: number) => dayjs(date).add(n, "day").toDate();
 };
 
-export const getDateByMousePosition = (
-  context: GanttContextProps,
-  mouseX: number,
-) => {
-  const firstYear = context.timelineData[0]?.year ?? new Date().getFullYear();
-  const timelineStartDate = new Date(firstYear, 0, 1);
-  const columnWidth = (context.columnWidth * context.zoom) / 100;
-  const offset = Math.floor(mouseX / columnWidth);
-  const daysIn = getsDaysIn(context.range);
-  const addRange = getAddRange(context.range);
-  const month = addRange(timelineStartDate, offset);
-  const daysInMonth = daysIn(month);
-  const pixelsPerDay = Math.round(columnWidth / daysInMonth);
-  const dayOffset = Math.floor((mouseX % columnWidth) / pixelsPerDay);
-  return dayjs(month).add(dayOffset, "day").toDate();
-};
-
-export const createInitialTimelineData = (today: Date) => {
+const createInitialTimelineData = (today: Date) => {
   const data: TimelineData = [];
   const currentYear = today.getFullYear();
 

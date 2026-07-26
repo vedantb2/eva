@@ -28,7 +28,7 @@ export const IMAGE_ATTACHMENT_ACCEPT = "image/*";
  * Session coding chat: images plus design/spec text files (Claude Design HTML
  * exports, markdown/txt specs).
  */
-export const SESSION_ATTACHMENT_ACCEPT =
+const SESSION_ATTACHMENT_ACCEPT =
   "image/*,text/html,text/markdown,text/plain,.html,.htm,.md,.txt";
 
 const SESSION_TEXT_EXTENSIONS = [".html", ".htm", ".md", ".txt"] as const;
@@ -39,11 +39,6 @@ export type ChatAttachmentMeta = {
   url: string | null;
   contentType: string | null;
 };
-
-/** @deprecated Prefer MAX_CHAT_ATTACHMENTS — kept for existing imports. */
-export const MAX_IMAGE_ATTACHMENTS = MAX_CHAT_ATTACHMENTS;
-/** @deprecated Prefer MAX_CHAT_ATTACHMENT_BYTES. */
-export const MAX_IMAGE_ATTACHMENT_BYTES = MAX_CHAT_ATTACHMENT_BYTES;
 
 export function chatAttachmentAccept(mode: ChatAttachmentMode): string {
   return mode === "sessionFiles"
@@ -310,17 +305,5 @@ export function UserMessageAttachments({
         );
       })}
     </div>
-  );
-}
-
-/** @deprecated Prefer UserMessageAttachments. */
-export function UserAttachmentImages({ urls }: { urls?: (string | null)[] }) {
-  return (
-    <UserMessageAttachments
-      attachments={(urls ?? []).map((url) => ({
-        url,
-        contentType: url ? "image/*" : null,
-      }))}
-    />
   );
 }

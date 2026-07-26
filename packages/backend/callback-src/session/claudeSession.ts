@@ -73,7 +73,7 @@ function readClaudeSessionState(): { resumeSessionId: string } | null {
   return { resumeSessionId };
 }
 
-export function writeClaudeSessionState(): void {
+function writeClaudeSessionState(): void {
   if (!process.env.CLAUDE_SESSION_ID) {
     return;
   }
@@ -120,7 +120,7 @@ function collectClaudeTranscriptSessionIds(): string[] {
   return Array.from(sessionIds);
 }
 
-export function hydratePersistedClaudeState(): void {
+function hydratePersistedClaudeState(): void {
   const startedAt = Date.now();
   if (!process.env.CLAUDE_SESSION_ID) {
     log("hydratePersistedClaudeState skipped: no Claude session id");

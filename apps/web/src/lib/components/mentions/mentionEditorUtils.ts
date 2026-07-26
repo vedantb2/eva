@@ -21,7 +21,7 @@ export function buildSkillPattern(labels: string[]): RegExp {
   return new RegExp(`\\/(?:${sorted.map(escapeRegex).join("|")})`, "g");
 }
 
-export interface EditorChipSegment {
+interface EditorChipSegment {
   type: "text" | "mention" | "skill" | "link";
   value: string;
 }
@@ -50,7 +50,7 @@ function editorChipTypeFor(token: string): EditorChipSegment["type"] {
   return token.startsWith("/") ? "skill" : "mention";
 }
 
-export function parseEditorChipSegments(
+function parseEditorChipSegments(
   value: string,
   mentionLabels: Iterable<string>,
   skillLabels: Iterable<string>,
@@ -75,56 +75,8 @@ export function parseEditorChipSegments(
   return segments;
 }
 
-export interface MentionSegment {
-  type: "text" | "mention";
-  value: string;
-}
-
-export function parseSegments(
-  value: string,
-  labels: Iterable<string>,
-): MentionSegment[] {
-  const labelArray = [...labels];
-  if (labelArray.length === 0) return [{ type: "text", value }];
-  const pattern = buildMentionPattern(labelArray);
-  const segments: MentionSegment[] = [];
-  let lastIndex = 0;
-  for (const match of value.matchAll(pattern)) {
-    const start = match.index;
-    if (start === undefined) continue;
-    if (start > lastIndex) {
-      segments.push({ type: "text", value: value.slice(lastIndex, start) });
-    }
-    segments.push({ type: "mention", value: match[0] });
-    lastIndex = start + match[0].length;
-  }
-  if (lastIndex < value.length) {
-    segments.push({ type: "text", value: value.slice(lastIndex) });
-  }
-  return segments;
-}
-
-export function escapeHtml(s: string): string {
+function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-export function renderMentionHtml(
-  value: string,
-  labels: Iterable<string>,
-  chipClassName: string,
-): string {
-  const mentionMap = new Map<string, string>();
-  for (const label of labels) {
-    mentionMap.set(label, label);
-  }
-  return renderEditorChipHtml(
-    value,
-    mentionMap,
-    new Map(),
-    chipClassName,
-    chipClassName,
-    false,
-  );
 }
 
 function chipLabelFromToken(token: string): string {

@@ -3,8 +3,6 @@ import { Card, CardContent, Button } from "@eva/ui";
 import { IconX, IconSparkles } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
-export { PLATFORM_SECTIONS };
-
 export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <m.div

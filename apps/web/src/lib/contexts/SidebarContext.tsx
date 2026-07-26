@@ -14,10 +14,8 @@ const ONE_YEAR = 60 * 60 * 24 * 365;
 const SESSIONS_NAV_MODE_KEY = "eva-sessions-nav-mode";
 const SIDEBAR_WIDTH_KEY = "eva-sidebar-width";
 
-/** Left icon rail width (`w-16`). */
-export const SIDEBAR_RAIL_WIDTH_PX = 64;
 /** Matches previous `lg:w-80` default for rail + secondary panel. */
-export const SIDEBAR_DEFAULT_WIDTH_PX = 320;
+const SIDEBAR_DEFAULT_WIDTH_PX = 320;
 /** Narrow enough to reclaim canvas; still fits nav labels. */
 export const SIDEBAR_MIN_WIDTH_PX = 240;
 /** Caps growth so chat/canvas keep usable space on laptop widths. */

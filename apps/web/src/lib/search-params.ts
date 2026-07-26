@@ -1,6 +1,4 @@
 import {
-  createParser,
-  parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
   parseAsArrayOf,
@@ -35,15 +33,6 @@ const projectPhases = [
   "completed",
   "cancelled",
 ] as const;
-export const phasesParser = parseAsArrayOf(parseAsStringLiteral(projectPhases))
-  .withDefault([...projectPhases])
-  .withOptions(searchOptions);
-
-const sortFields = ["created", "title"] as const;
-export const sortFieldParser = parseAsStringLiteral(sortFields)
-  .withDefault("created")
-  .withOptions(searchOptions);
-
 const sortDirections = ["asc", "desc"] as const;
 export const sortDirParser = parseAsStringLiteral(sortDirections)
   .withDefault("desc")
@@ -197,10 +186,6 @@ export function reviewPathFromSearch(search: {
       : "unified";
   return { kind: "diffs", diffView };
 }
-export const diffViewParser = parseAsStringLiteral(diffViews)
-  .withDefault("unified")
-  .withOptions(tabOptions);
-
 /**
  * Nuqs's TanStack adapter used to do `to: pathname + '?diffFile=…'`. TanStack
  * resolvePath keeps the `?…` inside `$sandboxTab`, so beforeLoad must peel it
@@ -258,10 +243,6 @@ export function parseDiffSearchFields(search: {
   };
 }
 
-export const sandboxOpenParser = parseAsBoolean
-  .withDefault(false)
-  .withOptions(tabOptions);
-
 export const designVariationParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);
@@ -309,7 +290,6 @@ export const docModeParser = parseAsStringLiteral(docModes)
   .withOptions(searchOptions);
 
 const docCommentFilters = ["open", "resolved"] as const;
-export type DocCommentFilter = (typeof docCommentFilters)[number];
 export const docCommentFilterParser = parseAsStringLiteral(docCommentFilters)
   .withDefault("open")
   .withOptions(searchOptions);
@@ -328,27 +308,6 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
-const docListFilters = ["documents", "reviews"] as const;
-export type DocListFilter = (typeof docListFilters)[number];
-
-/** Accepts legacy `pr-recaps` and rewrites it to `reviews` on serialize. */
-export const docListFilterParser = createParser({
-  parse(queryValue) {
-    if (queryValue === "reviews" || queryValue === "pr-recaps") {
-      return "reviews";
-    }
-    if (queryValue === "documents") return "documents";
-    return null;
-  },
-  serialize(value) {
-    return value;
-  },
-})
-  .withDefault("documents")
-  .withOptions(searchOptions);
-
-export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "recap";
-
 const reviewTabs = ["overview", "recap", "diff"] as const;
 export type ReviewTab = (typeof reviewTabs)[number];
 export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
@@ -364,11 +323,6 @@ export const pullRequestListStateParser = parseAsStringLiteral(
 )
   .withDefault("open")
   .withOptions(searchOptions);
-
-const projectViews = ["kanban", "timeline", "list", "table"] as const;
-export const projectViewParser = parseAsStringLiteral(projectViews)
-  .withDefault("kanban")
-  .withOptions(tabOptions);
 
 export const previewPortParser = parseAsInteger.withOptions(searchOptions);
 

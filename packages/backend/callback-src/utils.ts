@@ -20,7 +20,7 @@ import { callbackState as S } from "./runtime/state.js";
 import type { JsonValue } from "./types.js";
 
 /** Narrow JSON.parse / Response.json() payloads into JsonValue (null if invalid). */
-export function narrowJsonValue(
+function narrowJsonValue(
   value: string | number | boolean | null | object,
 ): JsonValue | null {
   if (
@@ -138,29 +138,6 @@ export function copyFileIfPresent(
     JSON.stringify(targetPath) +
     " || true; fi";
   runTimedBashSync(copyScript, label);
-}
-
-/** Recursively copies all entries from one directory to another. */
-export function copyDirectoryContents(
-  sourceDir: string,
-  targetDir: string,
-): void {
-  if (!existsSync(sourceDir)) {
-    return;
-  }
-  mkdirSync(targetDir, { recursive: true });
-  for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
-    const sourcePath = sourceDir + "/" + entry.name;
-    const targetPath = targetDir + "/" + entry.name;
-    try {
-      cpSync(sourcePath, targetPath, { force: true, recursive: true });
-    } catch (error) {
-      console.error(
-        "Failed to copy " + sourcePath + " to " + targetPath + ":",
-        String(error),
-      );
-    }
-  }
 }
 
 /** Decodes a base64-encoded string to UTF-8. */

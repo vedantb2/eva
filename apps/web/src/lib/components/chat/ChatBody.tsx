@@ -34,7 +34,7 @@ import {
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
 
-export type { ChatBodyMessage, ChatBodyQueuedMessage };
+export type { ChatBodyMessage };
 
 interface ChatBodyProps {
   repoId: Id<"githubRepos">;

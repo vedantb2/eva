@@ -1,6 +1,6 @@
 // Client-side helpers for the preview-access grant param.
 // Must match PREVIEW_GRANT_PARAM in packages/backend/convex/previewGrantConfig.ts.
-export const PREVIEW_GRANT_PARAM = "__eva_grant";
+const PREVIEW_GRANT_PARAM = "__eva_grant";
 
 /**
  * Removes the grant param from a URL. The grant is a short-lived bearer token,

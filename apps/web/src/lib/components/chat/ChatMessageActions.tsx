@@ -5,7 +5,7 @@ import { MessageActions, MessageAction, cn } from "@eva/ui";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
-export interface ChatMessageActionItem {
+interface ChatMessageActionItem {
   // Stable identity for the action button.
   key: string;
   // Accessible label + tooltip text.

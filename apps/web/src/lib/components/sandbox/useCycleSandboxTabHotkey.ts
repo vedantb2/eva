@@ -18,7 +18,7 @@ const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
  * Returns the Shift+Tab cycle order: enabled builtins, then Editor/Computer
  * when open, then File Viewer / PRD if shown, then custom tab slugs.
  */
-export function getCyclableSandboxTabs(
+function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
   showPrdTab?: boolean,
   customTabSlugs?: ReadonlyArray<string>,

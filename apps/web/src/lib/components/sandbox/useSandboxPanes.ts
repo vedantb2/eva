@@ -8,8 +8,8 @@ import { useLocalStorage } from "usehooks-ts";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxTab } from "@/lib/search-params";
 
-export const MAX_TERMINAL_PANES = 8;
-export const MAX_PREVIEW_PANES = 8;
+const MAX_TERMINAL_PANES = 8;
+const MAX_PREVIEW_PANES = 8;
 
 // Base sandbox tabs (PRD is added separately per-surface). Stable references so
 // the Shift+Tab hotkey memo and tab bar filter don't recompute every render.

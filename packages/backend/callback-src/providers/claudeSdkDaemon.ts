@@ -59,8 +59,6 @@ import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
 
-export { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -68,9 +66,9 @@ function sleep(ms: number): Promise<void> {
 // Entity-scoped daemon marker paths (see daemonPaths.ts). Legacy session paths
 // are cleaned up on exit when this daemon is session-scoped.
 const daemonPaths = resolveDaemonPaths();
-export const DAEMON_PID_FILE = daemonPaths.pid;
-export const DAEMON_ENTITY_FILE = daemonPaths.entity;
-export const DAEMON_OPTS_FILE = daemonPaths.opts;
+const DAEMON_PID_FILE = daemonPaths.pid;
+const DAEMON_ENTITY_FILE = daemonPaths.entity;
+const DAEMON_OPTS_FILE = daemonPaths.opts;
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the

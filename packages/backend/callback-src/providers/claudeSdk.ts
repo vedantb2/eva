@@ -39,7 +39,7 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
  * the base Image alongside the claude CLI), so these local types stand in for
  * the SDK's own — kept intentionally narrow.
  */
-export type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
+type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
   interrupt?: () => Promise<void>;
   stopTask?: (taskId: string) => Promise<void>;
 };
@@ -52,10 +52,8 @@ export type JsonLike =
   | JsonLike[]
   | { [key: string]: JsonLike };
 
-export type SdkMessage = Record<string, JsonLike>;
-
 /** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
-export type SdkPermissionResult =
+type SdkPermissionResult =
   | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
   | { behavior: "deny"; message: string };
 
@@ -171,12 +169,6 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
-
-export {
-  ESCALATION_SENTINEL,
-  isEscalationReply,
-  shouldHoldConversationalStream,
-} from "./conversationalEscalation.js";
 
 const CONVERSATIONAL_SYSTEM_PROMPT = `Reply briefly and directly. Do not use tools.
 

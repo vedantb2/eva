@@ -15,7 +15,7 @@ const ITEM_SPACING_PX = 8;
 const MIN_VISIBLE_TICKS = 2;
 const MAX_HEIGHT_CSS = "calc(100vh - 18rem)";
 
-export interface ChatJumpRailMessage {
+interface ChatJumpRailMessage {
   id: string;
   content: string;
   /** Plain-text preview of the assistant reply that follows this user turn. */

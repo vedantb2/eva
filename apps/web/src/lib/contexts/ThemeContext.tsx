@@ -10,13 +10,7 @@ import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import {
-  CUSTOM_THEME_HINT_KEY,
-  writeCustomThemeHint,
-  writeThemeAppearanceHint,
-} from "@/lib/contexts/themeHint";
-
-export { CUSTOM_THEME_HINT_KEY, writeThemeAppearanceHint };
+import { writeCustomThemeHint } from "@/lib/contexts/themeHint";
 
 /**
  * Tailwind chromatic accents, the Tailwind grey ramps, and four muted hues of
@@ -717,7 +711,7 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
   `;
 }
 
-export { ACCENT_COLORS, RADIUS_VALUES };
+export { ACCENT_COLORS };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useThemeMode();

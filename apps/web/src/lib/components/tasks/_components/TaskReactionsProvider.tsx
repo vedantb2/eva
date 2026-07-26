@@ -16,7 +16,7 @@ type ReactionView = FunctionReturnType<
 // stays in sync with the schema.
 export type ReactionTargetType = ReactionView["targetType"];
 
-export interface Reactor {
+interface Reactor {
   userId: Id<"users">;
   // Display name (the current user shown as "You").
   name: string;

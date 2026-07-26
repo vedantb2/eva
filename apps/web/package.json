@@ -97,7 +97,6 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@react-scan/vite-plugin-react-scan": "^0.2.7",
     "@rolldown/plugin-babel": "^0.2.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/router-plugin": "^1.120.0",

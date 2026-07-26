@@ -36,13 +36,13 @@ const MESSAGE_TRUNCATE = 72;
 const PROOF_ACCORDION_SCROLL_CLASS =
   "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
 
-export function truncateProofMessage(message: string): string {
+function truncateProofMessage(message: string): string {
   const trimmed = message.replace(/\s+/g, " ").trim();
   if (trimmed.length <= MESSAGE_TRUNCATE) return trimmed;
   return `${trimmed.slice(0, MESSAGE_TRUNCATE - 1)}…`;
 }
 
-export function isMediaProof(proof: TaskProof): boolean {
+function isMediaProof(proof: TaskProof): boolean {
   if (!proof.url) return false;
   return Boolean(
     proof.contentType?.startsWith("image/") ||
@@ -69,7 +69,7 @@ function ProofMediaViewer({ proof }: { proof: TaskProof }) {
 }
 
 /** Single-capture or multi-capture gallery dialog. */
-export function ProofCaptureGallery({
+function ProofCaptureGallery({
   proofs,
   open,
   onOpenChange,

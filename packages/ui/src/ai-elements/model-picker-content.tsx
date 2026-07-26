@@ -49,7 +49,7 @@ export function teamInstanceKey(provider: string): string {
   return `team:${provider}`;
 }
 
-export function toCompositeKey(instanceKey: string, modelId: string): string {
+function toCompositeKey(instanceKey: string, modelId: string): string {
   return `${instanceKey}::${modelId}`;
 }
 

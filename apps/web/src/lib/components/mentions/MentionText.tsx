@@ -5,12 +5,12 @@ import { SKILL_TOKEN_REGEX } from "./skillToken";
 import { LINK_URL_SOURCE } from "./linkChipUtils";
 import { LinkChip } from "./LinkChip";
 
-export interface MentionMatch {
+interface MentionMatch {
   label: string;
   id: string;
 }
 
-export interface SkillMatch {
+interface SkillMatch {
   label: string;
   id: string;
 }

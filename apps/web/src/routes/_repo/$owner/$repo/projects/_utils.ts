@@ -50,7 +50,7 @@ const LOCAL_DEFAULTS: ProjectLocalFilters = {
 // allowlist, which left newly-added phases stuck off for existing users.
 const STORAGE_KEY = "project-filters-v2";
 
-export type { ProjectView, SortField, SortDir, TimelineRange, ProjectFilters };
+export type { ProjectView, SortField, ProjectFilters };
 
 export function useProjectFilters(): [
   ProjectFilters,

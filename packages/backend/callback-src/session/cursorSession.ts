@@ -24,13 +24,13 @@ const store = createSessionStore({
   },
 });
 
-export const readCursorSessionState = store.readSessionState;
+const readCursorSessionState = store.readSessionState;
 export const writeCursorSessionState = store.writeSessionState;
 export function syncCursorStateToPersist(): void {
   store.syncStateToPersist("syncCursorStateToPersist");
 }
 
-export function hydratePersistedCursorState(): void {
+function hydratePersistedCursorState(): void {
   store.hydratePersistedState("hydratePersistedCursorState");
   if (existsSync("/tmp/eva-mcp.json")) {
     try {

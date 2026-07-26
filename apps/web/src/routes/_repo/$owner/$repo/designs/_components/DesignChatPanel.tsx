@@ -32,8 +32,8 @@ import {
   type PromptInputMessage,
 } from "@eva/ui";
 import {
-  MAX_IMAGE_ATTACHMENTS,
-  MAX_IMAGE_ATTACHMENT_BYTES,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_ATTACHMENT_BYTES,
   imageAttachmentErrorMessage,
   useUploadImageAttachments,
   ChatAttachmentPreview,
@@ -489,8 +489,8 @@ export function DesignChatPanel({
                   onSubmit={handlePromptSubmit}
                   accept="image/*"
                   multiple
-                  maxFiles={MAX_IMAGE_ATTACHMENTS}
-                  maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+                  maxFiles={MAX_CHAT_ATTACHMENTS}
+                  maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
                   onError={(err) =>
                     toast.error(imageAttachmentErrorMessage(err))
                   }

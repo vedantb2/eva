@@ -24,7 +24,7 @@ type DesignMessage = NonNullable<
 >[number];
 export type Variation = NonNullable<DesignMessage["variations"]>[number];
 
-export const VARIATION_KEYS = ["a", "b", "c"] as const;
+const VARIATION_KEYS = ["a", "b", "c"] as const;
 
 export function getLatestVariations(messages: DesignMessage[]): Variation[] {
   const lastWithVariations = [...messages]

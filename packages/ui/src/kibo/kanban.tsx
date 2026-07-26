@@ -47,12 +47,19 @@ type KanbanContextValue = {
   columns: KanbanColumnDef[];
   data: KanbanItem[];
   activeCardId: string | null;
+  /**
+   * Column the dragged card would land in. Distinct from a column's own
+   * `isOver`: pointing at a card resolves `over` to that card, so the column
+   * under the pointer never reports `isOver` once it holds any cards.
+   */
+  overColumnId: string | null;
 };
 
 const KanbanContext = createContext<KanbanContextValue>({
   columns: [],
   data: [],
   activeCardId: null,
+  overColumnId: null,
 });
 
 export const useKanbanContext = () => useContext(KanbanContext);
@@ -73,14 +80,19 @@ export const KanbanBoard = ({
   disabled = false,
 }: KanbanBoardProps) => {
   const { isOver, setNodeRef } = useDroppable({ id, disabled });
+  const { overColumnId } = useKanbanContext();
+  const isDropTarget = !disabled && (isOver || overColumnId === id);
 
   return (
     <div
       className={cn(
         "flex size-full min-h-40 flex-col overflow-hidden bg-accent/10 text-xs transition-colors",
         SURFACE_RADIUS_CLASS,
-        isOver && "bg-primary/5",
         className,
+        // After `className` on purpose: callers set a column background, and
+        // tailwind-merge keeps whichever `bg-*` comes last — so the drop
+        // highlight has to be the last word or it never shows.
+        isDropTarget && "bg-primary/10 ring-1 ring-inset ring-primary/30",
       )}
       ref={setNodeRef}
     >
@@ -207,6 +219,7 @@ export const KanbanProvider = ({
   collisionDetection = closestCenter,
 }: KanbanProviderProps) => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
   const defaultSensors = useSensors(
     useSensor(MouseSensor),
@@ -222,13 +235,30 @@ export const KanbanProvider = ({
     onDragStart?.(event);
   };
 
+  // `over` is a column when the pointer is on empty space and a card when it is
+  // on another card; both mean "this column". Resolving it here is what lets a
+  // column highlight while the pointer is over its cards.
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over ? String(event.over.id) : null;
+    if (overId === null) {
+      setOverColumnId(null);
+    } else if (columns.some((column) => column.id === overId)) {
+      setOverColumnId(overId);
+    } else {
+      setOverColumnId(data.find((item) => item.id === overId)?.column ?? null);
+    }
+    onDragOver?.(event);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveCardId(null);
+    setOverColumnId(null);
     onDragEnd?.(event);
   };
 
   const handleDragCancel = (event: DragCancelEvent) => {
     setActiveCardId(null);
+    setOverColumnId(null);
     onDragCancel?.(event);
   };
 
@@ -255,12 +285,14 @@ export const KanbanProvider = ({
   };
 
   return (
-    <KanbanContext.Provider value={{ columns, data, activeCardId }}>
+    <KanbanContext.Provider
+      value={{ columns, data, activeCardId, overColumnId }}
+    >
       <DndContext
         accessibility={{ announcements }}
         collisionDetection={collisionDetection}
         onDragEnd={handleDragEnd}
-        onDragOver={onDragOver}
+        onDragOver={handleDragOver}
         onDragStart={handleDragStart}
         onDragCancel={handleDragCancel}
         sensors={sensorsProp ?? defaultSensors}

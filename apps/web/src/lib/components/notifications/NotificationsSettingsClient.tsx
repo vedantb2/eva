@@ -3,7 +3,8 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Checkbox, Spinner } from "@eva/ui";
+import { Spinner, Switch } from "@eva/ui";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 
 export function NotificationsSettingsClient() {
   const enabled = useQuery(api.auth.getEmailNotificationsEnabled);
@@ -29,22 +30,19 @@ export function NotificationsSettingsClient() {
 
   return (
     <PageWrapper title="Notifications" comfortable>
-      <label className="flex cursor-pointer items-start gap-3 rounded-surface border border-border bg-card p-4 transition-colors hover:bg-muted/60">
-        <Checkbox
-          className="mt-0.5"
-          checked={enabled}
-          onCheckedChange={(checked) =>
-            setEnabled({ enabled: checked === true })
+      <div className="space-y-4">
+        <SettingsSection
+          title="Email notifications"
+          description="Receive a daily summary of your unread notifications and the weekly changelog by email. Off by default."
+          action={
+            <Switch
+              checked={enabled}
+              onCheckedChange={(checked) => setEnabled({ enabled: checked })}
+              aria-label="Email notifications"
+            />
           }
         />
-        <div>
-          <h3 className="text-sm font-medium">Email notifications</h3>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Receive a daily summary of your unread notifications and the weekly
-            changelog by email. Off by default.
-          </p>
-        </div>
-      </label>
+      </div>
     </PageWrapper>
   );
 }

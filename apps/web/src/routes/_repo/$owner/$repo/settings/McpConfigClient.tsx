@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 
 export function McpConfigClient() {
   const { repo, repoId } = useRepo();
@@ -54,17 +55,10 @@ export function McpConfigClient() {
   return (
     <PageWrapper title="MCP Config" comfortable>
       <div className="space-y-4">
-        <div className="rounded-surface border border-border bg-card p-3 space-y-3 sm:p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-medium">Root Prompt</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Freeform instructions injected into MCP server context to guide
-                the AI on your data topology. Shared across all apps in a
-                monorepo.
-              </p>
-            </div>
-
+        <SettingsSection
+          title="Root Prompt"
+          description="Freeform instructions injected into MCP server context to guide the AI on your data topology. Shared across all apps in a monorepo."
+          action={
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -114,18 +108,19 @@ export function McpConfigClient() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>
-
+          }
+        >
           {prompt ? (
-            <pre className="whitespace-pre-wrap text-xs font-mono text-foreground/80 leading-relaxed">
+            // Nested inside the card, so the prompt steps to the muted tone.
+            <pre className="whitespace-pre-wrap rounded-control border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
               {prompt}
             </pre>
           ) : (
-            <p className="text-xs text-muted-foreground italic">
-              No root prompt configured.
+            <p className="text-xs text-muted-foreground">
+              No root prompt configured. Select Edit to add one.
             </p>
           )}
-        </div>
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

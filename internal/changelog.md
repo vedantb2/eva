@@ -1,5 +1,17 @@
 # Changelog
 
+## Review Overview matches GitHub's PR page - 2026-07-26
+
+The Overview tab showed a description, a comment list, and four meta rows, so anything a reviewer actually decides on — whether checks passed, who approved, what landed, can it merge — still meant opening GitHub. It is now a one-stop review surface, in both the standalone Reviews page and the sandbox Review tab (one shared panel, so both change together).
+
+- Summary strip: lifecycle chip, `head → base` branches, author, labels, and stat tiles for files, commits, additions and deletions, with a total-lines bar.
+- Checks card merges check runs **and** commit statuses, so bot reporters that use the older statuses API (review agents included) show up alongside CI, each with its own summary line and a pass/fail/running count.
+- Reviewers card collapses the review history to the latest decisive state per reviewer (approval and change requests outrank a later comment, as on GitHub) and lists reviewers still owing a review.
+- Commits card lists the branch's commits newest-first with short SHAs, linked to GitHub.
+- Merge card: squash, merge commit, or rebase, behind a confirmation dialog; disabled with a plain-English reason when the PR is a draft, conflicted, blocked by branch protection, or still being checked by GitHub. GitHub's rejection message is surfaced verbatim rather than guessed at.
+- Refresh bypasses the 60s action cache and keeps the panel on screen while refetching; a merge refetches automatically.
+- Backend split: overview + merge moved to `_github/prOverview.ts` (cache bumped to `prOverviewV2`, since V1 entries predate the new fields); `_github/pullRequests.ts` keeps list and header only.
+
 ## Quick task attachments - 2026-07-26
 
 Files could only reach an agent through a task's chat, so working from a screenshot or a spec meant creating the task, running it, then pasting the file in. Quick tasks now take attachments directly.

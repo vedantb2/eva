@@ -199,7 +199,7 @@ export const webhookEventStatusValidator = v.union(
 );
 
 export const accentColorValidator = v.union(
-  v.literal("neutral"),
+  v.literal("zinc"),
   v.literal("red"),
   v.literal("orange"),
   v.literal("amber"),
@@ -217,6 +217,14 @@ export const accentColorValidator = v.union(
   v.literal("fuchsia"),
   v.literal("pink"),
   v.literal("rose"),
+  v.literal("slate"),
+  v.literal("gray"),
+  v.literal("neutral"),
+  v.literal("stone"),
+  v.literal("taupe"),
+  v.literal("mauve"),
+  v.literal("mist"),
+  v.literal("olive"),
 );
 
 export const radiusValidator = v.union(

@@ -15,7 +15,7 @@ const PRESETS: Preset[] = [
   {
     name: "Default",
     theme: {
-      accentColor: "neutral",
+      accentColor: "zinc",
       fontFamily: "inter",
       radius: "xl",
       letterSpacing: "tight",

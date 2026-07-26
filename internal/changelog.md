@@ -1,5 +1,9 @@
 # Changelog
 
+## Full accent palette + surface tones restored - 2026-07-26
+
+The monochrome accent was called **None**/`neutral` while its values were the Tailwind zinc ramp, which blocked adding zinc's siblings. Renamed to **Zinc** (same values, still the default) and added eight more: slate, gray, neutral, stone, plus taupe, mauve, mist and olive — four muted hues Tailwind has no ramp for. 26 accents total. Separately, the pure white / pure black shells introduced alongside the None accent left no tonal step between canvas and cards, so `--background` is back to `244 245 246` light and `5 6 6` dark, with dark cards at `23 24 26`. Rail apps also get Mod+1…9 shortcuts.
+
 ## Composer prefs + theme off localStorage - 2026-07-25
 
 Design chat kept model/traits/account in per-session localStorage while coding sessions already used Convex, and light/dark was mirrored into a `"theme"` key even though `users.theme` was the source of truth. Sticky design composer fields now live on `designSessions`; `useSessionSettings` is display-only (no LS); Approve Plan writes mode via Convex; appearance FOUC uses `eva-custom-theme-hint.appearance` instead of writing `"theme"`.

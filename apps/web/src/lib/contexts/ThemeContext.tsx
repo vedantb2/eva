@@ -18,9 +18,13 @@ import {
 
 export { CUSTOM_THEME_HINT_KEY, writeThemeAppearanceHint };
 
-/** Tailwind chromatic accents, plus `neutral` (no hue — black/white by mode). */
+/**
+ * Tailwind chromatic accents, the Tailwind grey ramps, and four muted hues of
+ * our own (taupe/mauve/mist/olive). `zinc` is the monochrome default — it is
+ * the only entry that reads as pure black/white rather than a mid tone.
+ */
 export type AccentColor =
-  | "neutral"
+  | "zinc"
   | "red"
   | "orange"
   | "amber"
@@ -37,7 +41,15 @@ export type AccentColor =
   | "purple"
   | "fuchsia"
   | "pink"
-  | "rose";
+  | "rose"
+  | "slate"
+  | "gray"
+  | "neutral"
+  | "stone"
+  | "taupe"
+  | "mauve"
+  | "mist"
+  | "olive";
 export type RadiusSize = "none" | "sm" | "md" | "lg" | "xl" | "full";
 export type FontFamily =
   | "inter"
@@ -69,7 +81,7 @@ export interface ResolvedCustomTheme {
 }
 
 const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
-  accentColor: "neutral",
+  accentColor: "zinc",
   radius: "xl",
   fontFamily: "inter",
   letterSpacing: "tight",
@@ -164,7 +176,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 /**
  * Accent tokens from the Tailwind default palette (600 light / 400 dark).
  * Light/dark appearance swaps these automatically via `:root` / `.dark`.
- * `neutral` = no hue (black primary in light, white in dark).
+ * `zinc` is the exception: it uses the ends of the ramp (950 light / 50 dark)
+ * for a monochrome look, and its values are the ones baked into globals.css.
+ * taupe/mauve/mist/olive are ours — muted hues Tailwind has no ramp for.
  * @see https://tailwindcss.com/docs/colors
  */
 const ACCENT_COLORS: Record<
@@ -188,8 +202,8 @@ const ACCENT_COLORS: Record<
     };
   }
 > = {
-  neutral: {
-    label: "None",
+  zinc: {
+    label: "Zinc",
     preview: "#18181B",
     light: {
       primary: "9 9 11",
@@ -479,6 +493,134 @@ const ACCENT_COLORS: Record<
       accentFg: "253 164 175",
     },
   },
+  slate: {
+    label: "Slate",
+    preview: "#475569",
+    light: {
+      primary: "71 85 105",
+      foreground: "255 255 255",
+      accent: "241 245 249",
+      accentFg: "30 41 59",
+    },
+    dark: {
+      primary: "148 163 184",
+      foreground: "15 23 42",
+      accent: "30 41 59",
+      accentFg: "226 232 240",
+    },
+  },
+  gray: {
+    label: "Gray",
+    preview: "#4B5563",
+    light: {
+      primary: "75 85 99",
+      foreground: "255 255 255",
+      accent: "243 244 246",
+      accentFg: "31 41 55",
+    },
+    dark: {
+      primary: "156 163 175",
+      foreground: "17 24 39",
+      accent: "31 41 55",
+      accentFg: "229 231 235",
+    },
+  },
+  neutral: {
+    label: "Neutral",
+    preview: "#525252",
+    light: {
+      primary: "82 82 82",
+      foreground: "255 255 255",
+      accent: "245 245 245",
+      accentFg: "38 38 38",
+    },
+    dark: {
+      primary: "163 163 163",
+      foreground: "23 23 23",
+      accent: "38 38 38",
+      accentFg: "229 229 229",
+    },
+  },
+  stone: {
+    label: "Stone",
+    preview: "#57534E",
+    light: {
+      primary: "87 83 78",
+      foreground: "255 255 255",
+      accent: "245 245 244",
+      accentFg: "41 37 36",
+    },
+    dark: {
+      primary: "168 162 158",
+      foreground: "28 25 23",
+      accent: "41 37 36",
+      accentFg: "231 229 228",
+    },
+  },
+  taupe: {
+    label: "Taupe",
+    preview: "#6F6259",
+    light: {
+      primary: "111 98 89",
+      foreground: "255 255 255",
+      accent: "242 238 235",
+      accentFg: "69 60 54",
+    },
+    dark: {
+      primary: "179 161 150",
+      foreground: "36 31 27",
+      accent: "45 40 36",
+      accentFg: "222 211 203",
+    },
+  },
+  mauve: {
+    label: "Mauve",
+    preview: "#7A6A7D",
+    light: {
+      primary: "122 106 125",
+      foreground: "255 255 255",
+      accent: "243 238 244",
+      accentFg: "76 65 80",
+    },
+    dark: {
+      primary: "185 166 189",
+      foreground: "36 30 39",
+      accent: "43 36 46",
+      accentFg: "220 207 224",
+    },
+  },
+  mist: {
+    label: "Mist",
+    preview: "#64798A",
+    light: {
+      primary: "100 121 138",
+      foreground: "255 255 255",
+      accent: "237 242 245",
+      accentFg: "61 75 87",
+    },
+    dark: {
+      primary: "168 188 201",
+      foreground: "23 32 40",
+      accent: "33 44 52",
+      accentFg: "203 219 228",
+    },
+  },
+  olive: {
+    label: "Olive",
+    preview: "#6B7250",
+    light: {
+      primary: "107 114 80",
+      foreground: "255 255 255",
+      accent: "240 242 232",
+      accentFg: "67 72 48",
+    },
+    dark: {
+      primary: "175 182 140",
+      foreground: "29 32 19",
+      accent: "39 43 28",
+      accentFg: "220 224 198",
+    },
+  },
 };
 
 const RADIUS_VALUES: Record<RadiusSize, string> = {
@@ -502,7 +644,7 @@ export const LETTER_SPACING_VALUES: Record<
 };
 
 function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
-  const accentColor = customTheme.accentColor ?? "neutral";
+  const accentColor = customTheme.accentColor ?? "zinc";
   const radius = customTheme.radius ?? "xl";
   const fontFamily = customTheme.fontFamily ?? "inter";
   const letterSpacing = customTheme.letterSpacing ?? "tight";
@@ -528,8 +670,8 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
     letterSpacing,
   });
 
-  // Neutral matches globals.css — drop the override style so base CSS applies.
-  if (accentColor === "neutral") {
+  // Zinc matches globals.css — drop the override style so base CSS applies.
+  if (accentColor === "zinc") {
     const el = document.getElementById("custom-theme-accent");
     if (el) el.remove();
     return;

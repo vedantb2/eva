@@ -62,7 +62,12 @@ export const update = authMutation({
   },
 });
 
-/** Deletes a queued message and updates the parent's timestamp. */
+/**
+ * Deletes a queued message, its attached blobs, and updates the parent's
+ * timestamp. The blobs are safe to delete because a queued message's
+ * attachments are uploaded for that message alone, and dequeuing hands the same
+ * ids to the `messages` row without going through here (see `_queues/helpers`).
+ */
 export const remove = authMutation({
   args: {
     id: v.id("queuedMessages"),
@@ -82,6 +87,9 @@ export const remove = authMutation({
     }
 
     await ctx.db.delete(args.id);
+    for (const storageId of queuedMessage.attachmentStorageIds ?? []) {
+      await ctx.storage.delete(storageId);
+    }
     await ctx.db.patch(queuedMessage.parentId, { updatedAt: Date.now() });
     return null;
   },

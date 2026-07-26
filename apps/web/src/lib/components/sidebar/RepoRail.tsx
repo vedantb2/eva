@@ -30,6 +30,7 @@ import {
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
+import { RailAppHotkeys } from "@/lib/components/sidebar/RailAppHotkeys";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
@@ -172,6 +173,7 @@ function RepoRailView({
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
+      <RailAppHotkeys repos={repos} onNavigate={onNavigate} />
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -264,8 +266,10 @@ function RepoRailView({
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
-        {repos.map((row) => {
+        {repos.map((row, index) => {
           const displayName = repoDisplayLabel(row);
+          // Mirrors RailAppHotkeys: only the first nine tiles get Mod+N.
+          const hotkeyLabel = index < 9 ? `⌘${index + 1}` : null;
           // While the global Sessions destination is highlighted, don't also
           // light up a repo tile — the rail should show one active target.
           const active =
@@ -319,7 +323,17 @@ function RepoRailView({
                     </Link>
                   </ContextMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="right">{tooltip}</TooltipContent>
+                <TooltipContent
+                  side="right"
+                  className="flex items-center gap-2"
+                >
+                  {tooltip}
+                  {hotkeyLabel ? (
+                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      {hotkeyLabel}
+                    </kbd>
+                  ) : null}
+                </TooltipContent>
               </Tooltip>
               <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                 <ContextMenuItem onClick={() => setRenameRepo(row)}>

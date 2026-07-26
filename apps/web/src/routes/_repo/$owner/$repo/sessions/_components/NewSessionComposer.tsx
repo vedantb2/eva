@@ -4,15 +4,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
-import { IconBrandGithub } from "@tabler/icons-react";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { tokenizedToEditable } from "@/lib/components/mentions";
-import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -20,7 +17,7 @@ import {
 } from "@/lib/hooks/useAvailableAiModels";
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
-import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
+import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 import { SessionModeDropdown } from "./SessionModeDropdown";
 
 /**
@@ -32,7 +29,6 @@ export function NewSessionComposer() {
   const navigate = useNavigate();
   const { user } = useUser();
   const { repo, basePath } = useRepo();
-  const logoUrl = useQuery(api.githubRepos.getLogoUrl, { repoId: repo._id });
   const firstName = user?.firstName?.trim();
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,19 +115,7 @@ export function NewSessionComposer() {
               ? `${firstName}, what are we building for`
               : "What are we building for"}
           </span>
-          <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-primary">
-            <RepoLogo
-              logoUrl={logoUrl}
-              size={28}
-              fallback={
-                <IconBrandGithub
-                  size={28}
-                  className="shrink-0 text-muted-foreground"
-                />
-              }
-            />
-            <span className="truncate">{repoDisplayLabel(repo)}</span>
-          </span>
+          <ComposerAppSwitcher />
           <span>?</span>
         </h1>
         <ChatComposer

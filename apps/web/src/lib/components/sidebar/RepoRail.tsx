@@ -36,32 +36,13 @@ import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { repoHref } from "@/lib/utils/repoUrl";
+import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
   appLeafName,
   appMatchesLabel,
   repoDisplayLabel,
   type RepoWithLogo,
 } from "@/lib/utils/repoGrouping";
-
-const TILE_PALETTE = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-purple-500",
-  "bg-cyan-500",
-  "bg-indigo-500",
-  "bg-orange-500",
-];
-
-/** Deterministic tile colour so logo-less repos stay visually distinguishable. */
-function tileColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash + seed.charCodeAt(i)) % TILE_PALETTE.length;
-  }
-  return TILE_PALETTE[hash];
-}
 
 interface RepoRailProps {
   repos: RepoWithLogo[];
@@ -280,7 +261,7 @@ function RepoRailView({
                           <span
                             className={cn(
                               "flex size-[30px] items-center justify-center rounded-md text-sm font-semibold text-white",
-                              tileColor(
+                              repoTileColor(
                                 `${row.owner}/${row.name}/${displayName}`,
                               ),
                             )}

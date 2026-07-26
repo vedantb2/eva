@@ -1,5 +1,16 @@
 # Changelog
 
+## Switch apps from the composer headline - 2026-07-26
+
+The app name in "what are we building for X?" was decoration. Changing app meant going back to the vertical rail, where the tiles are icon-only and the name lives in a tooltip — so picking the right one was a hover-and-guess exercise.
+
+- The name is now a dropdown listing every app from the rail, each with its icon and its full name, so apps are readable rather than recognisable-by-logo.
+- Choosing one goes exactly where a rail tile goes (`repoHref`), so the two entry points cannot drift. Items are real links, so cmd-click still opens a tab.
+- Underlined at rest and colour-shifting on hover, since a clickable word inside a headline has no other affordance.
+- The list reuses `githubRepos.list` — the same query the rail's parent already runs — so the Convex query cache dedupes it and the dropdown costs no extra fetch.
+- The initial-letter tile colour moved out of `RepoRail` into `repoTileColor`, so a logo-less app is the same colour in the rail and in the dropdown.
+- Lands on both the repo home and `/sessions`, since they render the same composer.
+
 ## The file tree is draggable - 2026-07-26
 
 Both file trees were pinned to a fixed 256px: too narrow for a deep path, too wide for a flat repo. They now drag, and the width is remembered.

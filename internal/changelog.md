@@ -1,5 +1,15 @@
 # Changelog
 
+## Split-pane width persists - 2026-07-26
+
+Dragging the divider between the chat and the sandbox was forgotten as soon as the page unmounted. Only the collapsed/expanded flag was stored; the dragged width sat in a ref. Reopening a task always reset the split to 60%, and collapsing then re-expanding lost it too.
+
+- The width now persists in localStorage under `<storageKey>:size`, alongside the existing collapsed flag. Chosen over Convex deliberately: the right split depends on the window in front of you, so syncing it between devices would be wrong, and a drag should not cost a server write.
+- Written on the group's `onLayoutChanged`, which fires once when the pointer is released, rather than the panel's `onResize`, which fires every frame of the drag.
+- Collapsing and re-expanding returns to the dragged width, since the remembered size is now seeded from storage on mount.
+- Panels carry explicit ids, because the saved layout is keyed by them and the library's `useId` fallback is not stable across mounts.
+- One shared component, so this covers quick tasks, projects, sessions and designs.
+
 ## Images, videos and markdown render in the Files tab - 2026-07-26
 
 The Files tab could only show text. Reading a file goes through a shell exec that returns a string, so every PNG, JPEG and MP4 tripped the NUL-byte check and came back as "This file is binary and cannot be shown" — and a README rendered as raw markdown source.

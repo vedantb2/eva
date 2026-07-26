@@ -3,6 +3,7 @@ import { IconTerminal2 } from "@tabler/icons-react";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 export const Route = createFileRoute("/_global/sessions")({
+  staticData: { title: "Sessions" },
   component: SessionsGlobalPage,
 });
 

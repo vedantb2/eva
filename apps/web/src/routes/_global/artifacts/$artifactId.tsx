@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArtifactViewer } from "@/lib/components/artifacts/ArtifactViewer";
 
 export const Route = createFileRoute("/_global/artifacts/$artifactId")({
+  staticData: { title: "Artifacts" },
   component: ArtifactRoute,
 });
 

@@ -5,6 +5,7 @@ import { useDesignSessionByNumId } from "@/lib/useResolveByNumId";
 import { DesignDetailClient } from "./DesignDetailClient";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/designs/$numId")({
+  staticData: { title: "Designs" },
   component: DesignDetailRoute,
 });
 

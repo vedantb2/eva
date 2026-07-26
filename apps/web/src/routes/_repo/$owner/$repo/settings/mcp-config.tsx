@@ -3,6 +3,7 @@ import { McpConfigClient } from "./McpConfigClient";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/settings/mcp-config")(
   {
+    staticData: { title: "Settings" },
     component: McpConfigClient,
   },
 );

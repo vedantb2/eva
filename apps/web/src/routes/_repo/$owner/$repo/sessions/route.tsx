@@ -12,6 +12,7 @@ const MAX_CACHED_SESSIONS = 3;
  * `/sessions` (no `$numId`) still renders the new-session composer via Outlet.
  */
 export const Route = createFileRoute("/_repo/$owner/$repo/sessions")({
+  staticData: { title: "Sessions" },
   component: SessionsLayout,
 });
 

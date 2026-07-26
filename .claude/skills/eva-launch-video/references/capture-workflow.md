@@ -83,6 +83,10 @@ agent-browser screenshot .../captures/task-input.png
   agent runs need a running Daytona sandbox (slow, flaky) — don't wait on them.
 - **Inputs** (describe a task) → stage a clean, relatable prompt yourself (e.g. "Add a dark mode
   toggle"). It reads better than real, messy task titles.
+- **Stage inputs, never submit them.** Type the prompt, open the mention/model picker, then
+  screenshot. Do not press Enter in a composer or click send / Create / Save / Run / Start — that
+  starts a real session in the user's workspace. Enter is fine only for accepting an `@`-mention
+  from an open picker; when in doubt, click the picker row.
 - Live previews/terminals need a _running_ sandbox; the persisted diff/PR/status is enough to
   tell the story. Captions narrate the flow; the screens prove it's real.
 
@@ -90,5 +94,8 @@ agent-browser screenshot .../captures/task-input.png
 
 - Use `vvedantb/eva` (the team's own repo). **Never** feature client repos
   (`evalucom/carepulse`, `eprocurement`) or the home "Codebases" screen that lists them.
-- The sidebar shows the demo email (`eva@vedantb.com`) and task screens show the founder's
-  name. Fine on a personal post — but flag it and offer to mask/crop before publishing.
+- **The app's own account names and the demo email are a settled non-issue.** Accounts are
+  first-name-only by design and the email is not real. Do not flag them, do not offer to mask or
+  crop them, and do not caveat the handover with them — the user has confirmed this twice.
+- Still worth flagging: third-party or client names in any list, real customer data, and error
+  panels that leak env var names or project ids.

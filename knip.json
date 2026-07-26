@@ -31,7 +31,10 @@
     }
   },
   "ignoreDependencies": ["@tiptap/pm", "lint-staged"],
-  "ignoreBinaries": ["ps"],
+  "ignoreBinaries": ["ps", "lint-staged"],
+  "ignoreIssues": {
+    ".husky/**": ["binaries"]
+  },
   "rules": {
     "files": "error",
     "dependencies": "error",

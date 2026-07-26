@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  Presentation frame for a raw eva screenshot: brand gradient canvas, the shot on a
+  rounded card, eva mark + wordmark above it. Rendered headless by scripts/frame.sh,
+  which substitutes __IMG__ / __ICON__ / __TITLE__ and screenshots at 1600x900.
+
+  Canvas is 16:9 so X shows it in-timeline without cropping, and the shot sits at its
+  native 1280x720 (never scaled) so UI text stays as crisp as the capture.
+
+  Colours mirror video/src/components/tokens.ts — background #050606, brand purple
+  #8B3FB8, brand blue #3B7DD8. Never invent brand colours.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      html, body {
+        width: 1600px;
+        height: 900px;
+        overflow: hidden;
+        background: #050606;
+      }
+
+      /* Brand gradient: two soft corner glows over near-black, plus a faint
+         diagonal sheen so the flat canvas reads as lit rather than grey. */
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background-image:
+          radial-gradient(1020px 700px at 4% -14%, rgba(139, 63, 184, 0.78) 0%, rgba(139, 63, 184, 0.16) 46%, rgba(139, 63, 184, 0) 72%),
+          radial-gradient(1080px 740px at 106% 114%, rgba(59, 125, 216, 0.72) 0%, rgba(59, 125, 216, 0.14) 44%, rgba(59, 125, 216, 0) 70%),
+          radial-gradient(760px 520px at 50% 118%, rgba(129, 140, 248, 0.20) 0%, rgba(129, 140, 248, 0) 70%),
+          linear-gradient(135deg, #170b22 0%, #080910 46%, #071320 100%);
+        font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        /* Optically align the mark with the card's left edge rather than centring
+           the whole row — a centred wordmark over a wide card looks unanchored. */
+        align-self: center;
+      }
+
+      .wordmark img { width: 34px; height: 34px; display: block; }
+
+      .wordmark span {
+        font-size: 25px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: #fbfcfd;
+      }
+
+      /* The shot: rounded, hairline-bordered, lifted off the canvas. overflow:hidden
+         is what actually rounds the image corners. */
+      .shot {
+        width: 1280px;
+        height: 720px;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        box-shadow:
+          0 2px 6px rgba(0, 0, 0, 0.5),
+          0 24px 70px rgba(0, 0, 0, 0.62),
+          0 0 0 1px rgba(0, 0, 0, 0.4);
+      }
+
+      .shot img { width: 1280px; height: 720px; display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="wordmark">
+      <img src="__ICON__" alt="" />
+      <span>__TITLE__</span>
+    </div>
+    <div class="shot"><img src="__IMG__" alt="" /></div>
+  </body>
+</html>

@@ -45,7 +45,13 @@ export function AttachmentCard({
         <button
           type="button"
           aria-label={`Remove ${label}`}
-          onClick={onRemove}
+          // The card may sit inside a link (task detail opens the blob in a new
+          // tab); removing must not also navigate.
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRemove();
+          }}
           className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background focus:opacity-100 group-hover:opacity-100"
         >
           <IconX className="size-3" />

@@ -4,6 +4,8 @@ import { Input } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { isAppRepo } from "../_utils";
 import { DomainsSection } from "./DomainsSection";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 type UpdateRepoConfig = (args: {
   repoId: Id<"githubRepos">;
@@ -27,21 +29,21 @@ export function AppSettingsSection({
   updateConfig: UpdateRepoConfig;
 }) {
   return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-      <div>
-        <h3 className="text-sm font-medium">This app</h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
+    <SettingsSection
+      title="This app"
+      description={
+        <>
           Settings for{" "}
           <span className="font-medium text-foreground">{appLabel}</span> only.
-        </p>
-      </div>
-
+        </>
+      }
+    >
       <div className="grid gap-4">
         {isAppRepo(repo) ? (
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Deployment Project Name
-            </label>
+          <SettingsField
+            label="Deployment Project Name"
+            description="Vercel or Netlify project name for this app. Used to match the correct preview deployment in monorepos."
+          >
             <Input
               className="h-8 text-xs"
               placeholder="e.g. my-vercel-project"
@@ -56,11 +58,7 @@ export function AppSettingsSection({
                 }
               }}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Vercel or Netlify project name for this app. Used to match the
-              correct preview deployment in monorepos.
-            </p>
-          </div>
+          </SettingsField>
         ) : null}
 
         <DomainsSection
@@ -69,6 +67,6 @@ export function AppSettingsSection({
           updateConfig={updateConfig}
         />
       </div>
-    </div>
+    </SettingsSection>
   );
 }

@@ -18,10 +18,12 @@ export function OptionButton({
       onClick={onClick}
       title={title}
       className={cn(
-        "flex items-center gap-2 rounded-surface px-2.5 py-2 text-xs font-medium transition-colors sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
+        // The border carries the selected state; inactive options keep a
+        // transparent one so the row does not reflow on selection.
+        "flex items-center gap-2 rounded-surface border px-2.5 py-2 text-xs font-medium transition-[background-color,border-color,color] sm:gap-2.5 sm:px-3.5 sm:py-2.5 sm:text-sm",
         active
-          ? "bg-primary/8 text-foreground ring-1 ring-primary/20"
-          : "bg-card/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          ? "border-border bg-primary/8 text-foreground"
+          : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
         className,
       )}
     >

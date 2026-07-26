@@ -4,8 +4,10 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { Button, Checkbox, Spinner } from "@eva/ui";
-import { IconRefresh } from "@tabler/icons-react";
+import { IconGitBranch, IconRefresh } from "@tabler/icons-react";
 
 type RepoEntry = {
   owner: string;
@@ -164,25 +166,31 @@ function SyncSettingsRoute() {
           <Spinner size="md" />
         </div>
       ) : repos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
-          <p className="text-sm">
-            No repos found. Sync your repos first, or fetch from GitHub to
-            discover new ones.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={fetching}
-            onClick={handleRefreshFromGithub}
-          >
-            <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
-            Fetch from GitHub
-          </Button>
-        </div>
+        <SettingsSection title="Repositories" bodyClassName="p-0">
+          <SettingsEmptyState
+            icon={IconGitBranch}
+            title="No repos found"
+            description="Sync your repos first, or fetch from GitHub to discover new ones."
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fetching}
+                onClick={handleRefreshFromGithub}
+              >
+                <IconRefresh
+                  size={16}
+                  className={fetching ? "animate-spin" : ""}
+                />
+                Fetch from GitHub
+              </Button>
+            }
+          />
+        </SettingsSection>
       ) : (
-        <div className="space-y-6">
-          <p className="text-xs text-muted-foreground">
-            Disabled repos will be skipped during sync. New repos default to
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Disabled repos are skipped during sync. New repos default to
             enabled.
           </p>
           {owners.map((owner) => (
@@ -222,38 +230,48 @@ function OwnerGroup({
 }) {
   const sorted = [...repos].sort((a, b) => a.name.localeCompare(b.name));
 
+  const enabledCount = repos.filter((r) =>
+    isRepoEnabled(r.owner, r.name),
+  ).length;
+
   return (
-    <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
-      <label className="flex cursor-pointer items-center gap-2.5 pb-3">
-        <Checkbox
-          checked={allEnabled ? true : someEnabled ? "indeterminate" : false}
-          onCheckedChange={onToggleOwner}
-        />
-        <span className="text-sm font-medium">{owner}</span>
+    // The owner is the section header, so its select-all checkbox sits in the
+    // header and the repos read as the section body.
+    <SettingsSection
+      title={
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <Checkbox
+            checked={allEnabled ? true : someEnabled ? "indeterminate" : false}
+            onCheckedChange={onToggleOwner}
+          />
+          {owner}
+        </label>
+      }
+      action={
         <span className="text-xs text-muted-foreground">
-          {repos.filter((r) => isRepoEnabled(r.owner, r.name)).length}/
-          {repos.length}
+          {enabledCount}/{repos.length} enabled
         </span>
-      </label>
-      <div className="space-y-1 pl-1">
-        {sorted.map((repo) => {
-          const enabled = isRepoEnabled(repo.owner, repo.name);
-          return (
-            <label
-              key={repo.name}
-              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
-            >
-              <Checkbox
-                checked={enabled}
-                onCheckedChange={(checked) =>
-                  onToggleRepo(repo.owner, repo.name, checked === true)
-                }
-              />
-              <span className="text-xs">{repo.name}</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
+      }
+      // Rows carry their own padding so the hover fill spans the full width.
+      bodyClassName="p-2"
+    >
+      {sorted.map((repo) => {
+        const enabled = isRepoEnabled(repo.owner, repo.name);
+        return (
+          <label
+            key={repo.name}
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+          >
+            <Checkbox
+              checked={enabled}
+              onCheckedChange={(checked) =>
+                onToggleRepo(repo.owner, repo.name, checked === true)
+              }
+            />
+            {repo.name}
+          </label>
+        );
+      })}
+    </SettingsSection>
   );
 }

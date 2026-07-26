@@ -14,6 +14,7 @@ import {
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Kpi } from "@/lib/components/analytics/Kpi";
 import { IconFileOff } from "@tabler/icons-react";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
@@ -218,15 +219,18 @@ export function LogsClient() {
           <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-          <div className="rounded-surface bg-secondary p-3">
-            <IconFileOff size={24} />
-          </div>
-          <p className="text-sm">
-            {isProjectView
-              ? "No project spending found for this time range"
-              : "No logs found for this time range"}
-          </p>
+        <div className="rounded-surface border border-border bg-card shadow-sm">
+          <SettingsEmptyState
+            icon={IconFileOff}
+            title={
+              isProjectView ? "No project spending" : "No completions logged"
+            }
+            description={
+              isProjectView
+                ? "Nothing was billed to a project in this time range. Widen the range to see more."
+                : "Nothing ran in this time range. Widen the range or clear the filters to see more."
+            }
+          />
         </div>
       ) : (
         <div className="space-y-5">

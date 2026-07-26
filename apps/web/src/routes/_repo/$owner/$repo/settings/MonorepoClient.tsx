@@ -7,7 +7,9 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Card, CardContent, Button, Input, Spinner, Badge } from "@eva/ui";
+import { Button, Input, Spinner, Badge } from "@eva/ui";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
   IconFolders,
   IconPlus,
@@ -119,25 +121,29 @@ export function MonorepoClient() {
         </Button>
       }
     >
-      {connectedApps.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">
-            Connected Apps
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Toggle visibility to hide apps from the sidebar and home page
-            without removing them.
-          </p>
-          <div className="space-y-2">
-            {connectedApps.map((app) => (
-              <Card key={app._id} className="ui-surface-strong">
-                <CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
-                  <IconFolders size={18} className="text-muted-foreground" />
+      <div className="space-y-4">
+        {connectedApps.length > 0 && (
+          <SettingsSection
+            title="Connected apps"
+            description="Toggle visibility to hide apps from the sidebar and home page without removing them."
+            // Rows own their padding so the row divider spans the full width.
+            bodyClassName="p-0"
+          >
+            <div className="divide-y divide-border">
+              {connectedApps.map((app) => (
+                <div
+                  key={app._id}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                >
+                  <IconFolders
+                    size={18}
+                    className="shrink-0 text-muted-foreground"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
                       {app.rootDirectory?.split("/").pop()}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {app.rootDirectory}
                     </p>
                   </div>
@@ -150,11 +156,7 @@ export function MonorepoClient() {
                         hidden: app.hidden !== true,
                       })
                     }
-                    className={
-                      app.hidden
-                        ? "motion-press gap-1.5 border-border text-muted-foreground"
-                        : "motion-press gap-1.5 text-muted-foreground hover:text-foreground"
-                    }
+                    className="motion-press gap-1.5 text-muted-foreground hover:text-foreground"
                   >
                     {app.hidden ? (
                       <>
@@ -168,121 +170,114 @@ export function MonorepoClient() {
                       </>
                     )}
                   </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-foreground">Detect Apps</h3>
-        <p className="text-xs text-muted-foreground">
-          Scan{" "}
-          <span className="font-medium text-foreground">
-            {repo.owner}/{repo.name}
-          </span>{" "}
-          for workspace apps and add them as separate codebases.
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <Spinner size="md" />
-            <p className="text-sm text-muted-foreground">
-              Scanning workspace configuration...
-            </p>
-          </div>
-        </div>
-      ) : error ? (
-        <Card className="border-destructive/30">
-          <CardContent className="flex items-center gap-3 p-4">
-            <IconAlertCircle size={20} className="text-destructive" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Detection failed
-              </p>
-              <p className="text-xs text-muted-foreground">{error}</p>
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      ) : detected.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-8 text-center">
-            <IconFolders size={28} className="text-muted-foreground/50" />
-            <p className="text-sm font-medium text-foreground">
-              No workspace apps detected
-            </p>
-            <p className="text-xs text-muted-foreground">
-              This repository doesn't appear to have a monorepo workspace
-              configuration (package.json workspaces or pnpm-workspace.yaml).
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {detected.map((app) => {
-            const isConnected = connectedPaths.has(app.path);
-            const isAdding = addingPath === app.path;
+          </SettingsSection>
+        )}
 
-            return (
-              <Card key={app.path} className="ui-surface-strong">
-                <CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
-                  <IconFolders size={18} className="text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {app.name}
+        <SettingsSection
+          title="Detected apps"
+          description={
+            <>
+              Workspace apps found in{" "}
+              <span className="font-medium text-foreground">
+                {repo.owner}/{repo.name}
+              </span>
+              . Add one to manage it as a separate codebase.
+            </>
+          }
+          bodyClassName="p-0"
+        >
+          {loading ? (
+            <div className="flex flex-col items-center gap-3 py-12">
+              <Spinner size="md" />
+              <p className="text-sm text-muted-foreground">
+                Scanning workspace configuration...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-3 px-4 py-4">
+              <IconAlertCircle
+                size={20}
+                className="shrink-0 text-destructive"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Detection failed
+                </p>
+                <p className="text-xs text-muted-foreground">{error}</p>
+              </div>
+            </div>
+          ) : detected.length === 0 ? (
+            <SettingsEmptyState
+              icon={IconFolders}
+              title="No workspace apps detected"
+              description="This repository has no monorepo workspace configuration (package.json workspaces or pnpm-workspace.yaml)."
+            />
+          ) : (
+            <div className="divide-y divide-border">
+              {detected.map((app) => {
+                const isConnected = connectedPaths.has(app.path);
+                const isAdding = addingPath === app.path;
+
+                return (
+                  <div
+                    key={app.path}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                  >
+                    <IconFolders
+                      size={18}
+                      className="shrink-0 text-muted-foreground"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {app.name}
+                        </p>
+                        {app.hasDevScript && (
+                          <Badge variant="secondary" className="gap-1 text-xs">
+                            <IconTerminal2 size={10} />
+                            dev
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {app.path}
                       </p>
-                      {app.hasDevScript && (
-                        <Badge
-                          variant="secondary"
-                          className="gap-1 text-[10px]"
-                        >
-                          <IconTerminal2 size={10} />
-                          dev
-                        </Badge>
-                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{app.path}</p>
+                    {isConnected ? (
+                      <Badge variant="outline" className="gap-1">
+                        <IconCheck size={12} />
+                        Added
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isAdding}
+                        onClick={() => void handleAdd(app.path)}
+                        className="motion-press"
+                      >
+                        {isAdding ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <IconPlus size={14} />
+                        )}
+                        Add
+                      </Button>
+                    )}
                   </div>
-                  {isConnected ? (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 border-primary/30 text-primary"
-                    >
-                      <IconCheck size={12} />
-                      Added
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isAdding}
-                      onClick={() => void handleAdd(app.path)}
-                      className="motion-press"
-                    >
-                      {isAdding ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        <IconPlus size={14} />
-                      )}
-                      Add
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                );
+              })}
+            </div>
+          )}
+        </SettingsSection>
 
-      <Card className="mt-2">
-        <CardContent className="p-3">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Custom root directory
-          </p>
+        <SettingsSection
+          title="Custom root directory"
+          description="Add an app by path when detection misses it."
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -294,7 +289,7 @@ export function MonorepoClient() {
               placeholder="e.g. apps/api"
               value={customPath}
               onChange={(e) => setCustomPath(e.target.value)}
-              className="flex-1"
+              className="h-8 flex-1 text-xs"
             />
             <Button
               type="submit"
@@ -309,8 +304,8 @@ export function MonorepoClient() {
               Add
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </SettingsSection>
+      </div>
     </PageWrapper>
   );
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## Post review comments to GitHub - 2026-07-26
+
+Selecting lines in a diff already drafted a comment, but the only place it could go was the agent's prompt. Those comments can now be submitted to GitHub as a real pull request review.
+
+- New **Review changes** control in the Diffs toolbar, badged with the pending comment count. It takes an optional summary and one of Comment, Approve, or Request changes, then posts the lot as a single review.
+- Each drafted comment records its GitHub anchor (line number plus `LEFT`/`RIGHT` side, and a start line for multi-line selections) at the moment the lines are selected, so anchors are resolved against the patch rather than reconstructed at submit time.
+- Comments parsed back out of an agent message carry only diff-relative indices, which GitHub cannot anchor. The popover says how many will be left out rather than dropping them silently.
+- Posting clears the pending comments and toasts the outcome; GitHub's rejection message is surfaced verbatim. Reviews post as the eva GitHub App, so GitHub refuses to approve a pull request the app itself opened — that refusal is shown as-is, not pre-empted.
+- Line selection and commenting now work on the standalone Reviews page too, not just the sandbox Review tab; drafts survive switching between Overview, Recap, and Diff.
+- Backend: new `submitPrReview` action in `_github/prReview.ts` wrapping `pulls.createReview`.
+- The file tree now uses the app's font instead of `system-ui`.
+- Still not included: replying to existing review threads, resolving conversations, and suggested changes.
+
 ## Diffs tab matches GitHub's Files changed - 2026-07-26
 
 The Diffs tab had a file tree, per-file Viewed checkboxes, and unified/split, but per-file headers carried only a path and the standalone Reviews page had no diff controls at all. Reading a diff now matches GitHub's Files changed page, on both surfaces.

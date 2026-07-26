@@ -10,6 +10,8 @@ import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { DiffFileTree } from "./DiffFileTree";
 import { DiffFileAccordionItem } from "./DiffFileAccordionItem";
 import { DiffsToolbar } from "./DiffsToolbar";
+import { SubmitReviewPopover } from "./SubmitReviewPopover";
+import { prNumberFromGithubUrl } from "@/lib/githubPr";
 import { buildDiffFileEntries } from "./diffFiles";
 import { useDiffSearchParams } from "./useDiffSearchParams";
 import { useDiffViewedFiles } from "./useDiffViewedFiles";
@@ -156,6 +158,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   }
 
   const showTree = visibleEntries.length > 0;
+  const prNumber = prNumberFromGithubUrl(prUrl);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -178,6 +181,11 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
         onCollapseAll={() => setOpenPaths([])}
         isLoading={state.status === "loading"}
         onRefresh={refresh}
+        reviewAction={
+          prNumber === undefined ? undefined : (
+            <SubmitReviewPopover repoId={repoId} prNumber={prNumber} />
+          )
+        }
       />
 
       <div className="flex min-h-0 flex-1">

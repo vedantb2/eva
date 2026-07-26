@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Button,
   SearchInput,
@@ -36,6 +37,8 @@ interface DiffsToolbarProps {
   onCollapseAll: () => void;
   isLoading: boolean;
   onRefresh: () => void;
+  /** Review-submission control, rendered last; absent when the surface cannot post reviews. */
+  reviewAction?: ReactNode;
 }
 
 /**
@@ -61,6 +64,7 @@ export function DiffsToolbar({
   onCollapseAll,
   isLoading,
   onRefresh,
+  reviewAction,
 }: DiffsToolbarProps) {
   const viewedShare =
     fileCount === 0 ? 0 : Math.round((viewedCount / fileCount) * 100);
@@ -156,6 +160,8 @@ export function DiffsToolbar({
           />
           Refresh
         </Button>
+
+        {reviewAction}
       </div>
     </div>
   );

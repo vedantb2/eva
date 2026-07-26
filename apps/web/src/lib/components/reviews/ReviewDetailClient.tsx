@@ -9,6 +9,7 @@ import { api } from "@eva/backend";
 import { Spinner, Tabs, TabsBar, TabsList, TabsTrigger } from "@eva/ui";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { githubPrUrl } from "@/lib/githubPr";
 import {
   REVIEW_DEFAULT_TAB,
@@ -76,6 +77,14 @@ export function ReviewDetailClient({
       cancelled = true;
     };
   }, [repoId, prNumber, getHeader, isValidPrNumber]);
+
+  // A comment drafted from an agent message jumps to this PR's Diff tab.
+  const openDiffTab = () => {
+    void navigate({
+      to: `${basePath}/reviews/${prNumber}/diff`,
+      search: (prev) => prev,
+    });
+  };
 
   if (!isValidPrNumber) {
     return (
@@ -146,23 +155,26 @@ export function ReviewDetailClient({
         </TabsList>
       </TabsBar>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        {tab === "overview" ? (
-          <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
-        ) : null}
-        {tab === "recap" ? (
-          recapDoc === undefined || prUrl === undefined ? (
-            <div className="flex h-full items-center justify-center">
-              <Spinner size="sm" />
-            </div>
-          ) : (
-            <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
-          )
-        ) : null}
-        {tab === "diff" && prUrl !== undefined ? (
-          <DiffsPanel prUrl={prUrl} repoId={repoId} />
-        ) : null}
-      </div>
+      {/* Wraps every tab (not just Diff) so drafted comments survive a tab switch. */}
+      <PendingReviewCommentsProvider onOpenDiffsTab={openDiffTab}>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {tab === "overview" ? (
+            <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
+          ) : null}
+          {tab === "recap" ? (
+            recapDoc === undefined || prUrl === undefined ? (
+              <div className="flex h-full items-center justify-center">
+                <Spinner size="sm" />
+              </div>
+            ) : (
+              <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
+            )
+          ) : null}
+          {tab === "diff" && prUrl !== undefined ? (
+            <DiffsPanel prUrl={prUrl} repoId={repoId} />
+          ) : null}
+        </div>
+      </PendingReviewCommentsProvider>
     </Tabs>
   );
 }

@@ -57,6 +57,7 @@ import type * as _github_prDiff from "../_github/prDiff.js";
 import type * as _github_prFlow from "../_github/prFlow.js";
 import type * as _github_prOverview from "../_github/prOverview.js";
 import type * as _github_prRecapService from "../_github/prRecapService.js";
+import type * as _github_prReview from "../_github/prReview.js";
 import type * as _github_prTitleSync from "../_github/prTitleSync.js";
 import type * as _github_pullRequests from "../_github/pullRequests.js";
 import type * as _github_sessionMergeGuard from "../_github/sessionMergeGuard.js";
@@ -365,6 +366,7 @@ declare const fullApi: ApiFromModules<{
   "_github/prFlow": typeof _github_prFlow;
   "_github/prOverview": typeof _github_prOverview;
   "_github/prRecapService": typeof _github_prRecapService;
+  "_github/prReview": typeof _github_prReview;
   "_github/prTitleSync": typeof _github_prTitleSync;
   "_github/pullRequests": typeof _github_pullRequests;
   "_github/sessionMergeGuard": typeof _github_sessionMergeGuard;

@@ -4,6 +4,8 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { DEFAULT_AI_MODEL } from "../validators";
 import {
+  PROJECT_CHAT_STREAM_PREFIX,
+  TASK_CHAT_STREAM_PREFIX,
   trackAgentTaskChatWorkflow,
   trackDesignSessionWorkflow,
   trackProjectChatWorkflow,
@@ -61,7 +63,9 @@ export async function startNextQueuedSessionMessage(
   // Wipe any stale streaming row before the new turn's placeholder appears —
   // the daemon's post-completion reconcile heartbeat can land after
   // saveResult's clear and resurrect the finished turn's activity (see
-  // startExecute in _sessions/execution.ts for the full race).
+  // startExecute in _sessions/execution.ts for the full race). Every dequeue
+  // below does this, because not every caller clears first: _sessions/sandbox.ts
+  // drains queued turns straight after a resume, with no clear of its own.
   await clearStreamingActivity(ctx, String(sessionId));
 
   const now = Date.now();
@@ -150,6 +154,9 @@ export async function startNextQueuedDesignMessage(
 
   await ctx.db.delete(nextMessage._id);
 
+  // See startNextQueuedSessionMessage above for why every dequeue clears.
+  await clearStreamingActivity(ctx, String(designSessionId));
+
   const now = Date.now();
   await ctx.db.insert("messages", {
     parentId: designSessionId,
@@ -236,6 +243,12 @@ export async function startNextQueuedProjectChatMessage(
 
   await ctx.db.delete(nextMessage._id);
 
+  // See startNextQueuedSessionMessage above for why every dequeue clears.
+  await clearStreamingActivity(
+    ctx,
+    `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`,
+  );
+
   const now = Date.now();
   await ctx.db.insert("messages", {
     parentId: projectId,
@@ -314,6 +327,12 @@ export async function startNextQueuedTaskChatMessage(
   }
 
   await ctx.db.delete(nextMessage._id);
+
+  // See startNextQueuedSessionMessage above for why every dequeue clears.
+  await clearStreamingActivity(
+    ctx,
+    `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`,
+  );
 
   const now = Date.now();
   await ctx.db.insert("messages", {

@@ -39,16 +39,45 @@ test("startExecute clears streamingActivity before staging the placeholder", () 
   expect(clearAt).toBeLessThan(placeholderAt);
 });
 
-test("the queued-message dequeue clears streamingActivity before staging", () => {
-  const body = functionBody(
-    queueHelpersSource,
-    "startNextQueuedSessionMessage",
-  );
-  const clearAt = body.indexOf("await clearStreamingActivity(ctx");
+/**
+ * All four, not just the session one. They run the same daemon-reconcile
+ * architecture, and callers cannot be relied on to clear first —
+ * `_sessions/sandbox.ts` drains queued turns straight after a resume with no
+ * clear of its own, so the staging point is the only place that covers every
+ * entry.
+ */
+test.each([
+  "startNextQueuedSessionMessage",
+  "startNextQueuedDesignMessage",
+  "startNextQueuedProjectChatMessage",
+  "startNextQueuedTaskChatMessage",
+])("%s clears streamingActivity before staging", (name) => {
+  const body = functionBody(queueHelpersSource, name);
+  const clearAt = body.indexOf("await clearStreamingActivity(");
   const userMessageAt = body.indexOf('role: "user"');
-  expect(clearAt, "dequeue must clear streamingActivity").toBeGreaterThan(-1);
+  expect(clearAt, `${name} must clear streamingActivity`).toBeGreaterThan(-1);
   expect(userMessageAt).toBeGreaterThan(-1);
   expect(clearAt).toBeLessThan(userMessageAt);
+});
+
+/**
+ * Chat rows are keyed by a prefixed entityId, so clearing the bare id would pass
+ * the ordering test above while leaving the stale row exactly where it was.
+ */
+test.each([
+  {
+    name: "startNextQueuedProjectChatMessage",
+    prefix: "PROJECT_CHAT_STREAM_PREFIX",
+    id: "projectId",
+  },
+  {
+    name: "startNextQueuedTaskChatMessage",
+    prefix: "TASK_CHAT_STREAM_PREFIX",
+    id: "taskId",
+  },
+])("$name clears the prefixed streaming entityId", ({ name, prefix, id }) => {
+  const body = functionBody(queueHelpersSource, name);
+  expect(body).toContain(`\`\${${prefix}}\${String(${id})}\``);
 });
 
 /**

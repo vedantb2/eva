@@ -1,5 +1,16 @@
 # Changelog
 
+## Regression tests for the last three days of fixes - 2026-07-26
+
+Nine fixes shipped this week with no test behind them, so each one was free to come back. They now have 43 tests across the three packages. Two of those fixes had left a job half done, and writing the tests is what surfaced it.
+
+- Writing the streaming-row test meant reading all four queued-message dequeues, and only the session one wiped the previous turn's activity before staging the next. The three chat and design dequeues have been patched to match — before anyone hit the flash of a stale thinking trace in project or task chat.
+- Writing the quick-task filter test meant reading how "cleared" was defined, and it was spelled out twice with two different answers. The cleared state now derives from the nuqs parsers, so "no filters applied" and "clear all filters" cannot disagree the way they did when clearing left `?project=all` in the URL.
+- The rest cover storage blobs orphaned by a deleted queued message, split-pane widths lost on reload, the kanban drop target, ffmpeg install ordering on desktop start, recording-prompt paths, and the nested-action call that dies at the 300s ceiling.
+- Two prod functions were pulled out to be testable at all: the kanban drop-target resolution and the split-pane ratio maths, both previously reachable only through a rendered tree.
+- Design tokens and kanban column widths are now asserted too — a card that vanishes into the page, or a gutter that overflows the row by three pixels, is invisible to every other kind of test.
+- Six fixes were deliberately left untested: pure CSS and layout, where there is no invariant worth pinning.
+
 ## Comments and your own messages render as markdown - 2026-07-26
 
 Task comments already rendered as markdown; the same text shown anywhere else came out as raw source. A comment with a list read as a list in the activity feed and as `- one` `- two` in the run timeline, from one field in one document.

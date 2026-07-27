@@ -1,5 +1,15 @@
 # Changelog
 
+## The landing page shows the product working - 2026-07-27
+
+The page that shipped this morning described every feature in a card. A visitor could read what Reviews or the Testing Arena does and still have no picture of it. Each pillar now renders its features as a tab strip over a mock panel of that feature in use, and the strip moves on its own.
+
+- Sixteen previews, one per feature, covering documents, planning, sessions, quick tasks, agents, reviews, the testing arena, audits, proof, automations, snapshots, skills, stats, inbox and teams. They are copy components built from a shared kit in `previews/MockParts.tsx` — no queries, no auth, no client state — so they cannot break when the real screens change.
+- Each strip advances every four seconds. The countdown is the underline itself: a bar crosses the active tab and advances the index when it lands, so there is no interval to keep in sync with what is drawn, and no `useEffect` to clean up.
+- Cycling stops when it should. It pauses while the section is off screen, stops for good once the visitor picks a tab, and never starts for anyone whose system asks for reduced motion.
+- The registry is an exhaustive `Record<LandingPreviewKey, ComponentType>`, so adding a feature without a preview is a type error rather than a blank panel. Panel height is fixed, so a tab change never shifts the page under the pointer.
+- The sandbox and MCP sections lost their prose for the same reason: a boot log that types itself out and a panel of real tool calls now show what those two do. `LandingPillarSection` is down to four lines, its feature grid and per-pillar `gridClass` deleted.
+
 ## The landing page describes the product again - 2026-07-27
 
 Two landing pages had been sitting behind `VITE_NEW_LANDING` since the task-detail mock shipped, and both were written before Projects, Reviews, Testing Arena, Audits, Automations, Snapshots, Skills, Inbox and Teams existed. A visitor could read either one end to end and still not know what Eva does. Both are deleted, the flag with them, and one scrolling page replaces them.

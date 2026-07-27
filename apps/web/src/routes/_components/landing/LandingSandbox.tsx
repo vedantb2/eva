@@ -1,17 +1,45 @@
 "use client";
 
-import { LANDING_SANDBOX_SPEC } from "./landingContent";
+import { m, useReducedMotion, type Variants } from "motion/react";
+import { cn } from "@eva/ui";
 import {
-  LandingLattice,
+  LANDING_SANDBOX_BOOT,
+  LANDING_SANDBOX_SPEC,
+  type LandingBootKind,
+} from "./landingContent";
+import {
   LandingReveal,
   LandingSection,
   LandingSectionHeading,
 } from "./LandingPrimitives";
 
+const BOOT_CONTAINER: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.16, delayChildren: 0.15 } },
+};
+
+const BOOT_LINE: Variants = {
+  hidden: { opacity: 0, x: -4 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+};
+
+/** No stagger and no slide when the visitor asks for less movement. */
+const BOOT_CONTAINER_STILL: Variants = { hidden: {}, show: {} };
+const BOOT_LINE_STILL: Variants = {
+  hidden: { opacity: 1 },
+  show: { opacity: 1 },
+};
+
+const BOOT_TONE: Record<LandingBootKind, string> = {
+  command: "text-foreground",
+  info: "text-muted-foreground",
+  ok: "text-success",
+};
+
 /**
  * What the agent is actually running on. Contents mirror the snapshot image in
  * `snapshotActions.ts`; the band background breaks up the page between the
- * feature grids and the MCP section.
+ * feature showcases and the MCP section.
  */
 export function LandingSandbox() {
   return (
@@ -27,18 +55,27 @@ export function LandingSandbox() {
             intro="Every task boots a cloud VM from a prebuilt snapshot. Docker runs inside it. So does a desktop and a real browser, which is how an agent takes a screenshot of the thing it just changed."
           />
 
-          <LandingLattice className="mt-12 sm:grid-cols-2 lg:grid-cols-3">
-            {LANDING_SANDBOX_SPEC.map((group) => (
-              <div key={group.label} className="bg-background p-6">
-                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                  {group.label}
-                </p>
-                <p className="mt-3 text-pretty text-sm leading-relaxed text-foreground">
-                  {group.items}
-                </p>
+          <div className="mt-12 grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+            <SandboxTerminal />
+
+            <div className="overflow-hidden rounded-surface border border-border">
+              <div className="grid gap-px bg-border">
+                {LANDING_SANDBOX_SPEC.map((group) => (
+                  <div
+                    key={group.label}
+                    className="flex flex-col gap-1 bg-background px-5 py-3.5 sm:flex-row sm:items-baseline sm:gap-5"
+                  >
+                    <p className="w-24 shrink-0 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                      {group.label}
+                    </p>
+                    <p className="text-pretty text-[13px] leading-relaxed text-foreground">
+                      {group.items}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </LandingLattice>
+            </div>
+          </div>
 
           <p className="mt-6 text-sm text-muted-foreground">
             Snapshot builds usually finish in about six minutes. Rebuild on a
@@ -47,6 +84,64 @@ export function LandingSandbox() {
           </p>
         </LandingReveal>
       </LandingSection>
+    </div>
+  );
+}
+
+/** Boot log that types itself out once, the first time it scrolls into view. */
+function SandboxTerminal() {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div className="overflow-hidden rounded-surface border border-border bg-card shadow-sm">
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
+        <span className="flex gap-1.5" aria-hidden>
+          <span className="size-2 rounded-full bg-border" />
+          <span className="size-2 rounded-full bg-border" />
+          <span className="size-2 rounded-full bg-border" />
+        </span>
+        <p className="font-mono text-[11px] text-muted-foreground">
+          acme/web — sandbox
+        </p>
+        <span className="ml-auto flex items-center gap-1.5">
+          <span
+            className="landing-pulse-dot size-1.5 rounded-full bg-success"
+            aria-hidden
+          />
+          <span className="text-[10px] text-muted-foreground">running</span>
+        </span>
+      </div>
+
+      <m.div
+        className="space-y-1.5 p-4 font-mono text-[11.5px] leading-relaxed sm:p-5"
+        variants={prefersReducedMotion ? BOOT_CONTAINER_STILL : BOOT_CONTAINER}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.4 }}
+      >
+        {LANDING_SANDBOX_BOOT.map((line) => (
+          <m.p
+            key={line.text}
+            variants={prefersReducedMotion ? BOOT_LINE_STILL : BOOT_LINE}
+            className={cn("truncate", BOOT_TONE[line.kind])}
+          >
+            {line.kind === "command" ? (
+              <span className="text-primary">$ </span>
+            ) : (
+              <span className="text-muted-foreground/40">{"  "}</span>
+            )}
+            {line.text}
+          </m.p>
+        ))}
+
+        <p className="text-foreground">
+          <span className="text-primary">$ </span>
+          <span
+            className="landing-pulse-dot inline-block h-3.5 w-[7px] translate-y-0.5 bg-foreground"
+            aria-hidden
+          />
+        </p>
+      </m.div>
     </div>
   );
 }

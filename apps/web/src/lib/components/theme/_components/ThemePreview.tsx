@@ -1,7 +1,7 @@
 import {
-  ACCENT_COLORS,
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
+  lookupAccent,
 } from "@/lib/contexts/ThemeContext";
 import type {
   AccentColor,
@@ -27,6 +27,9 @@ export function ThemePreview({
 }) {
   const radiusLabel =
     RADIUS_OPTIONS.find((r) => r.value === radius)?.label ?? radius;
+  // Guarded because a stored accent can outlive the build that defined it —
+  // see `lookupAccent` in ThemeContext, which also says how to unwind this.
+  const accent = lookupAccent(accentColor);
 
   return (
     <section>
@@ -34,11 +37,15 @@ export function ThemePreview({
       <div className="rounded-surface border border-border bg-card p-3 sm:p-5">
         <div className="mb-4 flex items-start gap-2">
           <div
-            className="mt-1 h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: ACCENT_COLORS[accentColor].preview }}
+            className="mt-1 h-3 w-3 shrink-0 rounded-full bg-primary"
+            style={
+              accent === undefined
+                ? undefined
+                : { backgroundColor: accent.preview }
+            }
           />
           <p className="text-xs sm:text-sm font-semibold text-foreground">
-            {ACCENT_COLORS[accentColor].label} &middot; {radiusLabel} radius
+            {accent?.label ?? accentColor} &middot; {radiusLabel} radius
             &middot; {FONT_FAMILIES[fontFamily].label} &middot;{" "}
             {LETTER_SPACING_VALUES[letterSpacing].label} spacing &middot;{" "}
             {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)} mode

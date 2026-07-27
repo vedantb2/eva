@@ -1,5 +1,6 @@
 import { IconCheck, IconGitBranch, IconLoader2 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
+import { BrandMark, type BrandName } from "../BrandMark";
 import {
   MockChip,
   MockDot,
@@ -155,11 +156,21 @@ export function QuickTasksPreview() {
   );
 }
 
-const AGENTS = [
-  { name: "Claude Code", model: "Opus 5", selected: true },
-  { name: "Codex", model: "GPT-5", selected: false },
-  { name: "opencode", model: "Bring your own", selected: false },
-  { name: "Cursor", model: "Composer", selected: false },
+const AGENTS: readonly {
+  brand: BrandName;
+  name: string;
+  model: string;
+  selected: boolean;
+}[] = [
+  { brand: "claude", name: "Claude Code", model: "Opus 5", selected: true },
+  { brand: "openai", name: "Codex", model: "GPT-5", selected: false },
+  {
+    brand: "opencode",
+    name: "opencode",
+    model: "Bring your own",
+    selected: false,
+  },
+  { brand: "cursor", name: "Cursor", model: "Composer", selected: false },
 ];
 
 /** Agent picker: four CLIs preinstalled, chosen per task. */
@@ -182,9 +193,12 @@ export function AgentsPreview() {
             )}
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-[11.5px] font-medium text-foreground">
-                {agent.name}
-              </p>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <BrandMark name={agent.brand} size={14} />
+                <span className="truncate text-[11.5px] font-medium text-foreground">
+                  {agent.name}
+                </span>
+              </span>
               {agent.selected ? (
                 <IconCheck size={13} className="text-primary" aria-hidden />
               ) : null}

@@ -1,25 +1,28 @@
+import type { ComponentType } from "react";
 import {
-  IconBolt,
   IconBrowser,
   IconCamera,
-  IconChartBar,
-  IconClockBolt,
-  IconFileText,
-  IconGitPullRequest,
-  IconInbox,
   IconLayoutDashboard,
-  IconLayoutKanban,
-  IconNotes,
   IconPlug,
   IconRobot,
   IconShieldCheck,
   IconSparkles,
   IconStack2,
-  IconTerminal2,
-  IconTestPipe,
   IconUsers,
-  type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import {
+  AutomationsIcon,
+  DocumentsIcon,
+  DraftsIcon,
+  InboxIcon,
+  ProjectsIcon,
+  QuickTasksIcon,
+  ReviewsIcon,
+  SessionsIcon,
+  StatsIcon,
+  TestingArenaIcon,
+} from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import type { BrandName } from "./BrandMark";
 
 /**
  * Every string on the marketing page lives here so copy can be reviewed in one
@@ -54,8 +57,20 @@ export type LandingPreviewKey =
   | "inbox"
   | "teams";
 
+/**
+ * Icon shape a feature tab can render. Deliberately narrower than either source
+ * it accepts: the animated sidebar icons take `size` and `className` and
+ * nothing else, and Tabler's icons take a superset, so this is the widest type
+ * both satisfy. Features that exist in the product nav reuse that exact icon so
+ * the marketing page and the app agree; the rest fall back to Tabler.
+ */
+export type LandingIcon = ComponentType<{
+  size?: number;
+  className?: string;
+}>;
+
 export interface LandingFeature {
-  icon: TablerIcon;
+  icon: LandingIcon;
   name: string;
   summary: string;
   points: readonly string[];
@@ -103,7 +118,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
       "Requirements, structure and half-formed ideas live beside the repository, so a task starts with context instead of a prompt.",
     features: [
       {
-        icon: IconFileText,
+        icon: DocumentsIcon,
         name: "Documents",
         summary: "PRDs and specs the agent reads.",
         points: [
@@ -114,7 +129,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "documents",
       },
       {
-        icon: IconLayoutKanban,
+        icon: ProjectsIcon,
         name: "Projects",
         summary: "Multi-task work with a build pipeline.",
         points: [
@@ -125,7 +140,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "projects",
       },
       {
-        icon: IconNotes,
+        icon: DraftsIcon,
         name: "Drafts",
         summary: "Somewhere to put an idea.",
         points: [
@@ -147,7 +162,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
       "Sit with one in a live environment, or fire off a batch of small changes and come back when they are done.",
     features: [
       {
-        icon: IconTerminal2,
+        icon: SessionsIcon,
         name: "Sessions",
         summary: "Pair programming in a live sandbox.",
         points: [
@@ -158,7 +173,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "sessions",
       },
       {
-        icon: IconBolt,
+        icon: QuickTasksIcon,
         name: "Quick Tasks",
         summary: "Small changes, many at once.",
         points: [
@@ -191,7 +206,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
       "Every change arrives with a diff, a written recap, a screenshot of the app running, and whatever checks you have configured.",
     features: [
       {
-        icon: IconGitPullRequest,
+        icon: ReviewsIcon,
         name: "Reviews",
         summary: "Every pull request in one place.",
         points: [
@@ -202,7 +217,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "reviews",
       },
       {
-        icon: IconTestPipe,
+        icon: TestingArenaIcon,
         name: "Testing Arena",
         summary: "Check the code against the spec.",
         points: [
@@ -246,7 +261,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
       "Scheduling, environments, conventions, and the numbers that tell you whether any of it worked.",
     features: [
       {
-        icon: IconClockBolt,
+        icon: AutomationsIcon,
         name: "Automations",
         summary: "Agent runs on a cron.",
         points: [
@@ -279,7 +294,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "skills",
       },
       {
-        icon: IconChartBar,
+        icon: StatsIcon,
         name: "Stats",
         summary: "See what actually shipped.",
         points: [
@@ -290,7 +305,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
         preview: "stats",
       },
       {
-        icon: IconInbox,
+        icon: InboxIcon,
         name: "Inbox",
         summary: "Know when something needs you.",
         points: [
@@ -407,5 +422,13 @@ export const LANDING_OPEN_SOURCE_FACTS = [
   { label: "Your data", value: "Stays yours" },
 ] as const;
 
-export const LANDING_STACK =
-  "Vite · TanStack Router · React 19 · Tailwind · Convex · Vercel Sandbox · Clerk";
+/** What the app is built on, shown as a logo row in the open-source section. */
+export const LANDING_STACK: readonly { brand: BrandName; name: string }[] = [
+  { brand: "vite", name: "Vite" },
+  { brand: "tanstack", name: "TanStack Router" },
+  { brand: "react", name: "React 19" },
+  { brand: "tailwind", name: "Tailwind" },
+  { brand: "convex", name: "Convex" },
+  { brand: "vercel", name: "Vercel Sandbox" },
+  { brand: "clerk", name: "Clerk" },
+];

@@ -1,7 +1,8 @@
 "use client";
 
-import { IconBrowser } from "@tabler/icons-react";
-import { LANDING_MCP_CARDS } from "./landingContent";
+import { IconArrowRight, IconBrowser, IconCheck } from "@tabler/icons-react";
+import { m, useReducedMotion, type Variants } from "motion/react";
+import { LANDING_MCP_CALLS, LANDING_MCP_CARDS } from "./landingContent";
 import {
   LandingLattice,
   LandingReveal,
@@ -9,16 +10,31 @@ import {
   LandingSectionHeading,
 } from "./LandingPrimitives";
 
+const CALLS_CONTAINER: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.18, delayChildren: 0.2 } },
+};
+
+const CALL_ROW: Variants = {
+  hidden: { opacity: 0, y: 6 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+};
+
+const STILL: Variants = { hidden: { opacity: 1 }, show: { opacity: 1 } };
+
 /** MCP in both directions, plus the Chrome extension as a closing note. */
 export function LandingMcp() {
   return (
     <LandingSection id="mcp">
       <LandingReveal>
-        <LandingSectionHeading
-          eyebrow="Integrations"
-          heading="Eva speaks MCP in both directions."
-          intro="Drive Eva from the MCP client you already use, and let agents inside a sandbox call back to Eva while they work."
-        />
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-center">
+          <LandingSectionHeading
+            eyebrow="Integrations"
+            heading="Eva speaks MCP in both directions."
+            intro="Drive Eva from the MCP client you already use, and let agents inside a sandbox call back to Eva while they work."
+          />
+          <McpCallPanel />
+        </div>
 
         <LandingLattice className="mt-12 lg:grid-cols-3">
           {LANDING_MCP_CARDS.map((card) => {
@@ -73,5 +89,61 @@ export function LandingMcp() {
         </div>
       </LandingReveal>
     </LandingSection>
+  );
+}
+
+/** Tool calls arriving from an external MCP client, revealed one at a time. */
+function McpCallPanel() {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div className="overflow-hidden rounded-surface border border-border bg-card shadow-sm">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+        <p className="font-mono text-[11px] text-muted-foreground">
+          Claude Desktop
+        </p>
+        <IconArrowRight
+          size={13}
+          className="text-muted-foreground/60"
+          aria-hidden
+        />
+        <p className="font-mono text-[11px] text-foreground">eva</p>
+        <span className="ml-auto rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+          OAuth 2.1
+        </span>
+      </div>
+
+      <m.div
+        className="divide-y divide-border"
+        variants={prefersReducedMotion ? STILL : CALLS_CONTAINER}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.5 }}
+      >
+        {LANDING_MCP_CALLS.map((call) => (
+          <m.div
+            key={call.tool}
+            variants={prefersReducedMotion ? STILL : CALL_ROW}
+            className="flex items-center gap-3 px-4 py-2.5"
+          >
+            <IconCheck
+              size={13}
+              className="shrink-0 text-success"
+              aria-hidden
+            />
+            <code className="shrink-0 font-mono text-[11.5px] text-foreground">
+              {call.tool}
+            </code>
+            <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
+              {call.result}
+            </span>
+          </m.div>
+        ))}
+      </m.div>
+
+      <p className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
+        Around 25 tools, the same ones an agent calls from inside a sandbox.
+      </p>
+    </div>
   );
 }

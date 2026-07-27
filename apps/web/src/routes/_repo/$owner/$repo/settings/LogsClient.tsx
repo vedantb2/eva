@@ -11,7 +11,8 @@ import {
   searchParser,
   logViewParser,
 } from "@/lib/search-params";
-import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
+import { getStartTime, DAY_MS } from "@/lib/components/analytics/timeRange";
+import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { Kpi } from "@/lib/components/analytics/Kpi";
 import { IconFileOff } from "@tabler/icons-react";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
@@ -44,7 +45,10 @@ export function LogsClient() {
     void setEntityParams({ entityTypes: isAll ? [] : [...next] });
   };
 
-  const startTime = getStartTime(timeRange);
+  // Quantized to the day so the window is a stable query argument: a raw clock
+  // read here would change on every render and resubscribe both log queries.
+  const today = useQuantizedNow(DAY_MS);
+  const startTime = getStartTime(timeRange, today);
 
   // Fetch every log in range — group-key filtering happens on the client so
   // project-tagged entries can roll up into the "project" group regardless of

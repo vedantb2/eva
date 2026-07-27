@@ -18,37 +18,17 @@ const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
  */
 const FORBIDDEN = ["Date.now()", "Math.random()", "new Date()"];
 
-/**
- * Queries that still read the clock. This list may shrink, never grow — a new
- * entry means a new cache-staleness bug shipped.
- *
- * All six are time-window reads whose fix needs `now` threaded from the web
- * caller, so they are recorded rather than silently tolerated.
- */
-const KNOWN_OFFENDERS = [
-  "analytics.ts|getImpactStats",
-  "analytics.ts|getActiveUsers",
-  "analytics.ts|getActivityTimeline",
-  "analytics.ts|getActivityHeatmap",
-  "users.ts|listOnlineTeammates",
-  "users.ts|listTeamWithMembers",
-];
-
 describe("Convex queries are deterministic", () => {
-  const offenders = findClockReadingQueries();
-
-  test("no query reads the clock beyond the known list", () => {
+  /**
+   * No exceptions. The six analytics and presence queries that used to be
+   * grandfathered in here now take their timestamp as an argument, so there is
+   * no longer a list to add to — which is the point: an exception list becomes a
+   * set of excuses nobody audits.
+   */
+  test("no query reads the clock", () => {
     expect(
-      offenders.filter((name) => !KNOWN_OFFENDERS.includes(name)),
-      "take `now` as an arg and pass it from the caller instead",
-    ).toEqual([]);
-  });
-
-  /** Otherwise the list rots into a set of excuses nobody can audit. */
-  test("every known offender still reads the clock", () => {
-    expect(
-      KNOWN_OFFENDERS.filter((name) => !offenders.includes(name)),
-      "these are fixed — delete them from KNOWN_OFFENDERS",
+      findClockReadingQueries(),
+      "take the timestamp as an arg and pass it from the caller instead",
     ).toEqual([]);
   });
 

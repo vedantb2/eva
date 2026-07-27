@@ -1,5 +1,13 @@
 # Changelog
 
+## Real logos on the landing page, and one fewer way to crash - 2026-07-27
+
+The marketing page named Claude, Cursor, Convex and eight others in plain text, and drew its feature tabs with generic Tabler icons that looked nothing like the sidebar a visitor sees after signing up. Both are now the real thing.
+
+- Eleven brand marks, taken unmodified from svgl and served as files from `public/brands` rather than inlined. Inlining them would have leaked Cursor's `.st0` rule and collided Tailwind's `clipPath id="a"` with anything else claiming `a`, and would have put roughly 28 KB of path data in the JS bundle for logos most visitors scroll past. Dark variants ship only for the marks that are near-black; the rest carry brand colours that read on either surface.
+- Ten of the sixteen feature tabs now use the same animated icon as the product nav, so Sessions and Quick Tasks look on the marketing page exactly like they look in the app — including the hover animation, which needed nothing more than putting `group` on the tab button.
+- A stored accent colour could crash the whole app. `main` defines 11 accents and this branch defines 26, and both are deployed while the landing page ships ahead of the rest of staging. Anyone who picked a staging-only accent and then loaded a `main` build hit a missing key, threw during render, and landed on the error boundary — over a colour. The lookup is now typed as fallible, falls back to the CSS default, and carries a comment naming the exact three edits to undo once the two branches agree on their accents.
+
 ## The landing page shows the product working - 2026-07-27
 
 The page that shipped this morning described every feature in a card. A visitor could read what Reviews or the Testing Arena does and still have no picture of it. Each pillar now renders its features as a tab strip over a mock panel of that feature in use, and the strip moves on its own.

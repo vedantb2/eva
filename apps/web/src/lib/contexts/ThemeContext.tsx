@@ -637,6 +637,51 @@ export const LETTER_SPACING_VALUES: Record<
   wider: { label: "Wider", value: "0.03em" },
 };
 
+/** Drops the injected accent stylesheet so `globals.css` supplies the accent. */
+function clearAccentOverride() {
+  const el = document.getElementById("custom-theme-accent");
+  if (el) el.remove();
+}
+
+/**
+ * Accent tokens for a stored accent name, or `undefined` when this build does
+ * not define that accent.
+ *
+ * `ACCENT_COLORS` is keyed by a closed union, so a direct index read is typed
+ * as always-present. That is a lie for any name that came out of the database
+ * rather than out of this build, and reading `.light` off the miss throws
+ * during render. Going through a `Partial` view is what makes the gap visible
+ * to the compiler — no cast, no non-null assertion.
+ *
+ * ══════════ CLEAN UP ONCE `staging` IS MERGED INTO `main` ══════════
+ *
+ * Why it exists: `main` defines 11 accents, `staging` defines 26. Someone who
+ * picks a staging-only accent (`olive`, say) and then loads a `main` deploy
+ * hits the miss, and the whole app drops to the error boundary over a colour.
+ * Both branches are live at once while the landing page ships ahead of the rest
+ * of staging, so the two sets can and do disagree today.
+ *
+ * When to remove: as soon as both branches ship the same accents. Check by
+ * diffing the `AccentColor` union across the branches; once they match, a miss
+ * is unreachable and this is dead weight.
+ *
+ * What to remove, exactly — and nothing else:
+ *   1. This function, along with this comment.
+ *   2. In `applyCustomThemeVars`: delete the `if (colors === undefined)` branch
+ *      and change `const colors = lookupAccent(accentColor)` back to
+ *      `const colors = ACCENT_COLORS[accentColor]`.
+ *   3. In `theme/_components/ThemePreview.tsx`: delete the `accent` local and
+ *      its `??` fallbacks, restoring `ACCENT_COLORS[accentColor].preview` and
+ *      `ACCENT_COLORS[accentColor].label`, then drop the `lookupAccent` import.
+ *
+ * Leave `clearAccentOverride` in place — the default-accent early return in
+ * `applyCustomThemeVars` calls it too.
+ */
+export function lookupAccent(accentColor: AccentColor) {
+  const table: Partial<typeof ACCENT_COLORS> = ACCENT_COLORS;
+  return table[accentColor];
+}
+
 function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "zinc";
   const radius = customTheme.radius ?? "xl";
@@ -666,12 +711,18 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
 
   // Zinc matches globals.css — drop the override style so base CSS applies.
   if (accentColor === "zinc") {
-    const el = document.getElementById("custom-theme-accent");
-    if (el) el.remove();
+    clearAccentOverride();
     return;
   }
 
-  const colors = ACCENT_COLORS[accentColor];
+  const colors = lookupAccent(accentColor);
+  // An accent this build does not define. Fall back to the CSS default instead
+  // of throwing on `colors.light`. See `lookupAccent` for why and for how to
+  // remove this.
+  if (colors === undefined) {
+    clearAccentOverride();
+    return;
+  }
 
   const existing = document.getElementById("custom-theme-accent");
   let styleEl: HTMLStyleElement;

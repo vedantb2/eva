@@ -2,6 +2,7 @@
 
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
+import { BrandMark } from "./BrandMark";
 import {
   EVA_GITHUB_URL,
   EVA_SETUP_URL,
@@ -66,9 +67,17 @@ export function LandingOpenSource() {
                 <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
                   Built with
                 </p>
-                <p className="mt-2 text-pretty text-sm leading-relaxed text-foreground">
-                  {LANDING_STACK}
-                </p>
+                <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2.5">
+                  {LANDING_STACK.map((item) => (
+                    <li
+                      key={item.name}
+                      className="flex items-center gap-1.5 text-sm text-foreground"
+                    >
+                      <BrandMark name={item.brand} size={15} />
+                      {item.name}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>

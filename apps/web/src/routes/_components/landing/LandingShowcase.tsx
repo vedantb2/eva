@@ -27,6 +27,10 @@ interface ShowcaseState {
  * strip scrolls out of view, when the visitor prefers reduced motion, and
  * permanently once they choose a tab — nothing should slide out from under
  * someone who is reading it.
+ *
+ * Each tab carries `group` so the animated sidebar icons play the same hover
+ * animation here as they do in the app: the keyframes in `globals.css` are all
+ * scoped to `.group:hover .nav-icon-*`.
  */
 export function LandingShowcase({
   idPrefix,
@@ -91,7 +95,7 @@ export function LandingShowcase({
                 setTab({ index, auto: false, visible: true });
               }}
               className={cn(
-                "motion-base relative -mb-px flex items-center gap-2 px-3 py-2.5 text-sm font-medium",
+                "motion-base group relative -mb-px flex items-center gap-2 px-3 py-2.5 text-sm font-medium",
                 isActive
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -103,7 +107,6 @@ export function LandingShowcase({
                   "motion-base shrink-0",
                   isActive ? "text-primary" : "text-muted-foreground",
                 )}
-                aria-hidden
               />
               {feature.name}
               {isActive ? (

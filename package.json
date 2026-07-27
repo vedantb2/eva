@@ -13,6 +13,7 @@
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
     "lint": "oxlint -c .oxlintrc.json .",
+    "compiler:check": "node scripts/compiler-check.mjs",
     "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
     "deadcode": "knip",
     "prepare": "husky",

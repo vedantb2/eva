@@ -5,3 +5,6 @@ pnpm --filter @eva/web typecheck || exit 1
 
 echo "pre-push: typechecking @eva/backend (convex)..."
 pnpm --filter @eva/backend typecheck || exit 1
+
+echo "pre-push: checking for new React Compiler bailouts..."
+node scripts/compiler-check.mjs || exit 1

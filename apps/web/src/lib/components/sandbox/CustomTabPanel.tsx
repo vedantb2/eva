@@ -61,8 +61,12 @@ export function CustomTabPanel({
   // Bumped on every config change so an in-flight poll continuation bails
   // instead of re-arming after the sandbox stopped or the tab unmounted.
   const generation = useRef(0);
+  // Written in an effect (not during render) so React Compiler can compile the
+  // file; the async poll continuations that read it only run after commit.
   const foregroundRef = useRef(isForeground);
-  foregroundRef.current = isForeground;
+  useEffect(() => {
+    foregroundRef.current = isForeground;
+  }, [isForeground]);
 
   const getPreviewUrl = useAction(api.sandbox.getPreviewUrl);
 

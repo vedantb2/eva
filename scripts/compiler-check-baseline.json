@@ -1,7 +1,3 @@
 [
-  "apps/web/src/lib/components/PreviewNavBar.tsx :: Cannot access refs during render",
-  "apps/web/src/lib/components/sandbox/CustomTabPanel.tsx :: Cannot access refs during render",
-  "apps/web/src/lib/components/sidebar/ContextSidebarHeaderAction.tsx :: Cannot access refs during render",
-  "apps/web/src/routes/_repo/$owner/$repo/sessions/WebPreviewPanel.tsx :: Existing memoization could not be preserved",
-  "apps/web/src/routes/_repo/$owner/$repo/sessions/_components/PreviewAnnotationLayer.tsx :: Cannot access refs during render"
+  "apps/web/src/routes/_repo/$owner/$repo/sessions/WebPreviewPanel.tsx :: Existing memoization could not be preserved"
 ]

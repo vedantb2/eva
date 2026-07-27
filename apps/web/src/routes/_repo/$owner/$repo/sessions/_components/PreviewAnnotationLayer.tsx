@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useWebPreview } from "@eva/ui";
 import {
   buildAnnotationDisplay,
@@ -30,8 +30,18 @@ export function PreviewAnnotationLayer({
     mode,
   });
 
-  const cardPosition = (() => {
-    if (!pending || !layerRef.current || !iframeRef.current) return null;
+  // Measured in a layout effect rather than during render: reading
+  // getBoundingClientRect from refs mid-render makes React Compiler bail on
+  // the whole file, and the DOM nodes are only guaranteed after commit anyway.
+  const [cardPosition, setCardPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (!pending || !layerRef.current || !iframeRef.current) {
+      setCardPosition(null);
+      return;
+    }
     const layerRect = layerRef.current.getBoundingClientRect();
     const iframeRect = iframeRef.current.getBoundingClientRect();
     const left =
@@ -47,11 +57,11 @@ export function PreviewAnnotationLayer({
       CARD_GAP;
     const maxLeft = Math.max(0, layerRect.width - CARD_WIDTH - 8);
     const maxTop = Math.max(0, layerRect.height - CARD_ESTIMATED_HEIGHT);
-    return {
+    setCardPosition({
       left: Math.min(Math.max(8, left), maxLeft),
       top: Math.min(Math.max(8, top), maxTop),
-    };
-  })();
+    });
+  }, [pending, iframeRef]);
 
   return (
     <div ref={layerRef} className="pointer-events-none absolute inset-0 z-10">

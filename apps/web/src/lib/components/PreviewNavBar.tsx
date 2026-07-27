@@ -159,10 +159,15 @@ export function PreviewNavBar({
     notifyPathChange(nextPath);
   }
 
+  // Latest-function refs for the long-lived iframe listeners below. Written in
+  // an effect (not during render) so React Compiler can compile the file; the
+  // listeners only fire after commit, so the effect-time write is equivalent.
   const syncPathFromIframeRef = useRef(syncPathFromIframe);
-  syncPathFromIframeRef.current = syncPathFromIframe;
   const notifyPathChangeRef = useRef(notifyPathChange);
-  notifyPathChangeRef.current = notifyPathChange;
+  useEffect(() => {
+    syncPathFromIframeRef.current = syncPathFromIframe;
+    notifyPathChangeRef.current = notifyPathChange;
+  });
 
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");

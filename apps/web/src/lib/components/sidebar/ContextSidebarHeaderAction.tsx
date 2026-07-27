@@ -3,6 +3,7 @@
 import {
   createContext,
   use,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -45,8 +46,12 @@ export function ContextSidebarHeaderIconButton({
   className?: string;
 }) {
   const setHeaderAction = use(HeaderActionContext);
+  // Written in an effect (not during render) so React Compiler can compile the
+  // file; clicks on the parked button only happen after commit.
   const onClickRef = useRef(onClick);
-  onClickRef.current = onClick;
+  useEffect(() => {
+    onClickRef.current = onClick;
+  }, [onClick]);
 
   useLayoutEffect(() => {
     if (!setHeaderAction) return;

@@ -139,7 +139,6 @@ Convert to JWK format using `jose` CLI. Use full JWK (with `d` parameter) for `S
 ```env
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_NEW_LANDING=false
 ```
 
 **7. Convex environment** (run from `packages/backend`)

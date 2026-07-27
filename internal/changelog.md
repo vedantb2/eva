@@ -1,5 +1,15 @@
 # Changelog
 
+## The landing page describes the product again - 2026-07-27
+
+Two landing pages had been sitting behind `VITE_NEW_LANDING` since the task-detail mock shipped, and both were written before Projects, Reviews, Testing Arena, Audits, Automations, Snapshots, Skills, Inbox and Teams existed. A visitor could read either one end to end and still not know what Eva does. Both are deleted, the flag with them, and one scrolling page replaces them.
+
+- The page is shaped like the product: Plan, Build, Verify, Operate, each a numbered section with its own feature grid, fronted by a four-cell strip that doubles as a table of contents. Sandbox, MCP and self-hosting get sections of their own.
+- Every claim comes from the code rather than the README — the sandbox spec is read off `snapshotActions.ts`, and Designs is left out because it is still dev-only in the repo nav. No metrics and no logos, because there are none to cite honestly.
+- All copy lives in `landingContent.ts`. The components render it and hold no strings, so adding a feature is one entry in one file.
+- Not a single hardcoded colour: every surface, border and accent is a design token, so the page follows whatever theme the visitor's system asks for. Section reveals are `whileInView` and collapse to a plain fade under reduced motion.
+- Gone with the old pages: `BasicLandingPage`, `NewLandingPage`, `LandingCapabilityGrid`, `LandingWorkflowStrip`, `LANDING_PLATFORM_SECTIONS`, five unused `landing-*` CSS classes and their keyframes, and the `VITE_NEW_LANDING` env var. `LandingTaskDetailMock` survives and is now the hero screenshot.
+
 ## Stats stop lying about the time - 2026-07-27
 
 A Convex query is cached against its data and invalidated by data, never by time. Six queries called `Date.now()` anyway, which freezes the answer at whatever the clock said when it was first computed: the "Humans Prompting" KPI claims the last five minutes and could show a count from hours earlier, and the heatmap's one-year window stayed anchored to the day it was first drawn.

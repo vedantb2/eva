@@ -222,6 +222,16 @@ html {
   main {
     position: relative;
   }
+
+  /*
+   * Smooth anchor scrolling for the marketing page only — `#top` is the
+   * landing page root, so in-app routes keep instant scrolling.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    html:has(#top) {
+      scroll-behavior: smooth;
+    }
+  }
   ::selection {
     background: rgb(var(--primary) / 0.22);
     color: rgb(var(--foreground));
@@ -422,81 +432,6 @@ html {
 
   .landing-display {
     font-family: "Geist Sans", var(--font-sans);
-  }
-
-  .landing-headline-emphasis {
-    background: linear-gradient(
-      128deg,
-      rgb(var(--primary)),
-      rgb(var(--primary) / 0.62)
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  .landing-mock-stage {
-    position: relative;
-    isolation: isolate;
-  }
-
-  .landing-mock-stage::before {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: -8% -6% -4%;
-    z-index: -1;
-    background: radial-gradient(
-      ellipse 70% 55% at 50% 42%,
-      rgb(var(--primary) / 0.14),
-      transparent 68%
-    );
-  }
-
-  .landing-mock-float {
-    animation: landing-mock-float 8s ease-in-out infinite;
-  }
-
-  @keyframes landing-mock-float {
-    0%,
-    100% {
-      transform: translateY(0) rotate(-0.35deg);
-    }
-    50% {
-      transform: translateY(-8px) rotate(0.35deg);
-    }
-  }
-
-  .landing-beam::before {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    top: -20%;
-    right: -5%;
-    width: 42%;
-    height: 70%;
-    transform: rotate(-18deg);
-    background: linear-gradient(
-      165deg,
-      rgb(var(--primary) / 0.07),
-      transparent 62%
-    );
-  }
-
-  .landing-orb {
-    animation: landing-orb-breathe 6s ease-in-out infinite;
-  }
-
-  @keyframes landing-orb-breathe {
-    0%,
-    100% {
-      opacity: 0.75;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.08);
-    }
   }
 
   .landing-mock-body {

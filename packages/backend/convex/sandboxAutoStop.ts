@@ -6,6 +6,7 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
+import { scheduleFinalizeStop } from "./_sessions/sandbox";
 
 const DAY_MS = 86_400_000;
 
@@ -229,11 +230,11 @@ export const stopSession = internalMutation({
     const session = await ctx.db.get(sessionId);
     if (!session || !session.sandboxId) return null;
     if (session.status !== "active") return null;
-    await ctx.scheduler.runAfter(
-      0,
-      internal._sessions.sandbox.finalizeStopSandbox,
-      { sessionId, sandboxId: session.sandboxId, repoId: session.repoId },
-    );
+    await scheduleFinalizeStop(ctx, {
+      sessionId,
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
     await ctx.db.patch(sessionId, {
       ptySessionId: undefined,
       status: "stopping",

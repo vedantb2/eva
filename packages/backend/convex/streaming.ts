@@ -7,13 +7,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
-
-/** True when the activity JSON actually has tool steps (not missing / empty / `[]`). */
-function hasToolActivity(activity: string | undefined): boolean {
-  if (activity === undefined) return false;
-  const trimmed = activity.trim();
-  return trimmed.length > 0 && trimmed !== "[]";
-}
+import { cancelledMessageOutcome } from "./_chat/cancelledMessage";
 
 /**
  * Finalize an in-flight assistant message after the user hits stop.
@@ -25,37 +19,19 @@ export async function finalizeCancelledAssistantMessage(
   message: Doc<"messages">,
   streaming: Doc<"streamingActivity"> | null,
 ): Promise<void> {
-  if (message.role !== "assistant" || message.finishedAt !== undefined) {
-    return;
-  }
-
-  const streamedContent = streaming?.currentContent?.trim() ?? "";
-  const streamedActivity = streaming?.currentActivity;
-  const hadStreamedActivity = hasToolActivity(streamedActivity);
-  const hadPersistedActivity = hasToolActivity(message.activityLog);
-
-  if (
-    !message.content &&
-    !streamedContent &&
-    !hadStreamedActivity &&
-    !hadPersistedActivity
-  ) {
+  const outcome = cancelledMessageOutcome(message, streaming);
+  if (outcome.kind === "skip") return;
+  if (outcome.kind === "delete") {
     await ctx.db.delete(message._id);
     return;
   }
-
-  const patch: {
-    content?: string;
-    activityLog?: string;
-    finishedAt: number;
-  } = { finishedAt: Date.now() };
-  if (!message.content && streamedContent) {
-    patch.content = streamedContent;
-  }
-  if (hadStreamedActivity && streamedActivity !== undefined) {
-    patch.activityLog = streamedActivity;
-  }
-  await ctx.db.patch(message._id, patch);
+  await ctx.db.patch(message._id, {
+    ...(outcome.content !== undefined ? { content: outcome.content } : {}),
+    ...(outcome.activityLog !== undefined
+      ? { activityLog: outcome.activityLog }
+      : {}),
+    finishedAt: Date.now(),
+  });
 }
 
 const activityStateValidator = v.union(

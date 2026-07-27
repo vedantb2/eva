@@ -230,7 +230,12 @@ export const requestStopSandbox = internalMutation({
   },
 });
 
-async function scheduleFinalizeStop(
+/**
+ * Schedules session teardown. Every path that flips a session to `"stopping"`
+ * must go through here, or a transient on the finalize action wedges that path
+ * with no recovery.
+ */
+export async function scheduleFinalizeStop(
   ctx: MutationCtx,
   args: {
     sessionId: Id<"sessions">;

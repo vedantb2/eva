@@ -28,6 +28,8 @@ import {
   buildConversationalPrompt,
 } from "./prompts";
 import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
+import { orphanPlaceholderMessages, resultTargetMessage } from "./resultTarget";
+import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
@@ -799,15 +801,7 @@ export const saveResult = internalMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
       .take(20);
-    // Never overwrite system alerts (e.g. draft-PR failures posted after a
-    // prior turn) — those sit as the latest assistant row and would steal the
-    // next saveResult, leaving errorDetail on the real reply.
-    const last = recent.find(
-      (message) =>
-        message.role === "assistant" &&
-        message.isSystemAlert !== true &&
-        message.isSyntheticTurn !== true,
-    );
+    const last = resultTargetMessage(recent);
     if (!last) return null;
 
     const publishFailedAfterResult =
@@ -842,17 +836,8 @@ export const saveResult = internalMutation({
 
     // Drop any orphan empty placeholders left when a system alert sat on top
     // and addAssistantPlaceholder / startExecute staged a second bubble.
-    for (const message of recent) {
-      if (
-        message._id !== last._id &&
-        message.role === "assistant" &&
-        message.isSystemAlert !== true &&
-        message.isSyntheticTurn !== true &&
-        message.content === "" &&
-        message.finishedAt === undefined
-      ) {
-        await ctx.db.delete(message._id);
-      }
+    for (const message of orphanPlaceholderMessages(recent, last)) {
+      await ctx.db.delete(message._id);
     }
 
     const sessionPatch: {
@@ -1028,7 +1013,6 @@ export const ensurePendingTurn = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.pendingTurn) return null;
     // One-shot providers push the prompt; restaging would only spam a leftover
     // Claude daemon with claimPendingTurn model-mismatch logs.
     if (
@@ -1044,10 +1028,10 @@ export const ensurePendingTurn = internalMutation({
       .order("desc")
       .first();
     if (
-      !last ||
-      last.role !== "assistant" ||
-      last.finishedAt !== undefined ||
-      last.isSyntheticTurn === true
+      !isUnclaimedOpenTurn({
+        hasPendingTurn: session.pendingTurn !== undefined,
+        lastAssistant: last,
+      })
     ) {
       return null;
     }
@@ -1094,11 +1078,15 @@ export const restageOpenTurn = internalMutation({
       .order("desc")
       .take(5);
     const lastAssistant = messages.find((m) => m.role === "assistant");
+    // Stricter than the in-workflow re-stage: this path rebuilds the prompt from
+    // the user message, so a bubble that already streamed text would replay it.
     if (
-      !lastAssistant ||
-      lastAssistant.finishedAt !== undefined ||
-      lastAssistant.content !== "" ||
-      lastAssistant.isSyntheticTurn === true
+      lastAssistant === undefined ||
+      !isUnclaimedOpenTurn({
+        hasPendingTurn: session.pendingTurn !== undefined,
+        lastAssistant,
+      }) ||
+      lastAssistant.content !== ""
     ) {
       return {
         restaged: false as const,

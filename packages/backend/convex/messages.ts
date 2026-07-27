@@ -4,6 +4,10 @@ import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import { variationValidator, messageFields } from "./validators";
+import {
+  appendMediaStorageIds,
+  messageMediaStorageIds,
+} from "./_messages/media";
 
 const parentIdValidator = messageFields.parentId;
 
@@ -66,14 +70,7 @@ async function resolveMessageUrls(
             }),
           )
         : undefined;
-      // mediaStorageIds is the source of truth for new docs. Pre-migration
-      // docs only have the legacy single imageStorageId/videoStorageId
-      // fields, so fall back to resolving those (video first, as before).
-      const mediaIds =
-        m.mediaStorageIds ??
-        [m.videoStorageId, m.imageStorageId].filter(
-          (id): id is Id<"_storage"> => id !== undefined,
-        );
+      const mediaIds = messageMediaStorageIds(m);
       const media =
         mediaIds.length > 0
           ? await Promise.all(
@@ -141,15 +138,10 @@ export const updateLastInternal = internalMutation({
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     if (args.variations !== undefined) patch.variations = args.variations;
 
-    // Append this call's ids (video then image, for legacy callers) so
-    // repeated calls within a turn accumulate instead of overwriting.
-    const newIds = [
-      ...(args.mediaStorageIds ?? []),
-      ...(args.videoStorageId ? [args.videoStorageId] : []),
-      ...(args.imageStorageId ? [args.imageStorageId] : []),
-    ];
-    if (newIds.length > 0) {
-      patch.mediaStorageIds = [...(last.mediaStorageIds ?? []), ...newIds];
+    // Accumulates within a turn, so a second capture cannot orphan the first.
+    const mediaStorageIds = appendMediaStorageIds(last.mediaStorageIds, args);
+    if (mediaStorageIds !== undefined) {
+      patch.mediaStorageIds = mediaStorageIds;
     }
 
     await ctx.db.patch(last._id, patch);

@@ -7,6 +7,7 @@ import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { getInstallationOctokit } from "./githubAuth";
 import { extractPrNumber } from "./_github/helpers";
+import { isPullRequestAlreadyExistsError } from "./_github/prErrors";
 import {
   buildPrBody,
   buildTaskPrSections,
@@ -128,14 +129,6 @@ async function findOpenPullRequestForBranch(params: {
   const pr = pulls.data[0];
   if (!pr) return null;
   return { url: pr.html_url, number: pr.number, body: pr.body };
-}
-
-function isPullRequestAlreadyExistsError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    /pull request already exists/i.test(message) ||
-    /A pull request already exists for/i.test(message)
-  );
 }
 
 async function createPullRequestWithGitHub(

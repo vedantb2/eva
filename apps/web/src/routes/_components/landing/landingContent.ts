@@ -1,25 +1,28 @@
+import type { ComponentType } from "react";
 import {
-  IconBolt,
   IconBrowser,
   IconCamera,
-  IconChartBar,
-  IconClockBolt,
-  IconFileText,
-  IconGitPullRequest,
-  IconInbox,
   IconLayoutDashboard,
-  IconLayoutKanban,
-  IconNotes,
   IconPlug,
   IconRobot,
   IconShieldCheck,
   IconSparkles,
   IconStack2,
-  IconTerminal2,
-  IconTestPipe,
   IconUsers,
-  type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import {
+  AutomationsIcon,
+  DocumentsIcon,
+  DraftsIcon,
+  InboxIcon,
+  ProjectsIcon,
+  QuickTasksIcon,
+  ReviewsIcon,
+  SessionsIcon,
+  StatsIcon,
+  TestingArenaIcon,
+} from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import type { BrandName } from "./BrandMark";
 
 /**
  * Every string on the marketing page lives here so copy can be reviewed in one
@@ -31,11 +34,47 @@ import {
 export const EVA_GITHUB_URL = "https://github.com/vvedantb/eva";
 export const EVA_SETUP_URL = `${EVA_GITHUB_URL}#self-hosting`;
 
+/**
+ * Identifies the mock panel a feature shows in its pillar showcase. The union is
+ * closed so `LANDING_PREVIEWS` can be an exhaustive record — adding a feature
+ * without a preview is then a type error rather than a blank panel.
+ */
+export type LandingPreviewKey =
+  | "documents"
+  | "projects"
+  | "drafts"
+  | "sessions"
+  | "quickTasks"
+  | "agents"
+  | "reviews"
+  | "arena"
+  | "audits"
+  | "proof"
+  | "automations"
+  | "snapshots"
+  | "skills"
+  | "stats"
+  | "inbox"
+  | "teams";
+
+/**
+ * Icon shape a feature tab can render. Deliberately narrower than either source
+ * it accepts: the animated sidebar icons take `size` and `className` and
+ * nothing else, and Tabler's icons take a superset, so this is the widest type
+ * both satisfy. Features that exist in the product nav reuse that exact icon so
+ * the marketing page and the app agree; the rest fall back to Tabler.
+ */
+export type LandingIcon = ComponentType<{
+  size?: number;
+  className?: string;
+}>;
+
 export interface LandingFeature {
-  icon: TablerIcon;
+  icon: LandingIcon;
   name: string;
   summary: string;
   points: readonly string[];
+  preview: LandingPreviewKey;
 }
 
 export interface LandingPillar {
@@ -48,13 +87,6 @@ export interface LandingPillar {
   tagline: string;
   heading: string;
   intro: string;
-  /**
-   * Responsive column classes, written out per pillar rather than derived from
-   * the feature count. The grid draws its hairlines with `gap-px` over a border
-   * -coloured background, so a ragged final row would render as a solid block —
-   * each breakpoint here divides its feature count exactly.
-   */
-  gridClass: string;
   features: readonly LandingFeature[];
 }
 
@@ -84,10 +116,9 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
     heading: "Give the agent something to work from.",
     intro:
       "Requirements, structure and half-formed ideas live beside the repository, so a task starts with context instead of a prompt.",
-    gridClass: "lg:grid-cols-3",
     features: [
       {
-        icon: IconFileText,
+        icon: DocumentsIcon,
         name: "Documents",
         summary: "PRDs and specs the agent reads.",
         points: [
@@ -95,9 +126,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Pulled into agent context during a task",
           "Kept beside the repository, not in another tool",
         ],
+        preview: "documents",
       },
       {
-        icon: IconLayoutKanban,
+        icon: ProjectsIcon,
         name: "Projects",
         summary: "Multi-task work with a build pipeline.",
         points: [
@@ -105,9 +137,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Split a feature into tasks that run on their own",
           "Follow the whole thing through to merge",
         ],
+        preview: "projects",
       },
       {
-        icon: IconNotes,
+        icon: DraftsIcon,
         name: "Drafts",
         summary: "Somewhere to put an idea.",
         points: [
@@ -115,6 +148,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Promote a draft into a task when it is ready",
           "Per repository, kept out of the backlog",
         ],
+        preview: "drafts",
       },
     ],
   },
@@ -126,10 +160,9 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
     heading: "Two ways to run an agent.",
     intro:
       "Sit with one in a live environment, or fire off a batch of small changes and come back when they are done.",
-    gridClass: "lg:grid-cols-3",
     features: [
       {
-        icon: IconTerminal2,
+        icon: SessionsIcon,
         name: "Sessions",
         summary: "Pair programming in a live sandbox.",
         points: [
@@ -137,9 +170,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "PR diffs without leaving the page",
           "An agent-controlled browser you can watch",
         ],
+        preview: "sessions",
       },
       {
-        icon: IconBolt,
+        icon: QuickTasksIcon,
         name: "Quick Tasks",
         summary: "Small changes, many at once.",
         points: [
@@ -147,6 +181,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Kanban and list views, filters and bulk actions",
           "Each one gets its own sandbox and branch",
         ],
+        preview: "quickTasks",
       },
       {
         icon: IconRobot,
@@ -157,6 +192,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Choose per task rather than per platform",
           "Credentials come from your own environment variables",
         ],
+        preview: "agents",
       },
     ],
   },
@@ -168,10 +204,9 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
     heading: "Proof before merge.",
     intro:
       "Every change arrives with a diff, a written recap, a screenshot of the app running, and whatever checks you have configured.",
-    gridClass: "sm:grid-cols-2 lg:grid-cols-4",
     features: [
       {
-        icon: IconGitPullRequest,
+        icon: ReviewsIcon,
         name: "Reviews",
         summary: "Every pull request in one place.",
         points: [
@@ -179,9 +214,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "AI recap posted back as a sticky comment",
           "Send a review comment straight to an agent",
         ],
+        preview: "reviews",
       },
       {
-        icon: IconTestPipe,
+        icon: TestingArenaIcon,
         name: "Testing Arena",
         summary: "Check the code against the spec.",
         points: [
@@ -189,6 +225,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Ranks the gaps it finds by severity",
           "Turn a gap into a task in one step",
         ],
+        preview: "arena",
       },
       {
         icon: IconShieldCheck,
@@ -199,6 +236,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Findings go back to an agent to fix",
           "Configured per repository",
         ],
+        preview: "audits",
       },
       {
         icon: IconCamera,
@@ -209,6 +247,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Attached to the task and to the pull request",
           "Recorded from a real Chrome instance",
         ],
+        preview: "proof",
       },
     ],
   },
@@ -220,10 +259,9 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
     heading: "The parts that keep it running.",
     intro:
       "Scheduling, environments, conventions, and the numbers that tell you whether any of it worked.",
-    gridClass: "sm:grid-cols-2 lg:grid-cols-3",
     features: [
       {
-        icon: IconClockBolt,
+        icon: AutomationsIcon,
         name: "Automations",
         summary: "Agent runs on a cron.",
         points: [
@@ -231,6 +269,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Scheduled per repository",
           "Results land in your inbox",
         ],
+        preview: "automations",
       },
       {
         icon: IconStack2,
@@ -241,6 +280,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Rebuild on a schedule or on demand",
           "Falls back to a fresh clone when one is missing",
         ],
+        preview: "snapshots",
       },
       {
         icon: IconSparkles,
@@ -251,9 +291,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Refreshed every six hours",
           "Shared by every task in the repository",
         ],
+        preview: "skills",
       },
       {
-        icon: IconChartBar,
+        icon: StatsIcon,
         name: "Stats",
         summary: "See what actually shipped.",
         points: [
@@ -261,9 +302,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Activity heatmap",
           "Contributor leaderboard",
         ],
+        preview: "stats",
       },
       {
-        icon: IconInbox,
+        icon: InboxIcon,
         name: "Inbox",
         summary: "Know when something needs you.",
         points: [
@@ -271,6 +313,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Optional daily digest",
           "Weekly changelog email",
         ],
+        preview: "inbox",
       },
       {
         icon: IconUsers,
@@ -281,6 +324,7 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Encrypted environment variables",
           "Each app in a monorepo is its own workspace",
         ],
+        preview: "teams",
       },
     ],
   },
@@ -308,6 +352,28 @@ export const LANDING_SANDBOX_SPEC = [
     items: "code-server · agent-browser · Claude Agent SDK",
   },
 ] as const;
+
+/**
+ * Startup log for the sandbox terminal mock, revealed a line at a time as the
+ * section scrolls into view. Timings are representative of a snapshot boot, not
+ * a measurement of any particular run.
+ */
+export type LandingBootKind = "command" | "info" | "ok";
+
+export const LANDING_SANDBOX_BOOT: readonly {
+  kind: LandingBootKind;
+  text: string;
+}[] = [
+  { kind: "command", text: "eva sandbox create --repo acme/web" },
+  { kind: "info", text: "Restoring snapshot acme-web@2026-07-27" },
+  { kind: "ok", text: "Ready in 4.1s · Node 24 · docker 28.3.3" },
+  { kind: "command", text: "pnpm install --frozen-lockfile" },
+  { kind: "ok", text: "1284 packages · 6.2s" },
+  { kind: "command", text: "supabase start" },
+  { kind: "ok", text: "Postgres on 127.0.0.1:54322" },
+  { kind: "command", text: "pnpm dev" },
+  { kind: "ok", text: "Local: http://127.0.0.1:3000" },
+];
 
 export const LANDING_MCP_CARDS = [
   {
@@ -342,11 +408,27 @@ export const LANDING_MCP_CARDS = [
   },
 ] as const;
 
+/** Tool calls shown in the MCP panel, in the order they animate in. */
+export const LANDING_MCP_CALLS = [
+  { tool: "list_repos", result: "4 repositories" },
+  { tool: "get_document", result: "Checkout rework — PRD" },
+  { tool: "create_task", result: "acme/web #142" },
+  { tool: "run_query", result: "18 rows" },
+] as const;
+
 export const LANDING_OPEN_SOURCE_FACTS = [
   { label: "Licence", value: "MIT" },
   { label: "Hosting", value: "Self-hosted" },
   { label: "Your data", value: "Stays yours" },
 ] as const;
 
-export const LANDING_STACK =
-  "Vite · TanStack Router · React 19 · Tailwind · Convex · Vercel Sandbox · Clerk";
+/** What the app is built on, shown as a logo row in the open-source section. */
+export const LANDING_STACK: readonly { brand: BrandName; name: string }[] = [
+  { brand: "vite", name: "Vite" },
+  { brand: "tanstack", name: "TanStack Router" },
+  { brand: "react", name: "React 19" },
+  { brand: "tailwind", name: "Tailwind" },
+  { brand: "convex", name: "Convex" },
+  { brand: "vercel", name: "Vercel Sandbox" },
+  { brand: "clerk", name: "Clerk" },
+];

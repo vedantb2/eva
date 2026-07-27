@@ -10,7 +10,6 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "scan": "npx react-scan@latest http://localhost:5173",
     "doctor": "npx react-doctor@latest ."
   },
   "dependencies": {
@@ -97,7 +96,6 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@react-scan/vite-plugin-react-scan": "^0.2.7",
     "@rolldown/plugin-babel": "^0.2.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/router-plugin": "^1.120.0",
@@ -108,7 +106,6 @@
     "autoprefixer": "^10.4.20",
     "babel-plugin-react-compiler": "1.0.0",
     "postcss": "^8.5.3",
-    "react-scan": "^0.5.7",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",

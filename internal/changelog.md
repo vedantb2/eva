@@ -9,6 +9,7 @@ The full marketing page is a long scroll with sixteen animated feature previews,
 - Static by design: no previews, no motion, no auto-cycling tabs. Anything that needs those belongs on the full page.
 - The dev-only "Sign in as Eva" button moved out into its own component so both pages render it. Flipping the flag no longer takes the shortcut away.
 - The flag is `z.enum(["true", "false"])` rather than a boolean, because every Vite env value arrives as a string and `Boolean("false")` is `true`.
+- Sign-in is the compact page's only call to action. The repository link, the "Open source and MIT licensed" badge, the licence line, the "Self-host it" button and every sign-up button are gone from it; the header's one button is now "Sign in", and the hero's "Get started" is the same. The full page keeps all of it.
 
 ## react-scan is gone - 2026-07-27
 

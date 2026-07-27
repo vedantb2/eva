@@ -1,12 +1,10 @@
 "use client";
 
-import { SignInButton, SignUpButton } from "@clerk/clerk-react";
-import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
+import { SignInButton } from "@clerk/clerk-react";
+import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import { BrandMark } from "./BrandMark";
 import {
-  EVA_GITHUB_URL,
-  EVA_SETUP_URL,
   LANDING_HERO_CAPABILITIES,
   LANDING_PILLARS,
   LANDING_STACK,
@@ -22,6 +20,10 @@ import {
  *
  * Deliberately static — no previews, no motion, no auto-cycling tabs. Anything
  * that needed those belongs on the full page.
+ *
+ * Sign-in is the only call to action here. There is no sign-up, no link to the
+ * repository and no licence line — the full page carries all of that, and this
+ * version is for instances that want a door rather than a pitch.
  */
 export function LandingCompact() {
   return (
@@ -41,45 +43,14 @@ export function LandingCompact() {
             </span>
           </span>
 
-          <div className="flex items-center gap-1.5">
-            <Button asChild variant="ghost" size="icon-sm">
-              <a
-                href={EVA_GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Eva on GitHub"
-              >
-                <IconBrandGithub size={18} />
-              </a>
-            </Button>
-            <SignInButton mode="modal">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden text-muted-foreground hover:text-foreground sm:inline-flex"
-              >
-                Sign in
-              </Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button size="sm">Get started</Button>
-            </SignUpButton>
-          </div>
+          <SignInButton mode="modal">
+            <Button size="sm">Sign in</Button>
+          </SignInButton>
         </nav>
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-        <a
-          href={EVA_GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="motion-base inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground shadow-sm hover:bg-muted/60 hover:text-foreground"
-        >
-          <span className="size-1.5 rounded-full bg-primary" />
-          Open source and MIT licensed
-        </a>
-
-        <h1 className="mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+        <h1 className="max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl">
           Your AI coworker ships pull requests.
         </h1>
 
@@ -101,23 +72,13 @@ export function LandingCompact() {
           ))}
         </ul>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SignUpButton mode="modal">
+        <div className="mt-8">
+          <SignInButton mode="modal">
             <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
-              Get started
+              Sign in
               <IconArrowRight size={16} aria-hidden />
             </Button>
-          </SignUpButton>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <a href={EVA_SETUP_URL} target="_blank" rel="noreferrer">
-              Self-host it
-            </a>
-          </Button>
+          </SignInButton>
         </div>
 
         {/*
@@ -159,8 +120,7 @@ export function LandingCompact() {
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Eva</span> — MIT
-            licensed and free to self-host.
+            <span className="font-medium text-foreground">Eva</span> — built on
           </p>
           <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {LANDING_STACK.map((item) => (

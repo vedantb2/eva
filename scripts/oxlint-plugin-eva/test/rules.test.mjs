@@ -109,3 +109,18 @@ assertInvalid(
 );
 
 assertValid("no-value-block-in-try", inHook(`try { fn(); } catch {}`));
+
+// A `throw` inside the try bails too; throwing from the catch is fine.
+assertInvalid(
+  "no-value-block-in-try",
+  inHook(`try { if (a) throw new Error("x"); fn(); } catch {}`),
+);
+assertValid(
+  "no-value-block-in-try",
+  inHook(`try { fn(); } catch (e) { fn(); throw e; }`),
+);
+// A throw inside a nested function gets its own lowering.
+assertValid(
+  "no-value-block-in-try",
+  inHook(`try { fn(() => { throw new Error("x"); }); } catch {}`),
+);

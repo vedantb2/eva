@@ -17,6 +17,13 @@ const finallyMessage =
   "Duplicate the cleanup into the `catch` and after the `try`, or move the " +
   "whole `try` into a helper function. See CLAUDE.md.";
 
+const throwMessage =
+  bailoutPreamble +
+  "It cannot compile a `throw` inside a `try` block. Handle the failure in " +
+  "place with `if`/`else` instead of throwing to your own catch, or validate " +
+  "and throw above the `try`. Throwing from a `catch` body is fine. " +
+  "See CLAUDE.md.";
+
 const noCatchMessage =
   bailoutPreamble +
   "It cannot compile a `try` without a `catch`. Add a `catch` clause — use " +
@@ -85,7 +92,8 @@ function* children(node) {
  */
 function scanTryBlock(node, report) {
   if (!node || FUNCTIONS.has(node.type)) return;
-  if (isOffending(node)) report(node, valueBlockMessage);
+  if (node.type === "ThrowStatement") report(node, throwMessage);
+  else if (isOffending(node)) report(node, valueBlockMessage);
   for (const child of children(node)) scanTryBlock(child, report);
 }
 
@@ -128,8 +136,9 @@ function walk(node, report, compiled, nameHint) {
 }
 
 /**
- * Flags the three ways a `try` statement makes React Compiler give up: a value
- * block inside the `try`, a `finally` clause, and a missing `catch`.
+ * Flags the four ways a `try` statement makes React Compiler give up: a value
+ * block inside the `try`, a `throw` inside the `try`, a `finally` clause, and a
+ * missing `catch`.
  *
  * The bailout is file-scoped: one offending construct anywhere in a compiled
  * function drops memoization for every component in that file, silently and

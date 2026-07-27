@@ -21,7 +21,7 @@ Implementation:
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
 - With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
-- React Compiler bails on a whole file for `finally`, a catch-less `try`, or `?:`/`&&`/`??`/`?.`/loops inside `try` (`eva/no-value-block-in-try`).
+- React Compiler bails on a whole file for `finally`, a catch-less `try`, or `throw`/`?:`/`&&`/`??`/`?.`/loops inside `try` (`eva/no-value-block-in-try`).
 - Minimize surface area of change.
 - Co-locate logic where it naturally belongs.
 - Avoid premature abstractions.

@@ -68,7 +68,7 @@ function agentLoginPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
@@ -80,7 +80,11 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    // React Compiler on builds only — its babel pass is the slowest transform
+    // step and dev runs fine unmemoized (same split as vmem). Set
+    // REACT_COMPILER=1 to opt dev in when debugging compiler behaviour.
+    (command === "build" || process.env.REACT_COMPILER === "1") &&
+      babel({ presets: [reactCompilerPreset()] }),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({
@@ -169,4 +173,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

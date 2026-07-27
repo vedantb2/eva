@@ -1,6 +1,3 @@
-// removed as not used anymore but leave as commented out
-// react-scan must be imported before React so it can hook DevTools first.
-// import { scan } from "react-scan";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
@@ -17,11 +14,6 @@ import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
 import "./fonts";
 import "./globals.css";
-
-// removed as not used anymore but leave as commented out
-// if (import.meta.env.DEV) {
-//   scan({ enabled: true, showToolbar: true });
-// }
 
 // Persist any in-flight MCP OAuth params before Clerk's session handshake
 // gets a chance to redirect us off `/mcp/oauth/authorize`. See

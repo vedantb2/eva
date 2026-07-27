@@ -1,5 +1,13 @@
 # Changelog
 
+## react-scan is gone - 2026-07-27
+
+The render-profiling overlay was still switched on for every dev session on `main`, and on staging it survived as a commented-out block with a note asking that it be left there. Nobody had used it in months, and it cost more than it looked: it hooked React DevTools before React itself loaded, drew a toolbar and a full-page canvas that every screenshot and screencast script then had to hide by hand, and dragged in its own copies of eslint, preact, protobufjs and OpenTelemetry.
+
+- Removed the import and the `scan({ enabled: true, showToolbar: true })` call from `main.tsx`, the commented-out remains of both, the `scan` npm script, and the `react-scan` and `@react-scan/vite-plugin-react-scan` dependencies. The vite plugin was declared but never referenced in `vite.config.ts`.
+- The lockfile loses about 2,000 lines. `react-scan` was one direct dependency in front of roughly 80 transitive ones, including a second eslint and its whole plugin chain.
+- The capture skills still hide `#react-scan-root` before shooting. Those steps are now no-ops rather than errors, and can come out next time those scripts are touched.
+
 ## Real logos on the landing page, and one fewer way to crash - 2026-07-27
 
 The marketing page named Claude, Cursor, Convex and eight others in plain text, and drew its feature tabs with generic Tabler icons that looked nothing like the sidebar a visitor sees after signing up. Both are now the real thing.

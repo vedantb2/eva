@@ -1,5 +1,15 @@
 # Changelog
 
+## Stats stop lying about the time - 2026-07-27
+
+A Convex query is cached against its data and invalidated by data, never by time. Six queries called `Date.now()` anyway, which freezes the answer at whatever the clock said when it was first computed: the "Humans Prompting" KPI claims the last five minutes and could show a count from hours earlier, and the heatmap's one-year window stayed anchored to the day it was first drawn.
+
+- Each of those queries now takes the timestamp as an argument, so the window is the caller's and the result stays cacheable. Nothing about the numbers changes — they just move when time does.
+- The client half was the mirror image: the start of the selected range was recomputed from the clock on every render, and Convex keys both its cache and its subscriptions on the argument object, so every query on the stats and logs pages resubscribed and recomputed on each render. Timestamps now come from one place that rounds down to a chosen interval and advances on the boundary — stable within the interval, fresh once it passes.
+- Team member order is now alphabetical instead of online-first. The online-first sort was the clock read, the sidebar already works out who is online on its own tick, and avatars no longer reshuffle under the pointer as people go idle.
+- Two dead exports removed: `listOnlineTeammates` and `isDevServerBooting`, neither with a caller.
+- The determinism test that recorded these six as known exceptions has no exception list any more. An empty rule is enforceable; a list of grandfathered excuses is not.
+
 ## Regression tests for the last 30 days of fixes - 2026-07-27
 
 The three-day sweep was widened in stages — five days, a week, two weeks, three weeks, thirty days — reading every fix commit in the window and adding a test only where there was a real invariant to pin. That produced 20 new test files, and along the way it found four bugs that were still live in prod.
@@ -9,7 +19,7 @@ The three-day sweep was widened in stages — five days, a week, two weeks, thre
 - Five pieces of logic were pulled out of workflows to be testable at all — PR error classification, pending-turn recovery, result routing, cancelled-message shaping and message media — each previously reachable only by running a whole workflow against GitHub.
 - The rest cover the marker that brands a sandbox as seeded (writing it after a failed run made the fault permanent and silent), keep-last-good for seeded snapshots, orphaned sandbox cleanup, cron registration, draft PRs, and source encoding.
 - Every source-text contract was checked against its own pre-fix commit to prove the rule actually fires. A test that would have passed before the fix guards nothing.
-- Two findings recorded rather than fixed: six Convex queries read the clock, which makes them non-cacheable, and `isDevServerBooting` has no callers.
+- Two findings the sweep turned up on the side — six Convex queries reading the clock, and a dead `isDevServerBooting` — are fixed in the entry above.
 
 ## Table view is gone - 2026-07-27
 

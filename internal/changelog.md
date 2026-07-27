@@ -1,5 +1,15 @@
 # Changelog
 
+## VITE_NEW_LANDING is back, and there is a compact page behind it - 2026-07-27
+
+The full marketing page is a long scroll with sixteen animated feature previews, and not every instance wants to serve that. `VITE_NEW_LANDING` returns to choose between it and a new compact page — but the flag now defaults the other way round from last time. Set it to `"true"` for the full page; anything else, including unset, gets the compact one.
+
+- The compact page is one screen rather than the old basic page's hero-and-nothing. It carries the same headline and capability list, then all sixteen features across four columns — one per stage of the workflow, each with its sidebar icon and its one-line summary — and closes on the stack logos.
+- Both pages read `landingContent.ts`, so the flag chooses depth, not message. Changing a feature's summary changes it in both, and neither can drift.
+- Static by design: no previews, no motion, no auto-cycling tabs. Anything that needs those belongs on the full page.
+- The dev-only "Sign in as Eva" button moved out into its own component so both pages render it. Flipping the flag no longer takes the shortcut away.
+- The flag is `z.enum(["true", "false"])` rather than a boolean, because every Vite env value arrives as a string and `Boolean("false")` is `true`.
+
 ## react-scan is gone - 2026-07-27
 
 The render-profiling overlay was still switched on for every dev session on `main`, and on staging it survived as a commented-out block with a note asking that it be left there. Nobody had used it in months, and it cost more than it looked: it hooked React DevTools before React itself loaded, drew a toolbar and a full-page canvas that every screenshot and screencast script then had to hide by hand, and dragged in its own copies of eslint, preact, protobufjs and OpenTelemetry.

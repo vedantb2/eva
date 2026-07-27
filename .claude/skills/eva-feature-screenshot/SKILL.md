@@ -44,6 +44,17 @@ report screenshot.
    Navigate to a view where it dominates, or open the surface that contains it (modal, sheet, detail
    pane) so it reads at timeline size.
 
+   **Collapse the sidebar before every shot.** The nav rail eats ~250px of a 1280px frame and
+   nothing in it is ever the feature. Click it away once — the state persists across navigation —
+   and only the icon rail stays:
+
+   ```bash
+   agent-browser eval "document.querySelector('button[aria-label=\"Hide sidebar\"]')?.click()"
+   ```
+
+   Same rule for any secondary list rail (Reviews list, Settings nav) if the surface offers a way
+   to hide it. Verify in the raw PNG: if a column of unrelated nav items survives, reshoot.
+
 6. **Frame it, but don't annotate it.** Always run step 6 — the gradient + wordmark is the house
    style. Never add arrows, red circles, callout text, or fake browser chrome unless asked.
 

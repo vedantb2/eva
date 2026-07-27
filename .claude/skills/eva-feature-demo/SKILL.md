@@ -50,7 +50,15 @@ always returns to the full frame, so nothing is permanently hidden.
    exactly 16:9, no crop on X.
 
 3. **Set viewport, theme, and overlay-hiding BEFORE `record start`.** Anything after the recorder is
-   running is in the video, including the overlay-hiding flash.
+   running is in the video, including the overlay-hiding flash. Collapse the sidebar here too — it
+   eats ~250px of the frame and is never the feature:
+
+   ```bash
+   agent-browser eval "document.querySelector('button[aria-label=\"Hide sidebar\"]')?.click()"
+   ```
+
+   The collapsed state persists across navigation, so one click before `record start` covers the
+   whole take.
 
 4. **15–40 seconds.** Long enough to show one thing land, short enough to loop. One feature per
    recording. If the flow needs 60s, it is two recordings or the wrong flow.

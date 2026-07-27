@@ -1,5 +1,16 @@
 # Changelog
 
+## Regression tests for the last 30 days of fixes - 2026-07-27
+
+The three-day sweep was widened in stages — five days, a week, two weeks, three weeks, thirty days — reading every fix commit in the window and adding a test only where there was a real invariant to pin. That produced 20 new test files, and along the way it found four bugs that were still live in prod.
+
+- Three ephemeral sandboxes were never being deleted: both evaluation workflows and test generation each created a VM, finished with it, and walked away. Idle auto-stop only stops a sandbox, so those machines idled until the provider reaped them. Found by writing the teardown contract, not by a bill.
+- That contract now pins all nine sandbox call sites with their `ephemeral` flag, so a new one has to be classified deliberately rather than inheriting whatever the file it was pasted into happened to do. Ephemeral means delete in a `finally`; persistent means never delete, because that VM belongs to a live session.
+- Five pieces of logic were pulled out of workflows to be testable at all — PR error classification, pending-turn recovery, result routing, cancelled-message shaping and message media — each previously reachable only by running a whole workflow against GitHub.
+- The rest cover the marker that brands a sandbox as seeded (writing it after a failed run made the fault permanent and silent), keep-last-good for seeded snapshots, orphaned sandbox cleanup, cron registration, draft PRs, and source encoding.
+- Every source-text contract was checked against its own pre-fix commit to prove the rule actually fires. A test that would have passed before the fix guards nothing.
+- Two findings recorded rather than fixed: six Convex queries read the clock, which makes them non-cacheable, and `isDevServerBooting` has no callers.
+
 ## Table view is gone - 2026-07-27
 
 Switching away from the quick-tasks table froze the tab hard: a synchronous React render loop that never yielded, so the page took no input and printed nothing. A long instrumentation pass narrowed it to the table's unmount and no further — probes in every component on the path never tripped. The view was the least-used of the three and not worth more days of hunting, so it has been removed rather than fixed.

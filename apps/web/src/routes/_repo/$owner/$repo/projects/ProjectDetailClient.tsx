@@ -183,8 +183,9 @@ export function ProjectDetailClient({
       search: true,
     });
     setExpandRightSignal((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentBrowsingAt]);
+    // Full deps are safe: the ref guard above makes re-runs no-ops, and a
+    // disable comment here makes React Compiler skip the whole file.
+  }, [agentBrowsingAt, basePath, navigate, projectPathSegment]);
 
   const handleStopBuild = async () => {
     if (!project) return;

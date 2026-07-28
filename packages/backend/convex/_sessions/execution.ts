@@ -113,7 +113,7 @@ export const startExecute = authMutation({
     });
 
     const user = await ctx.db.get(ctx.userId);
-    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
+    const { prompt } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -132,12 +132,15 @@ export const startExecute = authMutation({
             pendingTurn: {
               prompt,
               requestedAt: Date.now(),
-              turnKind,
               attachmentStorageIds: args.attachmentStorageIds,
               model: normalizedModel,
             },
           }
         : { pendingTurn: undefined }),
+      // Deliberately no cancelRequestedAt clear here: staging must never wipe
+      // an undrained cancel for a still-running turn (the daemon drains the
+      // flag via claimPendingTurn, and ignores it when no turn is active, so a
+      // stale flag is harmless — but a wiped one loses the interrupt).
       // Persist the session owner's sticky account for page-open prewarm.
       providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
@@ -300,7 +303,13 @@ export const enqueueMessage = authMutation({
   },
 });
 
-/** Cancels the active session workflow, kills the sandbox process, and starts queued messages. */
+/**
+ * Cancels the active session workflow and starts queued messages. For a
+ * Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
+ * its own in-flight SDK query on its next `claimPendingTurn` poll, instead of
+ * killing the sandbox process — Cursor/Codex/Opencode have no daemon to
+ * observe the flag, so they keep the pkill-style kill.
+ */
 export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -320,7 +329,9 @@ export const cancelExecution = authMutation({
 
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
-    if (session.sandboxId) {
+    if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
+      await ctx.db.patch(args.sessionId, { cancelRequestedAt: Date.now() });
+    } else if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,

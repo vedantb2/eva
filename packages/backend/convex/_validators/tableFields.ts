@@ -118,6 +118,7 @@ export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  // legacy field, no longer written — cleanup migration later
   turnKind: v.optional(
     v.union(v.literal("conversational"), v.literal("agent")),
   ),
@@ -132,6 +133,11 @@ export const chatDaemonEntityFields = {
   syntheticTurnMessageId: v.optional(v.id("messages")),
   backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
   pendingTaskStops: v.optional(v.array(v.string())),
+  // Interrupt-cancel signal for a warm Claude daemon: cancelExecution sets this
+  // instead of killing the sandbox process; claimPendingTurn drains it
+  // unconditionally (even mid-turn, with no pendingTurn) so the daemon's poll
+  // loop notices and aborts its in-flight SDK query.
+  cancelRequestedAt: v.optional(v.number()),
 };
 
 export const agentTaskFields = {

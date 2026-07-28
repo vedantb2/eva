@@ -170,37 +170,6 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
-const CONVERSATIONAL_SYSTEM_PROMPT = `Reply briefly and directly. Do not use tools.
-
-If the request needs any of the following, reply with EXACTLY <<EVA_ESCALATE>> and nothing else:
-- repo files, code, or codebase inspection
-- project or database data
-- Eva platform actions (tasks, docs, queries, MCP tools)
-- context from earlier turns in this coding session`;
-
-/** Fresh one-shot query for conversational turns: no resume, no tools, no MCP. */
-export function buildConversationalSdkOptions(): SdkOptions {
-  return {
-    cwd: WORK_DIR,
-    model: "haiku",
-    pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: CONVERSATIONAL_SYSTEM_PROMPT,
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
-    allowedTools: [],
-    includePartialMessages: true,
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      DISABLE_TELEMETRY: "1",
-      DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1",
-    },
-  };
-}
-
 const EVA_SDK_SYSTEM_APPEND =
   "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
 

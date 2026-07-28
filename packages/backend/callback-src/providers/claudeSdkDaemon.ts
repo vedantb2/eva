@@ -44,20 +44,14 @@ import {
   syncClaudeStateToPersist,
   prepareClaudeSessionState,
 } from "../session/claudeSession.js";
-import {
-  buildSdkOptions,
-  buildConversationalSdkOptions,
-  loadSdk,
-  type SdkUserMessage,
-} from "./claudeSdk.js";
-import {
-  isEscalationReply,
-  shouldHoldConversationalStream,
-} from "./conversationalEscalation.js";
+import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
-import { readStopTaskToolUseIds } from "./claimPendingTurnParse.js";
+import {
+  readCancelRequested,
+  readStopTaskToolUseIds,
+} from "./claimPendingTurnParse.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -89,15 +83,19 @@ const PROMPT_POLL_INTERVAL_MS = 50;
 const NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const WATCHDOG_TICK_MS = 5000;
 
+// Safety net for a cancel whose interrupted `result` never arrives (SDK
+// interrupt() hung, or silently dropped it). The normal per-turn watchdog
+// above is disarmed at cancel time (endWatchedTurn already ran), so without
+// this a lost interrupt would wedge the daemon forever with daemonTurn stuck
+// non-null. See turnCancelInFlight and startTurnWatchdog.
+const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
+
 let turnActive = false;
 let turnStartedAtMs = 0;
 let lastMessageAtMs = 0;
 
-type TurnKind = "conversational" | "agent";
-
 type ClaimedTurn = {
   prompt: string;
-  turnKind: TurnKind;
   attachmentUrls: string[];
 };
 
@@ -111,9 +109,10 @@ type WarmRunner = {
   drainPending: () => DaemonMessage[];
   hasPending: () => boolean;
   stopTask: (taskId: string) => Promise<void>;
+  /** Interrupts the in-flight turn (cancel). Logs and no-ops when the SDK
+   * query handle does not support it. */
+  interrupt: () => Promise<void>;
 };
-
-type WarmConversationalRunner = WarmRunner;
 
 type BackgroundAgentEntry = {
   toolUseId: string;
@@ -134,6 +133,16 @@ let agentTurnOutput = "";
 let agentTurnStartedAt = 0;
 let sawFirstMessageThisTurn = { value: false };
 let sawAssistantThisTurn = { value: false };
+// Cancel state machine: set when a claim response drains a user cancel for
+// the in-flight turn (see handleCancelRequested); cleared once that turn's
+// result settles in runDaemonMessagePump, or force-exited by the safety net
+// in startTurnWatchdog if it never does. While true: the per-turn watchdog is
+// already disarmed (endWatchedTurn ran at cancel time), the claim watcher
+// parks — rather than discards — any turn the same claim also carried, and
+// the message pump drops the interrupted turn's tail instead of streaming or
+// finalizing it.
+let turnCancelInFlight = false;
+let turnCancelRequestedAtMs = 0;
 
 const recognisedSubagentToolUseIds = new Set<string>();
 const settledSubagentToolUseIds = new Set<string>();
@@ -194,11 +203,41 @@ async function failTurnAndExit(error: string): Promise<never> {
   process.exit(1);
 }
 
+/**
+ * Cleans up like failTurnAndExit (pid file + streaming loops) but WITHOUT
+ * posting a completion mutation, then returns so the caller can let the
+ * daemon shut down through runSdkDaemon's ordinary finally block instead of a
+ * forced process.exit. Only used when the server already finalized the
+ * user-facing turn itself (a drained cancel) — posting a completion here
+ * could resolve the NEXT turn's workflow event instead of this
+ * already-settled one.
+ */
+async function exitWithoutCompletion(reason: string): Promise<void> {
+  log("daemon: exiting without completion — " + reason);
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+    /* ignore */
+  }
+  await stopStreamingLoops();
+}
+
 /** Arms the per-turn watchdog interval for the daemon's lifetime. */
 function startTurnWatchdog(): void {
   const timer = setInterval(() => {
-    if (!turnActive) return;
     const now = Date.now();
+    if (turnCancelInFlight) {
+      if (now - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
+        // The server already finalized this turn when it drained the
+        // cancel, so — like exitWithoutCompletion — do not post a completion
+        // here; it could resolve the NEXT turn's workflow event instead.
+        // Force-exit so prewarm respawns a clean daemon for whatever is next.
+        log("daemon: cancelled turn did not settle in time — exiting");
+        process.exit(1);
+      }
+      return;
+    }
+    if (!turnActive) return;
     // A turn paused on a blocking question emits no SDK messages by design —
     // keep both timers fresh so the wait is never mistaken for a stalled turn.
     if (S.awaitingQuestionAnswer) {
@@ -336,16 +375,8 @@ function resetTurnState(): void {
   S.lastStepType = "thinking";
 }
 
-type FinalizeTurnOptions = {
-  /** Conversational one-shots skip transcript persistence — not on the agent resume path. */
-  skipBookkeeping?: boolean;
-};
-
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
-async function finalizeTurn(
-  output: string,
-  opts: FinalizeTurnOptions = {},
-): Promise<void> {
+async function finalizeTurn(output: string): Promise<void> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
   // its attempt loop. processRealtimeStdoutChunk only runs the streaming
@@ -396,16 +427,12 @@ async function finalizeTurn(
   // the buffer was already drained at the top of finalizeTurn, so a plain
   // flushStreaming() here would early-return without reflecting the completed
   // status.
-  if (!opts.skipBookkeeping) {
-    const bookkeepingAt = Date.now();
-    syncClaudeStateToPersist("daemon-turn");
-    await setFinalizingState();
-    log(
-      "daemon: post-turn bookkeeping took " +
-        (Date.now() - bookkeepingAt) +
-        "ms",
-    );
-  }
+  const bookkeepingAt = Date.now();
+  syncClaudeStateToPersist("daemon-turn");
+  await setFinalizingState();
+  log(
+    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
+  );
 }
 
 /**
@@ -443,19 +470,15 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent", attachmentUrls: [] };
+    return { prompt, attachmentUrls: [] };
   }
   const inner = result.value;
   const payload =
     typeof inner === "object" && inner !== null && !Array.isArray(inner)
       ? inner
       : result;
-  const turnKindField = payload.turnKind;
-  const turnKind: TurnKind =
-    turnKindField === "conversational" ? "conversational" : "agent";
   return {
     prompt,
-    turnKind,
     attachmentUrls: readClaimedAttachmentUrls(payload),
   };
 }
@@ -845,10 +868,33 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   log("daemon: real turn started");
 }
 
-function startClaimWatcher(
-  agentRunner: WarmRunner,
-  _convRunner: WarmConversationalRunner,
-): void {
+/**
+ * Handles a drained `cancelRequested` flag from a claim response: disarms the
+ * per-turn watchdog and asks the SDK query to interrupt the in-flight turn.
+ * Idempotent — a stale flag with no active turn, or one arriving while a
+ * cancel is already in flight, is ignored (logged once). The turn itself is
+ * not torn down here; runDaemonMessagePump settles it once the interrupted
+ * turn's result arrives (or the watchdog's cancel-settle timeout fires).
+ */
+function handleCancelRequested(agentRunner: WarmRunner): void {
+  if (daemonTurn === null) {
+    log("daemon: cancelRequested with no active turn — ignored");
+    return;
+  }
+  if (turnCancelInFlight) {
+    return;
+  }
+  turnCancelInFlight = true;
+  turnCancelRequestedAtMs = Date.now();
+  endWatchedTurn();
+  log("daemon: cancel requested — interrupting in-flight turn");
+  void agentRunner.interrupt().catch((error) => {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: interrupt failed — " + messageText);
+  });
+}
+
+function startClaimWatcher(agentRunner: WarmRunner): void {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
@@ -867,6 +913,9 @@ function startClaimWatcher(
           pendingAgentStops.add(toolUseId);
         }
         await dispatchPendingAgentStops(agentRunner);
+        if (readCancelRequested(claimed)) {
+          handleCancelRequested(agentRunner);
+        }
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
@@ -875,22 +924,17 @@ function startClaimWatcher(
           // any branch that does not park/start the claim loses that prompt.
           // Normal startExecute queues while a real turn/workflow is active, so
           // the discard paths below should stay unreachable — log clearly if not.
-          if (turn.turnKind === "conversational") {
-            if (daemonTurn === null && pendingClaimedTurn === null) {
-              pendingClaimedTurn = turn;
-            } else if (
-              daemonTurn?.kind === "synthetic" &&
-              pendingClaimedTurn === null
-            ) {
-              pendingClaimedTurn = turn;
-            } else {
-              log(
-                "daemon: conversational claim discarded — turn already active (prompt lost; pendingTurn was already cleared)",
-              );
-            }
-          } else if (daemonTurn === null) {
+          if (daemonTurn === null) {
             pendingClaimedTurn = turn;
           } else if (daemonTurn.kind === "synthetic") {
+            pendingClaimedTurn = turn;
+          } else if (turnCancelInFlight) {
+            // The same claim response can carry both the cancel flag and the
+            // next queued prompt — cancelling dequeues it server-side in the
+            // same mutation. daemonTurn stays non-null until the cancelled
+            // turn's result settles in runDaemonMessagePump, so park this
+            // instead of discarding it (that would lose the prompt for good,
+            // since claimPendingTurn already cleared it server-side).
             pendingClaimedTurn = turn;
           } else {
             log(
@@ -906,30 +950,12 @@ function startClaimWatcher(
   })();
 }
 
-async function handleClaimedTurn(
-  turn: ClaimedTurn,
-  agentRunner: WarmRunner,
-  convRunner: WarmConversationalRunner,
-): Promise<void> {
-  if (turn.turnKind === "conversational") {
-    const outcome = await runConversationalWarmTurn(convRunner, turn.prompt);
-    if (outcome === "escalated") {
-      startRealAgentTurn({ ...turn, turnKind: "agent" }, agentRunner);
-    }
-    return;
-  }
-  startRealAgentTurn(turn, agentRunner);
-}
-
-async function runDaemonMessagePump(
-  agentRunner: WarmRunner,
-  convRunner: WarmConversationalRunner,
-): Promise<void> {
+async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
   while (!daemonExiting) {
     if (daemonTurn === null && pendingClaimedTurn !== null) {
       const turn = pendingClaimedTurn;
       pendingClaimedTurn = null;
-      await handleClaimedTurn(turn, agentRunner, convRunner);
+      startRealAgentTurn(turn, agentRunner);
       continue;
     }
 
@@ -950,6 +976,16 @@ async function runDaemonMessagePump(
 
     const message = await agentRunner.waitMessage();
     if (message === null) {
+      if (turnCancelInFlight) {
+        // The SDK query's async iterable ended while we were waiting out an
+        // interrupted turn's tail. The server already finalized the
+        // user-facing turn when it drained the cancel, so exit like
+        // failTurnAndExit but WITHOUT posting a completion — one here could
+        // resolve the NEXT turn's workflow event instead of this
+        // already-settled one.
+        await exitWithoutCompletion("pump ended while a cancel was settling");
+        return;
+      }
       if (turnActive) {
         if (daemonTurn?.kind === "synthetic") {
           await failSyntheticTurn(
@@ -975,6 +1011,25 @@ async function runDaemonMessagePump(
     recogniseSubagentToolUses(message);
     handleSystemTaskMessage(message);
     handleBackgroundTasksChanged(message);
+
+    if (turnCancelInFlight) {
+      if (message.type !== "result") {
+        // Drop the interrupted turn's tail from user-visible streaming (no
+        // processRealtimeStdoutChunk) — the server already finalized the
+        // user-facing message for this turn. Background-agent bookkeeping
+        // above still ran unconditionally.
+        continue;
+      }
+      // The cancelled turn's result has arrived. Do not finalize or post a
+      // completion — the server already finalized this turn when it drained
+      // the cancel. Reset per-turn state and let the pump either pick up a
+      // parked turn (next loop iteration) or go idle.
+      resetTurnState();
+      daemonTurn = null;
+      agentTurnOutput = "";
+      turnCancelInFlight = false;
+      continue;
+    }
 
     if (message.type === "result" && daemonTurn === null) {
       log("daemon: result with no live turn — ignored");
@@ -1036,7 +1091,7 @@ async function runDaemonMessagePump(
     if (pendingClaimedTurn !== null && daemonTurn === null) {
       const parked = pendingClaimedTurn;
       pendingClaimedTurn = null;
-      await handleClaimedTurn(parked, agentRunner, convRunner);
+      startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -1078,154 +1133,10 @@ function handleDaemonMessage(
   return { output: nextOutput, isResult };
 }
 
-/** Pulls visible reply text from a final assistant SDK message. */
-function extractAssistantTextFromMessage(
-  message: DaemonMessage,
-): string | null {
-  if (message.type !== "assistant") {
-    return null;
-  }
-  const nested = message.message;
-  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
-    return null;
-  }
-  const content = nested.content;
-  if (!Array.isArray(content)) {
-    return null;
-  }
-  const parts: string[] = [];
-  for (const block of content) {
-    if (typeof block !== "object" || block === null || Array.isArray(block)) {
-      continue;
-    }
-    if (block.type === "text" && typeof block.text === "string") {
-      parts.push(block.text);
-    }
-  }
-  const text = parts.join("");
-  return text.length > 0 ? text : null;
-}
-
-/** Appends live text_delta tokens (or replaces with a full assistant text). */
-function appendConversationalStreamText(
-  message: DaemonMessage,
-  previous: string,
-): string {
-  const full = extractAssistantTextFromMessage(message);
-  if (full !== null) {
-    return full;
-  }
-  if (message.type !== "stream_event") {
-    return previous;
-  }
-  const event = message.event;
-  if (typeof event !== "object" || event === null || Array.isArray(event)) {
-    return previous;
-  }
-  if (event.type !== "content_block_delta") {
-    return previous;
-  }
-  const delta = event.delta;
-  if (typeof delta !== "object" || delta === null || Array.isArray(delta)) {
-    return previous;
-  }
-  if (delta.type === "text_delta" && typeof delta.text === "string") {
-    return previous + delta.text;
-  }
-  return previous;
-}
-
-function extractResultText(message: DaemonMessage): string | null {
-  if (message.type !== "result") {
-    return null;
-  }
-  return typeof message.result === "string" ? message.result : null;
-}
-
-function appendSyntheticResultLine(output: string, replyText: string): string {
-  const line =
-    JSON.stringify({
-      type: "result",
-      subtype: "success",
-      is_error: false,
-      result: replyText,
-    }) + "\n";
-  return trimBufferHead(output + line);
-}
-
 /**
- * Persistent conversational query (Haiku, no tools/MCP/resume). Booted once at
- * daemon start so conversational turns only pay model time, not CLI spawn.
- */
-function createWarmConversationalRunner(
-  sdk: Awaited<ReturnType<typeof loadSdk>>,
-): WarmConversationalRunner {
-  const { push, iterable } = createPromptStream();
-  log("daemon: booting warm conversational query()");
-  const query = sdk.query({
-    prompt: iterable,
-    options: buildConversationalSdkOptions(),
-  });
-
-  const pending: DaemonMessage[] = [];
-  let notify: (() => void) | null = null;
-  let pumpFinished = false;
-
-  const wakeWaiters = (): void => {
-    const resume = notify;
-    notify = null;
-    if (resume) resume();
-  };
-
-  void (async () => {
-    try {
-      for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        pending.push(raw);
-        wakeWaiters();
-      }
-    } catch (error) {
-      const messageText =
-        error instanceof Error ? error.message : String(error);
-      log("daemon: conversational query pump failed — " + messageText);
-    } finally {
-      pumpFinished = true;
-      wakeWaiters();
-    }
-  })();
-
-  const waitMessage = async (): Promise<DaemonMessage | null> => {
-    while (pending.length === 0) {
-      if (pumpFinished) return null;
-      await new Promise<void>((resolve) => {
-        notify = resolve;
-      });
-      if (pending.length === 0 && pumpFinished) return null;
-    }
-    const message = pending.shift();
-    return message ?? null;
-  };
-
-  const drainPending = (): DaemonMessage[] => {
-    const drained = pending.slice();
-    pending.length = 0;
-    return drained;
-  };
-
-  const hasPending = (): boolean => pending.length > 0;
-
-  const stopTask = async (_taskId: string): Promise<void> => {
-    log("daemon: stopTask ignored on conversational runner");
-  };
-
-  return { push, waitMessage, drainPending, hasPending, stopTask };
-}
-
-/**
- * Session-lifetime agent query pump. Same queue-backed shape as the
- * conversational runner so turn boundaries are state changes, not loop exits.
+ * Session-lifetime agent query pump. Turn boundaries are state changes (see
+ * daemonTurn), not loop exits — the same query() serves every turn for the
+ * life of the daemon.
  */
 function createWarmAgentRunner(
   sdk: Awaited<ReturnType<typeof loadSdk>>,
@@ -1292,168 +1203,15 @@ function createWarmAgentRunner(
     log("daemon: stopTask unavailable on SDK query handle");
   };
 
-  return { push, waitMessage, drainPending, hasPending, stopTask };
-}
-
-/** Drops post-assistant SDK messages until the turn's result line is consumed. */
-async function drainUntilConversationalResult(
-  runner: WarmConversationalRunner,
-): Promise<void> {
-  while (true) {
-    const message = await runner.waitMessage();
-    if (message === null) {
+  const interrupt = async (): Promise<void> => {
+    if (typeof query.interrupt === "function") {
+      await query.interrupt();
       return;
     }
-    if (message.type === "result") {
-      return;
-    }
-  }
-}
-
-/**
- * Feed a prompt into the warm conversational query and wait for its result.
- * Returns `"escalated"` when Haiku asks for the full agent path (sentinel);
- * the caller re-dispatches the same turn without waiting for a new claim.
- */
-async function runConversationalWarmTurn(
-  runner: WarmConversationalRunner,
-  prompt: string,
-): Promise<"completed" | "escalated"> {
-  resetTurnState();
-  const turnStartedAt = Date.now();
-  S.activeAttemptStartedAt = turnStartedAt;
-  beginWatchedTurn();
-  log("daemon: conversational warm turn started");
-  runner.push(prompt);
-  let output = "";
-  const sawFirstMessageThisTurn = { value: false };
-  const sawAssistantThisTurn = { value: false };
-  // Hold stream_event flushes while text is still a prefix of the escalation
-  // sentinel so `<<EVA_ESCALATE>>` never flashes in the UI.
-  let holdStreaming = true;
-  const heldLines: string[] = [];
-  let streamedText = "";
-
-  const releaseOrHoldStream = (line: string): void => {
-    if (!holdStreaming) {
-      processRealtimeStdoutChunk(line);
-      return;
-    }
-    if (shouldHoldConversationalStream(streamedText)) {
-      heldLines.push(line);
-      return;
-    }
-    holdStreaming = false;
-    for (const held of heldLines) {
-      processRealtimeStdoutChunk(held);
-    }
-    heldLines.length = 0;
-    processRealtimeStdoutChunk(line);
+    log("daemon: interrupt unavailable on SDK query handle");
   };
 
-  const processConversationalMessage = (
-    message: DaemonMessage,
-  ): { isResult: boolean } => {
-    const messageType = typeof message.type === "string" ? message.type : "?";
-    if (!sawFirstMessageThisTurn.value) {
-      sawFirstMessageThisTurn.value = true;
-      log(
-        "daemon[timing]: first SDK message (" +
-          messageType +
-          ") +" +
-          (Date.now() - turnStartedAt) +
-          "ms after turn start",
-      );
-    }
-    if (!sawAssistantThisTurn.value && messageType === "assistant") {
-      sawAssistantThisTurn.value = true;
-      log(
-        "daemon[timing]: first assistant msg +" +
-          (Date.now() - turnStartedAt) +
-          "ms after turn start",
-      );
-    }
-    const line = JSON.stringify(message) + "\n";
-    appendToRawLogFile(line);
-    output = trimBufferHead(output + line);
-    appendToRawOutput(line);
-    streamedText = appendConversationalStreamText(message, streamedText);
-    releaseOrHoldStream(line);
-    return { isResult: message.type === "result" };
-  };
-
-  const escalateTurn = async (): Promise<"escalated"> => {
-    endWatchedTurn();
-    resetTurnState();
-    await drainUntilConversationalResult(runner);
-    log(
-      "daemon[timing]: conversational escalated +" +
-        (Date.now() - turnStartedAt) +
-        "ms",
-    );
-    return "escalated";
-  };
-
-  while (true) {
-    const message = await runner.waitMessage();
-    if (message === null) {
-      // The warm Haiku query ended without a result — surface a failure so the
-      // workflow's awaitEvent resolves instead of hanging, then respawn.
-      return failTurnAndExit(
-        "The assistant could not generate a reply. Please try again.",
-      );
-    }
-    noteWatchedMessage();
-    const processed = processConversationalMessage(message);
-    if (!processed.isResult) {
-      const replyText = extractAssistantTextFromMessage(message);
-      if (replyText !== null) {
-        if (isEscalationReply(replyText)) {
-          return escalateTurn();
-        }
-        endWatchedTurn();
-        output = appendSyntheticResultLine(output, replyText);
-        const resultAt = Date.now();
-        log(
-          "daemon[timing]: conversational early result (assistant) +" +
-            (resultAt - turnStartedAt) +
-            "ms after turn start",
-        );
-        await finalizeTurn(output, { skipBookkeeping: true });
-        log(
-          "daemon[timing]: conversational finalizeTurn took " +
-            (Date.now() - resultAt) +
-            "ms",
-        );
-        resetTurnState();
-        await drainUntilConversationalResult(runner);
-        return "completed";
-      }
-      continue;
-    }
-    const resultText = extractResultText(message);
-    if (
-      (resultText !== null && isEscalationReply(resultText)) ||
-      isEscalationReply(streamedText)
-    ) {
-      return escalateTurn();
-    }
-    endWatchedTurn();
-    const resultAt = Date.now();
-    log(
-      "daemon[timing]: conversational result +" +
-        (resultAt - turnStartedAt) +
-        "ms after turn start",
-    );
-    await finalizeTurn(output, { skipBookkeeping: true });
-    log(
-      "daemon[timing]: conversational finalizeTurn took " +
-        (Date.now() - resultAt) +
-        "ms",
-    );
-    resetTurnState();
-    return "completed";
-  }
+  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
 }
 
 /**
@@ -1577,7 +1335,6 @@ export async function runSdkDaemon(): Promise<void> {
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
-  const convRunner = createWarmConversationalRunner(sdk);
   const agentRunner = createWarmAgentRunner(sdk, options);
   currentAgentRunner = agentRunner;
 
@@ -1594,10 +1351,10 @@ export async function runSdkDaemon(): Promise<void> {
   // continuations between real turns).
   log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  startClaimWatcher(agentRunner, convRunner);
+  startClaimWatcher(agentRunner);
 
   try {
-    await runDaemonMessagePump(agentRunner, convRunner);
+    await runDaemonMessagePump(agentRunner);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed — " + messageText);

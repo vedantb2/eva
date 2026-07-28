@@ -35,7 +35,6 @@ var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
 var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
-var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
@@ -88,7 +87,6 @@ var DONE_FILE = "/tmp/run-design.done";
 var CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 var CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 var CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
-var CLAUDE_BIN_PATH = process.env.CLAUDE_BIN_PATH || "/tmp/claude-cli/bin/claude";
 var CODEX_RUNTIME_HOME_DIR = process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 var CODEX_PERSIST_DIR = process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
 var CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
@@ -120,7 +118,6 @@ var CURSOR_BIN_PATH = process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/curso
 var CURSOR_STATE_FILE = "session-state.json";
 var CURSOR_LOCAL_STATE_FILE = CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 var CURSOR_PERSIST_STATE_FILE = CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
-var CURSOR_API_KEY = process.env.CURSOR_API_KEY || "";
 var CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 var CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 var CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -453,7 +450,6 @@ function setRawLogStreamFailed(value) {
 function assignRawLogStream(stream) {
   callbackState.rawLogStream = stream;
 }
-var accumulatedSteps = callbackState.accumulatedSteps;
 
 // callback-src/utils.ts
 function narrowJsonValue(value) {
@@ -4223,18 +4219,6 @@ function buildCanUseTool() {
   };
 }
 
-// callback-src/providers/conversationalEscalation.ts
-var ESCALATION_SENTINEL = "<<EVA_ESCALATE>>";
-function isEscalationReply(text) {
-  return text.trimStart().startsWith(ESCALATION_SENTINEL);
-}
-function shouldHoldConversationalStream(text) {
-  const trimmed = text.trimStart();
-  if (trimmed.length === 0) return true;
-  if (isEscalationReply(trimmed)) return true;
-  return ESCALATION_SENTINEL.startsWith(trimmed);
-}
-
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
@@ -4278,34 +4262,6 @@ function buildSdkOptions(sessionMode) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
-}
-var CONVERSATIONAL_SYSTEM_PROMPT = \`Reply briefly and directly. Do not use tools.
-
-If the request needs any of the following, reply with EXACTLY <<EVA_ESCALATE>> and nothing else:
-- repo files, code, or codebase inspection
-- project or database data
-- Eva platform actions (tasks, docs, queries, MCP tools)
-- context from earlier turns in this coding session\`;
-function buildConversationalSdkOptions() {
-  return {
-    cwd: WORK_DIR,
-    model: "haiku",
-    pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: CONVERSATIONAL_SYSTEM_PROMPT,
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
-    allowedTools: [],
-    includePartialMessages: true,
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      DISABLE_TELEMETRY: "1",
-      DISABLE_AUTOUPDATER: "1",
-      DISABLE_ERROR_REPORTING: "1"
-    }
-  };
 }
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
 function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
@@ -4482,6 +4438,14 @@ function readStopTaskToolUseIds(result) {
   }
   return field.filter((id) => typeof id === "string");
 }
+function readCancelRequested(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return false;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  return payload.cancelRequested === true;
+}
 
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
@@ -4495,6 +4459,7 @@ var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 var WATCHDOG_TICK_MS = 5e3;
+var CANCEL_SETTLE_TIMEOUT_MS = 3e4;
 var turnActive = false;
 var turnStartedAtMs = 0;
 var lastMessageAtMs = 0;
@@ -4507,6 +4472,8 @@ var agentTurnOutput = "";
 var agentTurnStartedAt = 0;
 var sawFirstMessageThisTurn = { value: false };
 var sawAssistantThisTurn = { value: false };
+var turnCancelInFlight = false;
+var turnCancelRequestedAtMs = 0;
 var recognisedSubagentToolUseIds = /* @__PURE__ */ new Set();
 var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
 var unsettledBackgroundAgents = /* @__PURE__ */ new Map();
@@ -4549,10 +4516,25 @@ async function failTurnAndExit(error) {
   await stopStreamingLoops();
   process.exit(1);
 }
+async function exitWithoutCompletion(reason) {
+  log("daemon: exiting without completion \\u2014 " + reason);
+  try {
+    unlinkSync2(DAEMON_PID_FILE);
+  } catch {
+  }
+  await stopStreamingLoops();
+}
 function startTurnWatchdog() {
   const timer = setInterval(() => {
-    if (!turnActive) return;
     const now = Date.now();
+    if (turnCancelInFlight) {
+      if (now - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
+        log("daemon: cancelled turn did not settle in time \\u2014 exiting");
+        process.exit(1);
+      }
+      return;
+    }
+    if (!turnActive) return;
     if (callbackState.awaitingQuestionAnswer) {
       turnStartedAtMs = now;
       lastMessageAtMs = now;
@@ -4667,7 +4649,7 @@ function resetTurnState() {
   callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
-async function finalizeTurn(output, opts = {}) {
+async function finalizeTurn(output) {
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -4692,14 +4674,12 @@ async function finalizeTurn(output, opts = {}) {
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
-  if (!opts.skipBookkeeping) {
-    const bookkeepingAt = Date.now();
-    syncClaudeStateToPersist("daemon-turn");
-    await setFinalizingState();
-    log(
-      "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
-    );
-  }
+  const bookkeepingAt = Date.now();
+  syncClaudeStateToPersist("daemon-turn");
+  await setFinalizingState();
+  log(
+    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
+  );
 }
 function readClaimedPrompt(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -4723,15 +4703,12 @@ function readClaimedTurn(result) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, turnKind: "agent", attachmentUrls: [] };
+    return { prompt, attachmentUrls: [] };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  const turnKindField = payload.turnKind;
-  const turnKind = turnKindField === "conversational" ? "conversational" : "agent";
   return {
     prompt,
-    turnKind,
     attachmentUrls: readClaimedAttachmentUrls(payload)
   };
 }
@@ -5057,7 +5034,24 @@ function startRealAgentTurn(turn, agentRunner) {
   agentTurnOutput = "";
   log("daemon: real turn started");
 }
-function startClaimWatcher(agentRunner, _convRunner) {
+function handleCancelRequested(agentRunner) {
+  if (daemonTurn === null) {
+    log("daemon: cancelRequested with no active turn \\u2014 ignored");
+    return;
+  }
+  if (turnCancelInFlight) {
+    return;
+  }
+  turnCancelInFlight = true;
+  turnCancelRequestedAtMs = Date.now();
+  endWatchedTurn();
+  log("daemon: cancel requested \\u2014 interrupting in-flight turn");
+  void agentRunner.interrupt().catch((error) => {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: interrupt failed \\u2014 " + messageText);
+  });
+}
+function startClaimWatcher(agentRunner) {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
@@ -5076,23 +5070,18 @@ function startClaimWatcher(agentRunner, _convRunner) {
           pendingAgentStops.add(toolUseId);
         }
         await dispatchPendingAgentStops(agentRunner);
+        if (readCancelRequested(claimed)) {
+          handleCancelRequested(agentRunner);
+        }
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
-          if (turn.turnKind === "conversational") {
-            if (daemonTurn === null && pendingClaimedTurn === null) {
-              pendingClaimedTurn = turn;
-            } else if (daemonTurn?.kind === "synthetic" && pendingClaimedTurn === null) {
-              pendingClaimedTurn = turn;
-            } else {
-              log(
-                "daemon: conversational claim discarded \\u2014 turn already active (prompt lost; pendingTurn was already cleared)"
-              );
-            }
-          } else if (daemonTurn === null) {
+          if (daemonTurn === null) {
             pendingClaimedTurn = turn;
           } else if (daemonTurn.kind === "synthetic") {
+            pendingClaimedTurn = turn;
+          } else if (turnCancelInFlight) {
             pendingClaimedTurn = turn;
           } else {
             log(
@@ -5106,22 +5095,12 @@ function startClaimWatcher(agentRunner, _convRunner) {
     }
   })();
 }
-async function handleClaimedTurn(turn, agentRunner, convRunner) {
-  if (turn.turnKind === "conversational") {
-    const outcome = await runConversationalWarmTurn(convRunner, turn.prompt);
-    if (outcome === "escalated") {
-      startRealAgentTurn({ ...turn, turnKind: "agent" }, agentRunner);
-    }
-    return;
-  }
-  startRealAgentTurn(turn, agentRunner);
-}
-async function runDaemonMessagePump(agentRunner, convRunner) {
+async function runDaemonMessagePump(agentRunner) {
   while (!daemonExiting) {
     if (daemonTurn === null && pendingClaimedTurn !== null) {
       const turn = pendingClaimedTurn;
       pendingClaimedTurn = null;
-      await handleClaimedTurn(turn, agentRunner, convRunner);
+      startRealAgentTurn(turn, agentRunner);
       continue;
     }
     if (daemonTurn === null && pendingClaimedTurn === null && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
@@ -5134,6 +5113,10 @@ async function runDaemonMessagePump(agentRunner, convRunner) {
     }
     const message = await agentRunner.waitMessage();
     if (message === null) {
+      if (turnCancelInFlight) {
+        await exitWithoutCompletion("pump ended while a cancel was settling");
+        return;
+      }
       if (turnActive) {
         if (daemonTurn?.kind === "synthetic") {
           await failSyntheticTurn(
@@ -5156,6 +5139,16 @@ async function runDaemonMessagePump(agentRunner, convRunner) {
     recogniseSubagentToolUses(message);
     handleSystemTaskMessage(message);
     handleBackgroundTasksChanged(message);
+    if (turnCancelInFlight) {
+      if (message.type !== "result") {
+        continue;
+      }
+      resetTurnState();
+      daemonTurn = null;
+      agentTurnOutput = "";
+      turnCancelInFlight = false;
+      continue;
+    }
     if (message.type === "result" && daemonTurn === null) {
       log("daemon: result with no live turn \\u2014 ignored");
       continue;
@@ -5203,7 +5196,7 @@ async function runDaemonMessagePump(agentRunner, convRunner) {
     if (pendingClaimedTurn !== null && daemonTurn === null) {
       const parked = pendingClaimedTurn;
       pendingClaimedTurn = null;
-      await handleClaimedTurn(parked, agentRunner, convRunner);
+      startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -5228,123 +5221,6 @@ function handleDaemonMessage(message, output, turnStartedAt, sawFirstMessageThis
   processRealtimeStdoutChunk(line);
   const isResult = message.type === "result";
   return { output: nextOutput, isResult };
-}
-function extractAssistantTextFromMessage(message) {
-  if (message.type !== "assistant") {
-    return null;
-  }
-  const nested = message.message;
-  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
-    return null;
-  }
-  const content = nested.content;
-  if (!Array.isArray(content)) {
-    return null;
-  }
-  const parts = [];
-  for (const block of content) {
-    if (typeof block !== "object" || block === null || Array.isArray(block)) {
-      continue;
-    }
-    if (block.type === "text" && typeof block.text === "string") {
-      parts.push(block.text);
-    }
-  }
-  const text = parts.join("");
-  return text.length > 0 ? text : null;
-}
-function appendConversationalStreamText(message, previous) {
-  const full = extractAssistantTextFromMessage(message);
-  if (full !== null) {
-    return full;
-  }
-  if (message.type !== "stream_event") {
-    return previous;
-  }
-  const event = message.event;
-  if (typeof event !== "object" || event === null || Array.isArray(event)) {
-    return previous;
-  }
-  if (event.type !== "content_block_delta") {
-    return previous;
-  }
-  const delta = event.delta;
-  if (typeof delta !== "object" || delta === null || Array.isArray(delta)) {
-    return previous;
-  }
-  if (delta.type === "text_delta" && typeof delta.text === "string") {
-    return previous + delta.text;
-  }
-  return previous;
-}
-function extractResultText(message) {
-  if (message.type !== "result") {
-    return null;
-  }
-  return typeof message.result === "string" ? message.result : null;
-}
-function appendSyntheticResultLine(output, replyText) {
-  const line = JSON.stringify({
-    type: "result",
-    subtype: "success",
-    is_error: false,
-    result: replyText
-  }) + "\\n";
-  return trimBufferHead(output + line);
-}
-function createWarmConversationalRunner(sdk) {
-  const { push, iterable } = createPromptStream();
-  log("daemon: booting warm conversational query()");
-  const query = sdk.query({
-    prompt: iterable,
-    options: buildConversationalSdkOptions()
-  });
-  const pending = [];
-  let notify = null;
-  let pumpFinished = false;
-  const wakeWaiters = () => {
-    const resume = notify;
-    notify = null;
-    if (resume) resume();
-  };
-  void (async () => {
-    try {
-      for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        pending.push(raw);
-        wakeWaiters();
-      }
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : String(error);
-      log("daemon: conversational query pump failed \\u2014 " + messageText);
-    } finally {
-      pumpFinished = true;
-      wakeWaiters();
-    }
-  })();
-  const waitMessage = async () => {
-    while (pending.length === 0) {
-      if (pumpFinished) return null;
-      await new Promise((resolve) => {
-        notify = resolve;
-      });
-      if (pending.length === 0 && pumpFinished) return null;
-    }
-    const message = pending.shift();
-    return message ?? null;
-  };
-  const drainPending = () => {
-    const drained = pending.slice();
-    pending.length = 0;
-    return drained;
-  };
-  const hasPending = () => pending.length > 0;
-  const stopTask = async (_taskId) => {
-    log("daemon: stopTask ignored on conversational runner");
-  };
-  return { push, waitMessage, drainPending, hasPending, stopTask };
 }
 function createWarmAgentRunner(sdk, options) {
   const { push, iterable } = createPromptStream();
@@ -5399,126 +5275,14 @@ function createWarmAgentRunner(sdk, options) {
     }
     log("daemon: stopTask unavailable on SDK query handle");
   };
-  return { push, waitMessage, drainPending, hasPending, stopTask };
-}
-async function drainUntilConversationalResult(runner) {
-  while (true) {
-    const message = await runner.waitMessage();
-    if (message === null) {
+  const interrupt = async () => {
+    if (typeof query.interrupt === "function") {
+      await query.interrupt();
       return;
     }
-    if (message.type === "result") {
-      return;
-    }
-  }
-}
-async function runConversationalWarmTurn(runner, prompt) {
-  resetTurnState();
-  const turnStartedAt = Date.now();
-  callbackState.activeAttemptStartedAt = turnStartedAt;
-  beginWatchedTurn();
-  log("daemon: conversational warm turn started");
-  runner.push(prompt);
-  let output = "";
-  const sawFirstMessageThisTurn2 = { value: false };
-  const sawAssistantThisTurn2 = { value: false };
-  let holdStreaming = true;
-  const heldLines = [];
-  let streamedText = "";
-  const releaseOrHoldStream = (line) => {
-    if (!holdStreaming) {
-      processRealtimeStdoutChunk(line);
-      return;
-    }
-    if (shouldHoldConversationalStream(streamedText)) {
-      heldLines.push(line);
-      return;
-    }
-    holdStreaming = false;
-    for (const held of heldLines) {
-      processRealtimeStdoutChunk(held);
-    }
-    heldLines.length = 0;
-    processRealtimeStdoutChunk(line);
+    log("daemon: interrupt unavailable on SDK query handle");
   };
-  const processConversationalMessage = (message) => {
-    const messageType = typeof message.type === "string" ? message.type : "?";
-    if (!sawFirstMessageThisTurn2.value) {
-      sawFirstMessageThisTurn2.value = true;
-      log(
-        "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
-      );
-    }
-    if (!sawAssistantThisTurn2.value && messageType === "assistant") {
-      sawAssistantThisTurn2.value = true;
-      log(
-        "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
-      );
-    }
-    const line = JSON.stringify(message) + "\\n";
-    appendToRawLogFile(line);
-    output = trimBufferHead(output + line);
-    appendToRawOutput(line);
-    streamedText = appendConversationalStreamText(message, streamedText);
-    releaseOrHoldStream(line);
-    return { isResult: message.type === "result" };
-  };
-  const escalateTurn = async () => {
-    endWatchedTurn();
-    resetTurnState();
-    await drainUntilConversationalResult(runner);
-    log(
-      "daemon[timing]: conversational escalated +" + (Date.now() - turnStartedAt) + "ms"
-    );
-    return "escalated";
-  };
-  while (true) {
-    const message = await runner.waitMessage();
-    if (message === null) {
-      return failTurnAndExit(
-        "The assistant could not generate a reply. Please try again."
-      );
-    }
-    noteWatchedMessage();
-    const processed = processConversationalMessage(message);
-    if (!processed.isResult) {
-      const replyText = extractAssistantTextFromMessage(message);
-      if (replyText !== null) {
-        if (isEscalationReply(replyText)) {
-          return escalateTurn();
-        }
-        endWatchedTurn();
-        output = appendSyntheticResultLine(output, replyText);
-        const resultAt2 = Date.now();
-        log(
-          "daemon[timing]: conversational early result (assistant) +" + (resultAt2 - turnStartedAt) + "ms after turn start"
-        );
-        await finalizeTurn(output, { skipBookkeeping: true });
-        log(
-          "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt2) + "ms"
-        );
-        resetTurnState();
-        await drainUntilConversationalResult(runner);
-        return "completed";
-      }
-      continue;
-    }
-    const resultText = extractResultText(message);
-    if (resultText !== null && isEscalationReply(resultText) || isEscalationReply(streamedText)) {
-      return escalateTurn();
-    }
-    endWatchedTurn();
-    const resultAt = Date.now();
-    log(
-      "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
-    );
-    await finalizeTurn(output, { skipBookkeeping: true });
-    log(
-      "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt) + "ms"
-    );
-    resetTurnState();
-    return "completed";
-  }
+  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
 }
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
@@ -5610,7 +5374,6 @@ async function runSdkDaemon() {
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
-  const convRunner = createWarmConversationalRunner(sdk);
   const agentRunner = createWarmAgentRunner(sdk, options);
   currentAgentRunner = agentRunner;
   log(
@@ -5618,9 +5381,9 @@ async function runSdkDaemon() {
   );
   log("daemon: warm query() live, claim watcher started");
   startTurnWatchdog();
-  startClaimWatcher(agentRunner, convRunner);
+  startClaimWatcher(agentRunner);
   try {
-    await runDaemonMessagePump(agentRunner, convRunner);
+    await runDaemonMessagePump(agentRunner);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed \\u2014 " + messageText);

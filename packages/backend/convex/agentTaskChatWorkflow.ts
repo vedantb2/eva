@@ -211,7 +211,6 @@ export const startExecute = authMutation({
             pendingTurn: {
               prompt,
               requestedAt: Date.now(),
-              turnKind: "agent",
               attachmentStorageIds,
               model: normalizedModel,
             },
@@ -330,7 +329,13 @@ export const enqueueMessage = authMutation({
   },
 });
 
-/** Cancels the active task chat workflow and starts any queued message. */
+/**
+ * Cancels the active task chat workflow and starts any queued message. For a
+ * Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
+ * its own in-flight SDK query on its next `claimPendingTurn` poll, instead of
+ * killing the sandbox process — Cursor/Codex/Opencode have no daemon to
+ * observe the flag, so they keep the pkill-style kill.
+ */
 export const cancelExecution = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -351,7 +356,12 @@ export const cancelExecution = authMutation({
     const workflowIdToCancel = task.activeChatWorkflowId;
     const pendingRequestedAt = task.pendingTurn?.requestedAt;
 
-    if (task.sandboxId && task.repoId) {
+    if (
+      getAIModelProvider(normalizeAIModel(task.lastChatModel ?? task.model)) ===
+      "claude"
+    ) {
+      await ctx.db.patch(args.taskId, { cancelRequestedAt: Date.now() });
+    } else if (task.sandboxId && task.repoId) {
       if (task.activeWorkflowId) {
         await ctx.scheduler.runAfter(0, internal.sandbox.killEntityDaemon, {
           sandboxId: task.sandboxId,
@@ -543,7 +553,6 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       await step.runMutation(internal.agentTaskChatWorkflow.ensurePendingTurn, {
         taskId: args.taskId,
         prompt: data.prompt,
-        turnKind: "agent",
         attachmentStorageIds: data.attachmentStorageIds,
         model: args.model,
       });

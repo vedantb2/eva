@@ -22,12 +22,7 @@ import {
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import {
-  buildPlanPrompt,
-  buildEditPrompt,
-  buildConversationalPrompt,
-} from "./prompts";
-import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
+import { buildPlanPrompt, buildEditPrompt } from "./prompts";
 import { orphanPlaceholderMessages, resultTargetMessage } from "./resultTarget";
 import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
@@ -98,7 +93,7 @@ export async function buildSessionPrompt(
     message: string;
     mode: "edit" | "ask" | "execute" | "plan";
   },
-): Promise<{ prompt: string; branchName: string; turnKind: SessionTurnKind }> {
+): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
   const rootDirectory = repo.rootDirectory ?? "";
   const customInstructionsBlock = buildCustomInstructionsBlock(
@@ -115,9 +110,6 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  const turnKind: SessionTurnKind =
-    effectiveMode === "plan" ? "agent" : classifyTurnKind(resolvedMessage);
-
   let prompt: string;
   if (effectiveMode === "plan") {
     prompt = buildPlanPrompt(
@@ -125,12 +117,6 @@ export async function buildSessionPrompt(
       session.planContent || "",
       resolvedMessage,
       rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-    );
-  } else if (turnKind === "conversational") {
-    prompt = buildConversationalPrompt(
-      resolvedMessage,
       customInstructionsBlock,
       repo.systemPrompt,
     );
@@ -153,7 +139,7 @@ export async function buildSessionPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
-  return { prompt, branchName, turnKind };
+  return { prompt, branchName };
 }
 
 // --- Workflows ---
@@ -331,7 +317,6 @@ export const sessionExecuteWorkflow = workflow.define({
       await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
         sessionId: args.sessionId,
         prompt: data.prompt,
-        turnKind: data.turnKind,
         attachmentStorageIds: data.attachmentStorageIds,
         model: args.model,
       });
@@ -414,12 +399,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // after a proper commit the tree is clean, so that check skipped every
     // publish and left commits stranded in the sandbox.
     let pushSucceeded = false;
-    if (
-      args.mode !== "plan" &&
-      result.success &&
-      data.branchName &&
-      data.turnKind === "agent"
-    ) {
+    if (args.mode !== "plan" && result.success && data.branchName) {
       try {
         await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId,
@@ -505,9 +485,8 @@ export const sessionExecuteWorkflow = workflow.define({
     // the session. maybeStartTurnAudit is idempotent and no-ops when the toggle
     // is off / no sandbox / no categories / an audit is already running. The
     // audit runs detached (scheduled action) so the workflow completes now;
-    // wrapped so an audit failure never fails the turn. turnKind comes from the
-    // step-recorded query — deterministic on replay.
-    if (args.mode !== "plan" && result.success && data.turnKind === "agent") {
+    // wrapped so an audit failure never fails the turn.
+    if (args.mode !== "plan" && result.success) {
       try {
         await step.runMutation(internal.audits.maybeStartTurnAudit, {
           sessionId: args.sessionId,
@@ -694,7 +673,6 @@ export const getSessionData = internalQuery({
     allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
-    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
@@ -708,7 +686,7 @@ export const getSessionData = internalQuery({
       args.mode === "plan" ? "plan" : "edit";
 
     const user = await ctx.db.get(args.userId);
-    const { prompt, branchName, turnKind } = await buildSessionPrompt(ctx, {
+    const { prompt, branchName } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -735,7 +713,6 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
-      turnKind,
       baseBranch:
         session.baseBranch ??
         repo.defaultBaseBranch ??
@@ -865,9 +842,12 @@ export const saveResult = internalMutation({
  * `startExecute` has staged a prompt in `session.pendingTurn`, this atomically
  * hands it over and clears the field so the same prompt is never claimed twice
  * (which would double-execute the turn). Returns `{ prompt: null }` when nothing
- * is pending. Public + auth-gated (via the sandbox CONVEX_TOKEN identity) to
- * match `handleCompletion` — the daemon calls it over `/api/mutation`, and
- * internal mutations are not reachable there.
+ * is pending. Also doubles as the interrupt-cancel channel: `cancelRequested`
+ * drains unconditionally (even mid-turn, with no pendingTurn) so a Claude
+ * daemon polling during an active turn learns to abort it. Public + auth-gated
+ * (via the sandbox CONVEX_TOKEN identity) to match `handleCompletion` — the
+ * daemon calls it over `/api/mutation`, and internal mutations are not
+ * reachable there.
  */
 export const claimPendingTurn = authMutation({
   args: {
@@ -876,23 +856,23 @@ export const claimPendingTurn = authMutation({
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
-    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     // Resolved download URLs for this turn's input image attachments. The daemon
     // fetches these and hands the agent local file paths before running the turn.
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
+    cancelRequested: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
-      turnKind: "agent",
       attachmentUrls: [],
       stopTaskToolUseIds: [],
+      cancelRequested: false,
     } satisfies {
       prompt: null;
-      turnKind: SessionTurnKind;
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
+      cancelRequested: boolean;
     };
     const session = await ctx.db.get(args.sessionId);
     if (!session) return emptyClaim;
@@ -913,8 +893,16 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.sessionId, { pendingTaskStops: undefined });
     }
 
+    // Cancel must drain the same way as stopTaskToolUseIds above: the daemon
+    // polls this mutation continuously, including mid-turn, specifically to
+    // notice an interrupt — gating the drain on pendingTurn would strand it.
+    const cancelRequested = session.cancelRequestedAt !== undefined;
+    if (cancelRequested) {
+      await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
+    }
+
     if (!session.pendingTurn) {
-      return { ...emptyClaim, stopTaskToolUseIds };
+      return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
     }
 
     const pendingModel = session.pendingTurn.model;
@@ -924,12 +912,11 @@ export const claimPendingTurn = authMutation({
         console.log(
           `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
         );
-        return { ...emptyClaim, stopTaskToolUseIds };
+        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
       }
     }
 
     const prompt = session.pendingTurn.prompt;
-    const turnKind: SessionTurnKind = session.pendingTurn.turnKind ?? "agent";
     const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
     const resolvedUrls = await Promise.all(
       (session.pendingTurn.attachmentStorageIds ?? []).map((id) =>
@@ -941,9 +928,9 @@ export const claimPendingTurn = authMutation({
     );
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
-      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
+      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, turnKind, attachmentUrls, stopTaskToolUseIds };
+    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
   },
 });
 
@@ -1005,7 +992,6 @@ export const ensurePendingTurn = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     prompt: v.string(),
-    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     model: v.optional(aiModelValidator),
   },
@@ -1040,7 +1026,6 @@ export const ensurePendingTurn = internalMutation({
       pendingTurn: {
         prompt: args.prompt,
         requestedAt: Date.now(),
-        turnKind: args.turnKind,
         attachmentStorageIds: args.attachmentStorageIds,
         ...(args.model !== undefined
           ? { model: normalizeAIModel(args.model) }
@@ -1049,7 +1034,7 @@ export const ensurePendingTurn = internalMutation({
       updatedAt: Date.now(),
     });
     console.log(
-      `[sessionWorkflow] ensurePendingTurn restaged sessionId=${args.sessionId} turnKind=${args.turnKind}`,
+      `[sessionWorkflow] ensurePendingTurn restaged sessionId=${args.sessionId}`,
     );
     return null;
   },
@@ -1062,7 +1047,7 @@ export const ensurePendingTurn = internalMutation({
 export const restageOpenTurn = internalMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.union(
-    v.object({ restaged: v.literal(true), turnKind: v.string() }),
+    v.object({ restaged: v.literal(true) }),
     v.object({ restaged: v.literal(false), reason: v.string() }),
   ),
   handler: async (ctx, args) => {
@@ -1123,7 +1108,7 @@ export const restageOpenTurn = internalMutation({
       rawMode === "edit"
         ? rawMode
         : "edit";
-    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
+    const { prompt } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -1135,7 +1120,6 @@ export const restageOpenTurn = internalMutation({
       pendingTurn: {
         prompt,
         requestedAt: Date.now(),
-        turnKind,
         attachmentStorageIds: lastUser.attachmentStorageIds,
         ...(session.lastModel !== undefined
           ? { model: session.lastModel }
@@ -1144,9 +1128,9 @@ export const restageOpenTurn = internalMutation({
       updatedAt: Date.now(),
     });
     console.log(
-      `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId} turnKind=${turnKind}`,
+      `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId}`,
     );
-    return { restaged: true as const, turnKind };
+    return { restaged: true as const };
   },
 });
 

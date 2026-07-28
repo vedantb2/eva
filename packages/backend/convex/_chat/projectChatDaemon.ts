@@ -15,22 +15,20 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedProjectChatMessage } from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
 
-type ProjectTurnKind = "conversational" | "agent";
-
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
 }
 
 const emptyClaimReturn = {
   prompt: null,
-  turnKind: "agent",
   attachmentUrls: [],
   stopTaskToolUseIds: [],
+  cancelRequested: false,
 } satisfies {
   prompt: null;
-  turnKind: "agent";
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
+  cancelRequested: boolean;
 };
 
 /** Daemon-pull turn claim for project sandbox chat. */
@@ -41,9 +39,9 @@ export const claimPendingTurn = authMutation({
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
-    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
+    cancelRequested: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -59,26 +57,33 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.projectId, { pendingTaskStops: undefined });
     }
 
+    // Cancel requests must drain the same way: the daemon polls this mutation
+    // mid-turn specifically to notice an interrupt, so gating on
+    // activeChatWorkflowId/pendingTurn below would strand the signal.
+    const cancelRequested = project.cancelRequestedAt !== undefined;
+    if (cancelRequested) {
+      await ctx.db.patch(args.projectId, { cancelRequestedAt: undefined });
+    }
+
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.
     if (!project.activeChatWorkflowId) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds };
+      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
     }
 
     if (!project.pendingTurn) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds };
+      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
     }
 
     const pendingModel = project.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
       if (normalizeAIModel(pendingModel) !== claimModel) {
-        return { ...emptyClaimReturn, stopTaskToolUseIds };
+        return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
       }
     }
 
     const prompt = project.pendingTurn.prompt;
-    const turnKind: ProjectTurnKind = project.pendingTurn.turnKind ?? "agent";
     const resolvedUrls = await Promise.all(
       (project.pendingTurn.attachmentStorageIds ?? []).map((id) =>
         ctx.storage.getUrl(id),
@@ -88,7 +93,7 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.projectId, { pendingTurn: undefined });
-    return { prompt, turnKind, attachmentUrls, stopTaskToolUseIds };
+    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
   },
 });
 
@@ -276,7 +281,6 @@ export const ensurePendingTurn = internalMutation({
   args: {
     projectId: v.id("projects"),
     prompt: v.string(),
-    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     model: v.optional(aiModelValidator),
   },
@@ -307,7 +311,6 @@ export const ensurePendingTurn = internalMutation({
       pendingTurn: {
         prompt: args.prompt,
         requestedAt: Date.now(),
-        turnKind: args.turnKind,
         attachmentStorageIds: args.attachmentStorageIds,
         ...(args.model !== undefined
           ? { model: normalizeAIModel(args.model) }

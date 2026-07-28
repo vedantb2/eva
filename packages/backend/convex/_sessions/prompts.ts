@@ -29,16 +29,6 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-/** Minimal prompt for direct Q&A — SDK one-shot sets system prompt; user text only. */
-export function buildConversationalPrompt(
-  message: string,
-  customInstructionsBlock: string,
-  systemPrompt: string | undefined,
-): string {
-  const suffix = `${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}`;
-  return suffix.length > 0 ? `${message}${suffix}` : message;
-}
-
 /** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
 export function buildEditPrompt(
   repo: { owner: string; name: string; baseBranch?: string },

@@ -104,6 +104,7 @@ import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfi
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
+import type * as _migrations_excludeConvexUrlFromSandbox from "../_migrations/excludeConvexUrlFromSandbox.js";
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
 import type * as _migrations_projectInterview from "../_migrations/projectInterview.js";
 import type * as _migrations_projectPhases from "../_migrations/projectPhases.js";
@@ -156,7 +157,6 @@ import type * as _sessions_prompts from "../_sessions/prompts.js";
 import type * as _sessions_pty from "../_sessions/pty.js";
 import type * as _sessions_queries from "../_sessions/queries.js";
 import type * as _sessions_sandbox from "../_sessions/sandbox.js";
-import type * as _sessions_turnKind from "../_sessions/turnKind.js";
 import type * as _sessions_workflow from "../_sessions/workflow.js";
 import type * as _taskWorkflow_audit from "../_taskWorkflow/audit.js";
 import type * as _taskWorkflow_auditParser from "../_taskWorkflow/auditParser.js";
@@ -412,6 +412,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
+  "_migrations/excludeConvexUrlFromSandbox": typeof _migrations_excludeConvexUrlFromSandbox;
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
   "_migrations/projectInterview": typeof _migrations_projectInterview;
   "_migrations/projectPhases": typeof _migrations_projectPhases;
@@ -464,7 +465,6 @@ declare const fullApi: ApiFromModules<{
   "_sessions/pty": typeof _sessions_pty;
   "_sessions/queries": typeof _sessions_queries;
   "_sessions/sandbox": typeof _sessions_sandbox;
-  "_sessions/turnKind": typeof _sessions_turnKind;
   "_sessions/workflow": typeof _sessions_workflow;
   "_taskWorkflow/audit": typeof _taskWorkflow_audit;
   "_taskWorkflow/auditParser": typeof _taskWorkflow_auditParser;

@@ -207,6 +207,7 @@ import type * as buildWorkflow from "../buildWorkflow.js";
 import type * as changelog from "../changelog.js";
 import type * as cronManager from "../cronManager.js";
 import type * as crons from "../crons.js";
+import type * as dataMigrations from "../dataMigrations.js";
 import type * as designPersonas from "../designPersonas.js";
 import type * as designSessions from "../designSessions.js";
 import type * as designWorkflow from "../designWorkflow.js";
@@ -520,6 +521,7 @@ declare const fullApi: ApiFromModules<{
   changelog: typeof changelog;
   cronManager: typeof cronManager;
   crons: typeof crons;
+  dataMigrations: typeof dataMigrations;
   designPersonas: typeof designPersonas;
   designSessions: typeof designSessions;
   designWorkflow: typeof designWorkflow;
@@ -660,4 +662,5 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   crons: import("@convex-dev/crons/_generated/component.js").ComponentApi<"crons">;
   actionCache: import("@convex-dev/action-cache/_generated/component.js").ComponentApi<"actionCache">;
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
 };

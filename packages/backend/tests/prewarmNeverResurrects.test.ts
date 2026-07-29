@@ -154,7 +154,6 @@ describe("reconcileStoppedSandboxStatus", () => {
       // A newer sandbox on the doc means the entity already moved on, and
       // closing it would kill a live sandbox off a stale observation.
       expect(branch).toContain("doc.sandboxId !== args.sandboxId");
-      expect(branch).toContain("doc.vercelSandboxId !== args.sandboxId");
     },
   );
 });

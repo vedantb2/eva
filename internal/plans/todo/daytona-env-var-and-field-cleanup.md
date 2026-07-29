@@ -1,7 +1,7 @@
 # Daytona env var + sandbox id field cleanup
 
 **Date:** 2026-07-25
-**Status:** TODO — do after the Daytona code removal (`b0d194b7`) has been deployed and burned in.
+**Status:** DONE for §1 (env vars) + §3 (sandbox id collapse) on prod/mule 2026-07-29. §2 Rebuild Now for non-`snap_*` snapshot names remains a manual per-repo step.
 
 Companion to [`daytona-legacy-data-cleanup.md`](./daytona-legacy-data-cleanup.md), which covers nulling legacy sandbox ids and narrowing the schema enum. This file covers the **stored env vars** and the **redundant sandbox id field**.
 

@@ -24,10 +24,7 @@ export async function resolveTaskBranchName(
   return `eva/task-${String(task._id)}`;
 }
 
-/**
- * Resolves the sandbox id to use for a task run (push / audit-fix).
- * Prefer vercelSandboxId when present so Vercel never receives a Daytona UUID.
- */
+/** Resolves the sandbox id to use for a task run (push / audit-fix). */
 export async function resolveTaskSandboxIdForRun(
   db: GenericDatabaseReader<DataModel>,
   task: Doc<"agentTasks">,
@@ -37,12 +34,10 @@ export async function resolveTaskSandboxIdForRun(
     const project = await db.get(task.projectId);
     return preferPersistedSandboxId({
       sandboxId: project?.sandboxId ?? run.sandboxId,
-      vercelSandboxId: project?.vercelSandboxId ?? run.vercelSandboxId,
     });
   }
   return preferPersistedSandboxId({
     sandboxId: run.sandboxId ?? task.sandboxId,
-    vercelSandboxId: run.vercelSandboxId ?? task.vercelSandboxId,
   });
 }
 

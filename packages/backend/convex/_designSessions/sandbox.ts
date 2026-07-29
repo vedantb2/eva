@@ -4,10 +4,6 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { authMutation } from "../functions";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
-import {
-  preferPersistedSandboxId,
-  resolveReusableVercelSandboxId,
-} from "../_sandbox/resolveExistingSandboxId";
 
 /** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
@@ -47,11 +43,10 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    const vercelSandboxId = resolveReusableVercelSandboxId(session);
+    const reusableSandboxId = session.sandboxId;
     const startArgs = {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
-      vercelSandboxId: vercelSandboxId ?? session.vercelSandboxId,
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -60,7 +55,7 @@ export const startSandbox = authMutation({
       repoId: session.repoId,
     };
     // Vercel: schedule the start action directly (skip ~6s workflow scheduling).
-    if (vercelSandboxId) {
+    if (reusableSandboxId) {
       await ctx.scheduler.runAfter(
         0,
         internal.sandbox.startDesignSandbox,
@@ -93,10 +88,7 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
-    const stopId = preferPersistedSandboxId({
-      sandboxId: session.sandboxId,
-      vercelSandboxId: session.vercelSandboxId,
-    });
+    const stopId = session.sandboxId;
     if (stopId) {
       await ctx.scheduler.runAfter(
         0,
@@ -203,7 +195,6 @@ export const sandboxReady = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
     branchName: v.string(),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
@@ -221,9 +212,6 @@ export const sandboxReady = internalMutation({
     });
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       branchName: args.branchName,
       status: "active",
       updatedAt: Date.now(),

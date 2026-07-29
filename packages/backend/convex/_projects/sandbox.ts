@@ -5,7 +5,6 @@ import { authMutation, getProjectWithAccess, hasActiveRun } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { buildProjectBranchName } from "./helpers";
-import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
@@ -56,15 +55,15 @@ export const startProjectSandbox = authMutation({
       ctx.db,
       `project-sandbox-startup-${args.projectId}`,
     );
-    const vercelSandboxId = resolveReusableVercelSandboxId(project);
+    const reusableSandboxId = project.sandboxId;
     console.log(
-      `[projects] startProjectSandbox projectId=${args.projectId} existingSandboxId=${project.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
+      `[projects] startProjectSandbox projectId=${args.projectId} existingSandboxId=${project.sandboxId ?? "none"} sandboxId=${reusableSandboxId ?? "none"}`,
     );
 
     const startArgs = {
       projectId: args.projectId,
       existingSandboxId: project.sandboxId,
-      vercelSandboxId: vercelSandboxId ?? project.vercelSandboxId,
+
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -73,7 +72,7 @@ export const startProjectSandbox = authMutation({
       repoId: project.repoId,
     };
     // Vercel: schedule start action directly (skip ~6s workflow scheduling).
-    if (vercelSandboxId) {
+    if (reusableSandboxId) {
       await ctx.scheduler.runAfter(
         0,
         internal.sandbox.startProjectPreviewSandbox,
@@ -143,7 +142,7 @@ export const retryProjectStartupCommands = authMutation({
       {
         projectId: args.projectId,
         existingSandboxId: project.sandboxId,
-        vercelSandboxId: project.vercelSandboxId,
+
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -441,7 +440,7 @@ export const projectSandboxReady = internalMutation({
   args: {
     projectId: v.id("projects"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
+
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
@@ -478,9 +477,6 @@ export const projectSandboxReady = internalMutation({
     }
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       reviewProjectSandboxStatus: "active",
       lastSandboxActivity: Date.now(),
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
@@ -513,7 +509,6 @@ export const projectSandboxAllocated = internalMutation({
   args: {
     projectId: v.id("projects"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -522,9 +517,6 @@ export const projectSandboxAllocated = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       reviewProjectSandboxStatus: "starting",
       lastSandboxActivity: Date.now(),
     });

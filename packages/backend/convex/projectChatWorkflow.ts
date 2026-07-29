@@ -482,7 +482,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       userId: args.userId,
     });
 
-    if (!data.sandboxId && !data.vercelSandboxId) {
+    if (!data.sandboxId) {
       await saveFailure(
         "No active sandbox. Start the project sandbox before sending chat messages.",
       );
@@ -498,7 +498,6 @@ export const projectChatExecuteWorkflow = workflow.define({
     try {
       started = await ensureSandboxStartedSteps(step, {
         sandboxId: data.sandboxId,
-        vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
         sandboxRunning: data.sandboxStatus === "active",
@@ -681,7 +680,6 @@ export const getChatData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     sandboxStatus: v.optional(taskSandboxStatusValidator),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -714,7 +712,6 @@ export const getChatData = internalQuery({
 
     return {
       sandboxId: project.sandboxId,
-      vercelSandboxId: project.vercelSandboxId,
       sandboxStatus: project.reviewProjectSandboxStatus,
       repoOwner: repo.owner,
       repoName: repo.name,

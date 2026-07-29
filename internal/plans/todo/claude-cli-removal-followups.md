@@ -9,11 +9,9 @@ the daemon gates off, so clean these up promptly.
 
 ## Env vars to clean up
 
-- [ ] **Unset `CLAUDE_ATTEMPT_MODE` on Convex deployments** (prod and
-      dev `good-mule-506`). Check with `npx convex env list` on each. Unset now
-      means `sdk-daemon`, which is the desired production shape. Only keep it
-      if a deployment deliberately wants one-shot `sdk` mode. Anything still
-      set to `cli` or `sdk` from the migration soak should be removed.
+- [x] **Unset `CLAUDE_ATTEMPT_MODE` on Convex deployments** (prod
+      `sensible-woodpecker-357` and dev `good-mule-506`, 2026-07-29). Unset =
+      `sdk-daemon`. Keep only if a deployment deliberately wants one-shot `sdk`.
 - [ ] After all deployments are unset, consider **deleting the
       `CLAUDE_ATTEMPT_MODE` env var entirely** (drop the `sdk` one-shot mode,
       keep the one-shot SDK runner only as the internal non-session /
@@ -41,8 +39,7 @@ the daemon gates off, so clean these up promptly.
 
 ## Doc cleanup
 
-- [ ] `plan-migrate-claude-runtime-to-agent-sdk-persistent-bridge-server.md`
-      at the repo root still describes the CLI-era architecture — archive it
-      into `internal/plans/implemented/` or delete it.
+- [x] `plan-migrate-claude-runtime-to-agent-sdk-persistent-bridge-server.md`
+      archived to `internal/plans/implemented/` (2026-07-29).
 - [ ] Grep for remaining `claude -p` mentions in `internal/` docs and prune
       as they are touched (historical plan/changelog mentions are fine).

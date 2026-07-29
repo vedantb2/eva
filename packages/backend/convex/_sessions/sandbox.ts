@@ -9,7 +9,6 @@ import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
-import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
@@ -63,7 +62,7 @@ export const clearSandbox = authMutation({
     await markAllRunningExited(ctx.db, args.id);
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
-      vercelSandboxId: undefined,
+
       status: "closed",
     });
     return null;
@@ -94,14 +93,13 @@ export const startSandbox = authMutation({
       ctx.db,
       `session-startup-${args.sessionId}`,
     );
-    const vercelSandboxId = resolveReusableVercelSandboxId(session);
+    const reusableSandboxId = session.sandboxId;
     console.log(
-      `[sessions] startSandbox sessionId=${args.sessionId} existingSandboxId=${session.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
+      `[sessions] startSandbox sessionId=${args.sessionId} existingSandboxId=${session.sandboxId ?? "none"} sandboxId=${reusableSandboxId ?? "none"}`,
     );
     const startArgs = {
       sessionId: args.sessionId,
       existingSandboxId: session.sandboxId,
-      vercelSandboxId: vercelSandboxId ?? session.vercelSandboxId,
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -111,7 +109,7 @@ export const startSandbox = authMutation({
     };
     // Vercel: schedule the start action directly. Workflow step scheduling was
     // measured at ~6s before the first action ran.
-    if (vercelSandboxId) {
+    if (reusableSandboxId) {
       await ctx.scheduler.runAfter(
         0,
         internal.sandbox.startSessionSandbox,
@@ -365,7 +363,7 @@ export const sandboxReady = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
+
     branchName: v.string(),
     isNew: v.boolean(),
     usedSnapshot: v.optional(v.boolean()),
@@ -411,9 +409,6 @@ export const sandboxReady = internalMutation({
       sandboxId: args.sandboxId,
       branchName: args.branchName,
       status: "active",
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
       ...(args.markSetupPending ? { sandboxSetupPending: true } : {}),

@@ -1,7 +1,7 @@
 # Daytona legacy data cleanup
 
 **Date:** 2026-07-23  
-**Status:** TODO — execute after Daytona _code_ removal has shipped  
+**Status:** DONE (phase-1+2 ran on prod `sensible-woodpecker-357` + `good-mule-506`, 2026-07-29). Schema now single `sandboxId`; provider enum is `vercel` only. `repoSnapshots.snapshotName` placeholder + Rebuild Now for non-`snap_*` still optional follow-up.  
 **Do not run in the same session as the code deletion.**
 
 ## Goal

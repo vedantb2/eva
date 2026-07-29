@@ -129,7 +129,6 @@ export const saveSandboxId = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -137,9 +136,6 @@ export const saveSandboxId = internalMutation({
     if (run) {
       await ctx.db.patch(args.runId, {
         sandboxId: args.sandboxId,
-        ...(args.vercelSandboxId !== undefined
-          ? { vercelSandboxId: args.vercelSandboxId }
-          : {}),
       });
     }
     return null;
@@ -183,15 +179,11 @@ export const updateProjectSandbox = internalMutation({
   args: {
     projectId: v.id("projects"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       lastSandboxActivity: Date.now(),
     });
     return null;
@@ -205,7 +197,6 @@ export const saveTaskSandboxId = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -213,9 +204,6 @@ export const saveTaskSandboxId = internalMutation({
     if (!task) return null;
     await ctx.db.patch(args.taskId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       updatedAt: Date.now(),
     });
     return null;
@@ -253,7 +241,7 @@ export const clearTaskSandbox = internalMutation({
     if (!task) return null;
     await ctx.db.patch(args.taskId, {
       sandboxId: undefined,
-      vercelSandboxId: undefined,
+
       reviewTaskSandboxStatus: undefined,
       updatedAt: Date.now(),
     });

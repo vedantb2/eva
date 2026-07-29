@@ -202,12 +202,11 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         if (e.key === "Enter" || e.key === " ") handleClick();
       }}
       className={cn(
-        "group relative flex cursor-pointer flex-col gap-1.5 rounded-surface border border-border bg-card p-3 shadow-sm",
+        "group relative flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm",
         "hover:bg-muted/40 transition-colors duration-100",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
-      {/* Header row: badge + timestamp + delete */}
       <div className="flex items-center gap-2">
         <Badge
           variant="secondary"
@@ -215,10 +214,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         >
           {label}
         </Badge>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          {title}
-        </span>
-        <RelativeDateTime at={ts} className="shrink-0 text-xs" />
+        <RelativeDateTime at={ts} className="min-w-0 flex-1 truncate text-xs" />
         <Button
           size="icon-sm"
           variant="ghost"
@@ -230,9 +226,12 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         </Button>
       </div>
 
-      {/* Snippet */}
+      <p className="line-clamp-2 text-sm font-medium text-foreground">
+        {title}
+      </p>
+
       {snippet ? (
-        <p className="line-clamp-2 text-sm text-muted-foreground">{snippet}</p>
+        <p className="line-clamp-3 text-sm text-muted-foreground">{snippet}</p>
       ) : (
         <p className="text-sm text-muted-foreground/50 italic">No content</p>
       )}

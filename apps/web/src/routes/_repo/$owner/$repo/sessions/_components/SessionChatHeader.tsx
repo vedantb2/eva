@@ -15,10 +15,10 @@ import {
 import {
   IconBrandVercel,
   IconDots,
+  IconEye,
   IconGitPullRequest,
   IconPlayerPlay,
   IconPlayerStop,
-  IconSend,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
@@ -87,10 +87,10 @@ export function SessionChatHeader({
         <Button
           size="sm"
           variant="secondary"
-          className="motion-press text-success hover:scale-[1.01] active:scale-[0.96]"
+          className="motion-press text-status-code-review hover:scale-[1.01] active:scale-[0.96]"
           onClick={onOpenReviewModal}
         >
-          <IconSend size={12} />
+          <IconEye size={12} />
           <span className="hidden sm:inline">Send for Review</span>
         </Button>
       )}

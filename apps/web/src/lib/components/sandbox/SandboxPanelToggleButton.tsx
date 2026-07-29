@@ -21,20 +21,21 @@ export function SandboxPanelToggleButton({
 }) {
   return (
     <Button
-      size="icon"
-      variant="ghost"
-      className="size-8 motion-press [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.03] active:scale-[0.96]"
+      size="icon-sm"
+      variant="secondary"
+      className="motion-press hover:scale-[1.01] active:scale-[0.96]"
       onClick={onToggle}
       title={collapsed ? expandLabel : collapseLabel}
+      aria-label={collapsed ? expandLabel : collapseLabel}
     >
       <CrossfadeIcon
         show={collapsed}
         variant="soft"
         trueKey="expand"
         falseKey="collapse"
-        className="relative flex size-4 items-center justify-center"
-        whenTrue={<IconLayoutSidebarRightExpand className="size-4" />}
-        whenFalse={<IconLayoutSidebarRightCollapse className="size-4" />}
+        className="relative flex size-3.5 items-center justify-center"
+        whenTrue={<IconLayoutSidebarRightExpand className="size-3.5" />}
+        whenFalse={<IconLayoutSidebarRightCollapse className="size-3.5" />}
       />
     </Button>
   );

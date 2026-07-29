@@ -25,6 +25,7 @@ import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
+  sidebarSectionLabelClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
   contextSidebarModeForNav,
@@ -260,9 +261,7 @@ export function RepoNavSections({
       {repoNavigation.map((group) => (
         <div key={group.label}>
           {!collapsed ? (
-            <p className="px-3 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground/55">
-              {group.label}
-            </p>
+            <p className={sidebarSectionLabelClass}>{group.label}</p>
           ) : null}
           <div className="space-y-1">{group.items.map(renderRepoNavItem)}</div>
         </div>

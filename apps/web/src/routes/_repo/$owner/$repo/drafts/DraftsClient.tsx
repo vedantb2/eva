@@ -19,14 +19,14 @@ export function DraftsClient() {
     return (
       <PageWrapper title="Drafts" comfortable>
         <div
-          className="flex min-h-[20rem] flex-col gap-2"
+          className="grid min-h-[20rem] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           aria-busy="true"
           aria-label="Loading drafts"
         >
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-16 animate-pulse rounded-surface border border-border bg-muted/60"
+              className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
             />
           ))}
         </div>
@@ -47,7 +47,7 @@ export function DraftsClient() {
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {drafts.map((model) => (
             <DraftCard
               key={

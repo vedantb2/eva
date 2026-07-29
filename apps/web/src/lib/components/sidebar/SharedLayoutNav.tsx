@@ -88,13 +88,17 @@ export function sidebarNavLinkClass(
   collapsed?: boolean,
 ): string {
   return cn(
-    "group motion-base flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group motion-base flex w-full items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     collapsed && "lg:justify-center lg:px-0",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
   );
 }
+
+/** Section group label above a cluster of sidebar nav rows (Build / Ship / …). */
+export const sidebarSectionLabelClass =
+  "px-3 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground/55";
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(

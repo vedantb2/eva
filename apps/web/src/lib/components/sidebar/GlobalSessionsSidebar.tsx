@@ -1,11 +1,11 @@
 "use client";
 
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQueries } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   Dialog,
@@ -17,6 +17,11 @@ import {
 } from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import {
+  sessionActivityAt,
+  sortAppsForSidebar,
+} from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
+import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
 import { entityPathSegment } from "@/lib/numId";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
@@ -37,6 +42,7 @@ export function GlobalSessionsSidebar({
   onNavigate,
 }: GlobalSessionsSidebarProps) {
   const navigate = useNavigate();
+  const { settings } = useSessionsSidebarSettings();
   const repos = useQuery(api.githubRepos.list, {});
   const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
   const [sessionToRename, setSessionToRename] = useState<{
@@ -56,6 +62,37 @@ export function GlobalSessionsSidebar({
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const updateSession = useMutation(api.sessions.update);
 
+  // Stable identity required by useQueries; deduped with each group's list watch.
+  const sessionListQueries = useMemo(() => {
+    if (repos === undefined) return {};
+    return Object.fromEntries(
+      repos.map((repo) => [
+        repo._id,
+        {
+          query: api.sessions.list,
+          args: { repoId: repo._id },
+        },
+      ]),
+    );
+  }, [repos]);
+  const sessionsByRepoId = useQueries(sessionListQueries);
+
+  const latestActivityByAppId = new Map<string, number>();
+  for (const [repoId, result] of Object.entries(sessionsByRepoId)) {
+    if (result === undefined || result instanceof Error) continue;
+    let latest = 0;
+    for (const session of result) {
+      const at = sessionActivityAt(session);
+      if (at > latest) latest = at;
+    }
+    if (latest > 0) latestActivityByAppId.set(repoId, latest);
+  }
+
+  const orderedRepos =
+    repos === undefined
+      ? undefined
+      : sortAppsForSidebar(repos, settings.appSortOrder, latestActivityByAppId);
+
   const isGroupOpen = (repo: RepoRow): boolean => {
     const stored = openByRepoId[repo._id];
     if (stored !== undefined) return stored;
@@ -66,7 +103,7 @@ export function GlobalSessionsSidebar({
   return (
     <>
       <div className="flex-1 space-y-3 px-0 pb-1">
-        {repos === undefined ? (
+        {orderedRepos === undefined ? (
           <div
             className="min-h-[12rem] space-y-2 px-3"
             aria-busy="true"
@@ -79,12 +116,12 @@ export function GlobalSessionsSidebar({
               />
             ))}
           </div>
-        ) : repos.length === 0 ? (
+        ) : orderedRepos.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             No apps yet
           </p>
         ) : (
-          repos.map((repo) => (
+          orderedRepos.map((repo) => (
             <GlobalSessionGroup
               key={repo._id}
               repo={repo}
@@ -94,6 +131,8 @@ export function GlobalSessionsSidebar({
                 setOpenByRepoId((prev) => ({ ...prev, [repo._id]: open }));
               }}
               onNavigate={onNavigate}
+              sessionSortOrder={settings.sessionSortOrder}
+              sessionPreviewCount={settings.sessionPreviewCount}
               onRenameRequest={(session, groupRepo) => {
                 setSessionToRename({ session, repo: groupRepo });
                 setRenameValue(session.title);

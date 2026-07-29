@@ -1,5 +1,25 @@
 # Changelog
 
+## Kanban right-edge scroll hint - 2026-07-29
+
+Quick Tasks and Projects kanban boards can hide columns past the viewport with no cue to scroll. A light right-edge fade now appears while more columns remain and clears at the end of the row.
+
+## Root settings sidebar + Home rename - 2026-07-29
+
+Root `/settings/*` pages only had the icon rail, so jumping between theme / accounts / sync meant the gear dropdown every time. They now get a flat second column like Home (title Settings), and the old Workspace panel label is Home to match the Eva rail destination.
+
+## Message right-click copy menu - 2026-07-29
+
+Chat bubbles in sessions, quick tasks, and projects had only a hover copy control. Right-click now offers Copy message (readable text, mentions as `@Name`) and Copy as markdown (raw stored content) for both user and assistant turns, so you can grab either form without hunting the hover affordance.
+
+## Sessions sidebar sort options - 2026-07-29
+
+Long cross-app session lists needed the same control surface as t3code: a header `↕` menu to sort apps and sessions and tune how many threads show before Show more. Prefs live in localStorage so the Sessions panel stays scannable without a settings trip.
+
+## Sidebar session list Show more - 2026-07-29
+
+Long non-archived session lists were crowding the sidebar. Each app group (and design sessions) now previews three rows with a `⋯` Show more / Show less control; the open session stays visible when collapsed, and only manually archived sessions stay under Archived.
+
 ## Hot-path list query bandwidth cuts - 2026-07-29
 
 Several always-on sidebar subscriptions were shipping full documents (session plan/terminal/daemon state, entire doc bodies) and scanning wider than needed. Slim list return shapes plus indexed draft reads cut client sync bytes without changing what the UI shows; timed stats skip loading `agentRuns` for tasks outside the comparison window (those docs carry large `logs` arrays).

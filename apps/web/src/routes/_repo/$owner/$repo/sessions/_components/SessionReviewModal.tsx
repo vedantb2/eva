@@ -121,30 +121,16 @@ export function SessionReviewModal({
               <DialogHeader>
                 <DialogTitle>Send for Code Review</DialogTitle>
               </DialogHeader>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  By clicking this you confirm that all your changes have been
-                  tested in your session, you are happy with those changes, have
-                  generated a summary, and agree with the changes. Your pull
-                  request will be marked ready for review so a developer can
-                  review the code before merging into staging/production. The
-                  session stays open and editable.
-                </p>
-                <p>
-                  The following audits will also run automatically in the
-                  background:
-                </p>
-                <p>
-                  An automated code audit will run to check accessibility,
-                  testing, code quality, and other configured checks.
-                </p>
-              </div>
+              <p className="text-muted-foreground">
+                Marks your PR ready for review. The session stays open, and an
+                automated code audit runs in the background.
+              </p>
               <DialogFooter>
                 <Button variant="ghost" onClick={handleClose}>
                   Cancel
                 </Button>
                 <Button
-                  className="bg-success text-success-foreground hover:bg-success/90"
+                  className="bg-status-code-review text-white hover:bg-status-code-review/90"
                   onClick={handleCreatePr}
                   disabled={isCreatingPr}
                 >
@@ -227,14 +213,14 @@ export function SessionReviewModal({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
-                className="rounded-surface bg-success/10 p-4 text-center"
+                className="rounded-surface bg-status-code-review-bg p-4 text-center"
               >
                 <IconCircleCheck
                   size={24}
-                  className="mx-auto mb-2 text-success"
+                  className="mx-auto mb-2 text-status-code-review"
                 />
-                <p className="text-sm font-medium text-success">
-                  This information has automatically been sent to the dev team.
+                <p className="text-sm font-medium text-status-code-review">
+                  Sent to the team for review.
                 </p>
               </m.div>
               <DialogFooter>

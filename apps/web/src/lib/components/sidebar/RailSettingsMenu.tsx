@@ -8,54 +8,23 @@ import {
   DropdownMenuItem,
   cn,
 } from "@eva/ui";
+import { IconSettings } from "@tabler/icons-react";
 import {
-  IconBell,
-  IconCode,
-  IconKey,
-  IconPalette,
-  IconServerBolt,
-  IconSettings,
-  IconUserCog,
-} from "@tabler/icons-react";
-
-const SETTINGS_ITEMS = [
-  {
-    name: "Theme",
-    href: "/settings/theme",
-    icon: IconPalette,
-  },
-  {
-    name: "Personalisation",
-    href: "/settings/personalisation",
-    icon: IconUserCog,
-  },
-  {
-    name: "Accounts",
-    href: "/settings/accounts",
-    icon: IconKey,
-  },
-  {
-    name: "Notifications",
-    href: "/settings/notifications",
-    icon: IconBell,
-  },
-  {
-    name: "Sandboxes",
-    href: "/settings/sandboxes",
-    icon: IconServerBolt,
-  },
-] as const;
+  GLOBAL_SETTINGS_NAV,
+  GLOBAL_SETTINGS_TESTING,
+} from "@/lib/components/sidebar/globalSettingsNav";
+import { isGlobalSettingsPath } from "@/lib/components/sidebar/homePaths";
 
 /**
  * Compact settings gear under the rail avatar. Opens global settings routes
- * (theme, personalisation, notifications, sandboxes) — user-level, not per-repo.
- * Testing is included in DEV only.
+ * (theme, personalisation, notifications, sandboxes, sync) — user-level, not
+ * per-repo. Testing is included in DEV only.
  */
 export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const showTesting = import.meta.env.DEV;
   const isActive =
-    SETTINGS_ITEMS.some((item) => pathname.startsWith(item.href)) ||
+    isGlobalSettingsPath(pathname) ||
     (showTesting &&
       (pathname === "/testing" || pathname.startsWith("/testing/")));
 
@@ -82,7 +51,7 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
         sideOffset={8}
         className="w-48"
       >
-        {SETTINGS_ITEMS.map((item) => (
+        {GLOBAL_SETTINGS_NAV.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
             <Link to={item.href} onClick={onNavigate}>
               <item.icon size={16} className="mr-2" />
@@ -92,9 +61,9 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
         ))}
         {showTesting ? (
           <DropdownMenuItem asChild>
-            <Link to="/testing" onClick={onNavigate}>
-              <IconCode size={16} className="mr-2" />
-              Testing
+            <Link to={GLOBAL_SETTINGS_TESTING.href} onClick={onNavigate}>
+              <GLOBAL_SETTINGS_TESTING.icon size={16} className="mr-2" />
+              {GLOBAL_SETTINGS_TESTING.name}
             </Link>
           </DropdownMenuItem>
         ) : null}

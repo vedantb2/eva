@@ -1,3 +1,9 @@
+# SUPERSEDED
+
+Cancelled 29 Jul 2026. Replaced by `internal/plans/todo/design-as-session-mode.md` (Cursor-style session mode: Edit | PRD | Design; no `kind` field; no `/designs` routes).
+
+---
+
 # Merge designSessions into sessions (single table + `kind` field)
 
 ## Context

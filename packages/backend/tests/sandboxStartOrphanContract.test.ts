@@ -24,14 +24,12 @@ describe("a start that fails does not leak its new sandbox", () => {
       "prepareProjectPreviewSandboxInternal",
       "prepareSessionSandboxInternal",
       "prepareTaskPreviewSandboxInternal",
-      "startDesignSandbox",
     ]);
   });
 
   test.each([
     "prepareSessionSandboxInternal",
     "prepareTaskPreviewSandboxInternal",
-    "startDesignSandbox",
   ])("%s deletes the sandbox it created", (name) => {
     const handler = catchBodyOf(owners, name);
     expect(handler, `${name} no longer deletes on failure`).toMatch(
@@ -43,7 +41,6 @@ describe("a start that fails does not leak its new sandbox", () => {
   test.each([
     "prepareSessionSandboxInternal",
     "prepareTaskPreviewSandboxInternal",
-    "startDesignSandbox",
   ])("%s drops the sandbox git credentials too", (name) => {
     expect(catchBodyOf(owners, name)).toContain(
       "internal.sandboxGitCredentials.deleteBySandboxId",

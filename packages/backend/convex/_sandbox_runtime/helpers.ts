@@ -581,11 +581,7 @@ export async function signAndLaunchScript(
 }
 
 /** Owner id types that can derive a stable per-owner Claude session UUID. */
-type PersistableSessionId =
-  | Id<"sessions">
-  | Id<"designSessions">
-  | Id<"projects">
-  | Id<"agentTasks">;
+type PersistableSessionId = Id<"sessions"> | Id<"projects"> | Id<"agentTasks">;
 
 /** Derives a deterministic UUID v4 from a session ID hash for Claude session identification. */
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {

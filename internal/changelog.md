@@ -1,5 +1,9 @@
 # Changelog
 
+## Design as a session mode - 2026-07-30
+
+Design is no longer a parallel `designSessions` product — it's a third session mode (Edit | PRD | Design) on the same URL, sandbox, and chat history. Design turns use the normal session execute path (Claude daemon / Cursor one-shot), surface variations in a Designs sandbox tab, and the old `/designs` routes + table are gone after a wipe migration.
+
 ## Experimental Chrome-style session tabs - 2026-07-29
 
 The sessions sidebar is dense once you have many apps and threads. An opt-in Experimental setting now swaps it for a Chrome-like horizontal tab strip: active sessions (not archived, PR open/draft) grouped by app, with overflow and Archived menus for the full list and merged/closed/archived threads. Off by default so the existing sidebar stays the default.

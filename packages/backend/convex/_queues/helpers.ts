@@ -7,7 +7,6 @@ import {
   PROJECT_CHAT_STREAM_PREFIX,
   TASK_CHAT_STREAM_PREFIX,
   trackAgentTaskChatWorkflow,
-  trackDesignSessionWorkflow,
   trackProjectChatWorkflow,
   trackSessionWorkflow,
 } from "../workflowWatchdog";
@@ -77,6 +76,7 @@ export async function startNextQueuedSessionMessage(
     userId: nextMessage.userId,
     mode: nextMessage.mode,
     attachmentStorageIds: nextMessage.attachmentStorageIds,
+    personaId: nextMessage.personaId,
     credentialSourceLabel: await resolveCredentialSourceLabel(
       ctx.db,
       session.providerAccountId,
@@ -101,6 +101,8 @@ export async function startNextQueuedSessionMessage(
         use1mContext: nextMessage.use1mContext,
         providerAccountId: session.providerAccountId,
         credentialOwnerUserId,
+        personaId: nextMessage.personaId,
+        numDesigns: nextMessage.numDesigns,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
@@ -129,95 +131,6 @@ export async function startNextQueuedSessionMessage(
       timestamp: Date.now(),
     });
     await ctx.db.patch(sessionId, { updatedAt: Date.now() });
-    return false;
-  }
-}
-
-/** Dequeues and starts the next pending message for a design session, launching its workflow. */
-export async function startNextQueuedDesignMessage(
-  ctx: MutationCtx,
-  designSessionId: Id<"designSessions">,
-): Promise<boolean> {
-  const session = await ctx.db.get(designSessionId);
-  if (!session || session.activeWorkflowId) {
-    return false;
-  }
-
-  const nextMessage = await ctx.db
-    .query("queuedMessages")
-    .withIndex("by_parent_and_order", (q) => q.eq("parentId", designSessionId))
-    .order("asc")
-    .first();
-  if (!nextMessage) {
-    return false;
-  }
-
-  await ctx.db.delete(nextMessage._id);
-
-  // See startNextQueuedSessionMessage above for why every dequeue clears.
-  await clearStreamingActivity(ctx, String(designSessionId));
-
-  const now = Date.now();
-  await ctx.db.insert("messages", {
-    parentId: designSessionId,
-    role: "user",
-    content: nextMessage.content,
-    timestamp: now,
-    userId: nextMessage.userId,
-    personaId: nextMessage.personaId,
-    attachmentStorageIds: nextMessage.attachmentStorageIds,
-    credentialSourceLabel: await resolveCredentialSourceLabel(
-      ctx.db,
-      nextMessage.providerAccountId,
-      session.userId,
-    ),
-    model: nextMessage.model,
-    reasoningLevel: nextMessage.reasoningLevel,
-  });
-
-  const assistantMessageId = await ctx.db.insert("messages", {
-    parentId: designSessionId,
-    role: "assistant",
-    content: "",
-    timestamp: now,
-    activityLog: "",
-  });
-
-  try {
-    const workflowId = await workflow.start(
-      ctx,
-      internal.designWorkflow.designSessionWorkflow,
-      {
-        designSessionId,
-        message: nextMessage.content,
-        model: nextMessage.model ?? DEFAULT_AI_MODEL,
-        reasoningLevel: nextMessage.reasoningLevel,
-        thinkingEnabled: nextMessage.thinkingEnabled,
-        use1mContext: nextMessage.use1mContext,
-        providerAccountId: nextMessage.providerAccountId,
-        credentialOwnerUserId: session.userId,
-        personaId: nextMessage.personaId,
-        userId: nextMessage.userId,
-        numDesigns: nextMessage.numDesigns ?? 3,
-      },
-    );
-
-    await ctx.db.patch(designSessionId, { updatedAt: now });
-    await trackDesignSessionWorkflow(
-      ctx,
-      designSessionId,
-      workflowId,
-      QUEUE_RUN_TIMEOUT_MS,
-    );
-
-    return true;
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to start queued design.";
-    await ctx.db.patch(assistantMessageId, {
-      content: `Error: ${errorMessage}`,
-    });
-    await ctx.db.patch(designSessionId, { updatedAt: Date.now() });
     return false;
   }
 }

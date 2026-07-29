@@ -9,7 +9,6 @@ const STEPS = [
   "tasks",
   "sessions",
   "docs",
-  "designSessions",
   "snapshots",
   "automations",
   "flatTables",
@@ -31,7 +30,6 @@ const stepValidator = v.union(
   v.literal("tasks"),
   v.literal("sessions"),
   v.literal("docs"),
-  v.literal("designSessions"),
   v.literal("snapshots"),
   v.literal("automations"),
   v.literal("flatTables"),
@@ -207,26 +205,6 @@ export const deleteRepoStep = internalMutation({
             deleted++;
           }
           await ctx.db.delete(doc._id);
-          deleted++;
-        }
-        break;
-      }
-
-      case "designSessions": {
-        const dss = await ctx.db
-          .query("designSessions")
-          .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-          .collect();
-        for (const ds of dss) {
-          const messages = await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", ds._id))
-            .collect();
-          for (const m of messages) {
-            await ctx.db.delete(m._id);
-            deleted++;
-          }
-          await ctx.db.delete(ds._id);
           deleted++;
         }
         break;

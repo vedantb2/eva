@@ -4,6 +4,126 @@ import {
   buildSystemPromptBlock,
   getResponseLengthInstruction,
 } from "../prompts";
+import { buildDesignSystemPrompt } from "../prompts/design";
+import { stripMentionTokens } from "../_mentions/resolveDocMentions";
+
+const VARIATION_STRATEGIES = [
+  "A: Clean/conventional — clarity, familiar patterns, straightforward navigation",
+  "B: Creative/bold — unconventional layout, striking hierarchy, unique interactions",
+  "C: Compact/efficient — high density, minimal chrome, space-efficient",
+  "D: Immersive/visual — full-screen imagery, rich motion, cinematic feel",
+  "E: Accessible/minimal — maximum legibility, highest contrast, simplified interactions",
+];
+
+/** Generates the Next.js router scaffold code for lazy-loading design variations. */
+function buildRouterScaffold(labels: string[]): string {
+  const entries = labels
+    .map((l) => `  ${l}: lazy(() => import('./variations/variation-${l}')),`)
+    .join("\n");
+  return `\`\`\`tsx
+'use client';
+import { lazy, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const variations: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+${entries}
+};
+
+export default function DesignPreview() {
+  const params = useSearchParams();
+  const v = params.get('v') || '${labels[0]}';
+  const Component = variations[v] || variations.${labels[0]};
+  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
+}
+\`\`\``;
+}
+
+/** Builds the full design-mode turn prompt (persona, refine base, variation strategies). */
+export function buildDesignPrompt(
+  repo: { owner: string; name: string },
+  message: string,
+  conversationHistory: Array<{ role: string; content: string }>,
+  selectedBase: { label: string; filePath: string } | null,
+  persona: { name: string; prompt: string } | null,
+  rootDirectory: string,
+  numDesigns: number,
+  customInstructionsBlock: string,
+): string {
+  const labels = Array.from({ length: numDesigns }, (_, i) =>
+    String.fromCharCode(97 + i),
+  );
+  const labelsBracketed = `{${labels.join(",")}}`;
+
+  const history = conversationHistory
+    .filter((m) => m.content)
+    .slice(-6)
+    .map(
+      (m) =>
+        `${m.role === "user" ? "User" : "Assistant"}: ${stripMentionTokens(m.content)}`,
+    )
+    .join("\n\n");
+
+  const baseContext = selectedBase
+    ? `\n\n## Selected Base Design
+The user selected "${selectedBase.label}" as the base.
+Read the file at: ${selectedBase.filePath}
+IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
+Only change what the user explicitly requests. Create ${numDesigns} refined variations of THIS design.`
+    : "";
+
+  const personaContext = persona
+    ? `\n\n## Target Persona
+Name: ${persona.name}
+${persona.prompt}
+
+Design with this persona in mind — consider their goals, context, and preferences.`
+    : "";
+
+  const strategies = VARIATION_STRATEGIES.slice(0, numDesigns)
+    .map((s) => `- ${s}`)
+    .join("\n");
+
+  return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
+
+## Your Task
+Read the codebase to understand the existing design system, then write ${numDesigns} React component variation files based on the user's request.
+
+## Steps
+1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
+2. Discover the project's design system:
+   - Read CLAUDE.md to understand the project
+   - Search for styling config files (e.g. tailwind.config.*, globals.css, theme.ts, stitches.config.*, styled-components theme, CSS custom properties, etc.)
+   - Read existing components to understand the styling approach, token naming, and visual patterns
+   - Identify the CSS/styling framework in use and its semantic tokens
+3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
+4. Write ${numDesigns} variation files to app/design-preview/variations/variation-${labelsBracketed}.tsx using ONLY the project's own design tokens
+5. Output ONLY the JSON
+
+## Router Scaffold (create if missing)
+${buildRouterScaffold(labels)}
+
+## Variation Strategies
+${strategies}
+
+## Design System
+Use ONLY the project's own design tokens and theme system discovered in Step 2. NEVER use hardcoded colors, raw hex values, or default framework utility colors. Match the existing codebase's styling conventions exactly.
+
+## Design Rules
+- Realistic content (real names, dates, numbers) — never placeholder text
+- Clear visual hierarchy with consistent spacing using the project's spacing scale
+- Generous whitespace, responsive layouts
+
+## Previous Conversation
+${history || "None"}
+${baseContext}
+${personaContext}
+
+## User Request
+${message}
+
+## Output
+${buildDesignSystemPrompt(numDesigns)}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
+}
 
 /** Builds a plan-mode prompt for creating or refining a plan.md document. */
 export function buildPlanPrompt(

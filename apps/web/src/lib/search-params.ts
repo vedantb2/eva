@@ -128,6 +128,7 @@ const sandboxTabs = [
   "review",
   "files",
   "prd",
+  "designs",
 ] as const;
 export type SandboxTab = (typeof sandboxTabs)[number];
 

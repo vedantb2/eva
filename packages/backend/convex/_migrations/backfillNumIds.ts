@@ -13,7 +13,6 @@ const ENTITY_TYPES: RepoEntityType[] = [
   "docs",
   "projects",
   "agentTasks",
-  "designSessions",
   "automations",
 ];
 
@@ -43,11 +42,6 @@ async function listEntitiesForRepo(
     case "agentTasks":
       return db
         .query("agentTasks")
-        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-        .collect();
-    case "designSessions":
-      return db
-        .query("designSessions")
         .withIndex("by_repo", (q) => q.eq("repoId", repoId))
         .collect();
     case "automations":

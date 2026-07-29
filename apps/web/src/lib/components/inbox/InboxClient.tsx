@@ -18,7 +18,6 @@ import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
 
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "designs",
   "docs",
   "sessions",
   "quick-tasks",

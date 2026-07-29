@@ -20,7 +20,6 @@ import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
 import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
@@ -48,7 +47,6 @@ import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "designs",
   "docs",
   "reviews",
   "sessions",
@@ -66,7 +64,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   for (let i = 2; i < segments.length; i++) {
     const s = segments[i];
     if (
-      s === "designs" ||
       s === "settings" ||
       s === "docs" ||
       s === "reviews" ||
@@ -245,19 +242,17 @@ export function Sidebar() {
           : "main";
 
   const contextSidebarTitle =
-    contextSidebarMode === "designs"
-      ? "Designs"
-      : contextSidebarMode === "settings"
-        ? "Settings"
-        : contextSidebarMode === "docs"
-          ? "Documents"
-          : contextSidebarMode === "reviews"
-            ? "Reviews"
-            : contextSidebarMode === "testing-arena"
-              ? "Testing Arena"
-              : contextSidebarMode === "automations"
-                ? "Automations"
-                : "";
+    contextSidebarMode === "settings"
+      ? "Settings"
+      : contextSidebarMode === "docs"
+        ? "Documents"
+        : contextSidebarMode === "reviews"
+          ? "Reviews"
+          : contextSidebarMode === "testing-arena"
+            ? "Testing Arena"
+            : contextSidebarMode === "automations"
+              ? "Automations"
+              : "";
 
   return (
     <>
@@ -529,14 +524,7 @@ export function Sidebar() {
                               onNavigate={closeMobileSidebar}
                             />
                           ) : repo && repoBasePath ? (
-                            contextSidebarMode === "designs" ? (
-                              <DesignSessionsSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
-                                pathname={pathname}
-                                onNavigate={closeMobileSidebar}
-                              />
-                            ) : contextSidebarMode === "docs" ? (
+                            contextSidebarMode === "docs" ? (
                               <DocsSidebar
                                 repoId={repo._id}
                                 basePath={repoBasePath}

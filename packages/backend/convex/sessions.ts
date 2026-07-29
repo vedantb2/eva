@@ -24,6 +24,7 @@ export {
   updatePlanContent,
   updateLastMessage,
   releaseBrowserLock,
+  selectVariation,
 } from "./_sessions/mutations";
 
 export {

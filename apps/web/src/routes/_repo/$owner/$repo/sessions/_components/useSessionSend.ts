@@ -86,6 +86,8 @@ interface UseSessionSendParams {
   ) => Id<"userProviderAccounts"> | undefined;
   accounts: ReadonlyArray<ModelAccount>;
   messages: SessionMessage[];
+  personaId?: Id<"designPersonas">;
+  numDesigns?: number;
 }
 
 export function useSessionSend({
@@ -98,6 +100,8 @@ export function useSessionSend({
   resolveAccountId,
   accounts,
   messages,
+  personaId,
+  numDesigns,
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
@@ -111,6 +115,14 @@ export function useSessionSend({
   );
 
   const isExecuting = isAssistantTurnInProgress(messages);
+
+  const designArgs =
+    mode === "design"
+      ? {
+          personaId,
+          numDesigns,
+        }
+      : {};
 
   const handleSend = async (
     content: string,
@@ -130,6 +142,7 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
+        ...designArgs,
       });
       review?.clear();
       return;
@@ -145,6 +158,7 @@ export function useSessionSend({
         providerAccountId: accountId,
         model,
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+        ...designArgs,
       }),
       startExecution({
         sessionId,
@@ -155,6 +169,7 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
+        ...designArgs,
       }),
     ])
       .catch(async (error) => {

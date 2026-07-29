@@ -6,7 +6,6 @@ import type { FunctionReturnType } from "convex/server";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
   AutomationsIcon,
-  DesignsIcon,
   DocumentsIcon,
   ReviewsIcon,
   ProjectsIcon,
@@ -19,7 +18,6 @@ import { type api } from "@eva/backend";
 import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
-import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
 import {
   SharedLayoutNav,
@@ -79,17 +77,6 @@ export function RepoNavSections({
 
   const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
-      {
-        label: "Build",
-        items: [
-          {
-            name: "Designs",
-            href: `${repoBasePath}/designs`,
-            icon: DesignsIcon,
-            devOnly: true,
-          },
-        ],
-      },
       {
         label: "Ship",
         items: [
@@ -163,7 +150,6 @@ export function RepoNavSections({
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {
-      const showActiveCount = item.name === "Designs" && repo;
       return (
         <SharedLayoutNavSurface
           key={item.name}
@@ -186,7 +172,6 @@ export function RepoNavSections({
               )}
             />
             <span className="truncate">{item.name}</span>
-            {showActiveCount && repo && <ActiveCountBadge repoId={repo._id} />}
             {item.name === "Automations" && repo && (
               <UnreadAutomationsBadge repoId={repo._id} />
             )}

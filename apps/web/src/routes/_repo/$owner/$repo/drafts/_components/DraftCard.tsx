@@ -26,7 +26,7 @@ function kindLabel(model: DraftCardModel): string {
   if (kind === "taskChat") return "Task chat";
   if (kind === "projectChat") return "Project chat";
   if (kind === "sessionChat") return "Session";
-  return "Design";
+  return "Draft";
 }
 
 function contextTitle(model: DraftCardModel): string {
@@ -109,14 +109,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
       return;
     }
 
-    const {
-      kind,
-      taskId,
-      taskProjectId,
-      projectId,
-      sessionId,
-      designSessionId,
-    } = model.row;
+    const { kind, taskId, taskProjectId, projectId, sessionId } = model.row;
 
     if (kind === "taskComment" && taskId) {
       void (async () => {
@@ -172,19 +165,6 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         await navigate({ to: `${basePath}/sessions/${segment}/preview` });
       })();
       return;
-    }
-
-    if (kind === "designChat" && designSessionId) {
-      void (async () => {
-        const designSession = await convex.query(api.designSessions.get, {
-          id: designSessionId,
-        });
-        const segment = designSession ? entityPathSegment(designSession) : null;
-        if (!segment) {
-          return;
-        }
-        await navigate({ to: `${basePath}/designs/${segment}` });
-      })();
     }
   };
 

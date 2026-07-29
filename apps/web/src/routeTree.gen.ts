@@ -41,8 +41,6 @@ import { Route as RepoOwnerRepoSessionsRouteRouteImport } from "./routes/_repo/$
 import { Route as RepoOwnerRepoStatsRouteImport } from "./routes/_repo/$owner/$repo/stats";
 import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from "./routes/_repo/$owner/$repo/automations/index";
 import { Route as RepoOwnerRepoAutomationsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/automations/$numId/route";
-import { Route as RepoOwnerRepoDesignsIndexRouteImport } from "./routes/_repo/$owner/$repo/designs/index";
-import { Route as RepoOwnerRepoDesignsNumIdRouteImport } from "./routes/_repo/$owner/$repo/designs/$numId";
 import { Route as RepoOwnerRepoDocsIndexRouteImport } from "./routes/_repo/$owner/$repo/docs/index";
 import { Route as RepoOwnerRepoDocsNumIdRouteRouteImport } from "./routes/_repo/$owner/$repo/docs/$numId/route";
 import { Route as RepoOwnerRepoDraftsIndexRouteImport } from "./routes/_repo/$owner/$repo/drafts/index";
@@ -284,18 +282,6 @@ const RepoOwnerRepoAutomationsNumIdRouteRoute =
   RepoOwnerRepoAutomationsNumIdRouteRouteImport.update({
     id: "/automations/$numId",
     path: "/automations/$numId",
-    getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
-const RepoOwnerRepoDesignsIndexRoute =
-  RepoOwnerRepoDesignsIndexRouteImport.update({
-    id: "/designs/",
-    path: "/designs/",
-    getParentRoute: () => RepoOwnerRepoRoute,
-  } as any);
-const RepoOwnerRepoDesignsNumIdRoute =
-  RepoOwnerRepoDesignsNumIdRouteImport.update({
-    id: "/designs/$numId",
-    path: "/designs/$numId",
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any);
 const RepoOwnerRepoDocsIndexRoute = RepoOwnerRepoDocsIndexRouteImport.update({
@@ -789,7 +775,6 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/sessions/$numId": typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren;
   "/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
   "/$owner/$repo/testing-arena/$numId": typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  "/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
   "/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
   "/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
   "/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
@@ -801,7 +786,6 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
   "/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
   "/$owner/$repo/automations/": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/$owner/$repo/designs/": typeof RepoOwnerRepoDesignsIndexRoute;
   "/$owner/$repo/docs/": typeof RepoOwnerRepoDocsIndexRoute;
   "/$owner/$repo/drafts/": typeof RepoOwnerRepoDraftsIndexRoute;
   "/$owner/$repo/projects/": typeof RepoOwnerRepoProjectsIndexRoute;
@@ -886,7 +870,6 @@ export interface FileRoutesByTo {
   "/$owner/$repo/stats": typeof RepoOwnerRepoStatsRoute;
   "/teams/$teamId": typeof GlobalTeamsTeamIdIndexRoute;
   "/$owner/$repo": typeof RepoOwnerRepoIndexRoute;
-  "/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
   "/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
   "/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
   "/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
@@ -898,7 +881,6 @@ export interface FileRoutesByTo {
   "/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
   "/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
   "/$owner/$repo/automations": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/$owner/$repo/designs": typeof RepoOwnerRepoDesignsIndexRoute;
   "/$owner/$repo/docs": typeof RepoOwnerRepoDocsIndexRoute;
   "/$owner/$repo/drafts": typeof RepoOwnerRepoDraftsIndexRoute;
   "/$owner/$repo/projects": typeof RepoOwnerRepoProjectsIndexRoute;
@@ -989,7 +971,6 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/sessions/$numId": typeof RepoOwnerRepoSessionsNumIdRouteRouteWithChildren;
   "/_repo/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
   "/_repo/$owner/$repo/testing-arena/$numId": typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  "/_repo/$owner/$repo/designs/$numId": typeof RepoOwnerRepoDesignsNumIdRoute;
   "/_repo/$owner/$repo/settings/app": typeof RepoOwnerRepoSettingsAppRoute;
   "/_repo/$owner/$repo/settings/audits": typeof RepoOwnerRepoSettingsAuditsRoute;
   "/_repo/$owner/$repo/settings/config": typeof RepoOwnerRepoSettingsConfigRoute;
@@ -1001,7 +982,6 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/settings/tabs": typeof RepoOwnerRepoSettingsTabsRoute;
   "/_repo/$owner/$repo/settings/theme": typeof RepoOwnerRepoSettingsThemeRoute;
   "/_repo/$owner/$repo/automations/": typeof RepoOwnerRepoAutomationsIndexRoute;
-  "/_repo/$owner/$repo/designs/": typeof RepoOwnerRepoDesignsIndexRoute;
   "/_repo/$owner/$repo/docs/": typeof RepoOwnerRepoDocsIndexRoute;
   "/_repo/$owner/$repo/drafts/": typeof RepoOwnerRepoDraftsIndexRoute;
   "/_repo/$owner/$repo/projects/": typeof RepoOwnerRepoProjectsIndexRoute;
@@ -1100,7 +1080,6 @@ export interface FileRouteTypes {
     | "/$owner/$repo/sessions/$numId"
     | "/$owner/$repo/settings/snapshots"
     | "/$owner/$repo/testing-arena/$numId"
-    | "/$owner/$repo/designs/$numId"
     | "/$owner/$repo/settings/app"
     | "/$owner/$repo/settings/audits"
     | "/$owner/$repo/settings/config"
@@ -1112,7 +1091,6 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings/tabs"
     | "/$owner/$repo/settings/theme"
     | "/$owner/$repo/automations/"
-    | "/$owner/$repo/designs/"
     | "/$owner/$repo/docs/"
     | "/$owner/$repo/drafts/"
     | "/$owner/$repo/projects/"
@@ -1197,7 +1175,6 @@ export interface FileRouteTypes {
     | "/$owner/$repo/stats"
     | "/teams/$teamId"
     | "/$owner/$repo"
-    | "/$owner/$repo/designs/$numId"
     | "/$owner/$repo/settings/app"
     | "/$owner/$repo/settings/audits"
     | "/$owner/$repo/settings/config"
@@ -1209,7 +1186,6 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings/tabs"
     | "/$owner/$repo/settings/theme"
     | "/$owner/$repo/automations"
-    | "/$owner/$repo/designs"
     | "/$owner/$repo/docs"
     | "/$owner/$repo/drafts"
     | "/$owner/$repo/projects"
@@ -1299,7 +1275,6 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/sessions/$numId"
     | "/_repo/$owner/$repo/settings/snapshots"
     | "/_repo/$owner/$repo/testing-arena/$numId"
-    | "/_repo/$owner/$repo/designs/$numId"
     | "/_repo/$owner/$repo/settings/app"
     | "/_repo/$owner/$repo/settings/audits"
     | "/_repo/$owner/$repo/settings/config"
@@ -1311,7 +1286,6 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/settings/tabs"
     | "/_repo/$owner/$repo/settings/theme"
     | "/_repo/$owner/$repo/automations/"
-    | "/_repo/$owner/$repo/designs/"
     | "/_repo/$owner/$repo/docs/"
     | "/_repo/$owner/$repo/drafts/"
     | "/_repo/$owner/$repo/projects/"
@@ -1605,20 +1579,6 @@ declare module "@tanstack/react-router" {
       path: "/automations/$numId";
       fullPath: "/$owner/$repo/automations/$numId";
       preLoaderRoute: typeof RepoOwnerRepoAutomationsNumIdRouteRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/designs/": {
-      id: "/_repo/$owner/$repo/designs/";
-      path: "/designs";
-      fullPath: "/$owner/$repo/designs/";
-      preLoaderRoute: typeof RepoOwnerRepoDesignsIndexRouteImport;
-      parentRoute: typeof RepoOwnerRepoRoute;
-    };
-    "/_repo/$owner/$repo/designs/$numId": {
-      id: "/_repo/$owner/$repo/designs/$numId";
-      path: "/designs/$numId";
-      fullPath: "/$owner/$repo/designs/$numId";
-      preLoaderRoute: typeof RepoOwnerRepoDesignsNumIdRouteImport;
       parentRoute: typeof RepoOwnerRepoRoute;
     };
     "/_repo/$owner/$repo/docs/": {
@@ -2608,7 +2568,6 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoReviewsPrNumberRouteRoute: typeof RepoOwnerRepoReviewsPrNumberRouteRouteWithChildren;
   RepoOwnerRepoSettingsSnapshotsRouteRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren;
   RepoOwnerRepoTestingArenaNumIdRouteRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren;
-  RepoOwnerRepoDesignsNumIdRoute: typeof RepoOwnerRepoDesignsNumIdRoute;
   RepoOwnerRepoSettingsAppRoute: typeof RepoOwnerRepoSettingsAppRoute;
   RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute;
   RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute;
@@ -2620,7 +2579,6 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoSettingsTabsRoute: typeof RepoOwnerRepoSettingsTabsRoute;
   RepoOwnerRepoSettingsThemeRoute: typeof RepoOwnerRepoSettingsThemeRoute;
   RepoOwnerRepoAutomationsIndexRoute: typeof RepoOwnerRepoAutomationsIndexRoute;
-  RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute;
   RepoOwnerRepoDocsIndexRoute: typeof RepoOwnerRepoDocsIndexRoute;
   RepoOwnerRepoDraftsIndexRoute: typeof RepoOwnerRepoDraftsIndexRoute;
   RepoOwnerRepoProjectsIndexRoute: typeof RepoOwnerRepoProjectsIndexRoute;
@@ -2650,7 +2608,6 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
     RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren,
   RepoOwnerRepoTestingArenaNumIdRouteRoute:
     RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren,
-  RepoOwnerRepoDesignsNumIdRoute: RepoOwnerRepoDesignsNumIdRoute,
   RepoOwnerRepoSettingsAppRoute: RepoOwnerRepoSettingsAppRoute,
   RepoOwnerRepoSettingsAuditsRoute: RepoOwnerRepoSettingsAuditsRoute,
   RepoOwnerRepoSettingsConfigRoute: RepoOwnerRepoSettingsConfigRoute,
@@ -2663,7 +2620,6 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoSettingsTabsRoute: RepoOwnerRepoSettingsTabsRoute,
   RepoOwnerRepoSettingsThemeRoute: RepoOwnerRepoSettingsThemeRoute,
   RepoOwnerRepoAutomationsIndexRoute: RepoOwnerRepoAutomationsIndexRoute,
-  RepoOwnerRepoDesignsIndexRoute: RepoOwnerRepoDesignsIndexRoute,
   RepoOwnerRepoDocsIndexRoute: RepoOwnerRepoDocsIndexRoute,
   RepoOwnerRepoDraftsIndexRoute: RepoOwnerRepoDraftsIndexRoute,
   RepoOwnerRepoProjectsIndexRoute: RepoOwnerRepoProjectsIndexRoute,

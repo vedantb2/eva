@@ -40,15 +40,11 @@ test("startExecute clears streamingActivity before staging the placeholder", () 
 });
 
 /**
- * All four, not just the session one. They run the same daemon-reconcile
- * architecture, and callers cannot be relied on to clear first —
- * `_sessions/sandbox.ts` drains queued turns straight after a resume with no
- * clear of its own, so the staging point is the only place that covers every
- * entry.
+ * All three queue arms clear streaming before staging the next user message.
+ * Design sessions now use the session queue path.
  */
 test.each([
   "startNextQueuedSessionMessage",
-  "startNextQueuedDesignMessage",
   "startNextQueuedProjectChatMessage",
   "startNextQueuedTaskChatMessage",
 ])("%s clears streamingActivity before staging", (name) => {

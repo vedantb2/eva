@@ -102,14 +102,12 @@ import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
-  v.literal("designSessions"),
   v.literal("projects"),
   v.literal("agentTasks"),
 );
 
 const sessionPersistenceIdValidator = v.union(
   v.id("sessions"),
-  v.id("designSessions"),
   v.id("projects"),
   v.id("agentTasks"),
 );

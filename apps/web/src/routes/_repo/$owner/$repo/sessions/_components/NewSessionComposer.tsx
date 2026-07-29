@@ -19,6 +19,7 @@ import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerSta
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 import { SessionModeDropdown } from "./SessionModeDropdown";
+import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -50,7 +51,11 @@ export function NewSessionComposer() {
     setProviderAccountId,
     setDraft,
     clearDraft,
+    numDesigns,
+    setNumDesigns,
   } = useNewSessionComposerState(repo._id, defaultModel);
+  const [selectedPersonaId, setSelectedPersonaId] =
+    useState<Id<"designPersonas">>();
   const {
     displayText: draftDisplay,
     mentionMap: draftMentionMap,
@@ -83,6 +88,8 @@ export function NewSessionComposer() {
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
     const accountId = resolveAccountId(providerAccountId) ?? null;
+    const designArgs =
+      mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
       const { numId } = await createSession({
         repoId: repo._id,
@@ -91,6 +98,7 @@ export function NewSessionComposer() {
         model,
         baseBranch,
         ...executionTraits,
+        ...designArgs,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
         reasoningLevel: displayTraits.effortLevel,
@@ -132,7 +140,9 @@ export function NewSessionComposer() {
           placeholder={
             mode === "plan"
               ? "Describe what to plan... / for skills · @ for data"
-              : "Ask Eva anything... / for skills · @ for data"
+              : mode === "design"
+                ? "Describe the UI to design... / for skills · @ for data"
+                : "Ask Eva anything... / for skills · @ for data"
           }
           model={model}
           setModel={(next) => {
@@ -148,7 +158,19 @@ export function NewSessionComposer() {
           onSend={handleSend}
           onCancel={async () => {}}
           toolsBefore={
-            <SessionModeDropdown mode={mode} onModeChange={setMode} />
+            <>
+              <SessionModeDropdown mode={mode} onModeChange={setMode} />
+              {mode === "design" ? (
+                <SessionDesignComposerTools
+                  repoId={repo._id}
+                  personaId={selectedPersonaId}
+                  onPersonaChange={setSelectedPersonaId}
+                  numDesigns={numDesigns}
+                  onNumDesignsChange={setNumDesigns}
+                  disabled={isSubmitting}
+                />
+              ) : null}
+            </>
           }
           localDraft={{
             initialDisplay: draftDisplay,

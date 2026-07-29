@@ -26,6 +26,7 @@ export interface NewSessionComposerState {
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
   providerAccountId: string | null;
+  numDesigns?: number;
 }
 
 const reasoningLevelSchema = z.enum([
@@ -45,6 +46,7 @@ const composerStateSchema = z.object({
   thinkingEnabled: z.boolean().optional(),
   use1mContext: z.boolean().optional(),
   providerAccountId: z.string().nullable().optional(),
+  numDesigns: z.number().int().min(1).max(5).optional(),
 });
 
 const storedOrLegacyDraftSchema = composerStateSchema.or(z.string());
@@ -67,6 +69,7 @@ function defaultState(defaultModel?: string | null): NewSessionComposerState {
     model: normalizeAIModel(defaultModel ?? DEFAULT_AI_MODEL),
     mode: "edit",
     providerAccountId: null,
+    numDesigns: 3,
   };
 }
 
@@ -86,6 +89,7 @@ function normalizeStored(
       value.providerAccountId === undefined
         ? defaults.providerAccountId
         : value.providerAccountId,
+    numDesigns: value.numDesigns ?? defaults.numDesigns,
   };
 }
 
@@ -226,6 +230,10 @@ export function useNewSessionComposerState(
     },
     setProviderAccountId: (providerAccountId: string | null) => {
       patch({ providerAccountId });
+    },
+    numDesigns: normalized.numDesigns ?? 3,
+    setNumDesigns: (numDesigns: number) => {
+      patch({ numDesigns });
     },
     /** Clear only the prompt draft after a session is created; keep prefs. */
     clearDraft: () => {

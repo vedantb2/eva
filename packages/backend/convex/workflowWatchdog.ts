@@ -11,7 +11,6 @@ import {
   setProjectConversation,
 } from "./_projects/helpers";
 import {
-  startNextQueuedDesignMessage,
   startNextQueuedSessionMessage,
   startNextQueuedProjectChatMessage,
   startNextQueuedTaskChatMessage,
@@ -39,22 +38,6 @@ export async function trackSessionWorkflow(
     timeoutMs,
     internal.workflowWatchdog.handleStaleSession,
     { sessionId, workflowId: id },
-  );
-}
-
-/** Records a workflow as the active workflow for a design session and schedules a stale handler. */
-export async function trackDesignSessionWorkflow(
-  ctx: MutationCtx,
-  designSessionId: Id<"designSessions">,
-  workflowId: WorkflowId,
-  timeoutMs: number = RUN_TIMEOUT_MS,
-): Promise<void> {
-  const id = String(workflowId);
-  await ctx.db.patch(designSessionId, { activeWorkflowId: id });
-  await ctx.scheduler.runAfter(
-    timeoutMs,
-    internal.workflowWatchdog.handleStaleDesignSession,
-    { designSessionId, workflowId: id },
   );
 }
 
@@ -181,11 +164,7 @@ async function cancelStaleWorkflow(
 /** Updates the last assistant message with a timeout error if it has no content yet. */
 async function timeoutLastMessage(
   ctx: MutationCtx,
-  parentId:
-    | Id<"sessions">
-    | Id<"designSessions">
-    | Id<"projects">
-    | Id<"agentTasks">,
+  parentId: Id<"sessions"> | Id<"projects"> | Id<"agentTasks">,
   content: string,
 ): Promise<void> {
   const last = await ctx.db
@@ -240,38 +219,6 @@ export const handleStaleSession = internalMutation({
     });
 
     await startNextQueuedSessionMessage(ctx, args.sessionId);
-
-    return null;
-  },
-});
-
-/** Cancels a stale design session workflow and marks the last message as timed out. */
-export const handleStaleDesignSession = internalMutation({
-  args: {
-    designSessionId: v.id("designSessions"),
-    workflowId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.designSessionId);
-    if (!session || session.activeWorkflowId !== args.workflowId) return null;
-
-    await cancelStaleWorkflow(ctx, args.workflowId, [
-      String(args.designSessionId),
-    ]);
-
-    await timeoutLastMessage(
-      ctx,
-      args.designSessionId,
-      "Error: Design generation timed out.",
-    );
-
-    await ctx.db.patch(args.designSessionId, {
-      activeWorkflowId: undefined,
-      updatedAt: Date.now(),
-    });
-
-    await startNextQueuedDesignMessage(ctx, args.designSessionId);
 
     return null;
   },

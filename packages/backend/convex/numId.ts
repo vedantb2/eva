@@ -6,7 +6,6 @@ export type RepoEntityType =
   | "docs"
   | "projects"
   | "agentTasks"
-  | "designSessions"
   | "automations";
 
 /** True when an entity was soft-deleted and should be hidden / 404 in the UI. */

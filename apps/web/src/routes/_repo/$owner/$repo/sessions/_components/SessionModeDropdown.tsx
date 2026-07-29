@@ -7,7 +7,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@eva/ui";
-import { IconClipboardList, IconCode } from "@tabler/icons-react";
+import { IconClipboardList, IconCode, IconPalette } from "@tabler/icons-react";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 
 const SESSION_MODE_OPTIONS: Array<{
@@ -17,7 +17,12 @@ const SESSION_MODE_OPTIONS: Array<{
 }> = [
   { value: "edit", label: "Edit", icon: IconCode },
   { value: "plan", label: "Plan", icon: IconClipboardList },
+  { value: "design", label: "Design", icon: IconPalette },
 ];
+
+function isSessionMode(value: string): value is SessionMode {
+  return SESSION_MODE_OPTIONS.some((option) => option.value === value);
+}
 
 interface SessionModeDropdownProps {
   mode: SessionMode;
@@ -45,7 +50,7 @@ export function SessionModeDropdown({
         <DropdownMenuRadioGroup
           value={mode}
           onValueChange={(value) => {
-            if (value === "edit" || value === "plan") {
+            if (isSessionMode(value)) {
               onModeChange(value);
             }
           }}

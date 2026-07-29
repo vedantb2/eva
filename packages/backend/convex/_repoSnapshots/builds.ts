@@ -243,9 +243,6 @@ export const listReferencedSandboxIds = internalQuery({
     const projects = await ctx.db.query("projects").collect();
     for (const project of projects) add(project.sandboxId);
 
-    const designSessions = await ctx.db.query("designSessions").collect();
-    for (const session of designSessions) add(session.sandboxId);
-
     const docs = await ctx.db.query("docs").collect();
     for (const doc of docs) add(doc.sandboxId);
 

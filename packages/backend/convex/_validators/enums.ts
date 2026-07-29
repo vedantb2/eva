@@ -41,6 +41,7 @@ export const sessionModeValidator = v.union(
   v.literal("ask"),
   v.literal("execute"),
   v.literal("plan"),
+  v.literal("design"),
 );
 
 export const sessionStatusValidator = v.union(

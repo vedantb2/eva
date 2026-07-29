@@ -1,11 +1,18 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { MENTION_TOKEN_REGEX } from "./mentionToken";
+import { DATA_MENTION_TABLE, type DataMentionKind } from "./dataKinds";
 
-interface ResolvedMention {
-  docId: Id<"docs">;
+interface ResolvedDocMention {
+  kind: "document";
   title: string;
   content: string;
+}
+
+interface ResolvedMcpMention {
+  kind: Exclude<DataMentionKind, "document">;
+  title: string;
+  id: string;
 }
 
 export interface ResolvedMentionsResult {
@@ -14,15 +21,13 @@ export interface ResolvedMentionsResult {
 }
 
 /**
- * Walks `@[Title](docId)` tokens in `message`, looks up each doc, validates
- * it belongs to `repoId`, and returns:
+ * Walks `@[Title](id)` tokens in `message`, looks up each id against docs /
+ * sessions / projects / agentTasks (scoped to `repoId`), and returns:
  *   - `resolvedMessage`: tokens replaced inline with plain `@Title`
- *   - `prefixBlock`: deduped doc title + content sections, suitable for
- *     prepending to the LLM prompt
+ *   - `prefixBlock`: doc bodies inlined + MCP fetch hints for other entities
  *
- * Tokens whose docs don't exist or belong to a different repo are still
- * replaced inline with `@Title` (snapshot title from the token) so the prose
- * stays readable, but they're omitted from the prefix block.
+ * Unresolved tokens (wrong repo / missing / user ids) still become `@Title`
+ * so prose stays readable, but they are omitted from the prefix block.
  */
 export async function resolveDocMentions(
   ctx: QueryCtx,
@@ -39,32 +44,107 @@ export async function resolveDocMentions(
     uniqueIds.add(match[2]);
   }
 
-  const resolved = new Map<string, ResolvedMention>();
+  const docs = new Map<string, ResolvedDocMention>();
+  const mcpRefs = new Map<string, ResolvedMcpMention>();
+
   for (const rawId of uniqueIds) {
     const docId = ctx.db.normalizeId("docs", rawId);
-    if (!docId) continue;
-    const doc = await ctx.db.get(docId);
-    if (!doc) continue;
-    if (doc.repoId !== repoId) continue;
-    resolved.set(rawId, { docId, title: doc.title, content: doc.content });
+    if (docId) {
+      const doc = await ctx.db.get(docId);
+      if (doc && doc.repoId === repoId) {
+        docs.set(rawId, {
+          kind: "document",
+          title: doc.title,
+          content: doc.content,
+        });
+        continue;
+      }
+    }
+
+    const sessionId = ctx.db.normalizeId("sessions", rawId);
+    if (sessionId) {
+      const session = await ctx.db.get(sessionId);
+      if (session && session.repoId === repoId) {
+        mcpRefs.set(rawId, {
+          kind: "session",
+          title: session.title,
+          id: session._id,
+        });
+        continue;
+      }
+    }
+
+    const projectId = ctx.db.normalizeId("projects", rawId);
+    if (projectId) {
+      const project = await ctx.db.get(projectId);
+      if (project && project.repoId === repoId) {
+        mcpRefs.set(rawId, {
+          kind: "project",
+          title: project.title,
+          id: project._id,
+        });
+        continue;
+      }
+    }
+
+    const taskId = ctx.db.normalizeId("agentTasks", rawId);
+    if (taskId) {
+      const task = await ctx.db.get(taskId);
+      if (task && task.repoId === repoId) {
+        mcpRefs.set(rawId, {
+          kind: "quickTask",
+          title: task.title,
+          id: task._id,
+        });
+      }
+    }
   }
 
   const resolvedMessage = stripMentionTokens(message);
 
-  if (resolved.size === 0) {
+  const sections: string[] = [];
+
+  if (docs.size > 0) {
+    const docSections = [...docs.values()].map(
+      (doc) => `### ${doc.title}\n${doc.content}`,
+    );
+    sections.push(
+      `## Referenced documents\n\n${docSections.join("\n\n---\n\n")}`,
+    );
+  }
+
+  if (mcpRefs.size > 0) {
+    const lines = [...mcpRefs.values()].map((ref) => {
+      const table = DATA_MENTION_TABLE[ref.kind];
+      const kindLabel =
+        ref.kind === "quickTask"
+          ? "Quick task"
+          : ref.kind === "session"
+            ? "Session"
+            : "Project";
+      return `- ${kindLabel} "${ref.title}" — id \`${ref.id}\` (table \`${table}\`)`;
+    });
+    sections.push(
+      [
+        "## Referenced Eva data",
+        "",
+        "The user referenced these entities. Use Eva MCP tools (`query_table`, `get_document`, `get_eva_doc`, `list_eva_docs`, or message/history queries as appropriate) to load their content before answering — do not invent details.",
+        "",
+        ...lines,
+      ].join("\n"),
+    );
+  }
+
+  if (sections.length === 0) {
     return { resolvedMessage, prefixBlock: "" };
   }
 
-  const sections = [...resolved.values()].map(
-    (doc) => `### ${doc.title}\n${doc.content}`,
-  );
-  const prefixBlock = `## Referenced documents\n\n${sections.join("\n\n---\n\n")}\n\n---`;
-
+  const prefixBlock = `${sections.join("\n\n---\n\n")}\n\n---`;
   return { resolvedMessage, prefixBlock };
 }
 
 /**
- * Replaces every `@[Title](docId)` token with plain `@Title`. Used when
+ * Replaces every `@[Title](id)` token with plain `@Title`. Used when
  * embedding historical messages into a follow-up prompt — we want the
  * conversation to read naturally without re-injecting old doc content.
  */

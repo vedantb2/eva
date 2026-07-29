@@ -11,10 +11,10 @@ import {
   Dialog,
   DialogContent,
   CommandShortcut,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -165,17 +165,20 @@ export function SpotlightSearch() {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         hideCloseButton
-        className="top-[28%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0"
+        className="h-[min(28rem,70vh)] max-w-xl gap-0 overflow-hidden p-0"
       >
-        <Command shouldFilter={false} className="border-0">
+        <Command
+          shouldFilter={false}
+          className="flex h-full min-h-0 flex-col border-0"
+        >
           <CommandInput
             autoFocus
             placeholder="Search across your teams and repos…"
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList>
-            <CommandEmpty>
+          <CommandList className="min-h-0 flex-1 max-h-none">
+            <CommandEmpty className="flex h-full min-h-[12rem] items-center justify-center py-0">
               {results === undefined ? "Searching…" : "No results found"}
             </CommandEmpty>
             {groups.map((group) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { api, normalizeAIModel, type Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -18,8 +18,7 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model + mode + traits + account are owned by Convex; read them here so
-  // annotation sends use the session's actual picks, not a stale localStorage fallback.
+  // Model + mode + traits + account are owned by Convex.
   const {
     model,
     mode: stickyMode,
@@ -27,7 +26,7 @@ export function useSessionAnnotationSend(
     providerAccountId: stickyProviderAccountId,
   } = useSessionModel(sessionId, defaultModel);
   const { mode, displayTraits, executionTraits, providerAccountId } =
-    useSessionSettings(String(sessionId), {
+    useSessionSettings({
       defaultModel,
       model,
       mode: stickyMode,

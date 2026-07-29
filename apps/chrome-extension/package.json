@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@clerk/chrome-extension": "^2.8.20",
-    "@conductor/backend": "workspace:*",
-    "@conductor/ui": "workspace:*",
+    "@eva/backend": "workspace:*",
+    "@eva/ui": "workspace:*",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

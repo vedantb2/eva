@@ -14,7 +14,7 @@ import {
   TabsList,
   TabsTrigger,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconArrowUp } from "@tabler/icons-react";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import {

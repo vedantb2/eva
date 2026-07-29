@@ -53,7 +53,7 @@ export interface DocCommentHighlightState {
   activeAnchorId: string | null;
 }
 
-export const docCommentHighlightKey = new PluginKey<DocCommentHighlightState>(
+const docCommentHighlightKey = new PluginKey<DocCommentHighlightState>(
   "docCommentHighlight",
 );
 
@@ -167,7 +167,7 @@ export function removeCommentAnchor(editor: Editor, anchorId: string): void {
 }
 
 /** All text ranges currently carrying the given anchor's mark. */
-export function collectAnchorRanges(
+function collectAnchorRanges(
   doc: PMNode,
   anchorId: string,
 ): { from: number; to: number }[] {

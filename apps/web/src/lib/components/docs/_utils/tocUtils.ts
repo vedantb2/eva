@@ -4,7 +4,7 @@ export interface TocItem {
   level: number;
 }
 
-export const TOC_HEADING_SELECTOR = "h1, h2, h3";
+const TOC_HEADING_SELECTOR = "h1, h2, h3";
 
 export function getHeadingElements(
   container: HTMLElement,
@@ -13,7 +13,7 @@ export function getHeadingElements(
   return Array.from(container.querySelectorAll<HTMLHeadingElement>(selector));
 }
 
-export function slugify(text: string): string {
+function slugify(text: string): string {
   return text
     .toLowerCase()
     .trim()
@@ -22,7 +22,7 @@ export function slugify(text: string): string {
     .replace(/-+/g, "-");
 }
 
-export function buildTocItems(
+function buildTocItems(
   headings: ReadonlyArray<{ text: string; level: number }>,
 ): TocItem[] {
   const seen = new Map<string, number>();

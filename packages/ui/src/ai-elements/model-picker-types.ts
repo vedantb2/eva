@@ -17,7 +17,7 @@ export function getProviderLabel(provider: string): string {
     case "claude":
       return "Claude";
     case "codex":
-      return "Codex";
+      return "GPT";
     case "opencode":
       return "Opencode";
     case "cursor":
@@ -32,6 +32,10 @@ export function formatModelDisplayLabel(
   provider: string,
   label: string,
 ): string {
+  // Codex models are already named "GPT …"; don't prefix with "Codex".
+  if (provider === "codex") {
+    return label;
+  }
   const providerLabel = getProviderLabel(provider);
   if (label.toLowerCase().startsWith(providerLabel.toLowerCase())) {
     return label;

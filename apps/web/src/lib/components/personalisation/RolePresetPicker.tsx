@@ -1,7 +1,7 @@
 "use client";
 
-import { PERSONALISATION_PRESETS } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import { PERSONALISATION_PRESETS } from "@eva/backend";
+import { cn } from "@eva/ui";
 import { IconBriefcase, IconCode, IconBrush } from "@tabler/icons-react";
 
 const PRESET_ICONS = {
@@ -36,17 +36,21 @@ export function RolePresetPicker({
             type="button"
             onClick={() => onSelect(isActive ? null : key)}
             className={cn(
-              "cursor-pointer rounded-surface p-3 text-left transition-[background-color]",
+              // Inactive tiles keep a transparent border so selecting one does
+              // not shift the grid.
+              "cursor-pointer rounded-surface border p-3 text-left transition-[background-color,border-color]",
               isActive
-                ? "bg-accent text-accent-foreground"
-                : "bg-muted/40 text-muted-foreground hover:bg-muted/60",
+                ? "border-border bg-accent text-accent-foreground"
+                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
             )}
           >
             <div className="flex items-center gap-2">
               <Icon size={14} />
               <span className="text-xs font-medium">{preset.label}</span>
             </div>
-            <p className="mt-1 text-[11px] opacity-80">{preset.description}</p>
+            <p className="mt-1 text-xs leading-relaxed opacity-80">
+              {preset.description}
+            </p>
           </button>
         );
       })}

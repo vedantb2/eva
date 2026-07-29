@@ -31,7 +31,7 @@ export function buildStreamingPayload(): string {
   return serializeSteps(S.accumulatedSteps);
 }
 
-export function markHeartbeatSuccess(payload: string): void {
+function markHeartbeatSuccess(payload: string): void {
   S.lastSentPayload = payload;
   S.lastSentContent = S.currentStreamedContent;
   S.lastStreamingSentAt = Date.now();
@@ -46,7 +46,7 @@ export function markHeartbeatSuccess(payload: string): void {
   S.heartbeatFailureStreakStartedAt = 0;
 }
 
-export function noteHeartbeatFailure(error: Error | string): void {
+function noteHeartbeatFailure(error: Error | string): void {
   const message = error instanceof Error ? error.message : String(error);
   S.consecutiveHeartbeatFailures++;
   if (S.consecutiveHeartbeatFailures === 1) {
@@ -163,7 +163,7 @@ export async function flushStreaming(): Promise<void> {
 
 const PING_STUCK_MS = 45_000;
 
-export async function heartbeatPing(): Promise<void> {
+async function heartbeatPing(): Promise<void> {
   if (
     S.pingInProgress &&
     S.pingStartedAt > 0 &&
@@ -203,7 +203,7 @@ export async function heartbeatPing(): Promise<void> {
   }
 }
 
-export async function initialHeartbeat(): Promise<void> {
+async function initialHeartbeat(): Promise<void> {
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {

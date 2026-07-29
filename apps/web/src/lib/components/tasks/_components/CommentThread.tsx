@@ -1,8 +1,8 @@
 "use client";
 
-import type { Id, api } from "@conductor/backend";
+import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Separator, cn } from "@conductor/ui";
+import { Separator, cn } from "@eva/ui";
 import { CommentActivityItem } from "./CommentActivityItem";
 import { CommentReplyComposer } from "./CommentReplyComposer";
 import type { TaskComment } from "../_utils/commentThread";

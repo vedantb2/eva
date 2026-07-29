@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
-import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -34,7 +34,7 @@ import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
-import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_daytona/daemonPaths";
+import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -230,7 +230,7 @@ export const startExecute = authMutation({
     });
 
     if (usesDaemonPull && project.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
         sandboxId: project.sandboxId,
         repoId: project.repoId,
         userId: ctx.userId,
@@ -359,14 +359,14 @@ export const cancelExecution = authMutation({
       await ctx.db.patch(args.projectId, { cancelRequestedAt: Date.now() });
     } else if (project.sandboxId) {
       if (project.activeWorkflowId || project.activeBuildWorkflowId) {
-        await ctx.scheduler.runAfter(0, internal.daytona.killEntityDaemon, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.killEntityDaemon, {
           sandboxId: project.sandboxId,
           repoId: project.repoId,
           entityIdField: "projectId",
           entityId: String(args.projectId),
         });
       } else {
-        await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
+        await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: project.sandboxId,
           repoId: project.repoId,
         });
@@ -521,7 +521,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     }
 
     const validation = await step.runAction(
-      internal.daytona.validateSandbox,
+      internal.sandbox.validateSandbox,
       { sandboxId: activeSandboxId, repoId: data.repoId },
       { retry: false },
     );
@@ -541,7 +541,7 @@ export const projectChatExecuteWorkflow = workflow.define({
         model: args.model,
       });
 
-      await step.runAction(internal.daytona.prewarmEntityDaemon, {
+      await step.runAction(internal.sandbox.prewarmEntityDaemon, {
         sandboxId: activeSandboxId,
         repoId: data.repoId,
         userId: args.userId,
@@ -562,7 +562,7 @@ export const projectChatExecuteWorkflow = workflow.define({
         entityTable: "projects",
       });
     } else {
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId: activeSandboxId,
         entityId: args.projectId,
         prompt: data.prompt,
@@ -590,7 +590,7 @@ export const projectChatExecuteWorkflow = workflow.define({
 
     if (result.success && activeSandboxId && data.branchName) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: activeSandboxId,
           installationId: data.installationId,
           repoOwner: data.repoOwner,
@@ -838,7 +838,7 @@ export const prewarmChatDaemon = authMutation({
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    await ctx.scheduler.runAfter(0, internal.daytona.prewarmEntityDaemon, {
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
       userId: project.userId,

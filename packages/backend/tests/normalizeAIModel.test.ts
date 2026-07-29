@@ -17,6 +17,17 @@ test("normalizeAIModel remaps retired cursor model ids", () => {
   expect(normalizeAIModel("cursor:claude-4.6-sonnet-medium-thinking")).toBe(
     "cursor:grok-4.5-medium",
   );
+  expect(normalizeAIModel("cursor:gpt-5.5-high")).toBe("cursor:gpt-5.5-low");
+  expect(normalizeAIModel("cursor:gpt-5.5-low")).toBe("cursor:gpt-5.5-low");
+});
+
+test("normalizeAIModel remaps retired Codex models to gpt-5.5", () => {
+  expect(normalizeAIModel("codex:gpt-5.4")).toBe("codex:gpt-5.5");
+  expect(normalizeAIModel("codex:gpt-5.4-mini")).toBe("codex:gpt-5.5");
+  expect(normalizeAIModel("codex:gpt-5.3-codex")).toBe("codex:gpt-5.5");
+  expect(normalizeAIModel("codex:gpt-5.2-codex")).toBe("codex:gpt-5.5");
+  expect(normalizeAIModel("codex:gpt-5.5")).toBe("codex:gpt-5.5");
+  expect(normalizeAIModel("codex:gpt-5.5-pro")).toBe("codex:gpt-5.5");
 });
 
 test("normalizeAIModel upgrades bare legacy claude aliases", () => {

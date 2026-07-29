@@ -20,7 +20,7 @@ import { allocateNumId } from "../numId";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { logTaskActivity } from "../taskActivity";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import {
@@ -454,6 +454,32 @@ export const updateStatus = authMutation({
   },
 });
 
+/**
+ * Detaches one user-attached file from a task and deletes its blob. Destructive
+ * and irreversible: the blob is gone, so the UI confirms first. A no-op when the
+ * file is already detached, which keeps double-clicks harmless.
+ */
+export const removeAttachment = authMutation({
+  args: { taskId: v.id("agentTasks"), storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
+      throw new Error("Task not found");
+    const remaining = (task.attachmentStorageIds ?? []).filter(
+      (storageId) => storageId !== args.storageId,
+    );
+    if (remaining.length === (task.attachmentStorageIds ?? []).length)
+      return null;
+    await ctx.db.patch(args.taskId, {
+      attachmentStorageIds: remaining,
+      updatedAt: Date.now(),
+    });
+    await ctx.storage.delete(args.storageId);
+    return null;
+  },
+});
+
 /** Soft-deletes a task (row retained; hidden from lists and direct URLs). */
 export const remove = authMutation({
   args: { id: v.id("agentTasks") },
@@ -485,6 +511,7 @@ export const createQuickTask = authMutation({
     priority: v.optional(priorityValidator),
     screenshotsVideosEnabled: v.optional(v.boolean()),
     runAuditEnabled: v.optional(v.boolean()),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -530,6 +557,7 @@ export const createQuickTask = authMutation({
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
+      attachmentStorageIds: args.attachmentStorageIds,
       numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);

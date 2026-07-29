@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api, normalizeAIModel } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
   Button,
   Input,
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
   Textarea,
   cn,
   ModelSelect,
   toast,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
@@ -95,50 +96,53 @@ export function AutomationClient({
         </Button>
       }
     >
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          if (isAutomationTab(v)) {
-            const segment = entityPathSegment(automation);
-            if (!segment) return;
-            navigate({ to: `${basePath}/automations/${segment}/${v}` });
-          }
-        }}
-        className="space-y-4"
-      >
-        <TabsList>
-          <TabsTrigger value="latest">Latest</TabsTrigger>
-          <TabsTrigger value="run-history">Run History</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            if (isAutomationTab(v)) {
+              const segment = entityPathSegment(automation);
+              if (!segment) return;
+              navigate({ to: `${basePath}/automations/${segment}/${v}` });
+            }
+          }}
+        >
+          <TabsBar className="px-0 pt-0">
+            <TabsList>
+              <TabsTrigger value="latest">Latest</TabsTrigger>
+              <TabsTrigger value="run-history">Run History</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </TabsBar>
+        </Tabs>
 
-      {activeTab === "latest" && (
-        <LatestRun
-          run={runs?.[0]}
-          loading={runs === undefined}
-          actionsEnabled={automation.actionsEnabled === true}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "latest" && (
+          <LatestRun
+            run={runs?.[0]}
+            loading={runs === undefined}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
 
-      {activeTab === "run-history" && (
-        <RunHistory
-          runs={runs?.slice(1)}
-          actionsEnabled={automation.actionsEnabled === true}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "run-history" && (
+          <RunHistory
+            runs={runs?.slice(1)}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
 
-      {activeTab === "settings" && (
-        <SettingsForm
-          automation={automation}
-          repoOwner={repoOwner}
-          repoName={repoName}
-        />
-      )}
+        {activeTab === "settings" && (
+          <SettingsForm
+            automation={automation}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        )}
+      </div>
     </PageWrapper>
   );
 }

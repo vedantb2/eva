@@ -18,7 +18,7 @@ import { describe, expect, test } from "vitest";
 const proxySource = readFileSync(
   join(
     dirname(fileURLToPath(import.meta.url)),
-    "../convex/_daytona/previewProxy.ts",
+    "../convex/_sandbox_runtime/previewProxy.ts",
   ),
   "utf8",
 );

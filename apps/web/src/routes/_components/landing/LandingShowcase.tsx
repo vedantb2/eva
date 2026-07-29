@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { m, useReducedMotion } from "motion/react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import type { LandingFeature } from "./landingContent";
 import { LANDING_PREVIEWS } from "./previews";
 

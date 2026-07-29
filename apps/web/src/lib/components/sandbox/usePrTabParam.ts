@@ -1,21 +1,21 @@
 "use client";
 
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
-import { isPrPanelTab, type PrPanelTab } from "@/lib/search-params";
+import { isReviewTab, type ReviewTab } from "@/lib/search-params";
 
 /** Matches `/review/diffs…`, `/review/recap`, or `/review/overview`. */
 const REVIEW_DIFFS_PATH = /\/review\/diffs(?:\/(?:unified|split))?\/?$/;
 const REVIEW_RECAP_PATH = /\/review\/recap\/?$/;
 const REVIEW_OVERVIEW_PATH = /\/review\/overview\/?$/;
 
-function prTabFromPathname(pathname: string): PrPanelTab | undefined {
+function prTabFromPathname(pathname: string): ReviewTab | undefined {
   if (REVIEW_DIFFS_PATH.test(pathname)) return "diffs";
   if (REVIEW_RECAP_PATH.test(pathname)) return "recap";
   if (REVIEW_OVERVIEW_PATH.test(pathname)) return "overview";
   return undefined;
 }
 
-function reviewSubPath(tab: PrPanelTab, diffView: string): string {
+function reviewSubPath(tab: ReviewTab, diffView: string): string {
   if (tab === "diffs") return `diffs/${diffView}`;
   if (tab === "recap") return "recap";
   return "overview";
@@ -35,14 +35,14 @@ export function usePrTabParam() {
   const pathTab = prTabFromPathname(pathname);
 
   const searchTabValue = "prTab" in search ? search.prTab : undefined;
-  const searchTab: PrPanelTab | undefined =
-    typeof searchTabValue === "string" && isPrPanelTab(searchTabValue)
+  const searchTab: ReviewTab | undefined =
+    typeof searchTabValue === "string" && isReviewTab(searchTabValue)
       ? searchTabValue
       : undefined;
 
   const prTab = pathTab ?? searchTab;
 
-  const setPrTab = (tab: PrPanelTab) => {
+  const setPrTab = (tab: ReviewTab) => {
     if (pathTab !== undefined) {
       const reviewBase = pathname.replace(/\/review\/.*$/, "/review");
       const viewMatch = pathname.match(/\/review\/diffs\/(unified|split)/);

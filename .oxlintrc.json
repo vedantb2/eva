@@ -16,6 +16,7 @@
     "eva/no-is-record": "error",
     "eva/no-json-parse": "warn",
     "eva/no-double-cast": "warn",
+    "eva/no-value-block-in-try": "off",
     "typescript/no-explicit-any": "error",
     "typescript/no-non-null-assertion": "error",
     "typescript/consistent-type-assertions": [
@@ -46,6 +47,10 @@
   },
   "overrides": [
     {
+      "files": ["apps/web/src/**"],
+      "rules": { "eva/no-value-block-in-try": "error" }
+    },
+    {
       "files": ["packages/backend/**"],
       "rules": {
         "no-console": "off",
@@ -65,7 +70,6 @@
     "**/.output/**",
     "**/.vite/**",
     "**/.wxt/**",
-    "**/convex/_daytona/callbackScript.generated.ts",
     "video/**"
   ]
 }

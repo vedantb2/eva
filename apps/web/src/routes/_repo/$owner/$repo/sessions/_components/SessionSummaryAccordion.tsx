@@ -5,7 +5,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconSparkles } from "@tabler/icons-react";
 import { m, AnimatePresence } from "motion/react";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";

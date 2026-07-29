@@ -22,7 +22,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import {
@@ -31,8 +31,8 @@ import {
   normalizeAIModel,
   type AIModel,
   type Id,
-} from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+} from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -63,12 +63,24 @@ import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
+import { TaskFilesSection } from "./_components/TaskFilesSection";
+import { useTaskAttachments } from "./useTaskAttachments";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type QuickTaskDraft = FunctionReturnType<
   typeof api.agentTasks.listDrafts
 >[number];
+
+/**
+ * Convex treats an empty array and an absent field differently, so empty lists
+ * are sent as undefined. Written as a helper rather than an inline ternary
+ * because React Compiler bails on a whole file when a conditional expression
+ * sits inside a try/catch, and one of the call sites has to run post-await.
+ */
+function undefinedIfEmpty<T>(items: T[]): T[] | undefined {
+  return items.length > 0 ? items : undefined;
+}
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -140,6 +152,21 @@ export function QuickTaskModal({
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+
+  const attachments = useTaskAttachments();
+  // Files already saved on the open draft, so reopening it keeps them.
+  const draftAttachments = useQuery(
+    api.agentTasks.listAttachments,
+    activeDraftId ? { taskId: activeDraftId } : "skip",
+  );
+  const [hydratedDraftId, setHydratedDraftId] =
+    useState<Id<"agentTasks"> | null>(null);
+  if (activeDraftId && draftAttachments && hydratedDraftId !== activeDraftId) {
+    setHydratedDraftId(activeDraftId);
+    // An empty draft never clears files the user just attached.
+    if (draftAttachments.length > 0) attachments.hydrate(draftAttachments);
+  }
+
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
@@ -188,11 +215,14 @@ export function QuickTaskModal({
     setPriority(undefined);
     setScreenshotsVideosEnabled(false);
     setRunAuditEnabled(false);
+    setHydratedDraftId(null);
+    attachments.reset();
   };
 
   const handleClose = async () => {
     const desc = getDescription().trim();
-    if (title.trim() || desc) {
+    if (title.trim() || desc || attachments.attachments.length > 0) {
+      const attachmentStorageIds = await attachments.upload();
       await saveDraft({
         id: activeDraftId ?? undefined,
         repoId: repo._id,
@@ -200,6 +230,8 @@ export function QuickTaskModal({
         description: desc || undefined,
         baseBranch: branchLockedToProject ? undefined : baseBranch,
         projectId: selectedProjectId,
+        attachmentStorageIds:
+          attachmentStorageIds.length > 0 ? attachmentStorageIds : undefined,
       });
     }
     resetForm();
@@ -211,35 +243,45 @@ export function QuickTaskModal({
 
     const desc = getDescription().trim();
     const taskBaseBranch = branchLockedToProject ? undefined : baseBranch;
+    // Built before the try, and the post-await one via undefinedIfEmpty: React
+    // Compiler bails on the whole file when a conditional, logical or
+    // nullish-coalescing expression sits inside a try/catch.
+    const taskDescription = desc || undefined;
+    const taskAccountId = resolveAccountId(providerAccountId) ?? null;
+    const taskTags = undefinedIfEmpty(selectedTags);
     setIsLoading(true);
     try {
+      const attachmentStorageIds = await attachments.upload();
+      const taskAttachmentIds = undefinedIfEmpty(attachmentStorageIds);
       if (activeDraftId) {
         await activateDraft({
           id: activeDraftId,
           title: title.trim(),
-          description: desc || undefined,
+          description: taskDescription,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId) ?? null,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          providerAccountId: taskAccountId,
+          tags: taskTags,
           assignedTo,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          attachmentStorageIds: taskAttachmentIds,
         });
       } else {
         await createQuickTask({
           repoId: repo._id,
           title: title.trim(),
-          description: desc || undefined,
+          description: taskDescription,
           baseBranch: taskBaseBranch,
           model,
-          providerAccountId: resolveAccountId(providerAccountId) ?? null,
+          providerAccountId: taskAccountId,
           projectId: selectedProjectId,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          tags: taskTags,
           assignedTo,
           priority,
           screenshotsVideosEnabled,
           runAuditEnabled,
+          attachmentStorageIds: taskAttachmentIds,
         });
       }
       resetForm();
@@ -313,16 +355,35 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
-            <DescriptionMentionEditor
-              ref={editorRef}
-              value={description}
-              onValueChange={setDescription}
-              placeholder="Add description... @ for docs, / for skills."
-              minHeight="min-h-[160px]"
-              className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
-              initialMentionMap={initialDescMaps.mentionMap}
-              initialSkillMap={initialDescMaps.skillMap}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              const dropped = Array.from(e.dataTransfer.files);
+              if (dropped.length === 0) return;
+              e.preventDefault();
+              attachments.add(dropped);
+            }}
+          >
+            <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+              <DescriptionMentionEditor
+                ref={editorRef}
+                value={description}
+                onValueChange={setDescription}
+                placeholder="Add description... @ for data, / for skills."
+                minHeight="min-h-[160px]"
+                className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
+                initialMentionMap={initialDescMaps.mentionMap}
+                initialSkillMap={initialDescMaps.skillMap}
+                completionContext={`the description of a coding task for the repository ${repo.owner}/${repo.name}${title ? `, titled "${title}"` : ""}`}
+                onImageFiles={attachments.add}
+              />
+            </div>
+
+            <TaskFilesSection
+              attachments={attachments.attachments}
+              onAdd={attachments.add}
+              onRemove={attachments.remove}
+              draftTaskId={activeDraftId}
             />
           </div>
 

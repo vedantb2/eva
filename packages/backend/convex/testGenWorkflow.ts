@@ -12,7 +12,7 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",
@@ -85,81 +85,99 @@ export const testGenWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    const { sandboxId } = await prepareSandboxSteps(step, {
-      installationId: args.installationId,
-      repoOwner: docData.repoOwner,
-      repoName: docData.repoName,
-      ephemeral: true,
-      branchName: docData.branchName,
-      repoId: docData.repoId,
-      streamingEntityId: args.docId,
-    });
+    // Declared outside the try so the finally can tear the sandbox down even
+    // when prepare itself throws part-way through.
+    let sandboxId: string | undefined;
+    try {
+      ({ sandboxId } = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        ephemeral: true,
+        branchName: docData.branchName,
+        repoId: docData.repoId,
+        streamingEntityId: args.docId,
+      }));
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: args.docId,
-      prompt: docData.prompt,
-      userId: args.userId,
-      completionMutation: "testGenWorkflow:handleCompletion",
-      entityIdField: "docId",
-      model: "sonnet",
-      allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-      repoId: docData.repoId,
-    });
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: args.docId,
+        prompt: docData.prompt,
+        userId: args.userId,
+        completionMutation: "testGenWorkflow:handleCompletion",
+        entityIdField: "docId",
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        repoId: docData.repoId,
+      });
 
-    // Step 4: Wait for callback
-    const result = await step.awaitEvent(testGenCompleteEvent);
+      // Step 4: Wait for callback
+      const result = await step.awaitEvent(testGenCompleteEvent);
 
-    let workflowSuccess = result.success;
-    let workflowError = result.error;
-    let prUrl: string | null = null;
+      let workflowSuccess = result.success;
+      let workflowError = result.error;
+      let prUrl: string | null = null;
 
-    if (result.success) {
-      try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: docData.repoOwner,
-          repoName: docData.repoName,
-          repoId: docData.repoId,
-          branchName: docData.branchName,
-        });
-
-        prUrl = await step.runAction(
-          internal.taskWorkflowActions.createPullRequest,
-          {
+      if (result.success) {
+        try {
+          await step.runAction(internal.sandbox.pushSandboxBranch, {
+            sandboxId,
             installationId: args.installationId,
             repoOwner: docData.repoOwner,
             repoName: docData.repoName,
+            repoId: docData.repoId,
             branchName: docData.branchName,
-            title: `Add tests for ${docData.docTitle}`,
-            body: buildPrBody([
-              {
-                heading: "Summary",
-                content: `Auto-generated tests for the **${docData.docTitle}** document.`,
-              },
-            ]),
-            labels: ["tests", "eva"],
-          },
-        );
-      } catch (error) {
-        workflowSuccess = false;
-        workflowError = `Test generation completed locally, but Eva could not publish the branch or create a PR. ${error instanceof Error ? error.message : String(error)}`;
+          });
+
+          prUrl = await step.runAction(
+            internal.taskWorkflowActions.createPullRequest,
+            {
+              installationId: args.installationId,
+              repoOwner: docData.repoOwner,
+              repoName: docData.repoName,
+              branchName: docData.branchName,
+              title: `Add tests for ${docData.docTitle}`,
+              body: buildPrBody([
+                {
+                  heading: "Summary",
+                  content: `Auto-generated tests for the **${docData.docTitle}** document.`,
+                },
+              ]),
+              labels: ["tests", "eva"],
+            },
+          );
+        } catch (error) {
+          workflowSuccess = false;
+          workflowError = `Test generation completed locally, but Eva could not publish the branch or create a PR. ${error instanceof Error ? error.message : String(error)}`;
+        }
       }
-    }
 
-    await step.runMutation(internal.testGenWorkflow.saveResult, {
-      docId: args.docId,
-      success: workflowSuccess,
-      result: result.result,
-      error: workflowError,
-    });
-
-    if (workflowSuccess && prUrl) {
-      await step.runMutation(internal.testGenWorkflow.savePrUrl, {
+      await step.runMutation(internal.testGenWorkflow.saveResult, {
         docId: args.docId,
-        testPrUrl: prUrl,
+        success: workflowSuccess,
+        result: result.result,
+        error: workflowError,
       });
+
+      if (workflowSuccess && prUrl) {
+        await step.runMutation(internal.testGenWorkflow.savePrUrl, {
+          docId: args.docId,
+          testPrUrl: prUrl,
+        });
+      }
+    } finally {
+      // The sandbox is ephemeral: nothing references it once the run is saved,
+      // so it has to be deleted here or it idles until the provider reaps it.
+      if (sandboxId) {
+        try {
+          await step.runAction(internal.sandbox.deleteSandbox, {
+            sandboxId,
+            repoId: docData.repoId,
+          });
+        } catch (cleanupError) {
+          console.error("Failed to cleanup test-gen sandbox:", cleanupError);
+        }
+      }
     }
   },
 });

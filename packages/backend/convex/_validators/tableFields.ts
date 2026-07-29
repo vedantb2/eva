@@ -144,6 +144,10 @@ export const agentTaskFields = {
   ...entityNumIdFields,
   title: v.string(),
   description: v.optional(v.string()),
+  // User-attached input files (paperclip / paste in the quick task composer),
+  // stored via Convex file storage. Materialized into the sandbox as
+  // /tmp/eva-attachment-* at launch so the agent can read them.
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   repoId: v.optional(v.id("githubRepos")),
   projectId: v.optional(v.id("projects")),
   tags: v.optional(v.array(v.string())),
@@ -685,7 +689,7 @@ export const taskSubscriberFields = {
 
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
-// token. One row per Daytona sandbox; rotated every time the helper is
+// token. One row per sandbox; rotated every time the helper is
 // reinstalled.
 // App-wide singleton settings (a single row). Currently holds the daily
 // sandbox auto-stop schedule: a wall-clock time + IANA timezone at which the
@@ -763,6 +767,13 @@ export const designSessionFields = {
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
   devPort: v.optional(v.number()),
+  // Sticky composer prefs (same contract as sessions.*) — design chat used to
+  // keep these in localStorage only, so picks were lost across devices.
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  lastModel: v.optional(aiModelValidator),
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
 };
 
 export const docCommentFields = {

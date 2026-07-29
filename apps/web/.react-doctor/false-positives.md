@@ -8,10 +8,6 @@
 
 React Compiler unimplemented lowering (try/finally, throw-in-try, etc.) is a compiler limitation, not an app defect. Prefer rewriting when cheap.
 
-## react-hooks-js/incompatible-library
-
-TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"` is the supported escape hatch on table view components (`ProjectsTableView`, `QuickTasksTableView`).
-
 ## react-hooks-js/hooks — ClientProvider
 
 `ConvexProviderWithClerk` requires `useAuth={useStableAuth}` (passing the hook function itself). That is the documented Clerk+Convex integration; renaming/wrapping breaks auth. Not a call-site bug.
@@ -33,7 +29,7 @@ TanStack Table `useReactTable` returns non-memoizable functions; `"use no memo"`
 
 ## js-combine-iterations on tiny fixed enums
 
-`TASK_STATUSES` / `KANBAN_STATUSES` / `PROJECT_PHASES` `.filter().map()` chains over a handful of constant enum values — second pass cost is negligible per rule validation. Same for `RepoNavSections` static nav groups and `QuickTasksListView`/`QuickTasksTableView`/`ProjectsListView`/`ProjectsKanbanView`/`KanbanBoard`/`ProjectProgressBar`/`TimelineBar` status/phase column loops.
+`TASK_STATUSES` / `KANBAN_STATUSES` / `PROJECT_PHASES` `.filter().map()` chains over a handful of constant enum values — second pass cost is negligible per rule validation. Same for `RepoNavSections` static nav groups and `QuickTasksListView`/`ProjectsListView`/`ProjectsKanbanView`/`KanbanBoard`/`ProjectProgressBar`/`TimelineBar` status/phase column loops.
 
 The auditing `useEffect` schedules `setTimeout`s into a local `timers` array and returns `() => timers.forEach(clearTimeout)`. Cleanup is present; the detector's matcher misses `forEach(clearTimeout)` as a release. Do not remove the timers.
 

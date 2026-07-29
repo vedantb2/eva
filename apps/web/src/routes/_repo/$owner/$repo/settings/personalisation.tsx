@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/settings/personalisation",
 )({
+  staticData: { title: "Settings" },
   beforeLoad: () => {
     throw redirect({ to: "/settings/personalisation" });
   },

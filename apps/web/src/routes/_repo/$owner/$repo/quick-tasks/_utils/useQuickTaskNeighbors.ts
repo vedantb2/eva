@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
@@ -63,15 +63,20 @@ export function useQuickTaskNeighbors({
       if (sandboxTab === "review") {
         void navigate({
           to: `${basePath}/quick-tasks/${segment}/sandbox/review/diffs/unified`,
+          search: (prev) => prev,
         });
         return;
       }
       void navigate({
         to: `${basePath}/quick-tasks/${segment}/sandbox/${sandboxTab}`,
+        search: (prev) => prev,
       });
       return;
     }
-    navigate({ to: `${basePath}/quick-tasks/${segment}` });
+    navigate({
+      to: `${basePath}/quick-tasks/${segment}`,
+      search: (prev) => prev,
+    });
   };
 
   return {
@@ -86,7 +91,7 @@ export function useQuickTaskNeighbors({
       if (nextTaskId) goToTask(nextTaskId);
     },
     handleBack: () => {
-      navigate({ to: `${basePath}/quick-tasks` });
+      navigate({ to: `${basePath}/quick-tasks`, search: (prev) => prev });
     },
   };
 }

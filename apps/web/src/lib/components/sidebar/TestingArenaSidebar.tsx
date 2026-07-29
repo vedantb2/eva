@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { Link } from "@tanstack/react-router";
 import {
   Button,
@@ -13,14 +13,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SearchInput,
   Spinner,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
-import { compactRelativeTime } from "@conductor/shared/dates";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { useQueryState } from "nuqs";
-import { branchParser, searchParser } from "@/lib/search-params";
+import { branchParser } from "@/lib/search-params";
+import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -47,7 +47,6 @@ export function TestingArenaSidebar({
   const docs = useQuery(api.docs.list, { repoId });
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
 
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [branch] = useQueryState("branch", branchParser);
   const [showTestAllModal, setShowTestAllModal] = useState(false);
   const [isTestingAll, setIsTestingAll] = useState(false);
@@ -59,12 +58,6 @@ export function TestingArenaSidebar({
     lastCreateRequestIdRef.current = createRequestId;
     setShowTestAllModal(true);
   }, [createRequestId]);
-
-  const filteredDocs = (() => {
-    if (!docs) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
-  })();
 
   // Only docs with content can be evaluated; the rest are skipped.
   const testableDocs = (docs ?? []).filter((d) => d.content.trim().length > 0);
@@ -93,25 +86,12 @@ export function TestingArenaSidebar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder="Search docs..."
-          value={searchQuery}
-          onChange={(v) => setSearchQuery(v || null)}
-          onClear={() => setSearchQuery(null)}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-warning"
-          onClick={() => setShowTestAllModal(true)}
-          title="Test all documents"
-        >
-          <IconAlertTriangle size={16} />
-        </Button>
-      </div>
+      <ContextSidebarHeaderIconButton
+        title="Test all documents"
+        icon={IconAlertTriangle}
+        className="text-warning"
+        onClick={() => setShowTestAllModal(true)}
+      />
 
       <div className="flex-1">
         {docs === undefined ? (
@@ -129,13 +109,9 @@ export function TestingArenaSidebar({
               Create docs to test against
             </p>
           </div>
-        ) : filteredDocs.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No matches found
-          </div>
         ) : (
           <SharedLayoutNav layoutId="testing-arena-nav" className="space-y-1">
-            {filteredDocs.map((doc) => {
+            {docs.map((doc) => {
               const segment = entityPathSegment(doc);
               if (!segment) return null;
               const href = `${basePath}/testing-arena/${segment}`;

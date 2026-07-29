@@ -1,22 +1,16 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
-import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
-import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
-import { SearchProvider } from "@/lib/contexts/SearchContext";
-import { RepoProvider } from "@/lib/contexts/RepoContext";
-import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
-import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { FollowOverlay } from "@/lib/components/FollowOverlay";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { RepoProvider, RepoGate } from "@/lib/contexts/RepoContext";
 import { LiveCursors } from "@/lib/components/LiveCursors";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,
 });
 
-function MainContent({ children: _children }: { children: ReactNode }) {
+function MainContent({ children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
 
   return (
@@ -32,9 +26,8 @@ function MainContent({ children: _children }: { children: ReactNode }) {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
         />
-        <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
-          <SetupBanner />
-          <Outlet />
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+          {children}
         </div>
       </div>
     </div>
@@ -46,21 +39,15 @@ function RepoLayoutInner() {
 
   return (
     <RepoProvider owner={owner} repoParam={repo}>
-      <SidebarProvider>
-        <PageTitleProvider>
-          <SearchProvider>
-            <FollowProvider>
-              <Sidebar />
-              <MainContent>
-                <Outlet />
-              </MainContent>
-              <SpotlightSearch />
-              <LiveCursors />
-              <FollowOverlay />
-            </FollowProvider>
-          </SearchProvider>
-        </PageTitleProvider>
-      </SidebarProvider>
+      <MainContent>
+        <RepoGate>
+          <SetupBanner />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Outlet />
+          </div>
+        </RepoGate>
+      </MainContent>
+      <LiveCursors />
     </RepoProvider>
   );
 }

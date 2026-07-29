@@ -2,13 +2,15 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { SkillRow } from "./skills/_components/SkillRow";
-import { Button } from "@conductor/ui";
-import { IconRefresh } from "@tabler/icons-react";
+import { Button } from "@eva/ui";
+import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useState } from "react";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 
 export function SkillsClient() {
   const { repoId } = useRepo();
@@ -57,52 +59,61 @@ export function SkillsClient() {
         </Button>
       }
     >
-      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-        <div>
-          <h3 className="text-sm font-medium">Repo Skills</h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Synced from <code>.agents/skills</code> on the base branch. Auto-
-            syncs on push (when skills change) and every 6 hours; use Sync from
-            GitHub to refresh now. Type <code>/</code> in session, task, or
-            project chat to invoke a harness skill.
-          </p>
-        </div>
-
-        {syncSummary ? (
-          <p className="rounded-surface border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            {syncSummary}
-          </p>
-        ) : null}
+      <div className="space-y-4">
+        {/* Sync feedback sits above the list so the list stays a clean table. */}
         {error ? (
-          <p className="rounded-surface bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <p className="rounded-control border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
           </p>
         ) : null}
+        {syncSummary ? (
+          <p className="rounded-control border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+            {syncSummary}
+          </p>
+        ) : null}
         {warnings.length > 0 ? (
-          <div className="rounded-surface border border-border bg-muted/40 px-3 py-2">
-            <p className="text-xs font-medium">Sync warnings</p>
-            <div className="mt-1 grid gap-1 text-[11px] text-muted-foreground">
-              {warnings.map((warning) => (
-                <p key={warning}>{warning}</p>
-              ))}
-            </div>
-          </div>
+          <SettingsSection title="Sync warnings" bodyClassName="grid gap-1">
+            {warnings.map((warning) => (
+              <p
+                key={warning}
+                className="text-xs leading-relaxed text-muted-foreground"
+              >
+                {warning}
+              </p>
+            ))}
+          </SettingsSection>
         ) : null}
 
-        {skills.length > 0 ? (
-          <div className="grid gap-2">
-            {availableSkills.map((skill) => (
-              <SkillRow key={skill._id} skill={skill} />
-            ))}
-            {staleSkills.map((skill) => (
-              <SkillRow key={skill._id} skill={skill} />
-            ))}
-          </div>
-        ) : (
-          <p className="py-6 text-center text-xs text-muted-foreground">
-            No skills synced yet.
-          </p>
-        )}
+        <SettingsSection
+          title="Repo Skills"
+          description={
+            <>
+              Synced from <code>.agents/skills</code> on the base branch.
+              Auto-syncs on push (when skills change) and every 6 hours; use
+              Sync from GitHub to refresh now. Type <code>/</code> in session,
+              task, or project chat to invoke a harness skill.
+            </>
+          }
+          // Rows own their padding so the divider spans the card's full width.
+          bodyClassName="p-0"
+        >
+          {skills.length > 0 ? (
+            <div className="divide-y divide-border">
+              {availableSkills.map((skill) => (
+                <SkillRow key={skill._id} skill={skill} />
+              ))}
+              {staleSkills.map((skill) => (
+                <SkillRow key={skill._id} skill={skill} />
+              ))}
+            </div>
+          ) : (
+            <SettingsEmptyState
+              icon={IconSparkles}
+              title="No skills synced yet"
+              description="Add a SKILL.md under .agents/skills on the base branch, then select Sync from GitHub."
+            />
+          )}
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

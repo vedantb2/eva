@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -90,7 +90,7 @@ export function TerminalPanel({
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const ptyProtocolRef = useRef<PtyProtocol>("daytona");
+  const ptyProtocolRef = useRef<PtyProtocol>("vercel");
   const intentionalCloseRef = useRef(false);
   /** Set when the Vercel interactive shell sends an exit frame — do not reconnect. */
   const shellExitedRef = useRef(false);
@@ -406,13 +406,16 @@ export function TerminalPanel({
         detachWheelScroll = attachNormalBufferWheelScroll(terminal);
 
         terminal.onData((data) => {
+          // Early returns rather than `?.`: this callback is created inside the
+          // try below, and React Compiler bails on the whole file when an
+          // optional-chaining expression sits inside a try/catch.
           const currentWs = wsRef.current;
-          if (currentWs?.readyState === WebSocket.OPEN) {
-            if (ptyProtocolRef.current === "vercel") {
-              currentWs.send(new TextEncoder().encode(data));
-            } else {
-              currentWs.send(data);
-            }
+          if (!currentWs) return;
+          if (currentWs.readyState !== WebSocket.OPEN) return;
+          if (ptyProtocolRef.current === "vercel") {
+            currentWs.send(new TextEncoder().encode(data));
+          } else {
+            currentWs.send(data);
           }
         });
 
@@ -429,9 +432,11 @@ export function TerminalPanel({
         }
 
         if (restoredHistory.length === 0) {
-          for (let i = 0; i < terminal.rows - 1; i++) {
-            terminal.writeln("");
-          }
+          // Pad the viewport so the connecting notice sits at the bottom.
+          // Written as one repeated string rather than a writeln loop: React
+          // Compiler bails on the whole file when a loop sits inside a
+          // try/catch.
+          terminal.write("\r\n".repeat(Math.max(0, terminal.rows - 1)));
         }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 

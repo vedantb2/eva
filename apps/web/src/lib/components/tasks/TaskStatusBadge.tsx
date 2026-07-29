@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@conductor/ui";
+import { Badge } from "@eva/ui";
 import {
   IconCircle,
   IconClock,
@@ -31,6 +31,16 @@ export const TASK_STATUSES: DisplayTaskStatus[] = [
   "cancelled",
 ];
 
+/**
+ * Position of a status in the workflow, for sorting a mixed list into pipeline
+ * order (todo → … → done) instead of alphabetically. Statuses outside
+ * TASK_STATUSES — only "draft" today — sort after every known one.
+ */
+export function statusWorkflowOrder(status: TaskStatus): number {
+  const index = TASK_STATUSES.findIndex((s) => s === status);
+  return index === -1 ? TASK_STATUSES.length : index;
+}
+
 interface TaskStatusBadgeProps {
   status: TaskStatus;
 }
@@ -48,7 +58,7 @@ export const statusConfig: Record<
 > = {
   draft: {
     bg: "bg-secondary",
-    cardBg: "bg-secondary/60",
+    cardBg: "bg-secondary/40",
     bar: "bg-muted-foreground/50",
     text: "text-muted-foreground",
     label: "Draft",
@@ -56,7 +66,7 @@ export const statusConfig: Record<
   },
   todo: {
     bg: "bg-secondary",
-    cardBg: "bg-secondary/60",
+    cardBg: "bg-secondary/40",
     bar: "bg-foreground/50",
     text: "text-muted-foreground",
     label: "To Do",
@@ -64,7 +74,7 @@ export const statusConfig: Record<
   },
   in_progress: {
     bg: "bg-status-progress-bg",
-    cardBg: "bg-status-progress-subtle/60",
+    cardBg: "bg-status-progress-subtle/40",
     bar: "bg-status-progress-bar",
     text: "text-status-progress",
     label: "In Progress",
@@ -72,7 +82,7 @@ export const statusConfig: Record<
   },
   code_review: {
     bg: "bg-status-code-review-bg",
-    cardBg: "bg-status-code-review-subtle/60",
+    cardBg: "bg-status-code-review-subtle/40",
     bar: "bg-status-code-review-bar",
     text: "text-status-code-review",
     label: "Code Review",
@@ -80,7 +90,7 @@ export const statusConfig: Record<
   },
   business_review: {
     bg: "bg-status-business-review-bg",
-    cardBg: "bg-status-business-review-subtle/60",
+    cardBg: "bg-status-business-review-subtle/40",
     bar: "bg-status-business-review-bar",
     text: "text-status-business-review",
     label: "Business Review",
@@ -88,7 +98,7 @@ export const statusConfig: Record<
   },
   done: {
     bg: "bg-status-done-bg",
-    cardBg: "bg-status-done-subtle/60",
+    cardBg: "bg-status-done-subtle/40",
     bar: "bg-status-done-bar",
     text: "text-status-done",
     label: "Merged",
@@ -96,7 +106,7 @@ export const statusConfig: Record<
   },
   cancelled: {
     bg: "bg-status-cancelled-bg",
-    cardBg: "bg-status-cancelled-subtle/60",
+    cardBg: "bg-status-cancelled-subtle/40",
     bar: "bg-status-cancelled-bar",
     text: "text-status-cancelled",
     label: "Cancelled",

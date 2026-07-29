@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { useQueryState } from "nuqs";
-import { api, type Id } from "@conductor/backend";
-import { Button, Spinner } from "@conductor/ui";
+import { api, type Id } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
 import { toRepoRelativePath } from "@/lib/components/chat/ChangedFilesCard";
+import { ResizableSidebar } from "@/lib/components/ResizableSidebar";
 import { fileViewerPathParser } from "@/lib/search-params";
 import { FileViewerPanel, ViewerNotice } from "./FileViewerPanel";
 import { SandboxFileTree } from "./_components/SandboxFileTree";
@@ -32,10 +33,14 @@ type FileListState =
 
 // Module-level, keyed by sandboxId — same pattern/rationale as fileCache in
 // FileViewerPanel: session heartbeats remount often; skip re-fetching.
-const fileListCache = new Map<
-  string,
-  { root: string; paths: string[]; truncated: boolean; version: number }
->();
+type CachedFileList = {
+  root: string;
+  paths: string[];
+  truncated: boolean;
+  version: number;
+};
+
+const fileListCache = new Map<string, CachedFileList>();
 
 function pathsEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -43,6 +48,24 @@ function pathsEqual(a: string[], b: string[]): boolean {
     if (a[i] !== b[i]) return false;
   }
   return true;
+}
+
+/**
+ * Bumps the cached version only when the listing actually changed, so the tree
+ * does not re-render on an identical refresh. A helper rather than inline logic
+ * because React Compiler bails on a whole file when a conditional or logical
+ * expression sits inside a try/catch, and this runs after the fetch await.
+ */
+function nextListVersion(
+  prev: CachedFileList | undefined,
+  next: Omit<CachedFileList, "version">,
+): number {
+  if (prev === undefined) return 1;
+  const unchanged =
+    prev.root === next.root &&
+    prev.truncated === next.truncated &&
+    pathsEqual(prev.paths, next.paths);
+  return unchanged ? prev.version : prev.version + 1;
 }
 
 function deriveSelectedRelPath(
@@ -64,7 +87,7 @@ function deriveSelectedRelPath(
  * links still drive the viewer; the tree highlights the matching path.
  */
 export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
-  const listSandboxFiles = useAction(api.daytona.listSandboxFiles);
+  const listSandboxFiles = useAction(api.sandbox.listSandboxFiles);
   const [file, setFile] = useQueryState("file", fileViewerPathParser);
   const [listState, setListState] = useState<FileListState>(() => {
     if (!sandboxId) return { kind: "idle" };
@@ -91,15 +114,7 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
         setListState({ kind: "not_running" });
         return;
       }
-      const prev = fileListCache.get(id);
-      const contentUnchanged =
-        prev !== undefined &&
-        prev.root === res.root &&
-        prev.truncated === res.truncated &&
-        pathsEqual(prev.paths, res.paths);
-      const version = contentUnchanged
-        ? prev.version
-        : (prev?.version ?? 0) + 1;
+      const version = nextListVersion(fileListCache.get(id), res);
       const next = {
         root: res.root,
         paths: res.paths,
@@ -184,9 +199,10 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="flex min-h-0 w-64 shrink-0 flex-col border-r border-border">
-        {listState.kind === "loading" || listState.kind === "idle" ? (
+    <ResizableSidebar
+      storageKey="sandbox-file-tree"
+      sidebar={
+        listState.kind === "loading" || listState.kind === "idle" ? (
           <div className="flex h-full items-center justify-center">
             <Spinner size="sm" />
           </div>
@@ -222,8 +238,9 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
             onRefresh={handleRefresh}
             onSelectFile={handleSelectFile}
           />
-        )}
-      </div>
+        )
+      }
+    >
       <div className="min-h-0 flex-1">
         <FileViewerPanel
           sandboxId={sandboxId}
@@ -231,6 +248,6 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
           isActive={isActive}
         />
       </div>
-    </div>
+    </ResizableSidebar>
   );
 }

@@ -10,9 +10,9 @@ import {
   Button,
   Textarea,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { IconAlertCircle } from "@tabler/icons-react";
 

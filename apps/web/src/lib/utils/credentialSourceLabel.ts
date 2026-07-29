@@ -1,4 +1,4 @@
-import type { ModelAccount } from "@conductor/ui";
+import type { ModelAccount } from "@eva/ui";
 
 /** Client-side snapshot matching backend `resolveCredentialSourceLabel`. */
 export function resolveCredentialSourceLabel(

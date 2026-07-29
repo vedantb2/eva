@@ -6,7 +6,7 @@ import { allocateNumId } from "../numId";
 import { ensureSubscribed } from "../taskSubscribers";
 import { workflow } from "../workflowManager";
 import type { Id } from "../_generated/dataModel";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { normalizeAIModel } from "../validators";

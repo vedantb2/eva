@@ -2,14 +2,13 @@ import type { MouseEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   MentionText,
-  DocMentionChip,
+  DataMentionChip,
   SkillMentionChip,
-  isMentionTokenDocId,
   isSkillTokenId,
-  MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface MessageMentionTextProps {
   text: string;
@@ -27,7 +26,8 @@ export function MessageMentionText({
   as,
 }: MessageMentionTextProps) {
   const navigate = useNavigate();
-  const navigateToDocById = useDocMentionNavigate(repoBasePath);
+  const { repo } = useRepo();
+  const navigateToData = useDataMentionNavigate(repoBasePath, repo._id);
 
   return (
     <MentionText
@@ -35,31 +35,18 @@ export function MessageMentionText({
       className={className}
       as={as}
       renderMention={(match, key) => {
-        const navigateToDoc = (e: MouseEvent<HTMLButtonElement>) => {
+        const onClick = (e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();
-          if (isMentionTokenDocId(match.id)) {
-            void navigateToDocById(match.id);
-          }
+          void navigateToData(match.id);
         };
-        if (isMentionTokenDocId(match.id)) {
-          return (
-            <DocMentionChip
-              key={key}
-              docId={match.id}
-              label={match.label}
-              onClick={navigateToDoc}
-            />
-          );
-        }
         return (
-          <button
+          <DataMentionChip
             key={key}
-            type="button"
-            onClick={navigateToDoc}
-            className={`${MENTION_CHIP_CLASS} cursor-pointer transition-[background-color] hover:bg-primary/20`}
-          >
-            @{match.label}
-          </button>
+            entityId={match.id}
+            repoId={repo._id}
+            label={match.label}
+            onClick={onClick}
+          />
         );
       }}
       renderSkill={(match, key) => {

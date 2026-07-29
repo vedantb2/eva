@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Tooltip,
   TooltipTrigger,
@@ -20,10 +20,10 @@ import {
   DropdownMenuSeparator,
   DialogBody,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
@@ -53,13 +53,14 @@ import {
   IconMessage,
   IconServerBolt,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 
@@ -69,6 +70,7 @@ export function ProjectDetailClient({
   surface,
   sandboxTab,
   selectedTaskId,
+  selectedTaskStatus,
   detailTab,
 }: {
   projectId: Id<"projects">;
@@ -76,6 +78,8 @@ export function ProjectDetailClient({
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
   selectedTaskId?: Id<"agentTasks">;
+  /** Resolve status of selectedTaskId's numId; undefined when no task is selected. */
+  selectedTaskStatus?: EntityResolveStatus;
   detailTab?: TaskDetailTab;
 }) {
   const navigate = useNavigate();
@@ -179,8 +183,9 @@ export function ProjectDetailClient({
       search: true,
     });
     setExpandRightSignal((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentBrowsingAt]);
+    // Full deps are safe: the ref guard above makes re-runs no-ops, and a
+    // disable comment here makes React Compiler skip the whole file.
+  }, [agentBrowsingAt, basePath, navigate, projectPathSegment]);
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -277,7 +282,6 @@ export function ProjectDetailClient({
         projectId={projectId}
         projectNumId={projectNumId}
         sandboxId={projectSandboxId}
-        vercelSandboxId={project.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}
         prUrl={project.prUrl}
@@ -563,6 +567,7 @@ export function ProjectDetailClient({
             project={project}
             basePath={basePath}
             selectedTaskId={selectedTaskId}
+            selectedTaskStatus={selectedTaskStatus}
             detailTab={detailTab}
           />
         )}

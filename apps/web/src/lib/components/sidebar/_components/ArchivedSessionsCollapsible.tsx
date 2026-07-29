@@ -15,7 +15,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArchive,
   IconArchiveOff,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   ContextMenu,
@@ -17,7 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconExternalLink,
   IconLayoutDashboard,

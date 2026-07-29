@@ -6,6 +6,7 @@ interface SetupSearch {
 }
 
 export const Route = createFileRoute("/_global/setup/$id")({
+  staticData: { title: "Setup" },
   component: RepoSetupPage,
   validateSearch: (search: Record<string, string>): SetupSearch => ({
     auto: search.auto,

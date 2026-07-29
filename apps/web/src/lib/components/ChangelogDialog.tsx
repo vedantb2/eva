@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   Button,
   cn,
   STREAMDOWN_TABLE_RADIUS_CLASS,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";

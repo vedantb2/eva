@@ -5,7 +5,7 @@ import { log } from "../utils.js";
 const loggedUnknownKinds = new Set<string>();
 
 /** Task ids seen in prior `background_tasks_changed` payloads (daemon session). */
-export const knownBackgroundTaskIds = new Set<string>();
+const knownBackgroundTaskIds = new Set<string>();
 
 function readString(value: JsonValue): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;

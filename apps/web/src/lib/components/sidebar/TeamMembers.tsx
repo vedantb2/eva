@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
+import { UserInitials } from "@eva/shared";
 import { useFollow } from "@/lib/contexts/FollowContext";
+import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 
 function getDisplayName(user: {
   firstName?: string | null;
@@ -19,16 +19,15 @@ function getDisplayName(user: {
   );
 }
 
-/** Online teammates as followable avatars (no card chrome — for the stats footer). */
+/** Online teammates as followable avatars (above the sidebar stats card). */
 export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const { following, startFollowing, stopFollowing } = useFollow();
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Presence is decided here rather than in the query: `listTeamWithMembers`
+  // returns every teammate with their `lastSeenAt`, and only a client can
+  // re-evaluate "seen in the last two minutes" as time passes.
+  const now = useQuantizedNow(30_000);
   const twoMinutes = 2 * 60 * 1000;
 
   const onlineMembers = teamData
@@ -87,7 +86,7 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="mt-2.5 min-w-0 border-t border-border pt-2.5">
+    <div className="min-w-0 px-0.5">
       <div className="mb-1.5 flex items-center gap-1.5">
         <span
           className="size-1.5 shrink-0 rounded-full bg-success"

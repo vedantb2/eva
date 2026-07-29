@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -48,6 +48,46 @@ export function buildUrlWithPath(baseUrl: string, path: string): string {
     return carryPreviewGrant(baseUrl, `${parsed.origin}${fullPath}`);
   } catch {
     return baseUrl;
+  }
+}
+
+/**
+ * Reads the iframe's current location, or null when it is cross-origin.
+ *
+ * A module-level helper rather than an inline try/catch in the component: the
+ * optional chaining has to sit outside the `try`, since React Compiler bails on
+ * a whole file when expression-level control flow appears inside one.
+ */
+function readIframeHref(iframe: HTMLIFrameElement | null): string | null {
+  const frameWindow = iframe?.contentWindow;
+  if (!frameWindow) return null;
+  try {
+    return frameWindow.location.href;
+  } catch {
+    // cross-origin — cannot read iframe location
+    return null;
+  }
+}
+
+/**
+ * Drives the iframe's own session history. Returns false when cross-origin
+ * access is blocked, so the caller can fall back to a postMessage command.
+ */
+function stepIframeHistory(
+  iframe: HTMLIFrameElement | null,
+  direction: "back" | "forward",
+): boolean {
+  const frameWindow = iframe?.contentWindow;
+  if (!frameWindow) return false;
+  try {
+    if (direction === "back") {
+      frameWindow.history.back();
+    } else {
+      frameWindow.history.forward();
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -109,24 +149,25 @@ export function PreviewNavBar({
   }
 
   function syncPathFromIframe() {
-    try {
-      const href = iframeRef.current?.contentWindow?.location.href;
-      // Skip about:blank, data:, blob:, etc. — the iframe fires `load` for the
-      // initial empty document before the real URL is applied, and we don't
-      // want that captured as a navigable path.
-      if (!href || !/^https?:/i.test(href)) return;
-      const nextPath = getPathFromUrl(href);
-      setPathInput(nextPath);
-      notifyPathChange(nextPath);
-    } catch {
-      // cross-origin — cannot read iframe location
-    }
+    const href = readIframeHref(iframeRef.current);
+    // Skip about:blank, data:, blob:, etc. — the iframe fires `load` for the
+    // initial empty document before the real URL is applied, and we don't
+    // want that captured as a navigable path.
+    if (!href || !/^https?:/i.test(href)) return;
+    const nextPath = getPathFromUrl(href);
+    setPathInput(nextPath);
+    notifyPathChange(nextPath);
   }
 
+  // Latest-function refs for the long-lived iframe listeners below. Written in
+  // an effect (not during render) so React Compiler can compile the file; the
+  // listeners only fire after commit, so the effect-time write is equivalent.
   const syncPathFromIframeRef = useRef(syncPathFromIframe);
-  syncPathFromIframeRef.current = syncPathFromIframe;
   const notifyPathChangeRef = useRef(notifyPathChange);
-  notifyPathChangeRef.current = notifyPathChange;
+  useEffect(() => {
+    syncPathFromIframeRef.current = syncPathFromIframe;
+    notifyPathChangeRef.current = notifyPathChange;
+  });
 
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");
@@ -164,11 +205,7 @@ export function PreviewNavBar({
   }, [iframeRef]);
 
   function goBack() {
-    let handled = false;
-    try {
-      iframeRef.current?.contentWindow?.history.back();
-      handled = true;
-    } catch {}
+    const handled = stepIframeHistory(iframeRef.current, "back");
     if (!handled) {
       postHistoryCommand("eva-preview-history-back");
     }
@@ -176,11 +213,7 @@ export function PreviewNavBar({
   }
 
   function goForward() {
-    let handled = false;
-    try {
-      iframeRef.current?.contentWindow?.history.forward();
-      handled = true;
-    } catch {}
+    const handled = stepIframeHistory(iframeRef.current, "forward");
     if (!handled) {
       postHistoryCommand("eva-preview-history-forward");
     }

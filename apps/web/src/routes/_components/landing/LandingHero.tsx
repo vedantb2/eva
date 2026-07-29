@@ -3,7 +3,7 @@
 import { SignUpButton } from "@clerk/clerk-react";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { m, type Variants } from "motion/react";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { LandingTaskDetailMock } from "../LandingTaskDetailMock";
 import { EVA_GITHUB_URL, LANDING_HERO_CAPABILITIES } from "./landingContent";
 

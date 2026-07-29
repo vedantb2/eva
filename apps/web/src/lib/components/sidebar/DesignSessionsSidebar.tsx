@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import type { Id } from "@conductor/backend";
-import { api } from "@conductor/backend";
+import type { Id } from "@eva/backend";
+import { api } from "@eva/backend";
 import { SessionListSidebar } from "@/lib/components/sidebar/SessionListSidebar";
 import { entityPathSegment } from "@/lib/numId";
 import { IconPalette } from "@tabler/icons-react";
@@ -141,7 +141,6 @@ export function DesignSessionsSidebar({
       createTitle="New Design Session"
       createPlaceholder="e.g., Dashboard user management page"
       archiveTitle="Archive Design Session"
-      searchPlaceholder="Search design sessions..."
       layoutId="designs-nav"
     />
   );

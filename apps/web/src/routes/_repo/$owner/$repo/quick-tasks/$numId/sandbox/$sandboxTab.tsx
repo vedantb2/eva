@@ -46,12 +46,13 @@ function redirectToQuickTaskReview(args: {
         repo: args.repo,
         numId: args.numId,
       },
-      search: {
+      search: (prev) => ({
+        ...prev,
         draft: undefined,
         diffFile,
         diffView: undefined,
         prTab: undefined,
-      },
+      }),
       replace: true,
     });
   }
@@ -64,12 +65,13 @@ function redirectToQuickTaskReview(args: {
         repo: args.repo,
         numId: args.numId,
       },
-      search: {
+      search: (prev) => ({
+        ...prev,
         draft: undefined,
         diffFile,
         diffView: undefined,
         prTab: undefined,
-      },
+      }),
       replace: true,
     });
   }
@@ -82,12 +84,13 @@ function redirectToQuickTaskReview(args: {
       numId: args.numId,
       diffView: dest.diffView,
     },
-    search: {
+    search: (prev) => ({
+      ...prev,
       draft: undefined,
       diffFile,
       diffView: undefined,
       prTab: undefined,
-    },
+    }),
     replace: true,
   });
 }
@@ -125,12 +128,13 @@ export const Route = createFileRoute(
           numId: params.numId,
           sandboxTab,
         },
-        search: {
+        search: (prev) => ({
+          ...prev,
           draft: undefined,
           diffFile: corrupted.diffFile,
           diffView: corrupted.diffView,
           prTab: undefined,
-        },
+        }),
         replace: true,
       });
     }
@@ -143,7 +147,7 @@ export const Route = createFileRoute(
           numId: params.numId,
           sandboxTab: "computer",
         },
-        search: CLEAR_REVIEW_SEARCH,
+        search: (prev) => ({ ...prev, ...CLEAR_REVIEW_SEARCH }),
         replace: true,
       });
     }
@@ -168,7 +172,7 @@ export const Route = createFileRoute(
           numId: params.numId,
           sandboxTab: "preview",
         },
-        search: CLEAR_REVIEW_SEARCH,
+        search: (prev) => ({ ...prev, ...CLEAR_REVIEW_SEARCH }),
       });
     }
   },

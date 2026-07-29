@@ -8,14 +8,14 @@ import {
   Badge,
   ActivityTasks,
   formatElapsed,
-} from "@conductor/ui";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
-import { formatDuration } from "@conductor/shared/duration";
+} from "@eva/ui";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { formatDuration } from "@eva/shared/duration";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { AuditResults } from "./AuditResults";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 
 type Audit = NonNullable<
   FunctionReturnType<typeof api.audits.listByTask>

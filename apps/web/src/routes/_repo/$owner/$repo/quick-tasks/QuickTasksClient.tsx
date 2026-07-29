@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -14,7 +14,6 @@ import {
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
 import { QuickTasksListSplit } from "./_components/QuickTasksListSplit";
 import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
 import { QuickTaskTaskPageContent } from "./_components/QuickTaskTaskPageContent";
@@ -231,7 +230,10 @@ export function QuickTasksClient() {
   const handleOpenTask = (task: { numId?: number }) => {
     const segment = entityPathSegment(task);
     if (!segment) return;
-    navigate({ to: `${basePath}/quick-tasks/${segment}` });
+    navigate({
+      to: `${basePath}/quick-tasks/${segment}`,
+      search: (prev) => prev,
+    });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
@@ -289,7 +291,13 @@ export function QuickTasksClient() {
   }
 
   // URL points at a task that is still resolving or no longer exists.
-  if (numIdParam !== undefined && taskResolve.status === "loading") {
+  // List view never takes this full-page path — it shows loading/not-found
+  // in the detail pane instead so the list itself stays mounted.
+  if (
+    numIdParam !== undefined &&
+    taskResolve.status === "loading" &&
+    view !== "list"
+  ) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <div
@@ -307,7 +315,11 @@ export function QuickTasksClient() {
     );
   }
 
-  if (numIdParam !== undefined && taskResolve.status === "not-found") {
+  if (
+    numIdParam !== undefined &&
+    taskResolve.status === "not-found" &&
+    view !== "list"
+  ) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <EntityNotFound
@@ -348,12 +360,15 @@ export function QuickTasksClient() {
         headerRight={
           <QuickTasksToolbar
             view={view}
-            onViewChange={(v: "kanban" | "list" | "table") => {
+            onViewChange={(v: "kanban" | "list") => {
               setParams({ view: v });
               // Only list view renders an open task inline (master/detail
-              // split); kanban/table show the board, so close the task.
+              // split); kanban shows the board, so close the task.
               if (selectedTaskId && v !== "list") {
-                navigate({ to: `${basePath}/quick-tasks` });
+                navigate({
+                  to: `${basePath}/quick-tasks`,
+                  search: (prev) => prev,
+                });
               }
             }}
             searchQuery={q}
@@ -382,9 +397,11 @@ export function QuickTasksClient() {
             />
           )}
           <AnimatePresence mode="wait" initial={false}>
-            {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
+            {!hasQuickTasks &&
+            !(view === "list" && numIdParam !== undefined) ? (
               <m.div
                 key="quick-tasks-empty"
+                className="flex min-h-0 flex-1 items-center justify-center"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
@@ -422,24 +439,6 @@ export function QuickTasksClient() {
                   onOpenTask={handleOpenTask}
                 />
               </m.div>
-            ) : view === "table" ? (
-              <m.div
-                key="quick-tasks-table"
-                className="flex min-w-0 flex-1 min-h-0"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <QuickTasksTableView
-                  tasks={quickTasks}
-                  projectNames={projectNames}
-                  isSelecting={isSelecting}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
-                />
-              </m.div>
             ) : (
               <m.div
                 key="quick-tasks-list"
@@ -457,6 +456,9 @@ export function QuickTasksClient() {
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                   selectedTaskId={selectedTaskId}
+                  selectedTaskStatus={
+                    numIdParam !== undefined ? taskResolve.status : undefined
+                  }
                   detailTab={routeState?.detailTab}
                   sandboxTab={
                     routeState?.surface === "sandbox"

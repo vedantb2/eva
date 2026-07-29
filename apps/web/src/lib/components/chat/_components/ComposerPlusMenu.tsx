@@ -10,14 +10,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   usePromptInputAttachments,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconFile,
   IconPhoto,
   IconSparkles,
-  IconFileText,
+  IconDatabase,
 } from "@tabler/icons-react";
-import type { Doc, Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import type { ReactNode, RefObject } from "react";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {
@@ -26,38 +26,37 @@ import {
   type ChatAttachmentMode,
 } from "@/lib/components/chat/imageAttachments";
 
-function docDescriptionPreview(doc: {
-  description?: string;
-  content: string;
-}): string | undefined {
-  const description = doc.description?.trim();
-  if (description) return description;
-  const content = doc.content.trim();
-  return content || undefined;
-}
-
 function previewOneLine(text: string, maxLength = 72): string {
   const singleLine = text.replace(/\s+/g, " ").trim();
   if (singleLine.length <= maxLength) return singleLine;
   return `${singleLine.slice(0, maxLength - 1)}…`;
 }
 
-/** Matches MentionEditor picker rows: `/` or `@` + title, truncated description. */
+/** Matches MentionEditor picker rows: `/` or `@` + title, badge, description. */
 function MentionMenuRow({
   prefix,
   label,
   description,
+  badge,
 }: {
   prefix: "/" | "@";
   label: string;
   description?: string;
+  badge?: string;
 }) {
   const detail = description ? previewOneLine(description) : null;
   return (
     <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-0.5">
-        <span className="shrink-0 text-muted-foreground">{prefix}</span>
-        <span className="truncate">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+          <span className="shrink-0 text-muted-foreground">{prefix}</span>
+          <span className="truncate">{label}</span>
+        </span>
+        {badge ? (
+          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+            {badge}
+          </span>
+        ) : null}
       </span>
       {detail ? (
         <span className="truncate text-xs text-muted-foreground">{detail}</span>
@@ -79,8 +78,15 @@ function openFilePicker(accept: string, onFiles: (files: FileList) => void) {
   input.click();
 }
 
+interface DataMenuItem {
+  id: string;
+  label: string;
+  badge: string;
+  description?: string;
+}
+
 interface ComposerPlusMenuProps {
-  docs: Array<Doc<"docs">>;
+  dataItems: DataMenuItem[];
   skills: Array<{
     _id: Id<"repoSkills">;
     title: string;
@@ -95,10 +101,10 @@ interface ComposerPlusMenuProps {
 
 /**
  * Composer "+" action menu: optional session Options, attach/photos, and
- * Skills / Documents submenus that insert mention chips into the draft.
+ * Skills / Data submenus that insert mention chips into the draft.
  */
 export function ComposerPlusMenu({
-  docs,
+  dataItems,
   skills,
   mentionRef,
   attachmentMode,
@@ -172,35 +178,34 @@ export function ComposerPlusMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <IconFileText className="mr-2 size-4" />
-            Documents
+            <IconDatabase className="mr-2 size-4" />
+            Data
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
-            {docs.length === 0 ? (
-              <DropdownMenuItem disabled>No documents</DropdownMenuItem>
+            {dataItems.length === 0 ? (
+              <DropdownMenuItem disabled>No data to mention</DropdownMenuItem>
             ) : (
-              docs.map((doc) => {
-                const description = docDescriptionPreview(doc);
-                return (
-                  <DropdownMenuItem
-                    key={doc._id}
-                    className="items-start py-2"
-                    onSelect={() => {
-                      mentionRef.current?.insertMention({
-                        id: doc._id,
-                        label: doc.title,
-                        description,
-                      });
-                    }}
-                  >
-                    <MentionMenuRow
-                      prefix="@"
-                      label={doc.title}
-                      description={description}
-                    />
-                  </DropdownMenuItem>
-                );
-              })
+              dataItems.map((item) => (
+                <DropdownMenuItem
+                  key={item.id}
+                  className="items-start py-2"
+                  onSelect={() => {
+                    mentionRef.current?.insertMention({
+                      id: item.id,
+                      label: item.label,
+                      description: item.description,
+                      badge: item.badge,
+                    });
+                  }}
+                >
+                  <MentionMenuRow
+                    prefix="@"
+                    label={item.label}
+                    description={item.description}
+                    badge={item.badge}
+                  />
+                </DropdownMenuItem>
+              ))
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>

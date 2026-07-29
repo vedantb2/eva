@@ -23,3 +23,4 @@ export {
 export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";
 export { backfillEvaPrRecapOrigin } from "./_migrations/backfillEvaPrRecapOrigin";
 export { excludeConvexUrlFromSandbox } from "./_migrations/excludeConvexUrlFromSandbox";
+export { removeDaytonaEnvVars } from "./_migrations/removeDaytonaEnvVars";

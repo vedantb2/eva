@@ -1,5 +1,9 @@
 import { IconMessage } from "@tabler/icons-react";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { parseReviewCommentSegments } from "@/lib/reviewComments";
 
 interface ReviewCommentMessageProps {
@@ -7,15 +11,21 @@ interface ReviewCommentMessageProps {
   repoBasePath: string;
 }
 
+const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed break-words`;
+
 function ReviewCommentCard({
   filePath,
   rangeLabel,
   text,
+  repoBasePath,
 }: {
   filePath: string;
   rangeLabel: string;
   text: string;
+  repoBasePath: string;
 }) {
+  const { repo } = useRepo();
+
   return (
     <div className="space-y-2 rounded-lg border border-border bg-card p-3">
       <div className="space-y-1">
@@ -23,9 +33,12 @@ function ReviewCommentCard({
         <div className="text-[11px] text-muted-foreground">{rangeLabel}</div>
       </div>
       {text.length > 0 ? (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-          {text}
-        </p>
+        <MarkdownMentionText
+          text={text}
+          repoBasePath={repoBasePath}
+          repoId={repo._id}
+          className={BODY_CLASS}
+        />
       ) : null}
     </div>
   );
@@ -35,13 +48,21 @@ export function ReviewCommentMessage({
   text,
   repoBasePath,
 }: ReviewCommentMessageProps) {
+  const { repo } = useRepo();
   const segments = parseReviewCommentSegments(text);
   const hasReviewComments = segments.some(
     (segment) => segment.kind === "review-comment",
   );
 
   if (!hasReviewComments) {
-    return <MessageMentionText text={text} repoBasePath={repoBasePath} />;
+    return (
+      <MarkdownMentionText
+        text={text}
+        repoBasePath={repoBasePath}
+        repoId={repo._id}
+        className={BODY_CLASS}
+      />
+    );
   }
 
   return (
@@ -49,10 +70,12 @@ export function ReviewCommentMessage({
       {segments.map((segment) =>
         segment.kind === "text" ? (
           segment.text.trim().length > 0 ? (
-            <MessageMentionText
+            <MarkdownMentionText
               key={segment.id}
               text={segment.text}
               repoBasePath={repoBasePath}
+              repoId={repo._id}
+              className={BODY_CLASS}
             />
           ) : null
         ) : (
@@ -62,6 +85,7 @@ export function ReviewCommentMessage({
               filePath={segment.comment.filePath}
               rangeLabel={segment.comment.rangeLabel}
               text={segment.comment.text}
+              repoBasePath={repoBasePath}
             />
           </div>
         ),

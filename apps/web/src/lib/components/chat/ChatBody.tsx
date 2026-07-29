@@ -5,7 +5,7 @@ import {
   ConversationScrollButton,
   type ModelOption,
   type ModelAccount,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
@@ -20,7 +20,7 @@ import {
   type Id,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
@@ -34,7 +34,7 @@ import {
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
 
-export type { ChatBodyMessage, ChatBodyQueuedMessage };
+export type { ChatBodyMessage };
 
 interface ChatBodyProps {
   repoId: Id<"githubRepos">;
@@ -230,11 +230,15 @@ export function ChatBody({
       setDismissedQuestionKey(pendingQuestionRaw);
     }
     setIsAnsweringQuestion(true);
+    // Reset is duplicated into the catch instead of using `finally`: React
+    // Compiler bails on the whole file when it meets a `finally` clause.
     try {
       await onSend(answer);
-    } finally {
+    } catch (error) {
       setIsAnsweringQuestion(false);
+      throw error;
     }
+    setIsAnsweringQuestion(false);
   };
 
   const handleBlockingAnswer = async (answers: Record<string, string>) => {
@@ -242,9 +246,11 @@ export function ChatBody({
     setIsAnsweringQuestion(true);
     try {
       await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
-    } finally {
+    } catch (error) {
       setIsAnsweringQuestion(false);
+      throw error;
     }
+    setIsAnsweringQuestion(false);
   };
 
   const messageHistory = buildMessageHistory(messages);

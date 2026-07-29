@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
-import { ensureSandboxStartedSteps } from "../_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "../_sandbox_runtime/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
@@ -13,7 +13,7 @@ import {
   normalizeAIModel,
   sessionStatusValidator,
 } from "../validators";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   recordCompletionLog,
   sendCompletionEvent,
@@ -23,6 +23,8 @@ import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
 import { buildPlanPrompt, buildEditPrompt } from "./prompts";
+import { orphanPlaceholderMessages, resultTargetMessage } from "./resultTarget";
+import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
@@ -156,10 +158,11 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Daytona-only pre-thaw: archived restores can exceed the 10-minute action
-    // limit, so poll across workflow steps first. Vercel resume is handled
-    // inside startSessionSandbox → ensureSandboxRunning; running kickoff here
-    // only added ~6–8s of workflow step-scheduling latency (measured).
+    // Legacy fallback for sandboxes without vercelSandboxId (see
+    // ensureSandboxStartedSteps for why this no longer polls). Vercel resume
+    // is handled inside startSessionSandbox → ensureSandboxRunning; running
+    // kickoff here only added ~6–8s of workflow step-scheduling latency
+    // (measured).
     if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
@@ -180,7 +183,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
         return;
       }
     }
-    await step.runAction(internal.daytona.startSessionSandbox, {
+    await step.runAction(internal.sandbox.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,
@@ -266,7 +269,7 @@ export const sessionExecuteWorkflow = workflow.define({
       const thawId = started.thawId;
       if (thawId) {
         const validation = await step.runAction(
-          internal.daytona.validateSandbox,
+          internal.sandbox.validateSandbox,
           { sandboxId: thawId, repoId: data.repoId },
           { retry: false },
         );
@@ -278,7 +281,7 @@ export const sessionExecuteWorkflow = workflow.define({
       sandboxId = validatedSandboxId;
     } else {
       const prepared = await step.runAction(
-        internal.daytona.prepareSessionSandbox,
+        internal.sandbox.prepareSessionSandbox,
         {
           sessionId: args.sessionId,
           existingSandboxId: data.sandboxId,
@@ -324,7 +327,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // launch, otherwise a Cursor prewarm would run with an empty prompt and die
     // as "no parseable stream-json events within 90000ms".
     if (getAIModelProvider(data.model) === "claude") {
-      await step.runAction(internal.daytona.prewarmSessionDaemon, {
+      await step.runAction(internal.sandbox.prewarmSessionDaemon, {
         sandboxId,
         sessionId: args.sessionId,
         repoId: data.repoId,
@@ -339,7 +342,7 @@ export const sessionExecuteWorkflow = workflow.define({
         sessionPersistenceId: args.sessionId,
       });
     } else {
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.sessionId),
         prompt: data.prompt,
@@ -365,7 +368,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let planContent: string | undefined;
 
     if (args.mode === "plan" && result.success && sandboxId) {
-      const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
+      const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
@@ -398,7 +401,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let pushSucceeded = false;
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
@@ -775,15 +778,7 @@ export const saveResult = internalMutation({
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
       .take(20);
-    // Never overwrite system alerts (e.g. draft-PR failures posted after a
-    // prior turn) — those sit as the latest assistant row and would steal the
-    // next saveResult, leaving errorDetail on the real reply.
-    const last = recent.find(
-      (message) =>
-        message.role === "assistant" &&
-        message.isSystemAlert !== true &&
-        message.isSyntheticTurn !== true,
-    );
+    const last = resultTargetMessage(recent);
     if (!last) return null;
 
     const publishFailedAfterResult =
@@ -818,17 +813,8 @@ export const saveResult = internalMutation({
 
     // Drop any orphan empty placeholders left when a system alert sat on top
     // and addAssistantPlaceholder / startExecute staged a second bubble.
-    for (const message of recent) {
-      if (
-        message._id !== last._id &&
-        message.role === "assistant" &&
-        message.isSystemAlert !== true &&
-        message.isSyntheticTurn !== true &&
-        message.content === "" &&
-        message.finishedAt === undefined
-      ) {
-        await ctx.db.delete(message._id);
-      }
+    for (const message of orphanPlaceholderMessages(recent, last)) {
+      await ctx.db.delete(message._id);
     }
 
     const sessionPatch: {
@@ -1013,7 +999,6 @@ export const ensurePendingTurn = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.pendingTurn) return null;
     // One-shot providers push the prompt; restaging would only spam a leftover
     // Claude daemon with claimPendingTurn model-mismatch logs.
     if (
@@ -1029,10 +1014,10 @@ export const ensurePendingTurn = internalMutation({
       .order("desc")
       .first();
     if (
-      !last ||
-      last.role !== "assistant" ||
-      last.finishedAt !== undefined ||
-      last.isSyntheticTurn === true
+      !isUnclaimedOpenTurn({
+        hasPendingTurn: session.pendingTurn !== undefined,
+        lastAssistant: last,
+      })
     ) {
       return null;
     }
@@ -1078,11 +1063,15 @@ export const restageOpenTurn = internalMutation({
       .order("desc")
       .take(5);
     const lastAssistant = messages.find((m) => m.role === "assistant");
+    // Stricter than the in-workflow re-stage: this path rebuilds the prompt from
+    // the user message, so a bubble that already streamed text would replay it.
     if (
-      !lastAssistant ||
-      lastAssistant.finishedAt !== undefined ||
-      lastAssistant.content !== "" ||
-      lastAssistant.isSyntheticTurn === true
+      lastAssistant === undefined ||
+      !isUnclaimedOpenTurn({
+        hasPendingTurn: session.pendingTurn !== undefined,
+        lastAssistant,
+      }) ||
+      lastAssistant.content !== ""
     ) {
       return {
         restaged: false as const,

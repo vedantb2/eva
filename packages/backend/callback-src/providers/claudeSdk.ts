@@ -39,7 +39,7 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
  * the base Image alongside the claude CLI), so these local types stand in for
  * the SDK's own — kept intentionally narrow.
  */
-export type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
+type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
   interrupt?: () => Promise<void>;
   stopTask?: (taskId: string) => Promise<void>;
 };
@@ -52,10 +52,8 @@ export type JsonLike =
   | JsonLike[]
   | { [key: string]: JsonLike };
 
-export type SdkMessage = Record<string, JsonLike>;
-
 /** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
-export type SdkPermissionResult =
+type SdkPermissionResult =
   | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
   | { behavior: "deny"; message: string };
 
@@ -148,12 +146,18 @@ export async function loadSdk(): Promise<SdkModule> {
   return mod;
 }
 
-/** Locates the claude CLI binary the SDK should drive (already in the image). */
+/**
+ * Locates the claude CLI binary the SDK should drive: the image's global
+ * install when it is on PATH, else the CLAUDE_BIN_PATH fallback install —
+ * launch.ts provisions one under a /tmp prefix (not on PATH) when the
+ * global is missing.
+ */
 function claudeExecutablePath(): string {
   try {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    return "claude";
+    const fallback = process.env.CLAUDE_BIN_PATH || "";
+    return fallback && existsSync(fallback) ? fallback : "claude";
   }
 }
 
@@ -162,12 +166,9 @@ function readPromptText(): string {
 }
 
 export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
-  // Mirror the CLI flags claudeBaseCmd passes today:
-  //   --append-system-prompt  -> preset claude_code + append
-  //   --dangerously-skip-permissions -> bypassPermissions + allow flag
-  //   --allowedTools           -> allowedTools[]
-  //   --settings / --mcp-config -> extraArgs passthrough (verbatim CLI flags)
-  //   --session-id / --resume  -> sessionId / resume
+  // Map SDK option shapes from the existing config (model, system prompt,
+  // allowed tools, MCP, permissions, session resume). Formerly mirrored
+  // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
   if (existsSync(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
@@ -274,14 +275,13 @@ function buildSdkOptionsFromParts(
 }
 
 /**
- * Runs one Claude turn via the Agent SDK instead of spawning `claude -p`.
+ * Runs one Claude turn via the Agent SDK (`query()`).
  *
  * Integration model: every SDKMessage the query yields is serialized to a JSON
- * line and pushed through the exact same realtime pipeline the CLI's stdout
- * used (`processRealtimeStdoutChunk` -> claudeParseLine -> canonical events ->
- * accumulated steps / session capture / result detection), so streaming,
- * activity, session persistence and completion behave identically to the CLI
- * path with zero parser changes.
+ * line and pushed through the realtime pipeline (`processRealtimeStdoutChunk`
+ * -> claudeParseLine -> canonical events -> accumulated steps / session
+ * capture / result detection), so streaming, activity, session persistence and
+ * completion share the same parser as other stream-json providers.
  */
 export async function runClaudeSdkAttempt(
   sessionMode: SessionMode,

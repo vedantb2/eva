@@ -2,7 +2,6 @@
   "typescriptCompiler": "tsc",
   "node": {
     "externalPackages": [
-      "@daytonaio/sdk",
       "octokit",
       "@octokit/auth-app",
       "@modelcontextprotocol/sdk",

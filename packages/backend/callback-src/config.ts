@@ -33,26 +33,23 @@ export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-/** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
-export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 /**
- * Human-in-the-loop AskUserQuestion. Only the Agent SDK exposes the `canUseTool`
+ * Claude runtime: `"sdk"` = one-shot Agent SDK `query()` per turn;
+ * `"sdk-daemon"` = persistent warm-session daemon (default). The legacy CLI
+ * spawn path (`claude -p`) has been removed.
+ */
+export const CLAUDE_ATTEMPT_MODE =
+  process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
+/**
+ * Human-in-the-loop AskUserQuestion. The Agent SDK exposes the `canUseTool`
  * pause needed to block a turn on an answer, and only sessions currently wire the
- * answering UI — so this is gated to SDK session runs. Elsewhere AskUserQuestion
+ * answering UI — so this is gated to session runs. Elsewhere AskUserQuestion
  * stays the old fire-and-forget metadata (surfaced after the turn). When enabled
  * the SDK drops `bypassPermissions` for a `canUseTool` gate that auto-allows every
  * tool except AskUserQuestion (which waits for the user's answer via Convex).
  */
 export const BLOCKING_QUESTIONS_ENABLED =
-  process.env.ENTITY_ID_FIELD === "sessionId" &&
-  (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon");
-/**
- * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
- * so the CLI/MCP/API connection is live) and wait for the first prompt via the
- * handoff protocol instead of running an initial turn. Lets a session-open
- * trigger pay the boot cost BEFORE the user sends their first message.
- */
-export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
+  process.env.ENTITY_ID_FIELD === "sessionId";
 /** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
 export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 /**
@@ -118,15 +115,12 @@ export const CLAUDE_RUNTIME_CONFIG_DIR =
   process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 export const CLAUDE_PERSIST_DIR =
   process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
-export const CLAUDE_BIN_PATH =
-  process.env.CLAUDE_BIN_PATH || "/tmp/claude-cli/bin/claude";
 export const CODEX_RUNTIME_HOME_DIR =
   process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 export const CODEX_PERSIST_DIR =
   process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
-export const CODEX_BIN_PATH =
-  process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
-export const CODEX_STATE_FILE = "session-state.json";
+const CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
+const CODEX_STATE_FILE = "session-state.json";
 export const CODEX_LOCAL_STATE_FILE =
   CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;
 export const CODEX_PERSIST_STATE_FILE =
@@ -142,9 +136,9 @@ export const OPENCODE_RUNTIME_HOME_DIR =
   process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
 export const OPENCODE_PERSIST_DIR =
   process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
-export const OPENCODE_BIN_PATH =
+const OPENCODE_BIN_PATH =
   process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
-export const OPENCODE_STATE_FILE = "session-state.json";
+const OPENCODE_STATE_FILE = "session-state.json";
 export const OPENCODE_LOCAL_STATE_FILE =
   OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
 export const OPENCODE_PERSIST_STATE_FILE =
@@ -162,20 +156,19 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-export const CURSOR_BIN_PATH =
+const CURSOR_BIN_PATH =
   process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
-export const CURSOR_STATE_FILE = "session-state.json";
+const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =
   CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 export const CURSOR_PERSIST_STATE_FILE =
   CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
-export const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "";
-export const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
+const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
 export const CLAUDE_LOCAL_PROJECT_DIR =
   CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 export const CLAUDE_PERSIST_PROJECT_DIR =
   CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
-export const CLAUDE_STATE_FILE_NAME = "session-state.json";
+const CLAUDE_STATE_FILE_NAME = "session-state.json";
 export const CLAUDE_LOCAL_STATE_FILE =
   CLAUDE_RUNTIME_CONFIG_DIR + "/" + CLAUDE_STATE_FILE_NAME;
 export const CLAUDE_PERSIST_STATE_FILE =
@@ -187,7 +180,7 @@ export const CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS = Number(
   process.env.CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS || "5",
 );
 
-export const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
   process.env.GH_TOKEN = GH_TOKEN;
   process.env.GITHUB_TOKEN = GH_TOKEN;
@@ -200,11 +193,11 @@ export const REPO_ID = process.env.REPO_ID;
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
 // when the user picks a non-default level. Mapped per provider below:
-//   - Claude: `--effort` on the CLI and Agent SDK `effort` option.
+//   - Claude: Agent SDK `effort` option.
 //   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
-export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
-export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
-export const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
 
 const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
 
@@ -214,12 +207,13 @@ export const claudeEffort =
     : "";
 
 const CODEX_REASONING_EFFORT: Record<string, string> = {
-  off: "minimal",
+  // GPT-5.5 uses none/low/medium/high/xhigh; "minimal" kept for older CLIs.
+  off: "none",
   low: "low",
   medium: "medium",
   high: "high",
-  xhigh: "high",
-  max: "high",
+  xhigh: "xhigh",
+  max: "xhigh",
 };
 
 export const codexReasoningEffort =
@@ -241,17 +235,9 @@ function buildSettingsJson(): string {
   return JSON.stringify(settings);
 }
 
-export const toolsArg = ALLOWED_TOOLS
-  ? '--allowedTools "' + ALLOWED_TOOLS + '"'
-  : "";
-export const systemArg = SYSTEM_PROMPT
-  ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT)
-  : "";
 export const settingsJson = buildSettingsJson();
-export const settingsArg = "--settings " + JSON.stringify(settingsJson);
-export const mcpArg = existsSync("/tmp/eva-mcp.json")
-  ? "--mcp-config /tmp/eva-mcp.json"
-  : "";
+/** True when the sandbox MCP config file is present (used for startup logging). */
+export const hasMcpConfig = existsSync("/tmp/eva-mcp.json");
 const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;
@@ -282,16 +268,13 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
 
 export const normalizedCursorModel =
   CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
-export const claudeCommand = existsSync(CLAUDE_BIN_PATH)
-  ? JSON.stringify(CLAUDE_BIN_PATH)
-  : "claude";
-export const codexCommand = existsSync(CODEX_BIN_PATH)
+const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
-export const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
+const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
-export const cursorCommand = existsSync(CURSOR_BIN_PATH)
+const cursorCommand = existsSync(CURSOR_BIN_PATH)
   ? JSON.stringify(CURSOR_BIN_PATH)
   : "cursor-agent";
 export const codexPromptCmd = SYSTEM_PROMPT
@@ -308,7 +291,7 @@ export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
-export const cursorPromptExpr = SYSTEM_PROMPT
+const cursorPromptExpr = SYSTEM_PROMPT
   ? '"$(printf %s\\n\\n ' +
     JSON.stringify(SYSTEM_PROMPT) +
     '; cat /tmp/design-prompt.txt)"'
@@ -322,22 +305,6 @@ export const cursorExecBaseCmd =
   " --model " +
   JSON.stringify(normalizedCursorModel) +
   " --output-format stream-json --approve-mcps";
-export const claudeBaseCmd =
-  "cat /tmp/design-prompt.txt | " +
-  claudeCommand +
-  " -p --verbose --dangerously-skip-permissions --model " +
-  normalizedClaudeModel +
-  (claudeEffort ? " --effort " + claudeEffort : "") +
-  " " +
-  toolsArg +
-  " " +
-  systemArg +
-  " " +
-  settingsArg +
-  " " +
-  mcpArg +
-  " --output-format stream-json";
-
 export const TOOL_STEP_TYPES = new Set([
   "read",
   "search_files",
@@ -358,6 +325,11 @@ export const CODEX_PRICING_PER_MILLION: Record<
   string,
   { input: number; cached: number; output: number }
 > = {
+  // OpenAI API list prices (per 1M tokens).
+  "gpt-5.5": { input: 5.0, cached: 0.5, output: 30.0 },
+  // Legacy — kept so in-flight sandboxes still cost-account correctly.
+  "gpt-5.5-pro": { input: 30.0, cached: 30.0, output: 180.0 },
+
   "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
   "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
   "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },

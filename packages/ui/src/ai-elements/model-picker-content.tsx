@@ -49,7 +49,7 @@ export function teamInstanceKey(provider: string): string {
   return `team:${provider}`;
 }
 
-export function toCompositeKey(instanceKey: string, modelId: string): string {
+function toCompositeKey(instanceKey: string, modelId: string): string {
   return `${instanceKey}::${modelId}`;
 }
 
@@ -128,6 +128,11 @@ function rowFooter(instance: ModelPickerInstance): string {
   return `${providerLabel} · ${instance.label}`;
 }
 
+/**
+ * Searchable model + account list used by `ModelSelect` and by menu embeds
+ * (context/dropdown submenus). Do not reimplement provider/account radios
+ * elsewhere — pass the same options/accounts hooks the modal uses.
+ */
 export function ModelPickerContent<TModel extends string>({
   value,
   accountId,

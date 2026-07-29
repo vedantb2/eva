@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
 import { useLocalStorage } from "usehooks-ts";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxTab } from "@/lib/search-params";
 
-export const MAX_TERMINAL_PANES = 8;
-export const MAX_PREVIEW_PANES = 8;
+const MAX_TERMINAL_PANES = 8;
+const MAX_PREVIEW_PANES = 8;
 
 // Base sandbox tabs (PRD is added separately per-surface). Stable references so
 // the Shift+Tab hotkey memo and tab bar filter don't recompute every render.
@@ -60,8 +60,8 @@ interface UseSandboxPanesArgs {
   owner: PtyOwner;
   /**
    * Full localStorage namespace for pane state — e.g. `session:<id>` or
-   * `task:<id>`. Final keys: `conductor:<storageScope>:previews` and
-   * `conductor:<storageScope>:terminals`.
+   * `task:<id>`. Final keys: `eva:<storageScope>:previews` and
+   * `eva:<storageScope>:terminals`.
    */
   storageScope: string;
   isActive: boolean;
@@ -93,7 +93,7 @@ export function useSandboxPanes({
   const closeTerminalPane = useMutation(api.sandboxPanes.closeTerminalPane);
 
   const [previewState, setPreviewState] = useLocalStorage<PaneStorageState>(
-    `conductor:${storageScope}:previews`,
+    `eva:${storageScope}:previews`,
     { ids: [], activeId: "" },
   );
   const previewIds = previewState.ids;
@@ -106,7 +106,7 @@ export function useSandboxPanes({
   };
 
   const [termActive, setTermActiveState] = useLocalStorage<string>(
-    `conductor:${storageScope}:active-terminal`,
+    `eva:${storageScope}:active-terminal`,
     "",
   );
   const termPanes = terminalPanes ?? [];

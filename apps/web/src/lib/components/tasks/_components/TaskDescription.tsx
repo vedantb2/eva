@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import {
@@ -42,7 +42,7 @@ export function TaskDescription({
   /** Kept for call-site compatibility; description no longer uses a nested max-height scroll. */
   inline: boolean;
 }) {
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
   const { groups, toggle } = useReactions("description", taskId);
   const [isEditing, setIsEditing] = useState(false);
   const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
@@ -148,6 +148,7 @@ export function TaskDescription({
           <MarkdownMentionText
             text={desc}
             repoBasePath={basePath}
+            repoId={repo._id}
             className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
           />
         ) : (

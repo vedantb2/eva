@@ -2,29 +2,23 @@
 
 /**
  * Provider factory: turns resolved {@link SandboxCredentials} into a concrete
- * {@link SandboxClient}. This is the single switch point between backends — the
- * rest of the code depends only on the neutral contract in ./provider.ts.
+ * {@link SandboxClient}. Vercel is the only backend — this file stays as the
+ * single indirection point so a future provider swap does not require
+ * touching every consumer of the neutral contract in ./provider.ts.
  *
- * Credentials come from `resolveSandboxCredentials` in ../envVarResolver.ts,
- * which reads the per-repo/team `SANDBOX_PROVIDER` flag (default daytona).
+ * Credentials come from `resolveSandboxCredentials` in ../envVarResolver.ts.
  */
 
 import type { SandboxClient, SandboxCredentials } from "./provider";
-import { createDaytonaClient } from "./daytonaProvider";
 import { createVercelClient } from "./vercelProvider";
 
-/** Returns the sandbox client for the given credentials' provider. */
+/** Returns the sandbox client for the given credentials. */
 export function getSandboxClient(
   credentials: SandboxCredentials,
 ): SandboxClient {
-  switch (credentials.kind) {
-    case "daytona":
-      return createDaytonaClient(credentials.apiKey);
-    case "vercel":
-      return createVercelClient({
-        token: credentials.token,
-        teamId: credentials.teamId,
-        projectId: credentials.projectId,
-      });
-  }
+  return createVercelClient({
+    token: credentials.token,
+    teamId: credentials.teamId,
+    projectId: credentials.projectId,
+  });
 }

@@ -18,6 +18,11 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import {
+  LEFT_PANEL_ID,
+  RIGHT_PANEL_ID,
+  usePersistentPanelSize,
+} from "@/lib/hooks/usePersistentPanelSize";
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -59,11 +64,23 @@ export function ResizablePanelLayout({
     storageKey,
     defaultRightCollapsed,
   );
+  // Where the user last dragged the handle.
+  const {
+    initialSize: initialRightSize,
+    savedSize: savedRightSize,
+    onLayoutChanged,
+  } = usePersistentPanelSize({
+    storageKey,
+    panel: "right",
+    defaultSize: DEFAULT_RIGHT_PANEL_SIZE,
+  });
   const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
-  const lastExpandedSize = useRef<string>(DEFAULT_RIGHT_PANEL_SIZE);
-  // Capture the initial collapsed value once for defaultSize — never changes after mount
+  // Seeded from storage so expanding after a reload returns to the dragged
+  // width instead of the 60% default.
+  const lastExpandedSize = useRef<string>(savedRightSize);
+  // Captured once for defaultSize — the stored flag does not change after mount
   const [initialCollapsed] = useState(savedCollapsed);
 
   const handleToggle = useCallback(() => {
@@ -140,8 +157,17 @@ export function ResizablePanelLayout({
   }
 
   return (
-    <Group orientation="horizontal" className="h-full">
-      <Panel defaultSize={leftDefaultSize} minSize={leftMinWidthPx}>
+    <Group
+      id={storageKey}
+      orientation="horizontal"
+      className="h-full"
+      onLayoutChanged={onLayoutChanged}
+    >
+      <Panel
+        id={LEFT_PANEL_ID}
+        defaultSize={leftDefaultSize}
+        minSize={leftMinWidthPx}
+      >
         {leftPanel(ctx)}
       </Panel>
       <Separator
@@ -152,9 +178,10 @@ export function ResizablePanelLayout({
         </div>
       </Separator>
       <Panel
+        id={RIGHT_PANEL_ID}
         collapsible
         collapsedSize={0}
-        defaultSize={initialCollapsed ? 0 : DEFAULT_RIGHT_PANEL_SIZE}
+        defaultSize={initialCollapsed ? 0 : initialRightSize}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
         onResize={handleResize}

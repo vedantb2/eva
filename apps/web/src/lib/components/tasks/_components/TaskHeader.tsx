@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Input } from "@conductor/ui";
+import { Input } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 export function TaskHeader({
   taskNumber,

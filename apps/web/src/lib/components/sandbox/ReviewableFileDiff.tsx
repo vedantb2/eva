@@ -4,11 +4,12 @@ import type {
   AnnotationSide,
   DiffLineAnnotation,
   FileDiffMetadata,
+  FileDiffOptions,
   SelectedLineRange,
   ThemeTypes,
 } from "@pierre/diffs";
-import { getSingularPatch } from "@pierre/diffs";
-import { PatchDiff, useStableCallback } from "@pierre/diffs/react";
+import { getSingularPatch, parseDiffFromFile } from "@pierre/diffs";
+import { FileDiff, PatchDiff, useStableCallback } from "@pierre/diffs/react";
 import { useState } from "react";
 import {
   buildDiffReviewComment,
@@ -34,6 +35,12 @@ interface DiffCommentAnnotationGroup {
 
 type DiffCommentLineAnnotation = DiffLineAnnotation<DiffCommentAnnotationGroup>;
 
+/** Full file contents at both ends of the PR, once loaded for a file. */
+export interface FullFileContents {
+  readonly oldContents: string;
+  readonly newContents: string;
+}
+
 interface ReviewableFileDiffProps {
   patch: string;
   path: string;
@@ -41,6 +48,15 @@ interface ReviewableFileDiffProps {
   resolvedTheme: ThemeTypes;
   /** When true, hide Pierre's built-in file header (parent accordion owns chrome). */
   hideFileHeader?: boolean;
+  /** Soft-wrap long lines instead of scrolling horizontally. */
+  wrapLines?: boolean;
+  /**
+   * When present, the diff is regenerated from whole files instead of the PR
+   * patch. That is what unlocks GitHub-style "expand unchanged lines": a patch
+   * only carries a few lines of context, so Pierre marks it partial and hides
+   * the expansion controls.
+   */
+  fullFile?: FullFileContents;
 }
 
 function annotationSide(range: SelectedLineRange): AnnotationSide {
@@ -83,36 +99,70 @@ function createCommentId(): string {
   return crypto.randomUUID();
 }
 
-function PlainPatchDiff({
-  patch,
+/**
+ * Rendering options shared by every path below. `line-info` separators and
+ * word-level intra-line diffing are what make the output read like GitHub's.
+ */
+function diffOptions<LAnnotation>({
   diffView,
   resolvedTheme,
-  hideFileHeader = false,
-}: Omit<ReviewableFileDiffProps, "path">) {
-  return (
-    <PatchDiff
-      patch={patch}
-      disableWorkerPool
-      options={{
-        diffStyle: diffView,
-        theme: { light: "github-light", dark: "github-dark" },
-        themeType: resolvedTheme,
-        disableFileHeader: hideFileHeader,
-      }}
-    />
-  );
+  hideFileHeader,
+  wrapLines,
+}: Pick<
+  ReviewableFileDiffProps,
+  "diffView" | "resolvedTheme" | "hideFileHeader" | "wrapLines"
+>): FileDiffOptions<LAnnotation> {
+  return {
+    diffStyle: diffView,
+    theme: { light: "github-light", dark: "github-dark" },
+    themeType: resolvedTheme,
+    disableFileHeader: hideFileHeader === true,
+    overflow: wrapLines === true ? "wrap" : "scroll",
+    hunkSeparators: "line-info",
+    lineDiffType: "word",
+  };
 }
 
-function AnnotatablePatchDiff({
+/**
+ * Read-only rendering, used outside a review session (no pending-comment
+ * context) or when the patch cannot be parsed into a file diff.
+ */
+function PlainDiff({
   patch,
+  fileDiff,
+  ...rest
+}: Omit<ReviewableFileDiffProps, "path" | "fullFile"> & {
+  fileDiff: FileDiffMetadata | null;
+}) {
+  const options = diffOptions(rest);
+  if (fileDiff === null) {
+    return <PatchDiff patch={patch} disableWorkerPool options={options} />;
+  }
+  return <FileDiff fileDiff={fileDiff} disableWorkerPool options={options} />;
+}
+
+function AnnotatableDiff({
   path,
   diffView,
   resolvedTheme,
-  hideFileHeader = false,
-  fileDiff,
+  hideFileHeader,
+  wrapLines,
+  renderFileDiff,
+  commentFileDiff,
   review,
-}: ReviewableFileDiffProps & {
-  fileDiff: FileDiffMetadata;
+}: Pick<
+  ReviewableFileDiffProps,
+  "path" | "diffView" | "resolvedTheme" | "hideFileHeader" | "wrapLines"
+> & {
+  /** The diff actually rendered — from whole files when expansion is on. */
+  renderFileDiff: FileDiffMetadata;
+  /**
+   * The patch-derived diff comments are anchored against. Comment positions are
+   * indices into a hunk walk, and those indices differ between the patch and a
+   * whole-file diff, so anchoring always uses the patch. Ranges resolve to
+   * absolute line numbers, which are the same in both.
+   */
+  commentFileDiff: FileDiffMetadata;
   review: NonNullable<ReturnType<typeof usePendingReviewComments>>;
 }) {
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(
@@ -128,7 +178,7 @@ function AnnotatablePatchDiff({
     const persisted = review.comments
       .filter((comment) => comment.filePath === path)
       .reduce<DiffCommentLineAnnotation[]>((annotations, comment) => {
-        const range = restoreReviewCommentRange(fileDiff, comment);
+        const range = restoreReviewCommentRange(commentFileDiff, comment);
         if (!range) return annotations;
         return appendAnnotationEntry(annotations, range, {
           id: comment.id,
@@ -164,7 +214,7 @@ function AnnotatablePatchDiff({
     const comment = buildDiffReviewComment({
       id: entryId,
       filePath: path,
-      fileDiff,
+      fileDiff: commentFileDiff,
       range: draft.range,
       text,
     });
@@ -180,10 +230,12 @@ function AnnotatablePatchDiff({
       const preview = buildDiffReviewComment({
         id,
         filePath: path,
-        fileDiff,
+        fileDiff: commentFileDiff,
         range,
         text: "",
       });
+      // Null means the selection falls outside the PR's own diff (an expanded
+      // context line, say) — there is nothing for the agent to review there.
       if (!preview) return;
       setSelectedLines(range);
       setDraft({
@@ -202,11 +254,13 @@ function AnnotatablePatchDiff({
 
   const hasOpenDraft = draft !== null;
 
-  const options = {
-    diffStyle: diffView,
-    theme: { light: "github-light", dark: "github-dark" },
-    themeType: resolvedTheme,
-    disableFileHeader: hideFileHeader,
+  const options: FileDiffOptions<DiffCommentAnnotationGroup> = {
+    ...diffOptions<DiffCommentAnnotationGroup>({
+      diffView,
+      resolvedTheme,
+      hideFileHeader,
+      wrapLines,
+    }),
     enableLineSelection: !hasOpenDraft,
     onLineSelectionEnd,
     onLineSelected,
@@ -237,8 +291,8 @@ function AnnotatablePatchDiff({
   );
 
   return (
-    <PatchDiff<DiffCommentAnnotationGroup>
-      patch={patch}
+    <FileDiff<DiffCommentAnnotationGroup>
+      fileDiff={renderFileDiff}
       disableWorkerPool
       options={options}
       selectedLines={selectedLines}
@@ -248,21 +302,50 @@ function AnnotatablePatchDiff({
   );
 }
 
-export function ReviewableFileDiff(props: ReviewableFileDiffProps) {
-  const review = usePendingReviewComments();
-
-  if (!review) {
-    return <PlainPatchDiff {...props} />;
-  }
-
-  let fileDiff: FileDiffMetadata;
+/** Parses the PR patch for one file; null when it is not a diff we can render. */
+function parsePatch(patch: string): FileDiffMetadata | null {
   try {
-    fileDiff = getSingularPatch(props.patch);
+    return getSingularPatch(patch);
   } catch {
-    return <PlainPatchDiff {...props} />;
+    return null;
+  }
+}
+
+/** Builds a whole-file diff, which carries every line and so can be expanded. */
+function parseFullFile(
+  path: string,
+  fullFile: FullFileContents,
+): FileDiffMetadata | null {
+  try {
+    return parseDiffFromFile(
+      { name: path, contents: fullFile.oldContents },
+      { name: path, contents: fullFile.newContents },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function ReviewableFileDiff({
+  fullFile,
+  ...props
+}: ReviewableFileDiffProps) {
+  const review = usePendingReviewComments();
+  const commentFileDiff = parsePatch(props.patch);
+  const expandedFileDiff =
+    fullFile !== undefined ? parseFullFile(props.path, fullFile) : null;
+  const renderFileDiff = expandedFileDiff ?? commentFileDiff;
+
+  if (!review || commentFileDiff === null || renderFileDiff === null) {
+    return <PlainDiff {...props} fileDiff={renderFileDiff} />;
   }
 
   return (
-    <AnnotatablePatchDiff {...props} fileDiff={fileDiff} review={review} />
+    <AnnotatableDiff
+      {...props}
+      renderFileDiff={renderFileDiff}
+      commentFileDiff={commentFileDiff}
+      review={review}
+    />
   );
 }

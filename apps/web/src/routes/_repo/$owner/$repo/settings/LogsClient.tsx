@@ -2,7 +2,7 @@
 
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -11,9 +11,11 @@ import {
   searchParser,
   logViewParser,
 } from "@/lib/search-params";
-import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
+import { getStartTime, DAY_MS } from "@/lib/components/analytics/timeRange";
+import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { Kpi } from "@/lib/components/analytics/Kpi";
 import { IconFileOff } from "@tabler/icons-react";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
@@ -43,7 +45,10 @@ export function LogsClient() {
     void setEntityParams({ entityTypes: isAll ? [] : [...next] });
   };
 
-  const startTime = getStartTime(timeRange);
+  // Quantized to the day so the window is a stable query argument: a raw clock
+  // read here would change on every render and resubscribe both log queries.
+  const today = useQuantizedNow(DAY_MS);
+  const startTime = getStartTime(timeRange, today);
 
   // Fetch every log in range — group-key filtering happens on the client so
   // project-tagged entries can roll up into the "project" group regardless of
@@ -218,15 +223,18 @@ export function LogsClient() {
           <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-          <div className="rounded-surface bg-secondary p-3">
-            <IconFileOff size={24} />
-          </div>
-          <p className="text-sm">
-            {isProjectView
-              ? "No project spending found for this time range"
-              : "No logs found for this time range"}
-          </p>
+        <div className="rounded-surface border border-border bg-card shadow-sm">
+          <SettingsEmptyState
+            icon={IconFileOff}
+            title={
+              isProjectView ? "No project spending" : "No completions logged"
+            }
+            description={
+              isProjectView
+                ? "Nothing was billed to a project in this time range. Widen the range to see more."
+                : "Nothing ran in this time range. Widen the range or clear the filters to see more."
+            }
+          />
         </div>
       ) : (
         <div className="space-y-5">

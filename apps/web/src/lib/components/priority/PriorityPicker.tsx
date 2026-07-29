@@ -10,7 +10,7 @@ import {
   CommandGroup,
   CommandItem,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { PriorityIcon } from "./PriorityIcon";
 import { PRIORITY_LABELS, PRIORITY_ORDER, type Priority } from "./priorityMeta";

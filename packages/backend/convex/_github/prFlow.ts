@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import { buildPrBody } from "../prBody";
 import { buildEvaSessionUrl } from "../_taskWorkflow/urls";
 import { extractPrNumber } from "./helpers";
+import { isBranchNotAheadError } from "./prErrors";
 
 /**
  * Promotes a session's draft PR to ready-for-review. Called when the user
@@ -70,15 +71,6 @@ export const createSessionPr = action({
     return { url: prUrl };
   },
 });
-
-function isBranchNotAheadError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("is not ahead of") ||
-    message.includes("No commits between") ||
-    /not ready for a pull request/i.test(message)
-  );
-}
 
 /**
  * Opens a draft PR for a session branch after the first successful push.

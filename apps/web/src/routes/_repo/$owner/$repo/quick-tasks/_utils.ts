@@ -1,14 +1,33 @@
 import { useLocalStorage } from "usehooks-ts";
+import { useQueryStates } from "nuqs";
 import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
+import type { api } from "@eva/backend";
 import {
   TASK_STATUSES,
+  statusWorkflowOrder,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { priorityCompare } from "@/lib/components/priority/priorityMeta";
+import {
+  searchParser,
+  statusesParser,
+  quickTaskSortDirParser,
+  quickTaskSortFieldParser,
+  quickTaskTimeRangeParser,
+  quickTaskProjectParser,
+  quickTaskUserParser,
+  quickTaskAssigneeParser,
+  quickTaskTagsParser,
+} from "@/lib/search-params";
 
-type QuickTaskView = "kanban" | "list" | "table";
-type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
+type QuickTaskView = "kanban" | "list";
+type SortField =
+  | "status"
+  | "lastRun"
+  | "updated"
+  | "created"
+  | "title"
+  | "priority";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -25,36 +44,74 @@ interface QuickTaskFilters {
   statuses: DisplayTaskStatus[];
 }
 
-const DEFAULTS: QuickTaskFilters = {
-  q: "",
+// Per-user presentation preference — kept in localStorage. Everything else
+// (search, filters, sort) is shareable "what you're looking at" state that
+// lives in the URL via nuqs — see the parsers below.
+interface QuickTaskLocalFilters {
+  view: QuickTaskView;
+}
+
+const LOCAL_DEFAULTS: QuickTaskLocalFilters = {
   view: "kanban",
-  project: "none",
-  user: "all",
-  assignee: "all",
-  tags: [],
-  // Default to updatedAt so any task change (edits, activity, status) bubbles
-  // the card to the top of its kanban column — not only agent runs.
+};
+
+// Used when the URL carries no explicit sort. Both views convey status by
+// column/grouping already, so recency is the more useful default.
+const SORT_DEFAULTS: { sortField: SortField; sortDir: SortDir } = {
   sortField: "updated",
   sortDir: "desc",
-  timeRange: "all",
-  statuses: [...TASK_STATUSES],
 };
 
 // v2: product default sort flipped lastRun → updated; bump key so existing
 // localStorage does not keep the old default sticky for returning users.
+// Persisted objects from before the URL-state split still carry the old
+// filter fields (q, project, tags, …) — harmless, we only ever read `view`.
 const STORAGE_KEY = "quick-task-filters-v2";
 
 export function useQuickTaskFilters(): [
   QuickTaskFilters,
   (patch: Partial<QuickTaskFilters>) => void,
 ] {
-  const [filters, setFilters] = useLocalStorage<QuickTaskFilters>(
-    STORAGE_KEY,
-    DEFAULTS,
-  );
+  const [localFilters, setLocalFilters] =
+    useLocalStorage<QuickTaskLocalFilters>(STORAGE_KEY, LOCAL_DEFAULTS);
+
+  const [urlFilters, setUrlFilters] = useQueryStates({
+    q: searchParser,
+    project: quickTaskProjectParser,
+    user: quickTaskUserParser,
+    assignee: quickTaskAssigneeParser,
+    tags: quickTaskTagsParser,
+    sortField: quickTaskSortFieldParser,
+    sortDir: quickTaskSortDirParser,
+    timeRange: quickTaskTimeRangeParser,
+    statuses: statusesParser,
+  });
+
+  // Merge defaults on read so objects persisted before the URL-state split
+  // (or missing `view` entirely) backfill without a STORAGE_KEY bump. The
+  // removed "table" view can still be sitting in a returning user's storage,
+  // so anything that is not a live view falls back to the default.
+  const merged = { ...LOCAL_DEFAULTS, ...localFilters };
+  const local: QuickTaskLocalFilters = {
+    view: merged.view === "list" ? "list" : "kanban",
+  };
+  // Sort is null until the user picks one, so it can fall back to the default.
+  const { sortField, sortDir, ...url } = urlFilters;
+  const filters: QuickTaskFilters = {
+    ...local,
+    ...url,
+    sortField: sortField ?? SORT_DEFAULTS.sortField,
+    sortDir: sortDir ?? SORT_DEFAULTS.sortDir,
+  };
 
   const setParams = (patch: Partial<QuickTaskFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
+    const { view, ...urlPatch } = patch;
+    if (view !== undefined) {
+      setLocalFilters((prev) => ({ ...prev, view }));
+    }
+    if (Object.keys(urlPatch).length > 0) {
+      void setUrlFilters(urlPatch);
+    }
   };
 
   return [filters, setParams];
@@ -62,7 +119,7 @@ export function useQuickTaskFilters(): [
 
 type QuickTask = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
-export function applyQuickTaskFilters(
+function applyQuickTaskFilters(
   tasks: QuickTask[],
   filters: QuickTaskFilters,
 ): QuickTask[] {
@@ -120,7 +177,12 @@ export function applyQuickTaskFilters(
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
-    if (filters.sortField === "lastRun") {
+    if (filters.sortField === "status") {
+      // Workflow order (todo → … → done), not alphabetical. Ties fall back to
+      // most-recently-updated first so each status block stays readable.
+      cmp = statusWorkflowOrder(a.status) - statusWorkflowOrder(b.status);
+      if (cmp === 0) return b.updatedAt - a.updatedAt;
+    } else if (filters.sortField === "lastRun") {
       // Fall back to createdAt so tasks that have never run are sorted by
       // creation time rather than collapsing to 0 and sinking to the bottom.
       const aTime = a.lastRunStartedAt ?? a.createdAt;
@@ -145,7 +207,7 @@ export function applyQuickTaskFilters(
 // in TASK_STATUSES order, preserving the input array's relative order within
 // each bucket. Used so prev/next on the detail page matches the kanban's
 // visual top-to-bottom-then-rightward flow.
-export function groupByStatusOrder(tasks: QuickTask[]): QuickTask[] {
+function groupByStatusOrder(tasks: QuickTask[]): QuickTask[] {
   const byStatus = new Map<string, QuickTask[]>();
   for (const task of tasks) {
     const list = byStatus.get(task.status) ?? [];

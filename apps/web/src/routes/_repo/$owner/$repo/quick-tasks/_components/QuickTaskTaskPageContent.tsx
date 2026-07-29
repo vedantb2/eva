@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Spinner } from "@conductor/ui";
+import { Spinner } from "@eva/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
@@ -65,6 +65,7 @@ export function QuickTaskTaskPageContent({
           onExitSandboxView: () => {
             navigate({
               to: `${basePath}/quick-tasks/${pathSegment}`,
+              search: (prev) => prev,
             });
           },
           onOpenFile: (path: string) => {
@@ -85,17 +86,20 @@ export function QuickTaskTaskPageContent({
         onDetailTabChange: (_tab: TaskDetailTab) => {
           navigate({
             to: `${basePath}/quick-tasks/${pathSegment}`,
+            search: (prev) => prev,
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
           if (sandboxTab === "review") {
             void navigate({
               to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+              search: (prev) => prev,
             });
             return;
           }
           void navigate({
             to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
+            search: (prev) => prev,
           });
         },
       },
@@ -122,7 +126,9 @@ export function QuickTaskTaskPageContent({
 
   return (
     <TaskDetailInline
-      onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
+      onClose={() =>
+        navigate({ to: `${basePath}/quick-tasks`, search: (prev) => prev })
+      }
       taskId={taskId}
       allTags={allTags}
       routing={routing}

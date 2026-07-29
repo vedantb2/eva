@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { isDiffView, isPrPanelTab } from "@/lib/search-params";
+import { isDiffView, isReviewTab } from "@/lib/search-params";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/sessions/$numId/review/",
@@ -8,7 +8,7 @@ export const Route = createFileRoute(
     const prTab =
       "prTab" in search &&
       typeof search.prTab === "string" &&
-      isPrPanelTab(search.prTab)
+      isReviewTab(search.prTab)
         ? search.prTab
         : "diffs";
 

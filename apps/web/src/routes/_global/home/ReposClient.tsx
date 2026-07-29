@@ -3,7 +3,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
 import {
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconDots,
   IconEyeOff,
@@ -46,14 +46,17 @@ export function ReposClient() {
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
     // Sync read avoids banner mount/unmount flash after hydration (CLS).
+    // Only the storage read is wrapped: React Compiler bails on the whole file
+    // when a logical expression sits inside a try/catch.
+    let raw: string | null = null;
     try {
-      const raw = localStorage.getItem(WELCOME_STORAGE_KEY);
-      if (raw === null) return false;
-      // usehooks-ts previously JSON-serialized booleans as "true"/"false".
-      return raw === "true" || raw === '"true"';
+      raw = localStorage.getItem(WELCOME_STORAGE_KEY);
     } catch {
       return false;
     }
+    if (raw === null) return false;
+    // usehooks-ts previously JSON-serialized booleans as "true"/"false".
+    return raw === "true" || raw === '"true"';
   });
   const handleDismissWelcome = () => {
     setWelcomeDismissed(true);

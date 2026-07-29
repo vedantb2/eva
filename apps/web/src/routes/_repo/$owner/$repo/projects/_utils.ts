@@ -1,7 +1,15 @@
 import { useLocalStorage } from "usehooks-ts";
+import { useQueryStates } from "nuqs";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import {
+  searchParser,
+  sortDirParser,
+  hiddenProjectPhasesParser,
+  projectSortFieldParser,
+} from "@/lib/search-params";
 
-type ProjectView = "kanban" | "timeline" | "list" | "table";
+type ProjectView = "kanban" | "timeline" | "list";
+const PROJECT_VIEWS: readonly ProjectView[] = ["kanban", "timeline", "list"];
 export const SORT_FIELDS = ["created", "title", "priority"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 type SortDir = "asc" | "desc";
@@ -23,12 +31,17 @@ interface ProjectFilters {
   timelineZoom: number;
 }
 
-const DEFAULTS: ProjectFilters = {
-  q: "",
+// Per-user presentation preferences — kept in localStorage. Search, phase
+// filter, and sort are shareable "what you're looking at" state that lives
+// in the URL via nuqs — see the parsers below.
+interface ProjectLocalFilters {
+  view: ProjectView;
+  timelineRange: TimelineRange;
+  timelineZoom: number;
+}
+
+const LOCAL_DEFAULTS: ProjectLocalFilters = {
   view: "kanban",
-  hiddenPhases: [],
-  sortField: "created",
-  sortDir: "desc",
   // Weekly grid by default, matching Linear's default timeline zoom.
   timelineRange: "daily",
   timelineZoom: 100,
@@ -38,22 +51,50 @@ const DEFAULTS: ProjectFilters = {
 // allowlist, which left newly-added phases stuck off for existing users.
 const STORAGE_KEY = "project-filters-v2";
 
-export type { ProjectView, SortField, SortDir, TimelineRange, ProjectFilters };
+export type { ProjectView, SortField, ProjectFilters };
 
 export function useProjectFilters(): [
   ProjectFilters,
   (patch: Partial<ProjectFilters>) => void,
 ] {
-  const [filters, setFilters] = useLocalStorage<ProjectFilters>(
+  const [localFilters, setLocalFilters] = useLocalStorage<ProjectLocalFilters>(
     STORAGE_KEY,
-    DEFAULTS,
+    LOCAL_DEFAULTS,
   );
 
-  const setParams = (patch: Partial<ProjectFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
-  };
+  const [urlFilters, setUrlFilters] = useQueryStates({
+    q: searchParser,
+    hiddenPhases: hiddenProjectPhasesParser,
+    sortField: projectSortFieldParser,
+    sortDir: sortDirParser,
+  });
 
   // Merge defaults on read so objects persisted before new keys existed
-  // (e.g. timelineRange/timelineZoom) backfill without a STORAGE_KEY bump.
-  return [{ ...DEFAULTS, ...filters }, setParams];
+  // (or before the URL-state split) backfill without a STORAGE_KEY bump.
+  const merged = { ...LOCAL_DEFAULTS, ...localFilters };
+  const filters: ProjectFilters = {
+    ...merged,
+    // The removed "table" view can still be sitting in a returning user's
+    // storage, so anything that is not a live view falls back to the default.
+    view: PROJECT_VIEWS.includes(merged.view)
+      ? merged.view
+      : LOCAL_DEFAULTS.view,
+    ...urlFilters,
+  };
+
+  const setParams = (patch: Partial<ProjectFilters>) => {
+    const { view, timelineRange, timelineZoom, ...urlPatch } = patch;
+    const localPatch: Partial<ProjectLocalFilters> = {};
+    if (view !== undefined) localPatch.view = view;
+    if (timelineRange !== undefined) localPatch.timelineRange = timelineRange;
+    if (timelineZoom !== undefined) localPatch.timelineZoom = timelineZoom;
+    if (Object.keys(localPatch).length > 0) {
+      setLocalFilters((prev) => ({ ...prev, ...localPatch }));
+    }
+    if (Object.keys(urlPatch).length > 0) {
+      void setUrlFilters(urlPatch);
+    }
+  };
+
+  return [filters, setParams];
 }

@@ -6,10 +6,10 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-} from "@conductor/ui";
-import { UserInitials } from "@conductor/shared";
-import dayjs from "@conductor/shared/dates";
-import type { Id } from "@conductor/backend";
+} from "@eva/ui";
+import { UserInitials } from "@eva/shared";
+import dayjs from "@eva/shared/dates";
+import type { Id } from "@eva/backend";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,

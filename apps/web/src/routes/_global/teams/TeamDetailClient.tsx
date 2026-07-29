@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -9,11 +9,12 @@ import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
 import {
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
   TabsContent,
   Button,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
@@ -202,12 +203,14 @@ export function TeamDetailClient({
           }
         }}
       >
-        <TabsList className="mb-4">
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="codebases">Codebases</TabsTrigger>
-          <TabsTrigger value="env">Environment Variables</TabsTrigger>
-          <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
-        </TabsList>
+        <TabsBar className="mb-4 px-0 pt-0">
+          <TabsList>
+            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="codebases">Codebases</TabsTrigger>
+            <TabsTrigger value="env">Environment Variables</TabsTrigger>
+            <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
+          </TabsList>
+        </TabsBar>
 
         <TabsContent value="members">
           <TeamMembersTab

@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconClipboard,
@@ -33,8 +33,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { EnvVarProviderSlots } from "@/lib/components/EnvVarProviderSlots";
-import { SandboxProviderToggle } from "@/lib/components/SandboxProviderToggle";
 import { parseEnvVars } from "./_utils/parseEnvVars";
 import {
   KNOWN_ENV_VARS,
@@ -420,33 +421,32 @@ export function EnvVarsTable({
     </TableRow>
   ) : null;
 
+  /** Add and bulk-paste both create free-form vars, so they sit on that card. */
+  const freeformActions = readOnly ? undefined : (
+    <div className="flex shrink-0 items-center gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setShowBulkPaste(true)}
+      >
+        <IconClipboard size={14} />
+        Paste
+      </Button>
+      <Button size="sm" onClick={startAdd} disabled={adding}>
+        <IconPlus size={14} />
+        Add Variable
+      </Button>
+    </div>
+  );
+
   return (
-    <div>
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">{description}</p>
-        {!readOnly && (
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowBulkPaste(true)}
-            >
-              <IconClipboard size={16} className="mr-1.5" />
-              Paste
-            </Button>
-            <Button size="sm" onClick={startAdd} disabled={adding}>
-              <IconPlus size={16} className="mr-1.5" />
-              Add Variable
-            </Button>
-          </div>
-        )}
-      </div>
+    <div className="space-y-4">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
       {vars !== undefined && (
         <>
-          <div className="mb-6">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Coding agents
-            </p>
+          <SettingsSection title="Coding agents">
             <EnvVarProviderSlots
               entries={agentSlots}
               vars={vars}
@@ -455,35 +455,20 @@ export function EnvVarsTable({
               onRemove={onRemove}
               readOnly={readOnly}
             />
-          </div>
-          <div className="mb-6">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Infrastructure
-            </p>
-            <div className="space-y-2">
-              <SandboxProviderToggle
-                vars={vars}
-                scope={scope}
-                onUpsert={onUpsert}
-                onReveal={onReveal}
-                readOnly={readOnly}
-              />
-              <EnvVarProviderSlots
-                entries={infraSlots}
-                defaultSandboxExclude
-                vars={vars}
-                onUpsert={onUpsert}
-                onReveal={onReveal}
-                onRemove={onRemove}
-                readOnly={readOnly}
-                removeDialogDescription="Sandbox provisioning may fail until you paste it again."
-              />
-            </div>
-          </div>
-          <div className="mb-6">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Convex
-            </p>
+          </SettingsSection>
+          <SettingsSection title="Infrastructure">
+            <EnvVarProviderSlots
+              entries={infraSlots}
+              defaultSandboxExclude
+              vars={vars}
+              onUpsert={onUpsert}
+              onReveal={onReveal}
+              onRemove={onRemove}
+              readOnly={readOnly}
+              removeDialogDescription="Sandbox provisioning may fail until you paste it again."
+            />
+          </SettingsSection>
+          <SettingsSection title="Convex">
             <EnvVarProviderSlots
               entries={convexSlots}
               vars={vars}
@@ -493,57 +478,71 @@ export function EnvVarsTable({
               readOnly={readOnly}
               removeDialogDescription="The sandboxed app may lose access to its Convex backend until you paste it again."
             />
-          </div>
+          </SettingsSection>
         </>
       )}
       {vars === undefined ? (
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
-      ) : !showTable ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <IconKey size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">No other environment variables configured</p>
-        </div>
       ) : (
-        <div className="space-y-6">
-          <div className="rounded-surface border border-border bg-muted/40">
-            <Table className="min-w-[360px]">
-              {tableHeader}
-              <TableBody>
-                {addingRow}
-                {sandboxVars.map(renderRow)}
-                {sandboxVars.length === 0 && !adding && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell
-                      colSpan={3}
-                      className="px-4 py-6 text-center text-xs text-muted-foreground"
-                    >
-                      No sandbox variables
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        <>
+          {/* The table owns the card's full width, so the body carries no padding. */}
+          <SettingsSection
+            title="Other variables"
+            description="Anything not covered by a known slot above."
+            action={freeformActions}
+            bodyClassName="p-0"
+          >
+            {showTable ? (
+              <div className="overflow-x-auto">
+                <Table className="min-w-[360px]">
+                  {tableHeader}
+                  <TableBody>
+                    {addingRow}
+                    {sandboxVars.map(renderRow)}
+                    {sandboxVars.length === 0 && !adding && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={3}
+                          className="px-4 py-6 text-center text-xs text-muted-foreground"
+                        >
+                          No sandbox variables
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <SettingsEmptyState
+                icon={IconKey}
+                title="No other variables"
+                description="Add one to inject it into every sandbox for this scope."
+              />
+            )}
+          </SettingsSection>
 
           {excludedVars.length > 0 && (
-            <div>
-              <div className="mb-2 flex items-center gap-1.5">
-                <IconLock size={14} className="text-warning" />
-                <p className="text-xs font-medium text-muted-foreground">
+            <SettingsSection
+              title={
+                <span className="flex items-center gap-1.5">
+                  <IconLock size={14} className="text-warning" />
                   Excluded from Sandbox
-                </p>
-              </div>
-              <div className="rounded-surface border border-border bg-muted/40">
+                </span>
+              }
+              description="Held for the platform only — these are never injected into a sandbox."
+              bodyClassName="p-0"
+            >
+              <div className="overflow-x-auto">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>{excludedVars.map(renderRow)}</TableBody>
                 </Table>
               </div>
-            </div>
+            </SettingsSection>
           )}
-        </div>
+        </>
       )}
 
       <Dialog

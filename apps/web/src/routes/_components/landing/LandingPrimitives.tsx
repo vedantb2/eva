@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { m, useReducedMotion, type Variants } from "motion/react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 const LANDING_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 

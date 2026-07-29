@@ -1,5 +1,5 @@
 import { IconCheck, IconGitBranch, IconLoader2 } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { BrandMark, type BrandName } from "../BrandMark";
 import {
   MockChip,

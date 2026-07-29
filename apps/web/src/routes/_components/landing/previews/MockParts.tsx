@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 /**
  * Shared furniture for the feature previews. These are deliberately static

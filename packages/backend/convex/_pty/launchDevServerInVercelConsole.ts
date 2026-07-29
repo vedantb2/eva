@@ -1,8 +1,8 @@
 "use node";
 
 import type { SandboxHandle } from "../_sandbox/provider";
-import { defaultTerminalPtyId } from "../_daytona/devServer";
-import { workspaceDirShell } from "../_daytona/helpers";
+import { defaultTerminalPtyId } from "../_sandbox_runtime/devServer";
+import { workspaceDirShell } from "../_sandbox_runtime/helpers";
 import {
   EVA_ENV_FILE,
   tmuxNewSessionWithEvaEnv,

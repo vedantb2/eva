@@ -2,8 +2,8 @@ import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
@@ -24,7 +24,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
@@ -34,7 +34,6 @@ import {
   IconFilter,
   IconTimeline,
   IconList,
-  IconTable,
   IconSettings,
   IconSortDescending,
   IconX,
@@ -47,7 +46,6 @@ import {
 import { priorityCompare } from "@/lib/components/priority/priorityMeta";
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
-import { ProjectsTableView } from "@/lib/components/projects/ProjectsTableView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
@@ -66,7 +64,6 @@ const VIEW_OPTIONS: {
   { key: "kanban", icon: IconLayoutKanban, label: "Kanban view" },
   { key: "timeline", icon: IconTimeline, label: "Timeline view" },
   { key: "list", icon: IconList, label: "List view" },
-  { key: "table", icon: IconTable, label: "Table view" },
 ];
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
@@ -390,21 +387,26 @@ export function ProjectsClient() {
               </div>
             </div>
           ) : projects.length === 0 ? (
-            <EmptyState
-              icon={
-                <IconLayoutKanban size={24} className="text-muted-foreground" />
-              }
-              title="No projects yet"
-              description="Create a project to describe a feature and let AI help you break it down into tasks"
-              actionLabel="Create Project"
-              onAction={() => setIsCreating(true)}
-            />
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <EmptyState
+                icon={
+                  <IconLayoutKanban
+                    size={24}
+                    className="text-muted-foreground"
+                  />
+                }
+                title="No projects yet"
+                description="Create a project to describe a feature and let AI help you break it down into tasks"
+                actionLabel="Create Project"
+                onAction={() => setIsCreating(true)}
+              />
+            </div>
           ) : (
             <AnimatePresence initial={false} mode="wait">
               {view === "kanban" ? (
                 <m.div
                   key="projects-kanban-view"
-                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar [&>*]:min-w-[220px] sm:[&>*]:min-w-0"
+                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
@@ -436,21 +438,6 @@ export function ProjectsClient() {
                     zoom={timelineZoom}
                     onRangeChange={(r) => setParams({ timelineRange: r })}
                     onZoomChange={(z) => setParams({ timelineZoom: z })}
-                  />
-                </m.div>
-              ) : view === "table" ? (
-                <m.div
-                  key="projects-table-view"
-                  className="flex flex-1 min-h-0"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ProjectsTableView
-                    projects={filteredSorted}
-                    onOpenProject={handleOpenProject}
-                    onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
                 </m.div>
               ) : (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
 
 /**
@@ -18,11 +18,14 @@ export function useRepoLogoUpload() {
   const uploadLogo = async (repoId: Id<"githubRepos">, file: File) => {
     setUploading(true);
     let uploadError: Error | undefined;
+    // Built outside the try: React Compiler bails on the whole file when a
+    // logical expression sits inside a try/catch.
+    const contentType = file.type || "application/octet-stream";
     try {
       const uploadUrl = await generateUploadUrl({ repoId });
       const result = await fetch(uploadUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: { "Content-Type": contentType },
         body: file,
       });
       const responseText = await result.text();

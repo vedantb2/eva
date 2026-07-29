@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
+import { api, type Id } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
   Button,
   Dialog,
@@ -13,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { PROVIDER_LABELS } from "./_credentialSpec";
 import { AddAccountDialog, type EditingAccount } from "./AddAccountDialog";
@@ -54,72 +56,73 @@ export function AccountsClient() {
 
   return (
     <PageWrapper title="Accounts" comfortable>
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-prose text-xs text-muted-foreground">
-          Add your own coding-agent accounts. Tasks, sessions, and projects you
-          create default to your account for that provider (otherwise Team).
-          Collaborators&apos; Make changes still bill your sticky account.
-        </p>
-        <Button size="sm" onClick={openCreate} className="shrink-0">
-          <IconPlus size={16} className="mr-1.5" />
-          Add account
-        </Button>
-      </div>
-
-      {accounts === undefined ? (
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
-        </div>
-      ) : accounts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <IconKey size={48} className="mb-3 opacity-40" />
-          <p className="text-sm">No accounts yet</p>
-          <p className="mt-1 text-xs">
-            Add one to run agents on your own credentials.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {accounts.map((account) => (
-            <div
-              key={account._id}
-              className="flex items-center gap-3 rounded-surface border border-border bg-muted/40 px-4 py-3"
-            >
-              <span
-                className="size-3 shrink-0 rounded-full border border-border"
-                style={{
-                  backgroundColor: account.accentColor ?? "var(--muted)",
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{account.label}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {PROVIDER_LABELS[account.provider]} ·{" "}
-                  {account.credentials.length} credential
-                  {account.credentials.length !== 1 ? "s" : ""}
-                </p>
+      <SettingsSection
+        title="Your accounts"
+        description="Tasks, sessions, and projects you create default to your account for that provider, otherwise Team. Collaborators' Make changes still bill your sticky account."
+        action={
+          <Button size="sm" onClick={openCreate}>
+            <IconPlus size={16} className="mr-1.5" />
+            Add account
+          </Button>
+        }
+        // The list and its empty state manage their own padding.
+        bodyClassName="p-0"
+      >
+        {accounts === undefined ? (
+          <div className="flex items-center justify-center py-12">
+            <Spinner size="lg" />
+          </div>
+        ) : accounts.length === 0 ? (
+          <SettingsEmptyState
+            icon={IconKey}
+            title="No accounts yet"
+            description="Add one to run agents on your own credentials instead of the team's."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {accounts.map((account) => (
+              <div
+                key={account._id}
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+              >
+                <span
+                  className="size-3 shrink-0 rounded-full border border-border"
+                  style={{
+                    backgroundColor: account.accentColor ?? "var(--muted)",
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {account.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {PROVIDER_LABELS[account.provider]} ·{" "}
+                    {account.credentials.length} credential
+                    {account.credentials.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => openEdit(account)}
+                  title="Edit"
+                >
+                  <IconPencil size={14} />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setDeleteId(account._id)}
+                  title="Delete"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <IconTrash size={14} />
+                </Button>
               </div>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => openEdit(account)}
-                title="Edit"
-              >
-                <IconPencil size={14} />
-              </Button>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => setDeleteId(account._id)}
-                title="Delete"
-                className="text-destructive hover:text-destructive"
-              >
-                <IconTrash size={14} />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </SettingsSection>
 
       <AddAccountDialog
         open={dialogOpen}

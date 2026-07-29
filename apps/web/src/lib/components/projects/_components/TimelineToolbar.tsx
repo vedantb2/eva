@@ -6,7 +6,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   type Range,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconZoomIn,
   IconZoomOut,

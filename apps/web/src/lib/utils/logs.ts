@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const USD_TO_GBP = 0.74;
+const USD_TO_GBP = 0.74;
 export const GBP_TO_USD = 1.34;
 
 export interface ParsedResultEvent {

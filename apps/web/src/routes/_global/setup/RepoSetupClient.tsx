@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { Container } from "@/lib/components/ui/Container";
-import { Button, Spinner } from "@conductor/ui";
+import { Button, Spinner } from "@eva/ui";
 import { RepoSetupCard } from "./_components/RepoSetupCard";
 import { MonorepoAppsPanel } from "./_components/MonorepoAppsPanel";
 import type { GitHubRepo } from "./_components/RepoSetupCard";

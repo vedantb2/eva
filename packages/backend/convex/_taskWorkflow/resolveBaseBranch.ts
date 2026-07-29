@@ -1,6 +1,6 @@
 import type { DatabaseReader } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 type RepoBaseBranchSource = Pick<
   Doc<"githubRepos">,

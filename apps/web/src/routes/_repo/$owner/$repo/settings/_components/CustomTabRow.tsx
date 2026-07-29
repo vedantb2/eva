@@ -2,9 +2,9 @@
 
 import { useState, createElement } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
-import { Button, Input, cn } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Doc } from "@eva/backend";
+import { Button, Input, Switch } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import {
   RESERVED_APP_TAB_SLUGS,
@@ -86,8 +86,9 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
   };
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 rounded-surface border border-border bg-card p-2">
+    // A row inside the tabs list section, so the section owns the border.
+    <div className="space-y-1 px-3 py-2.5">
+      <div className="flex items-center gap-2">
         <CustomTabIcon icon={tab.icon} />
         <Input
           key={`name-${tab._id}-${tab.name}`}
@@ -111,22 +112,11 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
           className="h-8 w-24 text-xs"
           placeholder="Port"
         />
-        <button
-          type="button"
+        <Switch
+          checked={tab.enabled}
+          onCheckedChange={(enabled) => toggleEnabled({ id: tab._id, enabled })}
           aria-label={tab.enabled ? "Disable tab" : "Enable tab"}
-          onClick={() => toggleEnabled({ id: tab._id, enabled: !tab.enabled })}
-          className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            tab.enabled ? "bg-primary" : "bg-muted-foreground/30",
-          )}
-        >
-          <span
-            className={cn(
-              "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-              tab.enabled ? "translate-x-5" : "translate-x-0",
-            )}
-          />
-        </button>
+        />
         <Button
           size="icon"
           variant="ghost"
@@ -138,9 +128,9 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
         </Button>
       </div>
       {nameError ? (
-        <p className="px-2 text-[11px] text-destructive">{nameError}</p>
+        <p className="text-xs text-destructive">{nameError}</p>
       ) : (
-        <p className="px-2 text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           URL slug: <code>{ownSlug}</code>
         </p>
       )}

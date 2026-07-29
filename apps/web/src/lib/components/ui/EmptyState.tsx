@@ -1,7 +1,7 @@
 "use client";
 
 import { IconPlus } from "@tabler/icons-react";
-import { Button } from "@conductor/ui";
+import { Button, cn } from "@eva/ui";
 import { m, useReducedMotion, type Variants } from "motion/react";
 
 interface EmptyStateProps {
@@ -16,6 +16,7 @@ interface EmptyStateProps {
    * Pass `false` for filter "no results" flashes (tens/day).
    */
   animate?: boolean;
+  className?: string;
 }
 
 const STAGGER_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -28,6 +29,7 @@ export function EmptyState({
   onAction,
   action,
   animate = true,
+  className,
 }: EmptyStateProps) {
   const reduceMotion = useReducedMotion();
   const shouldAnimate = animate && !reduceMotion;
@@ -50,17 +52,22 @@ export function EmptyState({
 
   return (
     <m.div
-      className="ui-surface mx-auto flex w-full max-w-xl flex-col items-center justify-center border-dashed px-4 py-8 text-center sm:px-6 sm:py-14"
+      className={cn(
+        "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-4 text-center",
+        className,
+      )}
       variants={shouldAnimate ? containerVariants : undefined}
       initial={shouldAnimate ? "hidden" : false}
       animate={shouldAnimate ? "show" : undefined}
     >
-      <m.div
-        variants={shouldAnimate ? itemVariants : undefined}
-        className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary"
-      >
-        {icon}
-      </m.div>
+      {icon ? (
+        <m.div
+          variants={shouldAnimate ? itemVariants : undefined}
+          className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary"
+        >
+          {icon}
+        </m.div>
+      ) : null}
       <m.p
         variants={shouldAnimate ? itemVariants : undefined}
         className="text-balance text-base font-semibold tracking-[-0.01em] text-foreground"

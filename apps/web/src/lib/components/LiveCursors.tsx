@@ -2,9 +2,9 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useLocation } from "@tanstack/react-router";
-import { Cursor, CursorPointer, CursorBody, CursorName } from "@conductor/ui";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { Cursor, CursorPointer, CursorBody, CursorName } from "@eva/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useLiveCursors, type RemoteCursor } from "@/lib/hooks/useLiveCursors";
 import { ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
 

@@ -28,6 +28,17 @@ const evaIcon = (
   />
 );
 
+// Isolates the try/catch so callers can branch on the result with ordinary
+// conditionals. React Compiler bails on a whole file when a conditional or
+// logical expression sits inside a try/catch, so the parse lives here alone.
+function parseJsonOrNull(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
 export function ProjectChatMessageList({
   messages,
   streamingActivity,
@@ -68,8 +79,11 @@ export function ProjectChatMessageList({
               </div>
             );
           }
-          try {
-            const parsed: unknown = JSON.parse(m.content);
+          // Parsed via the helper rather than an inline try/catch: React
+          // Compiler bails on the whole file when a conditional or logical
+          // expression sits inside one, and the spec summary below needs both.
+          const parsed: unknown = parseJsonOrNull(m.content);
+          if (parsed !== null) {
             if (isParsedQuestion(parsed)) {
               return (
                 <ChatMessage
@@ -83,7 +97,7 @@ export function ProjectChatMessageList({
               );
             }
             if (isSpecContent(m.content)) {
-              const specParsed: unknown = JSON.parse(m.content);
+              const specParsed: unknown = parsed;
               const title =
                 typeof specParsed === "object" &&
                 specParsed !== null &&
@@ -115,8 +129,6 @@ export function ProjectChatMessageList({
                 />
               );
             }
-          } catch {
-            // Not parseable JSON
           }
           return (
             <ChatMessage

@@ -2,7 +2,7 @@
 
 import { SignInButton } from "@clerk/clerk-react";
 import { IconArrowRight } from "@tabler/icons-react";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { BrandMark } from "./BrandMark";
 import {
   LANDING_HERO_CAPABILITIES,

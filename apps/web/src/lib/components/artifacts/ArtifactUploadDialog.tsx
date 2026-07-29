@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -21,7 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconUpload } from "@tabler/icons-react";
 import { parseArtifactMeta, parseStorageId } from "./_meta";
 
@@ -91,6 +91,10 @@ export function ArtifactUploadDialog({
     }
 
     setUploading(true);
+    // Built before the try, and the compound guard below split into two: React
+    // Compiler bails on the whole file when a conditional or logical expression
+    // sits inside a try/catch.
+    const artifactDescription = description.trim() || undefined;
     try {
       const uploadUrl = await generateUploadUrl({});
       const res = await fetch(uploadUrl, {
@@ -99,7 +103,12 @@ export function ArtifactUploadDialog({
         body: html,
       });
       const storageId = parseStorageId(await res.text());
-      if (!res.ok || !storageId) {
+      if (!res.ok) {
+        setError("Upload failed.");
+        setUploading(false);
+        return;
+      }
+      if (!storageId) {
         setError("Upload failed.");
         setUploading(false);
         return;
@@ -107,7 +116,7 @@ export function ArtifactUploadDialog({
 
       await create({
         name: name.trim(),
-        description: description.trim() || undefined,
+        description: artifactDescription,
         boundTeamId: teamId,
         declaredTools,
         htmlStorageId: storageId,

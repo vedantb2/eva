@@ -1,13 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { Spinner, Button, WebPreview, WebPreviewBody } from "@conductor/ui";
+import { Spinner, Button, WebPreview, WebPreviewBody } from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
-import {
-  IconAlertTriangle,
-  IconPlayerPlay,
-  IconRefresh,
-  IconWorld,
-  IconX,
-} from "@tabler/icons-react";
+import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
 import {
   buildUrlWithPath,
   normalizePreviewPath,
@@ -27,12 +21,6 @@ interface PreviewInfo {
 interface WebPreviewPanelProps {
   isActive: boolean;
   sandboxId: string | undefined;
-  /**
-   * Vercel sandbox name when the sandbox runs on Vercel. Used only to hide the
-   * Daytona preview-interstitial hint: Vercel previews go through the auth proxy
-   * and never show that "Accept" warning, so the hint is noise there.
-   */
-  vercelSandboxId: string | undefined;
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
   error: string | null;
@@ -60,7 +48,6 @@ interface WebPreviewPanelProps {
 export function WebPreviewPanel({
   isActive,
   sandboxId,
-  vercelSandboxId,
   previewInfo,
   isLoading,
   error,
@@ -76,7 +63,6 @@ export function WebPreviewPanel({
   onAnnotationSubmit,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [warningHintDismissed, setWarningHintDismissed] = useState(false);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [localPath, setLocalPath] = useSessionStorage(pathStorageKey, "/", {
     serializer: (value) => value,
@@ -155,23 +141,6 @@ export function WebPreviewPanel({
         onAnnotationModeChange={setAnnotationMode}
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
       />
-      {!warningHintDismissed && !vercelSandboxId ? (
-        <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
-          <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <p className="flex-1 leading-relaxed">
-            If you see a preview warning, click Accept, then click the refresh
-            button in the address bar above.
-          </p>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-5 w-5 shrink-0 text-warning/70 hover:bg-warning/20 hover:text-warning"
-            onClick={() => setWarningHintDismissed(true)}
-          >
-            <IconX size={12} />
-          </Button>
-        </div>
-      ) : null}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <WebPreviewBody
           key={iframeKey}

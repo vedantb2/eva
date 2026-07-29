@@ -14,9 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useClerk } from "@clerk/clerk-react";
-import { UserInitials } from "@conductor/shared";
+import { UserInitials } from "@eva/shared";
 import {
   IconUserCog,
   IconLogout,
@@ -31,23 +31,18 @@ import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 interface SidebarUserMenuProps {
   name: string;
-  email?: string;
   /** Search only does anything on repo routes, so the item is gated. */
   showSearch?: boolean;
 }
 
 /**
- * Avatar-only account menu for the left icon rail. Name/email live in the
- * dropdown; the trigger stays a compact tile like the other rail icons.
+ * Avatar-only account menu for the left icon rail. Name sits above the actions
+ * (sentence case — not the shared uppercase menu-label style); email is omitted.
  *
  * Sign out is destructive, so it confirms in a dialog (sibling of the
  * dropdown) so the menu can close cleanly before the dialog traps focus.
  */
-export function SidebarUserMenu({
-  name,
-  email,
-  showSearch,
-}: SidebarUserMenuProps) {
+export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
   const { openUserProfile, signOut } = useClerk();
   const { theme, toggleTheme } = useThemeContext();
   const { openSearch } = useSearch();
@@ -87,13 +82,16 @@ export function SidebarUserMenu({
           sideOffset={8}
           className="w-56"
         >
-          <DropdownMenuLabel className="font-normal">
+          <DropdownMenuLabel className="flex items-center justify-center gap-2 normal-case tracking-normal font-normal">
+            <UserInitials
+              user={{ fullName: name }}
+              hideLastSeen
+              size="sm"
+              disableProfileCard
+            />
             <p className="truncate text-sm font-medium text-foreground">
               {name}
             </p>
-            {email ? (
-              <p className="truncate text-xs text-muted-foreground">{email}</p>
-            ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void openUserProfile()}>

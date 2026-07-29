@@ -4,16 +4,17 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api, type Id } from "@conductor/backend";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { api, type Id } from "@eva/backend";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import {
   ActivityTasks,
   Button,
   Spinner,
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconAlertTriangle,
   IconExternalLink,
@@ -139,51 +140,54 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
       }}
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
+      <TabsBar
+        actions={
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {shortSha ? <span className="font-mono">{shortSha}</span> : null}
+            <a
+              href={prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              View on GitHub
+              <IconExternalLink size={12} />
+            </a>
+            {recapDoc.prNumber !== undefined ? (
+              <DynamicLink
+                to={`${basePath}/reviews/${recapDoc.prNumber}/recap`}
+                className="hover:text-foreground"
+              >
+                Open in Reviews
+              </DynamicLink>
+            ) : docPath ? (
+              <DynamicLink
+                to={`${basePath}/docs/${docPath}/recap`}
+                className="hover:text-foreground"
+              >
+                Open in Documents
+              </DynamicLink>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2"
+              onClick={() => {
+                void handleGenerate();
+              }}
+              disabled={isGenerating || isPending}
+            >
+              {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
+              {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
+            </Button>
+          </div>
+        }
+      >
         <TabsList>
           <TabsTrigger value="recap">Recap</TabsTrigger>
           <TabsTrigger value="summary">Summary</TabsTrigger>
         </TabsList>
-        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {shortSha ? <span className="font-mono">{shortSha}</span> : null}
-          <a
-            href={prUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-          >
-            View on GitHub
-            <IconExternalLink size={12} />
-          </a>
-          {recapDoc.prNumber !== undefined ? (
-            <DynamicLink
-              to={`${basePath}/reviews/${recapDoc.prNumber}/recap`}
-              className="hover:text-foreground"
-            >
-              Open in Reviews
-            </DynamicLink>
-          ) : docPath ? (
-            <DynamicLink
-              to={`${basePath}/docs/${docPath}/recap`}
-              className="hover:text-foreground"
-            >
-              Open in Documents
-            </DynamicLink>
-          ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2"
-            onClick={() => {
-              void handleGenerate();
-            }}
-            disabled={isGenerating || isPending}
-          >
-            {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
-            {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
-          </Button>
-        </div>
-      </div>
+      </TabsBar>
 
       {isErrored ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">

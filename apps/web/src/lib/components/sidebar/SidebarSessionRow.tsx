@@ -1,14 +1,14 @@
 "use client";
 
 import { m } from "motion/react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconArchive,
   IconClipboard,

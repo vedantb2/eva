@@ -13,7 +13,7 @@ import {
   CommandItem,
   CommandList,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconGitBranch,
   IconLoader2,

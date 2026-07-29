@@ -7,10 +7,10 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
@@ -158,7 +158,9 @@ export function ProjectChatTab({
     try {
       await clearMessagesDb({ id: projectId });
       setIsLoading(false);
-      onClear?.();
+      // Called through an if rather than `?.`: React Compiler bails on the
+      // whole file when an optional-chaining call sits inside a try/catch.
+      if (onClear) onClear();
       setConfirmClearOpen(false);
     } catch (error) {
       setIsClearing(false);

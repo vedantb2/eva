@@ -1,7 +1,7 @@
 import { m } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -11,38 +11,49 @@ import { SessionFunnel } from "@/lib/components/analytics/SessionFunnel";
 import { ActivityTimelineChart } from "@/lib/components/analytics/ActivityTimelineChart";
 import { Leaderboard } from "@/lib/components/analytics/Leaderboard";
 import { ActivityHeatmap } from "@/lib/components/analytics/ActivityHeatmap";
+import { TimeRangeFilter } from "@/lib/components/analytics/TimeRangeFilter";
 import {
-  TimeRangeFilter,
   getStartTime,
+  getPreviousStartTime,
   getBucketSize,
-} from "@/lib/components/analytics/TimeRangeFilter";
+  DAY_MS,
+} from "@/lib/components/analytics/timeRange";
+import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import {
   IconGitPullRequest,
   IconPercentage,
   IconUsers,
   IconChecklist,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
 
 export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  const start = getStartTime(timeRange);
-  const startTime = start;
+  // Every window below is measured from one of these two clocks. The analytics
+  // queries take the timestamp as an argument because they cannot read it
+  // themselves — a Convex query is cached against its data, so a clock read
+  // freezes at whatever time the result was first computed.
+  const today = useQuantizedNow(DAY_MS);
+  const nowByMinute = useQuantizedNow(60_000);
+
+  const startTime = getStartTime(timeRange, today);
   const bucketSize = getBucketSize(timeRange);
-  const timelineStart = start ?? dayjs().subtract(90, "day").valueOf();
+  const timelineStart = startTime ?? today - 90 * DAY_MS;
 
   const impactStats = useQuery(api.analytics.getImpactStats, {
     repoId: repo._id,
     startTime,
+    previousStartTime: getPreviousStartTime(timeRange, today),
   });
   const activeUsers = useQuery(api.analytics.getActiveUsers, {
     repoId: repo._id,
+    now: nowByMinute,
   });
   const timeline = useQuery(api.analytics.getActivityTimeline, {
     repoId: repo._id,
     startTime: timelineStart,
+    endTime: today,
     bucketSizeMs: bucketSize,
   });
   const leaderboard = useQuery(api.analytics.getLeaderboard, {
@@ -51,6 +62,7 @@ export function StatsClient() {
   });
   const heatmap = useQuery(api.analytics.getActivityHeatmap, {
     repoId: repo._id,
+    startTime: today - 365 * DAY_MS,
   });
 
   const isLoading =

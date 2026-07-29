@@ -4,33 +4,22 @@ import { forwardRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Doc } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,
-  type MentionItem,
   type SlashItem,
-  DocMentionHoverCardBody,
+  DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
-  isMentionTokenDocId,
 } from "@/lib/components/mentions";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
+import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
-
-function docDescriptionPreview(doc: {
-  description?: string;
-  content: string;
-}): string | undefined {
-  const description = doc.description?.trim();
-  if (description) return description;
-  const content = doc.content.trim();
-  return content || undefined;
-}
 
 interface DescriptionMentionEditorProps {
   value: string;
@@ -44,6 +33,17 @@ interface DescriptionMentionEditorProps {
   initialSkillMap?: Map<string, string>;
   /** When true, blocks all input. Used while a draft is loading. */
   disabled?: boolean;
+  /**
+   * What this field is for, e.g. "description of a coding task for acme/web".
+   * Providing it turns on inline AI completion (Tab to accept); omitting it
+   * leaves the editor plain.
+   */
+  completionContext?: string;
+  /**
+   * Receives images pasted into the editor instead of inserting them as text.
+   * Omitting it drops pasted images, as before.
+   */
+  onImageFiles?: (files: File[]) => void;
 }
 
 export const DescriptionMentionEditor = forwardRef<
@@ -61,18 +61,22 @@ export const DescriptionMentionEditor = forwardRef<
     initialMentionMap,
     initialSkillMap,
     disabled,
+    completionContext,
+    onImageFiles,
   },
   ref,
 ) {
   const { repo, basePath } = useRepo();
+  const { suggestion, dismiss } = useInlineSuggestion(
+    value,
+    disabled ? undefined : completionContext,
+  );
   const navigate = useNavigate();
-  const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
-  const navigateToDocById = useDocMentionNavigate(basePath);
+  const items = useDataMentionItems(repo._id);
+  const navigateToData = useDataMentionNavigate(basePath, repo._id);
 
   const handleMentionChipClick = (id: string) => {
-    if (isMentionTokenDocId(id)) {
-      void navigateToDocById(id, docs);
-    }
+    void navigateToData(id);
   };
 
   const handleSkillChipClick = (_skillId: string) => {
@@ -80,12 +84,6 @@ export const DescriptionMentionEditor = forwardRef<
   };
   const skills =
     useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
-
-  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
-    id: doc._id,
-    label: doc.title,
-    description: docDescriptionPreview(doc),
-  }));
 
   const slashItems: SlashItem[] = skills.flatMap((skill) =>
     skill.available
@@ -106,14 +104,21 @@ export const DescriptionMentionEditor = forwardRef<
       onValueChange={onValueChange}
       items={items}
       slashItems={slashItems}
+      mentionPopupTitle="Data"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
       disabled={disabled}
-      renderMentionChipHoverCard={(id) =>
-        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
+      onImageFiles={onImageFiles}
+      suggestion={suggestion}
+      onAcceptSuggestion={
+        suggestion ? () => onValueChange(value + suggestion) : undefined
       }
+      onDismissSuggestion={dismiss}
+      renderMentionChipHoverCard={(id) => (
+        <DataMentionHoverCardBody entityId={id} repoId={repo._id} />
+      )}
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

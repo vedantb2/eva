@@ -1,8 +1,9 @@
 "use client";
 
-import { ModelSelect } from "@conductor/ui";
-import type { AIModel } from "@conductor/backend";
+import { ModelSelect } from "@eva/ui";
+import type { AIModel } from "@eva/backend";
 import type { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 type ModelFieldState = Pick<
   ReturnType<typeof useAvailableAiModels>,
@@ -23,10 +24,7 @@ export function ConfigModelField({
   onValueChange: (model: AIModel) => void;
 }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+    <SettingsField label={label} description={description}>
       <ModelSelect
         value={state.model}
         options={state.options}
@@ -34,7 +32,6 @@ export function ConfigModelField({
         onValueChange={onValueChange}
         className="h-8 text-xs"
       />
-      <p className="mt-1 text-[11px] text-muted-foreground">{description}</p>
-    </div>
+    </SettingsField>
   );
 }

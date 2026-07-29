@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   ActivityTasks,
@@ -18,7 +18,7 @@ import {
   Textarea,
   getSpeechRecognition,
   useSpeechRecognition,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconTrash,
   IconMicrophone,
@@ -27,7 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -62,6 +62,17 @@ const isParsedQuestion = (v: unknown): v is ParsedQuestion =>
   "options" in v &&
   Array.isArray(v.options) &&
   v.options.every(isValidOption);
+
+// Isolates the try/catch so callers can branch on the result with ordinary
+// conditionals. React Compiler bails on a whole file when a conditional or
+// logical expression sits inside a try/catch, so the parse lives here alone.
+function parseJsonOrNull(content: string) {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
 
 interface DocInterviewDialogProps {
   doc: Doc;
@@ -118,8 +129,10 @@ export function DocInterviewDialog({
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role === "assistant" && lastMessage.content) {
       setIsLoading(false);
-      try {
-        const parsed = JSON.parse(lastMessage.content);
+      // Parsed via the helper rather than an inline try/catch: React Compiler
+      // bails on the whole file when a logical expression sits inside one.
+      const parsed = parseJsonOrNull(lastMessage.content);
+      if (parsed !== null) {
         if (parsed.description && parsed.requirements) {
           onOpenChange(false);
         } else if (parsed.ready === true) {
@@ -130,8 +143,6 @@ export function DocInterviewDialog({
             previousAnswers: answers,
           });
         }
-      } catch {
-        // not generated content
       }
     }
   }, [messages, onOpenChange, answers, doc._id, doc.title, startDocGenerate]);
@@ -240,8 +251,8 @@ export function DocInterviewDialog({
                     />
                   );
                 }
-                try {
-                  const parsed = JSON.parse(m.content);
+                const parsed = parseJsonOrNull(m.content);
+                if (parsed !== null) {
                   if (parsed.question) {
                     return (
                       <ChatMessage
@@ -270,8 +281,6 @@ export function DocInterviewDialog({
                       />
                     );
                   }
-                } catch {
-                  // fallthrough
                 }
                 return (
                   <ChatMessage

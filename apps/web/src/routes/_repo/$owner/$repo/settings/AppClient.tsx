@@ -1,12 +1,17 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Input } from "@conductor/ui";
+import { Input, Textarea } from "@eva/ui";
 import { parseCommandLines } from "./_utils";
 import { LogoSettingsSection } from "./_components/LogoSettingsSection";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
+
+/** Every command box on this page is a monospace, resizable textarea. */
+const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
 
 export function AppClient() {
   const { repo, repoId, owner, name } = useRepo();
@@ -88,137 +93,142 @@ export function AppClient() {
       <div className="space-y-4">
         <LogoSettingsSection repoId={repoId} />
 
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <div>
-            <h3 className="text-sm font-medium">System Prompt</h3>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+        <SettingsSection
+          title="System Prompt"
+          description={
+            <>
               Appended to every quick task and session run for this app. Use for
               recurring instructions like{" "}
               <code>run pnpm migrate after making backend changes</code>.
-            </p>
-          </div>
-          <textarea
+            </>
+          }
+        >
+          <Textarea
             key={`system-prompt-${repoId}`}
             defaultValue={repo.systemPrompt ?? ""}
             onBlur={handleSystemPromptBlur}
-            className="w-full h-32 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+            className={`h-32 ${COMMAND_TEXTAREA_CLASS}`}
             placeholder="e.g. run pnpm migrate after making backend changes"
           />
-        </div>
+        </SettingsSection>
 
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <div>
-            <h3 className="text-sm font-medium">Dev Server</h3>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+        <SettingsSection
+          title="Dev Server"
+          description={
+            <>
               Override the auto-detected dev server port and command for this
               app. Leave empty to auto-detect from <code>package.json</code>.
-            </p>
-          </div>
+            </>
+          }
+        >
+          <div className="grid gap-4">
+            <SettingsField
+              label="Dev Port"
+              description="Leave empty to auto-detect."
+            >
+              <Input
+                key={`port-${repoId}`}
+                type="number"
+                className="h-8 text-xs"
+                placeholder="Auto (5173 for vite, 3000 for next)"
+                defaultValue={repo.devPort ?? ""}
+                onBlur={handleDevPortBlur}
+              />
+            </SettingsField>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Dev Port
-            </label>
-            <Input
-              key={`port-${repoId}`}
-              type="number"
-              className="h-8 text-xs"
-              placeholder="Auto (5173 for vite, 3000 for next)"
-              defaultValue={repo.devPort ?? ""}
-              onBlur={handleDevPortBlur}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Leave empty to auto-detect.
-            </p>
+            <SettingsField
+              label="Dev Command"
+              description={
+                <>
+                  When set, runs verbatim. You are responsible for{" "}
+                  <code>cd</code> and <code>PORT=</code>. Leave empty to
+                  auto-detect.
+                </>
+              }
+            >
+              <Input
+                key={`cmd-${repoId}`}
+                className="h-8 font-mono text-xs"
+                placeholder="Auto (cd <rootDir> && PORT=<port> pnpm run dev)"
+                defaultValue={repo.devCommand ?? ""}
+                onBlur={handleDevCommandBlur}
+              />
+            </SettingsField>
           </div>
+        </SettingsSection>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Dev Command
-            </label>
-            <Input
-              key={`cmd-${repoId}`}
-              className="h-8 text-xs font-mono"
-              placeholder="Auto (cd <rootDir> && PORT=<port> pnpm run dev)"
-              defaultValue={repo.devCommand ?? ""}
-              onBlur={handleDevCommandBlur}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              When set, runs verbatim. You're responsible for <code>cd</code>{" "}
-              and <code>PORT=</code>. Leave empty to auto-detect.
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Startup Commands</h3>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Commands to run when sandbox starts
-            </label>
-            <textarea
+        <SettingsSection
+          title="Startup Commands"
+          description="Commands to run when the sandbox starts, one per line."
+        >
+          <SettingsField
+            label="Commands"
+            description={
+              <>
+                Runs during seeded snapshot builds{" "}
+                <strong>and on every fresh sandbox boot</strong>, so commands
+                must be safe to re-run (readiness gates, docker restarts). Put
+                one-time data <strong>seeding</strong> in Seed Commands
+                (Snapshots settings) and long-running services in Background
+                Commands. Commands have a 10-minute timeout each.
+              </>
+            }
+          >
+            <Textarea
               key={`startup-${repoId}`}
               defaultValue={startupCommands}
               onBlur={handleStartupCommandsBlur}
-              className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className={`h-48 ${COMMAND_TEXTAREA_CLASS}`}
               placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Runs during seeded snapshot builds{" "}
-              <strong>and on every fresh sandbox boot</strong>, so commands must
-              be safe to re-run (readiness gates, docker restarts). Put one-time
-              data <strong>seeding</strong> in Seed Commands (Snapshots
-              settings) and long-running services in Background Commands.
-              Commands have a 10-minute timeout each.
-            </p>
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsSection>
 
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Background Commands</h3>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Long-running daemons to launch alongside the dev server
-            </label>
-            <textarea
+        <SettingsSection
+          title="Background Commands"
+          description="Long-running daemons to launch alongside the dev server, one per line."
+        >
+          <SettingsField
+            label="Commands"
+            description={
+              <>
+                Write each line as a plain foreground command. The platform
+                launches every line detached for you (
+                <code>nohup ... &amp;</code>), so there is no need to add your
+                own <code>nohup</code>, trailing <code>&amp;</code>, or output
+                redirect. Commands respawn every time the sandbox starts or
+                resumes. Use for daemons like <code>npx convex dev</code>.
+                Output is written to <code>/tmp/bg-&lt;index&gt;.log</code>.
+              </>
+            }
+          >
+            <Textarea
               key={`background-${repoId}`}
               defaultValue={backgroundCommands}
               onBlur={handleBackgroundCommandsBlur}
-              className="w-full h-32 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className={`h-32 ${COMMAND_TEXTAREA_CLASS}`}
               placeholder="npx convex dev"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line, each written as a plain foreground command.
-              The platform launches every line detached for you (
-              <code>nohup ... &amp;</code>), so there is no need to add your own{" "}
-              <code>nohup</code>, trailing <code>&amp;</code>, or output
-              redirect. Commands respawn every time the sandbox starts or
-              resumes. Use for daemons like <code>npx convex dev</code>. Output
-              is written to <code>/tmp/bg-&lt;index&gt;.log</code>.
-            </p>
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsSection>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Stop Commands</h3>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Clean-shutdown commands run before snapshotting a seeded sandbox
-            </label>
-            <textarea
+        <SettingsSection
+          title="Stop Commands"
+          description="Clean-shutdown commands run before snapshotting a seeded sandbox."
+        >
+          <SettingsField
+            label="Commands"
+            description="One command per line. Run by the seeded-snapshot build before the filesystem snapshot is taken, so on-disk volumes (e.g. local Postgres) flush consistently. Not run on normal sandbox starts."
+          >
+            <Textarea
               key={`stop-${repoId}`}
               defaultValue={stopCommands}
               onBlur={handleStopCommandsBlur}
-              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className={`h-32 ${COMMAND_TEXTAREA_CLASS}`}
               placeholder="pkill -TERM -f 'convex dev'&#10;pnpm stop-db"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Run by the seeded-snapshot build before the
-              filesystem snapshot is taken, so on-disk volumes (e.g. local
-              Postgres) flush consistently. Not run on normal sandbox starts.
-            </p>
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

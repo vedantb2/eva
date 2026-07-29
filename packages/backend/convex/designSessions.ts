@@ -15,6 +15,9 @@ export {
   selectVariation,
   archive,
   unarchive,
+  setModel,
+  setProviderAccountId,
+  setTraits,
 } from "./_designSessions/mutations";
 
 export {

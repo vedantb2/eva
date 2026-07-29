@@ -10,13 +10,13 @@ export {
 
 export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";
 
-export { getPrDiff } from "./_github/prDiff";
+export { getPrDiff, getPrFileContents } from "./_github/prDiff";
 
-export {
-  listPullRequests,
-  getPullRequestHeader,
-  getPullRequestOverview,
-} from "./_github/pullRequests";
+export { listPullRequests, getPullRequestHeader } from "./_github/pullRequests";
+
+export { getPullRequestOverview, mergePullRequest } from "./_github/prOverview";
+
+export { submitPrReview } from "./_github/prReview";
 
 export { syncRepos } from "./_github/sync";
 

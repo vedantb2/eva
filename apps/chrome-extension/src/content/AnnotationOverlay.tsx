@@ -75,7 +75,7 @@ export function setAnnotationsFromRemote(stored: Record<string, StoredPin>) {
   _emit();
 }
 
-export function updateCurrentPins(pins: Record<string, StoredPin>) {
+function updateCurrentPins(pins: Record<string, StoredPin>) {
   _ext = { ..._ext, currentPins: pins, version: _ext.version + 1 };
   _emit();
 }
@@ -973,7 +973,7 @@ export function AnnotationOverlay() {
     function handleMouseDown(e: MouseEvent) {
       if (activeInputIdRef.current) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) return;
+      if (target?.closest("[data-eva-overlay]")) return;
       mouseDownPos = { x: e.clientX, y: e.clientY };
     }
 
@@ -984,7 +984,7 @@ export function AnnotationOverlay() {
       }
       if (!mouseDownPos) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) {
+      if (target?.closest("[data-eva-overlay]")) {
         mouseDownPos = null;
         return;
       }
@@ -1068,7 +1068,7 @@ export function AnnotationOverlay() {
       if (mouseDownPos) return;
       const target = document.elementFromPoint(e.clientX, e.clientY);
       if (!target || !(target instanceof HTMLElement)) return;
-      if (target.closest("[data-conductor-overlay]")) return;
+      if (target.closest("[data-eva-overlay]")) return;
       if (target === hoveredRef.current) return;
       hoveredRef.current = target;
       const rect = target.getBoundingClientRect();
@@ -1107,7 +1107,7 @@ export function AnnotationOverlay() {
 
     function handlePassiveClick(e: MouseEvent) {
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest("[data-conductor-overlay]")) return;
+      if (target?.closest("[data-eva-overlay]")) return;
       if (activeInputIdRef.current && !_ext.active) {
         const pin = pinsRef.current.get(activeInputIdRef.current);
         if (pin && !pin.saved) {
@@ -1246,7 +1246,7 @@ export function AnnotationOverlay() {
               borderImage: "linear-gradient(to right, #0c786c, #109182) 1",
               boxSizing: "border-box",
               filter: "blur(20px)",
-              animation: "conductor-glow 0.8s ease-in-out infinite alternate",
+              animation: "eva-glow 0.8s ease-in-out infinite alternate",
             }}
           />
         </>

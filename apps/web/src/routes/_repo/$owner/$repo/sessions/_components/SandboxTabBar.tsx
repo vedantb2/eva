@@ -12,7 +12,7 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
-import type { Doc } from "@conductor/backend";
+import type { Doc } from "@eva/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
@@ -28,7 +28,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 
 const TAB_TRIGGER_CLASS =
   "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
@@ -55,7 +55,7 @@ interface SandboxTabBarProps {
   newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
-  /** When true, shows a content indicator on the PRD tab. */
+  /** When true, shows a content indicator on the Plan tab. */
   hasPrdContent?: boolean;
   /** Shows the File Viewer tab (sessions only). */
   showFilesTab?: boolean;
@@ -230,11 +230,11 @@ export function SandboxTabBar({
           {showPrdTab ? (
             <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
               <IconClipboardList className="w-3.5 h-3.5" />
-              PRD
+              Plan
               {hasPrdContent ? (
                 <span
                   className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
-                  aria-label="PRD available"
+                  aria-label="Plan available"
                 />
               ) : null}
             </TabsTrigger>

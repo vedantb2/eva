@@ -1,12 +1,8 @@
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
-import type { Id, api } from "@conductor/backend";
+import type { Id, api } from "@eva/backend";
 import { Virtuoso } from "react-virtuoso";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@conductor/ui";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@eva/ui";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
   phaseConfig,

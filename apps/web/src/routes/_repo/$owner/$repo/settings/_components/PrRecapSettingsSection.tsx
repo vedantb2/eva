@@ -1,7 +1,7 @@
 "use client";
 
-import { Checkbox } from "@conductor/ui";
-import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
+import { Switch } from "@eva/ui";
+import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ConfigModelField } from "./ConfigModelField";
 
@@ -29,31 +29,30 @@ export function PrRecapSettingsSection({
 
   return (
     <div className="space-y-4 border-t border-border pt-4">
-      <div className="flex items-start gap-3">
-        <Checkbox
-          checked={prRecapsEnabled ?? false}
-          disabled={!claudeAvailable}
-          onCheckedChange={(value) =>
-            updateConfig({
-              repoId,
-              prRecapsEnabled: value === true,
-            })
-          }
-          className="mt-0.5"
-        />
+      {/* Label left, switch right — the same toggle row shape used by the
+          global notifications and sandbox settings. */}
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-medium">PR recaps</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className="text-sm font-medium">PR recaps</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             Auto-generate a recap doc and GitHub comment on each PR update. Uses
             your team Claude Code subscription (
             <code>CLAUDE_CODE_OAUTH_TOKEN</code>).
           </p>
           {!claudeAvailable ? (
-            <p className="mt-1 text-[11px] text-destructive">
+            <p className="mt-1 text-xs text-destructive">
               Add CLAUDE_CODE_OAUTH_TOKEN in team env vars to enable.
             </p>
           ) : null}
         </div>
+        <Switch
+          checked={prRecapsEnabled ?? false}
+          disabled={!claudeAvailable}
+          onCheckedChange={(checked) =>
+            updateConfig({ repoId, prRecapsEnabled: checked })
+          }
+          aria-label="PR recaps"
+        />
       </div>
 
       <ConfigModelField

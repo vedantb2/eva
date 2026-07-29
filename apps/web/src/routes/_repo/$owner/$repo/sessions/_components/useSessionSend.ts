@@ -1,6 +1,6 @@
-import { api } from "@conductor/backend";
-import type { AIModel, Id, ModelTraitsExecutionArgs } from "@conductor/backend";
-import type { ModelAccount } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
+import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
 import type { OptimisticLocalStore } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";

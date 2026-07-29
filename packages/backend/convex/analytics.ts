@@ -2,11 +2,20 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
 
-/** Returns aggregate impact metrics for a repo, with optional period comparison. */
+/**
+ * Returns aggregate impact metrics for a repo, with optional period comparison.
+ *
+ * The comparison window is the caller's to supply. Deriving it here from
+ * `Date.now()` looked simpler and was wrong: Convex invalidates a query on its
+ * data, never on the clock, so the "previous period" stayed pinned to whenever
+ * the result was first computed.
+ */
 export const getImpactStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
+    /** Start of the equal-length window before `startTime`. */
+    previousStartTime: v.optional(v.number()),
   },
   returns: v.object({
     prsShipped: v.number(),
@@ -103,10 +112,10 @@ export const getImpactStats = authQuery({
 
     const current = computeStats(startTime);
 
-    if (startTime !== undefined) {
-      const periodMs = Date.now() - startTime;
-      const prevStart = startTime - periodMs;
-      const prev = computeStats(prevStart);
+    if (startTime !== undefined && args.previousStartTime !== undefined) {
+      // computeStats is cumulative from a timestamp, so the previous period is
+      // the wider window minus the current one — see the subtractions below.
+      const prev = computeStats(args.previousStartTime);
       const prevTasksCompleted = prev.tasksCompleted - current.tasksCompleted;
       const prevTasksRan = prev.tasksRan - current.tasksRan;
       return {
@@ -125,10 +134,19 @@ export const getImpactStats = authQuery({
   },
 });
 
-/** Returns the count of users with active sessions in the repo within the last 5 minutes. */
+/**
+ * Returns the count of users with active sessions in the repo within the last
+ * five minutes of `now`.
+ *
+ * `now` is an argument because a query that reads the clock keeps serving the
+ * first answer it computed — the count would freeze while still claiming to
+ * cover the last five minutes. Callers pass a timestamp quantized to a minute,
+ * which keeps the result cacheable for that minute.
+ */
 export const getActiveUsers = authQuery({
   args: {
     repoId: v.id("githubRepos"),
+    now: v.number(),
   },
   returns: v.object({
     count: v.number(),
@@ -137,7 +155,7 @@ export const getActiveUsers = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return { count: 0 };
     }
-    const fiveMinAgo = Date.now() - 300_000;
+    const fiveMinAgo = args.now - 300_000;
     const activeSessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo_and_status", (q) =>
@@ -156,11 +174,20 @@ export const getActiveUsers = authQuery({
   },
 });
 
-/** Returns time-bucketed activity data (tasks, runs, sessions, PRs, active users) for charting. */
+/**
+ * Returns time-bucketed activity data (tasks, runs, sessions, PRs, active
+ * users) for charting, covering `startTime` through `endTime`.
+ *
+ * `endTime` is the caller's rather than `Date.now()`: the bucket list is part of
+ * the cached result, so a clock read here would keep returning the buckets that
+ * existed when the chart was first drawn.
+ */
 export const getActivityTimeline = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.number(),
+    /** Right edge of the chart — the last bucket is the one containing it. */
+    endTime: v.number(),
     bucketSizeMs: v.number(),
   },
   returns: v.array(
@@ -177,7 +204,6 @@ export const getActivityTimeline = authQuery({
   ),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const now = Date.now();
     const buckets: Record<
       number,
       {
@@ -190,7 +216,7 @@ export const getActivityTimeline = authQuery({
       }
     > = {};
     const activeUsersByBucket: Record<number, Set<Id<"users">>> = {};
-    for (let t = args.startTime; t <= now; t += args.bucketSizeMs) {
+    for (let t = args.startTime; t <= args.endTime; t += args.bucketSizeMs) {
       buckets[t] = {
         tasks: 0,
         tasksCompleted: 0,
@@ -286,11 +312,18 @@ export const getActivityTimeline = authQuery({
   },
 });
 
-/** Returns daily completed-task and successful-run counts for rendering an activity heatmap. */
+/**
+ * Returns daily completed-task and successful-run counts for rendering an
+ * activity heatmap, from `startTime` onwards.
+ *
+ * `startTime` is required because the default it replaced was `Date.now()` less
+ * a year: a cached result kept the window anchored to the day it was first
+ * computed, so the heatmap silently stopped advancing.
+ */
 export const getActivityHeatmap = authQuery({
   args: {
     repoId: v.id("githubRepos"),
-    startTime: v.optional(v.number()),
+    startTime: v.number(),
   },
   returns: v.array(
     v.object({
@@ -301,7 +334,7 @@ export const getActivityHeatmap = authQuery({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
 
-    const cutoff = args.startTime ?? Date.now() - 365 * 86_400_000;
+    const cutoff = args.startTime;
 
     const tasks = await ctx.db
       .query("agentTasks")

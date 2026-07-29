@@ -6,7 +6,7 @@ import {
   WebPreviewNavigation,
   WebPreviewNavigationButton,
   useWebPreview,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconClick } from "@tabler/icons-react";
 import {
   PreviewNavBar,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,

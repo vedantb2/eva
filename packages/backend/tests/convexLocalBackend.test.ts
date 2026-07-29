@@ -5,7 +5,7 @@ import {
   PINNED_CONVEX_LOCAL_BACKEND_VERSION,
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
-} from "../convex/_daytona/convexLocalBackend";
+} from "../convex/_sandbox_runtime/convexLocalBackend";
 
 describe("buildConvexBackgroundScriptBody", () => {
   it("plants pin under expected latest label and keeps command flag-free", () => {

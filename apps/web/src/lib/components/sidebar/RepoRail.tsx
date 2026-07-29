@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,15 +14,12 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
-  IconCode,
-  IconLayoutDashboard,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconPencil,
   IconSearch,
-  IconUsers,
 } from "@tabler/icons-react";
 import {
   InboxIcon,
@@ -31,38 +28,21 @@ import {
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
+import { RailAppHotkeys } from "@/lib/components/sidebar/RailAppHotkeys";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
+import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { repoHref } from "@/lib/utils/repoUrl";
+import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
   appLeafName,
   appMatchesLabel,
   repoDisplayLabel,
   type RepoWithLogo,
 } from "@/lib/utils/repoGrouping";
-
-const TILE_PALETTE = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-purple-500",
-  "bg-cyan-500",
-  "bg-indigo-500",
-  "bg-orange-500",
-];
-
-/** Deterministic tile colour so logo-less repos stay visually distinguishable. */
-function tileColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash + seed.charCodeAt(i)) % TILE_PALETTE.length;
-  }
-  return TILE_PALETTE[hash];
-}
 
 interface RepoRailProps {
   repos: RepoWithLogo[];
@@ -72,7 +52,6 @@ interface RepoRailProps {
   pathname: string;
   onNavigate: () => void;
   userName: string;
-  userEmail?: string;
   showSearch?: boolean;
 }
 
@@ -116,9 +95,10 @@ function InboxUnreadBadge() {
 }
 
 /**
- * Far-left icon rail: global destinations (Eva, Inbox, Teams, Artifacts,
- * Sessions), then repos, then Testing (dev) / collapse / account / settings
- * at the bottom.
+ * Far-left icon rail: global destinations (Eva, Inbox, Sessions), then repos,
+ * then collapse / search / account / settings at the bottom. Teams and
+ * Artifacts live in the workspace sidebar behind the Eva tile; Testing (dev)
+ * lives in the settings dropdown.
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
@@ -148,19 +128,19 @@ function RepoRailView({
   pathname,
   onNavigate,
   userName,
-  userEmail,
   showSearch,
   activeSessionCount,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { openSearch } = useSearch();
+  // The Eva tile owns the whole workspace panel (Codebases / Teams / Artifacts),
+  // so it stays lit on any of those routes.
   const homeActive =
-    pathname === "/home" || pathname === "/" || pathname.startsWith("/setup");
+    pathname === "/" ||
+    pathname.startsWith("/setup") ||
+    isWorkspacePath(pathname);
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
-  const teamsActive = pathname === "/teams" || pathname.startsWith("/teams/");
-  const artifactsActive =
-    pathname === "/artifacts" || pathname.startsWith("/artifacts/");
   const pathParts = pathname.split("/").filter(Boolean);
   const onRepoSessionsPath =
     pathParts.includes("sessions") && pathParts[0] !== "sessions";
@@ -170,14 +150,12 @@ function RepoRailView({
     pathname === "/sessions" ||
     pathname.startsWith("/sessions/") ||
     onRepoSessionsPath;
-  const testingActive =
-    pathname === "/testing" || pathname.startsWith("/testing/");
   const sessionsLabel = formatCountLabel(activeSessionCount);
-  const showTesting = import.meta.env.DEV;
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
+      <RailAppHotkeys repos={repos} onNavigate={onNavigate} />
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -215,32 +193,6 @@ function RepoRailView({
           </TooltipTrigger>
           <TooltipContent side="right">Inbox</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/teams"
-              onClick={onNavigate}
-              aria-label="Teams"
-              className={cn(RAIL_TILE_CLASS, railTileActive(teamsActive))}
-            >
-              <IconUsers size={22} className="shrink-0" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Teams</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/artifacts"
-              onClick={onNavigate}
-              aria-label="Artifacts"
-              className={cn(RAIL_TILE_CLASS, railTileActive(artifactsActive))}
-            >
-              <IconLayoutDashboard size={22} className="shrink-0" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Artifacts</TooltipContent>
-        </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
         <Tooltip>
           <TooltipTrigger asChild>
@@ -270,8 +222,10 @@ function RepoRailView({
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
-        {repos.map((row) => {
+        {repos.map((row, index) => {
           const displayName = repoDisplayLabel(row);
+          // Mirrors RailAppHotkeys: only the first nine tiles get Mod+N.
+          const hotkeyLabel = index < 9 ? `⌘${index + 1}` : null;
           // While the global Sessions destination is highlighted, don't also
           // light up a repo tile — the rail should show one active target.
           const active =
@@ -307,7 +261,7 @@ function RepoRailView({
                           <span
                             className={cn(
                               "flex size-[30px] items-center justify-center rounded-md text-sm font-semibold text-white",
-                              tileColor(
+                              repoTileColor(
                                 `${row.owner}/${row.name}/${displayName}`,
                               ),
                             )}
@@ -325,7 +279,17 @@ function RepoRailView({
                     </Link>
                   </ContextMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="right">{tooltip}</TooltipContent>
+                <TooltipContent
+                  side="right"
+                  className="flex items-center gap-2"
+                >
+                  {tooltip}
+                  {hotkeyLabel ? (
+                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      {hotkeyLabel}
+                    </kbd>
+                  ) : null}
+                </TooltipContent>
               </Tooltip>
               <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                 <ContextMenuItem onClick={() => setRenameRepo(row)}>
@@ -349,21 +313,6 @@ function RepoRailView({
         />
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
-        {showTesting ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/testing"
-                onClick={onNavigate}
-                aria-label="Testing"
-                className={cn(RAIL_TILE_CLASS, railTileActive(testingActive))}
-              >
-                <IconCode size={22} className="shrink-0" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">Testing</TooltipContent>
-          </Tooltip>
-        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -412,11 +361,7 @@ function RepoRailView({
             </kbd>
           </TooltipContent>
         </Tooltip>
-        <SidebarUserMenu
-          name={userName}
-          email={userEmail}
-          showSearch={showSearch}
-        />
+        <SidebarUserMenu name={userName} showSearch={showSearch} />
         <RailSettingsMenu onNavigate={onNavigate} />
       </div>
     </div>

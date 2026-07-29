@@ -4,7 +4,7 @@ import {
   IconFolder,
   IconLoader2,
 } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { MockChip, MockDot, MockLabel, MockWindow } from "./MockParts";
 
 const AUTOMATIONS = [

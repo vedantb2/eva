@@ -2,8 +2,8 @@
 
 import { useState, createElement } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import { Button, Input } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Button, Input } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -12,6 +12,10 @@ import {
 } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import { CustomTabRow } from "./_components/CustomTabRow";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
+import { IconLayoutNavbar } from "@tabler/icons-react";
 
 function TabIconPreview({ icon }: { icon: string }) {
   return createElement(resolveTablerIcon(icon), {
@@ -89,14 +93,13 @@ export function TabsSettingsClient() {
   return (
     <PageWrapper title="Tabs" comfortable>
       <div className="space-y-4">
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <div>
-            <h3 className="text-sm font-medium">Custom Tabs</h3>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Add tabs that open a service running inside this app's sandbox on
-              a given port (for example Supabase Studio or the Convex
-              dashboard). They appear in every session for this app. The icon is
-              a{" "}
+        <SettingsSection
+          title="Add a tab"
+          description={
+            <>
+              Tabs open a service running inside this app's sandbox on a given
+              port (for example Supabase Studio or the Convex dashboard), and
+              appear in every session for this app. The icon is a{" "}
               <a
                 href="https://tabler.io/icons"
                 target="_blank"
@@ -108,47 +111,49 @@ export function TabsSettingsClient() {
               name such as <code>IconBolt</code>. Names must be unique (case
               insensitive) and become the session URL slug (e.g.{" "}
               <code>supabase</code>).
-            </p>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <TabIconPreview icon={icon.trim()} />
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Name
-              </label>
-              <Input
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setSubmitError(null);
-                }}
-                className="h-8 text-xs"
-                placeholder="Supabase"
-              />
+            </>
+          }
+          bodyClassName="space-y-2"
+        >
+          {/* The three fields sit on one row on wide screens and stack on
+              mobile, so the icon preview trails the name it previews. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex flex-1 items-end gap-2">
+              <TabIconPreview icon={icon.trim()} />
+              <div className="flex-1">
+                <SettingsField label="Name">
+                  <Input
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setSubmitError(null);
+                    }}
+                    className="h-8 text-xs"
+                    placeholder="Supabase"
+                  />
+                </SettingsField>
+              </div>
             </div>
-            <div className="w-40">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Icon
-              </label>
-              <Input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                className="h-8 text-xs font-mono"
-                placeholder="IconBolt"
-              />
+            <div className="sm:w-40">
+              <SettingsField label="Icon">
+                <Input
+                  value={icon}
+                  onChange={(e) => setIcon(e.target.value)}
+                  className="h-8 font-mono text-xs"
+                  placeholder="IconBolt"
+                />
+              </SettingsField>
             </div>
-            <div className="w-24">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Port
-              </label>
-              <Input
-                type="number"
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-                className="h-8 text-xs"
-                placeholder="53432"
-              />
+            <div className="sm:w-24">
+              <SettingsField label="Port">
+                <Input
+                  type="number"
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="53432"
+                />
+              </SettingsField>
             </div>
             <Button
               size="sm"
@@ -160,26 +165,30 @@ export function TabsSettingsClient() {
             </Button>
           </div>
           {slug && !validationError ? (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               URL slug: <code>{slug}</code>
             </p>
           ) : null}
           {formError ? (
-            <p className="text-[11px] text-destructive">{formError}</p>
+            <p className="text-xs text-destructive">{formError}</p>
           ) : null}
-        </div>
+        </SettingsSection>
 
-        {tabs && tabs.length > 0 ? (
-          <div className="space-y-2">
-            {tabs.map((tab) => (
-              <CustomTabRow key={tab._id} tab={tab} takenSlugs={takenSlugs} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            No custom tabs yet. Add one above.
-          </p>
-        )}
+        <SettingsSection title="Custom tabs" bodyClassName="p-0">
+          {tabs && tabs.length > 0 ? (
+            <div className="divide-y divide-border">
+              {tabs.map((tab) => (
+                <CustomTabRow key={tab._id} tab={tab} takenSlugs={takenSlugs} />
+              ))}
+            </div>
+          ) : (
+            <SettingsEmptyState
+              icon={IconLayoutNavbar}
+              title="No custom tabs yet"
+              description="Add one above to open a sandbox service in its own tab."
+            />
+          )}
+        </SettingsSection>
       </div>
     </PageWrapper>
   );

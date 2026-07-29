@@ -2,39 +2,26 @@
 
 import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  usePromptInputController,
-  usePromptInputAttachments,
-} from "@conductor/ui";
-import type { Doc, Id } from "@conductor/backend";
+import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
+import type { Id } from "@eva/backend";
 import {
   MentionEditor,
   type MentionEditorHandle,
-  type MentionItem,
   type SlashItem,
-  DocMentionHoverCardBody,
+  DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
-  isMentionTokenDocId,
 } from "@/lib/components/mentions";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
+import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
 
 export type MentionTextareaHandle = MentionEditorHandle;
-
-function docDescriptionPreview(doc: {
-  description?: string;
-  content: string;
-}): string | undefined {
-  const description = doc.description?.trim();
-  if (description) return description;
-  const content = doc.content.trim();
-  return content || undefined;
-}
 
 interface MentionTextareaProps {
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
-  docs: Array<Doc<"docs">>;
+  repoId: Id<"githubRepos">;
   skills?: Array<{
     _id: Id<"repoSkills">;
     title: string;
@@ -57,6 +44,12 @@ interface MentionTextareaProps {
    * that don't send attachments (e.g. design chat) keep plain-text paste.
    */
   enableImagePaste?: boolean;
+  /**
+   * What this composer is for, e.g. "message to an AI coding agent working on
+   * acme/web". Providing it turns on inline AI completion (Tab to accept);
+   * omitting it leaves the composer plain.
+   */
+  completionContext?: string;
 }
 
 export const MentionTextarea = forwardRef<
@@ -65,7 +58,7 @@ export const MentionTextarea = forwardRef<
 >(function MentionTextarea(
   {
     repoBasePath,
-    docs,
+    repoId,
     skills = [],
     skillsSettingsHref,
     placeholder,
@@ -73,6 +66,7 @@ export const MentionTextarea = forwardRef<
     initialSkillMap,
     history,
     enableImagePaste,
+    completionContext,
   },
   ref,
 ) {
@@ -80,7 +74,9 @@ export const MentionTextarea = forwardRef<
   const controller = usePromptInputController();
   const attachments = usePromptInputAttachments();
   const value = controller.textInput.value;
-  const navigateToDocById = useDocMentionNavigate(repoBasePath);
+  const items = useDataMentionItems(repoId);
+  const navigateToData = useDataMentionNavigate(repoBasePath, repoId);
+  const { suggestion, dismiss } = useInlineSuggestion(value, completionContext);
 
   // Cursor into `history` (null = editing the live draft) and the draft stashed
   // when history navigation began, so ArrowDown past the newest entry restores it.
@@ -121,20 +117,12 @@ export const MentionTextarea = forwardRef<
   };
 
   const handleMentionChipClick = (id: string) => {
-    if (isMentionTokenDocId(id)) {
-      void navigateToDocById(id, docs);
-    }
+    void navigateToData(id);
   };
 
   const handleSkillChipClick = (_skillId: string) => {
     navigate({ to: `${repoBasePath}/settings/skills` });
   };
-
-  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
-    id: doc._id,
-    label: doc.title,
-    description: docDescriptionPreview(doc),
-  }));
 
   const slashItems: SlashItem[] = skills.flatMap((skill) =>
     skill.available
@@ -156,15 +144,22 @@ export const MentionTextarea = forwardRef<
       onHistoryNavigate={
         history && history.length > 0 ? handleHistoryNavigate : undefined
       }
+      suggestion={suggestion}
+      onAcceptSuggestion={
+        // Through handleValueChange so accepting also exits history recall.
+        suggestion ? () => handleValueChange(value + suggestion) : undefined
+      }
+      onDismissSuggestion={dismiss}
       items={items}
       slashItems={slashItems}
+      mentionPopupTitle="Data"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
-      renderMentionChipHoverCard={(id) =>
-        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
-      }
+      renderMentionChipHoverCard={(id) => (
+        <DataMentionHoverCardBody entityId={id} repoId={repoId} />
+      )}
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

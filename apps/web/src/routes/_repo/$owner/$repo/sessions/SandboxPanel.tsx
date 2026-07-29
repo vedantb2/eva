@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
@@ -17,14 +16,13 @@ import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   /**
    * False while another session is shown but this shell stays mounted.
@@ -49,7 +47,6 @@ interface SandboxPanelProps {
 export function SandboxPanel({
   sessionId,
   sandboxId,
-  vercelSandboxId,
   isActive,
   isRouteActive = true,
   repoId,
@@ -67,9 +64,10 @@ export function SandboxPanel({
 }: SandboxPanelProps) {
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
-  const { setMode } = useSessionSettings(sessionIdStr, {
-    defaultModel: repo.defaultModel,
-  });
+  const { setMode } = useSessionModel(
+    sessionId,
+    normalizeAIModel(repo.defaultModel),
+  );
   const submitAnnotation = useSessionAnnotationSend(sessionId);
 
   // Sticky Preview path/port + console tail (same sessions.get as the shell).
@@ -183,10 +181,10 @@ export function SandboxPanel({
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
               <div className="max-w-md space-y-1">
-                <p className="text-sm font-medium">No PRD or plan yet</p>
+                <p className="text-sm font-medium">No plan yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Ask Eva to create a PRD or plan for a feature, and it will
-                  appear here once generated.
+                  Switch the composer to Plan mode and describe what you want to
+                  build — the plan will appear here once generated.
                 </p>
               </div>
             </div>
@@ -205,7 +203,6 @@ export function SandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
-          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={sessionIdStr}

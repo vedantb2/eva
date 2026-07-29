@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
-import { api, type AIProvider, type Id } from "@conductor/backend";
+import { api, type AIProvider, type Id } from "@eva/backend";
 import {
   Button,
   Dialog,
@@ -15,7 +15,7 @@ import {
   Spinner,
   ProviderIcon,
   cn,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   PROVIDER_CREDENTIAL_FIELDS,
   PROVIDER_LABELS,

@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
-import { Badge } from "@conductor/ui";
+import { api, type Id } from "@eva/backend";
+import { Badge } from "@eva/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
+import { TaskAttachments } from "./_components/TaskAttachments";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { TaskSubscribers } from "./_components/TaskSubscribers";
 import { TaskReactionsProvider } from "./_components/TaskReactionsProvider";
@@ -166,8 +167,9 @@ export function TaskDetailInline({
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     handleSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentBrowsingAt]);
+    // Full deps are safe: the ref guard above makes re-runs no-ops, and a
+    // disable comment here makes React Compiler skip the whole file.
+  }, [agentBrowsingAt, handleSandboxTabChange]);
 
   if (isLoading) {
     return (
@@ -198,7 +200,6 @@ export function TaskDetailInline({
       <TaskSandboxPanel
         taskId={taskId}
         sandboxId={sandboxId}
-        vercelSandboxId={task.vercelSandboxId}
         isActive={isSandboxActive}
         repoId={task.repoId}
         devPort={task.devPort}
@@ -281,6 +282,8 @@ export function TaskDetailInline({
                       taskId={taskId}
                       inline={true}
                     />
+
+                    <TaskAttachments taskId={taskId} />
 
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">

@@ -64,6 +64,39 @@ export const get = authQuery({
   },
 });
 
+/**
+ * Resolves a task's attached files to signed URLs + content types, in the order
+ * the user attached them. Mirrors the message attachment resolver in
+ * `messages.ts` so the composer and the task detail view render alike.
+ */
+export const listAttachments = authQuery({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.array(
+    v.object({
+      storageId: v.id("_storage"),
+      url: v.union(v.string(), v.null()),
+      contentType: v.union(v.string(), v.null()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) return [];
+    return Promise.all(
+      (task.attachmentStorageIds ?? []).map(async (storageId) => {
+        const [url, meta] = await Promise.all([
+          ctx.storage.getUrl(storageId),
+          ctx.db.system.get("_storage", storageId),
+        ]);
+        return {
+          storageId,
+          url: url ?? null,
+          contentType: meta?.contentType ?? null,
+        };
+      }),
+    );
+  },
+});
+
 /** Resolves a task by per-repo numeric id (URL segment). */
 export const getByNumId = authQuery({
   args: {

@@ -2,9 +2,9 @@
 
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { DraftsIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
-import { type api } from "@conductor/backend";
+import { type api } from "@eva/backend";
 import { DraftsCountBadge } from "@/lib/components/sidebar/DraftsCountBadge";
 import {
   SharedLayoutNav,

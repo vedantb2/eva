@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import { internalQuery } from "./_generated/server";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
@@ -86,59 +85,14 @@ export const listEmailRecipients = internalQuery({
   },
 });
 
-/** Lists teammates across all of the current user's teams who were active in the last 2 minutes. */
-export const listOnlineTeammates = authQuery({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      firstName: v.optional(v.string()),
-      lastName: v.optional(v.string()),
-      fullName: v.optional(v.string()),
-      lastSeenAt: v.optional(v.number()),
-      lastSeenPath: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx) => {
-    const memberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-
-    const teammateIds = new Set<Id<"users">>();
-    for (const membership of memberships) {
-      const teamMembers = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
-        .collect();
-      for (const tm of teamMembers) {
-        if (tm.userId !== ctx.userId) {
-          teammateIds.add(tm.userId);
-        }
-      }
-    }
-
-    const now = Date.now();
-    const twoMinutes = 2 * 60 * 1000;
-    const online = [];
-    for (const id of teammateIds) {
-      const user = await ctx.db.get(id);
-      if (user && user.lastSeenAt && now - user.lastSeenAt < twoMinutes) {
-        online.push({
-          _id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          fullName: user.fullName,
-          lastSeenAt: user.lastSeenAt,
-          lastSeenPath: user.lastSeenPath,
-        });
-      }
-    }
-    return online;
-  },
-});
-
-/** Lists the current user's team name and all teammates, sorted with online users first. */
+/**
+ * Lists the current user's team name and all teammates, sorted by name.
+ *
+ * Who counts as "online" is decided by the caller from `lastSeenAt`, not here:
+ * a query cannot read the clock (Convex invalidates on data, so the cached
+ * result would keep whatever the clock said first), and the sidebar already
+ * re-evaluates presence on its own tick.
+ */
 export const listTeamWithMembers = authQuery({
   args: {},
   returns: v.union(
@@ -186,8 +140,6 @@ export const listTeamWithMembers = authQuery({
       .withIndex("by_team", (q) => q.eq("teamId", teamMembership.teamId))
       .collect();
 
-    const now = Date.now();
-    const twoMinutes = 2 * 60 * 1000;
     const members = [];
     for (const tm of teamMembers) {
       if (tm.userId === ctx.userId) continue;
@@ -204,13 +156,14 @@ export const listTeamWithMembers = authQuery({
       }
     }
 
-    members.sort((a, b) => {
-      const aOnline = a.lastSeenAt && now - a.lastSeenAt < twoMinutes;
-      const bOnline = b.lastSeenAt && now - b.lastSeenAt < twoMinutes;
-      if (aOnline && !bOnline) return -1;
-      if (!aOnline && bOnline) return 1;
-      return 0;
-    });
+    // By name: the previous online-first order changed with the clock, which is
+    // what made this query non-cacheable, and it reshuffled avatars under the
+    // pointer as people went idle.
+    members.sort((a, b) =>
+      (a.firstName ?? a.fullName ?? "").localeCompare(
+        b.firstName ?? b.fullName ?? "",
+      ),
+    );
 
     const logoUrl = team.logoStorageId
       ? await ctx.storage.getUrl(team.logoStorageId)

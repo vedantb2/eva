@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   Button,
@@ -14,11 +14,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
 import { getUserDisplayName } from "./task-detail-constants";
 import {
   CommentMentionInput,
@@ -90,7 +93,7 @@ export function CommentActivityItem({
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
   const { groups, toggle } = useReactions("comment", comment._id);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -136,7 +139,11 @@ export function CommentActivityItem({
     setIsSaving(true);
     try {
       await updateComment({ id: comment._id, content });
-      editMentionRef.current?.reset();
+      // Read into a local and guarded with an if rather than `?.`: React
+      // Compiler bails on the whole file when an optional-chaining call sits
+      // inside a try/catch.
+      const editMention = editMentionRef.current;
+      if (editMention) editMention.reset();
       setIsEditing(false);
       setEditText("");
     } catch (err) {
@@ -236,8 +243,9 @@ export function CommentActivityItem({
         <MarkdownMentionText
           text={comment.content}
           repoBasePath={basePath}
+          repoId={repo._id}
           atKind="user"
-          className="pl-6 text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          className={`${MARKDOWN_PROSE_CLASS} pl-6 text-sm break-words`}
         />
       )}
 

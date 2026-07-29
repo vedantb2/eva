@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -14,8 +15,8 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
@@ -44,6 +45,10 @@ export const evaluationWorkflow = workflow.define({
     branchName: v.optional(v.string()),
   },
   handler: async (step, args): Promise<void> => {
+    // Both live outside the try so the finally can tear the sandbox down even
+    // when prepare throws part-way through.
+    let sandboxId: string | undefined;
+    let sandboxRepoId: Id<"githubRepos"> | undefined;
     try {
       await step.runMutation(internal.evaluationWorkflow.setRunning, {
         reportId: args.reportId,
@@ -53,10 +58,11 @@ export const evaluationWorkflow = workflow.define({
         internal.evaluationWorkflow.getDocData,
         { docId: args.docId },
       );
+      sandboxRepoId = docData.repoId;
 
       const streamingEntityId = String(args.reportId);
 
-      const { sandboxId } = await prepareSandboxSteps(step, {
+      ({ sandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: docData.repoOwner,
         repoName: docData.repoName,
@@ -64,9 +70,9 @@ export const evaluationWorkflow = workflow.define({
         repoId: docData.repoId,
         streamingEntityId,
         baseBranch: args.branchName,
-      });
+      }));
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.reportId),
         prompt: docData.prompt,
@@ -94,6 +100,20 @@ export const evaluationWorkflow = workflow.define({
         error: errorMessage,
       });
       throw error;
+    } finally {
+      // The sandbox is ephemeral: nothing references it once the report is
+      // saved, so it has to be deleted here or it idles until the provider
+      // reaps it. Best-effort — a failed delete must not fail the workflow.
+      if (sandboxId && sandboxRepoId) {
+        try {
+          await step.runAction(internal.sandbox.deleteSandbox, {
+            sandboxId,
+            repoId: sandboxRepoId,
+          });
+        } catch (cleanupError) {
+          console.error("Failed to cleanup evaluation sandbox:", cleanupError);
+        }
+      }
     }
   },
 });
@@ -114,15 +134,20 @@ export const fixWorkflow = workflow.define({
     fixBranchName: v.string(),
   },
   handler: async (step, args): Promise<void> => {
+    // Both live outside the try so the finally can tear the sandbox down even
+    // when prepare throws part-way through.
+    let fixSandboxId: string | undefined;
+    let sandboxRepoId: Id<"githubRepos"> | undefined;
     try {
       const fixData = await step.runQuery(
         internal.evaluationWorkflow.getFixData,
         { reportId: args.reportId, docId: args.docId },
       );
+      sandboxRepoId = fixData.repoId;
 
       const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
-      const { sandboxId: fixSandboxId } = await prepareSandboxSteps(step, {
+      ({ sandboxId: fixSandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: fixData.repoOwner,
         repoName: fixData.repoName,
@@ -131,9 +156,9 @@ export const fixWorkflow = workflow.define({
         streamingEntityId: String(args.reportId),
         baseBranch,
         branchName: args.fixBranchName,
-      });
+      }));
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId: fixSandboxId,
         entityId: String(args.reportId),
         prompt: fixData.prompt,
@@ -148,7 +173,7 @@ export const fixWorkflow = workflow.define({
       const fixResult = await step.awaitEvent(fixCompleteEvent);
 
       if (fixResult.success) {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
+        await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: fixSandboxId,
           installationId: args.installationId,
           repoOwner: fixData.repoOwner,
@@ -194,6 +219,20 @@ export const fixWorkflow = workflow.define({
         error: errorMessage,
       });
       throw error;
+    } finally {
+      // The sandbox is ephemeral: the branch is already pushed by this point, so
+      // nothing references the VM. Delete it or it idles until the provider
+      // reaps it. Best-effort — a failed delete must not fail the workflow.
+      if (fixSandboxId && sandboxRepoId) {
+        try {
+          await step.runAction(internal.sandbox.deleteSandbox, {
+            sandboxId: fixSandboxId,
+            repoId: sandboxRepoId,
+          });
+        } catch (cleanupError) {
+          console.error("Failed to cleanup eval-fix sandbox:", cleanupError);
+        }
+      }
     }
   },
 });

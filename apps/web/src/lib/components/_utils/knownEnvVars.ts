@@ -2,7 +2,7 @@ import {
   CODEX_AUTH_ENV_KEYS,
   OPENCODE_AUTH_ENV_KEYS,
   CURSOR_AUTH_ENV_KEYS,
-} from "@conductor/backend";
+} from "@eva/backend";
 import {
   ClaudeLogo,
   OpenAILogo,
@@ -14,11 +14,8 @@ import { CONVEX_ENV_VARS } from "./convexEnvVars";
 import { INFRA_ENV_VARS } from "./infraEnvVars";
 import { slotEnvVarKeys } from "./envVarSlotTypes";
 
-/** Non-secret env key for the sandbox provider toggle (`daytona` | `vercel`). */
-export const SANDBOX_PROVIDER_KEY = "SANDBOX_PROVIDER";
-
 export type { EnvVarSlotEntry, EnvVarScope } from "./envVarSlotTypes";
-export { filterSlotsForScope, slotEnvVarKeys } from "./envVarSlotTypes";
+export { filterSlotsForScope } from "./envVarSlotTypes";
 export { CONVEX_ENV_VARS } from "./convexEnvVars";
 export { INFRA_ENV_VARS } from "./infraEnvVars";
 
@@ -71,10 +68,6 @@ export const KNOWN_ENV_VARS: ReadonlyArray<EnvVarSlotEntry> = [
 ];
 
 /** Agent + infra + Convex keys owned by slots — hidden from the free-form table. */
-export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = new Set([
-  ...slotEnvVarKeys([...KNOWN_ENV_VARS, ...INFRA_ENV_VARS, ...CONVEX_ENV_VARS]),
-  SANDBOX_PROVIDER_KEY,
-]);
-
-/** @deprecated Use SLOT_ENV_VAR_KEYS */
-export const KNOWN_ENV_VAR_KEYS = SLOT_ENV_VAR_KEYS;
+export const SLOT_ENV_VAR_KEYS: ReadonlySet<string> = new Set(
+  slotEnvVarKeys([...KNOWN_ENV_VARS, ...INFRA_ENV_VARS, ...CONVEX_ENV_VARS]),
+);

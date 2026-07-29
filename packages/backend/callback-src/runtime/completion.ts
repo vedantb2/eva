@@ -480,7 +480,7 @@ export function appendDiagnosticTail(message: string): string {
   return message + "\n\n" + details.join("\n\n");
 }
 
-export async function uploadMediaFile(
+async function uploadMediaFile(
   filePath: string,
   mimeType: string,
 ): Promise<string> {
@@ -524,7 +524,7 @@ export async function uploadMediaFile(
   throw new Error("Missing storageId in upload response");
 }
 
-export async function persistTaskProofIfNeeded(
+async function persistTaskProofIfNeeded(
   uploaded: { storageId: string; fileName: string }[],
 ): Promise<void> {
   if (uploaded.length > 0) {
@@ -614,7 +614,7 @@ export async function deliverCompletionWithMedia(
  * Prefer calling via `deliverCompletionWithMedia` so proof runs persist media
  * before the workflow resumes; chat still completes first for attachMedia.
  */
-export async function uploadAndAttachSandboxMedia(): Promise<void> {
+async function uploadAndAttachSandboxMedia(): Promise<void> {
   // The capture flag only gates formal proof/coding runs (RUN_ID set). Chat
   // turns always attach media: task daemons inherit env from whichever run
   // launched them (the coding run sets the flag false), so gating chat on the
@@ -687,9 +687,7 @@ export async function uploadAndAttachSandboxMedia(): Promise<void> {
   }
 }
 
-export async function saveProofFailureMessageIfNeeded(
-  message: string,
-): Promise<void> {
+async function saveProofFailureMessageIfNeeded(message: string): Promise<void> {
   if (ENTITY_ID_FIELD !== "taskId") return;
   if (!TASK_PROOF_CAPTURE_ENABLED) return;
   // Chat turns (no RUN_ID) never write to the proof timeline, including failures.

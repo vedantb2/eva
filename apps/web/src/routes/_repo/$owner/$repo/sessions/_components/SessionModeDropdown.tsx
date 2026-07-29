@@ -6,7 +6,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconClipboardList, IconCode } from "@tabler/icons-react";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 
@@ -16,7 +16,7 @@ const SESSION_MODE_OPTIONS: Array<{
   icon: typeof IconCode;
 }> = [
   { value: "edit", label: "Edit", icon: IconCode },
-  { value: "plan", label: "PRD", icon: IconClipboardList },
+  { value: "plan", label: "Plan", icon: IconClipboardList },
 ];
 
 interface SessionModeDropdownProps {

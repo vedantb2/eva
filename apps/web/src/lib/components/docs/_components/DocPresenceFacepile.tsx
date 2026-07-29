@@ -1,10 +1,10 @@
 "use client";
 
 import usePresence from "@convex-dev/presence/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import type { Id } from "@conductor/backend";
-import { cn } from "@conductor/ui";
+import type { Id } from "@eva/backend";
+import { cn } from "@eva/ui";
 
 export function DocPresenceFacepile({ docId }: { docId: Id<"docs"> }) {
   const currentUserId = useQuery(api.auth.me);

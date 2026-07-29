@@ -1,4 +1,4 @@
-import { api, normalizeAIModel, type Doc, type Id } from "@conductor/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -134,7 +134,7 @@ export function ChatPanel({
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
-  } = useSessionSettings(sessionId, {
+  } = useSessionSettings({
     defaultModel,
     model,
     onModelChange: setModel,
@@ -143,7 +143,7 @@ export function ChatPanel({
     traits,
     onTraitsPersist: setTraits,
     providerAccountId: stickyProviderAccountId,
-    onProviderAccountChange: (next) => {
+    onProviderAccountChange: (next: string | null) => {
       setStickyProviderAccountId(
         next === null ? null : (resolveAccountId(next) ?? null),
       );
@@ -322,8 +322,8 @@ export function ChatPanel({
   const placeholder = !isSandboxActive
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
-      ? "Describe the product requirements... / for skills · @ for docs"
-      : "Ask Eva anything... / for skills · @ for docs";
+      ? "Describe what to plan... / for skills · @ for data"
+      : "Ask Eva anything... / for skills · @ for data";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,

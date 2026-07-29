@@ -5,6 +5,20 @@ import type {
 } from "@pierre/diffs";
 import { z } from "zod";
 
+export type ReviewCommentSide = "LEFT" | "RIGHT";
+
+/**
+ * Where a comment attaches in GitHub's review model: a line number on one side
+ * of the diff (`LEFT` is the base file, `RIGHT` the head file), plus a start
+ * line for a multi-line comment.
+ */
+export interface ReviewCommentAnchor {
+  readonly line: number;
+  readonly side: ReviewCommentSide;
+  readonly startLine: number | null;
+  readonly startSide: ReviewCommentSide | null;
+}
+
 export interface ReviewComment {
   readonly id: string;
   readonly filePath: string;
@@ -13,6 +27,11 @@ export interface ReviewComment {
   readonly rangeLabel: string;
   readonly text: string;
   readonly diff: string;
+  /**
+   * Null for comments parsed back out of an agent message: those carry only
+   * diff-relative indices, which GitHub cannot anchor a review comment to.
+   */
+  readonly anchor: ReviewCommentAnchor | null;
 }
 
 export type ReviewCommentMessageSegment =
@@ -114,6 +133,7 @@ function parseReviewCommentBlock(
     rangeLabel: attributes.lines ?? "line",
     text: body.text,
     diff: body.contents,
+    anchor: null,
   };
 }
 
@@ -202,7 +222,7 @@ function formatReviewCommentFence(language: string, contents: string): string {
   return [`${fence}${language}`, contents.trimEnd(), fence].join("\n");
 }
 
-export function formatReviewComment(comment: ReviewComment): string {
+function formatReviewComment(comment: ReviewComment): string {
   return [
     [
       "<review_comment",
@@ -385,6 +405,41 @@ function formatDiffReviewRangeLabel(
     : `${marker}${firstNumber} to ${marker}${lastNumber}`;
 }
 
+function getReviewCommentAnchorPoint(
+  line: DiffReviewLine,
+): { line: number; side: ReviewCommentSide } | null {
+  const point = getDiffReviewSelectionPoint(line);
+  if (!point) return null;
+  return {
+    line: point.lineNumber,
+    side: point.side === "deletions" ? "LEFT" : "RIGHT",
+  };
+}
+
+/**
+ * Resolves a selected line span to GitHub's anchor: the last line carries the
+ * comment, and a start line is only sent when the span really covers more than
+ * that one line (GitHub rejects a start equal to the end).
+ */
+function buildReviewCommentAnchor(
+  lines: ReadonlyArray<DiffReviewLine>,
+): ReviewCommentAnchor | null {
+  const firstLine = lines[0];
+  const lastLine = lines.at(-1);
+  if (!firstLine || !lastLine) return null;
+  const start = getReviewCommentAnchorPoint(firstLine);
+  const end = getReviewCommentAnchorPoint(lastLine);
+  if (!start || !end) return null;
+
+  const isMultiLine = start.side !== end.side || start.line < end.line;
+  return {
+    line: end.line,
+    side: end.side,
+    startLine: isMultiLine ? start.line : null,
+    startSide: isMultiLine ? start.side : null,
+  };
+}
+
 export function buildDiffReviewComment(input: {
   id: string;
   filePath: string;
@@ -421,6 +476,7 @@ export function buildDiffReviewComment(input: {
     endIndex: normalizedEndIndex,
     rangeLabel: formatDiffReviewRangeLabel(selectedLines),
     text: input.text.trim(),
+    anchor: buildReviewCommentAnchor(selectedLines),
     diff: [
       `@@ -${oldRange.start},${oldRange.count} +${newRange.start},${newRange.count} @@`,
       ...selectedLines.map(

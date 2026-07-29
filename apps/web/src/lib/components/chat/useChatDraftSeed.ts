@@ -1,25 +1,25 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 
 /** Discriminated target shapes accepted by the chat draft APIs. */
-export type SessionChatTarget = {
+type SessionChatTarget = {
   kind: "sessionChat";
   sessionId: Id<"sessions">;
 };
 
-export type DesignChatTarget = {
+type DesignChatTarget = {
   kind: "designChat";
   designSessionId: Id<"designSessions">;
 };
 
-export type TaskChatTarget = {
+type TaskChatTarget = {
   kind: "taskChat";
   taskId: Id<"agentTasks">;
 };
 
-export type ProjectChatTarget = {
+type ProjectChatTarget = {
   kind: "projectChat";
   projectId: Id<"projects">;
 };

@@ -5,7 +5,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconLoader2 } from "@tabler/icons-react";
 
 interface ConfirmDialogProps {

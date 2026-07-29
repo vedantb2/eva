@@ -30,7 +30,7 @@ const store = createSessionStore({
   },
 });
 
-export const readCodexSessionState = store.readSessionState;
+const readCodexSessionState = store.readSessionState;
 export const writeCodexSessionState = store.writeSessionState;
 export function syncCodexStateToPersist(): void {
   store.syncStateToPersist("syncCodexStateToPersist");
@@ -87,7 +87,7 @@ function buildCodexRuntimeConfig(
   return runtimeLines.join("\n") + "\n";
 }
 
-export function hydratePersistedCodexState(): void {
+function hydratePersistedCodexState(): void {
   store.hydratePersistedState("hydratePersistedCodexState");
   if (!CODEX_AUTH_JSON && !CODEX_AUTH_JSON_BASE64) {
     copyFileIfPresent(

@@ -1,9 +1,5 @@
-import {
-  getAIModelProvider,
-  type AIProvider,
-  type Id,
-} from "@conductor/backend";
-import type { ModelAccount } from "@conductor/ui";
+import { getAIModelProvider, type AIProvider } from "@eva/backend";
+import type { ModelAccount } from "@eva/ui";
 
 /**
  * Creator default: personal account matching the model's provider (most
@@ -18,14 +14,4 @@ export function defaultProviderAccountId(
     if (account.provider === provider) return account.id;
   }
   return null;
-}
-
-/** Narrow a picker string id to a Convex id when it exists in `accounts`. */
-export function resolveProviderAccountId(
-  id: string | null,
-  accounts: ReadonlyArray<{ _id: Id<"userProviderAccounts"> }>,
-): Id<"userProviderAccounts"> | null {
-  if (!id) return null;
-  const match = accounts.find((account) => account._id === id);
-  return match ? match._id : null;
 }

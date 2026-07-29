@@ -1,11 +1,11 @@
 "use client";
 
-import { useElapsedSeconds } from "@conductor/ui";
+import { useElapsedSeconds } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useState } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
@@ -16,13 +16,13 @@ const PREVIEW_SANDBOX_ALLOWED_STATUSES = [
   "done",
 ];
 
-export type QuickTaskDetailRouting = {
+type QuickTaskDetailRouting = {
   detailTab: TaskDetailTab;
   onDetailTabChange: (tab: TaskDetailTab) => void;
   onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => void;
 };
 
-export type QuickTaskSandboxRouting = {
+type QuickTaskSandboxRouting = {
   sandboxTab: TaskRouteSandboxTab;
   onSandboxTabChange: (tab: TaskRouteSandboxTab) => void;
   onExitSandboxView: () => void;
@@ -30,7 +30,7 @@ export type QuickTaskSandboxRouting = {
   onOpenFile: (path: string) => void;
 };
 
-export type ProjectTaskDetailRouting = {
+type ProjectTaskDetailRouting = {
   detailTab: TaskDetailTab;
   onDetailTabChange: (tab: TaskDetailTab) => void;
 };
@@ -449,5 +449,3 @@ export function useTaskDetail(
     modalWidthClass,
   };
 }
-
-export type TaskDetailData = ReturnType<typeof useTaskDetail>;

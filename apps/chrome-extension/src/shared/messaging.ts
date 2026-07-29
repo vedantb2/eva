@@ -1,5 +1,5 @@
 import type { ExtractedContext } from "./types";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 
 export type TaskStatus =
   | "draft"
@@ -37,7 +37,7 @@ export const EVA_URL = import.meta.env.VITE_EVA_URL;
  * background does the Convex work and replies through `sendResponse`.
  * ------------------------------------------------------------------ */
 
-export type BgErrorCode = "not_signed_in" | "no_repo_match" | "convex_error";
+type BgErrorCode = "not_signed_in" | "no_repo_match" | "convex_error";
 
 export interface BgError {
   ok: false;
@@ -127,7 +127,7 @@ export interface BgRequestMap {
 export type BgRequestType = keyof BgRequestMap;
 
 /** A request message as sent over the wire. */
-export type BgRequestMessage<K extends BgRequestType> = {
+type BgRequestMessage<K extends BgRequestType> = {
   type: K;
   payload: BgRequestMap[K]["payload"];
 };
@@ -194,10 +194,6 @@ export function isStoredPinRecord(
     }
   }
   return true;
-}
-
-export function isRepoId(value: unknown): value is Id<"githubRepos"> {
-  return typeof value === "string" && value.length > 0;
 }
 
 export function isTaskId(value: unknown): value is Id<"agentTasks"> {

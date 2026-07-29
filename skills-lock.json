@@ -139,12 +139,6 @@
       "skillPath": "skills/emil-design-eng/SKILL.md",
       "computedHash": "41b0a4dc1a27164fe297845a6c6850a39e9242c42c9be999967fcee9df2c5974"
     },
-    "eva-product-video": {
-      "source": "vvedantb/skills",
-      "sourceType": "github",
-      "skillPath": "skills/eva-product-video/SKILL.md",
-      "computedHash": "2ef84ffdf0e64c3bd3a12005b8e46084ae08760ea6e3b244a3fbf6a01de3c041"
-    },
     "find-animation-opportunities": {
       "source": "emilkowalski/skills",
       "sourceType": "github",

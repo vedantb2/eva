@@ -1,9 +1,11 @@
 "use client";
 
-import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 import { ConfigModelField } from "./ConfigModelField";
 import { PrRecapSettingsSection } from "./PrRecapSettingsSection";
 
@@ -58,25 +60,30 @@ export function RepositorySettingsSection({
   );
 
   return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-      <div>
-        <h3 className="text-sm font-medium">Repository</h3>
-        {isMonorepo ? (
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+    <SettingsSection
+      title="Repository"
+      description={
+        isMonorepo ? (
+          <>
             Applies to all apps in{" "}
             <span className="font-medium text-foreground">
               {owner}/{name}
             </span>
             .
-          </p>
-        ) : null}
-      </div>
-
+          </>
+        ) : undefined
+      }
+    >
       <div className="grid gap-4">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Default Base Branch
-          </label>
+        <SettingsField
+          label="Default Base Branch"
+          description={
+            <>
+              The default branch used when creating quick tasks. Defaults to{" "}
+              <code>main</code> if not set.
+            </>
+          }
+        >
           <BranchSelect
             value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
             onValueChange={(val) =>
@@ -85,11 +92,7 @@ export function RepositorySettingsSection({
             className="h-8 text-xs"
             placeholder="Select a branch"
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            The default branch used when creating quick tasks. Defaults to{" "}
-            <code>main</code> if not set.
-          </p>
-        </div>
+        </SettingsField>
 
         <ConfigModelField
           label="Default Model"
@@ -146,6 +149,6 @@ export function RepositorySettingsSection({
           updateConfig={updateConfig}
         />
       </div>
-    </div>
+    </SettingsSection>
   );
 }

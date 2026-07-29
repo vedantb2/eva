@@ -1,6 +1,6 @@
 import { useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { IconCode } from "@tabler/icons-react";
 import {
   SandboxIframeService,
@@ -10,7 +10,6 @@ import {
 interface EditorPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
@@ -23,11 +22,10 @@ interface EditorPanelProps {
 export function EditorPanel({
   cacheKey,
   sandboxId,
-  vercelSandboxId,
   isActive,
   repoId,
 }: EditorPanelProps) {
-  const toggleCodeServer = useAction(api.daytona.toggleCodeServer);
+  const toggleCodeServer = useAction(api.sandbox.toggleCodeServer);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
@@ -44,7 +42,6 @@ export function EditorPanel({
       cacheNamespace="editor"
       cacheKey={cacheKey}
       sandboxId={sandboxId}
-      vercelSandboxId={vercelSandboxId}
       isActive={isActive}
       repoId={repoId}
       port={8080}

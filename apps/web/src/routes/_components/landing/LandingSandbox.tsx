@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useReducedMotion, type Variants } from "motion/react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   LANDING_SANDBOX_BOOT,
   LANDING_SANDBOX_SPEC,

@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Spinner } from "@eva/ui";
 import { entityPathSegment } from "@/lib/numId";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
@@ -16,6 +17,7 @@ import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { ProjectPhase } from "./ProjectPhaseBadge";
+import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface Project {
@@ -34,6 +36,8 @@ interface ProjectActiveLayoutProps {
   project: Project;
   basePath: string;
   selectedTaskId?: Id<"agentTasks">;
+  /** Resolve status of selectedTaskId's numId; undefined when no task is selected. */
+  selectedTaskStatus?: EntityResolveStatus;
   detailTab?: TaskDetailTab;
 }
 
@@ -42,6 +46,7 @@ export function ProjectActiveLayout({
   project,
   basePath,
   selectedTaskId: selectedTaskIdParam,
+  selectedTaskStatus,
   detailTab,
 }: ProjectActiveLayoutProps) {
   const navigate = useNavigate();
@@ -139,9 +144,23 @@ export function ProjectActiveLayout({
         <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {selectedTaskIdParam &&
-        tasks !== undefined &&
-        selectedTaskId === null ? (
+        {selectedTaskStatus === "loading" ? (
+          <div className="flex h-full items-center justify-center">
+            <Spinner size="lg" />
+          </div>
+        ) : selectedTaskStatus === "not-found" ? (
+          <EntityNotFound
+            entityLabel="task"
+            backTo={
+              projectPathSegment
+                ? `${basePath}/projects/${projectPathSegment}`
+                : `${basePath}/projects`
+            }
+            backLabel="Back to project"
+          />
+        ) : selectedTaskIdParam &&
+          tasks !== undefined &&
+          selectedTaskId === null ? (
           <EntityNotFound
             entityLabel="task"
             backTo={

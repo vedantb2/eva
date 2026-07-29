@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigate } from "@tanstack/react-router";
-import { Button } from "@conductor/ui";
+import { Button } from "@eva/ui";
 import { newLandingEnabled } from "@/env/client";
 import { LandingCompact } from "./landing/LandingCompact";
 import { LandingCta } from "./landing/LandingCta";

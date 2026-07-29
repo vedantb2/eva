@@ -13,10 +13,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
   ModelSelect,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import { api, normalizeAIModel } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api, normalizeAIModel } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
@@ -229,6 +229,7 @@ export function TaskActivityComposerForm({
             initialMentionMap={initialMentionMap}
             initialSkillMap={initialSkillMap}
             className={cn("overflow-y-auto", editorClassName)}
+            completionContext={`a description of further changes to request from an AI coding agent${task?.title ? ` on the task "${task.title}"` : ""}`}
           />
         ) : (
           <CommentMentionInput

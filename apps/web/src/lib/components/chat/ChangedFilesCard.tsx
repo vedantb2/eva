@@ -1,6 +1,6 @@
-import type { ActivityStep } from "@conductor/ui";
+import type { ActivityStep } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 export interface ChangedFile {
   path: string;

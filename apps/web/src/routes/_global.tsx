@@ -4,16 +4,9 @@ import {
   redirect,
   useLocation,
 } from "@tanstack/react-router";
-import { AuthGate } from "@/lib/components/ClientProvider";
-import { FollowOverlay } from "@/lib/components/FollowOverlay";
-import { Sidebar } from "@/lib/components/Sidebar";
-import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
-import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
-import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
-import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
-import { SearchProvider } from "@/lib/contexts/SearchContext";
-import { cn } from "@conductor/ui";
+import { useSidebar } from "@/lib/contexts/SidebarContext";
+import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
+import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
   beforeLoad: ({ context }) => {
@@ -21,7 +14,8 @@ export const Route = createFileRoute("/_global")({
       throw redirect({ to: "/" });
     }
   },
-  component: GlobalLayout,
+  staticData: { appShell: true },
+  component: GlobalMainContent,
 });
 
 function GlobalMainContent() {
@@ -29,8 +23,10 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
-  // Sessions landing shows the wide second column; collapsed hides it (rail only).
-  const paddingClass = isSessionsLanding
+  // Sessions landing and the workspace routes show the wide second column;
+  // collapsed hides it (rail only).
+  const hasSecondColumn = isSessionsLanding || isWorkspacePath(pathname);
+  const paddingClass = hasSecondColumn
     ? collapsed
       ? "lg:pl-16"
       : "lg:pl-[var(--eva-sidebar-width,20rem)]"
@@ -49,30 +45,10 @@ function GlobalMainContent() {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
         />
-        <div className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </div>
       </div>
     </div>
-  );
-}
-
-function GlobalLayout() {
-  return (
-    <AuthGate>
-      <SidebarProvider>
-        <PageTitleProvider>
-          <SearchProvider>
-            <FollowProvider>
-              <Sidebar />
-              <GlobalMainContent />
-              <SpotlightSearch />
-              <FollowOverlay />
-              <NotificationToastStream />
-            </FollowProvider>
-          </SearchProvider>
-        </PageTitleProvider>
-      </SidebarProvider>
-    </AuthGate>
   );
 }

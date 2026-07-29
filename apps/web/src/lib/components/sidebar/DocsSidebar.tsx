@@ -3,8 +3,8 @@
 import { useRef, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Button,
@@ -18,13 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SearchInput,
   Spinner,
   Textarea,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
-import { useQueryState } from "nuqs";
-import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -73,7 +72,6 @@ export function DocsSidebar({
       }
     },
   );
-  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [docToDelete, setDocToDelete] = useState<{
     id: Id<"docs">;
     title: string;
@@ -95,13 +93,10 @@ export function DocsSidebar({
     setIsCreateDialogOpen(true);
   }, [createRequestId]);
 
-  const filteredDocs = (() => {
-    if (!docs) return [];
-    // PR recaps live under Reviews now — Documents is non-recap only.
-    const byKind = docs.filter((doc) => doc.kind !== "pr-recap");
-    const q = searchQuery.toLowerCase().trim();
-    return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
-  })();
+  // PR recaps live under Reviews now — Documents is non-recap only.
+  const filteredDocs = docs
+    ? docs.filter((doc) => doc.kind !== "pr-recap")
+    : [];
 
   const handleCreateDoc = async () => {
     if (!newDocTitle.trim()) return;
@@ -113,7 +108,15 @@ export function DocsSidebar({
         content: "",
       });
       const created = await convex.query(api.docs.get, { id });
-      const segment = created ? entityPathSegment(created) : null;
+      // Guarded with ifs rather than a ternary, and onNavigate called through
+      // an if rather than `?.`: React Compiler bails on the whole file when a
+      // conditional, logical or optional-chaining expression sits inside a
+      // try/catch.
+      if (!created) {
+        setIsCreating(false);
+        return;
+      }
+      const segment = entityPathSegment(created);
       if (!segment) {
         setIsCreating(false);
         return;
@@ -124,7 +127,7 @@ export function DocsSidebar({
         to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
-      onNavigate?.();
+      if (onNavigate) onNavigate();
     } catch (error) {
       setIsCreating(false);
       throw error;
@@ -169,7 +172,11 @@ export function DocsSidebar({
     try {
       const id = await createDoc({ repoId, title, content: prdContent });
       const created = await convex.query(api.docs.get, { id });
-      const segment = created ? entityPathSegment(created) : null;
+      if (!created) {
+        setIsUploading(false);
+        return;
+      }
+      const segment = entityPathSegment(created);
       if (!segment) {
         setIsUploading(false);
         return;
@@ -182,7 +189,7 @@ export function DocsSidebar({
         to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
         search: (prev) => prev,
       });
-      onNavigate?.();
+      if (onNavigate) onNavigate();
     } catch (error) {
       console.error("PRD upload failed", error);
     }
@@ -195,9 +202,9 @@ export function DocsSidebar({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
     try {
       const prdContent = await readFileContent(file);
-      const title = file.name.replace(/\.[^/.]+$/, "") || "Untitled";
       await createDocFromPrd({ title, prdContent });
     } catch (error) {
       console.error("PRD upload failed", error);
@@ -216,22 +223,23 @@ export function DocsSidebar({
 
   const handleDelete = async () => {
     if (!docToDelete) return;
+    // Resolved before the try (it needs no await, and the guard above already
+    // proves docToDelete): React Compiler bails on the whole file when a
+    // conditional or logical expression sits inside a try/catch.
+    const docToDeleteSegment = docs?.find((d) => d._id === docToDelete.id);
+    const deletePathSegment = docToDeleteSegment
+      ? entityPathSegment(docToDeleteSegment)
+      : null;
+    const isViewing =
+      deletePathSegment !== null &&
+      routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
     setIsDeleting(true);
     try {
-      const docToDeleteSegment = docToDelete
-        ? docs?.find((d) => d._id === docToDelete.id)
-        : undefined;
-      const deletePathSegment = docToDeleteSegment
-        ? entityPathSegment(docToDeleteSegment)
-        : null;
-      const isViewing =
-        deletePathSegment !== null &&
-        routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
         navigate({ to: `${basePath}/docs`, search: (prev) => prev });
-        onNavigate?.();
+        if (onNavigate) onNavigate();
       }
     } catch (error) {
       setIsDeleting(false);
@@ -250,42 +258,24 @@ export function DocsSidebar({
         onChange={handleUploadSelect}
       />
 
-      <div className="flex items-center gap-1.5 p-2">
-        <SearchInput
-          placeholder="Search docs..."
-          value={searchQuery}
-          onChange={(v) => setSearchQuery(v || null)}
-          onClear={() => setSearchQuery(null)}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateDialogOpen(true)}
-          title="New document"
-        >
-          <IconPlus size={16} />
-        </Button>
-      </div>
+      <ContextSidebarHeaderIconButton
+        title="New document"
+        icon={IconPlus}
+        onClick={() => setIsCreateDialogOpen(true)}
+      />
 
       <div className="flex-1">
         {docs === undefined ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : filteredDocs.length === 0 && !searchQuery.trim() ? (
+        ) : filteredDocs.length === 0 ? (
           <div className="p-4 text-center">
             <IconFile
               size={28}
               className="mx-auto mb-2 text-muted-foreground"
             />
             <p className="text-sm text-muted-foreground">No documents yet</p>
-          </div>
-        ) : filteredDocs.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No matches found
           </div>
         ) : (
           <SharedLayoutNav layoutId="docs-nav" className="space-y-1">

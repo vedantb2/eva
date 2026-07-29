@@ -3,8 +3,8 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { getUserDisplayName } from "./task-detail-constants";
 
@@ -16,7 +16,7 @@ type ReactionView = FunctionReturnType<
 // stays in sync with the schema.
 export type ReactionTargetType = ReactionView["targetType"];
 
-export interface Reactor {
+interface Reactor {
   userId: Id<"users">;
   // Display name (the current user shown as "You").
   name: string;

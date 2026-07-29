@@ -11,7 +11,7 @@ import {
   forwardRef,
   type CSSProperties,
 } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 const EXTENSIONS = [
   StarterKit.configure({

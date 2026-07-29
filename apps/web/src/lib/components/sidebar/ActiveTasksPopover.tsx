@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-  Badge,
-} from "@conductor/ui";
+import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import { IconListCheck, IconLoader2 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
+import type { Id } from "@eva/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { entityPathSegment } from "@/lib/numId";
 

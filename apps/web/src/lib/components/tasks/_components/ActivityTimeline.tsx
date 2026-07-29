@@ -11,11 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
 import { CreatedTimelineItem } from "./CreatedTimelineItem";
 import { ProofTimelineItem } from "./ProofTimelineItem";
@@ -367,9 +367,7 @@ export function ActivityTimeline({
             );
           })
         )}
-      </div>
 
-      <div className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-background/95 px-4 pb-4 pt-2 backdrop-blur-sm md:px-6">
         <TaskActivityComposer
           taskId={taskId}
           isProjectTask={isProjectTask}

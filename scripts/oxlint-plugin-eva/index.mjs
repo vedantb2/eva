@@ -7,6 +7,7 @@
 import noIsRecord from "./rules/no-is-record.mjs";
 import noJsonParse from "./rules/no-json-parse.mjs";
 import noDoubleCast from "./rules/no-double-cast.mjs";
+import noValueBlockInTry from "./rules/no-value-block-in-try.mjs";
 
 export default {
   meta: { name: "eva" },
@@ -14,5 +15,6 @@ export default {
     "no-is-record": noIsRecord,
     "no-json-parse": noJsonParse,
     "no-double-cast": noDoubleCast,
+    "no-value-block-in-try": noValueBlockInTry,
   },
 };

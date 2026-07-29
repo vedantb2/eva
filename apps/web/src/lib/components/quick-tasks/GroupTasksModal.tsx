@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
@@ -39,7 +39,7 @@ import {
   TabsTrigger,
   TabsContent,
   Spinner,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
@@ -154,12 +154,16 @@ export function GroupTasksModal({
         taskIds,
       });
       const created = await convex.query(api.projects.get, { id: projectId });
-      const segment = created ? entityPathSegment(created) : null;
       setTitle("");
       onSuccess();
       onClose();
-      if (segment) {
-        navigate({ to: `${basePath}/projects/${segment}` });
+      // Nested ifs rather than a ternary: React Compiler bails on the whole
+      // file when a conditional expression sits inside a try/catch.
+      if (created) {
+        const segment = entityPathSegment(created);
+        if (segment) {
+          navigate({ to: `${basePath}/projects/${segment}` });
+        }
       }
     } catch (error) {
       setIsLoading(false);

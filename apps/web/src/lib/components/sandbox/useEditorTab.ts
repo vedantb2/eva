@@ -9,7 +9,7 @@ export function useEditorTab(
   onTabChange: (tab: string) => void,
 ) {
   const { isOpen, openTab, closeTab } = usePinnedSandboxTab(
-    `conductor:${storageScope}:editor-tab`,
+    `eva:${storageScope}:editor-tab`,
     "editor",
     activeTab,
     onTabChange,

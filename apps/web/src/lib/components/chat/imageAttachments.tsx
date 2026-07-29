@@ -1,77 +1,39 @@
-import { useMutation } from "convex/react";
-import { api, type Id } from "@conductor/backend";
+import { type Id } from "@eva/backend";
+import { usePromptInputAttachments, type PromptInputMessage } from "@eva/ui";
+import { IconX } from "@tabler/icons-react";
 import {
-  usePromptInputAttachments,
-  type PromptInputMessage,
-} from "@conductor/ui";
-import {
-  IconFile,
-  IconFileTypeTxt,
-  IconHtml,
-  IconMarkdown,
-  IconX,
-  type Icon,
-} from "@tabler/icons-react";
-import { parseStorageId } from "@/lib/components/artifacts/_meta";
+  chatAttachmentErrorMessage,
+  contentTypeForUpload,
+  iconForAttachment,
+  isAllowedAttachmentFile,
+  isImageContentType,
+  labelForAttachment,
+  type ChatAttachmentMode,
+} from "@/lib/components/attachments/attachmentMeta";
+import { useUploadBlobs } from "@/lib/components/attachments/useUploadBlobs";
 
 /**
- * Shared chat attachment pieces (ChatBody + design chat). Files are pasted/
- * dropped into the prompt-input attachment context, uploaded to Convex storage
- * on send, materialized into the sandbox as `/tmp/eva-attachment-*`, and shown
- * back on the user message.
+ * Chat-specific attachment pieces. Files are pasted/dropped into the
+ * prompt-input attachment context, uploaded to Convex storage on send,
+ * materialized into the sandbox as `/tmp/eva-attachment-*`, and shown back on
+ * the user message. The accept lists, limits, and labelling live in
+ * `@/lib/components/attachments/attachmentMeta` and are re-exported here for
+ * existing callers.
  */
 
-export const MAX_CHAT_ATTACHMENTS = 5;
-export const MAX_CHAT_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
-
-/** Images only — project sandbox, design chat, default ChatComposer. */
-export const IMAGE_ATTACHMENT_ACCEPT = "image/*";
-
-/**
- * Session coding chat: images plus design/spec text files (Claude Design HTML
- * exports, markdown/txt specs).
- */
-export const SESSION_ATTACHMENT_ACCEPT =
-  "image/*,text/html,text/markdown,text/plain,.html,.htm,.md,.txt";
-
-const SESSION_TEXT_EXTENSIONS = [".html", ".htm", ".md", ".txt"] as const;
-
-export type ChatAttachmentMode = "images" | "sessionFiles";
+export {
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_ATTACHMENT_BYTES,
+  IMAGE_ATTACHMENT_ACCEPT,
+  chatAttachmentAccept,
+  chatAttachmentErrorMessage,
+  type ChatAttachmentMode,
+} from "@/lib/components/attachments/attachmentMeta";
 
 export type ChatAttachmentMeta = {
   url: string | null;
   contentType: string | null;
 };
-
-/** @deprecated Prefer MAX_CHAT_ATTACHMENTS — kept for existing imports. */
-export const MAX_IMAGE_ATTACHMENTS = MAX_CHAT_ATTACHMENTS;
-/** @deprecated Prefer MAX_CHAT_ATTACHMENT_BYTES. */
-export const MAX_IMAGE_ATTACHMENT_BYTES = MAX_CHAT_ATTACHMENT_BYTES;
-
-export function chatAttachmentAccept(mode: ChatAttachmentMode): string {
-  return mode === "sessionFiles"
-    ? SESSION_ATTACHMENT_ACCEPT
-    : IMAGE_ATTACHMENT_ACCEPT;
-}
-
-export function chatAttachmentErrorMessage(
-  mode: ChatAttachmentMode,
-  err: { code: "max_files" | "max_file_size" | "accept" },
-): string {
-  const noun = mode === "sessionFiles" ? "files" : "images";
-  switch (err.code) {
-    case "max_files":
-      return `You can attach up to ${MAX_CHAT_ATTACHMENTS} ${noun}.`;
-    case "max_file_size":
-      return mode === "sessionFiles"
-        ? "Attachments must be 10 MB or smaller."
-        : "Images must be 10 MB or smaller.";
-    case "accept":
-      return mode === "sessionFiles"
-        ? "Only images, HTML, Markdown, or plain text can be attached."
-        : "Only image files can be attached.";
-  }
-}
 
 /** @deprecated Prefer chatAttachmentErrorMessage("images", err). */
 export function imageAttachmentErrorMessage(err: {
@@ -80,137 +42,30 @@ export function imageAttachmentErrorMessage(err: {
   return chatAttachmentErrorMessage("images", err);
 }
 
-function filenameExtension(name: string): string {
-  const lower = name.toLowerCase();
-  const dot = lower.lastIndexOf(".");
-  if (dot < 0) return "";
-  return lower.slice(dot);
-}
-
-/** Icon for a non-image composer/message attachment, keyed by MIME or extension. */
-function iconForAttachment(
-  filename: string | undefined,
-  contentType: string | null | undefined,
-): Icon {
-  const type = (contentType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
-  const ext = filenameExtension(filename ?? "");
-
-  if (
-    type === "text/markdown" ||
-    type === "text/x-markdown" ||
-    ext === ".md" ||
-    ext === ".markdown"
-  ) {
-    return IconMarkdown;
-  }
-  if (type === "text/html" || ext === ".html" || ext === ".htm") {
-    return IconHtml;
-  }
-  if (type === "text/plain" || ext === ".txt") {
-    return IconFileTypeTxt;
-  }
-  return IconFile;
-}
-
-function isSessionTextAttachment(
-  mediaType: string | undefined,
-  filename: string | undefined,
-): boolean {
-  const type = (mediaType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
-  if (
-    type === "text/html" ||
-    type === "text/markdown" ||
-    type === "text/plain"
-  ) {
-    return true;
-  }
-  const ext = filenameExtension(filename ?? "");
-  return SESSION_TEXT_EXTENSIONS.some((allowed) => allowed === ext);
-}
-
-function isAllowedComposerFile(
-  mode: ChatAttachmentMode,
-  file: PromptInputMessage["files"][number],
-): boolean {
-  if (file.mediaType?.startsWith("image/")) return true;
-  if (mode === "sessionFiles") {
-    return isSessionTextAttachment(file.mediaType, file.filename);
-  }
-  return false;
-}
-
-function contentTypeForUpload(
-  file: PromptInputMessage["files"][number],
-  blobType: string,
-): string {
-  const declared = file.mediaType?.trim();
-  if (declared) return declared;
-  if (blobType) return blobType;
-  const ext = filenameExtension(file.filename ?? "");
-  switch (ext) {
-    case ".html":
-    case ".htm":
-      return "text/html";
-    case ".md":
-      return "text/markdown";
-    case ".txt":
-      return "text/plain";
-    default:
-      return "application/octet-stream";
-  }
-}
-
 /**
  * Uploads composer attachments allowed by `mode` to Convex storage.
  * Disallowed / failed files are dropped.
  */
 export function useUploadChatAttachments(mode: ChatAttachmentMode) {
-  const generateUploadUrl = useMutation(api.messages.generateUploadUrl);
+  const uploadBlobs = useUploadBlobs();
   return async (
     files: PromptInputMessage["files"],
   ): Promise<Id<"_storage">[]> => {
-    const allowed = files.filter((file) => isAllowedComposerFile(mode, file));
-    const results = await Promise.all(
+    const allowed = files.filter((file) => isAllowedAttachmentFile(mode, file));
+    const items = await Promise.all(
       allowed.map(async (file) => {
-        try {
-          const blob = await (await fetch(file.url)).blob();
-          const uploadUrl = await generateUploadUrl({});
-          const contentType = contentTypeForUpload(file, blob.type);
-          const res = await fetch(uploadUrl, {
-            method: "POST",
-            headers: { "Content-Type": contentType },
-            body: blob,
-          });
-          if (!res.ok) return null;
-          return parseStorageId(await res.text());
-        } catch {
-          return null;
-        }
+        const blob = await (await fetch(file.url)).blob();
+        return { blob, contentType: contentTypeForUpload(file, blob.type) };
       }),
     );
-    return results.filter((id): id is Id<"_storage"> => id !== null);
+    const ids = await uploadBlobs(items);
+    return ids.filter((id): id is Id<"_storage"> => id !== null);
   };
 }
 
 /** @deprecated Prefer useUploadChatAttachments("images"). */
 export function useUploadImageAttachments() {
   return useUploadChatAttachments("images");
-}
-
-function isImageContentType(contentType: string | null | undefined): boolean {
-  return (contentType ?? "").startsWith("image/");
-}
-
-function labelForAttachment(
-  filename: string | undefined,
-  contentType: string | null | undefined,
-): string {
-  if (filename?.trim()) return filename.trim();
-  const type = (contentType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
-  if (type === "text/html") return "design.html";
-  if (type === "text/markdown") return "spec.md";
-  if (type === "text/plain") return "notes.txt";
-  return "Attachment";
 }
 
 /**
@@ -313,17 +168,5 @@ export function UserMessageAttachments({
         );
       })}
     </div>
-  );
-}
-
-/** @deprecated Prefer UserMessageAttachments. */
-export function UserAttachmentImages({ urls }: { urls?: (string | null)[] }) {
-  return (
-    <UserMessageAttachments
-      attachments={(urls ?? []).map((url) => ({
-        url,
-        contentType: url ? "image/*" : null,
-      }))}
-    />
   );
 }

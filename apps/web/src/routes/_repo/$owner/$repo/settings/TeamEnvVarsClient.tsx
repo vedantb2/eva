@@ -2,12 +2,12 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@conductor/backend";
-import { Card, CardContent } from "@conductor/ui";
+import { api } from "@eva/backend";
 import { Link } from "@tanstack/react-router";
 import { IconUsers } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 
 export function TeamEnvVarsClient() {
   const { repo } = useRepo();
@@ -59,20 +59,35 @@ export function TeamEnvVarsClient() {
 
   if (!repo.teamId || !team) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <IconUsers size={48} className="mb-4 text-muted-foreground/50" />
-          <p className="mb-2 text-sm font-medium">No team configured</p>
-          <p className="text-xs text-muted-foreground">
-            This repository is not part of any team yet
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-surface border border-border bg-card shadow-sm">
+        <SettingsEmptyState
+          icon={IconUsers}
+          title="No team configured"
+          description="This repository is not part of any team yet, so there are no team variables to inherit."
+        />
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Which team these variables belong to reads before the variables. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-muted px-3 py-2">
+        <IconUsers size={16} className="text-muted-foreground" />
+        <p className="text-xs">
+          Team:{" "}
+          <span className="font-medium">{team.displayName ?? team.name}</span>
+        </p>
+        <span className="text-muted-foreground">•</span>
+        <Link
+          to="/teams/$teamId"
+          params={{ teamId: team._id }}
+          target="_blank"
+          className="text-xs text-primary hover:underline"
+        >
+          Manage team variables →
+        </Link>
+      </div>
       <EnvVarsTable
         vars={teamEnvVars}
         scope="team"
@@ -103,22 +118,6 @@ export function TeamEnvVarsClient() {
           });
         }}
       />
-      <div className="flex items-center gap-2">
-        <IconUsers size={16} className="text-muted-foreground" />
-        <p className="text-sm">
-          Team:{" "}
-          <span className="font-medium">{team.displayName ?? team.name}</span>
-        </p>
-        <span className="text-muted-foreground">•</span>
-        <Link
-          to="/teams/$teamId"
-          params={{ teamId: team._id }}
-          target="_blank"
-          className="text-sm text-primary hover:underline"
-        >
-          Manage team variables →
-        </Link>
-      </div>
     </div>
   );
 }

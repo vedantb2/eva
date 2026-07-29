@@ -6,12 +6,14 @@ export {
   getAllTasks,
   getDependentTasks,
   getStatusesByIds,
+  listAttachments,
 } from "./_agentTasks/queries";
 
 export {
   update,
   updateStatus,
   remove,
+  removeAttachment,
   createQuickTask,
   createQuickTasksBatch,
   assignToProject,

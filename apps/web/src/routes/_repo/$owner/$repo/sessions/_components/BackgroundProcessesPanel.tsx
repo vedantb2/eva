@@ -14,14 +14,14 @@ import {
   QueueSectionLabel,
   QueueSectionTrigger,
   toast,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconLoader2,
   IconPlayerStop,
   IconTerminal2,
 } from "@tabler/icons-react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 function formatElapsed(startedAt: number, now: number): string {
   const sec = Math.max(0, Math.floor((now - startedAt) / 1000));
@@ -42,8 +42,8 @@ export function BackgroundProcessesPanel({
   sessionId: Id<"sessions">;
 }) {
   const rows = useQuery(api.backgroundProcesses.listRunning, { sessionId });
-  const reconcile = useAction(api.daytona.reconcileBackgroundProcesses);
-  const kill = useAction(api.daytona.killBackgroundProcess);
+  const reconcile = useAction(api.sandbox.reconcileBackgroundProcesses);
+  const kill = useAction(api.sandbox.killBackgroundProcess);
   const [killingIds, setKillingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );

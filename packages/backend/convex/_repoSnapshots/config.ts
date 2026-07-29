@@ -179,8 +179,8 @@ export const getSeedableAppRepos = internalQuery({
  * Siblings that still carry a seededSnapshotName but are NO LONGER seedable
  * (e.g. an app that dropped its stopCommands, or the monorepo parent). The
  * per-app rebuild loop only deletes snapshots for CURRENTLY seedable apps, so
- * without cleanup an ex-seedable app's seeded-<repoId> snapshot lingers in
- * Daytona forever. The build workflow uses this to delete those snapshots and
+ * without cleanup an ex-seedable app's seeded-<repoId> snapshot lingers
+ * forever. The build workflow uses this to delete those snapshots and
  * clear the stale name.
  */
 export const getOrphanedSeededApps = internalQuery({
@@ -345,7 +345,7 @@ export const setSeededSnapshotNameForAll = internalMutation({
  * (data.sql / backup zips live on the parent). When this matches the value
  * stored at the last successful seeded capture, the build workflow skips
  * re-seeding: the resulting snapshot's data would be identical, and rebuilding
- * it only contends with the concurrent base-image build on Daytona.
+ * it only contends with the concurrent base-image build on Vercel.
  */
 export const getSeedFingerprint = internalQuery({
   args: {
@@ -657,7 +657,7 @@ export const setSnapshotEnabled = authMutation({
   },
 });
 
-/** Deletes a snapshot config, its cron job, and the remote Daytona snapshot. */
+/** Deletes a snapshot config, its cron job, and the remote sandbox snapshot. */
 export const deleteRepoSnapshot = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
@@ -670,7 +670,7 @@ export const deleteRepoSnapshot = authMutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.snapshotActions.deleteDaytonaSnapshot,
+      internal.snapshotActions.deleteSeededSnapshot,
       { snapshotName: config.snapshotName, repoId: config.repoId },
     );
 

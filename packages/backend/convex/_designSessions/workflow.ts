@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { ensureSandboxStartedSteps } from "../_daytona/resumeSandboxSteps";
+import { ensureSandboxStartedSteps } from "../_sandbox_runtime/resumeSandboxSteps";
 
 /** Workflow that provisions or reconnects a sandbox for a design session. */
 export const designSandboxStartupWorkflow = workflow.define({
@@ -38,7 +38,7 @@ export const designSandboxStartupWorkflow = workflow.define({
         return;
       }
     }
-    await step.runAction(internal.daytona.startDesignSandbox, {
+    await step.runAction(internal.sandbox.startDesignSandbox, {
       designSessionId: args.designSessionId,
       existingSandboxId: args.existingSandboxId,
       vercelSandboxId: args.vercelSandboxId,

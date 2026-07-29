@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"ADHD mode: Run /i-have-adhd to activate.\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}

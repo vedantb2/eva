@@ -68,18 +68,23 @@ function agentLoginPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
       // The generator tests this against each bare directory-entry name (not the
       // full path), so a plain `_utils` excludes both the `_utils.ts` helper file
       // and the `_utils/` folder — mirroring how `_components` is matched.
-      routeFileIgnorePattern: "(_components|_utils|Client\\.tsx|Panel\\.tsx)",
+      routeFileIgnorePattern:
+        "(_components|_utils|Client\\.tsx|Panel\\.tsx|\\.test\\.tsx?)",
       autoCodeSplitting: true,
     }),
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    // React Compiler on builds only — its babel pass is the slowest transform
+    // step and dev runs fine unmemoized (same split as vmem). Set
+    // REACT_COMPILER=1 to opt dev in when debugging compiler behaviour.
+    (command === "build" || process.env.REACT_COMPILER === "1") &&
+      babel({ presets: [reactCompilerPreset()] }),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({
@@ -168,4 +173,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

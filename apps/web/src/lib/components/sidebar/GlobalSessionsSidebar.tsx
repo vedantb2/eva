@@ -3,7 +3,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import {
@@ -14,8 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  SearchInput,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
@@ -30,8 +29,8 @@ interface GlobalSessionsSidebarProps {
 
 /**
  * Cross-repo Sessions list for the rail entry point: every accessible app as a
- * collapsible group (empty apps included), search across titles, archived nested
- * under each app (default collapsed).
+ * collapsible group (empty apps included), archived nested under each app
+ * (default collapsed).
  */
 export function GlobalSessionsSidebar({
   pathname,
@@ -39,7 +38,6 @@ export function GlobalSessionsSidebar({
 }: GlobalSessionsSidebarProps) {
   const navigate = useNavigate();
   const repos = useQuery(api.githubRepos.list, {});
-  const [searchQuery, setSearchQuery] = useState("");
   const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
   const [sessionToRename, setSessionToRename] = useState<{
     session: SessionListItem;
@@ -59,8 +57,6 @@ export function GlobalSessionsSidebar({
   const updateSession = useMutation(api.sessions.update);
 
   const isGroupOpen = (repo: RepoRow): boolean => {
-    // While searching, expand every group so title matches aren't hidden.
-    if (searchQuery.trim().length > 0) return true;
     const stored = openByRepoId[repo._id];
     if (stored !== undefined) return stored;
     // Default: collapsed unless this app owns the active session URL.
@@ -69,17 +65,6 @@ export function GlobalSessionsSidebar({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 px-1 py-1">
-        <SearchInput
-          placeholder="Search sessions..."
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onClear={() => setSearchQuery("")}
-          className="min-w-0 flex-1"
-          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
-        />
-      </div>
-
       <div className="flex-1 space-y-3 px-0 pb-1">
         {repos === undefined ? (
           <div
@@ -104,7 +89,6 @@ export function GlobalSessionsSidebar({
               key={repo._id}
               repo={repo}
               pathname={pathname}
-              searchQuery={searchQuery}
               open={isGroupOpen(repo)}
               onOpenChange={(open) => {
                 setOpenByRepoId((prev) => ({ ...prev, [repo._id]: open }));
@@ -146,15 +130,19 @@ export function GlobalSessionsSidebar({
                 e.preventDefault();
                 void (async () => {
                   setIsRenaming(true);
+                  // Reset duplicated into the catch instead of `finally`:
+                  // React Compiler bails on the whole file for a `finally`.
                   try {
                     await updateSession({
                       id: sessionToRename.session._id,
                       title: renameValue.trim(),
                     });
                     setSessionToRename(null);
-                  } finally {
+                  } catch (error) {
                     setIsRenaming(false);
+                    throw error;
                   }
+                  setIsRenaming(false);
                 })();
               }
             }}
@@ -174,15 +162,19 @@ export function GlobalSessionsSidebar({
                 if (!sessionToRename || !renameValue.trim()) return;
                 void (async () => {
                   setIsRenaming(true);
+                  // Reset duplicated into the catch instead of `finally`:
+                  // React Compiler bails on the whole file for a `finally`.
                   try {
                     await updateSession({
                       id: sessionToRename.session._id,
                       title: renameValue.trim(),
                     });
                     setSessionToRename(null);
-                  } finally {
+                  } catch (error) {
                     setIsRenaming(false);
+                    throw error;
                   }
+                  setIsRenaming(false);
                 })();
               }}
             >
@@ -241,10 +233,15 @@ export function GlobalSessionsSidebar({
                       navigate({ to: "/sessions" });
                     }
                     setSessionToArchive(null);
-                    onNavigate?.();
-                  } finally {
+                    // `if` rather than `?.`, and the reset duplicated into the
+                    // catch rather than a `finally`: React Compiler bails on
+                    // the whole file for either.
+                    if (onNavigate) onNavigate();
+                  } catch (error) {
                     setIsArchiving(false);
+                    throw error;
                   }
+                  setIsArchiving(false);
                 })();
               }}
             >

@@ -3,36 +3,63 @@
 import type { MouseEvent, ReactNode } from "react";
 import { Children } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Streamdown } from "streamdown";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
+import remarkBreaks from "remark-breaks";
 import {
-  DocMentionChip,
+  DataMentionChip,
   SkillMentionChip,
   UserMentionChip,
   LinkChip,
-  isMentionTokenDocId,
   isSkillTokenId,
   isChipLinkUrl,
   MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
-import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
+import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { remarkMentionChips, MENTION_HREF_REGEX } from "./remarkMentionChips";
 
 interface MarkdownMentionTextProps {
   text: string;
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
+  repoId: Id<"githubRepos">;
   className?: string;
   /**
-   * What an `@` mention refers to in this context: a document (descriptions,
-   * chat) or a user (comments). `/` is always a skill. Defaults to `doc`.
+   * What an `@` mention can refer to in this context. `"user"` (comments) mixes
+   * People mentions with Data mentions, so each token's kind must be resolved
+   * before choosing a chip. `"doc"` (descriptions/chat) only ever contains Data
+   * mentions (docs/sessions/projects/quick tasks) — kept as the historical name
+   * to avoid a wider rename. `/` is always a skill. Defaults to `"doc"`.
    */
   atKind?: "doc" | "user";
 }
 
 /** Caps embedded media so markdown screenshots/videos don't dominate the pane. */
 const MARKDOWN_MEDIA_CLASS = "max-h-80 w-auto max-w-full object-contain";
+
+/**
+ * Shared typography for rendered comment/message markdown. First/last margins are
+ * collapsed so a block-level first child doesn't push the body off its baseline.
+ */
+export const MARKDOWN_PROSE_CLASS =
+  "prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0";
+
+/**
+ * `remarkPlugins` REPLACES Streamdown's defaults rather than extending them, so
+ * `defaultRemarkPlugins` (GFM + code-fence meta) must be spread back in — without
+ * it, tables, strikethrough and task lists silently render as literal text.
+ * `remarkBreaks` follows because authors type single newlines expecting a line
+ * break, not markdown's paragraph-continuation behaviour.
+ */
+const REMARK_PLUGINS = [
+  ...Object.values(defaultRemarkPlugins),
+  remarkBreaks,
+  remarkMentionChips,
+];
 
 /** Stop parent click-to-edit handlers when interacting with media. */
 function stopParentClick(e: MouseEvent) {
@@ -51,23 +78,62 @@ function childrenToText(children: ReactNode): string {
 }
 
 /**
+ * Resolves an `@` token that could be either a Data mention or a User mention
+ * (only possible in comments, where `CommentMentionInput` lets authors mix
+ * both). Uses `mentions.getEntity` — the same lookup Data chips already use
+ * for hover/navigate — as the single source of truth for what an opaque
+ * mention id points to, rather than guessing from the id's shape.
+ */
+function AtMentionChip({
+  id,
+  label,
+  repoId,
+  onNavigateToData,
+}: {
+  id: string;
+  label: string;
+  repoId: Id<"githubRepos">;
+  onNavigateToData: (e: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const entity = useQuery(api.mentions.getEntity, { id, repoId });
+
+  if (entity === undefined) {
+    // Kind not resolved yet — render a neutral, non-interactive placeholder
+    // rather than guessing (a click during this window must not misfire).
+    return <span className={MENTION_CHIP_CLASS}>@{label}</span>;
+  }
+  if (entity === null) {
+    return <UserMentionChip userId={id} label={label} />;
+  }
+  return (
+    <DataMentionChip
+      entityId={id}
+      repoId={repoId}
+      label={label}
+      onClick={onNavigateToData}
+    />
+  );
+}
+
+/**
  * Renders Markdown content while turning `@[Label](id)` / `/[Label](id)` mention
- * tokens into the same doc/user/skill chips used elsewhere. Markdown formatting
+ * tokens into the same data/user/skill chips used elsewhere. Markdown formatting
  * (bold, lists, code, etc.) and inline mentions both work.
  */
 export function MarkdownMentionText({
   text,
   repoBasePath,
+  repoId,
   className,
   atKind = "doc",
 }: MarkdownMentionTextProps) {
   const navigate = useNavigate();
-  const navigateToDocById = useDocMentionNavigate(repoBasePath);
+  const navigateToData = useDataMentionNavigate(repoBasePath, repoId);
 
   return (
     <Streamdown
       className={className}
-      remarkPlugins={[remarkMentionChips]}
+      remarkPlugins={REMARK_PLUGINS}
       components={{
         // Replace Streamdown's inline-block image wrapper (download-only hover)
         // with the shared click-to-fullscreen preview used elsewhere.
@@ -145,35 +211,31 @@ export function MarkdownMentionText({
             );
           }
 
-          // `@` → user (comments) or doc (descriptions/chat)
-          if (atKind === "user") {
-            return <UserMentionChip userId={id} label={label} />;
-          }
-
-          const navigateToDoc = (e: MouseEvent<HTMLButtonElement>) => {
+          // `@` → data mention, or (comments only) a mix of data + user mentions
+          const onNavigateToData = (e: MouseEvent<HTMLButtonElement>) => {
             e.preventDefault();
             e.stopPropagation();
-            if (isMentionTokenDocId(id)) {
-              void navigateToDocById(id);
-            }
+            void navigateToData(id);
           };
-          if (isMentionTokenDocId(id)) {
+
+          if (atKind === "user") {
             return (
-              <DocMentionChip
-                docId={id}
+              <AtMentionChip
+                id={id}
                 label={label}
-                onClick={navigateToDoc}
+                repoId={repoId}
+                onNavigateToData={onNavigateToData}
               />
             );
           }
+
           return (
-            <button
-              type="button"
-              onClick={navigateToDoc}
-              className={`${MENTION_CHIP_CLASS} cursor-pointer transition-[background-color] hover:bg-primary/20`}
-            >
-              @{label}
-            </button>
+            <DataMentionChip
+              entityId={id}
+              repoId={repoId}
+              label={label}
+              onClick={onNavigateToData}
+            />
           );
         },
       }}

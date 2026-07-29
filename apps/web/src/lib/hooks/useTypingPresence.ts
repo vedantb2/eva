@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 // How long after the last keystroke we consider the user to have stopped
 // typing. Resets on every keystroke, so it acts as a trailing-edge debounce

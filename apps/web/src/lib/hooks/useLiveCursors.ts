@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 const THROTTLE_MS = 50;
 /** Hide remote cursors that have not moved recently (presence can lag behind tab close). */

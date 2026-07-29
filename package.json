@@ -4,15 +4,16 @@
     "pnpm": ">=10 <11"
   },
   "scripts": {
-    "dev": "pnpm --filter @conductor/web dev",
-    "convex": "pnpm --filter @conductor/backend dev",
-    "convex:deploy": "pnpm --filter @conductor/backend run deploy",
-    "convex:all": "pnpm --filter @conductor/backend run dev:all",
+    "dev": "pnpm --filter @eva/web dev",
+    "convex": "pnpm --filter @eva/backend dev",
+    "convex:deploy": "pnpm --filter @eva/backend run deploy",
+    "convex:all": "pnpm --filter @eva/backend run dev:all",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
     "ext:dev:once": "pnpm --filter eva-assist-extension dev:once",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
     "lint": "oxlint -c .oxlintrc.json .",
+    "compiler:check": "node scripts/compiler-check.mjs",
     "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
     "deadcode": "knip",
     "prepare": "husky",
@@ -20,7 +21,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",
-    "*.{ts,tsx}": "oxlint -c .oxlintrc.json"
+    "*.{ts,tsx}": "oxlint -c .oxlintrc.json --no-error-on-unmatched-pattern"
   },
   "pnpm": {
     "overrides": {

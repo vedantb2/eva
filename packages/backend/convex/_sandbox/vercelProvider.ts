@@ -1,11 +1,11 @@
 "use node";
 
 /**
- * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts).
- * Mirrors ./daytonaProvider.ts but targets `@vercel/sandbox` v2 (persistent
- * sandboxes, sub-second snapshot restore — see the Phase 0 spike results).
+ * Vercel Sandbox implementation of the provider-neutral contract (./provider.ts),
+ * targeting `@vercel/sandbox` v2 (persistent sandboxes, sub-second snapshot
+ * restore — see the Phase 0 spike results).
  *
- * Design notes / provider deltas vs Daytona:
+ * Design notes / provider deltas vs Daytona (the original, now-removed provider):
  * - Identity: Vercel addresses sandboxes by `name`, not a separate id. We expose
  *   `handle.id === sandbox.name` and resolve `get(sandboxId)` via `Sandbox.get({ name })`.
  * - Resources: the neutral create params carry no vCPU count, so we default it
@@ -13,11 +13,14 @@
  * - Lifecycle: Vercel is persistent-by-default and auto-resumes on `get`, so
  *   `start()` is a no-op and `archive()` maps to `stop()` (stop auto-snapshots).
  * - git: no native git client — implemented over the shell via runCommand.
- * - PTY/desktop/volumes are intentionally omitted for now: Vercel's PTY is a
- *   client-connect WebSocket (`openInteractive`) rather than the push-callback
- *   model of the neutral SandboxPty, and Drives (volumes) are beta. These are
- *   the "wired last" capabilities called out in the contract; consumers that
- *   need them stay on Daytona until they're designed for both providers.
+ * - PTY: implemented, but NOT via the neutral `SandboxPty` interface, so
+ *   `this.pty` stays undefined here. Vercel's PTY is a client-connect WebSocket
+ *   (`openInteractive`) rather than the push-callback model SandboxPty assumes,
+ *   so terminals are wired one layer up in ../pty.ts, which returns a
+ *   `ptyProtocol: v.literal("vercel")` discriminator and hands the browser a ws
+ *   URL. See ../_pty/vercel.ts (tmux-backed shared panes).
+ * - desktop: implemented, see VercelDesktop below (TigerVNC + websockify/noVNC).
+ * - volumes: the one genuine gap. `ensureVolume` throws — Drives are still beta.
  */
 
 import { Sandbox } from "@vercel/sandbox";
@@ -67,6 +70,12 @@ const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
 const MAX_PORTS = 4;
 const STOP_CONFIRMATION_TIMEOUT_MS = 180_000;
 const STOP_CONFIRMATION_POLL_MS = 1_000;
+/**
+ * Ceiling on the snapshot-registration POST. Deliberately far above its normal
+ * few-seconds latency: this catches a wedged request, not a slow capture (the
+ * capture runs server-side after the POST returns). See createSnapshot.
+ */
+const SNAPSHOT_REQUEST_TIMEOUT_MS = 120_000;
 export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
   3000, 8080, 6080, 54321,
 ];
@@ -200,6 +209,20 @@ class VercelDesktop implements SandboxDesktop {
   constructor(private readonly handle: VercelSandboxHandle) {}
 
   async start(): Promise<void> {
+    // ffmpeg: required by `agent-browser record` (WebM encode). Runs BEFORE the
+    // health/install logic below because older snapshots bake the VNC stack but
+    // not ffmpeg — both the healthy early-return and the INSTALLED=1 guard would
+    // skip it forever. Idempotent (`command -v` gate) and soft-failing.
+    await this.handle.exec(
+      [
+        "if ! command -v ffmpeg >/dev/null 2>&1; then",
+        "  sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+        "  sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+        "fi",
+      ].join("\n"),
+      { timeoutSeconds: 180 },
+    );
+
     // Idempotent: if a live (non-zombie) stack is already healthy, keep it.
     // Re-killing a working Xvnc mid-session blacks the Computer tab and races
     // Chrome relaunch. websockify listens on 16080 (internal); exposed 6080 is
@@ -226,9 +249,6 @@ class VercelDesktop implements SandboxDesktop {
         'if [ "$INSTALLED" != "1" ]; then',
         "  sudo dnf install -y tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 procps-ng psmisc git >/tmp/desktop-dnf.log 2>&1",
         "  sudo dnf install -y gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
-        // agent-browser record → WebM needs ffmpeg on PATH
-        "  command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
-        "  command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
         "  sudo python3 -m pip install --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
         "  command -v websockify >/dev/null 2>&1 || sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
         '  if [ -z "$NOVNC_DIR" ]; then sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc >/tmp/novnc-git.log 2>&1; NOVNC_DIR=/opt/novnc; fi',
@@ -883,15 +903,47 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async createSnapshot(
-    _params: CreateSnapshotParams,
+    params: CreateSnapshotParams,
   ): Promise<{ snapshotId: string }> {
-    // Vercel snapshots are id-addressed (name is ignored). Retention is also
-    // set at create/stop; re-apply here so explicit captures still evict
-    // older snap_* objects. snapshotWorkflow separately deletes the previous
-    // seeded snapshot by name across sandbox lineages.
+    // Vercel snapshots are id-addressed (name is ignored for addressing).
+    // Retention is also set at create/stop; re-apply here so explicit captures
+    // still evict older snap_* objects. snapshotWorkflow separately deletes the
+    // previous seeded snapshot by name across sandbox lineages.
     await this.ensureSnapshotRetention();
-    const snap = await this.sandbox.snapshot({ expiration: 0 });
-    return { snapshotId: snap.snapshotId };
+
+    // `sandbox.snapshot` is a single POST that registers the snapshot and
+    // returns its id; the capture itself continues server-side. It answers in
+    // seconds, which is what lets callers poll completion across separate
+    // workflow steps instead of awaiting a multi-minute capture inline.
+    //
+    // The bound below is not a capture timeout — it cannot be, since aborting
+    // would discard the very id callers need to poll with. It exists so a wedged
+    // request (or a `withResume` that stalls waking a stopped sandbox — the SDK
+    // resumes before snapshotting) surfaces a describable error instead of
+    // running into Convex's ~600s action ceiling, which kills the action with no
+    // message. Aborting is acceptable here only because at this point the action
+    // was already doomed.
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      SNAPSHOT_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const snap = await this.sandbox.snapshot({
+        expiration: 0,
+        signal: controller.signal,
+      });
+      return { snapshotId: snap.snapshotId };
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `vercel createSnapshot (name=${params.name ?? "unnamed"}, sandbox=${this.sandbox.name}) did not return within ${SNAPSHOT_REQUEST_TIMEOUT_MS / 1000}s. This POST only registers the snapshot, so a stall here means the API or the pre-snapshot resume is wedged — not that the capture is slow.`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async writeFile(path: string, content: string | Uint8Array): Promise<void> {
@@ -997,7 +1049,6 @@ class VercelSandboxClient implements SandboxClient {
 
   async ensureVolume(_name: string): Promise<{ id: string; ready: boolean }> {
     // Persistent named volumes map to Vercel Drives (beta) — not wired yet.
-    // Consumers needing CLI-persistence volumes stay on Daytona for now.
     throw new Error(
       "Vercel provider does not implement named volumes yet (Drives, beta — Phase 2 follow-up).",
     );

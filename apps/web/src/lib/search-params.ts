@@ -1,6 +1,4 @@
 import {
-  createParser,
-  parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
   parseAsArrayOf,
@@ -35,15 +33,6 @@ const projectPhases = [
   "completed",
   "cancelled",
 ] as const;
-export const phasesParser = parseAsArrayOf(parseAsStringLiteral(projectPhases))
-  .withDefault([...projectPhases])
-  .withOptions(searchOptions);
-
-const sortFields = ["created", "title"] as const;
-export const sortFieldParser = parseAsStringLiteral(sortFields)
-  .withDefault("created")
-  .withOptions(searchOptions);
-
 const sortDirections = ["asc", "desc"] as const;
 export const sortDirParser = parseAsStringLiteral(sortDirections)
   .withDefault("desc")
@@ -52,6 +41,82 @@ export const sortDirParser = parseAsStringLiteral(sortDirections)
 const timeRanges = ["7d", "30d", "90d", "all"] as const;
 export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
+  .withOptions(searchOptions);
+
+// Quick Tasks list filters (shareable "what you're looking at" state). View
+// mode is a per-user presentation preference and stays in localStorage —
+// see quick-tasks/_utils.ts.
+const quickTaskSortFields = [
+  "status",
+  "lastRun",
+  "updated",
+  "created",
+  "title",
+  "priority",
+] as const;
+// No default here (unlike most parsers): the fallback depends on the active
+// view, so quick-tasks/_utils.ts resolves null against a per-view default.
+export const quickTaskSortFieldParser =
+  parseAsStringLiteral(quickTaskSortFields).withOptions(searchOptions);
+
+// Same reason as quickTaskSortFieldParser — the default direction pairs with
+// the per-view default field, so it cannot be baked in here.
+export const quickTaskSortDirParser =
+  parseAsStringLiteral(sortDirections).withOptions(searchOptions);
+
+// Quick Tasks default to "all time" (unlike the generic timeRangeParser's
+// "30d" default used elsewhere), so it needs its own default.
+export const quickTaskTimeRangeParser = parseAsStringLiteral(timeRanges)
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskProjectParser = parseAsString
+  .withDefault("none")
+  .withOptions(searchOptions);
+
+export const quickTaskUserParser = parseAsString
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskAssigneeParser = parseAsString
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const quickTaskTagsParser = parseAsArrayOf(parseAsString)
+  .withDefault([])
+  .withOptions(searchOptions);
+
+/**
+ * The state "no filters applied" means, read off the parsers themselves.
+ *
+ * Both "is anything filtered?" and "clear all filters" have to agree with the
+ * parser defaults, and spelling those out a second time is how `project` ended
+ * up cleared to "all" while the parser defaulted to "none" — leaving ?project=all
+ * in the URL and treating the default as an active filter.
+ */
+export const QUICK_TASK_FILTER_DEFAULTS = {
+  project: quickTaskProjectParser.defaultValue,
+  user: quickTaskUserParser.defaultValue,
+  assignee: quickTaskAssigneeParser.defaultValue,
+  tags: quickTaskTagsParser.defaultValue,
+  statuses: statusesParser.defaultValue,
+  timeRange: quickTaskTimeRangeParser.defaultValue,
+};
+
+// Projects list filters (shareable "what you're looking at" state). View,
+// timelineRange, and timelineZoom are per-user presentation preferences and
+// stay in localStorage — see projects/_utils.ts.
+// hiddenPhases stores exclusions (blocklist), so the default is empty —
+// reuses the same phase set as `projectPhases` above.
+export const hiddenProjectPhasesParser = parseAsArrayOf(
+  parseAsStringLiteral(projectPhases),
+)
+  .withDefault([])
+  .withOptions(searchOptions);
+
+const projectSortFields = ["created", "title", "priority"] as const;
+export const projectSortFieldParser = parseAsStringLiteral(projectSortFields)
+  .withDefault("created")
   .withOptions(searchOptions);
 
 const sandboxTabs = [
@@ -70,6 +135,13 @@ export type SandboxTab = (typeof sandboxTabs)[number];
 // in the URL so a viewed file survives reload and is shareable.
 export const fileViewerPathParser = parseAsString
   .withDefault("")
+  .withOptions(searchOptions);
+
+// Whether a markdown file in the File Viewer shows rendered output or its
+// source. In the URL alongside `?file=` so the choice survives reload.
+const markdownViews = ["rendered", "source"] as const;
+export const markdownViewParser = parseAsStringLiteral(markdownViews)
+  .withDefault("rendered")
   .withOptions(searchOptions);
 
 export function isSessionSandboxTab(s: string): s is SandboxTab {
@@ -106,11 +178,23 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
   return taskRouteSandboxTabs.some((tab) => tab === s);
 }
 
-const prPanelTabs = ["overview", "diffs", "recap"] as const;
-export type PrPanelTab = (typeof prPanelTabs)[number];
+/**
+ * The review tab set, shared by the standalone Reviews page
+ * (`/reviews/$prNumber/$reviewTab`) and the sandbox Review tab
+ * (`…/review/$tab`). One union so the two surfaces cannot drift apart.
+ */
+const reviewTabs = ["overview", "diffs", "recap"] as const;
+export type ReviewTab = (typeof reviewTabs)[number];
+export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
 
-export function isPrPanelTab(s: string): s is PrPanelTab {
-  return prPanelTabs.some((tab) => tab === s);
+export function isReviewTab(s: string): s is ReviewTab {
+  return reviewTabs.some((tab) => tab === s);
+}
+
+/** Slugs the Diffs tab used to answer to, redirected to the canonical one. */
+export function canonicalReviewTab(s: string): ReviewTab | undefined {
+  if (s === "diff") return "diffs";
+  return isReviewTab(s) ? s : undefined;
 }
 
 // Layout for the Diffs tab — path segment (`/review/diffs/unified`).
@@ -133,7 +217,7 @@ export function reviewPathFromSearch(search: {
   prTab?: unknown;
   diffView?: unknown;
 }): ReviewPathTarget {
-  if (typeof search.prTab === "string" && isPrPanelTab(search.prTab)) {
+  if (typeof search.prTab === "string" && isReviewTab(search.prTab)) {
     if (search.prTab === "overview") return { kind: "overview" };
     if (search.prTab === "recap") return { kind: "recap" };
   }
@@ -143,10 +227,6 @@ export function reviewPathFromSearch(search: {
       : "unified";
   return { kind: "diffs", diffView };
 }
-export const diffViewParser = parseAsStringLiteral(diffViews)
-  .withDefault("unified")
-  .withOptions(tabOptions);
-
 /**
  * Nuqs's TanStack adapter used to do `to: pathname + '?diffFile=…'`. TanStack
  * resolvePath keeps the `?…` inside `$sandboxTab`, so beforeLoad must peel it
@@ -189,7 +269,7 @@ export function parseDiffSearchFields(search: {
 }): {
   diffFile: string | undefined;
   diffView: DiffView | undefined;
-  prTab: PrPanelTab | undefined;
+  prTab: ReviewTab | undefined;
 } {
   return {
     diffFile: typeof search.diffFile === "string" ? search.diffFile : undefined,
@@ -198,15 +278,11 @@ export function parseDiffSearchFields(search: {
         ? search.diffView
         : undefined,
     prTab:
-      typeof search.prTab === "string" && isPrPanelTab(search.prTab)
+      typeof search.prTab === "string" && isReviewTab(search.prTab)
         ? search.prTab
         : undefined,
   };
 }
-
-export const sandboxOpenParser = parseAsBoolean
-  .withDefault(false)
-  .withOptions(tabOptions);
 
 export const designVariationParser = parseAsString
   .withDefault("0")
@@ -255,7 +331,6 @@ export const docModeParser = parseAsStringLiteral(docModes)
   .withOptions(searchOptions);
 
 const docCommentFilters = ["open", "resolved"] as const;
-export type DocCommentFilter = (typeof docCommentFilters)[number];
 export const docCommentFilterParser = parseAsStringLiteral(docCommentFilters)
   .withDefault("open")
   .withOptions(searchOptions);
@@ -270,38 +345,10 @@ export function isAutomationTab(s: string): s is AutomationTab {
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
 
 const inboxFilters = ["all", "unread"] as const;
+export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
-
-const docListFilters = ["documents", "reviews"] as const;
-export type DocListFilter = (typeof docListFilters)[number];
-
-/** Accepts legacy `pr-recaps` and rewrites it to `reviews` on serialize. */
-export const docListFilterParser = createParser({
-  parse(queryValue) {
-    if (queryValue === "reviews" || queryValue === "pr-recaps") {
-      return "reviews";
-    }
-    if (queryValue === "documents") return "documents";
-    return null;
-  },
-  serialize(value) {
-    return value;
-  },
-})
-  .withDefault("documents")
-  .withOptions(searchOptions);
-
-export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "recap";
-
-const reviewTabs = ["overview", "recap", "diff"] as const;
-export type ReviewTab = (typeof reviewTabs)[number];
-export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
-
-export function isReviewTab(s: string): s is ReviewTab {
-  return reviewTabs.some((tab) => tab === s);
-}
 
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];
@@ -310,11 +357,6 @@ export const pullRequestListStateParser = parseAsStringLiteral(
 )
   .withDefault("open")
   .withOptions(searchOptions);
-
-const projectViews = ["kanban", "timeline", "list", "table"] as const;
-export const projectViewParser = parseAsStringLiteral(projectViews)
-  .withDefault("kanban")
-  .withOptions(tabOptions);
 
 export const previewPortParser = parseAsInteger.withOptions(searchOptions);
 

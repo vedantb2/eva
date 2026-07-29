@@ -1,13 +1,14 @@
 "use client";
 
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { m } from "motion/react";
 import { createContext, use, useState, type ReactNode } from "react";
 
-const sharedLayoutTransition = {
+// shared-layout pill slide between sidebar rows
+const sidebarSharedLayoutTransition = {
   type: "spring" as const,
-  stiffness: 520,
-  damping: 38,
+  stiffness: 800,
+  damping: 48,
 };
 
 interface SharedLayoutNavContextValue {
@@ -73,7 +74,7 @@ export function SharedLayoutNavSurface({
       {highlighted ? (
         <m.div
           layoutId={layoutId}
-          transition={sharedLayoutTransition}
+          transition={sidebarSharedLayoutTransition}
           className="pointer-events-none absolute inset-0 rounded-lg bg-sidebar-accent"
         />
       ) : null}
@@ -87,7 +88,7 @@ export function sidebarNavLinkClass(
   collapsed?: boolean,
 ): string {
   return cn(
-    "group motion-base flex w-full items-center gap-3 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group motion-base flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     collapsed && "lg:justify-center lg:px-0",
     isActive
       ? "font-medium text-sidebar-primary"

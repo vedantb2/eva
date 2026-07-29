@@ -6,8 +6,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@conductor/ui";
-import type { BackgroundAgentEntry } from "@conductor/backend";
+} from "@eva/ui";
+import type { BackgroundAgentEntry } from "@eva/backend";
 import { IconLoader2, IconPlayerStop, IconRobot } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -41,15 +41,21 @@ export function BackgroundAgentsChip({
 
   const handleStop = async (toolUseId: string) => {
     setStoppingIds((prev) => new Set(prev).add(toolUseId));
-    try {
-      await onRequestStop(toolUseId);
-    } finally {
+    // Cleanup is duplicated into the catch instead of using `finally`: React
+    // Compiler bails on the whole file when it meets a `finally` clause.
+    const clearStopping = () =>
       setStoppingIds((prev) => {
         const next = new Set(prev);
         next.delete(toolUseId);
         return next;
       });
+    try {
+      await onRequestStop(toolUseId);
+    } catch (error) {
+      clearStopping();
+      throw error;
     }
+    clearStopping();
   };
 
   const label =

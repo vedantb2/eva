@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api } from "@eva/backend";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@conductor/ui";
+} from "@eva/ui";
 import { LogoMark } from "@/lib/components/LogoMark";
 import {
   useThemeContext,

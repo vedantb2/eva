@@ -13,7 +13,7 @@ import {
   type PromptInputMessage,
   type ModelOption,
   type ModelAccount,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_ATTACHMENT_BYTES,
@@ -24,6 +24,7 @@ import {
   type ChatAttachmentMode,
 } from "@/lib/components/chat/imageAttachments";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import { LocalChatDraftSync } from "@/lib/components/chat/LocalChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
@@ -41,7 +42,7 @@ import {
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
-} from "@conductor/backend";
+} from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -52,6 +53,14 @@ import {
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
+
+/** localStorage-backed draft seed (no Convex row yet — e.g. new session). */
+type LocalChatDraft = {
+  initialDisplay: string;
+  mentionMap: Map<string, string>;
+  skillMap: Map<string, string>;
+  onSave: (tokenized: string) => void;
+};
 
 interface ChatComposerProps {
   repoId: Id<"githubRepos">;
@@ -85,6 +94,8 @@ interface ChatComposerProps {
   /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: ReactNode;
   draft?: ChatDraftSeed;
+  /** Persist draft in localStorage when no Convex conversation exists yet. */
+  localDraft?: LocalChatDraft;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
   /** Session coding chat can attach HTML/MD/TXT; others stay images-only. */
@@ -115,17 +126,20 @@ export function ChatComposer({
   toolsBefore,
   optionsSubmenu,
   draft,
+  localDraft,
   isDraftLoading,
   hasPendingContext = false,
   attachmentMode = "images",
 }: ChatComposerProps) {
-  const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
+  // Convex draft wins when both are passed (existing sessions).
+  const seed = draft ?? localDraft;
 
   const handleSubmit = async (
     text: string,
@@ -215,7 +229,7 @@ export function ChatComposer({
             className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
           />
         ) : (
-          <PromptInputProvider initialInput={draft?.initialDisplay}>
+          <PromptInputProvider initialInput={seed?.initialDisplay}>
             <ChatTypingLayer
               roomId={`typing:chat:${conversationId}`}
               userId={currentUserId}
@@ -229,6 +243,13 @@ export function ChatComposer({
                 target={draft.target}
                 mentionRef={mentionRef}
                 initialDisplay={draft.initialDisplay}
+              />
+            )}
+            {!draft && localDraft && (
+              <LocalChatDraftSync
+                mentionRef={mentionRef}
+                initialDisplay={localDraft.initialDisplay}
+                onSave={localDraft.onSave}
               />
             )}
             <PromptInput
@@ -245,19 +266,20 @@ export function ChatComposer({
               <MentionTextarea
                 ref={mentionRef}
                 repoBasePath={repoBasePath}
-                docs={docs}
+                repoId={repoId}
                 skills={skills}
                 skillsSettingsHref={`${repoBasePath}/settings/skills`}
                 placeholder={isExecuting ? "Add a follow-up..." : placeholder}
-                initialMentionMap={draft?.mentionMap}
-                initialSkillMap={draft?.skillMap}
+                initialMentionMap={seed?.mentionMap}
+                initialSkillMap={seed?.skillMap}
                 history={messageHistory}
                 enableImagePaste
+                completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
               <PromptInputFooter>
                 <PromptInputTools>
                   <ComposerPlusMenu
-                    docs={docs}
+                    dataItems={dataMentions}
                     skills={skills}
                     mentionRef={mentionRef}
                     attachmentMode={attachmentMode}

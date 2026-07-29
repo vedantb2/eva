@@ -5,7 +5,7 @@ import {
   isLegacyDesktopSandboxTab,
   isLegacyDiffsSandboxTab,
   isLegacyPrSandboxTab,
-  isPrPanelTab,
+  isReviewTab,
   splitCorruptedSandboxTabParam,
 } from "@/lib/search-params";
 
@@ -109,7 +109,7 @@ export const Route = createFileRoute(
       const fromSearch =
         "prTab" in search &&
         typeof search.prTab === "string" &&
-        isPrPanelTab(search.prTab)
+        isReviewTab(search.prTab)
           ? search.prTab
           : "diffs";
       if (fromSearch === "overview") {

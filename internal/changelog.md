@@ -1,5 +1,272 @@
 # Changelog
 
+## Daytona env-var leftovers and Claude bin fallback - 2026-07-29
+
+Daytona is gone as a sandbox provider, but team/repo env docs still carried `DAYTONA_API_KEY` and `SANDBOX_PROVIDER`, and the plaintext list/upsert path that existed only for the old provider toggle was still live. The Claude SDK daemon also lost a real bin fallback when the CLI lives under a `/tmp` npm prefix that is not on `PATH`.
+
+- Always mask on list and always encrypt on upsert for team/repo env vars; the plaintext carve-out and its test are gone.
+- Migration `migrations:removeDaytonaEnvVars` strips the two dead keys (dry-run supported) so prod can clear injected Daytona credentials after deploy.
+- Callback restores `CLAUDE_BIN_PATH` after `PATH`, drops dead `CLAUDE_PREWARM`, and removes the stale extract-callback-script that pointed at deleted `_daytona/` paths.
+
+## VITE_NEW_LANDING is back, and there is a compact page behind it - 2026-07-27
+
+The full marketing page is a long scroll with sixteen animated feature previews, and not every instance wants to serve that. `VITE_NEW_LANDING` returns to choose between it and a new compact page — but the flag now defaults the other way round from last time. Set it to `"true"` for the full page; anything else, including unset, gets the compact one.
+
+- The compact page is one screen rather than the old basic page's hero-and-nothing. It carries the same headline and capability list, then all sixteen features across four columns — one per stage of the workflow, each with its sidebar icon and its one-line summary — and closes on the stack logos.
+- Both pages read `landingContent.ts`, so the flag chooses depth, not message. Changing a feature's summary changes it in both, and neither can drift.
+- Static by design: no previews, no motion, no auto-cycling tabs. Anything that needs those belongs on the full page.
+- The dev-only "Sign in as Eva" button moved out into its own component so both pages render it. Flipping the flag no longer takes the shortcut away.
+- The flag is `z.enum(["true", "false"])` rather than a boolean, because every Vite env value arrives as a string and `Boolean("false")` is `true`.
+- Sign-in is the compact page's only call to action. The repository link, the "Open source and MIT licensed" badge, the licence line, the "Self-host it" button and every sign-up button are gone from it; the header's one button is now "Sign in", and the hero's "Get started" is the same. The full page keeps all of it.
+
+## react-scan is gone - 2026-07-27
+
+The render-profiling overlay was still switched on for every dev session on `main`, and on staging it survived as a commented-out block with a note asking that it be left there. Nobody had used it in months, and it cost more than it looked: it hooked React DevTools before React itself loaded, drew a toolbar and a full-page canvas that every screenshot and screencast script then had to hide by hand, and dragged in its own copies of eslint, preact, protobufjs and OpenTelemetry.
+
+- Removed the import and the `scan({ enabled: true, showToolbar: true })` call from `main.tsx`, the commented-out remains of both, the `scan` npm script, and the `react-scan` and `@react-scan/vite-plugin-react-scan` dependencies. The vite plugin was declared but never referenced in `vite.config.ts`.
+- The lockfile loses about 2,000 lines. `react-scan` was one direct dependency in front of roughly 80 transitive ones, including a second eslint and its whole plugin chain.
+- The capture skills still hide `#react-scan-root` before shooting. Those steps are now no-ops rather than errors, and can come out next time those scripts are touched.
+
+## Real logos on the landing page, and one fewer way to crash - 2026-07-27
+
+The marketing page named Claude, Cursor, Convex and eight others in plain text, and drew its feature tabs with generic Tabler icons that looked nothing like the sidebar a visitor sees after signing up. Both are now the real thing.
+
+- Eleven brand marks, taken unmodified from svgl and served as files from `public/brands` rather than inlined. Inlining them would have leaked Cursor's `.st0` rule and collided Tailwind's `clipPath id="a"` with anything else claiming `a`, and would have put roughly 28 KB of path data in the JS bundle for logos most visitors scroll past. Dark variants ship only for the marks that are near-black; the rest carry brand colours that read on either surface.
+- Ten of the sixteen feature tabs now use the same animated icon as the product nav, so Sessions and Quick Tasks look on the marketing page exactly like they look in the app — including the hover animation, which needed nothing more than putting `group` on the tab button.
+- A stored accent colour could crash the whole app. `main` defines 11 accents and this branch defines 26, and both are deployed while the landing page ships ahead of the rest of staging. Anyone who picked a staging-only accent and then loaded a `main` build hit a missing key, threw during render, and landed on the error boundary — over a colour. The lookup is now typed as fallible, falls back to the CSS default, and carries a comment naming the exact three edits to undo once the two branches agree on their accents.
+
+## The landing page shows the product working - 2026-07-27
+
+The page that shipped this morning described every feature in a card. A visitor could read what Reviews or the Testing Arena does and still have no picture of it. Each pillar now renders its features as a tab strip over a mock panel of that feature in use, and the strip moves on its own.
+
+- Sixteen previews, one per feature, covering documents, planning, sessions, quick tasks, agents, reviews, the testing arena, audits, proof, automations, snapshots, skills, stats, inbox and teams. They are copy components built from a shared kit in `previews/MockParts.tsx` — no queries, no auth, no client state — so they cannot break when the real screens change.
+- Each strip advances every four seconds. The countdown is the underline itself: a bar crosses the active tab and advances the index when it lands, so there is no interval to keep in sync with what is drawn, and no `useEffect` to clean up.
+- Cycling stops when it should. It pauses while the section is off screen, stops for good once the visitor picks a tab, and never starts for anyone whose system asks for reduced motion.
+- The registry is an exhaustive `Record<LandingPreviewKey, ComponentType>`, so adding a feature without a preview is a type error rather than a blank panel. Panel height is fixed, so a tab change never shifts the page under the pointer.
+- The sandbox and MCP sections lost their prose for the same reason: a boot log that types itself out and a panel of real tool calls now show what those two do. `LandingPillarSection` is down to four lines, its feature grid and per-pillar `gridClass` deleted.
+
+## The landing page describes the product again - 2026-07-27
+
+Two landing pages had been sitting behind `VITE_NEW_LANDING` since the task-detail mock shipped, and both were written before Projects, Reviews, Testing Arena, Audits, Automations, Snapshots, Skills, Inbox and Teams existed. A visitor could read either one end to end and still not know what Eva does. Both are deleted, the flag with them, and one scrolling page replaces them.
+
+- The page is shaped like the product: Plan, Build, Verify, Operate, each a numbered section with its own feature grid, fronted by a four-cell strip that doubles as a table of contents. Sandbox, MCP and self-hosting get sections of their own.
+- Every claim comes from the code rather than the README — the sandbox spec is read off `snapshotActions.ts`, and Designs is left out because it is still dev-only in the repo nav. No metrics and no logos, because there are none to cite honestly.
+- All copy lives in `landingContent.ts`. The components render it and hold no strings, so adding a feature is one entry in one file.
+- Not a single hardcoded colour: every surface, border and accent is a design token, so the page follows whatever theme the visitor's system asks for. Section reveals are `whileInView` and collapse to a plain fade under reduced motion.
+- Gone with the old pages: `BasicLandingPage`, `NewLandingPage`, `LandingCapabilityGrid`, `LandingWorkflowStrip`, `LANDING_PLATFORM_SECTIONS`, five unused `landing-*` CSS classes and their keyframes, and the `VITE_NEW_LANDING` env var. `LandingTaskDetailMock` survives and is now the hero screenshot.
+
+## Stats stop lying about the time - 2026-07-27
+
+A Convex query is cached against its data and invalidated by data, never by time. Six queries called `Date.now()` anyway, which freezes the answer at whatever the clock said when it was first computed: the "Humans Prompting" KPI claims the last five minutes and could show a count from hours earlier, and the heatmap's one-year window stayed anchored to the day it was first drawn.
+
+- Each of those queries now takes the timestamp as an argument, so the window is the caller's and the result stays cacheable. Nothing about the numbers changes — they just move when time does.
+- The client half was the mirror image: the start of the selected range was recomputed from the clock on every render, and Convex keys both its cache and its subscriptions on the argument object, so every query on the stats and logs pages resubscribed and recomputed on each render. Timestamps now come from one place that rounds down to a chosen interval and advances on the boundary — stable within the interval, fresh once it passes.
+- Team member order is now alphabetical instead of online-first. The online-first sort was the clock read, the sidebar already works out who is online on its own tick, and avatars no longer reshuffle under the pointer as people go idle.
+- Two dead exports removed: `listOnlineTeammates` and `isDevServerBooting`, neither with a caller.
+- The determinism test that recorded these six as known exceptions has no exception list any more. An empty rule is enforceable; a list of grandfathered excuses is not.
+
+## Regression tests for the last 30 days of fixes - 2026-07-27
+
+The three-day sweep was widened in stages — five days, a week, two weeks, three weeks, thirty days — reading every fix commit in the window and adding a test only where there was a real invariant to pin. That produced 20 new test files, and along the way it found four bugs that were still live in prod.
+
+- Three ephemeral sandboxes were never being deleted: both evaluation workflows and test generation each created a VM, finished with it, and walked away. Idle auto-stop only stops a sandbox, so those machines idled until the provider reaped them. Found by writing the teardown contract, not by a bill.
+- That contract now pins all nine sandbox call sites with their `ephemeral` flag, so a new one has to be classified deliberately rather than inheriting whatever the file it was pasted into happened to do. Ephemeral means delete in a `finally`; persistent means never delete, because that VM belongs to a live session.
+- Five pieces of logic were pulled out of workflows to be testable at all — PR error classification, pending-turn recovery, result routing, cancelled-message shaping and message media — each previously reachable only by running a whole workflow against GitHub.
+- The rest cover the marker that brands a sandbox as seeded (writing it after a failed run made the fault permanent and silent), keep-last-good for seeded snapshots, orphaned sandbox cleanup, cron registration, draft PRs, and source encoding.
+- Every source-text contract was checked against its own pre-fix commit to prove the rule actually fires. A test that would have passed before the fix guards nothing.
+- Two findings the sweep turned up on the side — six Convex queries reading the clock, and a dead `isDevServerBooting` — are fixed in the entry above.
+
+## Table view is gone - 2026-07-27
+
+Switching away from the quick-tasks table froze the tab hard: a synchronous React render loop that never yielded, so the page took no input and printed nothing. A long instrumentation pass narrowed it to the table's unmount and no further — probes in every component on the path never tripped. The view was the least-used of the three and not worth more days of hunting, so it has been removed rather than fixed.
+
+- Quick tasks keeps kanban and list; projects keeps kanban, timeline and list. The table buttons are gone from both toolbars.
+- Anyone whose stored preference is still `table` lands on kanban instead of an empty pane — both view preferences now validate what they read out of localStorage rather than trusting it.
+- `QuickTasksTableView`, `ProjectsTableView` and the forked `data-table` primitive in `@eva/ui` are deleted, and `@tanstack/react-table` drops out of both packages. `react-virtuoso` stays; kanban and list still virtualise through it.
+- The quick-tasks sort default no longer varies by view, since both remaining views group by status already.
+
+## Regression tests for the last three days of fixes - 2026-07-26
+
+Nine fixes shipped this week with no test behind them, so each one was free to come back. They now have 43 tests across the three packages. Two of those fixes had left a job half done, and writing the tests is what surfaced it.
+
+- Writing the streaming-row test meant reading all four queued-message dequeues, and only the session one wiped the previous turn's activity before staging the next. The three chat and design dequeues have been patched to match — before anyone hit the flash of a stale thinking trace in project or task chat.
+- Writing the quick-task filter test meant reading how "cleared" was defined, and it was spelled out twice with two different answers. The cleared state now derives from the nuqs parsers, so "no filters applied" and "clear all filters" cannot disagree the way they did when clearing left `?project=all` in the URL.
+- The rest cover storage blobs orphaned by a deleted queued message, split-pane widths lost on reload, the kanban drop target, ffmpeg install ordering on desktop start, recording-prompt paths, and the nested-action call that dies at the 300s ceiling.
+- Two prod functions were pulled out to be testable at all: the kanban drop-target resolution and the split-pane ratio maths, both previously reachable only through a rendered tree.
+- Design tokens and kanban column widths are now asserted too — a card that vanishes into the page, or a gutter that overflows the row by three pixels, is invisible to every other kind of test.
+- Six fixes were deliberately left untested: pure CSS and layout, where there is no invariant worth pinning.
+
+## Comments and your own messages render as markdown - 2026-07-26
+
+Task comments already rendered as markdown; the same text shown anywhere else came out as raw source. A comment with a list read as a list in the activity feed and as `- one` `- two` in the run timeline, from one field in one document.
+
+- The run timeline's inline comment, the user chat bubble, review-comment cards and the design chat's user turn now go through the same renderer as the activity feed, so one comment cannot look like two different things.
+- Fixed a latent bug on that shared renderer: passing a mention plugin to Streamdown **replaced** its defaults instead of extending them, so GFM was silently off everywhere. Tables, strikethrough, task lists and code-fence languages have never rendered in a comment or a task description until now.
+- Single newlines are line breaks again. People type a comment as lines, not as markdown paragraphs, and the old render silently joined them.
+- Tailwind Typography's grey palette now maps onto the design tokens, so rendered markdown matches the UI text beside it in both themes rather than shipping the plugin's own greys.
+- Input areas are unchanged and stay plain text: markdown is for reading, not for typing into.
+
+## Switch apps from the composer headline - 2026-07-26
+
+The app name in "what are we building for X?" was decoration. Changing app meant going back to the vertical rail, where the tiles are icon-only and the name lives in a tooltip — so picking the right one was a hover-and-guess exercise.
+
+- The name is now a dropdown listing every app from the rail, each with its icon and its full name, so apps are readable rather than recognisable-by-logo.
+- Choosing one goes exactly where a rail tile goes (`repoHref`), so the two entry points cannot drift. Items are real links, so cmd-click still opens a tab.
+- Underlined at rest and colour-shifting on hover, since a clickable word inside a headline has no other affordance.
+- The list reuses `githubRepos.list` — the same query the rail's parent already runs — so the Convex query cache dedupes it and the dropdown costs no extra fetch.
+- The initial-letter tile colour moved out of `RepoRail` into `repoTileColor`, so a logo-less app is the same colour in the rail and in the dropdown.
+- Lands on both the repo home and `/sessions`, since they render the same composer.
+
+## The file tree is draggable - 2026-07-26
+
+Both file trees were pinned to a fixed 256px: too narrow for a deep path, too wide for a flat repo. They now drag, and the width is remembered.
+
+- The Diffs tab tree and the Files tab tree share one `ResizableSidebar`. Because both panels are shared components, this lands on sessions, projects and quick tasks at once, plus the standalone Reviews page.
+- The hairline divider is the drag handle; the pointer target is wider than the visible pixel, so there is no grip to clutter it.
+- Fixes a crash the split-pane persistence introduced: the panel group reports its starting layout from a layout effect, effects run child-first, and `useLocalStorage`'s setter throws until its own effect has run. That first report only echoes back the size we passed in, so it is now skipped.
+- Persistence for both the split pane and the tree sidebar lives in one `usePersistentPanelSize` hook, so there is a single place where the storage key, the write timing and the mount ordering are decided.
+
+## Split-pane width persists - 2026-07-26
+
+Dragging the divider between the chat and the sandbox was forgotten as soon as the page unmounted. Only the collapsed/expanded flag was stored; the dragged width sat in a ref. Reopening a task always reset the split to 60%, and collapsing then re-expanding lost it too.
+
+- The width now persists in localStorage under `<storageKey>:size`, alongside the existing collapsed flag. Chosen over Convex deliberately: the right split depends on the window in front of you, so syncing it between devices would be wrong, and a drag should not cost a server write.
+- Written on the group's `onLayoutChanged`, which fires once when the pointer is released, rather than the panel's `onResize`, which fires every frame of the drag.
+- Collapsing and re-expanding returns to the dragged width, since the remembered size is now seeded from storage on mount.
+- Panels carry explicit ids, because the saved layout is keyed by them and the library's `useId` fallback is not stable across mounts.
+- One shared component, so this covers quick tasks, projects, sessions and designs.
+
+## Images, videos and markdown render in the Files tab - 2026-07-26
+
+The Files tab could only show text. Reading a file goes through a shell exec that returns a string, so every PNG, JPEG and MP4 tripped the NUL-byte check and came back as "This file is binary and cannot be shown" — and a README rendered as raw markdown source.
+
+- Images (png, jpg, gif, webp, avif, bmp, ico, svg) now render inline, click to open fullscreen. SVGs show as vectors rather than as XML.
+- Videos (mp4, webm, mov, m4v, ogv) play inline with the full control bar.
+- Markdown files render by default — headings, tables, fenced code and mermaid — with a header toggle back to highlighted source that persists in the URL.
+- Media bytes come back base64-encoded from the sandbox and are capped at 4 MB; larger files say how big they are instead of failing as binary. Genuine binaries keep the existing notice.
+- Applies everywhere the viewer is used: the session Files tab, the task and project sandbox panels, and file chips clicked in chat.
+- Known gap: relative image links inside rendered markdown stay broken, since sandbox files have no HTTP origin to resolve against.
+
+## One review tab set for both surfaces - 2026-07-26
+
+The standalone Reviews page and the sandbox Review tab each had their own tab orchestrator, and they had already drifted: different tab order, different slugs (`diff` vs `diffs`), two separate tab unions, and one surface remounting panels on every tab switch while the other kept them alive. Any change to a review tab had to be made twice. They now render one shared component.
+
+- New `ReviewTabsPanel` owns the tab row and all three panels. `PrPanel` (sandbox) and `ReviewDetailClient` (standalone) keep only what is genuinely per-surface: how the active tab is read from the URL, the sandbox's default-to-Recap rule, and the standalone's PR title block, passed in as a header slot.
+- One tab union in `search-params.ts` — `ReviewTab` — replacing the duplicate `PrPanelTab`. The Reviews page adopts the sandbox order (Overview, Diffs, Recap) and the `diffs` slug; `…/reviews/N/diff` redirects to `…/reviews/N/diffs`.
+- Both surfaces now keep panels mounted across tab switches, so drafted comments, scroll position, and expanded files survive leaving and returning to Diffs. Previously only the sandbox did.
+- Fixed: the Overview tab did not scroll in the sandbox. It claimed height with `flex-1`, but the sandbox mounts it inside a block container where that never resolves, so the scroll box grew unbounded.
+
+## Post review comments to GitHub - 2026-07-26
+
+Selecting lines in a diff already drafted a comment, but the only place it could go was the agent's prompt. Those comments can now be submitted to GitHub as a real pull request review.
+
+- New **Review changes** control in the Diffs toolbar, badged with the pending comment count. It takes an optional summary and one of Comment, Approve, or Request changes, then posts the lot as a single review.
+- Each drafted comment records its GitHub anchor (line number plus `LEFT`/`RIGHT` side, and a start line for multi-line selections) at the moment the lines are selected, so anchors are resolved against the patch rather than reconstructed at submit time.
+- Comments parsed back out of an agent message carry only diff-relative indices, which GitHub cannot anchor. The popover says how many will be left out rather than dropping them silently.
+- Posting clears the pending comments and toasts the outcome; GitHub's rejection message is surfaced verbatim. Reviews post as the eva GitHub App, so GitHub refuses to approve a pull request the app itself opened — that refusal is shown as-is, not pre-empted.
+- Line selection and commenting now work on the standalone Reviews page too, not just the sandbox Review tab; drafts survive switching between Overview, Recap, and Diff.
+- Backend: new `submitPrReview` action in `_github/prReview.ts` wrapping `pulls.createReview`.
+- The file tree now uses the app's font instead of `system-ui`.
+- Still not included: replying to existing review threads, resolving conversations, and suggested changes.
+
+## Diffs tab matches GitHub's Files changed - 2026-07-26
+
+The Diffs tab had a file tree, per-file Viewed checkboxes, and unified/split, but per-file headers carried only a path and the standalone Reviews page had no diff controls at all. Reading a diff now matches GitHub's Files changed page, on both surfaces.
+
+- New toolbar above the tree and the diff list: files-changed count, `+/−` totals with GitHub's five-square indicator, a `n/m viewed` progress bar, a file filter, Unified/Split, line wrapping, expand/collapse all, and Refresh. It lives in the panel, so the Reviews page gets the same chrome as the sandbox Review tab.
+- Per-file headers gained a status chip (added/modified/deleted/renamed), per-file `+/−` counts and indicator, `old → new` for renames, a pending-comment count, and a kebab menu (copy path, view file on GitHub, load full file). Headers stick to the top of the scroll area while their diff is on screen.
+- Expand unchanged lines: the kebab's **Load full file context** pulls both ends of the file and re-derives the diff from whole files, which is what unlocks the context arrows — a PR patch only carries a few lines around each hunk. Comments stay anchored to the patch, so expanding never shifts an existing comment.
+- Word-level intra-line highlighting and `@@` hunk headers, as on GitHub.
+- Binary files and content-free changes (pure renames, mode changes) say so instead of rendering an empty code view.
+- Backend: `getPrDiff` now also returns head/base shas and the repo URL (cache bumped to `prDiffV2`); new `getPrFileContents` action reads a file at both refs, cached 30 minutes and capped at 400 KB, skipping binaries.
+- Not included: posting review comments, Approve, or Request changes to GitHub; rich diffs for images and rendered markdown; hide-whitespace.
+
+## Review Overview matches GitHub's PR page - 2026-07-26
+
+The Overview tab showed a description, a comment list, and four meta rows, so anything a reviewer actually decides on — whether checks passed, who approved, what landed, can it merge — still meant opening GitHub. It is now a one-stop review surface, in both the standalone Reviews page and the sandbox Review tab (one shared panel, so both change together).
+
+- Summary strip: lifecycle chip, `head → base` branches, author, labels, and stat tiles for files, commits, additions and deletions, with a total-lines bar.
+- Checks card merges check runs **and** commit statuses, so bot reporters that use the older statuses API (review agents included) show up alongside CI, each with its own summary line and a pass/fail/running count.
+- Reviewers card collapses the review history to the latest decisive state per reviewer (approval and change requests outrank a later comment, as on GitHub) and lists reviewers still owing a review.
+- Commits card lists the branch's commits newest-first with short SHAs, linked to GitHub.
+- Merge card: squash, merge commit, or rebase, behind a confirmation dialog; disabled with a plain-English reason when the PR is a draft, conflicted, blocked by branch protection, or still being checked by GitHub. GitHub's rejection message is surfaced verbatim rather than guessed at.
+- Refresh bypasses the 60s action cache and keeps the panel on screen while refetching; a merge refetches automatically.
+- Backend split: overview + merge moved to `_github/prOverview.ts` (cache bumped to `prOverviewV2`, since V1 entries predate the new fields); `_github/pullRequests.ts` keeps list and header only.
+
+## Quick task attachments - 2026-07-26
+
+Files could only reach an agent through a task's chat, so working from a screenshot or a spec meant creating the task, running it, then pasting the file in. Quick tasks now take attachments directly.
+
+- Attach via paperclip, image paste into the description, or drag-and-drop onto the modal; cards render under a **Files** heading below the description.
+- Same rules as the chat composer: images plus `.html`/`.md`/`.txt`, 5 files, 10 MB each, identical rejection copy.
+- Uploads happen on submit rather than on pick, so cancelling the modal never leaves orphaned blobs in storage.
+- Drafts carry attachments through save and activate, so closing the modal with only a file attached and reopening it keeps the file.
+- The agent receives them: `attachmentStorageIds` persists on the task row and the workflow reads it off the doc, so every run path (quick, queued, scheduled, project build, auto-run, MCP, extension) materialises the files into the sandbox with one change.
+- Task detail shows a read-only **Files** section; each card opens the stored file in a new tab.
+- Accept lists, limits, upload, and card rendering moved to a shared `components/attachments` module so chat and quick tasks stay in step; chat keeps its old imports.
+- Known limit: only storage ids are persisted, so original filenames are lost and detail-view labels fall back to content-type names.
+
+## Full accent palette + surface tones restored - 2026-07-26
+
+The monochrome accent was called **None**/`neutral` while its values were the Tailwind zinc ramp, which blocked adding zinc's siblings. Renamed to **Zinc** (same values, still the default) and added eight more: slate, gray, neutral, stone, plus taupe, mauve, mist and olive — four muted hues Tailwind has no ramp for. 26 accents total. Separately, the pure white / pure black shells introduced alongside the None accent left no tonal step between canvas and cards, so `--background` is back to `244 245 246` light and `5 6 6` dark, with dark cards at `23 24 26`. Rail apps also get Mod+1…9 shortcuts.
+
+## Composer prefs + theme off localStorage - 2026-07-25
+
+Design chat kept model/traits/account in per-session localStorage while coding sessions already used Convex, and light/dark was mirrored into a `"theme"` key even though `users.theme` was the source of truth. Sticky design composer fields now live on `designSessions`; `useSessionSettings` is display-only (no LS); Approve Plan writes mode via Convex; appearance FOUC uses `eva-custom-theme-hint.appearance` instead of writing `"theme"`.
+
+## New-session composer draft survives reload - 2026-07-25
+
+Landing composer had no conversation row yet, so a refresh wiped the prompt. Draft, model, mode, traits, and account now persist per-repo in one localStorage object (`eva:new-session-composer:<repoId>`); only the draft clears once the session is created. Existing session chat drafts stay on Convex.
+
+## Session Plan mode (was PRD) - 2026-07-25
+
+Composer mode and sandbox tab said “PRD” and forced a product-requirements prompt (user stories, non-technical WHAT/WHY). Renamed to **Plan** and switched the agent prompt to a normal implementation plan (`plan.md`: approach, files, steps, risks) — same shape as Claude/Codex plan mode. Approve → edit still injects the plan as context.
+
+## Codex/Cursor model list → GPT-5.5 - 2026-07-25
+
+Codex still offered 5.2–5.4 while OpenAI’s shipping coding model is GPT-5.5; Cursor’s GPT entry was stuck on high effort. Codex picker is now `gpt-5.5` (with matching reasoning levels + pricing); Cursor GPT is `gpt-5.5-low`. Old IDs stay accepted and normalize forward so existing sessions load.
+
+## Empty states uncarded + neutral default accent - 2026-07-25
+
+Page empty states shared a dashed card that fought the shell. `EmptyState` is chrome-free and vertically centered; sessions/drafts/select-a-X landings all use it. Default theme accent is **None** (neutral) instead of cyan, including `globals.css` so first paint matches.
+
+## Shareable filter URLs for quick tasks and projects - 2026-07-25
+
+Filters, search, and sort on the quick-tasks and projects pages lived in localStorage, so a shared link showed each recipient their own filter state instead of what the sender was looking at. Search/filters/sort now live in the URL via nuqs (`?q=`, `project`, `statuses`, `sortField`, …); view mode (kanban/list/table) and timeline zoom stay in localStorage as per-user presentation preferences. In-page navigations (opening tasks, next/prev, sandbox tabs) preserve the search params.
+
+## Quick-task card menu uses shared model picker - 2026-07-25
+
+Right-click / ⋮ on a quick-task card had a hand-rolled nested radio model tree that drifted from the create-modal picker. The card menu now embeds the same `ModelPickerContent` surface as `ModelSelect`, so account/search UX stays one implementation.
+
+## Context sidebars: drop search, actions in header - 2026-07-25
+
+Docs, designs, automations, testing arena, reviews, and sessions sidebars each had a search row that competed with the title chrome. Search is gone from those panels; create / test-all actions sit at the right end of the panel header instead, so the list starts immediately under the title.
+
+## Theme accents expand to Tailwind + monochrome None - 2026-07-25
+
+Theme settings only offered a short accent list on a grey-tinted shell. Accent swatches now cover the Tailwind chromatic palette, Appearance light/dark uses pure white/black surfaces, and a **None** accent gives black/white chrome with no hue. Also: online teammates sit above the sidebar stats card, and the new-session headline greets by first name.
+
+## Persistent app chrome + list views that survive task clicks - 2026-07-25
+
+Crossing between global pages and repos remounted the whole sidebar/rail (two sibling layouts each mounted their own chrome), and `RepoProvider` blanked everything behind a full-screen spinner while the repo query resolved. Chrome (Sidebar, providers, Spotlight, overlays) now mounts once in `__root` via an `AppShell` gated by `staticData: { appShell: true }`; `RepoGate` scopes the repo-loading spinner to the routed content only. Quick-tasks list view and project task switching no longer unmount their lists while a task numId resolves — loading/not-found renders in the detail pane, so scroll position genuinely persists instead of being restored by the sessionStorage hack.
+
+## App chrome polish: sidebar nav, shared page width, softer kanban - 2026-07-25
+
+Global pages mixed `comfortable` / default `PageWrapper` widths, and the app sidebar still used collapsible uppercase section chrome that fought the nav. Home/Inbox/Teams/Artifacts now share the same shell; sidebar sections are static title-case labels aligned with icons (tighter item padding); brand mark is larger; stats footer drops the redundant header; kanban column washes use `/40`; new-session helper copy is gone. Dev-only Agentation toolbar is mounted for visual feedback while iterating.
+
+## Data @-mentions for sessions, projects, and quick tasks - 2026-07-25
+
+`@` in composers only listed documents, so referencing past chats or related work meant pasting links. The picker is now **Data** (docs + sessions + projects + quick tasks) with type badges; comments keep People and add the same Data entries. Docs still inline into the agent prompt; other kinds inject an Eva MCP fetch hint so the agent loads them on demand.
+
+## Auto-recover stuck sandbox "stopping" after Convex transient action errors - 2026-07-25
+
+- Stop now schedules a delayed `recoverStuckStopping` that re-issues `finalizeStopSandbox` if status is still `"stopping"`.
+- Reason for change: Convex platform "Transient error while executing action" (0ms) is not retried for actions, so sessions could wedge on Stop forever until a manual re-click.
+
+## Claude Agent SDK only (CLI spawn removed) - 2026-07-25
+
+Claude no longer has a `claude -p` attempt mode — the Agent SDK (`sdk` / `sdk-daemon`, default `sdk-daemon`) is the only Claude runtime. Unset `CLAUDE_ATTEMPT_MODE` now means the warm daemon path, so prod flips on deploy without an env change. Codex, OpenCode, and Cursor keep their CLI spawn paths. Follow-up env-var cleanup is tracked in `internal/plans/todo/claude-cli-removal-followups.md`.
+
 ## Agents can host captures at public URLs (upload_media MCP) - 2026-07-24
 
 Agents had no way to embed screenshots in PR comments or Linear issues — chat attachments are invisible outside Eva and GitHub's API cannot upload comment images, so they fell back to plain-text comments. New eva MCP tools: `upload_media` returns a one-time Convex storage upload URL the agent curls the file to, and `get_media_url` exchanges the storageId for a permanent public link; the session prompt's recordings block now documents the flow.

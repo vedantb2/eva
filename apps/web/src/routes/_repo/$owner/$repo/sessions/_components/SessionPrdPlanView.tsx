@@ -18,7 +18,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
   IconCheck,
   IconCode,
@@ -28,8 +28,8 @@ import {
   IconPencil,
   IconX,
 } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
-import { api } from "@conductor/backend";
+import type { Id } from "@eva/backend";
+import { api } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
@@ -132,11 +132,19 @@ export function SessionPrdPlanView({
     try {
       const docId = await createDocFromSession({ sessionId });
       const doc = await convex.query(api.docs.get, { id: docId });
-      const segment = doc ? entityPathSegment(doc) : null;
-      if (!segment) {
-        return;
+      // Nested ifs rather than a ternary or early returns: React Compiler bails
+      // on the whole file for a conditional expression inside a try, and an
+      // early return here would skip the setIsSavingDoc(false) below and leave
+      // the button stuck. `finally` would be the natural fix but the compiler
+      // bails on that too.
+      if (doc) {
+        const segment = entityPathSegment(doc);
+        if (segment) {
+          navigate({
+            to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+          });
+        }
       }
-      navigate({ to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}` });
     } catch (error) {
       setIsSavingDoc(false);
       throw error;
@@ -146,7 +154,7 @@ export function SessionPrdPlanView({
 
   const hasContent = planContent.trim().length > 0;
   const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";
-  const planTitle = proposedPlanTitle(planContent) ?? "Product Requirements";
+  const planTitle = proposedPlanTitle(planContent) ?? "Plan";
 
   return (
     <Plan
@@ -165,7 +173,7 @@ export function SessionPrdPlanView({
             className="size-8"
             onClick={handleCopy}
             disabled={!hasContent}
-            aria-label={copied ? "Copied" : "Copy PRD"}
+            aria-label={copied ? "Copied" : "Copy plan"}
           >
             {copied ? (
               <IconCheck className="size-4 text-success" />
@@ -179,7 +187,7 @@ export function SessionPrdPlanView({
             className="size-8"
             onClick={handleDownload}
             disabled={!hasContent}
-            aria-label="Download PRD as markdown"
+            aria-label="Download plan as markdown"
           >
             <IconDownload className="size-4" />
           </Button>

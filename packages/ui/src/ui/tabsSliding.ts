@@ -1,6 +1,6 @@
 /** transitions.dev tabs sliding — see 16-tabs-sliding.md */
 
-export function findActiveTab(list: HTMLElement): HTMLElement | null {
+function findActiveTab(list: HTMLElement): HTMLElement | null {
   const tabs = list.querySelectorAll<HTMLElement>(".t-tab");
   for (const tab of tabs) {
     if (
@@ -16,7 +16,7 @@ export function findActiveTab(list: HTMLElement): HTMLElement | null {
   return tabs[0];
 }
 
-export function moveTabsPill(
+function moveTabsPill(
   pill: HTMLElement,
   tab: HTMLElement,
   animate: boolean,

@@ -1,14 +1,9 @@
 "use client";
 
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import type { Id } from "@conductor/backend";
-import { compactRelativeTime } from "@conductor/shared/dates";
-import {
-  cn,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@conductor/ui";
+import type { Id } from "@eva/backend";
+import { compactRelativeTime } from "@eva/shared/dates";
+import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,

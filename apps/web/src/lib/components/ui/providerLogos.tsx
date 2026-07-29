@@ -1,8 +1,8 @@
 // Brand-colored provider marks for env slots. Paths sourced from svgl (OpenAI,
-// Cursor, Convex) or the vendor favicon (Daytona — not on svgl). Theme-sensitive
-// marks use currentColor so they stay visible in light and dark UI.
+// Cursor, Convex, Vercel). Theme-sensitive marks use currentColor so they stay
+// visible in light and dark UI.
 
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 
 interface ProviderLogoProps {
   size?: number;
@@ -103,42 +103,6 @@ export function VercelLogo({ size = 16, className }: ProviderLogoProps) {
       className={cn("text-black dark:text-white", className)}
     >
       <path d={VERCEL_PATH} />
-    </svg>
-  );
-}
-
-/** Daytona glyph from https://www.daytona.io/favicon.svg (not on svgl). */
-export function DaytonaLogo({ size = 16, className }: ProviderLogoProps) {
-  return (
-    <svg
-      viewBox="0 0 275 287"
-      width={size}
-      height={size}
-      fill="none"
-      role="img"
-      aria-label="Daytona"
-      className={cn("text-[#121212] dark:text-white", className)}
-    >
-      <path fill="currentColor" d="M14.6 193.7H114.3V227.9H14.6V193.7Z" />
-      <path fill="currentColor" d="M148.5 74.1H262.4V108.3H148.5V74.1Z" />
-      <path
-        fill="currentColor"
-        d="M88.6 84.6L173.2 0L197.4 24.2L112.8 108.8L88.6 84.6Z"
-      />
-      <path
-        fill="currentColor"
-        d="M89.2 170.1L24.2 105.1L0 129.3L65 194.3L89.2 170.1Z"
-      />
-      <path
-        fill="currentColor"
-        d="M174.6 217.9L106.1 286.4L82 262.2L150.5 193.7L174.6 217.9Z"
-      />
-      <path
-        fill="currentColor"
-        d="M174.1 132.4L250.7 209L274.8 184.8L198.3 108.3L174.1 132.4Z"
-      />
-      <path fill="currentColor" d="M88.6 48.4V131.1H54.4L54.4 48.4H88.6Z" />
-      <path fill="currentColor" d="M208.3 168.1V270.7H174.1V168.1H208.3Z" />
     </svg>
   );
 }

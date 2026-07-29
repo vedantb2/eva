@@ -5,6 +5,7 @@ import { isEnvVarScope } from "@/lib/search-params";
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/settings/env-variables/$scope",
 )({
+  staticData: { title: "Settings" },
   beforeLoad: ({ params }) => {
     if (!isEnvVarScope(params.scope)) {
       throw redirect({

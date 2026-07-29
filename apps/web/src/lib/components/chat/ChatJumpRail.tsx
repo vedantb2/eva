@@ -7,7 +7,7 @@ import {
   type MouseEvent,
 } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 
 /** Matches t3code `TIMELINE_MINIMAP_ITEM_SPACING` — compact rail, not full-height. */
@@ -15,7 +15,7 @@ const ITEM_SPACING_PX = 8;
 const MIN_VISIBLE_TICKS = 2;
 const MAX_HEIGHT_CSS = "calc(100vh - 18rem)";
 
-export interface ChatJumpRailMessage {
+interface ChatJumpRailMessage {
   id: string;
   content: string;
   /** Plain-text preview of the assistant reply that follows this user turn. */

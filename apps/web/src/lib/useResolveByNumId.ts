@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseRouteNumId } from "@/lib/numId";
 
@@ -31,19 +31,6 @@ function resolveEntity<TId extends string>(
   return { status: "ready", convexId: entity._id, numId: parsedNumId };
 }
 
-export function combineResolveStatuses(
-  first: EntityResolveStatus,
-  second: EntityResolveStatus,
-): EntityResolveStatus {
-  if (first === "loading" || second === "loading") {
-    return "loading";
-  }
-  if (first === "not-found" || second === "not-found") {
-    return "not-found";
-  }
-  return "ready";
-}
-
 export function useSessionByNumId(
   numIdParam: string | undefined,
   repoId: Id<"githubRepos">,
@@ -55,19 +42,6 @@ export function useSessionByNumId(
     parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
   );
   return resolveEntity(numIdParam, session);
-}
-
-export function useDocByNumId(
-  numIdParam: string | undefined,
-  repoId: Id<"githubRepos">,
-): ResolveResult<Id<"docs">> {
-  const parsedNumId =
-    numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
-  const doc = useQuery(
-    api.docs.getByNumId,
-    parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
-  );
-  return resolveEntity(numIdParam, doc);
 }
 
 export function useProjectByNumId(
@@ -107,17 +81,4 @@ export function useDesignSessionByNumId(
     parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
   );
   return resolveEntity(numIdParam, designSession);
-}
-
-export function useAutomationByNumId(
-  numIdParam: string | undefined,
-  repoId: Id<"githubRepos">,
-): ResolveResult<Id<"automations">> {
-  const parsedNumId =
-    numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
-  const automation = useQuery(
-    api.automations.getByNumId,
-    parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
-  );
-  return resolveEntity(numIdParam, automation);
 }

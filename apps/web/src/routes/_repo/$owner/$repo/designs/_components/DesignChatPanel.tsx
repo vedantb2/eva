@@ -5,8 +5,9 @@ import {
   getModelTraits,
   getReasoningLevelLabel,
   modelHasTraits,
+  normalizeAIModel,
   type Id,
-} from "@conductor/backend";
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRef, useState } from "react";
 import {
@@ -29,10 +30,10 @@ import {
   TraitsMenu,
   toast,
   type PromptInputMessage,
-} from "@conductor/ui";
+} from "@eva/ui";
 import {
-  MAX_IMAGE_ATTACHMENTS,
-  MAX_IMAGE_ATTACHMENT_BYTES,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_ATTACHMENT_BYTES,
   imageAttachmentErrorMessage,
   useUploadImageAttachments,
   ChatAttachmentPreview,
@@ -51,14 +52,18 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import dayjs from "@conductor/shared/dates";
+import dayjs from "@eva/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useDesignSessionModel } from "@/lib/hooks/useDesignSessionModel";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MarkdownMentionText,
+  MARKDOWN_PROSE_CLASS,
+} from "@/lib/components/chat/MarkdownMentionText";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
@@ -107,8 +112,8 @@ export function DesignChatPanel({
     parentId: designSessionId,
   });
   const personas = useQuery(api.designPersonas.list, { repoId });
-  const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
@@ -159,7 +164,7 @@ export function DesignChatPanel({
       reordered,
     );
   });
-  const { basePath } = useRepo();
+  const { repo, basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const uploadImageAttachments = useUploadImageAttachments();
@@ -168,18 +173,37 @@ export function DesignChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
+  const defaultModel = normalizeAIModel(repo.defaultModel);
+  const { options: accounts, resolveId: resolveAccountId } =
+    useProviderAccounts();
   const {
     model,
     setModel,
+    traits,
+    setTraits,
+    providerAccountId: stickyProviderAccountId,
+    setProviderAccountId: setStickyProviderAccountId,
+  } = useDesignSessionModel(designSessionId, defaultModel);
+  const {
     displayTraits,
     executionTraits,
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
-  } = useSessionSettings(designSessionId);
+  } = useSessionSettings({
+    defaultModel,
+    model,
+    onModelChange: setModel,
+    traits,
+    onTraitsPersist: setTraits,
+    providerAccountId: stickyProviderAccountId,
+    onProviderAccountChange: (next: string | null) => {
+      setStickyProviderAccountId(
+        next === null ? null : (resolveAccountId(next) ?? null),
+      );
+    },
+  });
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
-  const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
 
   const draftSeed = useChatDraftSeed({
     kind: "designChat" as const,
@@ -386,9 +410,11 @@ export function DesignChatPanel({
                                   }
                                 />
                                 {message.content ? (
-                                  <MessageMentionText
+                                  <MarkdownMentionText
                                     text={message.content}
                                     repoBasePath={basePath}
+                                    repoId={repo._id}
+                                    className={`${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed break-words`}
                                   />
                                 ) : null}
                                 <div className="flex items-center justify-between gap-3">
@@ -468,8 +494,8 @@ export function DesignChatPanel({
                   onSubmit={handlePromptSubmit}
                   accept="image/*"
                   multiple
-                  maxFiles={MAX_IMAGE_ATTACHMENTS}
-                  maxFileSize={MAX_IMAGE_ATTACHMENT_BYTES}
+                  maxFiles={MAX_CHAT_ATTACHMENTS}
+                  maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
                   onError={(err) =>
                     toast.error(imageAttachmentErrorMessage(err))
                   }
@@ -478,23 +504,26 @@ export function DesignChatPanel({
                   <MentionTextarea
                     ref={mentionRef}
                     repoBasePath={basePath}
-                    docs={docs}
+                    repoId={repoId}
+                    skills={skills}
+                    skillsSettingsHref={`${basePath}/settings/skills`}
                     placeholder={
                       !isSandboxActive
                         ? "Start the sandbox to begin designing..."
                         : isExecuting
                           ? "Add a follow-up..."
-                          : "Ask Eva anything... / for skills · @ for docs"
+                          : "Ask Eva anything... / for skills · @ for data"
                     }
                     initialMentionMap={draftSeed.mentionMap}
                     initialSkillMap={draftSeed.skillMap}
                     history={messageHistory}
                     enableImagePaste
+                    completionContext={`a message instructing an AI design agent working on the UI of the repository ${basePath.replace(/^\//, "")}`}
                   />
                   <PromptInputFooter>
                     <PromptInputTools>
                       <ComposerPlusMenu
-                        docs={docs}
+                        dataItems={dataMentions}
                         skills={skills}
                         mentionRef={mentionRef}
                         attachmentMode="images"

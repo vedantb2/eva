@@ -3,8 +3,8 @@
 import { Suspense, use, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import { Spinner } from "@conductor/ui";
+import { api } from "@eva/backend";
+import { Spinner } from "@eva/ui";
 import { IconArrowLeft, IconExternalLink } from "@tabler/icons-react";
 import { ArtifactFrame } from "./ArtifactFrame";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";

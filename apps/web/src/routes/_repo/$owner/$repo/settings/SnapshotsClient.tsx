@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import {
   isSnapshotSettingsTab,
@@ -15,12 +15,17 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
   Spinner,
+  Switch,
   Tabs,
+  TabsBar,
   TabsList,
   TabsTrigger,
   TabsContent,
-  cn,
-} from "@conductor/ui";
+  Textarea,
+} from "@eva/ui";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   CronScheduleCard,
@@ -33,10 +38,29 @@ import {
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
-import { formatDurationMs } from "@conductor/shared/duration";
+import { formatDurationMs } from "@eva/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
+
+/** Every command box on this page is a monospace, resizable textarea. */
+const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
+
+/**
+ * Shown on the Status and Builds tabs when no snapshot config exists yet —
+ * both tabs are empty until the Configuration tab has been filled in.
+ */
+function NoSnapshotConfigured() {
+  return (
+    <div className="rounded-surface border border-border bg-card shadow-sm">
+      <SettingsEmptyState
+        icon={IconCamera}
+        title="No snapshot configured"
+        description="Set a schedule and build commands on the Configuration tab to get started."
+      />
+    </div>
+  );
+}
 
 export function SnapshotsClient({
   activeTab,
@@ -188,12 +212,14 @@ export function SnapshotsClient({
         onValueChange={handleSnapshotsTabChange}
         className="space-y-4"
       >
-        <TabsList>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="builds">Builds</TabsTrigger>
-          <TabsTrigger value="config-files">Config Files</TabsTrigger>
-        </TabsList>
+        <TabsBar className="px-0 pt-0">
+          <TabsList>
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="builds">Builds</TabsTrigger>
+            <TabsTrigger value="config-files">Config Files</TabsTrigger>
+          </TabsList>
+        </TabsBar>
 
         <TabsContent value="configuration" className="space-y-4">
           {snapshot && (
@@ -206,37 +232,23 @@ export function SnapshotsClient({
           )}
 
           {snapshot && (
-            <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium">Enabled</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    When off, scheduled rebuilds are paused. Manual rebuilds
-                    still work.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
+            // Header-only section: the label reads left, the switch sits right.
+            <SettingsSection
+              title="Enabled"
+              description="When off, scheduled rebuilds are paused. Manual rebuilds still work."
+              action={
+                <Switch
+                  checked={isEnabled}
+                  onCheckedChange={(enabled) =>
                     setSnapshotEnabled({
                       repoSnapshotId: snapshot._id,
-                      enabled: !isEnabled,
+                      enabled,
                     })
                   }
-                  className={cn(
-                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    isEnabled ? "bg-primary" : "bg-muted-foreground/30",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-                      isEnabled ? "translate-x-5" : "translate-x-0",
-                    )}
-                  />
-                </button>
-              </div>
-            </div>
+                  aria-label="Scheduled rebuilds enabled"
+                />
+              }
+            />
           )}
 
           <CronScheduleCard
@@ -245,87 +257,87 @@ export function SnapshotsClient({
             allowManual
           />
 
-          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Clone Branch</h3>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Branch
-              </label>
+          <SettingsSection title="Clone Branch">
+            <SettingsField
+              label="Branch"
+              description={
+                <>
+                  Branch to clone into the snapshot for dependency pre-caching.
+                  Defaults to <code>main</code> if empty.
+                </>
+              }
+            >
               <BranchSelect
                 value={workflowRef}
                 onValueChange={handleBranchChange}
                 className="h-8 text-xs"
                 placeholder="Select a branch"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Branch to clone into the snapshot for dependency pre-caching.
-                Defaults to <code>main</code> if empty.
-              </p>
-            </div>
-          </div>
+            </SettingsField>
+          </SettingsSection>
 
           {snapshot && <RebuildRequiredWarning />}
 
-          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Build Commands</h3>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Commands to run during snapshot build
-              </label>
-              <textarea
+          <SettingsSection title="Build Commands">
+            <SettingsField
+              label="Commands to run during snapshot build"
+              description={
+                <>
+                  One command per line. Runs as user <code>eva</code> in{" "}
+                  <code>/tmp/repo</code> after <code>pnpm install</code>, before
+                  services start, baked permanently into the snapshot. Use for
+                  codegen and build steps.
+                </>
+              }
+            >
+              <Textarea
                 key={`build-${snapshot?._id ?? "none"}`}
                 defaultValue={buildCommandsText}
                 onBlur={handleBuildCommandsBlur}
-                className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`h-48 ${COMMAND_TEXTAREA_CLASS}`}
                 placeholder="pnpm convex codegen&#10;pnpm build"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                One command per line. Runs as user <code>eva</code> in{" "}
-                <code>/tmp/repo</code> after <code>pnpm install</code>, before
-                services start, baked permanently into the snapshot. Use for
-                codegen and build steps.
-              </p>
-            </div>
-          </div>
+            </SettingsField>
+          </SettingsSection>
 
-          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Seed Commands</h3>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                One-time data seeding, run with services up
-              </label>
-              <textarea
+          <SettingsSection title="Seed Commands">
+            <SettingsField
+              label="One-time data seeding, run with services up"
+              description={
+                <>
+                  One command per line. Runs once per seeded snapshot build,
+                  after background daemons and startup commands, so services
+                  like <code>convex dev</code> are ready. Never re-runs on
+                  sandbox boot — unlike startup commands (repo settings), which
+                  run here and on every boot.
+                </>
+              }
+            >
+              <Textarea
                 key={`seed-${snapshot?._id ?? "none"}`}
                 defaultValue={seedCommandsText}
                 onBlur={handleSeedCommandsBlur}
-                className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`h-48 ${COMMAND_TEXTAREA_CLASS}`}
                 placeholder="cd packages/backend && npx convex env set MY_KEY 'value'&#10;cd packages/backend && npx convex import seed.zip --yes"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                One command per line. Runs once per seeded snapshot build, after
-                background daemons and startup commands, so services like{" "}
-                <code>convex dev</code> are ready. Never re-runs on sandbox boot
-                — unlike startup commands (repo settings), which run here and on
-                every boot.
-              </p>
-            </div>
-          </div>
+            </SettingsField>
+          </SettingsSection>
 
-          <p className="text-[11px] text-muted-foreground">
-            Requires sandbox provider credentials in team or repo environment
-            variables: set <code className="font-mono">SANDBOX_PROVIDER</code>{" "}
-            to <code className="font-mono">daytona</code> (
-            <code className="font-mono">DAYTONA_API_KEY</code>) or{" "}
-            <code className="font-mono">vercel</code> (
-            <code className="font-mono">VERCEL_TOKEN</code>, team, and project).
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Requires Vercel Sandbox credentials in team or repo environment
+            variables: <code className="font-mono">VERCEL_TOKEN</code>,{" "}
+            <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
+            <code className="font-mono">VERCEL_PROJECT_ID</code>.
           </p>
         </TabsContent>
 
-        <TabsContent value="status" className="space-y-6">
+        <TabsContent value="status" className="space-y-4">
           {snapshot ? (
             <>
-              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
-                <h3 className="text-sm font-medium">Current Status</h3>
+              <SettingsSection
+                title="Current Status"
+                bodyClassName="space-y-4 px-4 py-4"
+              >
                 <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
                   <div>
                     <span className="text-muted-foreground">Snapshot Name</span>
@@ -394,24 +406,25 @@ export function SnapshotsClient({
                       ? "Seeding..."
                       : "Rebuild Now"}
                 </Button>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   Always rebuilds the base Image below.
                   {hasSeedableApps
                     ? " Also re-captures the optional seeded snapshot when apps have Stop Commands."
                     : " No seed file or Stop Commands required."}
                 </p>
-              </div>
-              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
-                <h3 className="text-sm font-medium">Base Image</h3>
-                <p className="text-xs text-muted-foreground">
-                  Provider-native base snapshot with toolchain,{" "}
-                  <code className="font-mono text-[11px]">pnpm install</code>,
-                  and your build commands. Daytona builds a declarative Image;
-                  Vercel captures a running sandbox as{" "}
-                  <code className="font-mono text-[11px]">snap_*</code>. This is
-                  what sandboxes boot from unless a seeded snapshot exists.
-                  Rebuild Now always refreshes this — no seed file needed.
-                </p>
+              </SettingsSection>
+              <SettingsSection
+                title="Base Image"
+                description={
+                  <>
+                    Base snapshot with toolchain, <code>pnpm install</code>, and
+                    your build commands. Eva captures a running sandbox as{" "}
+                    <code>snap_*</code>. This is what sandboxes boot from unless
+                    a seeded snapshot exists. Rebuild Now always refreshes this
+                    — no seed file needed.
+                  </>
+                }
+              >
                 {baseImageReady ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
                     <IconCheck size={12} className="mt-0.5 shrink-0" />
@@ -447,21 +460,18 @@ export function SnapshotsClient({
                       : " — not built yet; click Rebuild Now."}
                   </p>
                 )}
-              </div>
-              <div className="rounded-surface border border-border bg-muted/40 p-4 space-y-3">
-                <h3 className="text-sm font-medium">
-                  Seeded snapshot{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (optional)
-                  </span>
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Running-sandbox capture with DB and services already started.
-                  Only needed when cold boot is too slow — e.g. carepulse with
-                  Supabase + Convex data. Configure Stop Commands on an app
-                  (Settings → App); upload seed files only if startup commands
-                  reference them.
-                </p>
+              </SettingsSection>
+              <SettingsSection
+                title={
+                  <>
+                    Seeded snapshot{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </>
+                }
+                description="Running-sandbox capture with DB and services already started. Only needed when cold boot is too slow. Configure Stop Commands on an app (Settings → App); upload seed files only if startup commands reference them."
+              >
                 {seededApps === undefined ? (
                   <p className="text-xs text-muted-foreground">Loading…</p>
                 ) : isSeeding ? (
@@ -492,24 +502,17 @@ export function SnapshotsClient({
                     startup/background/stop commands.
                   </p>
                 )}
-              </div>
+              </SettingsSection>
             </>
           ) : (
-            <div className="rounded-surface border border-border bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No snapshot configured yet. Configure one in the Configuration
-                tab.
-              </p>
-            </div>
+            <NoSnapshotConfigured />
           )}
         </TabsContent>
 
-        <TabsContent value="builds" className="space-y-6">
+        <TabsContent value="builds" className="space-y-4">
           {snapshot && builds && builds.length > 0 ? (
-            <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
-              <div className="px-4 py-3">
-                <h3 className="text-sm font-medium">Build History</h3>
-              </div>
+            // Rows own their padding so the table spans the card's full width.
+            <SettingsSection title="Build History" bodyClassName="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
@@ -551,25 +554,21 @@ export function SnapshotsClient({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </SettingsSection>
           ) : snapshot && builds && builds.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <IconCamera size={48} className="mb-3 opacity-40" />
-              <p className="text-sm">
-                No builds yet. Click "Rebuild Now" to start.
-              </p>
-            </div>
+            <SettingsSection title="Build History" bodyClassName="p-0">
+              <SettingsEmptyState
+                icon={IconCamera}
+                title="No builds yet"
+                description="Select Rebuild Now on the Status tab to run the first build."
+              />
+            </SettingsSection>
           ) : (
-            <div className="rounded-surface border border-border bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No snapshot configured yet. Configure one in the Configuration
-                tab.
-              </p>
-            </div>
+            <NoSnapshotConfigured />
           )}
         </TabsContent>
 
-        <TabsContent value="config-files" className="space-y-6">
+        <TabsContent value="config-files" className="space-y-4">
           <ConfigFilesSection repoId={repoId} snapshotId={snapshot?._id} />
         </TabsContent>
       </Tabs>
@@ -637,11 +636,19 @@ function ConfigFilesSection({
     setError(null);
 
     let uploadError: Error | undefined;
-    try {
-      // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
-      // storage IDs. Sequential keeps memory bounded and progress monotonic;
-      // parallelism would only help for many small chunks, which isn't our case.
-      const chunkIds: Id<"_storage">[] = [];
+    // Built before the try: React Compiler bails on the whole file when a
+    // logical expression sits inside a try/catch.
+    const contentType = file.type || "application/octet-stream";
+    // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
+    // storage IDs. Sequential keeps memory bounded and progress monotonic;
+    // parallelism would only help for many small chunks, which isn't our case.
+    //
+    // Declared outside the try and called from inside it — errors still reach
+    // the same catch — because React Compiler bails on the whole file when a
+    // loop sits inside a try/catch. It reports failures via uploadError, same
+    // as when the loop was inline.
+    const uploadChunks = async () => {
+      const ids: Id<"_storage">[] = [];
       for (let i = 0; i < totalChunks; i++) {
         const start = i * UPLOAD_CHUNK_SIZE_BYTES;
         const end = Math.min(start + UPLOAD_CHUNK_SIZE_BYTES, file.size);
@@ -651,9 +658,7 @@ function ConfigFilesSection({
         const uploadUrl = await generateUploadUrl({ repoId });
         const result = await fetch(uploadUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": file.type || "application/octet-stream",
-          },
+          headers: { "Content-Type": contentType },
           body: chunk,
         });
         const responseText = await result.text();
@@ -670,9 +675,14 @@ function ConfigFilesSection({
           );
           break;
         }
-        chunkIds.push(storageId);
+        ids.push(storageId);
         setUploadedBytes(end);
       }
+      return ids;
+    };
+
+    try {
+      const chunkIds = await uploadChunks();
 
       if (!uploadError) {
         // Save file record with all chunk IDs in order
@@ -723,31 +733,29 @@ function ConfigFilesSection({
     <div className="space-y-4">
       <RebuildRequiredWarning />
 
-      <div className="rounded-surface border border-border bg-card p-4 space-y-4">
-        <div>
-          <h3 className="text-sm font-medium">
+      <SettingsSection
+        title={
+          <>
             Sandbox Config Files{" "}
             <span className="font-normal text-muted-foreground">
               (optional — seeded snapshots only)
             </span>
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          </>
+        }
+        description={
+          <>
             Files uploaded here are copied into the codebase root when a sandbox
             starts. They are also available at{" "}
-            <code className="font-mono text-[11px]">
-              /home/eva/sandbox-config/
-            </code>{" "}
-            and{" "}
-            <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>
-            {". "}
-            Only needed when app startup commands reference sensitive seeds
-            (e.g. SQL dumps) that cannot live in git. Base Image rebuilds do not
-            require any files here.
-          </p>
-        </div>
-
+            <code>/home/eva/sandbox-config/</code> and{" "}
+            <code>/tmp/sandbox-config/</code>. Only needed when app startup
+            commands reference sensitive seeds (e.g. SQL dumps) that cannot live
+            in git. Base Image rebuilds do not require any files here.
+          </>
+        }
+        bodyClassName="space-y-4 px-4 py-4"
+      >
         {error && (
-          <div className="rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="rounded-control border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
           </div>
         )}
@@ -840,7 +848,7 @@ function ConfigFilesSection({
             <Spinner size="sm" />
           </div>
         )}
-      </div>
+      </SettingsSection>
     </div>
   );
 }

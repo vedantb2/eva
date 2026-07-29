@@ -2,13 +2,15 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
-import { Button, Input } from "@conductor/ui";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import { Button, Input } from "@eva/ui";
 import { IconPhoto } from "@tabler/icons-react";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 /** Display name + logo for this app (App settings). */
 export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
@@ -54,18 +56,20 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
   };
 
   return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-      <div>
-        <h3 className="text-sm font-medium">Identity</h3>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Display name and logo for this app. Applies to this app only.
-        </p>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-          Display name
-        </label>
+    <SettingsSection
+      title="Identity"
+      description="Display name and logo for this app. Applies to this app only."
+      bodyClassName="space-y-4"
+    >
+      <SettingsField
+        label="Display name"
+        description={
+          <>
+            Shown in the sidebar instead of the GitHub name. Leave empty for{" "}
+            <span className="font-medium">{fallbackName}</span>.
+          </>
+        }
+      >
         <Input
           key={`label-${repoId}`}
           className="h-8 text-xs"
@@ -73,11 +77,7 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
           defaultValue={repo.label ?? ""}
           onBlur={handleLabelBlur}
         />
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Shown in the sidebar instead of the GitHub name. Leave empty for{" "}
-          <span className="font-medium">{fallbackName}</span>.
-        </p>
-      </div>
+      </SettingsField>
 
       <div className="flex items-center gap-3">
         <div className="flex size-16 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
@@ -117,6 +117,6 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
         className="hidden"
         onChange={handleLogoSelected}
       />
-    </div>
+    </SettingsSection>
   );
 }

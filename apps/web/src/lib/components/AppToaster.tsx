@@ -1,6 +1,6 @@
 "use client";
 
-import { Toaster } from "@conductor/ui";
+import { Toaster } from "@eva/ui";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 
 /**

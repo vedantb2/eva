@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { usePromptInputController } from "@conductor/ui";
+import { usePromptInputController } from "@eva/ui";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import type { ChatDraftTarget } from "./useChatDraftSeed";

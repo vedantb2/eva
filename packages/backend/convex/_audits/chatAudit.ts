@@ -53,7 +53,7 @@ async function startChatAudit(
     createdAt: Date.now(),
   });
 
-  await ctx.scheduler.runAfter(0, internal.daytona.runChatAudit, {
+  await ctx.scheduler.runAfter(0, internal.sandbox.runChatAudit, {
     ...opts.runArgs,
     repoId: opts.repoId,
     sandboxId: opts.sandboxId,

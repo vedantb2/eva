@@ -4,7 +4,6 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptValue, decryptValue } from "./encryption";
-import { isPlaintextEnvVarKey } from "./_envVars/listDisplay";
 
 /** Decrypts and reveals the plaintext value of a specific team env var. */
 export const revealValue = action({
@@ -41,9 +40,7 @@ export const upsertVar = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const stored = isPlaintextEnvVarKey(args.key)
-      ? args.value
-      : encryptValue(args.value);
+    const stored = encryptValue(args.value);
     await ctx.runMutation(internal.teamEnvVars.upsertVarInternal, {
       teamId: args.teamId,
       key: args.key,

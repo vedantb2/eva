@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { cn } from "@conductor/ui";
+import { cn } from "@eva/ui";
 import {
   assignHeadingIds,
   getHeadingElements,

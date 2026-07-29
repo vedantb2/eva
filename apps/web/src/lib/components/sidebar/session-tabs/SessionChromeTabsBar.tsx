@@ -128,23 +128,23 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
 
   return (
     <>
-      <div className="flex h-9 shrink-0 items-stretch border-b border-border bg-muted/30">
-        <div className="scrollbar flex min-w-0 flex-1 items-stretch overflow-x-auto">
+      <div className="flex h-11 shrink-0 items-end border-b border-border bg-muted/40">
+        <div className="scrollbar flex min-w-0 flex-1 items-end overflow-x-auto px-1 pt-1">
           {orderedRepos === undefined ? (
             <div
-              className="flex items-center gap-2 px-3"
+              className="flex items-center gap-2 px-3 pb-2"
               aria-busy="true"
               aria-label="Loading session tabs"
             >
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-5 w-28 animate-pulse rounded-sm bg-muted/70"
+                  className="h-7 w-40 animate-pulse rounded-t-lg bg-muted/70"
                 />
               ))}
             </div>
           ) : orderedRepos.length === 0 ? (
-            <p className="flex items-center px-3 text-xs text-muted-foreground">
+            <p className="flex items-center px-3 pb-2 text-sm text-muted-foreground">
               No apps yet
             </p>
           ) : (
@@ -153,7 +153,7 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
                 key={repo._id}
                 repo={repo}
                 pathname={pathname}
-                hideWhenEmpty={false}
+                hideWhenEmpty
                 onRenameRequest={(session, groupRepo) => {
                   setSessionToRename({ session, repo: groupRepo });
                   setRenameValue(session.title);
@@ -171,8 +171,17 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
             ))
           )}
         </div>
-        <SessionTabsOverflowMenu groups={overflowGroups} pathname={pathname} />
-        <SessionTabsArchivedMenu groups={archivedGroups} pathname={pathname} />
+        <div className="mb-0 flex h-11 shrink-0 items-stretch self-stretch border-l border-border bg-background/40">
+          <SessionTabsOverflowMenu
+            groups={overflowGroups}
+            allRepos={orderedRepos ?? []}
+            pathname={pathname}
+          />
+          <SessionTabsArchivedMenu
+            groups={archivedGroups}
+            pathname={pathname}
+          />
+        </div>
       </div>
 
       <SessionTabsDialogs

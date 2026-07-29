@@ -38,6 +38,7 @@ interface SessionChromeTabProps {
   session: ChromeTabSession;
   baseUrl: string;
   pathname: string;
+  accentBorderClass: string;
   onRenameRequest: () => void;
   onArchiveRequest: () => void;
   onDuplicate: () => Promise<string>;
@@ -65,6 +66,7 @@ export function SessionChromeTab({
   session,
   baseUrl,
   pathname,
+  accentBorderClass,
   onRenameRequest,
   onArchiveRequest,
   onDuplicate,
@@ -82,20 +84,26 @@ export function SessionChromeTab({
           to={href}
           title={session.title}
           className={cn(
-            "group flex h-8 max-w-[12rem] min-w-[5.5rem] shrink-0 items-center gap-1.5 border-r border-border px-2.5 text-xs transition-colors",
+            // Chrome-like tab: wide enough to read titles, rounded top, sits in group strip.
+            "group flex h-9 min-w-[11rem] max-w-[18rem] shrink-0 items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-colors",
             isSelected
-              ? "bg-background text-foreground"
-              : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              ? cn(
+                  "relative z-[1] bg-background text-foreground shadow-sm",
+                  accentBorderClass,
+                )
+              : "border-transparent bg-background/40 text-muted-foreground hover:bg-background/70 hover:text-foreground",
           )}
         >
           <span
-            className={cn("size-1.5 shrink-0 rounded-full", statusStyle.dot)}
+            className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
             title={statusStyle.label}
           />
-          <span className="min-w-0 flex-1 truncate">{session.title}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {session.title}
+          </span>
           {session.prUrl ? (
             <IconGitPullRequest
-              size={12}
+              size={14}
               className={cn("shrink-0", prStateIconColor(session.prState))}
             />
           ) : null}

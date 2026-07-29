@@ -111,7 +111,7 @@ export function NewSessionComposer() {
 
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
-      <div className="flex w-full max-w-xl flex-col gap-6">
+      <div className="flex w-full max-w-2xl flex-col gap-6">
         <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           <span>
             {firstName

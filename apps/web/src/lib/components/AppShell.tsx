@@ -5,6 +5,7 @@ import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
+import { UpdateAvailableToast } from "@/lib/components/UpdateAvailableToast";
 import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { SidebarProvider } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
@@ -43,6 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <SpotlightSearch />
                 <FollowOverlay />
                 <NotificationToastStream />
+                <UpdateAvailableToast />
               </FollowProvider>
             </SearchProvider>
           </PageTitleProvider>

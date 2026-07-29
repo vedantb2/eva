@@ -1,5 +1,9 @@
 # Changelog
 
+## Update-available toast - 2026-07-29
+
+Signed-in tabs could sit on a stale SPA build until a chunk load failed and forced a hard reload. The app shell now polls the live index fingerprint (~60s + on focus) and shows a sticky Update available toast with Refresh so users can jump to the new deploy before things break.
+
 ## Kanban right-edge scroll hint - 2026-07-29
 
 Quick Tasks and Projects kanban boards can hide columns past the viewport with no cue to scroll. A light right-edge fade now appears while more columns remain and clears at the end of the row.

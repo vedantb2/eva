@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useMemo, useState } from "react";
+import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import {
   sessionActivityAt,
   sortAppsForSidebar,
@@ -50,6 +51,14 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
   const [renameValue, setRenameValue] = useState("");
   const [sessionToArchive, setSessionToArchive] =
     useState<SessionArchiveTarget | null>(null);
+  const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
+
+  /** Same rule as the vertical sidebar: collapsed unless this app owns the URL. */
+  const isGroupOpen = (repo: RepoRow): boolean => {
+    const stored = openByRepoId[repo._id];
+    if (stored !== undefined) return stored;
+    return repoMatchesPath(repo, pathname) && pathname.includes("/sessions");
+  };
 
   const sessionListQueries = useMemo(() => {
     if (repos === undefined) return {};
@@ -157,6 +166,10 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
                 key={repo._id}
                 repo={repo}
                 pathname={pathname}
+                isOpen={isGroupOpen(repo)}
+                onOpenChange={(open) => {
+                  setOpenByRepoId((prev) => ({ ...prev, [repo._id]: open }));
+                }}
                 hideWhenEmpty
                 onRenameRequest={(session, groupRepo) => {
                   setSessionToRename({ session, repo: groupRepo });

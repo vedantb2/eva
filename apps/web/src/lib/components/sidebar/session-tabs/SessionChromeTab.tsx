@@ -19,6 +19,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
@@ -36,6 +37,9 @@ export interface ChromeTabSession {
 
 interface SessionChromeTabProps {
   session: ChromeTabSession;
+  /** App logo — Chrome's favicon slot. */
+  appLogoUrl?: string | null;
+  appLabel: string;
   href: string;
   isSelected: boolean;
   /** Chrome draws a hairline only between two adjacent unselected tabs. */
@@ -73,6 +77,8 @@ function prStateIconColor(
  */
 export function SessionChromeTab({
   session,
+  appLogoUrl,
+  appLabel,
   href,
   isSelected,
   showSeparator,
@@ -104,15 +110,25 @@ export function SessionChromeTab({
           <DynamicLink
             to={href}
             title={session.title}
-            className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3.5 pr-1 text-[0.8125rem]"
+            className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem]"
           >
-            <span
-              className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-              title={statusStyle.label}
+            <RepoLogo
+              logoUrl={appLogoUrl}
+              size={16}
+              fallback={
+                <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                  {appLabel.charAt(0).toUpperCase()}
+                </span>
+              }
             />
             <span className="min-w-0 flex-1 truncate font-medium">
               {session.title}
             </span>
+            {/* Sandbox state rides on the right, like Chrome's per-tab indicators. */}
+            <span
+              className={cn("size-1.5 shrink-0 rounded-full", statusStyle.dot)}
+              title={statusStyle.label}
+            />
             {session.prUrl ? (
               <IconGitPullRequest
                 size={14}

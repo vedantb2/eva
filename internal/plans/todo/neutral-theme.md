@@ -1,8 +1,8 @@
 # Neutral theme (soft dark between light & dark)
 
-**Status:** implemented — shipping  
+**Status:** shipped (`e602e67e` on staging)  
 **Date:** 2026-07-30  
-**Final step:** `/ship`
+**Final step:** `/ship` ✓
 
 ## Goal
 

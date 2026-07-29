@@ -76,14 +76,20 @@ export const countUnreadByRepo = authQuery({
     }
     const automations = await listAutomationsForRepo(ctx.db, args.repoId);
 
-    let count = 0;
-    for (const automation of automations) {
-      const latestRun = await ctx.db
-        .query("automationRuns")
-        .withIndex("by_automation", (q) => q.eq("automationId", automation._id))
-        .order("desc")
-        .first();
+    const latestRuns = await Promise.all(
+      automations.map((automation) =>
+        ctx.db
+          .query("automationRuns")
+          .withIndex("by_automation", (q) =>
+            q.eq("automationId", automation._id),
+          )
+          .order("desc")
+          .first(),
+      ),
+    );
 
+    let count = 0;
+    for (const latestRun of latestRuns) {
       if (
         latestRun &&
         !latestRun.acknowledged &&

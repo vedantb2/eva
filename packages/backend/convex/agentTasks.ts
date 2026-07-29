@@ -33,7 +33,12 @@ export {
   updateScheduledExecution,
 } from "./_agentTasks/execution";
 
-export { listDrafts, saveDraft, activateDraft } from "./_agentTasks/drafts";
+export {
+  listDrafts,
+  countDrafts,
+  saveDraft,
+  activateDraft,
+} from "./_agentTasks/drafts";
 
 export {
   startTaskSandbox,

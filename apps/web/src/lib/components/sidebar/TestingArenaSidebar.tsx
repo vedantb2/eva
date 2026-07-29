@@ -60,7 +60,7 @@ export function TestingArenaSidebar({
   }, [createRequestId]);
 
   // Only docs with content can be evaluated; the rest are skipped.
-  const testableDocs = (docs ?? []).filter((d) => d.content.trim().length > 0);
+  const testableDocs = (docs ?? []).filter((d) => d.hasContent);
 
   const handleTestAll = async () => {
     setShowTestAllModal(false);

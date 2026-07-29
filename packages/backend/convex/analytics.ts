@@ -52,18 +52,37 @@ export const getImpactStats = authQuery({
       .query("agentTasks")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const allTaskRuns = await Promise.all(
-      allTasks.map((task) =>
-        ctx.db
-          .query("agentRuns")
-          .withIndex("by_task", (q) => q.eq("taskId", task._id))
-          .collect(),
-      ),
-    );
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
+
+    // Runs are only consulted for tasks that can appear in either the current
+    // or previous window (filter is task.updatedAt). Skip older tasks' runs —
+    // agentRuns documents carry large `logs` arrays.
+    const runsWindowStart =
+      args.previousStartTime !== undefined
+        ? args.previousStartTime
+        : args.startTime;
+    const tasksNeedingRuns = (
+      runsWindowStart === undefined
+        ? allTasks
+        : allTasks.filter((task) => task.updatedAt >= runsWindowStart)
+    ).filter((task) => task.status !== "draft");
+
+    const runsByTaskId = new Map<string, Array<{ prUrl?: string }>>();
+    await Promise.all(
+      tasksNeedingRuns.map(async (task) => {
+        const runs = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect();
+        runsByTaskId.set(
+          task._id,
+          runs.map((run) => ({ prUrl: run.prUrl })),
+        );
+      }),
+    );
 
     /** Computes stats for sessions/tasks/runs starting from an optional timestamp. */
     function computeStats(from: number | undefined) {
@@ -81,12 +100,12 @@ export const getImpactStats = authQuery({
       }
       let done = 0;
       let cancelled = 0;
-      for (let i = 0; i < allTasks.length; i++) {
-        const task = allTasks[i];
+      for (const task of allTasks) {
         if (from !== undefined && task.updatedAt < from) continue;
         if (task.status === "done") done++;
         else if (task.status === "cancelled") cancelled++;
-        for (const run of allTaskRuns[i]) {
+        const runs = runsByTaskId.get(task._id) ?? [];
+        for (const run of runs) {
           if (run.prUrl) prUrls.add(run.prUrl);
         }
       }

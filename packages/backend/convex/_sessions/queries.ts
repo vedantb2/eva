@@ -3,16 +3,85 @@ import type { Doc } from "../_generated/dataModel";
 import { authQuery, hasRepoAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
 import { firstUserMessagePreview } from "../_messages/preview";
-import { sessionFields } from "../validators";
+import {
+  deploymentStatusValidator,
+  entityNumIdFields,
+  sessionModeValidator,
+  sessionStatusValidator,
+  aiModelValidator,
+  reasoningLevelValidator,
+} from "../validators";
 import { sessionValidator } from "./helpers";
 
-/** Session list row: document fields plus first-user-message hover preview. */
+/**
+ * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
+ * pendingTurn, etc.) so list subscriptions stay small. Detail views use `get`.
+ */
 const sessionListItemValidator = v.object({
   _id: v.id("sessions"),
   _creationTime: v.number(),
-  ...sessionFields,
+  ...entityNumIdFields,
+  repoId: v.id("githubRepos"),
+  userId: v.id("users"),
+  title: v.string(),
+  branchName: v.optional(v.string()),
+  baseBranch: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  prState: v.optional(
+    v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("merged"),
+      v.literal("closed"),
+    ),
+  ),
+  sandboxId: v.optional(v.string()),
+  updatedAt: v.optional(v.number()),
+  status: sessionStatusValidator,
+  archived: v.optional(v.boolean()),
+  createdBy: v.optional(v.id("users")),
+  lastModel: v.optional(aiModelValidator),
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  lastMode: v.optional(sessionModeValidator),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
   firstMessagePreview: v.union(v.string(), v.null()),
 });
+
+/** Maps a full session doc to the slim list payload. */
+function toSessionListItem(
+  session: Doc<"sessions">,
+  firstMessagePreview: string | null,
+) {
+  return {
+    _id: session._id,
+    _creationTime: session._creationTime,
+    numId: session.numId,
+    deletedAt: session.deletedAt,
+    repoId: session.repoId,
+    userId: session.userId,
+    title: session.title,
+    branchName: session.branchName,
+    baseBranch: session.baseBranch,
+    prUrl: session.prUrl,
+    prState: session.prState,
+    sandboxId: session.sandboxId,
+    updatedAt: session.updatedAt,
+    status: session.status,
+    archived: session.archived,
+    createdBy: session.createdBy,
+    lastModel: session.lastModel,
+    lastReasoningLevel: session.lastReasoningLevel,
+    lastThinkingEnabled: session.lastThinkingEnabled,
+    lastUse1mContext: session.lastUse1mContext,
+    lastMode: session.lastMode,
+    deploymentStatus: session.deploymentStatus,
+    deploymentUrl: session.deploymentUrl,
+    firstMessagePreview,
+  };
+}
 
 /** Sorts sessions by most recently updated (falling back to creation time). */
 function byMostRecentlyUpdated(a: Doc<"sessions">, b: Doc<"sessions">): number {
@@ -25,10 +94,12 @@ async function withFirstMessagePreviews(
   sessions: Doc<"sessions">[],
 ) {
   return await Promise.all(
-    sessions.map(async (session) => ({
-      ...session,
-      firstMessagePreview: await firstUserMessagePreview(db, session._id),
-    })),
+    sessions.map(async (session) =>
+      toSessionListItem(
+        session,
+        await firstUserMessagePreview(db, session._id),
+      ),
+    ),
   );
 }
 

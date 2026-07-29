@@ -11,9 +11,9 @@ interface DraftsCountBadgeProps {
 
 export function DraftsCountBadge({ repoId }: DraftsCountBadgeProps) {
   const commentDrafts = useQuery(api.drafts.listForRepo, { repoId });
-  const taskDrafts = useQuery(api.agentTasks.listDrafts, { repoId });
+  const taskDraftCount = useQuery(api.agentTasks.countDrafts, { repoId });
 
-  const count = (commentDrafts?.length ?? 0) + (taskDrafts?.length ?? 0);
+  const count = (commentDrafts?.length ?? 0) + (taskDraftCount ?? 0);
 
   if (count === 0) {
     return null;

@@ -360,8 +360,14 @@ export function Sidebar() {
                           src={teamBackgroundUrl}
                           alt=""
                           className="absolute inset-0 size-full object-cover"
+                          style={{
+                            maskImage:
+                              "linear-gradient(to bottom, black 0%, black 45%, transparent 100%)",
+                            WebkitMaskImage:
+                              "linear-gradient(to bottom, black 0%, black 45%, transparent 100%)",
+                          }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-transparent" />
                       </>
                     ) : null}
                     <m.div

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -17,18 +18,17 @@ import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { AnimatePresence } from "motion/react";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { ArchivedSessionsCollapsible } from "@/lib/components/sidebar/_components/ArchivedSessionsCollapsible";
+import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
   repoSessionBasePaths,
   repoSessionsIndexPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
-import {
-  isSessionSidebarActive,
-  partitionSessionsForSidebar,
-} from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
+import { isSessionSidebarActive } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 
@@ -44,8 +44,8 @@ interface GlobalSessionGroupProps {
 
 /**
  * One collapsible app group in the global Sessions sidebar: logo + title,
- * `+` → that app's sessions composer, active rows (draft/open PR), then
- * Archived (manual archive + merged/closed PRs; default collapsed).
+ * `+` → that app's sessions composer, non-archived rows (capped with Show more),
+ * then manually Archived (default collapsed).
  */
 export function GlobalSessionGroup({
   repo,
@@ -57,6 +57,7 @@ export function GlobalSessionGroup({
   onArchiveRequest,
 }: GlobalSessionGroupProps) {
   const navigate = useNavigate();
+  const [isActiveListExpanded, setIsActiveListExpanded] = useState(false);
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
   const archivedSessions = useQuery(api.sessions.listArchived, {
     repoId: repo._id,
@@ -66,19 +67,36 @@ export function GlobalSessionGroup({
   const label = repoDisplayLabel(repo);
   const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
 
-  const { active: sidebarActive, archivedGroup } = partitionSessionsForSidebar(
-    sessions,
-    archivedSessions,
-  );
-
-  const isLoading = sidebarActive === undefined || archivedGroup === undefined;
-  const activeCount = sidebarActive?.length ?? 0;
-  // Live sandbox badge: only count sidebar-active sessions that are running.
+  // Main list = every non-archived session (including merged/closed PRs).
+  // Archived collapsible = manually archived only.
+  const nonArchivedSessions = sessions;
+  const isLoading =
+    nonArchivedSessions === undefined || archivedSessions === undefined;
+  const mainSessions = nonArchivedSessions ?? [];
+  const archivedGroup = archivedSessions ?? [];
+  const mainCount = mainSessions.length;
+  const selectedSessionId =
+    mainSessions.find((session) => {
+      const pathSegment = entityPathSegment(session);
+      if (!pathSegment) return false;
+      const href = `${baseUrl}/${pathSegment}`;
+      return pathname === href || pathname.startsWith(`${href}/`);
+    })?._id ?? null;
+  const {
+    visible: visibleMainSessions,
+    hasOverflow: hasMainOverflow,
+    hiddenCount: hiddenMainCount,
+  } = previewSessions(mainSessions, {
+    expanded: isActiveListExpanded,
+    selectedId: selectedSessionId,
+  });
+  // Live sandbox badge: only count non-archived sessions that are running.
   const runningCount =
-    sessions?.filter((s) => s.status === "active" && isSessionSidebarActive(s))
-      .length ?? 0;
-  const archivedCount = archivedGroup?.length ?? 0;
-  const hasNoResults = !isLoading && activeCount === 0 && archivedCount === 0;
+    nonArchivedSessions?.filter(
+      (s) => s.status === "active" && isSessionSidebarActive(s),
+    ).length ?? 0;
+  const archivedCount = archivedGroup.length;
+  const hasNoResults = !isLoading && mainCount === 0 && archivedCount === 0;
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
@@ -157,7 +175,7 @@ export function GlobalSessionGroup({
               className="space-y-1"
             >
               <AnimatePresence initial={false}>
-                {(sidebarActive ?? []).map((session) => {
+                {visibleMainSessions.map((session) => {
                   const pathSegment = entityPathSegment(session);
                   const href = pathSegment
                     ? `${baseUrl}/${pathSegment}`
@@ -189,7 +207,14 @@ export function GlobalSessionGroup({
                   );
                 })}
               </AnimatePresence>
-              {archivedCount > 0 && archivedGroup !== undefined ? (
+              {hasMainOverflow ? (
+                <SessionListShowMore
+                  expanded={isActiveListExpanded}
+                  hiddenCount={hiddenMainCount}
+                  onToggle={() => setIsActiveListExpanded((prev) => !prev)}
+                />
+              ) : null}
+              {archivedCount > 0 ? (
                 <ArchivedSessionsCollapsible
                   sessions={archivedGroup}
                   baseUrl={baseUrl}
@@ -197,8 +222,6 @@ export function GlobalSessionGroup({
                   onNavigate={onNavigate}
                   itemIdPrefix={`global-archived-${repo._id}`}
                   onUnarchive={async (session) => {
-                    // Merged/closed rows live here without archived=true —
-                    // Unarchive only applies to manually archived sessions.
                     if (session.archived !== true) return;
                     await unarchiveSession({ id: session._id });
                   }}

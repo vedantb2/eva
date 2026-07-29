@@ -1,5 +1,9 @@
 # Changelog
 
+## Sidebar session list Show more - 2026-07-29
+
+Long non-archived session lists were crowding the sidebar. Each app group (and design sessions) now previews three rows with a `⋯` Show more / Show less control; the open session stays visible when collapsed, and only manually archived sessions stay under Archived.
+
 ## Hot-path list query bandwidth cuts - 2026-07-29
 
 Several always-on sidebar subscriptions were shipping full documents (session plan/terminal/daemon state, entire doc bodies) and scanning wider than needed. Slim list return shapes plus indexed draft reads cut client sync bytes without changing what the UI shows; timed stats skip loading `agentRuns` for tasks outside the comparison window (those docs carry large `logs` arrays).

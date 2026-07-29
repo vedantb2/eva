@@ -8,8 +8,8 @@ export function isSessionPrReadOnly(
 }
 
 /**
- * Sidebar "active" list: not manually archived, and PR is still draft/open (or
- * no PR yet). Merged/closed land in the Archived collapsible instead.
+ * Session still in play for sidebar badges: not manually archived, and PR is
+ * still draft/open (or no PR yet).
  */
 export function isSessionSidebarActive(session: {
   archived?: boolean;
@@ -17,43 +17,6 @@ export function isSessionSidebarActive(session: {
 }): boolean {
   if (session.archived === true) return false;
   return !isSessionPrReadOnly(session.prState);
-}
-
-/**
- * Splits `sessions.list` + `sessions.listArchived` into sidebar buckets.
- * Terminal-PR rows still come from the non-archived query (flag may be false)
- * and are folded into the Archived group with manually archived sessions.
- */
-export function partitionSessionsForSidebar<
-  T extends {
-    _id: string;
-    archived?: boolean;
-    prState?: SessionPrState;
-    updatedAt?: number;
-    _creationTime: number;
-  },
->(
-  nonArchivedQuery: T[] | undefined,
-  archivedQuery: T[] | undefined,
-): { active: T[] | undefined; archivedGroup: T[] | undefined } {
-  if (nonArchivedQuery === undefined || archivedQuery === undefined) {
-    return { active: undefined, archivedGroup: undefined };
-  }
-
-  const active = nonArchivedQuery.filter(isSessionSidebarActive);
-  const terminal = nonArchivedQuery.filter((session) =>
-    isSessionPrReadOnly(session.prState),
-  );
-  const archivedIds = new Set(archivedQuery.map((session) => session._id));
-  const archivedGroup = [
-    ...archivedQuery,
-    ...terminal.filter((session) => !archivedIds.has(session._id)),
-  ].sort(
-    (a, b) =>
-      (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-  );
-
-  return { active, archivedGroup };
 }
 
 /**

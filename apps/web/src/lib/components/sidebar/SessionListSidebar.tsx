@@ -31,6 +31,8 @@ import {
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
+import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
+import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 import {
   SharedLayoutNav,
@@ -112,6 +114,7 @@ export function SessionListSidebar<T extends SessionItem>({
   } | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isActiveListExpanded, setIsActiveListExpanded] = useState(false);
   const [sessionToRename, setSessionToRename] = useState<T | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
@@ -120,6 +123,19 @@ export function SessionListSidebar<T extends SessionItem>({
   const currentSessionNumId = routeNumIdFromPath(pathname, baseUrl);
   const filteredSessions = sessions ?? [];
   const filteredArchivedSessions = archivedSessions ?? [];
+  const selectedActiveId =
+    filteredSessions.find((session) => {
+      const segment = entityPathSegment(session);
+      return segment !== null && currentSessionNumId === segment;
+    })?._id ?? null;
+  const {
+    visible: visibleActiveSessions,
+    hasOverflow: hasActiveOverflow,
+    hiddenCount: hiddenActiveCount,
+  } = previewSessions(filteredSessions, {
+    expanded: isActiveListExpanded,
+    selectedId: selectedActiveId,
+  });
 
   useEffect(() => {
     if (createRequestId === undefined) return;
@@ -204,7 +220,7 @@ export function SessionListSidebar<T extends SessionItem>({
         ) : (
           <SharedLayoutNav layoutId={layoutId} className="space-y-1">
             <AnimatePresence initial={false}>
-              {filteredSessions.map((session) => {
+              {visibleActiveSessions.map((session) => {
                 const pathSegment = entityPathSegment(session);
                 const isSelected =
                   pathSegment !== null && currentSessionNumId === pathSegment;
@@ -238,6 +254,14 @@ export function SessionListSidebar<T extends SessionItem>({
                 );
               })}
             </AnimatePresence>
+
+            {hasActiveOverflow ? (
+              <SessionListShowMore
+                expanded={isActiveListExpanded}
+                hiddenCount={hiddenActiveCount}
+                onToggle={() => setIsActiveListExpanded((prev) => !prev)}
+              />
+            ) : null}
 
             {filteredArchivedSessions.length > 0 && (
               <div className="mt-4 pt-4">

@@ -49,7 +49,7 @@ export const taskExecutionWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
-    let vercelSandboxId: string | undefined;
+
     let completionSuccess: boolean | undefined;
     let completionError: string | null = null;
     let completionPrUrl: string | null = null;
@@ -89,15 +89,12 @@ export const taskExecutionWorkflow = workflow.define({
       // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;
-      const reusableVercelSandboxId =
-        data.projectVercelSandboxId ?? data.taskVercelSandboxId ?? undefined;
       const skipStartupCommands =
         args.projectId !== undefined &&
         reusableSandboxId !== undefined &&
         !args.isFirstTaskOnBranch;
-      ({ sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
+      ({ sandboxId } = await prepareSandboxSteps(step, {
         existingSandboxId: reusableSandboxId,
-        vercelSandboxId: reusableVercelSandboxId,
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
@@ -140,14 +137,12 @@ export const taskExecutionWorkflow = workflow.define({
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.runId,
         sandboxId,
-        vercelSandboxId,
       });
 
       if (args.projectId) {
         await step.runMutation(internal.taskWorkflow.updateProjectSandbox, {
           projectId: args.projectId,
           sandboxId,
-          vercelSandboxId,
         });
       } else {
         // Quick tasks: persist sandbox on the task itself so reviewer Start
@@ -156,7 +151,6 @@ export const taskExecutionWorkflow = workflow.define({
         await step.runMutation(internal.taskWorkflow.saveTaskSandboxId, {
           taskId: args.taskId,
           sandboxId,
-          vercelSandboxId,
         });
       }
 

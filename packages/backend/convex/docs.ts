@@ -398,7 +398,6 @@ export const clearInterview = authMutation({
     await ctx.db.patch(args.id, {
       interviewHistory: undefined,
       sandboxId: undefined,
-      vercelSandboxId: undefined,
     });
     return null;
   },

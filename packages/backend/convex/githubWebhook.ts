@@ -284,7 +284,6 @@ export const handlePrClosed = internalMutation({
         const nextVersion = (project.branchVersion ?? 1) + 1;
         const deleteId = preferPersistedSandboxId({
           sandboxId: project.sandboxId,
-          vercelSandboxId: project.vercelSandboxId,
         });
         if (deleteId) {
           await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
@@ -295,7 +294,7 @@ export const handlePrClosed = internalMutation({
         await ctx.db.patch(task.projectId, {
           phase: newPhase,
           sandboxId: undefined,
-          vercelSandboxId: undefined,
+
           lastSandboxActivity: undefined,
           branchVersion: nextVersion,
           branchName: buildProjectBranchName(task.projectId, nextVersion),

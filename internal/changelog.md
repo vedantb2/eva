@@ -1,5 +1,9 @@
 # Changelog
 
+## Single sandbox id field (vercelSandboxId retired) - 2026-07-29
+
+After the Daytona provider removal, every entity still carried both `sandboxId` and `vercelSandboxId`, plus UUID-shaped Daytona leftovers. Phase-1 migrations cleared UUIDs and orphaned git creds; writers now persist only `sandboxId`, with a strip migration to delete the duplicate field from existing docs before the schema drops it.
+
 ## Daytona legacy sandbox-id backfill migration - 2026-07-29
 
 Daytona builds and UUID-shaped sandbox ids were still sitting in Convex after the provider removal, and `vercelSandboxId` duplicated the canonical id. A phase-1 migration deletes dead Daytona `snapshotBuilds`, promotes Vercel ids into `sandboxId`, clears orphaned UUID ids / git-credential rows, and reports non-`snap_*` snapshot names for Rebuild Now — schema field drops wait until this has run in prod.

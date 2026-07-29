@@ -4,7 +4,6 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
-import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
@@ -68,15 +67,14 @@ export const startTaskSandbox = authMutation({
       ctx.db,
       `task-sandbox-startup-${args.taskId}`,
     );
-    const vercelSandboxId = resolveReusableVercelSandboxId(task);
+    const reusableSandboxId = task.sandboxId;
     console.log(
-      `[tasks] startTaskSandbox taskId=${args.taskId} existingSandboxId=${task.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
+      `[tasks] startTaskSandbox taskId=${args.taskId} existingSandboxId=${task.sandboxId ?? "none"} sandboxId=${reusableSandboxId ?? "none"}`,
     );
 
     const startArgs = {
       taskId: args.taskId,
       existingSandboxId: task.sandboxId,
-      vercelSandboxId: vercelSandboxId ?? task.vercelSandboxId,
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -85,7 +83,7 @@ export const startTaskSandbox = authMutation({
       repoId: task.repoId,
     };
     // Vercel: schedule start action directly (skip ~6s workflow scheduling).
-    if (vercelSandboxId) {
+    if (reusableSandboxId) {
       await ctx.scheduler.runAfter(
         0,
         internal.sandbox.startTaskPreviewSandbox,
@@ -158,7 +156,6 @@ export const retryStartupCommands = authMutation({
       {
         taskId: args.taskId,
         existingSandboxId: task.sandboxId,
-        vercelSandboxId: task.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -422,7 +419,6 @@ export const taskSandboxReady = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
@@ -465,9 +461,6 @@ export const taskSandboxReady = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       reviewTaskSandboxStatus: "active",
       updatedAt: Date.now(),
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),

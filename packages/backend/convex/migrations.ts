@@ -25,3 +25,4 @@ export { backfillEvaPrRecapOrigin } from "./_migrations/backfillEvaPrRecapOrigin
 export { excludeConvexUrlFromSandbox } from "./_migrations/excludeConvexUrlFromSandbox";
 export { removeDaytonaEnvVars } from "./_migrations/removeDaytonaEnvVars";
 export { cleanupDaytonaLegacyData } from "./_migrations/cleanupDaytonaLegacyData";
+export { stripVercelSandboxIdFields } from "./_migrations/stripVercelSandboxIdFields";

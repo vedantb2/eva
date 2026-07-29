@@ -32,7 +32,7 @@ export const automationExecutionWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
-    let vercelSandboxId: string | undefined;
+
     let completionPrUrl: string | null = null;
     // App-row credentials for Vercel; defaults to automation repo until resolved.
     let sandboxRepoId = args.repoId;
@@ -75,7 +75,7 @@ export const automationExecutionWorkflow = workflow.define({
 
       const streamingEntityId = `automation-run-${String(args.runId)}`;
 
-      ({ sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
+      ({ sandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
@@ -93,7 +93,6 @@ export const automationExecutionWorkflow = workflow.define({
         runId: args.runId,
         status: "running",
         sandboxId,
-        vercelSandboxId,
       });
 
       await step.runAction(internal.sandbox.launchOnExistingSandbox, {

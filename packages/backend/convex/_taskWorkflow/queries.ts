@@ -106,9 +106,7 @@ export const getTaskData = internalQuery({
     // sandbox at launch so the agent can read them.
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     projectSandboxId: v.optional(v.string()),
-    projectVercelSandboxId: v.optional(v.string()),
     taskSandboxId: v.optional(v.string()),
-    taskVercelSandboxId: v.optional(v.string()),
     keepTaskSandboxActiveAfterRun: v.boolean(),
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
@@ -145,14 +143,13 @@ export const getTaskData = internalQuery({
     };
 
     let projectSandboxId: string | undefined;
-    let projectVercelSandboxId: string | undefined;
     let projectContext: { title: string; description?: string } | undefined;
     let project = null;
     if (args.projectId) {
       project = await ctx.db.get(args.projectId);
       if (project) {
         projectSandboxId = project.sandboxId;
-        projectVercelSandboxId = project.vercelSandboxId;
+
         projectContext = {
           title: project.title,
           description: await resolveDescriptionForPrompt(
@@ -169,9 +166,6 @@ export const getTaskData = internalQuery({
     // Non-project (quick) tasks persist their sandbox on the task itself so
     // change-request / resolve_conflicts runs reuse the same paused filesystem.
     const taskSandboxId = args.projectId ? undefined : task.sandboxId;
-    const taskVercelSandboxId = args.projectId
-      ? undefined
-      : task.vercelSandboxId;
     const keepTaskSandboxActiveAfterRun =
       !args.projectId && task.reviewTaskSandboxStatus === "active";
 
@@ -338,9 +332,7 @@ export const getTaskData = internalQuery({
       taskDescription: resolvedTaskDescription ?? task.description,
       attachmentStorageIds: task.attachmentStorageIds,
       projectSandboxId,
-      projectVercelSandboxId,
       taskSandboxId,
-      taskVercelSandboxId,
       keepTaskSandboxActiveAfterRun,
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,

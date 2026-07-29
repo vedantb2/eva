@@ -4,38 +4,28 @@ import {
   resolveReusableVercelSandboxId,
 } from "../convex/_sandbox/resolveExistingSandboxId";
 
-test("preferPersistedSandboxId prefers vercelSandboxId when present", () => {
+test("preferPersistedSandboxId returns sandboxId when set", () => {
   expect(
     preferPersistedSandboxId({
-      sandboxId: "daytona-or-legacy",
-      vercelSandboxId: "sb_name",
+      sandboxId: "sb_name",
     }),
   ).toBe("sb_name");
   expect(
     preferPersistedSandboxId({
-      sandboxId: "only-id",
-      vercelSandboxId: undefined,
-    }),
-  ).toBe("only-id");
-});
-
-test("resolveReusableVercelSandboxId ignores Daytona UUID sandboxId fallback", () => {
-  expect(
-    resolveReusableVercelSandboxId({
-      sandboxId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      vercelSandboxId: undefined,
+      sandboxId: undefined,
     }),
   ).toBeUndefined();
+});
+
+test("resolveReusableVercelSandboxId returns sandboxId", () => {
   expect(
     resolveReusableVercelSandboxId({
       sandboxId: "sb_vercel_name",
-      vercelSandboxId: undefined,
     }),
   ).toBe("sb_vercel_name");
   expect(
     resolveReusableVercelSandboxId({
-      sandboxId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      vercelSandboxId: "sb_vercel_name",
+      sandboxId: undefined,
     }),
-  ).toBe("sb_vercel_name");
+  ).toBeUndefined();
 });

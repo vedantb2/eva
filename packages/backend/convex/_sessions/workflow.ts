@@ -149,7 +149,6 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -158,35 +157,9 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Legacy fallback for sandboxes without vercelSandboxId (see
-    // ensureSandboxStartedSteps for why this no longer polls). Vercel resume
-    // is handled inside startSessionSandbox → ensureSandboxRunning; running
-    // kickoff here only added ~6–8s of workflow step-scheduling latency
-    // (measured).
-    if (args.existingSandboxId && !args.vercelSandboxId) {
-      try {
-        await ensureSandboxStartedSteps(step, {
-          sandboxId: args.existingSandboxId,
-          vercelSandboxId: args.vercelSandboxId,
-          repoId: args.repoId,
-          // Must match SessionDetailClient + startSandbox seed entity.
-          streamingEntityId: `session-startup-${args.sessionId}`,
-        });
-      } catch (error) {
-        await step.runMutation(internal.sessions.sandboxError, {
-          sessionId: args.sessionId,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Sandbox could not be restored from cold storage. Please retry.",
-        });
-        return;
-      }
-    }
     await step.runAction(internal.sandbox.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -238,7 +211,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let sandboxId: string | null = null;
     let validatedSandboxId: string | null = null;
 
-    if (data.sandboxId || data.vercelSandboxId) {
+    if (data.sandboxId) {
       // Bring an archived/stopped sandbox back to "started" via durable polling
       // steps first, so a multi-minute cold-storage thaw doesn't blow the
       // per-action 10-minute limit inside validateSandbox. Once started, the
@@ -247,7 +220,6 @@ export const sessionExecuteWorkflow = workflow.define({
       try {
         started = await ensureSandboxStartedSteps(step, {
           sandboxId: data.sandboxId,
-          vercelSandboxId: data.vercelSandboxId,
           repoId: data.repoId,
           streamingEntityId: args.sessionId,
           sandboxRunning: data.status === "active",
@@ -285,7 +257,6 @@ export const sessionExecuteWorkflow = workflow.define({
         {
           sessionId: args.sessionId,
           existingSandboxId: data.sandboxId,
-          vercelSandboxId: data.vercelSandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
@@ -301,7 +272,6 @@ export const sessionExecuteWorkflow = workflow.define({
       await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
         sessionId: args.sessionId,
         sandboxId,
-        vercelSandboxId: prepared.vercelSandboxId,
         branchName: data.branchName,
       });
     }
@@ -662,7 +632,6 @@ export const getSessionData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     status: sessionStatusValidator,
     repoOwner: v.string(),
     repoName: v.string(),
@@ -706,7 +675,6 @@ export const getSessionData = internalQuery({
 
     return {
       sandboxId: session.sandboxId,
-      vercelSandboxId: session.vercelSandboxId,
       status: session.status,
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -730,23 +698,18 @@ export const updateSandboxId = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
     branchName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const updates: {
       sandboxId: string;
-      vercelSandboxId?: string;
       branchName?: string;
       updatedAt: number;
     } = {
       sandboxId: args.sandboxId,
       updatedAt: Date.now(),
     };
-    if (args.vercelSandboxId !== undefined) {
-      updates.vercelSandboxId = args.vercelSandboxId;
-    }
     if (args.branchName) {
       updates.branchName = args.branchName;
     }

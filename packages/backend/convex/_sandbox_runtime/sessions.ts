@@ -27,7 +27,6 @@ import {
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
-import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
 import { runStartupCommandsDirect } from "./execution";
@@ -570,7 +569,6 @@ function tryReuseSandboxHandle(
 type SessionSandboxPreparationArgs = {
   sessionId: Id<"sessions">;
   existingSandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -590,7 +588,6 @@ type PreparedSessionSandbox = {
   devPort?: number;
   devCommand?: string;
   /** The Vercel sandbox id (Vercel is the only sandbox provider). */
-  vercelSandboxId: string | undefined;
 };
 
 type ProgressStep = { type: string; label: string; status: string };
@@ -738,12 +735,7 @@ async function prepareSessionSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  // Sandboxes are only ever reused via `vercelSandboxId` — a stale legacy
-  // `sandboxId` on the entity must never be treated as reusable here.
-  const reuseId = preferPersistedSandboxId({
-    sandboxId: args.existingSandboxId,
-    vercelSandboxId: args.vercelSandboxId,
-  });
+  const reuseId = args.existingSandboxId;
   logSession(
     `prepareSessionSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
@@ -789,7 +781,6 @@ async function prepareSessionSandboxInternal(
                   await ctx.runMutation(internal.sessions.sandboxReady, {
                     sessionId: args.sessionId,
                     sandboxId: handle.id,
-                    vercelSandboxId: handle.id,
                     branchName: args.branchName,
                     isNew: false,
                     usedSnapshot: false,
@@ -885,7 +876,6 @@ async function prepareSessionSandboxInternal(
             branchName: args.branchName,
             devPort,
             devCommand,
-            vercelSandboxId: handle.id,
           };
         },
         // Never silently create a replacement when the existing sandbox is
@@ -953,7 +943,6 @@ async function prepareSessionSandboxInternal(
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: sandbox.id,
-            vercelSandboxId: sandbox.id,
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
@@ -1286,7 +1275,6 @@ async function prepareSessionSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: handle.id,
     };
   } catch (setupError) {
     const setupMessage = errorMessage(setupError, "setup failed");
@@ -1336,7 +1324,6 @@ async function prepareSessionSandboxInternal(
         branchName: args.branchName,
         devPort: resolvedDevPort,
         devCommand: resolvedDevCommand,
-        vercelSandboxId: handle.id,
       };
     }
     console.warn(
@@ -1357,7 +1344,6 @@ export const startSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1392,7 +1378,6 @@ export const startSessionSandbox = internalAction({
       const prepared = await prepareSessionSandboxInternal(ctx, {
         sessionId: args.sessionId,
         existingSandboxId: args.existingSandboxId,
-        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -1410,7 +1395,6 @@ export const startSessionSandbox = internalAction({
           ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: prepared.sandbox.id,
-            vercelSandboxId: prepared.vercelSandboxId,
             branchName: prepared.branchName,
             isNew: prepared.isNew,
             usedSnapshot: prepared.isNew ? prepared.usedSnapshot : undefined,
@@ -1422,7 +1406,7 @@ export const startSessionSandbox = internalAction({
         `startSessionSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
-      const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+      const stopId = args.existingSandboxId;
       // A Stop that raced this Start. The resume may have briefly woken the VM,
       // so still stop it (idempotent with finalizeStopSandbox), but leave the
       // session status to the stop flow's markSandboxClosed — do NOT mark a
@@ -1499,7 +1483,6 @@ export const prepareSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1510,13 +1493,11 @@ export const prepareSessionSandbox = internalAction({
   },
   returns: v.object({
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const prepared = await prepareSessionSandboxInternal(ctx, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -1527,7 +1508,6 @@ export const prepareSessionSandbox = internalAction({
     });
     return {
       sandboxId: prepared.sandbox.id,
-      vercelSandboxId: prepared.vercelSandboxId,
     };
   },
 });
@@ -1537,7 +1517,6 @@ export const startDesignSandbox = internalAction({
   args: {
     designSessionId: v.id("designSessions"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1562,10 +1541,7 @@ export const startDesignSandbox = internalAction({
       const rootDir = repo?.rootDirectory ?? "";
       const { client, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, repoId);
-      const reuseId = preferPersistedSandboxId({
-        sandboxId: args.existingSandboxId,
-        vercelSandboxId: args.vercelSandboxId,
-      });
+      const reuseId = args.existingSandboxId;
       const prepareReusedDesignSandbox = async (
         handle: SandboxHandle,
       ): Promise<void> => {
@@ -1619,7 +1595,6 @@ export const startDesignSandbox = internalAction({
         await ctx.runMutation(internal.designSessions.sandboxReady, {
           designSessionId: args.designSessionId,
           sandboxId: handle.id,
-          vercelSandboxId: handle.id,
           branchName: args.branchName,
           isNew: false,
           devPort,
@@ -1677,7 +1652,6 @@ export const startDesignSandbox = internalAction({
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
         sandboxId: sandbox.id,
-        vercelSandboxId: sandbox.id,
         branchName: args.branchName,
         isNew: true,
         devPort,
@@ -1687,7 +1661,7 @@ export const startDesignSandbox = internalAction({
         console.log(
           `[sandbox][sessions] startDesignSandbox aborted by stop designSessionId=${args.designSessionId}: ${e.message}`,
         );
-        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        const stopId = args.existingSandboxId;
         if (args.repoId && stopId) {
           try {
             await ctx.runAction(internal.sandbox.stopSandbox, {
@@ -1722,7 +1696,6 @@ export const startDesignSandbox = internalAction({
 type TaskPreviewSandboxPreparationArgs = {
   taskId: Id<"agentTasks">;
   existingSandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -1769,10 +1742,7 @@ async function prepareTaskPreviewSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  const reuseId = preferPersistedSandboxId({
-    sandboxId: args.existingSandboxId,
-    vercelSandboxId: args.vercelSandboxId,
-  });
+  const reuseId = args.existingSandboxId;
   logSession(
     `prepareTaskPreviewSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
@@ -1815,7 +1785,6 @@ async function prepareTaskPreviewSandboxInternal(
           await ctx.runMutation(internal.agentTasks.taskSandboxReady, {
             taskId: args.taskId,
             sandboxId: handle.id,
-            vercelSandboxId: handle.id,
             isNew: false,
           });
         },
@@ -1940,7 +1909,6 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: handle.id,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -2167,7 +2135,6 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: handle.id,
     };
   } catch (setupError) {
     console.warn(
@@ -2186,7 +2153,6 @@ async function prepareTaskPreviewSandboxInternal(
 type ProjectPreviewSandboxPreparationArgs = {
   projectId: Id<"projects">;
   existingSandboxId: string | undefined;
-  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -2238,10 +2204,7 @@ async function prepareProjectPreviewSandboxInternal(
     actionDetails,
     () => resolveSandboxClientOnly(ctx, args.repoId),
   );
-  const reuseId = preferPersistedSandboxId({
-    sandboxId: args.existingSandboxId,
-    vercelSandboxId: args.vercelSandboxId,
-  });
+  const reuseId = args.existingSandboxId;
   logSession(
     `prepareProjectPreviewSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
@@ -2287,7 +2250,6 @@ async function prepareProjectPreviewSandboxInternal(
             await ctx.runMutation(internal.projects.projectSandboxReady, {
               projectId: args.projectId,
               sandboxId: handle.id,
-              vercelSandboxId: handle.id,
               isNew: false,
             });
           },
@@ -2416,7 +2378,6 @@ async function prepareProjectPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
-      vercelSandboxId: handle.id,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -2471,7 +2432,6 @@ async function prepareProjectPreviewSandboxInternal(
   await ctx.runMutation(internal.projects.projectSandboxAllocated, {
     projectId: args.projectId,
     sandboxId: handle.id,
-    vercelSandboxId: handle.id,
   });
   completedSteps.push({
     type: "tool",
@@ -2643,7 +2603,6 @@ async function prepareProjectPreviewSandboxInternal(
     branchName: args.branchName,
     devPort,
     devCommand,
-    vercelSandboxId: handle.id,
   };
 }
 
@@ -2658,7 +2617,6 @@ export const startProjectPreviewSandbox = internalAction({
   args: {
     projectId: v.id("projects"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -2680,7 +2638,6 @@ export const startProjectPreviewSandbox = internalAction({
       const prepared = await prepareProjectPreviewSandboxInternal(ctx, {
         projectId: args.projectId,
         existingSandboxId: args.existingSandboxId,
-        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -2699,7 +2656,6 @@ export const startProjectPreviewSandbox = internalAction({
           ctx.runMutation(internal.projects.projectSandboxReady, {
             projectId: args.projectId,
             sandboxId: prepared.sandbox.id,
-            vercelSandboxId: prepared.vercelSandboxId,
             isNew: prepared.isNew,
             devPort: prepared.devPort,
             devCommand: prepared.devCommand,
@@ -2716,7 +2672,7 @@ export const startProjectPreviewSandbox = internalAction({
           `[sandbox][sessions] startProjectPreviewSandbox aborted by stop projectId=${args.projectId}: ${e.message}`,
         );
         await completeProjectProgress(ctx, args.projectId);
-        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        const stopId = args.existingSandboxId;
         if (stopId) {
           try {
             await ctx.runAction(internal.sandbox.stopSandbox, {
@@ -2745,7 +2701,6 @@ export const startTaskPreviewSandbox = internalAction({
   args: {
     taskId: v.id("agentTasks"),
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -2763,7 +2718,6 @@ export const startTaskPreviewSandbox = internalAction({
       const prepared = await prepareTaskPreviewSandboxInternal(ctx, {
         taskId: args.taskId,
         existingSandboxId: args.existingSandboxId,
-        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -2781,7 +2735,6 @@ export const startTaskPreviewSandbox = internalAction({
           ctx.runMutation(internal.agentTasks.taskSandboxReady, {
             taskId: args.taskId,
             sandboxId: prepared.sandbox.id,
-            vercelSandboxId: prepared.vercelSandboxId,
             isNew: prepared.isNew,
             devPort: prepared.devPort,
             devCommand: prepared.devCommand,
@@ -2797,7 +2750,7 @@ export const startTaskPreviewSandbox = internalAction({
           `[sandbox][sessions] startTaskPreviewSandbox aborted by stop taskId=${args.taskId}: ${e.message}`,
         );
         await completeTaskProgress(ctx, args.taskId);
-        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        const stopId = args.existingSandboxId;
         if (stopId) {
           try {
             await ctx.runAction(internal.sandbox.stopSandbox, {

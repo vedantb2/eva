@@ -5,10 +5,7 @@ import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import type { SandboxProviderKind } from "../_sandbox/provider";
 
 type EnsureSandboxStartedArgs = {
-  /** Legacy sandbox id. Used only as a fallback when `vercelSandboxId` is unset. */
   sandboxId?: string;
-  /** Vercel sandbox name — the preferred id. */
-  vercelSandboxId?: string;
   repoId: Id<"githubRepos">;
   /** When set, a "restoring…" activity is surfaced to this streaming entity. */
   streamingEntityId?: string;
@@ -39,21 +36,12 @@ async function setResumeActivity(
  * Resolves which sandbox a workflow should resume, and surfaces a "resuming"
  * activity while it happens.
  *
- * This used to be a kick-off-then-poll loop of short workflow steps, because
- * Daytona rehydrated archived sandboxes from object storage and could take well
- * over the Convex per-action 10-minute limit. Vercel resumes from its own
- * snapshot in roughly 0.3s, so there is nothing to wait on: the actual resume is
- * lazy, via `ensureSandboxRunning` in the start action. Adding durable workflow
- * steps here measured ~6-8s of pure scheduling latency for no benefit.
+ * Vercel resumes from its own snapshot in roughly 0.3s, so there is nothing to
+ * wait on: the actual resume is lazy, via `ensureSandboxRunning` in the start
+ * action.
  *
  * Returns the resolved `provider` and `thawId` — the id to reuse, or undefined
  * when there is nothing to resume and the caller should create a fresh sandbox.
- * `provider` is returned so callers do not re-run `getSandboxProviderKind`,
- * itself a durable step worth ~6-8s.
- *
- * A leftover Daytona UUID in `sandboxId` is not reusable and must never reach
- * Vercel `get` (it would 404). Callers that start from persisted entity fields
- * filter it out with `resolveReusableVercelSandboxId` before calling here.
  */
 export async function ensureSandboxStartedSteps(
   step: WorkflowCtx,
@@ -61,7 +49,7 @@ export async function ensureSandboxStartedSteps(
 ): Promise<{ provider: SandboxProviderKind; thawId: string | undefined }> {
   const thawStartedAt = Date.now();
   console.log(
-    `[sandbox] ensureSandboxStartedSteps begin repoId=${args.repoId} sandboxId=${args.sandboxId ?? "none"} vercelSandboxId=${args.vercelSandboxId ?? "none"} streamingEntityId=${args.streamingEntityId ?? "none"}`,
+    `[sandbox] ensureSandboxStartedSteps begin repoId=${args.repoId} sandboxId=${args.sandboxId ?? "none"} streamingEntityId=${args.streamingEntityId ?? "none"}`,
   );
   const provider = await step.runAction(
     internal.sandbox.getSandboxProviderKind,
@@ -71,7 +59,6 @@ export async function ensureSandboxStartedSteps(
   );
   const thawId = preferPersistedSandboxId({
     sandboxId: args.sandboxId,
-    vercelSandboxId: args.vercelSandboxId,
   });
   if (!thawId) {
     console.log(
@@ -80,10 +67,6 @@ export async function ensureSandboxStartedSteps(
     return { provider, thawId };
   }
 
-  // No kickoff/poll step here. Resume happens in the start action via
-  // ensureSandboxRunning; adding workflow steps for it measured ~6-8s of pure
-  // latency. There is no cold-storage restore to wait on either — that was
-  // Daytona's archived-restore path, and Vercel resumes from its own snapshot.
   if (args.streamingEntityId && !args.sandboxRunning) {
     await setResumeActivity(
       step,

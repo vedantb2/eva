@@ -478,7 +478,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       },
     );
 
-    if (!data.sandboxId && !data.vercelSandboxId) {
+    if (!data.sandboxId) {
       await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
         taskId: args.taskId,
         success: false,
@@ -499,7 +499,6 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     try {
       started = await ensureSandboxStartedSteps(step, {
         sandboxId: data.sandboxId,
-        vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
         sandboxRunning: data.sandboxStatus === "active",
@@ -698,7 +697,6 @@ export const getChatData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     sandboxStatus: v.optional(taskSandboxStatusValidator),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -730,7 +728,6 @@ export const getChatData = internalQuery({
 
     return {
       sandboxId: task.sandboxId,
-      vercelSandboxId: task.vercelSandboxId,
       sandboxStatus: task.reviewTaskSandboxStatus,
       repoOwner: repo.owner,
       repoName: repo.name,

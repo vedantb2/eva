@@ -18,7 +18,6 @@ type PrepareSandboxArgs = {
   streamingEntityId: string;
   ephemeral: boolean;
   existingSandboxId?: string;
-  vercelSandboxId?: string;
   attachRunId?: Id<"agentRuns">;
   baseBranch?: string;
   branchName?: string;
@@ -51,8 +50,6 @@ async function emitSteps(
 
 type PrepareSandboxResult = {
   sandboxId: string;
-  /** Set to the sandbox id when the provider is Vercel; undefined for legacy sandboxes created before vercelSandboxId existed. */
-  vercelSandboxId: string | undefined;
 };
 
 /** Orchestrates sandbox creation and local branch setup as a multi-step workflow. */
@@ -64,14 +61,10 @@ export async function prepareSandboxSteps(
   const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
   // Resolve which existing sandbox (if any) to reuse before the create/resume
-  // action inside createOrResumeSandbox → ensureSandboxRunning; see
-  // ensureSandboxStartedSteps for why this no longer needs to poll. On Vercel
-  // only vercelSandboxId is thawed (legacy Daytona UUIDs must not hit Vercel
-  // get). New sandboxes have nothing to thaw.
-  if (args.existingSandboxId || args.vercelSandboxId) {
+  // action inside createOrResumeSandbox → ensureSandboxRunning.
+  if (args.existingSandboxId) {
     await ensureSandboxStartedSteps(step, {
       sandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
       repoId: args.repoId,
       streamingEntityId: args.streamingEntityId,
     });
@@ -84,7 +77,6 @@ export async function prepareSandboxSteps(
     internal.sandbox.createOrResumeSandbox,
     {
       existingSandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -97,7 +89,7 @@ export async function prepareSandboxSteps(
     },
     args.createRetry ? { retry: args.createRetry } : undefined,
   );
-  const { sandboxId, vercelSandboxId } = setupResult;
+  const { sandboxId } = setupResult;
 
   completedSteps.push({
     type: "tool",
@@ -326,5 +318,5 @@ export async function prepareSandboxSteps(
     }
   }
 
-  return { sandboxId, vercelSandboxId };
+  return { sandboxId };
 }

@@ -328,16 +328,12 @@ export const updateProjectSandbox = authMutation({
   args: {
     id: v.id("projects"),
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, {
       sandboxId: args.sandboxId,
-      ...(args.vercelSandboxId !== undefined
-        ? { vercelSandboxId: args.vercelSandboxId }
-        : {}),
       lastSandboxActivity: Date.now(),
     });
     return null;
@@ -352,7 +348,6 @@ export const clearProjectSandbox = authMutation({
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     const deleteId = preferPersistedSandboxId({
       sandboxId: project.sandboxId,
-      vercelSandboxId: project.vercelSandboxId,
     });
     if (deleteId) {
       await ctx.scheduler.runAfter(0, internal.sandbox.deleteSandbox, {
@@ -362,7 +357,7 @@ export const clearProjectSandbox = authMutation({
     }
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
-      vercelSandboxId: undefined,
+
       lastSandboxActivity: undefined,
     });
     return null;

@@ -87,10 +87,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
       if (!id) return null;
       const doc = await ctx.db.get(id);
       if (!doc) return null;
-      if (
-        doc.sandboxId !== args.sandboxId &&
-        doc.vercelSandboxId !== args.sandboxId
-      ) {
+      if (doc.sandboxId !== args.sandboxId) {
         return null;
       }
       if (doc.status !== "active") return null;
@@ -105,10 +102,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
       if (!id) return null;
       const doc = await ctx.db.get(id);
       if (!doc) return null;
-      if (
-        doc.sandboxId !== args.sandboxId &&
-        doc.vercelSandboxId !== args.sandboxId
-      ) {
+      if (doc.sandboxId !== args.sandboxId) {
         return null;
       }
       if (doc.reviewTaskSandboxStatus !== "active") return null;
@@ -122,10 +116,7 @@ export const reconcileStoppedSandboxStatus = internalMutation({
     if (!id) return null;
     const doc = await ctx.db.get(id);
     if (!doc) return null;
-    if (
-      doc.sandboxId !== args.sandboxId &&
-      doc.vercelSandboxId !== args.sandboxId
-    ) {
+    if (doc.sandboxId !== args.sandboxId) {
       return null;
     }
     if (doc.reviewProjectSandboxStatus !== "active") return null;

@@ -328,7 +328,6 @@ export const getSessionDataAndPrompt = internalQuery({
     return {
       sandboxId: preferPersistedSandboxId({
         sandboxId: session.sandboxId,
-        vercelSandboxId: session.vercelSandboxId,
       }),
       branchName: session.branchName,
       repoOwner: repo.owner,

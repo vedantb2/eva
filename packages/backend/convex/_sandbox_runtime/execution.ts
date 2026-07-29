@@ -36,7 +36,6 @@ import {
   buildAttachmentPromptNote,
 } from "./attachments";
 import { resolveSandboxCredentials } from "../envVarResolver";
-import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
@@ -660,7 +659,6 @@ function isSandboxSetupRetryable(message: string): boolean {
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -676,7 +674,6 @@ export const prepareSandbox = internalAction({
   },
   returns: v.object({
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
@@ -703,12 +700,7 @@ export const prepareSandbox = internalAction({
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    // Sandboxes are only ever reused via `vercelSandboxId`, falling back to
-    // `sandboxId` for legacy rows that only persisted the Vercel name there.
-    const existingSandboxId = preferPersistedSandboxId({
-      sandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
-    });
+    const existingSandboxId = args.existingSandboxId;
     console.log(
       `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
@@ -725,7 +717,6 @@ export const prepareSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
-        vercelSandboxId: sandboxToAttach.id,
       });
     };
 
@@ -837,7 +828,6 @@ export const prepareSandbox = internalAction({
     );
     return {
       sandboxId: sandbox.id,
-      vercelSandboxId: sandbox.id,
     };
   },
 });
@@ -846,7 +836,6 @@ export const prepareSandbox = internalAction({
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
-    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -861,7 +850,6 @@ export const createOrResumeSandbox = internalAction({
   },
   returns: v.object({
     sandboxId: v.string(),
-    vercelSandboxId: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
@@ -888,12 +876,7 @@ export const createOrResumeSandbox = internalAction({
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    // Sandboxes are only ever reused via `vercelSandboxId`, falling back to
-    // `sandboxId` for legacy rows that only persisted the Vercel name there.
-    const existingSandboxId = preferPersistedSandboxId({
-      sandboxId: args.existingSandboxId,
-      vercelSandboxId: args.vercelSandboxId,
-    });
+    const existingSandboxId = args.existingSandboxId;
     console.log(
       `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
@@ -911,7 +894,6 @@ export const createOrResumeSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
-        vercelSandboxId: sandboxToAttach.id,
       });
     };
 
@@ -955,7 +937,6 @@ export const createOrResumeSandbox = internalAction({
           await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
             runId: args.attachRunId,
             sandboxId: sandbox.id,
-            vercelSandboxId: sandbox.id,
           });
         }
 
@@ -1016,7 +997,6 @@ export const createOrResumeSandbox = internalAction({
     );
     return {
       sandboxId: sandbox.id,
-      vercelSandboxId: sandbox.id,
     };
   },
 });

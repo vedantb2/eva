@@ -1,6 +1,21 @@
 "use client";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@eva/ui";
+
 const DESIGN_COUNT_OPTIONS = [1, 2, 3, 4, 5] as const;
+
+type DesignCount = (typeof DESIGN_COUNT_OPTIONS)[number];
+
+function isDesignCount(value: string): value is `${DesignCount}` {
+  return DESIGN_COUNT_OPTIONS.some((n) => String(n) === value);
+}
 
 interface NumDesignsControlProps {
   value: number;
@@ -8,30 +23,42 @@ interface NumDesignsControlProps {
   disabled?: boolean;
 }
 
-/** Compact 1–5 picker for how many design variations to generate. */
+/** Dropdown for how many design variations to generate (1–5). */
 export function NumDesignsControl({
   value,
   onChange,
   disabled = false,
 }: NumDesignsControlProps) {
+  const selected =
+    DESIGN_COUNT_OPTIONS.find((n) => n === value) ?? DESIGN_COUNT_OPTIONS[2];
+
   return (
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span>Designs:</span>
-      {DESIGN_COUNT_OPTIONS.map((n) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
         <button
-          key={n}
           type="button"
-          onClick={() => onChange(n)}
-          disabled={disabled}
-          className={`h-5 w-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
-            value === n
-              ? "bg-primary text-primary-foreground"
-              : "hover:bg-muted"
-          }`}
+          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
         >
-          {n}
+          Designs: {selected}
         </button>
-      ))}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Design count</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={String(selected)}
+          onValueChange={(next) => {
+            if (isDesignCount(next)) {
+              onChange(Number(next));
+            }
+          }}
+        >
+          {DESIGN_COUNT_OPTIONS.map((n) => (
+            <DropdownMenuRadioItem key={n} value={String(n)}>
+              {n}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

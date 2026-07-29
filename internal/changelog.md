@@ -1,5 +1,9 @@
 # Changelog
 
+## Experimental Chrome-style session tabs - 2026-07-29
+
+The sessions sidebar is dense once you have many apps and threads. An opt-in Experimental setting now swaps it for a Chrome-like horizontal tab strip: active sessions (not archived, PR open/draft) grouped by app, with overflow and Archived menus for the full list and merged/closed/archived threads. Off by default so the existing sidebar stays the default.
+
 ## Update-available toast - 2026-07-29
 
 Signed-in tabs could sit on a stale SPA build until a chunk load failed and forced a hard reload. The app shell now polls the live index fingerprint (~60s + on focus) and shows a sticky Update available toast with Refresh so users can jump to the new deploy before things break.

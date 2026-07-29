@@ -40,6 +40,7 @@ import {
   isHomePath,
 } from "@/lib/components/sidebar/homePaths";
 import { GlobalSettingsSidebar } from "@/lib/components/sidebar/GlobalSettingsSidebar";
+import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -174,15 +175,18 @@ export function Sidebar() {
   // Per-app Sessions sidebar was removed; any sessions URL (landing or deep
   // link like /$owner/$repo/.../sessions/$numId/preview) uses the root list.
   const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
-  const showGlobalSessionsPanel = isGlobalSessionsLanding || isRepoSessionsPath;
+  const isSessionsPath = isGlobalSessionsLanding || isRepoSessionsPath;
+  // Experimental Chrome tabs replace the sessions second column (rail only).
+  const useChromeSessionTabs = useChromeSessionTabsActive(pathname);
+  const showGlobalSessionsPanel = isSessionsPath && !useChromeSessionTabs;
   const showHomePanel = isHomePath(pathname);
   const showGlobalSettingsPanel =
     isGlobalSettingsPath(pathname) ||
     (import.meta.env.DEV &&
       (pathname === "/testing" || pathname.startsWith("/testing/")));
   const showSidePanel =
-    isRepoRoute ||
-    isGlobalSessionsLanding ||
+    (isRepoRoute && !useChromeSessionTabs) ||
+    (isGlobalSessionsLanding && !useChromeSessionTabs) ||
     showHomePanel ||
     showGlobalSettingsPanel;
 

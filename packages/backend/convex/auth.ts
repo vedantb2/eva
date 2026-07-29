@@ -191,6 +191,31 @@ export const setEmailNotificationsEnabled = authMutation({
   },
 });
 
+/**
+ * Returns whether Chrome-style session tabs are enabled (replaces the sessions
+ * sidebar). Defaults to false (opt-in experimental).
+ */
+export const getExperimentalSessionTabsEnabled = authQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.experimentalSessionTabsEnabled ?? false;
+  },
+});
+
+/** Updates the current user's experimental session-tabs preference. */
+export const setExperimentalSessionTabsEnabled = authMutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, {
+      experimentalSessionTabsEnabled: args.enabled,
+    });
+    return null;
+  },
+});
+
 /** Returns the current user's custom theme configuration. */
 export const getCustomTheme = authQuery({
   args: {},

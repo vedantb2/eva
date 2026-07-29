@@ -1,6 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { SetupBanner } from "@/lib/components/SetupBanner";
+import { SessionChromeTabsBar } from "@/lib/components/sidebar/session-tabs/SessionChromeTabsBar";
+import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { RepoProvider, RepoGate } from "@/lib/contexts/RepoContext";
 import { LiveCursors } from "@/lib/components/LiveCursors";
@@ -12,16 +14,23 @@ export const Route = createFileRoute("/_repo/$owner/$repo")({
 
 function MainContent({ children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
+  const { pathname } = useLocation();
+  const chromeSessionTabs = useChromeSessionTabsActive(pathname);
+  // Chrome tabs hide the sessions second column — pad for rail only.
+  const railOnly = collapsed || chromeSessionTabs;
 
   return (
     <div
       className={cn(
         "relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0",
         // Default 20rem matches prior lg:pl-80 until localStorage hydrates.
-        collapsed ? "lg:pl-16" : "lg:pl-[var(--eva-sidebar-width,20rem)]",
+        railOnly ? "lg:pl-16" : "lg:pl-[var(--eva-sidebar-width,20rem)]",
       )}
     >
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
+        {chromeSessionTabs ? (
+          <SessionChromeTabsBar pathname={pathname} />
+        ) : null}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"

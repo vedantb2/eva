@@ -57,6 +57,8 @@ export const userFields = {
   lastChangelogDismissedAt: v.optional(v.number()),
   onboardingCompletedAt: v.optional(v.number()),
   emailNotificationsEnabled: v.optional(v.boolean()),
+  /** Opt-in Chrome-style horizontal session tabs (replaces sessions sidebar). */
+  experimentalSessionTabsEnabled: v.optional(v.boolean()),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one

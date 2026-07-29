@@ -1,6 +1,7 @@
 import {
   IconBell,
   IconCode,
+  IconFlask,
   IconGitBranch,
   IconKey,
   IconPalette,
@@ -39,6 +40,11 @@ export const GLOBAL_SETTINGS_NAV = [
     name: "Sync",
     href: "/settings/sync",
     icon: IconGitBranch,
+  },
+  {
+    name: "Experimental",
+    href: "/settings/experimental",
+    icon: IconFlask,
   },
 ] as const;
 

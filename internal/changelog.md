@@ -1,5 +1,13 @@
 # Changelog
 
+## Hot-path list query bandwidth cuts - 2026-07-29
+
+Several always-on sidebar subscriptions were shipping full documents (session plan/terminal/daemon state, entire doc bodies) and scanning wider than needed. Slim list return shapes plus indexed draft reads cut client sync bytes without changing what the UI shows; timed stats skip loading `agentRuns` for tasks outside the comparison window (those docs carry large `logs` arrays).
+
+## Convex Migrations component - 2026-07-29
+
+Hand-rolled paginated migrations were fine for one-offs but painful for large tables (byte limits, manual cursors, no resume UI). `@convex-dev/migrations` is wired as `dataMigrations` so future backfills get batching, dry-run, cancel, and live status without reinventing that each time. Existing `_migrations/` exports stay as they are.
+
 ## Single sandbox id field (vercelSandboxId retired) - 2026-07-29
 
 After the Daytona provider removal, every entity still carried both `sandboxId` and `vercelSandboxId`, plus UUID-shaped Daytona leftovers. Phase-1 migrations cleared UUIDs and orphaned git creds; writers now persist only `sandboxId`, with a strip migration to delete the duplicate field from existing docs before the schema drops it.

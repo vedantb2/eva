@@ -1,3 +1,8 @@
+/**
+ * Hand-rolled one-off migrations (paginated internalMutations).
+ * For new table-wide backfills prefer `@convex-dev/migrations` via
+ * `dataMigrations.ts` (batched, resumable, dry-run / cancel / status).
+ */
 export { cleanupStaleRuns } from "./_migrations/cleanup";
 export {
   deleteRepoStep,

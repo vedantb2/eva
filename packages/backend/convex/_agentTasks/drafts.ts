@@ -26,13 +26,32 @@ export const listDrafts = authQuery({
   returns: v.array(agentTaskValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const tasks = await ctx.db
+    // Index by status so we do not scan every task in the repo for drafts.
+    const drafts = await ctx.db
       .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", args.repoId).eq("status", "draft"),
+      )
       .collect();
-    return tasks
-      .filter((t) => t.status === "draft" && t.createdBy === ctx.userId)
+    return drafts
+      .filter((t) => t.createdBy === ctx.userId)
       .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+/** Counts draft tasks for the current user in a repo (badge path — no full docs). */
+export const countDrafts = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
+    const drafts = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", args.repoId).eq("status", "draft"),
+      )
+      .collect();
+    return drafts.filter((t) => t.createdBy === ctx.userId).length;
   },
 });
 

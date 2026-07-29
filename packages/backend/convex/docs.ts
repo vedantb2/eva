@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   authAction,
   authQuery,
@@ -20,6 +20,7 @@ import {
   roleValidator,
   docKindValidator,
   docFields,
+  evaluationStatusValidator,
 } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
@@ -39,6 +40,84 @@ const docValidator = v.object({
   ...docFields,
 });
 
+/** Soft-limit matching sidebar hover preview — avoid shipping full bodies on list. */
+const DOC_LIST_PREVIEW_MAX = 280;
+
+/**
+ * Sidebar / picker list shape. Full `content`, `html`, and interview history are
+ * loaded via `docs.get` on the detail page.
+ */
+const docListItemValidator = v.object({
+  _id: v.id("docs"),
+  _creationTime: v.number(),
+  numId: v.optional(v.number()),
+  deletedAt: v.optional(v.number()),
+  repoId: v.id("githubRepos"),
+  kind: v.optional(docKindValidator),
+  sessionId: v.optional(v.id("sessions")),
+  title: v.string(),
+  /** Truncated description-or-content for sidebar hover cards. */
+  contentPreview: v.union(v.string(), v.null()),
+  /** True when `content.trim()` is non-empty (Testing Arena "test all"). */
+  hasContent: v.boolean(),
+  prUrl: v.optional(v.string()),
+  prNumber: v.optional(v.number()),
+  headSha: v.optional(v.string()),
+  prRecapStatus: v.optional(prRecapStatusValidator),
+  prRecapOrigin: v.optional(prRecapOriginValidator),
+  prRecapError: v.optional(v.string()),
+  description: v.optional(v.string()),
+  testGenStatus: v.optional(evaluationStatusValidator),
+  testPrUrl: v.optional(v.string()),
+  createdBy: v.optional(v.id("users")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+function docListPreview(doc: {
+  description?: string;
+  content: string;
+}): string | null {
+  const source = doc.description?.trim() ? doc.description : doc.content;
+  const cleaned = source
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#>*_`~]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length === 0) return null;
+  if (cleaned.length <= DOC_LIST_PREVIEW_MAX) return cleaned;
+  return `${cleaned.slice(0, DOC_LIST_PREVIEW_MAX - 1)}…`;
+}
+
+function toDocListItem(doc: Doc<"docs">) {
+  return {
+    _id: doc._id,
+    _creationTime: doc._creationTime,
+    numId: doc.numId,
+    deletedAt: doc.deletedAt,
+    repoId: doc.repoId,
+    kind: doc.kind,
+    sessionId: doc.sessionId,
+    title: doc.title,
+    contentPreview: docListPreview(doc),
+    hasContent: doc.content.trim().length > 0,
+    prUrl: doc.prUrl,
+    prNumber: doc.prNumber,
+    headSha: doc.headSha,
+    prRecapStatus: doc.prRecapStatus,
+    prRecapOrigin: doc.prRecapOrigin,
+    prRecapError: doc.prRecapError,
+    description: doc.description,
+    testGenStatus: doc.testGenStatus,
+    testPrUrl: doc.testPrUrl,
+    createdBy: doc.createdBy,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
 /** Lists all docs for a given repo, filtered by user access. PR recaps are shared across monorepo apps. */
 export const list = authQuery({
   args: {
@@ -47,13 +126,13 @@ export const list = authQuery({
     /** When true, hide Eva-origin sandbox PR recaps from the Documents sidebar. */
     excludeEvaRecaps: v.optional(v.boolean()),
   },
-  returns: v.array(docValidator),
+  returns: v.array(docListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
 
     const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
     const seen = new Set<string>();
-    const docs = [];
+    const docs: Doc<"docs">[] = [];
 
     for (const siblingId of siblingIds) {
       const siblingDocs = await ctx.db
@@ -81,13 +160,15 @@ export const list = authQuery({
     }
 
     // PR recaps: newest PRs first. Other docs: most recently created first.
-    return docs.toSorted((a, b) => {
-      if (a.kind === "pr-recap" && b.kind === "pr-recap") {
-        const byPr = (b.prNumber ?? 0) - (a.prNumber ?? 0);
-        if (byPr !== 0) return byPr;
-      }
-      return b._creationTime - a._creationTime;
-    });
+    return docs
+      .toSorted((a, b) => {
+        if (a.kind === "pr-recap" && b.kind === "pr-recap") {
+          const byPr = (b.prNumber ?? 0) - (a.prNumber ?? 0);
+          if (byPr !== 0) return byPr;
+        }
+        return b._creationTime - a._creationTime;
+      })
+      .map(toDocListItem);
   },
 });
 

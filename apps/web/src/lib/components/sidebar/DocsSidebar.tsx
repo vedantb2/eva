@@ -29,10 +29,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
-import {
-  SidebarListHoverCard,
-  sidebarTextPreview,
-} from "@/lib/components/sidebar/SidebarListHoverCard";
+import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 
 interface DocsSidebarProps {
@@ -296,11 +293,7 @@ export function DocsSidebar({
                     >
                       <SidebarListHoverCard
                         title={doc.title}
-                        preview={sidebarTextPreview(
-                          doc.description?.trim()
-                            ? doc.description
-                            : doc.content,
-                        )}
+                        preview={doc.contentPreview}
                         updatedAt={doc.updatedAt ?? doc._creationTime}
                         userId={doc.createdBy}
                       >

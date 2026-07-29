@@ -762,7 +762,8 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
       --sidebar-ring: ${colors.light.primary};
       --sidebar-accent-foreground: ${colors.light.accentFg};
     }
-    .dark {
+    .dark,
+    .dark.neutral {
       --primary: ${colors.dark.primary};
       --primary-foreground: ${colors.dark.foreground};
       --ring: ${colors.dark.primary};

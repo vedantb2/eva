@@ -206,8 +206,8 @@ html {
     --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   }
 
-  /* Neutral — soft-dark between light and dark. Applied as
-   * `<html class="dark neutral">`; status tokens inherit from `.dark`. */
+  /* Neutral — soft-dark surfaces only. Applied as `<html class="dark neutral">`.
+   * Status + accent tokens inherit from `.dark` so custom accents still apply. */
   .dark.neutral {
     color-scheme: dark;
     --background: 34 35 37;
@@ -217,29 +217,19 @@ html {
     --card-foreground: 250 250 250;
     --popover: 48 49 52;
     --popover-foreground: 250 250 250;
-    --primary: 250 250 250;
-    --primary-foreground: 9 9 11;
     --secondary: 68 69 72;
     --secondary-foreground: 252 252 252;
     --muted: 58 59 62;
     --muted-foreground: 159 160 162;
-    --accent: 48 49 52;
-    --accent-foreground: 244 244 245;
     --destructive-foreground: 252 252 252;
     --success-foreground: 22 25 23;
     --warning-foreground: 26 24 21;
     --border: 78 79 82;
     --input: 78 79 82;
-    --ring: 250 250 250;
-    --chart-1: 250 250 250;
     --sidebar: 34 35 37;
     --sidebar-foreground: 251 252 253;
-    --sidebar-primary: 250 250 250;
-    --sidebar-primary-foreground: 9 9 11;
     --sidebar-accent: 58 59 62;
-    --sidebar-accent-foreground: 244 244 245;
     --sidebar-border: 78 79 82;
-    --sidebar-ring: 250 250 250;
   }
   * {
     @apply border-border;

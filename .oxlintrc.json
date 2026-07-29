@@ -70,7 +70,6 @@
     "**/.output/**",
     "**/.vite/**",
     "**/.wxt/**",
-    "**/convex/_daytona/callbackScript.generated.ts",
     "video/**"
   ]
 }

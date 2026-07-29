@@ -4250,7 +4250,8 @@ function claudeExecutablePath() {
   try {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    return "claude";
+    const fallback = process.env.CLAUDE_BIN_PATH || "";
+    return fallback && existsSync7(fallback) ? fallback : "claude";
   }
 }
 function readPromptText() {

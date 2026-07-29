@@ -146,12 +146,18 @@ export async function loadSdk(): Promise<SdkModule> {
   return mod;
 }
 
-/** Locates the claude CLI binary the SDK should drive (already in the image). */
+/**
+ * Locates the claude CLI binary the SDK should drive: the image's global
+ * install when it is on PATH, else the CLAUDE_BIN_PATH fallback install —
+ * launch.ts provisions one under a /tmp prefix (not on PATH) when the
+ * global is missing.
+ */
 function claudeExecutablePath(): string {
   try {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    return "claude";
+    const fallback = process.env.CLAUDE_BIN_PATH || "";
+    return fallback && existsSync(fallback) ? fallback : "claude";
   }
 }
 

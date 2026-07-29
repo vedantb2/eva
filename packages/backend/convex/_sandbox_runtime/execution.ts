@@ -1312,7 +1312,6 @@ async function runPrewarmEntityDaemon(
         completeSyntheticTurnMutation: args.completeSyntheticTurnMutation,
         updateBackgroundAgentsMutation: args.updateBackgroundAgentsMutation,
         extraEnvVars: {
-          CLAUDE_PREWARM: "1",
           EVA_DAEMON_OPTS: optsSig,
           ...buildTraitEnvVars({
             reasoningLevel: args.reasoningLevel,
@@ -1409,9 +1408,9 @@ export const killEntityDaemon = internalAction({
  * The ~20s "slow hi" is a cold respawn: after the daemon idle-exits (or a
  * fresh/resumed sandbox), the first message pays token mint + 132KB script
  * upload + node/CLI boot before any token. This action, fired when the session
- * page opens, does that boot ahead of time: it launches the daemon in
- * CLAUDE_PREWARM mode (create the warm query() — spawning + warming the claude
- * CLI/MCP/API — then wait for the first prompt via the handoff protocol). By
+ * page opens, does that boot ahead of time: it launches the daemon early
+ * (create the warm query() — spawning + warming the claude CLI/MCP/API —
+ * then wait for the first prompt via the handoff protocol). By
  * the time the user types, tryWarmDaemonHandoff finds a live daemon and the turn
  * skips the boot entirely. No-op if a daemon is already alive for this session.
  * Best-effort: any failure is swallowed (the normal path still works).

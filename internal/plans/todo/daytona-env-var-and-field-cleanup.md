@@ -5,11 +5,19 @@
 
 Companion to [`daytona-legacy-data-cleanup.md`](./daytona-legacy-data-cleanup.md), which covers nulling legacy sandbox ids and narrowing the schema enum. This file covers the **stored env vars** and the **redundant sandbox id field**.
 
-## 1. Delete the dead env vars (manual, dashboard)
+## 1. Delete the dead env vars (migration: `migrations:removeDaytonaEnvVars`)
 
 Nothing in the codebase reads these any more — `SANDBOX_PROVIDER` has no consumer and the Daytona SDK is gone — but they are still stored as team/repo environment variables, which means they are still **decrypted and injected into every sandbox** as environment variables. That is pointless noise, and `DAYTONA_API_KEY` is a live credential sitting in the database for a service no longer in use.
 
-For each team and each repo, in **Settings → Environment Variables**, delete:
+`migrations:removeDaytonaEnvVars` strips both keys from every `teamEnvVars` and
+`repoEnvVars` doc. Once it is deployed:
+
+```
+npx convex run migrations:removeDaytonaEnvVars '{"dryRun":true}' --prod  # count only
+npx convex run migrations:removeDaytonaEnvVars --prod                   # delete
+```
+
+Then delete the migration file per the usual convention. Keys it removes:
 
 - `SANDBOX_PROVIDER` (any value — `vercel` and `daytona` are both inert now)
 - `DAYTONA_API_KEY`
@@ -20,7 +28,7 @@ Then:
 - **Check the Daytona account for orphaned sandboxes.** Eva can no longer stop or delete them, so anything left running there may still be billing. Every session/task/project that had a Daytona sandbox now creates a fresh Vercel one instead, so nothing in Daytona is still needed.
 - Consider closing the Daytona account entirely once the above is confirmed empty.
 
-Also remove the now-stale test expectations in `packages/backend/tests/envVarListDisplay.test.ts`, which assert display behaviour for `SANDBOX_PROVIDER` and `DAYTONA_API_KEY`.
+Done alongside the migration: the plaintext env-var mechanism (`PLAINTEXT_ENV_VAR_KEYS` / `isPlaintextEnvVarKey`, which existed only for the removed `SANDBOX_PROVIDER` toggle) was deleted, list queries now always mask, upserts always encrypt, and the stale `envVarListDisplay.test.ts` expectations went with it.
 
 ## 2. Rebuild snapshots that still point at Daytona names
 

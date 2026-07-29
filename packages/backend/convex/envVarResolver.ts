@@ -116,7 +116,7 @@ async function resolveVercelCredentialsForRepo(
     if (!teamId) missing.push("VERCEL_TEAM_ID");
     if (!projectId) missing.push("VERCEL_PROJECT_ID");
     throw new Error(
-      `SANDBOX_PROVIDER=vercel requires ${missing.join(", ")}. ` +
+      `Vercel sandbox credentials missing: ${missing.join(", ")}. ` +
         `VERCEL_PROJECT_ID must be set on this app repo (not borrowed from a sibling).`,
     );
   }

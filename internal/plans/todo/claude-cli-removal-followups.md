@@ -24,7 +24,8 @@ the daemon gates off, so clean these up promptly.
 
 - `CLAUDE_BIN_PATH` — the SDK does not bundle a CLI; it spawns the
   `claude` executable via `pathToClaudeCodeExecutable`
-  (`claudeSdk.ts` -> `claudeExecutablePath()`). Keep.
+  (`claudeSdk.ts` -> `claudeExecutablePath()`, which prefers `claude` on
+  PATH and falls back to this path when the global install is missing). Keep.
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in `launch.ts` — still applies to
   the SDK-spawned executable. Keep.
 - Global `npm install -g @anthropic-ai/claude-code` in the snapshot image —

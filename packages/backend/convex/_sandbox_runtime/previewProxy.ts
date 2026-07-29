@@ -122,7 +122,7 @@ async function resolvePreviewProxyPort(
   }
 
   throw new Error(
-    `No available Daytona preview proxy port in ${PROXY_PORT_MIN}-${PROXY_PORT_MAX}`,
+    `No available preview proxy port in ${PROXY_PORT_MIN}-${PROXY_PORT_MAX}`,
   );
 }
 

@@ -6,7 +6,7 @@ import {
 } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
-import { envVarListDisplayValue } from "./_envVars/listDisplay";
+import { MASKED_ENV_VAR_VALUE } from "./_envVars/listDisplay";
 
 /** Loads the single env var document for a repo, or null if none exists. */
 function findByRepo(db: DatabaseReader, repoId: Id<"githubRepos">) {
@@ -31,7 +31,7 @@ export const list = authQuery({
     if (!doc) return [];
     return doc.vars.map((entry) => ({
       key: entry.key,
-      value: envVarListDisplayValue(entry.key, entry.value),
+      value: MASKED_ENV_VAR_VALUE,
       sandboxExclude: entry.sandboxExclude ?? false,
     }));
   },

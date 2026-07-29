@@ -1,5 +1,13 @@
 # Changelog
 
+## Daytona env-var leftovers and Claude bin fallback - 2026-07-29
+
+Daytona is gone as a sandbox provider, but team/repo env docs still carried `DAYTONA_API_KEY` and `SANDBOX_PROVIDER`, and the plaintext list/upsert path that existed only for the old provider toggle was still live. The Claude SDK daemon also lost a real bin fallback when the CLI lives under a `/tmp` npm prefix that is not on `PATH`.
+
+- Always mask on list and always encrypt on upsert for team/repo env vars; the plaintext carve-out and its test are gone.
+- Migration `migrations:removeDaytonaEnvVars` strips the two dead keys (dry-run supported) so prod can clear injected Daytona credentials after deploy.
+- Callback restores `CLAUDE_BIN_PATH` after `PATH`, drops dead `CLAUDE_PREWARM`, and removes the stale extract-callback-script that pointed at deleted `_daytona/` paths.
+
 ## VITE_NEW_LANDING is back, and there is a compact page behind it - 2026-07-27
 
 The full marketing page is a long scroll with sixteen animated feature previews, and not every instance wants to serve that. `VITE_NEW_LANDING` returns to choose between it and a new compact page — but the flag now defaults the other way round from last time. Set it to `"true"` for the full page; anything else, including unset, gets the compact one.

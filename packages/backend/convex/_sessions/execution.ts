@@ -206,7 +206,7 @@ export const startExecute = authMutation({
 /**
  * Fired when a session page opens: boot the Claude daemon ahead of the user's
  * first message so that message is warm instead of paying a ~20s cold respawn.
- * No-op unless the session already has a sandbox and is in sdk-daemon mode.
+ * No-op unless the session already has a sandbox (Claude warm-daemon path).
  * Best-effort and cheap to call repeatedly (the action skips if already warm).
  */
 export const prewarmDaemon = authMutation({

@@ -12,11 +12,9 @@ the daemon gates off, so clean these up promptly.
 - [x] **Unset `CLAUDE_ATTEMPT_MODE` on Convex deployments** (prod
       `sensible-woodpecker-357` and dev `good-mule-506`, 2026-07-29). Unset =
       `sdk-daemon`. Keep only if a deployment deliberately wants one-shot `sdk`.
-- [ ] After all deployments are unset, consider **deleting the
-      `CLAUDE_ATTEMPT_MODE` env var entirely** (drop the `sdk` one-shot mode,
-      keep the one-shot SDK runner only as the internal non-session /
-      daemon-fallback path). Touchpoints: - `callback-src/config.ts` (`CLAUDE_ATTEMPT_MODE` const) - `callback-src/index.ts` (daemon entry gate) - `callback-src/runtime/pendingQuestion.ts` (`Agent`/`Task`
-      run_in_background force-foreground gate is skipped in daemon mode) - `callback-src/tests/pendingQuestion.test.ts` (sets the env var) - `convex/_sandbox_runtime/launch.ts` (env forwarding block) - `convex/_sandbox_runtime/execution.ts` (prewarm guard)
+- [x] **Deleted `CLAUDE_ATTEMPT_MODE` from code** (2026-07-29). Chat with
+      `CLAIM_MUTATION` always enters the warm daemon; job runs stay on the
+      one-shot SDK runner. No deploy-time mode switch remains.
 
 ## Env vars checked and still needed (do not remove)
 

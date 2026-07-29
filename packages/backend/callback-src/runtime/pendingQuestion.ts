@@ -1,4 +1,4 @@
-import { ENTITY_ID, CLAUDE_ATTEMPT_MODE } from "../config.js";
+import { CLAIM_MUTATION, ENTITY_ID } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
@@ -85,12 +85,13 @@ function parseAnswers(answerJson: string): Record<string, JsonLike> {
  */
 export function buildCanUseTool(): SdkCanUseTool {
   return async (toolName, input, options) => {
-    // Policy A: Bash may background (session panel tracks/kills it), but
-    // Agent/Task sub-agents must stay foreground so the SDK result still
-    // covers their work. Named `Agent` since Claude Code v2.1.63; older CLIs
+    // Policy A: Bash may background (session panel tracks/kills it), but on
+    // one-shot job runs (no CLAIM_MUTATION) Agent/Task sub-agents must stay
+    // foreground so the SDK result still covers their work. Warm daemon chat
+    // allows background. Named `Agent` since Claude Code v2.1.63; older CLIs
     // still emit `Task`.
     if (
-      CLAUDE_ATTEMPT_MODE !== "sdk-daemon" &&
+      !CLAIM_MUTATION &&
       (toolName === "Agent" || toolName === "Task") &&
       input.run_in_background === true
     ) {

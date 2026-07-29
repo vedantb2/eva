@@ -33,7 +33,6 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
 var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -4191,7 +4190,7 @@ function parseAnswers(answerJson) {
 }
 function buildCanUseTool() {
   return async (toolName, input, options) => {
-    if (CLAUDE_ATTEMPT_MODE !== "sdk-daemon" && (toolName === "Agent" || toolName === "Task") && input.run_in_background === true) {
+    if (!CLAIM_MUTATION && (toolName === "Agent" || toolName === "Task") && input.run_in_background === true) {
       return {
         behavior: "allow",
         updatedInput: { ...input, run_in_background: false }
@@ -5524,7 +5523,7 @@ try {
 } catch {
 }
 callbackState.lastStepType = "thinking";
-if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && CLAIM_MUTATION) {
+if (PROVIDER === "claude" && CLAIM_MUTATION) {
   await runSdkDaemon();
 }
 var preflightOk = await runPreflightHeartbeat();

@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-const originalMode = process.env.CLAUDE_ATTEMPT_MODE;
+const originalClaim = process.env.CLAIM_MUTATION;
 
 afterEach(() => {
-  if (originalMode === undefined) {
-    delete process.env.CLAUDE_ATTEMPT_MODE;
+  if (originalClaim === undefined) {
+    delete process.env.CLAIM_MUTATION;
   } else {
-    process.env.CLAUDE_ATTEMPT_MODE = originalMode;
+    process.env.CLAIM_MUTATION = originalClaim;
   }
   vi.resetModules();
 });
 
 describe("buildCanUseTool Agent/Task background policy", () => {
-  test("sdk-daemon allows run_in_background for Agent", async () => {
-    process.env.CLAUDE_ATTEMPT_MODE = "sdk-daemon";
+  test("daemon (CLAIM_MUTATION set) allows run_in_background for Agent", async () => {
+    process.env.CLAIM_MUTATION = "sessionWorkflow:claimPendingTurn";
     vi.resetModules();
     const { buildCanUseTool } = await import("../runtime/pendingQuestion.js");
     const canUseTool = buildCanUseTool();
@@ -28,8 +28,8 @@ describe("buildCanUseTool Agent/Task background policy", () => {
     }
   });
 
-  test("sdk mode coerces Agent to foreground", async () => {
-    process.env.CLAUDE_ATTEMPT_MODE = "sdk";
+  test("one-shot (no CLAIM_MUTATION) coerces Agent to foreground", async () => {
+    delete process.env.CLAIM_MUTATION;
     vi.resetModules();
     const { buildCanUseTool } = await import("../runtime/pendingQuestion.js");
     const canUseTool = buildCanUseTool();

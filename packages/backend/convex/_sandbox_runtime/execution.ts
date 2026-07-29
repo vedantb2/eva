@@ -1149,12 +1149,6 @@ async function runPrewarmEntityDaemon(
   args: PrewarmEntityDaemonParams,
 ): Promise<{ prewarmed: boolean }> {
   const startedAt = Date.now();
-  // The warm daemon only runs in sdk-daemon mode (also the unset/default).
-  // In one-shot `sdk` mode a prewarm would launch a runner with an empty
-  // prompt that nothing consumes, so no-op.
-  if ((process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon") !== "sdk-daemon") {
-    return { prewarmed: false };
-  }
   if (args.skipPrewarm === true) {
     return { prewarmed: false };
   }
@@ -1319,7 +1313,7 @@ async function runPrewarmEntityDaemon(
 
 /**
  * Pre-warm a warm Claude daemon for any entity (session, task chat, project chat).
- * No-op if sdk-daemon mode is off, provider is non-Claude, or a matching daemon
+ * No-op if provider is non-Claude, or a matching daemon
  * is already alive. Best-effort: failures are swallowed.
  */
 export const prewarmEntityDaemon = internalAction({

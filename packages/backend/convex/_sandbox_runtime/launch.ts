@@ -220,14 +220,6 @@ export async function launchScript(
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CURSOR_BIN_PATH=${quote([CURSOR_FALLBACK_BIN_PATH])}`,
   ];
-  // Deployment-level switch for Claude Agent SDK runtime shape: `sdk` (one-shot
-  // query per turn) vs `sdk-daemon` (persistent warm session; callback default
-  // when unset). Forward when set so a deployment can opt into one-shot SDK.
-  if (process.env.CLAUDE_ATTEMPT_MODE) {
-    envParts.push(
-      `CLAUDE_ATTEMPT_MODE=${quote([process.env.CLAUDE_ATTEMPT_MODE])}`,
-    );
-  }
   if (streamingHmac) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,

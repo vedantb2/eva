@@ -7,7 +7,6 @@ import {
 } from "fs";
 import {
   ALLOWED_TOOLS,
-  CLAUDE_ATTEMPT_MODE,
   CLAIM_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
@@ -85,13 +84,10 @@ try {
 
 S.lastStepType = "thinking";
 
-// Persistent warm-session daemon path (Claude, any entity with CLAIM_MUTATION).
-// Keeps one warm query() across turns instead of respawning per turn.
-if (
-  CLAUDE_ATTEMPT_MODE === "sdk-daemon" &&
-  PROVIDER === "claude" &&
-  CLAIM_MUTATION
-) {
+// Persistent warm-session daemon (Claude chat entities with CLAIM_MUTATION).
+// Job runs (tasks / automations / arena) omit CLAIM_MUTATION and use one-shot
+// SDK below. Keeps one warm query() across turns instead of respawning per turn.
+if (PROVIDER === "claude" && CLAIM_MUTATION) {
   await runSdkDaemon();
 }
 

@@ -34,13 +34,6 @@ export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /**
- * Claude runtime: `"sdk"` = one-shot Agent SDK `query()` per turn;
- * `"sdk-daemon"` = persistent warm-session daemon (default). The legacy CLI
- * spawn path (`claude -p`) has been removed.
- */
-export const CLAUDE_ATTEMPT_MODE =
-  process.env.CLAUDE_ATTEMPT_MODE || "sdk-daemon";
-/**
  * Human-in-the-loop AskUserQuestion. The Agent SDK exposes the `canUseTool`
  * pause needed to block a turn on an answer, and only sessions currently wire the
  * answering UI — so this is gated to session runs. Elsewhere AskUserQuestion

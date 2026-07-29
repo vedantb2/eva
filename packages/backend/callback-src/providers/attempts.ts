@@ -53,9 +53,9 @@ export function syncProviderStateToPersist(reason: string): void {
 }
 
 /**
- * Claude always runs via the Agent SDK. `sdk-daemon` session flows enter the
- * persistent daemon earlier in index.ts; non-session flows and daemon fallbacks
- * land here on the one-shot SDK runner.
+ * Claude always runs via the Agent SDK. Chat entities with CLAIM_MUTATION enter
+ * the persistent daemon earlier in index.ts; job runs and daemon fallbacks land
+ * here on the one-shot SDK runner.
  */
 async function runClaudeAttempt(sessionMode: SessionMode) {
   return await runClaudeSdkAttempt(sessionMode);

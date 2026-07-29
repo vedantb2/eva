@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   IconKey,
@@ -14,11 +13,11 @@ import {
   IconSparkles,
   IconLayoutGrid,
 } from "@tabler/icons-react";
-import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
   sidebarNavLinkClassCompact,
+  sidebarSectionLabelClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface SettingsSidebarProps {
@@ -34,22 +33,9 @@ export function SettingsSidebar({
 }: SettingsSidebarProps) {
   const baseUrl = `${basePath}/settings`;
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    GENERAL: true,
-    SANDBOX: true,
-    REVIEW: true,
-  });
-
-  const toggleSection = (label: string) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [label]: !(prev[label] ?? true),
-    }));
-  };
-
   const navigationGroups = [
     {
-      label: "GENERAL",
+      label: "General",
       items: [
         { name: "Repository", href: `${baseUrl}/config`, icon: IconSettings2 },
         { name: "Skills", href: `${baseUrl}/skills`, icon: IconSparkles },
@@ -57,7 +43,7 @@ export function SettingsSidebar({
       ],
     },
     {
-      label: "SANDBOX",
+      label: "Sandbox",
       items: [
         { name: "App", href: `${baseUrl}/app`, icon: IconTerminal2 },
         { name: "Tabs", href: `${baseUrl}/tabs`, icon: IconLayoutGrid },
@@ -70,7 +56,7 @@ export function SettingsSidebar({
       ],
     },
     {
-      label: "REVIEW",
+      label: "Review",
       items: [
         { name: "Audits", href: `${baseUrl}/audits`, icon: IconShieldCheck },
         { name: "MCP Config", href: `${baseUrl}/mcp-config`, icon: IconPlug },
@@ -82,32 +68,30 @@ export function SettingsSidebar({
   return (
     <SharedLayoutNav layoutId="settings-nav" className="space-y-4">
       {navigationGroups.map((group) => (
-        <CollapsibleSidebarSection
-          key={group.label}
-          label={group.label}
-          open={openSections[group.label] ?? true}
-          onToggle={() => toggleSection(group.label)}
-        >
-          {group.items.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            return (
-              <SharedLayoutNavSurface
-                key={item.name}
-                itemId={item.name}
-                isActive={isActive}
-              >
-                <Link
-                  to={item.href}
-                  onClick={onNavigate}
-                  className={sidebarNavLinkClassCompact(isActive)}
+        <div key={group.label}>
+          <p className={sidebarSectionLabelClass}>{group.label}</p>
+          <div className="space-y-1">
+            {group.items.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              return (
+                <SharedLayoutNavSurface
+                  key={item.name}
+                  itemId={item.name}
+                  isActive={isActive}
                 >
-                  <item.icon size={14} />
-                  <span>{item.name}</span>
-                </Link>
-              </SharedLayoutNavSurface>
-            );
-          })}
-        </CollapsibleSidebarSection>
+                  <Link
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={sidebarNavLinkClassCompact(isActive)}
+                  >
+                    <item.icon size={14} />
+                    <span>{item.name}</span>
+                  </Link>
+                </SharedLayoutNavSurface>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </SharedLayoutNav>
   );

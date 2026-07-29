@@ -20,16 +20,29 @@ import {
   setMode,
   openProjectModal,
 } from "./toolbar-state";
-import { subscribeDark, getDark } from "./theme";
+import {
+  subscribeAppearance,
+  getAppearance,
+  type ExtensionAppearance,
+} from "./theme";
+import {
+  toolbarBackground,
+  toolbarBorder,
+  toolbarBoxShadow,
+  toolbarTextColor,
+  toolbarDividerBackground,
+  toolbarMutedColor,
+  toolbarIconClasses,
+} from "./appearance-styles";
 import { getPageUrl } from "./page-url";
 import { Button } from "@eva/ui";
 import { requestBackground, type BgError } from "@/shared/messaging";
 
-function dividerStyle(dark: boolean): React.CSSProperties {
+function dividerStyle(appearance: ExtensionAppearance): React.CSSProperties {
   return {
     width: 1,
     height: 24,
-    background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)",
+    background: toolbarDividerBackground(appearance),
   };
 }
 
@@ -52,7 +65,7 @@ function applyErrorFeedback(err: BgError): void {
 export function PageToolbar() {
   const toolbar = useSyncExternalStore(subscribeToolbar, getToolbarState);
   const ext = useSyncExternalStore(subscribeAnnotation, getAnnotationState);
-  const dark = useSyncExternalStore(subscribeDark, getDark);
+  const appearance = useSyncExternalStore(subscribeAppearance, getAppearance);
   const dragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
@@ -130,16 +143,12 @@ export function PageToolbar() {
     gap: 10,
     padding: "8px 16px",
     borderRadius: 9999,
-    background: dark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)",
+    background: toolbarBackground(appearance),
     backdropFilter: "blur(12px)",
-    boxShadow: dark
-      ? "0 4px 24px rgba(0,0,0,0.25)"
-      : "0 4px 24px rgba(0,0,0,0.1)",
-    border: dark
-      ? "1px solid rgba(255,255,255,0.1)"
-      : "1px solid rgba(0,0,0,0.08)",
+    boxShadow: toolbarBoxShadow(appearance),
+    border: toolbarBorder(appearance),
     fontSize: 14,
-    color: dark ? "#e4e4e7" : "#27272a",
+    color: toolbarTextColor(appearance),
     whiteSpace: "nowrap",
     cursor: dragging.current ? "grabbing" : "grab",
     userSelect: "none",
@@ -150,7 +159,7 @@ export function PageToolbar() {
   };
 
   const modeButtonClass = (active: boolean) =>
-    `w-8 h-8 ${active ? "text-[#109182]" : dark ? "text-neutral-400" : "text-neutral-500"}`;
+    `w-8 h-8 ${active ? "text-[#109182]" : toolbarIconClasses(appearance)}`;
 
   return (
     <div
@@ -163,7 +172,7 @@ export function PageToolbar() {
       <span style={{ fontWeight: 600, color: "#109182", fontSize: 14 }}>
         Eva
       </span>
-      <div style={dividerStyle(dark)} />
+      <div style={dividerStyle(appearance)} />
 
       <Button
         variant="ghost"
@@ -202,8 +211,8 @@ export function PageToolbar() {
         <IconCrosshair size={18} />
       </Button>
 
-      <div style={dividerStyle(dark)} />
-      <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 13 }}>
+      <div style={dividerStyle(appearance)} />
+      <span style={{ color: toolbarMutedColor(appearance), fontSize: 13 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
       </span>
       <Button
@@ -217,7 +226,7 @@ export function PageToolbar() {
       >
         {ext.pinsHidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
       </Button>
-      <div style={dividerStyle(dark)} />
+      <div style={dividerStyle(appearance)} />
 
       {toolbar.feedback ? (
         toolbar.feedback.action === "sign_in" ? (

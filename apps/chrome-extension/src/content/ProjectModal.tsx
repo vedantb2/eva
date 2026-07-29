@@ -1,5 +1,11 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
-import { subscribeDark, getDark } from "./theme";
+import { subscribeAppearance, getAppearance } from "./theme";
+import {
+  surfaceClasses,
+  subtleTextClasses,
+  inputClasses,
+  secondaryButtonClasses,
+} from "./appearance-styles";
 import {
   getToolbarState,
   subscribeToolbar,
@@ -19,7 +25,7 @@ interface ProjectItem {
 
 export function ProjectModal() {
   const toolbar = useSyncExternalStore(subscribeToolbar, getToolbarState);
-  const dark = useSyncExternalStore(subscribeDark, getDark);
+  const appearance = useSyncExternalStore(subscribeAppearance, getAppearance);
   const open = toolbar.projectModalOpen;
 
   const [loading, setLoading] = useState(false);
@@ -77,10 +83,8 @@ export function ProjectModal() {
     }
   };
 
-  const surface = dark
-    ? "bg-neutral-800 border-neutral-700 text-neutral-100"
-    : "bg-white border-neutral-200 text-neutral-800";
-  const subtle = dark ? "text-neutral-400" : "text-neutral-500";
+  const surface = surfaceClasses(appearance);
+  const subtle = subtleTextClasses(appearance);
 
   return (
     <div
@@ -118,11 +122,7 @@ export function ProjectModal() {
               setNewTitle(e.target.value);
               setSelectedId(null);
             }}
-            className={`w-full rounded-lg border px-2.5 py-2 text-sm outline-none ${
-              dark
-                ? "bg-neutral-900 border-neutral-700 text-neutral-100 placeholder-neutral-500"
-                : "bg-neutral-50 border-neutral-200 text-neutral-800 placeholder-neutral-400"
-            }`}
+            className={`w-full rounded-lg border px-2.5 py-2 text-sm outline-none ${inputClasses(appearance)}`}
             style={{ boxSizing: "border-box" }}
           />
 
@@ -146,9 +146,7 @@ export function ProjectModal() {
                     className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-sm text-left cursor-pointer transition-colors ${
                       active
                         ? "bg-[#109182] border-[#109182] text-white"
-                        : dark
-                          ? "bg-neutral-900 border-neutral-700 hover:bg-neutral-700"
-                          : "bg-neutral-50 border-neutral-200 hover:bg-neutral-100"
+                        : secondaryButtonClasses(appearance)
                     }`}
                   >
                     <span className="truncate">{project.title}</span>

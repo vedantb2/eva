@@ -6,11 +6,26 @@ import {
   useEffect,
   useSyncExternalStore,
 } from "react";
-import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import {
+  isPersistedTheme,
+  useThemeMode,
+  type ThemeMode,
+} from "@/lib/hooks/useThemeMode";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { writeCustomThemeHint } from "@/lib/contexts/themeHint";
+
+/** Next Light → Neutral → Dark → Light. System uses resolved appearance as the start. */
+function nextCycledTheme(
+  theme: ThemeMode,
+  appearance: "light" | "neutral" | "dark",
+): "light" | "neutral" | "dark" {
+  const current = theme === "system" ? appearance : theme;
+  if (current === "light") return "neutral";
+  if (current === "neutral") return "dark";
+  return "light";
+}
 
 /**
  * Tailwind chromatic accents, the Tailwind grey ramps, and four muted hues of
@@ -91,8 +106,8 @@ export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
 }
 
 interface ThemeContextType {
-  theme: "light" | "dark" | "system";
-  setTheme: (theme: "light" | "dark" | "system") => void;
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
   mounted: boolean;
   customTheme: CustomTheme;
@@ -765,7 +780,7 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
 export { ACCENT_COLORS };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, setTheme: setNextTheme } = useThemeMode();
+  const { theme, appearance, setTheme: setNextTheme } = useThemeMode();
   // Client-only gate without setState-in-effect (SSR snapshot = false).
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -795,26 +810,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (syncedCustomTheme === undefined) return;
     const customTheme = syncedCustomTheme ?? {};
-    const isDark = theme === "dark";
-    applyCustomThemeVars(customTheme, isDark);
-  }, [syncedCustomTheme, theme]);
+    // Neutral is dark-family — accent `.dark` rules apply via the `dark` class.
+    applyCustomThemeVars(customTheme, appearance !== "light");
+  }, [syncedCustomTheme, appearance]);
 
-  const setTheme = (next: "light" | "dark" | "system") => {
+  const setTheme = (next: ThemeMode) => {
     setNextTheme(next);
-    if (next === "light" || next === "dark") {
+    if (isPersistedTheme(next)) {
       setThemeMutation({ theme: next });
     }
   };
 
   const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
+    setTheme(nextCycledTheme(theme, appearance));
   };
 
   const setCustomTheme = (customTheme: CustomTheme) => {
     setCustomThemeMutation({ customTheme });
-    const isDark = theme === "dark";
-    applyCustomThemeVars(customTheme, isDark);
+    applyCustomThemeVars(customTheme, appearance !== "light");
   };
 
   const customTheme: CustomTheme = syncedCustomTheme ?? {};
@@ -822,7 +835,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
     <ThemeContext.Provider
       value={{
-        theme: theme || "dark",
+        theme,
         setTheme,
         toggleTheme,
         mounted,

@@ -26,7 +26,7 @@ import {
   type LetterSpacing,
   type RadiusSize,
 } from "@/lib/contexts/ThemeContext";
-import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { type ThemeMode } from "@/lib/hooks/useThemeMode";
 import type { RolePresetKey } from "@/lib/components/personalisation/RolePresetPicker";
 import { WelcomeSetupStepIndicator } from "./_components/WelcomeSetupStepIndicator";
 import { WelcomeSetupIntroStep } from "./_components/WelcomeSetupIntroStep";
@@ -77,7 +77,6 @@ export function WelcomeSetupDialog() {
 
   const { theme, setTheme, customTheme, setCustomTheme, mounted } =
     useThemeContext();
-  const { setTheme: setNextTheme } = useThemeMode();
 
   const previewSearchKey = useDevPreviewSearchKey();
   const isPreview = useDevWelcomeSetupPreview();
@@ -95,16 +94,10 @@ export function WelcomeSetupDialog() {
   }
 
   const resolved = resolveCustomTheme(customTheme);
-  const currentMode =
-    theme === "dark" ? "dark" : theme === "light" ? "light" : "system";
   const isLastStep = step === TOTAL_STEPS;
 
-  const handleModeChange = (mode: "light" | "dark" | "system") => {
-    if (mode === "system") {
-      setNextTheme("system");
-    } else {
-      setTheme(mode);
-    }
+  const handleModeChange = (mode: ThemeMode) => {
+    setTheme(mode);
   };
 
   const handleAccentChange = (color: AccentColor) => {
@@ -193,7 +186,7 @@ export function WelcomeSetupDialog() {
             ) : null}
             {step === 3 ? (
               <WelcomeSetupThemeStep
-                currentMode={currentMode}
+                currentMode={theme}
                 accentColor={resolved.accentColor}
                 onModeChange={handleModeChange}
                 onAccentChange={handleAccentChange}

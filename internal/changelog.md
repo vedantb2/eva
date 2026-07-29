@@ -1,5 +1,9 @@
 # Changelog
 
+## Neutral theme - 2026-07-30
+
+Dark was near-black and harsh for some users; Light felt too bright. Appearance now includes **Neutral** — a soft-dark mid option (light text on lifted gray surfaces) between Light and Dark, persisted like the others, with System still resolving to OS light/dark only. Settings/onboarding use a 2×2 picker; the sidebar cycles Light → Neutral → Dark; the chrome extension and landing follow the same three-way look.
+
 ## Design as a session mode - 2026-07-30
 
 Design is no longer a parallel `designSessions` product — it's a third session mode (Edit | PRD | Design) on the same URL, sandbox, and chat history. Design turns use the normal session execute path (Claude daemon / Cursor one-shot), surface variations in a Designs sandbox tab, and the old `/designs` routes + table are gone after a wipe migration.

@@ -1,34 +1,57 @@
 import { useEffect, useState } from "react";
-import { ThemeModeContext } from "@/lib/hooks/useThemeMode";
-import type { ThemeMode } from "@/lib/hooks/useThemeMode";
+import {
+  ThemeModeContext,
+  appearanceToResolvedTheme,
+  type ThemeAppearance,
+  type ThemeMode,
+} from "@/lib/hooks/useThemeMode";
 import {
   CUSTOM_THEME_HINT_KEY,
   writeThemeAppearanceHint,
 } from "@/lib/contexts/themeHint";
 
-function getSystemTheme(): "light" | "dark" {
+function getSystemAppearance(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
 
-function resolveTheme(theme: ThemeMode): "light" | "dark" {
-  return theme === "system" ? getSystemTheme() : theme;
+function resolveAppearance(theme: ThemeMode): ThemeAppearance {
+  return theme === "system" ? getSystemAppearance() : theme;
 }
 
-function applyTheme(resolved: "light" | "dark") {
-  document.documentElement.classList.toggle("dark", resolved === "dark");
-  writeThemeAppearanceHint(resolved);
+/**
+ * Apply DOM classes for the resolved appearance.
+ * Neutral is dark-family: `class="dark neutral"` so Tailwind `dark:` keeps working
+ * while `.dark.neutral` surface tokens lift the near-black Dark palette.
+ */
+function applyAppearance(appearance: ThemeAppearance) {
+  const root = document.documentElement;
+  root.classList.toggle(
+    "dark",
+    appearance === "dark" || appearance === "neutral",
+  );
+  root.classList.toggle("neutral", appearance === "neutral");
+  writeThemeAppearanceHint(appearance);
 }
 
 function isValidTheme(value: string): value is ThemeMode {
-  return value === "dark" || value === "light" || value === "system";
+  return (
+    value === "dark" ||
+    value === "light" ||
+    value === "neutral" ||
+    value === "system"
+  );
+}
+
+function isAppearance(value: string): value is ThemeAppearance {
+  return value === "light" || value === "neutral" || value === "dark";
 }
 
 /**
  * Seed in-memory theme from the FOUC hint (or legacy `theme` key) so the first
  * client render matches index.html. Convex remains source of truth via
- * ThemeProvider — we no longer persist light/dark to localStorage `"theme"`.
+ * ThemeProvider — we no longer persist preference to localStorage `"theme"`.
  */
 function readInitialTheme(): ThemeMode {
   try {
@@ -41,7 +64,7 @@ function readInitialTheme(): ThemeMode {
         !Array.isArray(parsed)
       ) {
         const appearance = Reflect.get(parsed, "appearance");
-        if (appearance === "light" || appearance === "dark") {
+        if (typeof appearance === "string" && isAppearance(appearance)) {
           return appearance;
         }
       }
@@ -60,29 +83,32 @@ function readInitialTheme(): ThemeMode {
 
 export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(readInitialTheme);
-  const resolvedTheme = resolveTheme(theme);
+  const appearance = resolveAppearance(theme);
+  const resolvedTheme = appearanceToResolvedTheme(appearance);
 
   const setTheme = (t: ThemeMode) => {
     setThemeState(t);
-    applyTheme(resolveTheme(t));
+    applyAppearance(resolveAppearance(t));
   };
 
   useEffect(() => {
-    applyTheme(resolvedTheme);
-  }, [resolvedTheme]);
+    applyAppearance(appearance);
+  }, [appearance]);
 
   useEffect(() => {
     if (theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      applyTheme(getSystemTheme());
+      applyAppearance(getSystemAppearance());
     };
     mql.addEventListener("change", handler);
     return () => mql.removeEventListener("change", handler);
   }, [theme]);
 
   return (
-    <ThemeModeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeModeContext.Provider
+      value={{ theme, appearance, resolvedTheme, setTheme }}
+    >
       {children}
     </ThemeModeContext.Provider>
   );

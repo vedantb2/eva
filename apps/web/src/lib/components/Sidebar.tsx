@@ -12,11 +12,11 @@ import {
   IconMenu2,
   IconMoon,
   IconSun,
+  IconCircleHalf,
   IconX,
 } from "@tabler/icons-react";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
@@ -286,14 +286,13 @@ export function Sidebar() {
           onClick={toggleTheme}
           aria-label="Toggle theme"
         >
-          <CrossfadeIcon
-            show={theme === "dark"}
-            trueKey="sun"
-            falseKey="moon"
-            className="relative flex size-[18px] items-center justify-center"
-            whenTrue={<IconSun size={18} className="text-muted-foreground" />}
-            whenFalse={<IconMoon size={18} className="text-muted-foreground" />}
-          />
+          {theme === "dark" ? (
+            <IconSun size={18} className="text-muted-foreground" />
+          ) : theme === "neutral" ? (
+            <IconMoon size={18} className="text-muted-foreground" />
+          ) : (
+            <IconCircleHalf size={18} className="text-muted-foreground" />
+          )}
         </Button>
       </header>
 

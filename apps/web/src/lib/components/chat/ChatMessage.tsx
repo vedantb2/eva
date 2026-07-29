@@ -19,6 +19,7 @@ import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
 import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
+import { ChatMessageContextMenu } from "@/lib/components/chat/ChatMessageContextMenu";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
@@ -29,6 +30,7 @@ import { UserMessageAttachments } from "@/lib/components/chat/imageAttachments";
 import { ChangedFilesCard } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import type {
   ParsedQuestion,
   ChatBodyMessage,
@@ -144,204 +146,216 @@ export const ChatMessage = memo(function ChatMessage({
   const { isStreamingPlaceholder, showQuestions, changedFiles } =
     getAssistantTurnState(message, isLast);
 
+  const copySource =
+    message.content.trim().length > 0
+      ? message.content
+      : (streamingContent ?? "");
+  const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
+
   return (
-    <m.div
-      key={message._id}
-      data-message-id={message._id}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <AIMessage
-        from={message.role}
-        className={
-          isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
-        }
+    <ChatMessageContextMenu content={copySource}>
+      <m.div
+        key={message._id}
+        data-message-id={message._id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       >
-        {isOtherUser && senderFirstName ? (
-          <span className="px-1 text-[11px] font-medium text-muted-foreground">
-            {senderFirstName}
-          </span>
-        ) : null}
-        <MessageContent
+        <AIMessage
+          from={message.role}
           className={
-            message.role === "user"
-              ? cn(
-                  "group bg-secondary px-4 py-3 text-foreground",
-                  isOtherUser && "group-[.is-user]:ml-0",
-                )
-              : "px-1 py-2"
-          }
-          style={
-            message.role === "user"
-              ? { borderRadius: userBubbleRadius(isOtherUser) }
-              : undefined
+            isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
           }
         >
-          {isStreamingPlaceholder ? (
-            <>
-              <StreamingActivityDisplay
-                activity={streamingActivity}
-                name="Eva"
-                startedAt={message.timestamp}
-                onOpenFile={onOpenFile}
-              />
-              {streamingContent ? (
-                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
-                  {streamingContent}
-                </MessageResponse>
-              ) : null}
-              {showQuestions && blockingQuestions ? (
-                <div className="mt-3">
-                  <MultipleChoiceQuestion
-                    questions={blockingQuestions}
-                    onAnswer={onQuestionAnswer}
-                    onAnswerStructured={onBlockingAnswer}
-                    isLoading={isQuestionLoading}
-                  />
-                </div>
-              ) : showQuestions && activePendingQuestion ? (
-                <div className="mt-3">
-                  <MultipleChoiceQuestion
-                    questions={activePendingQuestion}
-                    onAnswer={onQuestionAnswer}
-                    isLoading={isQuestionLoading}
-                  />
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <>
-              {message.role === "assistant" ? (
-                <>
-                  {message.activityLog && (
-                    <ActivityLogDisplay
-                      activityLog={message.activityLog}
-                      name="Eva"
-                      icon={EVA_ICON}
-                      startedAt={message.timestamp}
-                      finishedAt={message.finishedAt}
-                      finalText={message.content}
-                      onOpenFile={onOpenFile}
-                    />
-                  )}
-                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                    {message.content}
-                  </MessageResponse>
-                  {changedFiles.length > 0 ? (
-                    <ChangedFilesCard
-                      files={changedFiles}
-                      onOpenFile={onOpenFile}
-                      onViewDiff={onViewDiff}
-                    />
-                  ) : null}
-                  {(message.media ?? []).map((entry, index) =>
-                    entry.url ? (
-                      entry.contentType?.startsWith("video/") ? (
-                        <VideoPreview key={index} url={entry.url} />
-                      ) : (
-                        <ScreenshotPreview key={index} url={entry.url} />
-                      )
-                    ) : null,
-                  )}
-                  {showQuestions && activePendingQuestion ? (
-                    <div className="mt-3">
-                      <MultipleChoiceQuestion
-                        questions={activePendingQuestion}
-                        onAnswer={onQuestionAnswer}
-                        isLoading={isQuestionLoading}
-                      />
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <UserMessageAttachments
-                    attachments={
-                      message.attachments ??
-                      message.attachmentUrls?.map((url) => ({
-                        url,
-                        contentType: url ? "image/*" : null,
-                      }))
-                    }
-                  />
-                  {message.content ? (
-                    <CollapsibleUserMessageBody text={message.content}>
-                      <ReviewCommentMessage
-                        text={message.content}
-                        repoBasePath={repoBasePath}
-                      />
-                    </CollapsibleUserMessageBody>
-                  ) : null}
-                </>
-              )}
-            </>
-          )}
-        </MessageContent>
-        {message.role === "assistant" ? (
-          <div className="mt-0.5 flex items-center gap-2">
-            {turnModel ? (
-              <MessageModelIcon
-                model={turnModel}
-                reasoningLevel={turnReasoningLevel}
-                credentialSourceLabel={turnCredentialSourceLabel}
-              />
-            ) : null}
-            {message.content ? (
-              <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                <ChatMessageActions
-                  copyText={message.content}
-                  className="ml-0.5"
-                  revealOnHover={false}
-                />
-                {message.finishedAt && message.timestamp ? (
-                  <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                    {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                    {formatDuration(message.timestamp, message.finishedAt)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {message.role === "user" && (
-          <div
-            className={cn(
-              "mt-0.5 flex items-center gap-2",
-              isOtherUser ? "mr-auto justify-start" : "ml-auto justify-end",
-            )}
+          {isOtherUser && senderFirstName ? (
+            <span className="px-1 text-[11px] font-medium text-muted-foreground">
+              {senderFirstName}
+            </span>
+          ) : null}
+          <MessageContent
+            className={
+              message.role === "user"
+                ? cn(
+                    "group bg-secondary px-4 py-3 text-foreground",
+                    isOtherUser && "group-[.is-user]:ml-0",
+                  )
+                : "px-1 py-2"
+            }
+            style={
+              message.role === "user"
+                ? { borderRadius: userBubbleRadius(isOtherUser) }
+                : undefined
+            }
           >
-            {isOtherUser ? <UserMessageAvatar userId={message.userId} /> : null}
-            <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-              {message.content ? (
-                <ChatMessageActions
-                  copyText={message.content}
-                  revealOnHover={false}
+            {isStreamingPlaceholder ? (
+              <>
+                <StreamingActivityDisplay
+                  activity={streamingActivity}
+                  name="Eva"
+                  startedAt={message.timestamp}
+                  onOpenFile={onOpenFile}
+                />
+                {streamingContent ? (
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                    {streamingContent}
+                  </MessageResponse>
+                ) : null}
+                {showQuestions && blockingQuestions ? (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={blockingQuestions}
+                      onAnswer={onQuestionAnswer}
+                      onAnswerStructured={onBlockingAnswer}
+                      isLoading={isQuestionLoading}
+                    />
+                  </div>
+                ) : showQuestions && activePendingQuestion ? (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={activePendingQuestion}
+                      onAnswer={onQuestionAnswer}
+                      isLoading={isQuestionLoading}
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {message.role === "assistant" ? (
+                  <>
+                    {message.activityLog && (
+                      <ActivityLogDisplay
+                        activityLog={message.activityLog}
+                        name="Eva"
+                        icon={EVA_ICON}
+                        startedAt={message.timestamp}
+                        finishedAt={message.finishedAt}
+                        finalText={message.content}
+                        onOpenFile={onOpenFile}
+                      />
+                    )}
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {message.content}
+                    </MessageResponse>
+                    {changedFiles.length > 0 ? (
+                      <ChangedFilesCard
+                        files={changedFiles}
+                        onOpenFile={onOpenFile}
+                        onViewDiff={onViewDiff}
+                      />
+                    ) : null}
+                    {(message.media ?? []).map((entry, index) =>
+                      entry.url ? (
+                        entry.contentType?.startsWith("video/") ? (
+                          <VideoPreview key={index} url={entry.url} />
+                        ) : (
+                          <ScreenshotPreview key={index} url={entry.url} />
+                        )
+                      ) : null,
+                    )}
+                    {showQuestions && activePendingQuestion ? (
+                      <div className="mt-3">
+                        <MultipleChoiceQuestion
+                          questions={activePendingQuestion}
+                          onAnswer={onQuestionAnswer}
+                          isLoading={isQuestionLoading}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <UserMessageAttachments
+                      attachments={
+                        message.attachments ??
+                        message.attachmentUrls?.map((url) => ({
+                          url,
+                          contentType: url ? "image/*" : null,
+                        }))
+                      }
+                    />
+                    {message.content ? (
+                      <CollapsibleUserMessageBody text={message.content}>
+                        <ReviewCommentMessage
+                          text={message.content}
+                          repoBasePath={repoBasePath}
+                        />
+                      </CollapsibleUserMessageBody>
+                    ) : null}
+                  </>
+                )}
+              </>
+            )}
+          </MessageContent>
+          {message.role === "assistant" ? (
+            <div className="mt-0.5 flex items-center gap-2">
+              {turnModel ? (
+                <MessageModelIcon
+                  model={turnModel}
+                  reasoningLevel={turnReasoningLevel}
+                  credentialSourceLabel={turnCredentialSourceLabel}
                 />
               ) : null}
-              {message.mode && (
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                  {message.mode === "plan" ? (
-                    <>
-                      <IconClipboardList className="w-2.5 h-2.5" /> Plan
-                    </>
-                  ) : (
-                    <>
-                      <IconCode className="w-2.5 h-2.5" /> Edit
-                    </>
-                  )}
+              {copyPlain ? (
+                <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                  <ChatMessageActions
+                    copyText={copyPlain}
+                    className="ml-0.5"
+                    revealOnHover={false}
+                  />
+                  {message.finishedAt && message.timestamp ? (
+                    <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                      {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                      {formatDuration(message.timestamp, message.finishedAt)}
+                    </span>
+                  ) : null}
                 </div>
+              ) : null}
+            </div>
+          ) : null}
+          {message.role === "user" && (
+            <div
+              className={cn(
+                "mt-0.5 flex items-center gap-2",
+                isOtherUser ? "mr-auto justify-start" : "ml-auto justify-end",
               )}
-              {message.timestamp && (
-                <span className="text-[11px] text-muted-foreground/60">
-                  {dayjs(message.timestamp).format("h:mm A")}
-                </span>
+            >
+              {isOtherUser ? (
+                <UserMessageAvatar userId={message.userId} />
+              ) : null}
+              <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                {copyPlain ? (
+                  <ChatMessageActions
+                    copyText={copyPlain}
+                    revealOnHover={false}
+                  />
+                ) : null}
+                {message.mode && (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                    {message.mode === "plan" ? (
+                      <>
+                        <IconClipboardList className="w-2.5 h-2.5" /> Plan
+                      </>
+                    ) : (
+                      <>
+                        <IconCode className="w-2.5 h-2.5" /> Edit
+                      </>
+                    )}
+                  </div>
+                )}
+                {message.timestamp && (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {dayjs(message.timestamp).format("h:mm A")}
+                  </span>
+                )}
+              </div>
+              {isOtherUser ? null : (
+                <UserMessageAvatar userId={message.userId} />
               )}
             </div>
-            {isOtherUser ? null : <UserMessageAvatar userId={message.userId} />}
-          </div>
-        )}
-      </AIMessage>
-    </m.div>
+          )}
+        </AIMessage>
+      </m.div>
+    </ChatMessageContextMenu>
   );
 });

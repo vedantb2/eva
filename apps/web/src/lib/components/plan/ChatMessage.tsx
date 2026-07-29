@@ -14,6 +14,7 @@ import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
+import { ChatMessageContextMenu } from "@/lib/components/chat/ChatMessageContextMenu";
 import { m } from "motion/react";
 
 interface ChatMessageProps {
@@ -50,7 +51,7 @@ export function ChatMessage({
     />
   );
 
-  return (
+  const messageBody = (
     <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -118,5 +119,14 @@ export function ChatMessage({
         )}
       </AIMessage>
     </m.div>
+  );
+
+  // Activity stream isn't copyable message text — only wrap finished turns.
+  if (isStreaming) return messageBody;
+
+  return (
+    <ChatMessageContextMenu content={content}>
+      {messageBody}
+    </ChatMessageContextMenu>
   );
 }

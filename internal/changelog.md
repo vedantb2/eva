@@ -1,5 +1,9 @@
 # Changelog
 
+## Message right-click copy menu - 2026-07-29
+
+Chat bubbles in sessions, quick tasks, and projects had only a hover copy control. Right-click now offers Copy message (readable text, mentions as `@Name`) and Copy as markdown (raw stored content) for both user and assistant turns, so you can grab either form without hunting the hover affordance.
+
 ## Sessions sidebar sort options - 2026-07-29
 
 Long cross-app session lists needed the same control surface as t3code: a header `↕` menu to sort apps and sessions and tune how many threads show before Show more. Prefs live in localStorage so the Sessions panel stays scannable without a settings trip.

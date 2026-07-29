@@ -186,8 +186,6 @@ export const agentTaskFields = {
   // across the task lifecycle so reviewers can resume in-sandbox state (DB,
   // generated fixtures) instead of re-bootstrapping from the branch.
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   // Separate from `activeWorkflowId` so a task can host an in-sandbox chat
   // (via the sandbox view) concurrently with — and without conflicting with —
   // its main run workflow.
@@ -239,8 +237,6 @@ export const agentRunFields = {
   limitResetAt: v.optional(v.number()),
   exitReason: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
@@ -287,8 +283,6 @@ export const sessionFields = {
     ),
   ),
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
   updatedAt: v.optional(v.number()),
   status: sessionStatusValidator,
@@ -454,8 +448,6 @@ export const projectFields = {
   baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   lastSandboxActivity: v.optional(v.number()),
   // UI state for the project-level Start/Stop preview sandbox button.
   // Mirrors `agentTasks.reviewTaskSandboxStatus` lifecycle.
@@ -556,8 +548,6 @@ export const automationRunFields = {
   error: v.optional(v.string()),
   acknowledged: v.boolean(),
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   activityLog: v.optional(v.string()),
   findings: v.optional(v.array(automationFindingValidator)),
@@ -740,8 +730,6 @@ export const docFields = {
     ),
   ),
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   testGenStatus: v.optional(evaluationStatusValidator),
   testPrUrl: v.optional(v.string()),
@@ -760,8 +748,6 @@ export const designSessionFields = {
   title: v.string(),
   status: sessionStatusValidator,
   sandboxId: v.optional(v.string()),
-  // TEMP: keep until stripVercelSandboxIdFields runs, then delete
-  vercelSandboxId: v.optional(v.string()),
   branchName: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   archived: v.optional(v.boolean()),

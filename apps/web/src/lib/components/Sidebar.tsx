@@ -33,6 +33,7 @@ import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
 import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
 import { SidebarResizeHandle } from "@/lib/components/sidebar/SidebarResizeHandle";
 import { ContextSidebarHeaderActionProvider } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
+import { SessionsSidebarOptionsMenu } from "@/lib/components/sidebar/_components/SessionsSidebarOptionsMenu";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
@@ -361,9 +362,27 @@ export function Sidebar() {
                       transition={{ duration: 0.2 }}
                     >
                       {isFlatPanel ? (
-                        <span className="truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
-                          {flatPanelTitle}
-                        </span>
+                        <>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                            {flatPanelTitle}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            {showGlobalSessionsPanel ? (
+                              <SessionsSidebarOptionsMenu />
+                            ) : null}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                              onClick={closeMobileSidebar}
+                            >
+                              <IconX
+                                size={18}
+                                className="text-muted-foreground"
+                              />
+                            </Button>
+                          </div>
+                        </>
                       ) : showContextSidebar ? (
                         <>
                           <Button

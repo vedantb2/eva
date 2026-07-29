@@ -26,6 +26,10 @@ import {
   repoSessionsIndexPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
+import {
+  sortSessionsForSidebar,
+  type SessionSortOrder,
+} from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { isSessionSidebarActive } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
@@ -40,6 +44,8 @@ interface GlobalSessionGroupProps {
   onNavigate?: () => void;
   onRenameRequest: (session: SessionListItem, repo: RepoWithLogo) => void;
   onArchiveRequest: (session: SessionListItem, repo: RepoWithLogo) => void;
+  sessionSortOrder: SessionSortOrder;
+  sessionPreviewCount: number;
 }
 
 /**
@@ -55,6 +61,8 @@ export function GlobalSessionGroup({
   onNavigate,
   onRenameRequest,
   onArchiveRequest,
+  sessionSortOrder,
+  sessionPreviewCount,
 }: GlobalSessionGroupProps) {
   const navigate = useNavigate();
   const [isActiveListExpanded, setIsActiveListExpanded] = useState(false);
@@ -72,8 +80,14 @@ export function GlobalSessionGroup({
   const nonArchivedSessions = sessions;
   const isLoading =
     nonArchivedSessions === undefined || archivedSessions === undefined;
-  const mainSessions = nonArchivedSessions ?? [];
-  const archivedGroup = archivedSessions ?? [];
+  const mainSessions = sortSessionsForSidebar(
+    nonArchivedSessions ?? [],
+    sessionSortOrder,
+  );
+  const archivedGroup = sortSessionsForSidebar(
+    archivedSessions ?? [],
+    sessionSortOrder,
+  );
   const mainCount = mainSessions.length;
   const selectedSessionId =
     mainSessions.find((session) => {
@@ -89,6 +103,7 @@ export function GlobalSessionGroup({
   } = previewSessions(mainSessions, {
     expanded: isActiveListExpanded,
     selectedId: selectedSessionId,
+    limit: sessionPreviewCount,
   });
   // Live sandbox badge: only count non-archived sessions that are running.
   const runningCount =

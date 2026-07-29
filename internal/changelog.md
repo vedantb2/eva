@@ -1,5 +1,9 @@
 # Changelog
 
+## Sessions sidebar sort options - 2026-07-29
+
+Long cross-app session lists needed the same control surface as t3code: a header `↕` menu to sort apps and sessions and tune how many threads show before Show more. Prefs live in localStorage so the Sessions panel stays scannable without a settings trip.
+
 ## Sidebar session list Show more - 2026-07-29
 
 Long non-archived session lists were crowding the sidebar. Each app group (and design sessions) now previews three rows with a `⋯` Show more / Show less control; the open session stays visible when collapsed, and only manually archived sessions stay under Archived.

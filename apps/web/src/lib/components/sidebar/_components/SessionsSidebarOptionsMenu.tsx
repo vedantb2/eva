@@ -8,9 +8,21 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@eva/ui";
-import { IconArrowsUpDown, IconMinus, IconPlus } from "@tabler/icons-react";
+import {
+  IconAdjustmentsHorizontal,
+  IconList,
+  IconMinus,
+  IconPlus,
+  IconSortDescending,
+} from "@tabler/icons-react";
 import {
   APP_SORT_LABELS,
   APP_SORT_ORDERS,
@@ -24,8 +36,8 @@ import {
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
 
 /**
- * t3code-style sidebar options: sort apps, sort sessions, visible session count.
- * Parks beside the Sessions panel title.
+ * Sessions panel options — same control surface as Projects Options /
+ * TaskRunOptionsMenu (Eva menu tokens + header icon button).
  */
 export function SessionsSidebarOptionsMenu() {
   const {
@@ -37,71 +49,73 @@ export function SessionsSidebarOptionsMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-sidebar-primary"
-          title="Sidebar options"
-          aria-label="Sidebar options"
-        >
-          <IconArrowsUpDown size={16} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-52">
-        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
-          Sort projects
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={settings.appSortOrder}
-          onValueChange={(value) => {
-            if (isAppSortOrder(value)) setAppSortOrder(value);
-          }}
-        >
-          {APP_SORT_ORDERS.map((order) => (
-            <DropdownMenuRadioItem
-              key={order}
-              value={order}
-              className="min-h-7 py-1 text-xs"
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="motion-press h-8 w-8 shrink-0 text-sidebar-primary hover:scale-[1.03] active:scale-[0.96]"
+              aria-label="Sidebar options"
             >
-              {APP_SORT_LABELS[order]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+              <IconAdjustmentsHorizontal size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Sidebar options</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconSortDescending size={16} />
+            Sort projects
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={settings.appSortOrder}
+              onValueChange={(value) => {
+                if (isAppSortOrder(value)) setAppSortOrder(value);
+              }}
+            >
+              {APP_SORT_ORDERS.map((order) => (
+                <DropdownMenuRadioItem key={order} value={order}>
+                  {APP_SORT_LABELS[order]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconList size={16} />
+            Sort threads
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={settings.sessionSortOrder}
+              onValueChange={(value) => {
+                if (isSessionSortOrder(value)) setSessionSortOrder(value);
+              }}
+            >
+              {SESSION_SORT_ORDERS.map((order) => (
+                <DropdownMenuRadioItem key={order} value={order}>
+                  {SESSION_SORT_LABELS[order]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
-          Sort threads
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={settings.sessionSortOrder}
-          onValueChange={(value) => {
-            if (isSessionSortOrder(value)) setSessionSortOrder(value);
-          }}
-        >
-          {SESSION_SORT_ORDERS.map((order) => (
-            <DropdownMenuRadioItem
-              key={order}
-              value={order}
-              className="min-h-7 py-1 text-xs"
-            >
-              {SESSION_SORT_LABELS[order]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
-          Visible threads
-        </DropdownMenuLabel>
-        <div className="flex items-center gap-1 px-2 py-1.5">
+        <DropdownMenuLabel>Visible threads</DropdownMenuLabel>
+        <div className="flex items-center gap-1 px-2.5 pb-2">
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            className="h-7 w-7"
+            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
             aria-label="Decrease visible thread count"
             disabled={settings.sessionPreviewCount <= MIN_SESSION_PREVIEW_COUNT}
             onPointerDown={(e) => e.preventDefault()}
@@ -110,16 +124,16 @@ export function SessionsSidebarOptionsMenu() {
               setSessionPreviewCount(settings.sessionPreviewCount - 1);
             }}
           >
-            <IconMinus size={14} />
+            <IconMinus size={16} />
           </Button>
-          <span className="w-8 text-center text-xs tabular-nums text-foreground">
+          <span className="min-w-8 flex-1 text-center text-sm tabular-nums text-foreground">
             {settings.sessionPreviewCount}
           </span>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            className="h-7 w-7"
+            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
             aria-label="Increase visible thread count"
             disabled={settings.sessionPreviewCount >= MAX_SESSION_PREVIEW_COUNT}
             onPointerDown={(e) => e.preventDefault()}
@@ -128,7 +142,7 @@ export function SessionsSidebarOptionsMenu() {
               setSessionPreviewCount(settings.sessionPreviewCount + 1);
             }}
           >
-            <IconPlus size={14} />
+            <IconPlus size={16} />
           </Button>
         </div>
       </DropdownMenuContent>

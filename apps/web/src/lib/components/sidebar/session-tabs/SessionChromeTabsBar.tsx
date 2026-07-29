@@ -139,10 +139,9 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
     <>
       {/* z-20 keeps the strip above the page's top primary gradient. */}
       <div className="relative z-20 flex h-12 shrink-0 items-end border-b border-border bg-background">
-        {/* scrollbar-none: a visible scrollbar would eat strip height and shove
-            the tabs up — Chrome's strip scrolls by wheel with no scrollbar, and
-            the chevron menu covers overflow discovery. */}
-        <div className="scrollbar-none flex min-w-0 flex-1 items-end gap-2 overflow-x-auto px-2">
+        {/* Chrome's strip never scrolls: tabs shrink to fit the width, and the
+            chevron menu lists whatever no longer fits. */}
+        <div className="flex min-w-0 flex-1 items-end gap-2 overflow-hidden px-1.5">
           {orderedRepos === undefined ? (
             <div
               className="flex items-end gap-2 pb-0 pl-1"

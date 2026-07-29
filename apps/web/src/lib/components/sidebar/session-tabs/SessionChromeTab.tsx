@@ -94,8 +94,11 @@ export function SessionChromeTab({
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            // Fixed width: Chrome gives every tab the same width and truncates.
-            "group relative flex h-9 w-56 shrink-0 items-center rounded-t-[0.625rem] transition-colors",
+            // Chrome never scrolls its strip: tabs share the width and shrink as
+            // more open. basis-56 is the preferred size so shrinking stays
+            // proportional across groups; min-w-28 is the floor that keeps the
+            // icon, status dot and close button from colliding.
+            "group relative flex h-9 min-w-28 basis-56 items-center rounded-t-[0.625rem] transition-colors",
             isSelected
               ? "z-10 border border-b-0 border-border bg-card text-foreground shadow-sm"
               : "border border-transparent text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",

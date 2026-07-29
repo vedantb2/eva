@@ -33,8 +33,9 @@ interface SessionChromeTabGroupProps {
 }
 
 /**
- * Chrome tab group: tinted strip wrapping a group-name pill + that app's active
- * session tabs (and a per-group + for a new session). Selection is resolved here
+ * Chrome tab group: a group-name pill, that app's active session tabs (and a
+ * per-group + for a new session), and the coloured line Chrome draws underneath
+ * to tie them together. Selection is resolved here
  * rather than per tab so a tab knows whether its neighbour is selected — Chrome
  * drops the separator hairline next to the selected tab.
  *
@@ -78,13 +79,24 @@ export function SessionChromeTabGroup({
   const visibleTabs = isOpen ? tabs : tabs.filter((tab) => tab.isSelected);
 
   return (
+    // Only open groups give up width — their tabs shrink first, so a collapsed
+    // chip never loses characters to someone else's tabs. overflow-hidden cuts a
+    // group at the strip edge, as Chrome does, rather than spilling over the next.
     <div
       className={cn(
-        "flex shrink-0 items-end gap-2 rounded-t-xl pt-2 pb-0 pl-2",
-        isOpen ? "pr-1.5" : "pr-2",
-        colors.strip,
+        "relative flex items-end gap-1.5 overflow-hidden px-1",
+        isOpen ? "min-w-0" : "shrink-0",
       )}
     >
+      {/* Chrome marks a group with a coloured line beneath it — no tinted fill
+          behind the tabs. The selected tab's card covers the line it crosses. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-x-0 bottom-0 h-[3px] rounded-t-sm",
+          colors.underline,
+        )}
+      />
       {/* Group label pill — Chrome puts the name first, then its tabs. The row
           is tab-height so a collapsed chip lines up with expanded groups. */}
       <div className="flex h-9 shrink-0 items-center gap-1">
@@ -93,7 +105,9 @@ export function SessionChromeTabGroup({
           aria-expanded={isOpen}
           title={isOpen ? `Collapse ${label}` : `Expand ${label}`}
           className={cn(
-            "flex max-w-[11rem] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-85",
+            // Never shrinks: the app name is the group's identity, so width
+            // pressure goes to the tabs instead.
+            "flex max-w-[11rem] shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-85",
             colors.pill,
           )}
           onClick={() => {
@@ -101,18 +115,13 @@ export function SessionChromeTabGroup({
           }}
         >
           <span className="truncate">{label}</span>
-          {!isOpen && tabs.length > 0 ? (
-            <span className="shrink-0 tabular-nums opacity-75">
-              {tabs.length}
-            </span>
-          ) : null}
         </button>
         {isOpen ? (
           <button
             type="button"
             aria-label={`New session in ${label}`}
             title={`New session in ${label}`}
-            className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             onClick={() => {
               navigate({ to: repoSessionsIndexPath(repo) });
             }}
@@ -127,7 +136,8 @@ export function SessionChromeTabGroup({
         </div>
       ) : (
         // Chrome tabs touch each other; separation comes from the hairline.
-        <div className="flex items-end">
+        // min-w-0 is what lets the strip's width pressure reach the tabs.
+        <div className="flex min-w-0 items-end">
           {visibleTabs.map(({ session, href, isSelected }, index) => (
             <SessionChromeTab
               key={session._id}

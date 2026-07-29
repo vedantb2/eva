@@ -49,6 +49,7 @@ import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
+import { HorizontalScrollFade } from "@/lib/components/ui/HorizontalScrollFade";
 import {
   useProjectFilters,
   SORT_FIELDS,
@@ -406,21 +407,28 @@ export function ProjectsClient() {
               {view === "kanban" ? (
                 <m.div
                   key="projects-kanban-view"
-                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
+                  className="flex min-h-0 min-w-0 flex-1 flex-col"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <ProjectsKanbanView
-                    projectsByPhase={projectsByPhase}
-                    visiblePhases={visiblePhases}
-                    owner={owner}
-                    name={name}
-                    basePath={basePath}
-                    onOpenProject={handleOpenProject}
-                    onDelete={(id, title) => setProjectToDelete({ id, title })}
-                  />
+                  <HorizontalScrollFade
+                    className="min-h-0 flex-1"
+                    contentClassName="flex h-full min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
+                  >
+                    <ProjectsKanbanView
+                      projectsByPhase={projectsByPhase}
+                      visiblePhases={visiblePhases}
+                      owner={owner}
+                      name={name}
+                      basePath={basePath}
+                      onOpenProject={handleOpenProject}
+                      onDelete={(id, title) =>
+                        setProjectToDelete({ id, title })
+                      }
+                    />
+                  </HorizontalScrollFade>
                 </m.div>
               ) : view === "timeline" ? (
                 <m.div

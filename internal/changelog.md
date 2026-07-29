@@ -1,5 +1,9 @@
 # Changelog
 
+## Kanban right-edge scroll hint - 2026-07-29
+
+Quick Tasks and Projects kanban boards can hide columns past the viewport with no cue to scroll. A light right-edge fade now appears while more columns remain and clears at the end of the row.
+
 ## Root settings sidebar + Home rename - 2026-07-29
 
 Root `/settings/*` pages only had the icon rail, so jumping between theme / accounts / sync meant the gear dropdown every time. They now get a flat second column like Home (title Settings), and the old Workspace panel label is Home to match the Eva rail destination.

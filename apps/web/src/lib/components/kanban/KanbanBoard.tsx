@@ -32,6 +32,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
+import { HorizontalScrollFade } from "@/lib/components/ui/HorizontalScrollFade";
 
 interface BaseTask {
   _id: string;
@@ -181,10 +182,11 @@ export function KanbanBoard<T extends BaseTask>({
           ) : null
         }
       >
-        <div
-          className={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
+        <HorizontalScrollFade
+          className={fillHeight ? "min-h-0 min-w-0 flex-1" : "w-full"}
+          contentClassName={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
             fillHeight
-              ? "min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
+              ? "h-full min-h-0 min-w-0 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
               : ""
           }`}
         >
@@ -214,7 +216,7 @@ export function KanbanBoard<T extends BaseTask>({
                 : [],
             )}
           </AnimatePresence>
-        </div>
+        </HorizontalScrollFade>
       </KanbanProvider>
     </div>
   );

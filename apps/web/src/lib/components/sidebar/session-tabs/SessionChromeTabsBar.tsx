@@ -128,23 +128,27 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
 
   return (
     <>
-      <div className="flex h-11 shrink-0 items-end border-b border-border bg-muted/40">
-        <div className="scrollbar flex min-w-0 flex-1 items-end overflow-x-auto px-1 pt-1">
+      {/* z-20 keeps the strip above the page's top primary gradient. */}
+      <div className="relative z-20 flex h-12 shrink-0 items-end border-b border-border bg-background">
+        {/* scrollbar-none: a visible scrollbar would eat strip height and shove
+            the tabs up — Chrome's strip scrolls by wheel with no scrollbar, and
+            the chevron menu covers overflow discovery. */}
+        <div className="scrollbar-none flex min-w-0 flex-1 items-end gap-2 overflow-x-auto px-2">
           {orderedRepos === undefined ? (
             <div
-              className="flex items-center gap-2 px-3 pb-2"
+              className="flex items-end gap-2 pb-0 pl-1"
               aria-busy="true"
               aria-label="Loading session tabs"
             >
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-7 w-40 animate-pulse rounded-t-lg bg-muted/70"
+                  className="h-9 w-52 animate-pulse rounded-t-[0.625rem] bg-muted"
                 />
               ))}
             </div>
           ) : orderedRepos.length === 0 ? (
-            <p className="flex items-center px-3 pb-2 text-sm text-muted-foreground">
+            <p className="flex items-center pb-3 pl-2 text-sm text-muted-foreground">
               No apps yet
             </p>
           ) : (
@@ -171,7 +175,7 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
             ))
           )}
         </div>
-        <div className="mb-0 flex h-11 shrink-0 items-stretch self-stretch border-l border-border bg-background/40">
+        <div className="flex shrink-0 items-stretch self-stretch border-l border-border">
           <SessionTabsOverflowMenu
             groups={overflowGroups}
             allRepos={orderedRepos ?? []}

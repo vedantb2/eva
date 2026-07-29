@@ -16,13 +16,13 @@ import {
   IconGitPullRequest,
   IconLink,
   IconPencil,
+  IconX,
 } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
-import { entityPathSegment } from "@/lib/numId";
 
 export interface ChromeTabSession {
   _id: string;
@@ -36,9 +36,10 @@ export interface ChromeTabSession {
 
 interface SessionChromeTabProps {
   session: ChromeTabSession;
-  baseUrl: string;
-  pathname: string;
-  accentBorderClass: string;
+  href: string;
+  isSelected: boolean;
+  /** Chrome draws a hairline only between two adjacent unselected tabs. */
+  showSeparator: boolean;
   onRenameRequest: () => void;
   onArchiveRequest: () => void;
   onDuplicate: () => Promise<string>;
@@ -61,53 +62,81 @@ function prStateIconColor(
   }
 }
 
-/** One Chrome-style session tab with rename / duplicate / archive context menu. */
+/**
+ * One Chrome-style session tab.
+ *
+ * Anatomy copied from Chrome: unselected tabs are chromeless (no fill, no
+ * border) and butt up against each other with a hairline separator between
+ * them; the selected tab is the only filled surface — an elevated card, rounded
+ * at the top, whose open bottom edge is closed by the strip's own divider.
+ * Close (= archive) appears on hover, and is always visible on the selected tab.
+ */
 export function SessionChromeTab({
   session,
-  baseUrl,
-  pathname,
-  accentBorderClass,
+  href,
+  isSelected,
+  showSeparator,
   onRenameRequest,
   onArchiveRequest,
   onDuplicate,
   onDuplicateNavigate,
 }: SessionChromeTabProps) {
-  const pathSegment = entityPathSegment(session);
-  const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
-  const isSelected = pathname === href || pathname.startsWith(`${href}/`);
   const statusStyle = SANDBOX_STATUS_STYLES[session.status];
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <DynamicLink
-          to={href}
-          title={session.title}
+        <div
           className={cn(
-            // Chrome-like tab: wide enough to read titles, rounded top, sits in group strip.
-            "group flex h-9 min-w-[11rem] max-w-[18rem] shrink-0 items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm transition-colors",
+            // Fixed width: Chrome gives every tab the same width and truncates.
+            "group relative flex h-9 w-56 shrink-0 items-center rounded-t-[0.625rem] transition-colors",
             isSelected
-              ? cn(
-                  "relative z-[1] bg-background text-foreground shadow-sm",
-                  accentBorderClass,
-                )
-              : "border-transparent bg-background/40 text-muted-foreground hover:bg-background/70 hover:text-foreground",
+              ? "z-10 border border-b-0 border-border bg-card text-foreground shadow-sm"
+              : "border border-transparent text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
           )}
         >
-          <span
-            className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-            title={statusStyle.label}
-          />
-          <span className="min-w-0 flex-1 truncate font-medium">
-            {session.title}
-          </span>
-          {session.prUrl ? (
-            <IconGitPullRequest
-              size={14}
-              className={cn("shrink-0", prStateIconColor(session.prState))}
+          {showSeparator ? (
+            <span
+              aria-hidden
+              className="absolute left-0 top-1/2 h-4 w-px -translate-y-1/2 bg-border transition-opacity group-hover:opacity-0"
             />
           ) : null}
-        </DynamicLink>
+          <DynamicLink
+            to={href}
+            title={session.title}
+            className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3.5 pr-1 text-[0.8125rem]"
+          >
+            <span
+              className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+              title={statusStyle.label}
+            />
+            <span className="min-w-0 flex-1 truncate font-medium">
+              {session.title}
+            </span>
+            {session.prUrl ? (
+              <IconGitPullRequest
+                size={14}
+                className={cn("shrink-0", prStateIconColor(session.prState))}
+              />
+            ) : null}
+          </DynamicLink>
+          <button
+            type="button"
+            aria-label={`Archive ${session.title}`}
+            title="Archive session"
+            className={cn(
+              "mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100",
+              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+            )}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onArchiveRequest();
+            }}
+          >
+            <IconX size={14} />
+          </button>
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         <ContextMenuItem onSelect={onRenameRequest}>

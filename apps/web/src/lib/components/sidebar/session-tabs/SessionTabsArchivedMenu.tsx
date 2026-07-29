@@ -57,7 +57,7 @@ export function SessionTabsArchivedMenu({
           type="button"
           title="Archived sessions"
           aria-label="Archived sessions"
-          className="flex h-full shrink-0 items-center gap-1.5 border-l border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="flex h-full shrink-0 items-center gap-2 border-l border-border px-3.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
           <IconArchive size={14} />
           <span className="tabular-nums">{total}</span>

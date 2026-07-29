@@ -34,7 +34,7 @@ import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
-import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
+import { isHomePath } from "@/lib/components/sidebar/homePaths";
 import { repoHref } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
@@ -134,12 +134,10 @@ function RepoRailView({
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { openSearch } = useSearch();
-  // The Eva tile owns the whole workspace panel (Codebases / Teams / Artifacts),
+  // The Eva tile owns the home panel (Codebases / Teams / Artifacts),
   // so it stays lit on any of those routes.
   const homeActive =
-    pathname === "/" ||
-    pathname.startsWith("/setup") ||
-    isWorkspacePath(pathname);
+    pathname === "/" || pathname.startsWith("/setup") || isHomePath(pathname);
   const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
   const pathParts = pathname.split("/").filter(Boolean);
   const onRepoSessionsPath =

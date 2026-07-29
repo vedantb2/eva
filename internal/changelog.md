@@ -1,5 +1,9 @@
 # Changelog
 
+## Root settings sidebar + Home rename - 2026-07-29
+
+Root `/settings/*` pages only had the icon rail, so jumping between theme / accounts / sync meant the gear dropdown every time. They now get a flat second column like Home (title Settings), and the old Workspace panel label is Home to match the Eva rail destination.
+
 ## Message right-click copy menu - 2026-07-29
 
 Chat bubbles in sessions, quick tasks, and projects had only a hover copy control. Right-click now offers Copy message (readable text, mentions as `@Name`) and Copy as markdown (raw stored content) for both user and assistant turns, so you can grab either form without hunting the hover affordance.

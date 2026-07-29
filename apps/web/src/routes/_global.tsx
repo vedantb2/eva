@@ -5,7 +5,10 @@ import {
   useLocation,
 } from "@tanstack/react-router";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
-import { isWorkspacePath } from "@/lib/components/sidebar/workspacePaths";
+import {
+  isGlobalSettingsPath,
+  isHomePath,
+} from "@/lib/components/sidebar/homePaths";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -23,9 +26,16 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
-  // Sessions landing and the workspace routes show the wide second column;
-  // collapsed hides it (rail only).
-  const hasSecondColumn = isSessionsLanding || isWorkspacePath(pathname);
+  const onTesting =
+    import.meta.env.DEV &&
+    (pathname === "/testing" || pathname.startsWith("/testing/"));
+  // Sessions / home / root settings show the wide second column; collapsed =
+  // rail only.
+  const hasSecondColumn =
+    isSessionsLanding ||
+    isHomePath(pathname) ||
+    isGlobalSettingsPath(pathname) ||
+    onTesting;
   const paddingClass = hasSecondColumn
     ? collapsed
       ? "lg:pl-16"

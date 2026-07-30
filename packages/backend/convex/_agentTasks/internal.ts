@@ -25,3 +25,15 @@ export const getInternalByStringId = internalQuery({
     return await ctx.db.get(id);
   },
 });
+
+/** Task owning a sandbox — preview recovery relaunches services through it. */
+export const getBySandboxInternal = internalQuery({
+  args: { sandboxId: v.string() },
+  returns: v.union(agentTaskValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("agentTasks")
+      .withIndex("by_sandbox", (q) => q.eq("sandboxId", args.sandboxId))
+      .first();
+  },
+});

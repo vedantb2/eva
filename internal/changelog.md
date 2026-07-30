@@ -1,5 +1,9 @@
 # Changelog
 
+## Task and project chat gain the session resilience stack - 2026-07-30
+
+Today's session fixes are now surface-complete. Task chat and project chat turns get the same no-heartbeat watchdog (stale turns fail in minutes with a liveness probe before the kill, instead of freezing until the 2-hour backstop), the same stopped-sandbox clarity (a "Sandbox stopped" alert and the sandbox status flipped to closed, with the interrupt skipped so nothing resumes the stopped VM), and preview self-heal now resolves the sandbox owner across sessions, tasks and projects. The task-run dev-server launcher gets the same heap cap, and task/project chat prompts now name their managed dev-server port (they already inherited the media and dev-server contracts via the shared edit prompt).
+
 ## Chat screenshots collapse into a Twitter-style gallery - 2026-07-30
 
 A screenshot-heavy turn rendered every image full-width in a long vertical stack. Assistant images now collapse into a compact grid (single image natural-size; two side by side; three with a tall lead tile; four-plus as a 2x2 with a "+N" overlay), and clicking opens a fullscreen lightbox that circles through the set via on-screen arrows, arrow keys, or touch swipe, with a position counter and open-in-new-tab. Videos keep their inline players.

@@ -301,6 +301,12 @@ export async function launchDevServerInBackground(
     "fi",
     'echo $$ > "$LOCK"',
     "trap 'rm -f \"$LOCK\"' EXIT",
+    // Cap the dev server's V8 heap: one leaky Next dev compile at ~5.5GB RSS
+    // was enough to trigger kernel OOM kills of unrelated processes on a 16GB
+    // VM. A clean heap error is the recoverable failure — the preview
+    // self-heal (ensureSessionPreviewServices) relaunches the server. Ours
+    // goes first so an env- or repo-provided NODE_OPTIONS still wins.
+    'export NODE_OPTIONS="--max-old-space-size=6144${NODE_OPTIONS:+ $NODE_OPTIONS}"',
     devCommand,
   ].join("\n");
   await sandbox.writeFile("/tmp/eva-launch-devserver.sh", script);

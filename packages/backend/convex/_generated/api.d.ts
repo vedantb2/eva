@@ -138,6 +138,7 @@ import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.
 import type * as _sandbox_runtime_prepareSandboxSteps from "../_sandbox_runtime/prepareSandboxSteps.js";
 import type * as _sandbox_runtime_previewAnnotationScript from "../_sandbox_runtime/previewAnnotationScript.js";
 import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/previewProxy.js";
+import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
 import type * as _sandbox_runtime_proof from "../_sandbox_runtime/proof.js";
 import type * as _sandbox_runtime_resumeSandboxSteps from "../_sandbox_runtime/resumeSandboxSteps.js";
 import type * as _sandbox_runtime_runDevServer from "../_sandbox_runtime/runDevServer.js";
@@ -171,6 +172,7 @@ import type * as _taskWorkflow_recovery from "../_taskWorkflow/recovery.js";
 import type * as _taskWorkflow_resolveBaseBranch from "../_taskWorkflow/resolveBaseBranch.js";
 import type * as _taskWorkflow_runLifecycle from "../_taskWorkflow/runLifecycle.js";
 import type * as _taskWorkflow_scheduling from "../_taskWorkflow/scheduling.js";
+import type * as _taskWorkflow_staleness from "../_taskWorkflow/staleness.js";
 import type * as _taskWorkflow_uiImplementationPrompt from "../_taskWorkflow/uiImplementationPrompt.js";
 import type * as _taskWorkflow_urls from "../_taskWorkflow/urls.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
@@ -274,6 +276,7 @@ import type * as sandboxAutoStop from "../sandboxAutoStop.js";
 import type * as sandboxConfigFiles from "../sandboxConfigFiles.js";
 import type * as sandboxDaemon from "../sandboxDaemon.js";
 import type * as sandboxGitCredentials from "../sandboxGitCredentials.js";
+import type * as sandboxHeal from "../sandboxHeal.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
 import type * as sandboxPanes from "../sandboxPanes.js";
 import type * as screenshots from "../screenshots.js";
@@ -446,6 +449,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/prepareSandboxSteps": typeof _sandbox_runtime_prepareSandboxSteps;
   "_sandbox_runtime/previewAnnotationScript": typeof _sandbox_runtime_previewAnnotationScript;
   "_sandbox_runtime/previewProxy": typeof _sandbox_runtime_previewProxy;
+  "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;
   "_sandbox_runtime/proof": typeof _sandbox_runtime_proof;
   "_sandbox_runtime/resumeSandboxSteps": typeof _sandbox_runtime_resumeSandboxSteps;
   "_sandbox_runtime/runDevServer": typeof _sandbox_runtime_runDevServer;
@@ -479,6 +483,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/resolveBaseBranch": typeof _taskWorkflow_resolveBaseBranch;
   "_taskWorkflow/runLifecycle": typeof _taskWorkflow_runLifecycle;
   "_taskWorkflow/scheduling": typeof _taskWorkflow_scheduling;
+  "_taskWorkflow/staleness": typeof _taskWorkflow_staleness;
   "_taskWorkflow/uiImplementationPrompt": typeof _taskWorkflow_uiImplementationPrompt;
   "_taskWorkflow/urls": typeof _taskWorkflow_urls;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
@@ -582,6 +587,7 @@ declare const fullApi: ApiFromModules<{
   sandboxConfigFiles: typeof sandboxConfigFiles;
   sandboxDaemon: typeof sandboxDaemon;
   sandboxGitCredentials: typeof sandboxGitCredentials;
+  sandboxHeal: typeof sandboxHeal;
   sandboxJwt: typeof sandboxJwt;
   sandboxPanes: typeof sandboxPanes;
   screenshots: typeof screenshots;

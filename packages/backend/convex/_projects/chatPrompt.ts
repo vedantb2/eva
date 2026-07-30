@@ -12,6 +12,7 @@ interface BuildProjectChatPromptArgs {
   customInstructionsBlock: string;
   systemPrompt: string | undefined;
   captureProof: boolean;
+  devPort: number | undefined;
 }
 
 /**
@@ -39,5 +40,6 @@ ${args.message}`;
     args.customInstructionsBlock,
     args.systemPrompt,
     args.captureProof,
+    args.devPort,
   );
 }

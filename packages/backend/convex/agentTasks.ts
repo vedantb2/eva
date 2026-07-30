@@ -50,4 +50,8 @@ export {
   taskSandboxError,
 } from "./_agentTasks/sandbox";
 
-export { getInternal, getInternalByStringId } from "./_agentTasks/internal";
+export {
+  getInternal,
+  getInternalByStringId,
+  getBySandboxInternal,
+} from "./_agentTasks/internal";

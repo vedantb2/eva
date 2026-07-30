@@ -102,6 +102,201 @@ describe("session turns are watched for dead heartbeats", () => {
   });
 });
 
+/**
+ * Task chat and project chat turns run the same silent-death risk as
+ * sessions (agent process OOMs, streamingActivity heartbeat goes quiet) but
+ * used to sit on "Working…" until their own 2-hour backstop. Same chain,
+ * same safety properties, mirrored onto each entity's own fields.
+ */
+describe("task chat turns are watched for dead heartbeats", () => {
+  test("every tracked task chat workflow arms the heartbeat chain", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "export async function trackAgentTaskChatWorkflow(",
+    );
+    expect(body).toContain("checkStaleAgentTaskChatHeartbeat");
+  });
+
+  test("the check only ever acts on the workflow it was armed for", () => {
+    const body = definitionBody(
+      workflowWatchdog,
+      "checkStaleAgentTaskChatHeartbeat",
+    );
+    const guardAt = body.indexOf(
+      "task.activeChatWorkflowId !== args.workflowId",
+    );
+    const finalizeAt = body.indexOf("finalizeStaleAgentTaskChatTurn(");
+    expect(guardAt, "the workflow guard moved").toBeGreaterThan(-1);
+    expect(finalizeAt, "the finalize call moved").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(finalizeAt);
+  });
+
+  test("a stale turn is probed for liveness before it is killed", () => {
+    const body = definitionBody(
+      workflowWatchdog,
+      "checkStaleAgentTaskChatHeartbeat",
+    );
+    const probeAt = body.indexOf("probeStaleAgentTaskChatLiveness");
+    const finalizeAt = body.indexOf("finalizeStaleAgentTaskChatTurn(");
+    expect(probeAt, "the liveness probe moved").toBeGreaterThan(-1);
+    expect(probeAt).toBeLessThan(finalizeAt);
+
+    const probe = definitionBody(
+      workflowWatchdog,
+      "probeStaleAgentTaskChatLiveness",
+    );
+    expect(probe).toContain("verifySandboxLiveness");
+    expect(probe).toContain("internalTouch");
+  });
+
+  test("the salvage reads the streaming row before the clear wipes it", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleAgentTaskChatTurn(",
+    );
+    const readAt = body.indexOf('query("streamingActivity")');
+    const clearAt = body.indexOf("cancelStaleWorkflow(");
+    expect(readAt, "the streaming read moved").toBeGreaterThan(-1);
+    expect(clearAt, "the workflow cancel moved").toBeGreaterThan(-1);
+    expect(readAt).toBeLessThan(clearAt);
+  });
+
+  test("a stopped sandbox closes the task sandbox status and skips the interrupt", () => {
+    const probe = definitionBody(
+      workflowWatchdog,
+      "probeStaleAgentTaskChatLiveness",
+    );
+    expect(probe).toContain(
+      'sandboxStopped: liveness.reason === "sandbox_not_started"',
+    );
+
+    const check = definitionBody(
+      workflowWatchdog,
+      "checkStaleAgentTaskChatHeartbeat",
+    );
+    expect(check).toContain("Sandbox stopped while this turn was running.");
+
+    const finalize = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleAgentTaskChatTurn(",
+    );
+    const stoppedGuardAt = finalize.indexOf("opts.sandboxStopped !== true");
+    const killAt = finalize.indexOf("killSandboxProcess");
+    expect(stoppedGuardAt, "the stopped-sandbox guard moved").toBeGreaterThan(
+      -1,
+    );
+    expect(killAt, "the interrupt moved").toBeGreaterThan(-1);
+    expect(stoppedGuardAt).toBeLessThan(killAt);
+    expect(finalize).toContain('taskPatch.reviewTaskSandboxStatus = "closed"');
+  });
+
+  test("the kill frees the task, alerts the user and drains the queue", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleAgentTaskChatTurn(",
+    );
+    expect(body).toContain("isSystemAlert: true");
+    expect(body).toContain("activeChatWorkflowId: undefined");
+    expect(body).toContain("startNextQueuedTaskChatMessage(");
+  });
+});
+
+/** Project chat mirror of the task chat heartbeat chain above. */
+describe("project chat turns are watched for dead heartbeats", () => {
+  test("every tracked project chat workflow arms the heartbeat chain", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "export async function trackProjectChatWorkflow(",
+    );
+    expect(body).toContain("checkStaleProjectChatHeartbeat");
+  });
+
+  test("the check only ever acts on the workflow it was armed for", () => {
+    const body = definitionBody(
+      workflowWatchdog,
+      "checkStaleProjectChatHeartbeat",
+    );
+    const guardAt = body.indexOf(
+      "project.activeChatWorkflowId !== args.workflowId",
+    );
+    const finalizeAt = body.indexOf("finalizeStaleProjectChatTurn(");
+    expect(guardAt, "the workflow guard moved").toBeGreaterThan(-1);
+    expect(finalizeAt, "the finalize call moved").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(finalizeAt);
+  });
+
+  test("a stale turn is probed for liveness before it is killed", () => {
+    const body = definitionBody(
+      workflowWatchdog,
+      "checkStaleProjectChatHeartbeat",
+    );
+    const probeAt = body.indexOf("probeStaleProjectChatLiveness");
+    const finalizeAt = body.indexOf("finalizeStaleProjectChatTurn(");
+    expect(probeAt, "the liveness probe moved").toBeGreaterThan(-1);
+    expect(probeAt).toBeLessThan(finalizeAt);
+
+    const probe = definitionBody(
+      workflowWatchdog,
+      "probeStaleProjectChatLiveness",
+    );
+    expect(probe).toContain("verifySandboxLiveness");
+    expect(probe).toContain("internalTouch");
+  });
+
+  test("the salvage reads the streaming row before the clear wipes it", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleProjectChatTurn(",
+    );
+    const readAt = body.indexOf('query("streamingActivity")');
+    const clearAt = body.indexOf("cancelStaleWorkflow(");
+    expect(readAt, "the streaming read moved").toBeGreaterThan(-1);
+    expect(clearAt, "the workflow cancel moved").toBeGreaterThan(-1);
+    expect(readAt).toBeLessThan(clearAt);
+  });
+
+  test("a stopped sandbox closes the project sandbox status and skips the interrupt", () => {
+    const probe = definitionBody(
+      workflowWatchdog,
+      "probeStaleProjectChatLiveness",
+    );
+    expect(probe).toContain(
+      'sandboxStopped: liveness.reason === "sandbox_not_started"',
+    );
+
+    const check = definitionBody(
+      workflowWatchdog,
+      "checkStaleProjectChatHeartbeat",
+    );
+    expect(check).toContain("Sandbox stopped while this turn was running.");
+
+    const finalize = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleProjectChatTurn(",
+    );
+    const stoppedGuardAt = finalize.indexOf("opts.sandboxStopped !== true");
+    const killAt = finalize.indexOf("killSandboxProcess");
+    expect(stoppedGuardAt, "the stopped-sandbox guard moved").toBeGreaterThan(
+      -1,
+    );
+    expect(killAt, "the interrupt moved").toBeGreaterThan(-1);
+    expect(stoppedGuardAt).toBeLessThan(killAt);
+    expect(finalize).toContain(
+      'projectPatch.reviewProjectSandboxStatus = "closed"',
+    );
+  });
+
+  test("the kill frees the project, alerts the user and drains the queue", () => {
+    const body = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleProjectChatTurn(",
+    );
+    expect(body).toContain("isSystemAlert: true");
+    expect(body).toContain("activeChatWorkflowId: undefined");
+    expect(body).toContain("startNextQueuedProjectChatMessage(");
+  });
+});
+
 /** Comments name the very calls these rules rule out, so they have to go first. */
 function readSource(relativePath: string): string {
   return stripComments(

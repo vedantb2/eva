@@ -45,4 +45,8 @@ export {
   projectSandboxError,
 } from "./_projects/sandbox";
 
-export { getInternal, getInternalByStringId } from "./_projects/internal";
+export {
+  getInternal,
+  getInternalByStringId,
+  getBySandboxInternal,
+} from "./_projects/internal";

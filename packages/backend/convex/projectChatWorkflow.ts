@@ -103,6 +103,7 @@ async function buildProjectChatTurnPrompt(
     customInstructionsBlock,
     systemPrompt: repo.systemPrompt,
     captureProof: project.chatCaptureProofEnabled === true,
+    devPort: project.devPort ?? repo.devPort,
   });
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;

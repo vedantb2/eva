@@ -10,6 +10,8 @@ const completion = readSource("callback-src/runtime/completion.ts");
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
 );
+const taskChatPrompt = readSource("convex/_agentTasks/chatPrompt.ts");
+const projectChatPrompt = readSource("convex/_projects/chatPrompt.ts");
 
 /**
  * The end-of-turn harvest posts EVERY file left in the deliverable folders to
@@ -26,6 +28,29 @@ describe("media folders are a documented deliverable contract", () => {
     expect(sessionPrompts).toContain(
       "exactly what the user asked for and nothing else",
     );
+  });
+
+  test("task chat and project chat inherit the same deliverable contract", () => {
+    // Both surfaces build their turn prompt through the session's
+    // buildEditPrompt, so the DELIVERABLE-ONLY clause and the managed
+    // dev-server section apply automatically — no separate copy to drift.
+    expect(taskChatPrompt).toContain("buildEditPrompt(");
+    expect(projectChatPrompt).toContain("buildEditPrompt(");
+  });
+
+  test("task chat and project chat forward their own dev port", () => {
+    // buildEditPrompt renders "its configured dev port" when devPort is
+    // undefined — a quiet regression if either surface stopped threading it.
+    const taskBody = functionBody(
+      taskChatPrompt,
+      "export function buildAgentTaskChatPrompt(",
+    );
+    expect(taskBody).toContain("args.devPort,");
+    const projectBody = functionBody(
+      projectChatPrompt,
+      "export function buildProjectChatPrompt(",
+    );
+    expect(projectBody).toContain("args.devPort,");
   });
 });
 
@@ -58,6 +83,14 @@ function readSource(relativePath: string): string {
       "\n",
     ),
   );
+}
+
+/** One top-level function, ending on the `\n}` that closes it at column 0. */
+function functionBody(source: string, header: string): string {
+  const startAt = source.indexOf(header);
+  expect(startAt, `${header} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n}", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
 }
 
 function stripComments(source: string): string {

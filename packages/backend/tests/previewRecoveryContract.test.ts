@@ -87,6 +87,59 @@ describe("a dead dev server recovers through the Console launcher", () => {
 });
 
 /**
+ * A sandbox can also be owned by a quick task or a project chat, not just a
+ * session — the readiness poll that schedules this action only knows
+ * sandboxId/port, so the owner has to be resolved here by sandbox id. Each
+ * owner type keeps the same guards as sessions, just against its own fields.
+ */
+describe("preview recovery falls back to task and project owners", () => {
+  test("a task owner is checked when no session owns the sandbox", () => {
+    const body = definitionBody(
+      previewRecovery,
+      "ensureSessionPreviewServices",
+    );
+    const sessionAt = body.indexOf("internal.sessions.getBySandboxInternal");
+    const taskAt = body.indexOf("internal.agentTasks.getBySandboxInternal");
+    expect(sessionAt, "the session lookup moved").toBeGreaterThan(-1);
+    expect(taskAt, "the task lookup moved").toBeGreaterThan(-1);
+    expect(sessionAt).toBeLessThan(taskAt);
+
+    const startingGuardAt = body.indexOf(
+      'task.reviewTaskSandboxStatus === "starting"',
+    );
+    const launchAt = body.indexOf("`task-${task._id}`");
+    expect(startingGuardAt, "the task starting guard moved").toBeGreaterThan(
+      -1,
+    );
+    expect(launchAt, "the task launcher call moved").toBeGreaterThan(-1);
+    expect(startingGuardAt).toBeLessThan(launchAt);
+    expect(body).toContain("task.devPort !== args.expectedPort");
+  });
+
+  test("a project owner is checked last, after session and task", () => {
+    const body = definitionBody(
+      previewRecovery,
+      "ensureSessionPreviewServices",
+    );
+    const taskAt = body.indexOf("internal.agentTasks.getBySandboxInternal");
+    const projectAt = body.indexOf("internal.projects.getBySandboxInternal");
+    expect(projectAt, "the project lookup moved").toBeGreaterThan(-1);
+    expect(taskAt).toBeLessThan(projectAt);
+
+    const startingGuardAt = body.indexOf(
+      'project.reviewProjectSandboxStatus === "starting"',
+    );
+    const launchAt = body.indexOf("`project-${project._id}`");
+    expect(startingGuardAt, "the project starting guard moved").toBeGreaterThan(
+      -1,
+    );
+    expect(launchAt, "the project launcher call moved").toBeGreaterThan(-1);
+    expect(startingGuardAt).toBeLessThan(launchAt);
+    expect(body).toContain("project.devPort !== args.expectedPort");
+  });
+});
+
+/**
  * The proxy runs detached with no supervisor, so one uncaught throw killed it
  * and took the preview down until someone asked for a restart.
  */

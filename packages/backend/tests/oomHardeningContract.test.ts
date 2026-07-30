@@ -14,6 +14,7 @@ const cliAttempt = readSource("callback-src/runtime/cliAttempt.ts");
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
 );
+const taskDevServer = readSource("convex/_sandbox_runtime/devServer.ts");
 
 /**
  * Prod dmesg showed the kernel OOM killer firing repeatedly on 16GB session
@@ -88,6 +89,27 @@ describe("eva-launched dev servers run with a capped heap", () => {
     expect(mb).toBeGreaterThanOrEqual(4096);
     expect(mb).toBeLessThanOrEqual(8192);
     // An env- or repo-provided NODE_OPTIONS must still win (ours goes first).
+    expect(body).toContain("${NODE_OPTIONS:+ $NODE_OPTIONS}");
+  });
+
+  test("the task-run background launcher caps V8 before the dev command", () => {
+    // Quick tasks and project chats launch their dev server through
+    // launchDevServerInBackground, not the Console launcher, but the same
+    // 16GB-VM OOM risk applies.
+    const body = functionBody(
+      taskDevServer,
+      "export async function launchDevServerInBackground(",
+    );
+    const capAt = body.indexOf("--max-old-space-size=");
+    const commandAt = body.indexOf("devCommand,");
+    expect(capAt, "the heap cap moved").toBeGreaterThan(-1);
+    expect(commandAt, "the dev command slot moved").toBeGreaterThan(-1);
+    expect(capAt).toBeLessThan(commandAt);
+
+    const cap = body.match(/--max-old-space-size=(\d+)/);
+    const mb = Number(cap?.[1] ?? "0");
+    expect(mb).toBeGreaterThanOrEqual(4096);
+    expect(mb).toBeLessThanOrEqual(8192);
     expect(body).toContain("${NODE_OPTIONS:+ $NODE_OPTIONS}");
   });
 });

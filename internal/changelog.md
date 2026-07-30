@@ -1,5 +1,9 @@
 # Changelog
 
+## Prompt stash (⌘S) - 2026-07-30
+
+Typing a follow-up meant losing an in-progress draft or juggling browser tabs. ⌘S now stashes the composer (text + attachments) into a per-user per-repo Convex queue and clears the input; ⌘S on an empty composer (or the footer pill) opens a picker to restore or delete. Restore appends into the current draft and consumes the entry — model/mode/traits stay untouched. Kept separate from autosaved `drafts` (one live WIP per surface); see `internal/docs/prompt-stash-vs-drafts.md`.
+
 ## Auto-detect yarn/npm/pip in snapshot + session installs - 2026-07-30
 
 Snapshot seed hardcoded `pnpm install`, so any repo without `pnpm-lock.yaml` failed at `SEEDRUN-FAILED:install`. Seed and session paths now pick the Node manager from the root lockfile (pnpm still fatal; yarn/npm warn and continue) and best-effort `pip install` for root `requirements.txt` / `pyproject.toml`. Snapshot fingerprint collects all Node + Python manifests so polyglot repos rebuild when either side changes; session restore splits Node vs Python drift so a requirements-only change cannot kill the session on a yarn reinstall.

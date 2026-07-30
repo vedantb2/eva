@@ -774,6 +774,10 @@ export const docVersionDraftFields = {
 // One row per (user, surface target). `kind` names the input surface so the
 // table stays extensible. Exactly one target FK group is set, matching `kind`.
 // Content is stored TOKENIZED (@[Label](id)) so mentions survive reload.
+//
+// Drafts ≠ prompt stashes: a draft is the single live WIP for one composer
+// surface (autosaved upsert). A prompt stash is an explicit multi-entry queue
+// of frozen snapshots (see `promptStashFields`) — do not merge the tables.
 export const draftFields = {
   userId: v.id("users"),
   repoId: v.id("githubRepos"),
@@ -789,6 +793,16 @@ export const draftFields = {
   sessionId: v.optional(v.id("sessions")),
   content: v.string(),
   updatedAt: v.number(),
+};
+
+// Per-user per-repo queue of frozen composer snapshots (⌘S). Cap enforced in
+// `promptStash.ts`. Content is tokenized; "" allowed for attachment-only.
+// Ordering uses Convex `_creationTime` (no separate createdAt).
+export const promptStashFields = {
+  userId: v.id("users"),
+  repoId: v.id("githubRepos"),
+  content: v.string(),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
 };
 
 export const evaluationReportFields = {

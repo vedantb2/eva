@@ -1,5 +1,9 @@
 # Changelog
 
+## Session turns fail fast when the agent process dies - 2026-07-30
+
+A dead agent process (typically OOM during heavy tool runs) left session chats on "Working…" until the 2-hour workflow timeout. Every tracked session turn now runs a no-heartbeat watchdog: streamingActivity silence beyond a phase-aware threshold (5 min idle, 15 min sandbox startup, 25 min long silent tools, 10 min finalising) triggers a sandbox + callback-PID liveness probe, and a confirmed-dead turn is finalised within minutes — streamed text and tool steps are salvaged onto the bubble, a system alert explains the crash, a merely-wedged process is interrupted the same way Stop does, and queued messages start. The 2-hour backstop now shares the same teardown. Thresholds and phase detection moved to a pure staleness module shared with the task watchdog.
+
 ## Working bubble no longer replays the previous reply - 2026-07-30
 
 The warm session daemon sent its final streaming reconcile AFTER the completion mutation, behind a ~5s transcript copy. Queued dequeues (which start inside the completion mutation) and quick manual follow-ups began the next turn within that window, so the late reconcile resurrected the finished turn's full reply into the streaming row — and the new turn's Working bubble rendered the previous answer until the real reply landed. The reconcile now runs before completion; the daemon never writes streaming state after a turn completes. The startExecute/dequeue clears remain as defence in depth for old warm daemons and one-shot providers.

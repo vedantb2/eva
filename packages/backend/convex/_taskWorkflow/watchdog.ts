@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { z } from "zod";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { cancelTrackedWorkflow } from "../workflowManager";
@@ -19,130 +18,14 @@ import {
   sendCompletionEvent,
   snapshotStreamingActivityToLog,
 } from "./helpers";
+import {
+  hasActiveAgentToolStep,
+  isFinalizingActivity,
+  isSandboxStartupActivity,
+} from "./staleness";
 
-const SANDBOX_STARTUP_LABELS = new Set([
-  "Starting sandbox...",
-  "Creating sandbox...",
-  "Resuming sandbox...",
-  "Syncing repository...",
-  "Cloning repository...",
-  "Installing dependencies...",
-  "Fetching base branch...",
-  "Checking out base branch...",
-  "Setting up branch...",
-  "Starting desktop...",
-  "Retrying sandbox setup...",
-]);
-
-/** Labels shown while the agent is doing real work (grep, bash, read, etc.). */
-const AGENT_WORK_LABELS = new Set([
-  "Running command...",
-  "Searching code...",
-  "Searching files...",
-  "Reading file...",
-  "Creating file...",
-  "Editing file...",
-  "Using Skill...",
-  "Fetching URL...",
-  "Searching web...",
-  "Running agent...",
-  "Updating tasks...",
-  "Reading tasks...",
-]);
-
-const activeStreamingStepSchema = z.object({
-  label: z.string(),
-  status: z.literal("active"),
-});
-
-/** Parses streaming activity JSON and returns labels of steps with "active" status. */
-function getActiveStreamingLabels(
-  currentActivity: string | undefined,
-): string[] {
-  if (!currentActivity) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(currentActivity);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.flatMap((item) => {
-      const step = activeStreamingStepSchema.safeParse(item);
-      return step.success && step.data.label ? [step.data.label] : [];
-    });
-  } catch {
-    return [];
-  }
-}
-
-/** Returns true if the current streaming activity indicates sandbox startup is still in progress. */
-function isSandboxStartupActivity(
-  currentActivity: string | undefined,
-  opts: { hasSandbox: boolean; runStartedAt?: number },
-): boolean {
-  if (!currentActivity) {
-    // Empty activity with an attached sandbox is usually heartbeat drift, not
-    // startup — otherwise we apply the 15m startup threshold incorrectly.
-    if (
-      opts.hasSandbox &&
-      opts.runStartedAt !== undefined &&
-      Date.now() - opts.runStartedAt > 120_000
-    ) {
-      return false;
-    }
-    return true;
-  }
-  const activeLabels = getActiveStreamingLabels(currentActivity);
-  if (activeLabels.some((label) => SANDBOX_STARTUP_LABELS.has(label))) {
-    return true;
-  }
-  return currentActivity.includes('"Starting sandbox..."');
-}
-
-/** Fallback when step status is missing from JSON but label text is present. */
-function activityShowsAgentWork(currentActivity: string | undefined): boolean {
-  if (!currentActivity) {
-    return false;
-  }
-  for (const label of AGENT_WORK_LABELS) {
-    if (currentActivity.includes(`"label":"${label}"`)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Returns true if the current streaming activity indicates the run is finalizing. */
-function isFinalizingActivity(currentActivity: string | undefined): boolean {
-  if (!currentActivity) {
-    return false;
-  }
-  return currentActivity.includes('"Finalizing response..."');
-}
-
-/**
- * Returns true when an agent tool step (Bash, tool-use, etc.) is currently
- * active and we are past sandbox startup/finalization. Used to extend the
- * stale threshold — long-running shell commands (e.g. `pnpm build 2>&1 | tail`)
- * silence stream-json output entirely, so the only thing keeping the heartbeat
- * alive is the 10s transport ping. Extending the threshold here lets the
- * pre-kill liveness probe absorb transient heartbeat transport hiccups without
- * killing a demonstrably-live build.
- */
-function hasActiveAgentToolStep(currentActivity: string | undefined): boolean {
-  const activeLabels = getActiveStreamingLabels(currentActivity);
-  if (
-    activeLabels.some(
-      (label) =>
-        !SANDBOX_STARTUP_LABELS.has(label) &&
-        label !== "Finalizing response...",
-    )
-  ) {
-    return true;
-  }
-  return activityShowsAgentWork(currentActivity);
-}
+// Startup/tool/finalizing detection lives in ./staleness (pure module shared
+// with the session watchdog in workflowWatchdog.ts).
 
 /**
  * Periodically checks if a run has gone stale and cleans it up or reschedules another check.

@@ -1,11 +1,21 @@
 import { v } from "convex/values";
-import { type MutationCtx, internalMutation } from "./_generated/server";
+import {
+  type MutationCtx,
+  internalAction,
+  internalMutation,
+} from "./_generated/server";
 import { type WorkflowId } from "@convex-dev/workflow";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { cancelTrackedWorkflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  STALE_CHECK_DELAY_MS,
+  STALE_RECHECK_MS,
+  staleTurnDecision,
+} from "./_taskWorkflow/staleness";
 import { finalizeCancelledAssistantMessage } from "./streaming";
+import { getAIModelProvider, normalizeAIModel } from "./validators";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -38,6 +48,15 @@ export async function trackSessionWorkflow(
     timeoutMs,
     internal.workflowWatchdog.handleStaleSession,
     { sessionId, workflowId: id },
+  );
+  // No-heartbeat watchdog: the in-sandbox callback touches streamingActivity
+  // at least every ~15s while a turn runs, so a silently dead agent process
+  // (OOM) shows up as a stale row within minutes. Without this chain the chat
+  // sat on "Working…" until the 2h handleStaleSession backstop above.
+  await ctx.scheduler.runAfter(
+    STALE_CHECK_DELAY_MS,
+    internal.workflowWatchdog.checkStaleSessionHeartbeat,
+    { sessionId, workflowId: id, turnStartedAt: Date.now() },
   );
 }
 
@@ -177,6 +196,85 @@ async function timeoutLastMessage(
   }
 }
 
+/**
+ * Tears down one tracked session turn: cancels the workflow, salvages the
+ * open assistant bubble (streamed text and tool steps survive; an empty
+ * bubble is dropped), surfaces the failure as a standalone system alert,
+ * interrupts any still-alive agent process the way cancelExecution does, and
+ * starts the next queued message. The caller must have verified
+ * `session.activeWorkflowId === workflowId`; mutation atomicity makes that
+ * guard plus these writes race-free against a concurrent startExecute.
+ */
+async function finalizeStaleSessionTurn(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  workflowId: string,
+  alert: { text: string; detail?: string },
+): Promise<void> {
+  const sessionId = session._id;
+  // Read the streaming row BEFORE cancelStaleWorkflow clears it — it feeds
+  // the salvage of streamed text / tool steps below.
+  const streaming = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", String(sessionId)))
+    .first();
+
+  await cancelStaleWorkflow(ctx, workflowId, [
+    String(sessionId),
+    `summary:${String(sessionId)}`,
+  ]);
+
+  if (session.syntheticTurnMessageId) {
+    const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
+    if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
+      await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
+    }
+  }
+
+  const last = await ctx.db
+    .query("messages")
+    .withIndex("by_parent", (q) => q.eq("parentId", sessionId))
+    .order("desc")
+    .first();
+  if (
+    last &&
+    last.role === "assistant" &&
+    last.finishedAt === undefined &&
+    last._id !== session.syntheticTurnMessageId
+  ) {
+    await finalizeCancelledAssistantMessage(ctx, last, streaming);
+  }
+
+  await ctx.db.insert("messages", {
+    parentId: sessionId,
+    role: "assistant",
+    content: alert.text,
+    timestamp: Date.now(),
+    isSystemAlert: true,
+    ...(alert.detail !== undefined ? { errorDetail: alert.detail } : {}),
+  });
+
+  // A stale heartbeat usually means the agent process is dead, but a merely
+  // wedged one must not keep mutating the sandbox after the session moves on
+  // to its next turn — interrupt it the same way cancelExecution does.
+  if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
+    await ctx.db.patch(sessionId, { cancelRequestedAt: Date.now() });
+  } else if (session.sandboxId) {
+    await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+  }
+
+  await ctx.db.patch(sessionId, {
+    activeWorkflowId: undefined,
+    syntheticTurnMessageId: undefined,
+    updatedAt: Date.now(),
+  });
+
+  await startNextQueuedSessionMessage(ctx, sessionId);
+}
+
 /** Cancels a stale chat session workflow and starts the next queued message. */
 export const handleStaleSession = internalMutation({
   args: {
@@ -188,38 +286,154 @@ export const handleStaleSession = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session || session.activeWorkflowId !== args.workflowId) return null;
 
-    await cancelStaleWorkflow(ctx, args.workflowId, [
-      String(args.sessionId),
-      `summary:${String(args.sessionId)}`,
-    ]);
-
-    if (session.syntheticTurnMessageId) {
-      const syntheticMessage = await ctx.db.get(session.syntheticTurnMessageId);
-      if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
-        const streaming = await ctx.db
-          .query("streamingActivity")
-          .withIndex("by_entity", (q) =>
-            q.eq("entityId", String(args.sessionId)),
-          )
-          .first();
-        await finalizeCancelledAssistantMessage(
-          ctx,
-          syntheticMessage,
-          streaming,
-        );
-      }
-    }
-
-    await timeoutLastMessage(ctx, args.sessionId, "Execution timed out.");
-
-    await ctx.db.patch(args.sessionId, {
-      activeWorkflowId: undefined,
-      syntheticTurnMessageId: undefined,
-      updatedAt: Date.now(),
+    await finalizeStaleSessionTurn(ctx, session, args.workflowId, {
+      text: "Execution timed out.",
+      detail: "Turn exceeded the 2-hour workflow limit.",
     });
 
-    await startNextQueuedSessionMessage(ctx, args.sessionId);
+    return null;
+  },
+});
 
+/**
+ * Recurring no-heartbeat check for one session turn. Armed by
+ * trackSessionWorkflow, re-schedules itself every STALE_RECHECK_MS while the
+ * tracked workflow is still the session's active one, and ends with the turn.
+ * On staleness it first probes sandbox + callback liveness (transport flaps
+ * must not kill live work) and only then finalises the turn — so a dead agent
+ * process surfaces as a clear error within minutes instead of hanging on
+ * "Working…" until the 2-hour handleStaleSession backstop.
+ */
+export const checkStaleSessionHeartbeat = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    workflowId: v.string(),
+    turnStartedAt: v.number(),
+    // Set by the liveness probe once it has confirmed the sandbox/callback is
+    // dead, so the kill proceeds without another probe round-trip.
+    skipLivenessProbe: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    // Turn finished or was replaced by a newer one — the chain ends here.
+    if (!session || session.activeWorkflowId !== args.workflowId) return null;
+
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+    const decision = staleTurnDecision({
+      currentActivity: streaming?.currentActivity,
+      lastUpdatedAt: streaming?.lastUpdatedAt,
+      turnStartedAt: args.turnStartedAt,
+      hasSandbox: !!session.sandboxId,
+      now: Date.now(),
+    });
+
+    if (!decision.stale) {
+      await ctx.scheduler.runAfter(
+        STALE_RECHECK_MS,
+        internal.workflowWatchdog.checkStaleSessionHeartbeat,
+        {
+          sessionId: args.sessionId,
+          workflowId: args.workflowId,
+          turnStartedAt: args.turnStartedAt,
+        },
+      );
+      return null;
+    }
+
+    // Stale. Probe before killing unless the probe already ran, we are in the
+    // startup phase (the callback is not guaranteed to exist yet), or there is
+    // no sandbox to probe.
+    if (
+      !args.skipLivenessProbe &&
+      decision.phase !== "startup" &&
+      session.sandboxId
+    ) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.workflowWatchdog.probeStaleSessionLiveness,
+        {
+          sessionId: args.sessionId,
+          workflowId: args.workflowId,
+          turnStartedAt: args.turnStartedAt,
+          sandboxId: session.sandboxId,
+          repoId: session.repoId,
+          streamingAgeMs: decision.ageMs,
+        },
+      );
+      return null;
+    }
+
+    const staleSeconds = Math.round(decision.ageMs / 1000);
+    console.log(
+      `[watchdog][session-stall] sessionId=${args.sessionId} phase=${decision.phase} ageMs=${decision.ageMs} thresholdMs=${decision.thresholdMs} skipProbe=${args.skipLivenessProbe ?? false}`,
+    );
+    await finalizeStaleSessionTurn(ctx, session, args.workflowId, {
+      text: "Turn stalled: the agent process in the sandbox stopped responding.",
+      detail: `No heartbeat for ${staleSeconds}s (phase: ${decision.phase}, threshold: ${Math.round(decision.thresholdMs / 1000)}s). The agent process likely crashed (for example out of memory). The sandbox was preserved — any committed work is intact; send a new message to continue.`,
+    });
+    return null;
+  },
+});
+
+/**
+ * Pre-kill liveness gate for a stale session turn: asks the sandbox provider
+ * whether the VM is running and the callback PID (or an agent CLI process) is
+ * alive. Alive → touch the streaming row (resets the staleness clock) and
+ * keep checking, so transport flaps never kill live work. Dead → re-enter the
+ * check with the probe suppressed so the kill proceeds immediately.
+ * Unreachable probes report alive (see verifySandboxLiveness), so we never
+ * kill on our own inability to verify.
+ */
+export const probeStaleSessionLiveness = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    workflowId: v.string(),
+    turnStartedAt: v.number(),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    streamingAgeMs: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const liveness = await ctx.runAction(
+      internal.sandbox.verifySandboxLiveness,
+      { sandboxId: args.sandboxId, repoId: args.repoId },
+    );
+
+    console.log(
+      `[watchdog][session-probe] sessionId=${args.sessionId} alive=${liveness.alive} reason=${liveness.reason} sandboxState=${liveness.sandboxState ?? "unknown"} pidAlive=${liveness.pidAlive ?? "n/a"} streamingAgeMs=${args.streamingAgeMs}`,
+    );
+
+    if (liveness.alive) {
+      await ctx.runMutation(internal.streaming.internalTouch, {
+        entityId: String(args.sessionId),
+      });
+      await ctx.scheduler.runAfter(
+        STALE_RECHECK_MS,
+        internal.workflowWatchdog.checkStaleSessionHeartbeat,
+        {
+          sessionId: args.sessionId,
+          workflowId: args.workflowId,
+          turnStartedAt: args.turnStartedAt,
+        },
+      );
+      return null;
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.workflowWatchdog.checkStaleSessionHeartbeat,
+      {
+        sessionId: args.sessionId,
+        workflowId: args.workflowId,
+        turnStartedAt: args.turnStartedAt,
+        skipLivenessProbe: true,
+      },
+    );
     return null;
   },
 });

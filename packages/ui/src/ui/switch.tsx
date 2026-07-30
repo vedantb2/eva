@@ -18,7 +18,9 @@ const Switch = React.forwardRef<
   >
     <SwitchPrimitive.Thumb
       className={cn(
-        "pointer-events-none block size-5 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-[18px] data-[state=unchecked]:translate-x-0.5",
+        // Unchecked: white on muted. Checked: primary-foreground so dark/neutral
+        // zinc (near-white primary) still has a visible knob.
+        "pointer-events-none block size-5 rounded-full bg-white shadow-sm transition-[transform,background-color] data-[state=checked]:translate-x-[18px] data-[state=checked]:bg-primary-foreground data-[state=unchecked]:translate-x-0.5",
       )}
     />
   </SwitchPrimitive.Root>

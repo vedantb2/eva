@@ -95,21 +95,31 @@ function seededRuntimeStateCaptureLines(
 // Bump when the Vercel seed-prep toolchain/build inputs change in a way that
 // should invalidate existing image fingerprints (see getImageFingerprint)
 // even though repo/config inputs are unchanged.
-const IMAGE_DEF_VERSION = 1;
+const IMAGE_DEF_VERSION = 2;
 
 // Boundary schema for the small GitHub JSON responses this module reads.
 const shaResponseSchema = z.object({ sha: z.string() });
 
+/** Manifest files that affect baked install output (Node lockfiles + Python). */
+const FINGERPRINT_MANIFEST_FILES = [
+  "pnpm-lock.yaml",
+  "package-lock.json",
+  "yarn.lock",
+  "requirements.txt",
+  "pyproject.toml",
+] as const;
+
 /**
- * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
- * build branch, the build commands, the config-file blobs baked into the image,
- * and IMAGE_DEF_VERSION. When this matches the value stored at the last
- * successful Image build, the workflow skips the ~11-15m rebuild — the output
- * would be byte-identical (sandboxes fetch fresh branches at boot, so a repo
- * checkout that is a few commits stale costs nothing; node_modules only drift
- * when the lockfile changes, which changes this fingerprint). Returns null when
- * the inputs cannot be determined (e.g. lockfile lookup fails) — callers must
- * treat null as "always rebuild".
+ * Fingerprint of the Image inputs: every dependency manifest blob sha found on
+ * the build branch (Node lockfiles + Python), the build commands, the
+ * config-file blobs baked into the image, and IMAGE_DEF_VERSION. When this
+ * matches the value stored at the last successful Image build, the workflow
+ * skips the ~11-15m rebuild — the output would be byte-identical (sandboxes
+ * fetch fresh branches at boot, so a repo checkout that is a few commits stale
+ * costs nothing; node_modules / site-packages only drift when a manifest
+ * changes, which changes this fingerprint). Returns null when the inputs
+ * cannot be determined (e.g. no manifests found) — callers must treat null as
+ * "always rebuild".
  */
 export const getImageFingerprint = internalAction({
   args: { repoSnapshotId: v.id("repoSnapshots") },
@@ -125,16 +135,12 @@ export const getImageFingerprint = internalAction({
     });
     if (!repo) return null;
     const branch = config.workflowRef ?? "main";
-    let lockfileSha: string | null = null;
+    const manifestShas: string[] = [];
     try {
       const token = await getInstallationToken(repo.installationId);
-      for (const lockfile of [
-        "pnpm-lock.yaml",
-        "package-lock.json",
-        "yarn.lock",
-      ]) {
+      for (const manifest of FINGERPRINT_MANIFEST_FILES) {
         const resp = await fetch(
-          `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${lockfile}?ref=${encodeURIComponent(branch)}`,
+          `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${manifest}?ref=${encodeURIComponent(branch)}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -145,20 +151,19 @@ export const getImageFingerprint = internalAction({
         if (resp.ok) {
           const parsed = shaResponseSchema.safeParse(await resp.json());
           if (parsed.success) {
-            lockfileSha = parsed.data.sha;
-            break;
+            manifestShas.push(`${manifest}:${parsed.data.sha}`);
           }
         }
       }
     } catch (e) {
       console.error(
-        `[snapshot] image fingerprint: lockfile lookup failed: ${
+        `[snapshot] image fingerprint: manifest lookup failed: ${
           e instanceof Error ? e.message : String(e)
         }`,
       );
       return null;
     }
-    if (!lockfileSha) return null;
+    if (manifestShas.length === 0) return null;
     const fileKeys: string[] = await ctx.runQuery(
       internal.sandboxConfigFiles.getConfigFileKeys,
       { repoId: config.repoId },
@@ -166,7 +171,7 @@ export const getImageFingerprint = internalAction({
     const payload = JSON.stringify({
       v: IMAGE_DEF_VERSION,
       branch,
-      lockfileSha,
+      manifestShas,
       buildCommands: config.buildCommands ?? [],
       files: fileKeys,
     });
@@ -230,6 +235,9 @@ export const launchSeedRun = internalAction({
       "#!/bin/bash",
       "exec > /tmp/seedrun.log 2>&1",
       "set -x",
+      // Yarn Berry / packageManager pins may prompt Corepack to download —
+      // non-interactive seed must not hang on that prompt.
+      "export COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
       "rm -f /tmp/.seedrun-done",
     ];
     // Daytona used to bake its whole agent-CLI toolchain (claude, codex,
@@ -261,6 +269,8 @@ export const launchSeedRun = internalAction({
       'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
       'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
       'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
+      // Classic yarn for yarn.lock repos. Soft-fail: yarn installs are best-effort.
+      "corepack prepare yarn@1.22.22 --activate || true",
       "git config --global --add safe.directory '*'",
       `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
       // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
@@ -321,7 +331,14 @@ export const launchSeedRun = internalAction({
       // they survive git clean).
       "cp -a /home/eva/sandbox-config/. /tmp/repo/ 2>/dev/null || true",
       'echo "SEEDRUN-STAGE:install"',
-      'pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }',
+      // Node: lockfile at repo root picks the manager. pnpm stays fatal (existing
+      // repos); yarn/npm warn and continue so polyglot / legacy roots can still
+      // finish the seed. Markers must never contain the substring SEEDRUN-FAILED.
+      'if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile || { echo "SEEDRUN-FAILED:install"; exit 1; }; elif [ -f yarn.lock ]; then yarn install || echo "SEEDRUN-WARN:install-yarn"; elif [ -f package-lock.json ]; then npm ci || npm install || echo "SEEDRUN-WARN:install-npm"; elif [ -f package.json ]; then npm install || echo "SEEDRUN-WARN:install-npm"; else echo "SEEDRUN: skip node install (no package manifest)"; fi',
+      // Python: independent of Node. Lazy-install compile deps only when a
+      // Python manifest exists (libpq-devel for psycopg2 source builds).
+      "if [ -f requirements.txt ] || [ -f pyproject.toml ]; then sudo dnf install -y gcc gcc-c++ make python3-devel libpq-devel >/tmp/py-build-deps-dnf.log 2>&1 || true; fi",
+      'if [ -f requirements.txt ]; then python3 -m pip install --user --break-system-packages -r requirements.txt >/tmp/pip-install.log 2>&1 || python3 -m pip install --user -r requirements.txt >>/tmp/pip-install.log 2>&1 || { tail -50 /tmp/pip-install.log; echo "SEEDRUN-WARN:install-pip"; }; elif [ -f pyproject.toml ]; then python3 -m pip install --user --break-system-packages -e . >/tmp/pip-install.log 2>&1 || python3 -m pip install --user -e . >>/tmp/pip-install.log 2>&1 || { tail -50 /tmp/pip-install.log; echo "SEEDRUN-WARN:install-pip"; }; fi',
     );
     // Vercel node24 base has no container runtime. Install Docker if missing,
     // then ensure the daemon is running and the socket is group-accessible so

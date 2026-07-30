@@ -1,36 +1,23 @@
 #!/usr/bin/env bash
-# Screenshot one eva screen for a feature-announcement tweet.
-#   usage: shot.sh <url-path|-> <slug> [settle-ms]
+# HD screenshot of one eva screen for a feature-announcement tweet.
+#   usage: shot.sh <url-path> <slug> [settle-ms] [--no-collapse]
 #     url-path   path under localhost:5173, e.g. /vvedantb/eva/web/sessions
-#                pass "-" to shoot the CURRENT page state without navigating
-#                (use after you have opened a modal / staged some input)
-#     slug       output name; file lands at screenshots/<today>-<slug>.png
+#     slug       output name; file lands at screenshots/<today>-<slug>.png (2560x1440)
 #     settle-ms  extra pause after networkidle (default 3000) — raise it if the
 #                shot catches skeletons or spinners
+#     --no-collapse  leave the sidebar expanded (only when the sidebar IS the feature)
 #
-# Assumes the browser is already at viewport 1280x720 and signed in as the agent
-# user (see SKILL.md step 2). Hides the react-scan / agentation dev overlays,
-# which would otherwise land in frame.
+# Thin wrapper over scripts/hd-shot.mjs, which drives a real Chrome at
+# deviceScaleFactor 2 so the 1280 layout is captured crisp at 2560x1440.
+# agent-browser cannot do this — it captures at CSS pixels and discards DPR.
+#
+# For a STAGED shot (open a menu, type a prompt, then capture) don't use this
+# wrapper — call hd-shot.mjs directly with a --recipe (see SKILL.md).
 set -u
-BASE="http://localhost:5173"
-OUT_DIR="C:/Vedant/Personal/GitHub/eva/screenshots"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
 path="$1"; slug="$2"; settle="${3:-3000}"
-out="${OUT_DIR}/$(date +%Y-%m-%d)-${slug}.png"
+extra=""
+[ "${4:-}" = "--no-collapse" ] && extra="--no-collapse"
 
-mkdir -p "$OUT_DIR"
-
-if [ "$path" != "-" ]; then
-  timeout 90 agent-browser open "${BASE}${path}" >/dev/null 2>&1
-  timeout 60 agent-browser wait --load networkidle >/dev/null 2>&1
-fi
-timeout 30 agent-browser wait "$settle" >/dev/null 2>&1
-
-# Dev overlays are THREE nodes, all mounted on <html> rather than <body>:
-# #react-scan-root (toolbar, shadow root), a bare <html> > <canvas> (the component
-# outlines and labels — the one that actually ruins a shot), and
-# [data-agentation-root]. All carry inline styles, so set display:none inline.
-timeout 60 agent-browser eval "const kill=(el)=>{if(el)el.style.setProperty('display','none','important')};kill(document.getElementById('react-scan-root'));document.documentElement.querySelectorAll(':scope > canvas').forEach(kill);document.querySelectorAll('[data-agentation-root]').forEach(kill);'hidden'" >/dev/null 2>&1
-
-timeout 60 agent-browser screenshot "$out" 2>&1 | tail -1
-timeout 30 agent-browser get url
-echo "saved: $out"
+MSYS_NO_PATHCONV=1 node "${SCRIPT_DIR}/hd-shot.mjs" \
+  --path "$path" --slug "$slug" --settle "$settle" $extra

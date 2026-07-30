@@ -11,7 +11,6 @@ const accountListItemValidator = v.object({
   _creationTime: v.number(),
   provider: aiProviderValidator,
   label: v.string(),
-  accentColor: v.optional(v.string()),
   credentials: v.array(credentialValidator),
   updatedAt: v.number(),
 });
@@ -36,7 +35,6 @@ export const list = authQuery({
       _creationTime: row._creationTime,
       provider: row.provider,
       label: displayName,
-      accentColor: row.accentColor,
       credentials: row.credentials.map((entry) => ({
         key: entry.key,
         value: "••••••",
@@ -70,7 +68,6 @@ export const listForTaskOwner = authQuery({
       _creationTime: row._creationTime,
       provider: row.provider,
       label: displayName,
-      accentColor: row.accentColor,
       credentials: row.credentials.map((entry) => ({
         key: entry.key,
         value: "••••••",
@@ -112,7 +109,6 @@ export const createInternal = internalMutation({
     userId: v.id("users"),
     provider: aiProviderValidator,
     label: v.string(),
-    accentColor: v.optional(v.string()),
     credentials: v.array(credentialValidator),
   },
   returns: v.id("userProviderAccounts"),
@@ -122,7 +118,6 @@ export const createInternal = internalMutation({
       userId: args.userId,
       provider: args.provider,
       label: args.label,
-      accentColor: args.accentColor,
       credentials: args.credentials,
       createdAt: now,
       updatedAt: now,
@@ -131,16 +126,15 @@ export const createInternal = internalMutation({
 });
 
 /**
- * Updates an existing account's accent and pre-encrypted credentials.
- * Asserts ownership. Provider is immutable. Label is always overwritten from
- * the owner's first name. Internal only.
+ * Updates an existing account's pre-encrypted credentials. Asserts ownership.
+ * Provider is immutable. Label is always overwritten from the owner's first
+ * name. Internal only.
  */
 export const updateInternal = internalMutation({
   args: {
     accountId: v.id("userProviderAccounts"),
     userId: v.id("users"),
     label: v.string(),
-    accentColor: v.optional(v.string()),
     credentials: v.array(credentialValidator),
   },
   returns: v.null(),
@@ -151,7 +145,6 @@ export const updateInternal = internalMutation({
     }
     await ctx.db.patch(args.accountId, {
       label: args.label,
-      accentColor: args.accentColor,
       credentials: args.credentials,
       updatedAt: Date.now(),
     });

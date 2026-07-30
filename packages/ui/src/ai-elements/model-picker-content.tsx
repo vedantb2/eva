@@ -24,7 +24,6 @@ export type ModelPickerInstance = {
   provider: string;
   accountId: string | null;
   label: string;
-  accentColor?: string;
 };
 
 type ModelPickerRow = {
@@ -80,7 +79,6 @@ export function buildPickerInstances<TModel extends string>(
         provider,
         accountId: account.id,
         label: account.label,
-        accentColor: account.accentColor,
       });
     }
   }
@@ -103,14 +101,8 @@ function InstanceIcon({
       <ProviderIcon provider={instance.provider} size={size} />
       {showBadge ? (
         <span
-          className={cn(
-            "pointer-events-none absolute -right-0.5 -bottom-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full px-0.5 text-[7px] font-semibold leading-none",
-            instance.accentColor
-              ? "text-white"
-              : "bg-muted text-muted-foreground",
-          )}
+          className="pointer-events-none absolute -right-0.5 -bottom-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-muted px-0.5 text-[7px] font-semibold leading-none text-muted-foreground"
           style={{
-            backgroundColor: instance.accentColor,
             boxShadow: `0 0 0 1.5px ${indicatorBackground}`,
           }}
           aria-hidden
@@ -308,7 +300,6 @@ export function ModelPickerContent<TModel extends string>({
               ) : null}
               {instances.map((instance) => {
                 const showBadge =
-                  Boolean(instance.accentColor) ||
                   (providerCounts.get(instance.provider) ?? 0) > 1;
                 const isPersonalTeamVariant =
                   lockedTeamKey !== undefined && instance.key === lockedTeamKey;
@@ -412,7 +403,6 @@ export function ModelPickerContent<TModel extends string>({
               {rows.map((row) => {
                 const isActive = row.compositeKey === activeCompositeKey;
                 const showBadge =
-                  Boolean(row.instance.accentColor) ||
                   (providerCounts.get(row.instance.provider) ?? 0) > 1;
                 const isPersonalTeamVariant =
                   lockedTeamKey !== undefined &&

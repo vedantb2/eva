@@ -33,7 +33,6 @@ export const upsert = action({
     provider: aiProviderValidator,
     /** Ignored — label is always the user's first name. */
     label: v.optional(v.string()),
-    accentColor: v.optional(v.string()),
     credentials: v.array(credentialInputValidator),
   },
   returns: v.id("userProviderAccounts"),
@@ -60,7 +59,6 @@ export const upsert = action({
         accountId: args.accountId,
         userId,
         label,
-        accentColor: args.accentColor,
         credentials: encrypted,
       });
       return args.accountId;
@@ -69,7 +67,6 @@ export const upsert = action({
       userId,
       provider: args.provider,
       label,
-      accentColor: args.accentColor,
       credentials: encrypted,
     });
   },

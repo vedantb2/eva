@@ -73,13 +73,3 @@ export const PROVIDER_CREDENTIAL_FIELDS: Record<
     },
   ],
 };
-
-/** Accent swatches offered when creating an account (mirrors T3 Code). */
-export const ACCOUNT_ACCENT_SWATCHES: ReadonlyArray<string> = [
-  "#2563eb",
-  "#16a34a",
-  "#ea580c",
-  "#dc2626",
-  "#7c3aed",
-  "#0891b2",
-];

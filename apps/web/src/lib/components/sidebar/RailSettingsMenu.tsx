@@ -1,24 +1,17 @@
 "use client";
 
 import { Link, useLocation } from "@tanstack/react-router";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  cn,
-} from "@eva/ui";
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { IconSettings } from "@tabler/icons-react";
-import {
-  GLOBAL_SETTINGS_NAV,
-  GLOBAL_SETTINGS_TESTING,
-} from "@/lib/components/sidebar/globalSettingsNav";
+import { GLOBAL_SETTINGS_NAV } from "@/lib/components/sidebar/globalSettingsNav";
 import { isGlobalSettingsPath } from "@/lib/components/sidebar/homePaths";
 
+/** First entry in the global Settings sidebar — rail gear lands here. */
+const SETTINGS_LANDING_HREF = GLOBAL_SETTINGS_NAV[0].href;
+
 /**
- * Compact settings gear under the rail avatar. Opens global settings routes
- * (theme, personalisation, notifications, sandboxes, sync) — user-level, not
- * per-repo. Testing is included in DEV only.
+ * Compact settings gear under the rail avatar. Opens the global Settings panel
+ * on the first nav route (Theme) — user-level, not per-repo.
  */
 export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
@@ -29,10 +22,11 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
       (pathname === "/testing" || pathname.startsWith("/testing/")));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          to={SETTINGS_LANDING_HREF}
+          onClick={onNavigate}
           title="Settings"
           aria-label="Settings"
           className={cn(
@@ -43,31 +37,9 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
           )}
         >
           <IconSettings size={22} className="shrink-0" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="center"
-        side="right"
-        sideOffset={8}
-        className="w-48"
-      >
-        {GLOBAL_SETTINGS_NAV.map((item) => (
-          <DropdownMenuItem key={item.href} asChild>
-            <Link to={item.href} onClick={onNavigate}>
-              <item.icon size={16} className="mr-2" />
-              {item.name}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-        {showTesting ? (
-          <DropdownMenuItem asChild>
-            <Link to={GLOBAL_SETTINGS_TESTING.href} onClick={onNavigate}>
-              <GLOBAL_SETTINGS_TESTING.icon size={16} className="mr-2" />
-              {GLOBAL_SETTINGS_TESTING.name}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="right">Settings</TooltipContent>
+    </Tooltip>
   );
 }

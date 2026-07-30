@@ -27,7 +27,11 @@ import {
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
-import { detectPackageManager, startSessionServices } from "./devServer";
+import {
+  detectPackageManager,
+  installPythonDependenciesBestEffort,
+  startSessionServices,
+} from "./devServer";
 import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
 import { runStartupCommandsDirect } from "./execution";
 import { resolveVercelConsoleDevCommand } from "./vercelAppPorts";
@@ -378,7 +382,7 @@ async function installSnapshotDependenciesWithRetry(
     pm === "pnpm"
       ? `npm install -g pnpm && cd ${installCwd} && pnpm install`
       : pm === "yarn"
-        ? `cd ${installCwd} && yarn install`
+        ? `npm install -g yarn && cd ${installCwd} && yarn install`
         : `cd ${installCwd} && npm install`;
   const timeoutSeconds = pm === "pnpm" ? 240 : 180;
 
@@ -408,17 +412,16 @@ async function installSnapshotDependenciesWithRetry(
 }
 
 /**
- * True when the dependency lockfile content differs between the snapshot's baked
- * commit (`bakedSha`) and the freshly checked-out branch tip (HEAD). This is the
- * only case where the snapshot's baked `node_modules` are stale enough to
- * warrant a reinstall — an unchanged lockfile means the baked modules still
- * satisfy the tree, so install is skipped and the snapshot's speed is kept.
+ * Whether Node and/or Python dependency manifests drifted between the
+ * snapshot's baked commit (`bakedSha`) and HEAD. Split so a Python-only change
+ * does not trigger a Node reinstall (which can fail on yarn repos and kill the
+ * session).
  */
 async function lockfileDrifted(
   sandbox: SandboxHandle,
   rootDir: string,
   bakedSha: string,
-): Promise<boolean> {
+): Promise<{ node: boolean; python: boolean }> {
   const pm = await detectPackageManager(sandbox, rootDir);
   const lockfile =
     pm === "pnpm"
@@ -432,17 +435,24 @@ async function lockfileDrifted(
     pm === "pnpm" || !rootDir ? lockfile : `${rootDir}/${lockfile}`;
   const workspaceRoot = workspaceDirShell();
   // `git diff --quiet` exits 1 on difference, which execHandle would throw on —
-  // trap both outcomes into a printed marker and read that instead.
+  // trap both outcomes into printed markers and read those instead. Missing
+  // Python paths diff clean (no drift).
   const out = await execHandle(
     sandbox,
-    `cd ${workspaceRoot} && (git diff --quiet ${bakedSha} HEAD -- ${lockPath} && printf SAME || printf DRIFT)`,
+    [
+      `cd ${workspaceRoot}`,
+      `(git diff --quiet ${bakedSha} HEAD -- ${lockPath} && printf NODE_SAME || printf NODE_DRIFT)`,
+      `printf ' '`,
+      `(git diff --quiet ${bakedSha} HEAD -- requirements.txt requirements/ pyproject.toml && printf PY_SAME || printf PY_DRIFT)`,
+    ].join(" && "),
     30,
   );
-  const drifted = out.trim().endsWith("DRIFT");
+  const node = out.includes("NODE_DRIFT");
+  const python = out.includes("PY_DRIFT");
   logSession(
-    `lockfileDrifted pm=${pm} lockPath=${lockPath} bakedSha=${bakedSha.slice(0, 8)} drifted=${drifted}`,
+    `lockfileDrifted pm=${pm} lockPath=${lockPath} bakedSha=${bakedSha.slice(0, 8)} node=${node} python=${python}`,
   );
-  return drifted;
+  return { node, python };
 }
 
 function isSandboxGoneMessage(message: string): boolean {
@@ -1033,22 +1043,36 @@ async function prepareSessionSandboxInternal(
         completedSteps,
         "Updating dependencies...",
       );
-      let drifted = true;
+      let drift = { node: true, python: true };
       if (bakedSha) {
         // Capture into a const so the closure sees a narrowed `string`, not the
         // outer `let string | null`.
         const sha = bakedSha;
-        drifted = await runLoggedSessionStep(
+        drift = await runLoggedSessionStep(
           "newSessionSandbox.checkLockfileDrift",
           sandboxDetails,
           () => lockfileDrifted(handle, rootDir, sha),
         );
       }
-      if (drifted) {
+      if (drift.node) {
         await runLoggedSessionStep(
           "newSessionSandbox.installDependencies",
           sandboxDetails,
           () => installSnapshotDependenciesWithRetry(handle, rootDir),
+        );
+      }
+      if (drift.python) {
+        await runLoggedSessionStep(
+          "newSessionSandbox.installPythonDependencies",
+          sandboxDetails,
+          async () => {
+            const result = await installPythonDependenciesBestEffort(handle);
+            if (result.attempted && !result.ok) {
+              logSession(
+                "newSessionSandbox.installPythonDependencies: pip failed (continuing)",
+              );
+            }
+          },
         );
       }
       completedSteps.push({

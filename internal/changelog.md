@@ -1,5 +1,9 @@
 # Changelog
 
+## Auto-detect yarn/npm/pip in snapshot + session installs - 2026-07-30
+
+Snapshot seed hardcoded `pnpm install`, so any repo without `pnpm-lock.yaml` failed at `SEEDRUN-FAILED:install`. Seed and session paths now pick the Node manager from the root lockfile (pnpm still fatal; yarn/npm warn and continue) and best-effort `pip install` for root `requirements.txt` / `pyproject.toml`. Snapshot fingerprint collects all Node + Python manifests so polyglot repos rebuild when either side changes; session restore splits Node vs Python drift so a requirements-only change cannot kill the session on a yarn reinstall.
+
 ## Neutral theme - 2026-07-30
 
 Dark was near-black and harsh for some users; Light felt too bright. Appearance now includes **Neutral** — a soft-dark mid option (light text on lifted gray surfaces) between Light and Dark, persisted like the others, with System still resolving to OS light/dark only. Settings/onboarding use a 2×2 picker; the sidebar cycles Light → Neutral → Dark; the chrome extension and landing follow the same three-way look.

@@ -41,6 +41,31 @@ describe("a dead dev server recovers through the Console launcher", () => {
     expect(body).not.toContain("launchDevServerInVercelConsole");
   });
 
+  test("recovery stands down while startup owns the launch", () => {
+    // The startup flow resolves the real port and launches the dev server
+    // itself; a recovery racing it with a stale sticky devPort launched a
+    // duplicate server on the wrong port (prod: 13000 by startup, 3001 by
+    // recovery one second later).
+    const body = definitionBody(
+      previewRecovery,
+      "ensureSessionPreviewServices",
+    );
+    const startingGuardAt = body.indexOf('session.status === "starting"');
+    const launchAt = body.indexOf("launchPreviewDevServer(");
+    expect(startingGuardAt, "the starting guard moved").toBeGreaterThan(-1);
+    expect(startingGuardAt).toBeLessThan(launchAt);
+  });
+
+  test("agents are told the dev server is managed and warming up", () => {
+    // "No Next server is running" seconds after a sandbox start → the agent
+    // launches its own → duplicate dev servers → OOM. The edit prompt names
+    // the port, the auto-start, the compile delay, and the ban.
+    const prompts = readSource("convex/_sessions/prompts.ts");
+    expect(prompts).toContain("App dev server (managed by Eva)");
+    expect(prompts).toContain("NEVER start your own dev server");
+    expect(prompts).toContain("A cold compile takes 1-2 minutes");
+  });
+
   test("recovery relaunches via the Console launcher, guarded", () => {
     const body = definitionBody(
       previewRecovery,

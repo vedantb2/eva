@@ -161,6 +161,7 @@ export function buildEditPrompt(
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
   captureProof: boolean,
+  devPort?: number,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
@@ -182,6 +183,15 @@ After committing, capture visual proof with agent-browser:
 4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
 Do NOT commit the recordings/ or screenshots/ files. Do NOT use create_artifact — Eva attaches the file to chat automatically.`
     : "";
+  const devPortText =
+    devPort !== undefined ? String(devPort) : "its configured dev port";
+  // Agents kept concluding "no dev server is running" seconds after a sandbox
+  // start (a cold Next compile takes 1-2 minutes) and launching their own —
+  // duplicate dev servers are what pushed 16GB VMs into OOM kills.
+  const devServerSection = `
+
+## App dev server (managed by Eva):
+Eva auto-starts the app dev server in the Preview Console (tmux) on port ${devPortText} after every sandbox start, including the one that launched this turn. A cold compile takes 1-2 minutes, so an immediate check can look "down" while it is still warming up. To verify it, retry \`curl -sf http://localhost:${devPortText}\` for up to ~2 minutes before concluding anything. NEVER start your own dev server — a second instance has caused out-of-memory crashes on this VM. If the port still serves nothing after ~2 minutes, say so in your reply; Eva restarts it automatically.`;
   const browserSection = `
 
 ## Shared Browser (user-visible):
@@ -199,7 +209,7 @@ When the user asks for a recording, walkthrough video, or screenshot:
 3. Leave the deliverable files on disk when you finish the turn. Eva uploads them to Convex storage and renders them in chat with the video player (speed controls). Do not paste a URL instead.
 4. Never use \`create_artifact\` (or any /artifacts/… link) for these captures — artifacts are for HTML docs, not session walkthrough media.
 5. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link.`;
-  return `${message}${planContext}${proofSection}${browserSection}
+  return `${message}${planContext}${proofSection}${devServerSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Never commit or push to main. Fetching/merging/rebasing/pulling from main into this branch is allowed when the user asks.

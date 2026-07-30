@@ -35,7 +35,16 @@ export const ensureSessionPreviewServices = internalAction({
       sandboxId: args.sandboxId,
     });
     if (!session) return null;
-    if (session.status === "closed" || session.status === "stopping")
+    // "starting" owns service launches: the startup flow resolves the real
+    // port and launches the dev server itself, and this recovery racing it
+    // with a stale sticky devPort is exactly how a duplicate server appeared
+    // on the wrong port (observed in prod: startup launched 13000, a recovery
+    // scheduled during startup launched 3001 one second later).
+    if (
+      session.status === "closed" ||
+      session.status === "stopping" ||
+      session.status === "starting"
+    )
       return null;
     if (session.devPort === undefined || session.devCommand === undefined)
       return null;

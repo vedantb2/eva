@@ -222,6 +222,7 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
       repo.systemPrompt,
       session.captureProofEnabled === true,
+      session.devPort ?? repo.devPort,
     );
   }
   if (prefixBlock) {

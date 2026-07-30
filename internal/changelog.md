@@ -1,5 +1,9 @@
 # Changelog
 
+## Chat screenshots collapse into a Twitter-style gallery - 2026-07-30
+
+A screenshot-heavy turn rendered every image full-width in a long vertical stack. Assistant images now collapse into a compact grid (single image natural-size; two side by side; three with a tall lead tile; four-plus as a 2x2 with a "+N" overlay), and clicking opens a fullscreen lightbox that circles through the set via on-screen arrows, arrow keys, or touch swipe, with a position counter and open-in-new-tab. Videos keep their inline players.
+
 ## Sandbox OOM kills now land on recoverable processes - 2026-07-30
 
 Kernel OOM kills on 16GB session sandboxes were taking out the callback (the heartbeat and failure reporter), so turns died silently. The callback already tried to lower its own oom_score_adj, but lowering needs root and silently no-opped. The launcher now applies the lowering via sudo (-600, fail-open), CLI subtrees stay re-raised to 300 at spawn, and eva-launched dev servers run with a capped V8 heap (6GB, overridable via NODE_OPTIONS) so one leaky Next compile crashes cleanly and self-heals instead of pushing the VM into kernel kills. Verified live on a prod sandbox: callbacks at -600, dev servers at 300 — the kernel now sacrifices work that recovers and spares the process that reports.

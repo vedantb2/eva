@@ -15,7 +15,8 @@ import { m } from "motion/react";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
-import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
+import { VideoPreview } from "@/lib/components/MediaPreview";
+import { ImageGalleryPreview } from "@/lib/components/MediaGallery";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
 import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUserMessageBody";
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
@@ -152,6 +153,20 @@ export const ChatMessage = memo(function ChatMessage({
       : (streamingContent ?? "");
   const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
 
+  // Videos render as inline players; images collapse into one Twitter-style
+  // grid + lightbox so a screenshot-heavy turn is not a long vertical stack.
+  const mediaEntries = message.media ?? [];
+  const videoMedia = mediaEntries.flatMap((entry) =>
+    entry.url && entry.contentType?.startsWith("video/")
+      ? [{ url: entry.url }]
+      : [],
+  );
+  const imageMedia = mediaEntries.flatMap((entry) =>
+    entry.url && !entry.contentType?.startsWith("video/")
+      ? [{ url: entry.url }]
+      : [],
+  );
+
   return (
     <ChatMessageContextMenu content={copySource}>
       <m.div
@@ -244,15 +259,12 @@ export const ChatMessage = memo(function ChatMessage({
                         onViewDiff={onViewDiff}
                       />
                     ) : null}
-                    {(message.media ?? []).map((entry, index) =>
-                      entry.url ? (
-                        entry.contentType?.startsWith("video/") ? (
-                          <VideoPreview key={index} url={entry.url} />
-                        ) : (
-                          <ScreenshotPreview key={index} url={entry.url} />
-                        )
-                      ) : null,
-                    )}
+                    {videoMedia.map((entry, index) => (
+                      <VideoPreview key={index} url={entry.url} />
+                    ))}
+                    {imageMedia.length > 0 ? (
+                      <ImageGalleryPreview images={imageMedia} />
+                    ) : null}
                     {showQuestions && activePendingQuestion ? (
                       <div className="mt-3">
                         <MultipleChoiceQuestion

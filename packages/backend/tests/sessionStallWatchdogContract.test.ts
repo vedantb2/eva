@@ -59,6 +59,38 @@ describe("session turns are watched for dead heartbeats", () => {
     expect(readAt).toBeLessThan(clearAt);
   });
 
+  test("a stopped sandbox closes the session and skips the interrupt", () => {
+    // The Vercel runtime limit stops the VM mid-turn: the chat froze on
+    // "Working…" with no indication, and only the provider dashboard showed
+    // why. The probe distinguishes a gone VM from a dead process on a live
+    // one, and the kill must not exec on the stopped VM (exec lazily resumes
+    // it — see prewarmNeverResurrects).
+    const probe = definitionBody(workflowWatchdog, "probeStaleSessionLiveness");
+    expect(probe).toContain(
+      'sandboxStopped: liveness.reason === "sandbox_not_started"',
+    );
+
+    const check = definitionBody(
+      workflowWatchdog,
+      "checkStaleSessionHeartbeat",
+    );
+    expect(check).toContain("Sandbox stopped while this turn was running.");
+
+    const finalize = functionBody(
+      workflowWatchdog,
+      "async function finalizeStaleSessionTurn(",
+    );
+    const stoppedGuardAt = finalize.indexOf("opts.sandboxStopped !== true");
+    const killAt = finalize.indexOf("killSandboxProcess");
+    expect(stoppedGuardAt, "the stopped-sandbox guard moved").toBeGreaterThan(
+      -1,
+    );
+    expect(killAt, "the interrupt moved").toBeGreaterThan(-1);
+    expect(stoppedGuardAt).toBeLessThan(killAt);
+    // The UI must reflect the stop — users cannot see the provider dashboard.
+    expect(finalize).toContain('sessionPatch.status = "closed"');
+  });
+
   test("the kill frees the session, alerts the user and drains the queue", () => {
     const body = functionBody(
       workflowWatchdog,

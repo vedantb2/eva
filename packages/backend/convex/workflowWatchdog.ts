@@ -210,6 +210,7 @@ async function finalizeStaleSessionTurn(
   session: Doc<"sessions">,
   workflowId: string,
   alert: { text: string; detail?: string },
+  opts: { sandboxStopped?: boolean } = {},
 ): Promise<void> {
   const sessionId = session._id;
   // Read the streaming row BEFORE cancelStaleWorkflow clears it — it feeds
@@ -256,21 +257,39 @@ async function finalizeStaleSessionTurn(
 
   // A stale heartbeat usually means the agent process is dead, but a merely
   // wedged one must not keep mutating the sandbox after the session moves on
-  // to its next turn — interrupt it the same way cancelExecution does.
-  if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
-    await ctx.db.patch(sessionId, { cancelRequestedAt: Date.now() });
-  } else if (session.sandboxId) {
-    await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
-      sandboxId: session.sandboxId,
-      repoId: session.repoId,
-    });
+  // to its next turn — interrupt it the same way cancelExecution does. When
+  // the sandbox itself has stopped there is nothing to interrupt, and
+  // killSandboxProcess would exec on the stopped VM — which lazily RESUMES it
+  // on Vercel (see prewarmNeverResurrects contract) — so skip the block.
+  if (opts.sandboxStopped !== true) {
+    if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
+      await ctx.db.patch(sessionId, { cancelRequestedAt: Date.now() });
+    } else if (session.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      });
+    }
   }
 
-  await ctx.db.patch(sessionId, {
+  const sessionPatch: {
+    activeWorkflowId: undefined;
+    syntheticTurnMessageId: undefined;
+    updatedAt: number;
+    status?: "closed";
+  } = {
     activeWorkflowId: undefined,
     syntheticTurnMessageId: undefined,
     updatedAt: Date.now(),
-  });
+  };
+  if (opts.sandboxStopped === true) {
+    // Surface the stop in the UI — users cannot see the provider dashboard,
+    // and an "active" session with a dead VM just looks frozen. "closed" is
+    // also what stops page-open prewarm from silently resurrecting the VM
+    // (see prewarmDaemon's status guard).
+    sessionPatch.status = "closed";
+  }
+  await ctx.db.patch(sessionId, sessionPatch);
 
   await startNextQueuedSessionMessage(ctx, sessionId);
 }
@@ -312,6 +331,10 @@ export const checkStaleSessionHeartbeat = internalMutation({
     // Set by the liveness probe once it has confirmed the sandbox/callback is
     // dead, so the kill proceeds without another probe round-trip.
     skipLivenessProbe: v.optional(v.boolean()),
+    // Set by the probe when the sandbox VM itself is no longer running (e.g.
+    // it hit the provider's runtime limit) — the failure message names the
+    // stopped sandbox and the session is closed instead of left "active".
+    sandboxStopped: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -369,11 +392,19 @@ export const checkStaleSessionHeartbeat = internalMutation({
 
     const staleSeconds = Math.round(decision.ageMs / 1000);
     console.log(
-      `[watchdog][session-stall] sessionId=${args.sessionId} phase=${decision.phase} ageMs=${decision.ageMs} thresholdMs=${decision.thresholdMs} skipProbe=${args.skipLivenessProbe ?? false}`,
+      `[watchdog][session-stall] sessionId=${args.sessionId} phase=${decision.phase} ageMs=${decision.ageMs} thresholdMs=${decision.thresholdMs} skipProbe=${args.skipLivenessProbe ?? false} sandboxStopped=${args.sandboxStopped ?? false}`,
     );
-    await finalizeStaleSessionTurn(ctx, session, args.workflowId, {
-      text: "Turn stalled: the agent process in the sandbox stopped responding.",
-      detail: `No heartbeat for ${staleSeconds}s (phase: ${decision.phase}, threshold: ${Math.round(decision.thresholdMs / 1000)}s). The agent process likely crashed (for example out of memory). The sandbox was preserved — any committed work is intact; send a new message to continue.`,
+    const alert = args.sandboxStopped
+      ? {
+          text: "Sandbox stopped while this turn was running.",
+          detail: `The sandbox VM is no longer running — it likely hit its runtime limit or was stopped outside Eva (no heartbeat for ${staleSeconds}s). The session is now closed; committed work is preserved. Send a new message or start the sandbox to continue.`,
+        }
+      : {
+          text: "Turn stalled: the agent process in the sandbox stopped responding.",
+          detail: `No heartbeat for ${staleSeconds}s (phase: ${decision.phase}, threshold: ${Math.round(decision.thresholdMs / 1000)}s). The agent process likely crashed (for example out of memory). The sandbox was preserved — any committed work is intact; send a new message to continue.`,
+        };
+    await finalizeStaleSessionTurn(ctx, session, args.workflowId, alert, {
+      sandboxStopped: args.sandboxStopped === true,
     });
     return null;
   },
@@ -432,6 +463,10 @@ export const probeStaleSessionLiveness = internalAction({
         workflowId: args.workflowId,
         turnStartedAt: args.turnStartedAt,
         skipLivenessProbe: true,
+        // "sandbox_not_started" means the VM itself is gone (e.g. provider
+        // runtime limit) — a different failure than a dead process on a live
+        // VM, and the kill must not exec on it (exec lazily resumes).
+        sandboxStopped: liveness.reason === "sandbox_not_started",
       },
     );
     return null;

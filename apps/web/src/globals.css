@@ -359,6 +359,11 @@ html {
       clamp(0.75rem, var(--radius), 1.25rem);
   }
 
+  .rounded-t-surface {
+    border-radius: clamp(0.75rem, var(--radius), 1.25rem)
+      clamp(0.75rem, var(--radius), 1.25rem) 0 0;
+  }
+
   .rounded-menu-item {
     border-radius: min(var(--radius), 0.75rem);
   }

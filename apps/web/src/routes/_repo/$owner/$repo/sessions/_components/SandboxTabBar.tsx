@@ -137,7 +137,7 @@ export function SandboxTabBar({
   });
 
   return (
-    <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">
+    <div className="relative flex items-end gap-1 px-2 pt-1.5">
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}

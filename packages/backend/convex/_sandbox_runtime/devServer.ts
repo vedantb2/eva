@@ -47,6 +47,57 @@ export async function detectPackageManager(
   return "npm";
 }
 
+/**
+ * Detects a Python install manifest at the workspace root.
+ * `requirements.txt` wins over `pyproject.toml` when both exist.
+ */
+export async function detectPythonManifest(
+  sandbox: SandboxHandle,
+): Promise<"requirements" | "pyproject" | null> {
+  const workspaceRoot = workspaceDirShell();
+  const detection = (
+    await execHandle(
+      sandbox,
+      [
+        `if [ -f ${workspaceRoot}/requirements.txt ]; then echo requirements;`,
+        `elif [ -f ${workspaceRoot}/pyproject.toml ]; then echo pyproject;`,
+        `else echo none; fi`,
+      ].join(" "),
+      5,
+    )
+  ).trim();
+  if (detection === "requirements") return "requirements";
+  if (detection === "pyproject") return "pyproject";
+  return null;
+}
+
+const PIP_INSTALL_TIMEOUT_SECONDS = 900;
+
+/**
+ * Best-effort `pip install --user` for root requirements.txt / pyproject.toml.
+ * Fresh sandboxes may lack gcc/libpq-devel — failures must not kill the caller.
+ * Returns whether an install was attempted and whether it succeeded.
+ */
+export async function installPythonDependenciesBestEffort(
+  sandbox: SandboxHandle,
+): Promise<{ attempted: boolean; ok: boolean }> {
+  const kind = await detectPythonManifest(sandbox);
+  if (!kind) return { attempted: false, ok: true };
+  const workspaceRoot = workspaceDirShell();
+  const pipArgs = kind === "requirements" ? "-r requirements.txt" : "-e .";
+  try {
+    await execHandle(
+      sandbox,
+      // Match websockify / seed: --break-system-packages then plain --user.
+      `cd ${workspaceRoot} && (python3 -m pip install --user --break-system-packages ${pipArgs} || python3 -m pip install --user ${pipArgs})`,
+      PIP_INSTALL_TIMEOUT_SECONDS,
+    );
+    return { attempted: true, ok: true };
+  } catch {
+    return { attempted: true, ok: false };
+  }
+}
+
 // Boundary schema for the sandbox package.json. Only the fields dev-port
 // detection needs are modelled; anything malformed falls back to empty via
 // `.catch`, so detection degrades to framework defaults instead of throwing.

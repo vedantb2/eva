@@ -5,13 +5,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   cn,
 } from "@eva/ui";
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
   repoSessionBasePaths,
   repoSessionsIndexPath,
@@ -39,14 +42,16 @@ interface SessionTabsOverflowMenuProps {
   pathname: string;
 }
 
-/** Full active-session list (repo-grouped) + new-session links for every app. */
+/** Full active-session list by app (Chrome-style overflow) + new-session links. */
 export function SessionTabsOverflowMenu({
   groups,
   allRepos,
   pathname,
 }: SessionTabsOverflowMenuProps) {
   const navigate = useNavigate();
-  const nonEmpty = groups.filter((g) => g.sessions.length > 0);
+  const sessionsByRepoId = new Map(
+    groups.map((group) => [group.repo._id, group.sessions]),
+  );
 
   return (
     <DropdownMenu>
@@ -62,66 +67,73 @@ export function SessionTabsOverflowMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="max-h-80 w-72 overflow-y-auto"
+        className="max-h-80 w-56 overflow-y-auto"
       >
-        {nonEmpty.length === 0 ? (
+        {allRepos.length === 0 ? (
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-            No active sessions
+            No apps yet
           </p>
         ) : (
-          nonEmpty.map((group, index) => {
-            const label = repoDisplayLabel(group.repo);
-            const baseUrl = `${repoSessionBasePaths(group.repo)[0]}/sessions`;
+          allRepos.map((repo) => {
+            const label = repoDisplayLabel(repo);
+            const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
+            const sessions = sessionsByRepoId.get(repo._id) ?? [];
             return (
-              <div key={group.repo._id}>
-                {index > 0 ? <DropdownMenuSeparator /> : null}
-                <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
-                  {label}
-                </DropdownMenuLabel>
-                {group.sessions.map((session) => {
-                  const pathSegment = entityPathSegment(session);
-                  const href = pathSegment
-                    ? `${baseUrl}/${pathSegment}`
-                    : baseUrl;
-                  const isSelected =
-                    pathname === href || pathname.startsWith(`${href}/`);
-                  return (
-                    <DropdownMenuItem key={session._id} asChild>
-                      <DynamicLink
-                        to={href}
-                        className={cn(
-                          "cursor-pointer",
-                          isSelected && "bg-accent",
-                        )}
-                      >
-                        <span className="truncate">{session.title}</span>
-                      </DynamicLink>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </div>
+              <DropdownMenuSub key={repo._id}>
+                <DropdownMenuSubTrigger>
+                  <RepoLogo
+                    logoUrl={repo.logoUrl}
+                    size={16}
+                    fallback={
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                        {label.charAt(0).toUpperCase()}
+                      </span>
+                    }
+                  />
+                  <span className="truncate">{label}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-72 w-64 overflow-y-auto">
+                  {sessions.length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                      No active sessions
+                    </p>
+                  ) : (
+                    sessions.map((session) => {
+                      const pathSegment = entityPathSegment(session);
+                      const href = pathSegment
+                        ? `${baseUrl}/${pathSegment}`
+                        : baseUrl;
+                      const isSelected =
+                        pathname === href || pathname.startsWith(`${href}/`);
+                      return (
+                        <DropdownMenuItem key={session._id} asChild>
+                          <DynamicLink
+                            to={href}
+                            className={cn(
+                              "cursor-pointer",
+                              isSelected && "bg-accent",
+                            )}
+                          >
+                            <span className="truncate">{session.title}</span>
+                          </DynamicLink>
+                        </DropdownMenuItem>
+                      );
+                    })
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      navigate({ to: repoSessionsIndexPath(repo) });
+                    }}
+                  >
+                    <IconPlus size={14} />
+                    New session
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             );
           })
         )}
-        {allRepos.length > 0 ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
-              New session
-            </DropdownMenuLabel>
-            {allRepos.map((repo) => (
-              <DropdownMenuItem
-                key={`new-${repo._id}`}
-                onSelect={() => {
-                  navigate({ to: repoSessionsIndexPath(repo) });
-                }}
-              >
-                <IconPlus size={14} />
-                <span className="truncate">{repoDisplayLabel(repo)}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

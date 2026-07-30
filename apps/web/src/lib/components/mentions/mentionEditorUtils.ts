@@ -183,51 +183,6 @@ export function extractEditableText(el: Element): string {
   return out;
 }
 
-/** Last client rect of a collapsed caret range, or null when unavailable. */
-function caretRectFromRange(range: Range): DOMRect | null {
-  const rects = range.getClientRects();
-  const last = rects.item(rects.length - 1);
-  if (last) return last;
-  const rect = range.getBoundingClientRect();
-  if (rect.height > 0 || rect.width > 0 || rect.top !== 0) return rect;
-  return null;
-}
-
-/**
- * True when the collapsed caret sits on the first visual line of `el`. Lets a
- * chat composer recall history on ArrowUp without trapping multi-line editing.
- * A non-collapsed selection returns false (leave arrows to the browser); an
- * empty editor (no caret rect) returns true so history stays reachable.
- */
-export function isCaretOnFirstLine(el: HTMLElement): boolean {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
-    return false;
-  }
-  const range = selection.getRangeAt(0);
-  if (!el.contains(range.startContainer)) return false;
-  const caret = caretRectFromRange(range);
-  if (!caret) return true;
-  const editorRect = el.getBoundingClientRect();
-  const lineHeight = caret.height > 0 ? caret.height : 18;
-  return caret.top - editorRect.top < lineHeight;
-}
-
-/** True when the collapsed caret sits on the last visual line of `el`. */
-export function isCaretOnLastLine(el: HTMLElement): boolean {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
-    return false;
-  }
-  const range = selection.getRangeAt(0);
-  if (!el.contains(range.startContainer)) return false;
-  const caret = caretRectFromRange(range);
-  if (!caret) return true;
-  const editorRect = el.getBoundingClientRect();
-  const lineHeight = caret.height > 0 ? caret.height : 18;
-  return editorRect.bottom - caret.bottom < lineHeight;
-}
-
 export function placeCursorAtEnd(el: Element): void {
   const sel = window.getSelection();
   if (!sel) return;

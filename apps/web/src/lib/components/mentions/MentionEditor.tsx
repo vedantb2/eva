@@ -15,8 +15,6 @@ import {
   buildMentionPattern,
   buildSkillPattern,
   extractEditableText,
-  isCaretOnFirstLine,
-  isCaretOnLastLine,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
@@ -85,9 +83,9 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
    */
   onImageFiles?: (files: File[]) => void;
   /**
-   * Called when ArrowUp is pressed on the first line, or ArrowDown on the last
-   * line, while the mention popup is closed. Return true if the navigation was
-   * handled (e.g. a history entry was applied) to suppress caret movement.
+   * Called on Alt+ArrowUp / Alt+ArrowDown while the mention popup is closed.
+   * Return true if the navigation was handled (e.g. a history entry was
+   * applied) to suppress the browser default.
    */
   onHistoryNavigate?: (direction: "up" | "down") => boolean;
   /**
@@ -653,24 +651,23 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       }
     }
 
-    // Message-history recall: only when the popup is closed and no modifier
-    // is held, so it never competes with the mention picker or shortcuts.
+    // Message-history recall: Alt+Up/Down so plain arrows stay for caret
+    // movement in multi-line drafts. Skip when the mention picker is open.
     if (
       onHistoryNavigate &&
       !trigger.isOpen &&
+      e.altKey &&
       !e.shiftKey &&
       !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
+      !e.ctrlKey
     ) {
-      const el = editorRef.current;
-      if (e.key === "ArrowUp" && el && isCaretOnFirstLine(el)) {
+      if (e.key === "ArrowUp") {
         if (onHistoryNavigate("up")) {
           e.preventDefault();
           return;
         }
       }
-      if (e.key === "ArrowDown" && el && isCaretOnLastLine(el)) {
+      if (e.key === "ArrowDown") {
         if (onHistoryNavigate("down")) {
           e.preventDefault();
           return;

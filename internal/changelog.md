@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview dev server and proxy self-heal - 2026-07-30
+
+Nothing watched the dev server or navigation proxy after launch: an OOM kill or a lazily resumed VM left the app port dead while the sandbox ran, the proxy was only ensured on a passing probe, Console showed no dev server, and users had to ask the agent to restart things by hand. The preview readiness poll now schedules recovery on a claimed heal with a failed probe: the dev server relaunches through the single Console launcher (visible in Console, port-busy idempotent, rate-limited by the heal slot), after which the passing probe re-ensures the proxy. The generated proxy script also installs process-level error handlers so one uncaught socket error can no longer kill it.
+
 ## Session turns fail fast when the agent process dies - 2026-07-30
 
 A dead agent process (typically OOM during heavy tool runs) left session chats on "Working…" until the 2-hour workflow timeout. Every tracked session turn now runs a no-heartbeat watchdog: streamingActivity silence beyond a phase-aware threshold (5 min idle, 15 min sandbox startup, 25 min long silent tools, 10 min finalising) triggers a sandbox + callback-PID liveness probe, and a confirmed-dead turn is finalised within minutes — streamed text and tool steps are salvaged onto the bubble, a system alert explains the crash, a merely-wedged process is interrupted the same way Stop does, and queued messages start. The 2-hour backstop now shares the same teardown. Thresholds and phase detection moved to a pure staleness module shared with the task watchdog.

@@ -34,6 +34,8 @@ export {
 
 export { runDevServerInTaskSandbox } from "./_sandbox_runtime/runDevServer";
 
+export { ensureSessionPreviewServices } from "./_sandbox_runtime/previewRecovery";
+
 export {
   toggleCodeServer,
   toggleDesktopServer,

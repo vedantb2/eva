@@ -551,9 +551,26 @@ export const getPreviewUrl = action({
         }
       }
       ready = await probePreviewReady(handle, upstreamPort);
-      // Preview must not background-launch the app itself: Lifecycle owns
-      // Console (`launchPreviewDevServer` → tmux) as the single launcher.
-      // Probe-only here.
+      // Preview never launches the app inline: Lifecycle owns Console
+      // (`launchPreviewDevServer` → tmux) as the single launcher. But nothing
+      // watches the dev server after launch — an OOM kill or a lazily-resumed
+      // VM (exec on a stopped sandbox restores no services) leaves the app
+      // port dead while the sandbox runs, and only this poll notices. So on a
+      // claimed heal with a failed probe, schedule recovery THROUGH the
+      // Console launcher (visible in Console, port-busy idempotent). Reusing
+      // the heal claim rate-limits recovery attempts to one per interval.
+      // Desktop (6080) and editor (8080) have their own lifecycles.
+      if (!ready && healClaimed && args.port !== 6080 && args.port !== 8080) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.sandbox.ensureSessionPreviewServices,
+          {
+            sandboxId: args.sandboxId,
+            repoId: args.repoId,
+            expectedPort: upstreamPort,
+          },
+        );
+      }
     }
 
     // Always front the service with the in-sandbox auth proxy so open-in-new-tab

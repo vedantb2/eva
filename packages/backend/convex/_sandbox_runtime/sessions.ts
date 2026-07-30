@@ -46,7 +46,7 @@ import { startDesktopWithChrome } from "./desktop";
  * Eva launches `exec next|vite -p <listen>` so customer package.json `-p`
  * flags cannot bind the wrong port. Proxy owns 3000.
  */
-async function launchPreviewDevServer(
+export async function launchPreviewDevServer(
   handle: SandboxHandle,
   ownerKey: string,
   devCommand: string,

@@ -21,6 +21,18 @@ export const getInternal = internalQuery({
   },
 });
 
+/** Session owning a sandbox — preview recovery relaunches services through it. */
+export const getBySandboxInternal = internalQuery({
+  args: { sandboxId: v.string() },
+  returns: v.union(sessionValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_sandbox", (q) => q.eq("sandboxId", args.sandboxId))
+      .first();
+  },
+});
+
 /** Updates the deployment status and optional URL for a session (internal use). */
 export const updateDeploymentStatus = internalMutation({
   args: {

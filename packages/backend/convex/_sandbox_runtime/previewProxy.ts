@@ -27,7 +27,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "annotate-v12";
+const SCRIPT_VERSION = "annotate-v13";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -131,6 +131,16 @@ function buildPreviewProxyScript(params: PreviewProxyAuthParams): string {
 import http from "node:http";
 import net from "node:net";
 import crypto from "node:crypto";
+
+// The proxy runs detached with no supervisor: one uncaught throw (a socket
+// error event with no listener, say) would kill it and take the preview down
+// until something relaunches it. Log and keep serving instead.
+process.on("uncaughtException", (err) => {
+  console.error("Eva preview proxy: uncaught exception", err);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("Eva preview proxy: unhandled rejection", err);
+});
 
 const targetPort = Number(process.env.EVA_PREVIEW_TARGET_PORT || "0");
 const proxyPort = Number(process.env.EVA_PREVIEW_PROXY_PORT || "0");

@@ -42,6 +42,7 @@ export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
 export {
   getInternal,
+  getBySandboxInternal,
   setPrUrl,
   setPrState,
   clearPrUrlIfMatches,

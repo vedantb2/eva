@@ -149,7 +149,8 @@ const schema = defineSchema({
     .index("by_repo_and_status", ["repoId", "status"])
     .index("by_repo_and_archived", ["repoId", "archived"])
     .index("by_pr_url", ["prUrl"])
-    .index("by_repo_and_numId", ["repoId", "numId"]),
+    .index("by_repo_and_numId", ["repoId", "numId"])
+    .index("by_sandbox", ["sandboxId"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),

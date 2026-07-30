@@ -98,7 +98,8 @@ function InboxUnreadBadge() {
  * Far-left icon rail: global destinations (Eva, Inbox, Sessions), then repos,
  * then collapse / search / account / settings at the bottom. Teams and
  * Artifacts live in the workspace sidebar behind the Eva tile; Testing (dev)
- * lives in the settings dropdown.
+ * lives in the Settings sidebar. The gear goes straight to the first Settings
+ * route (Theme).
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Session-count / sandbox-dot queries are deferred: calling undeployed Convex

@@ -147,6 +147,20 @@ export async function loadSdk(): Promise<SdkModule> {
 }
 
 /**
+ * Picks the claude binary when `command -v claude` finds nothing on PATH.
+ * launch.ts provisions a fallback install under a non-PATH /tmp prefix and
+ * exposes it via CLAUDE_BIN_PATH (fix 329e242); use it only when it actually
+ * exists, otherwise fall back to the bare "claude" name.
+ */
+export function resolveClaudeBinFallback(
+  binPath: string | undefined,
+  exists: (path: string) => boolean,
+): string {
+  const fallback = binPath || "";
+  return fallback && exists(fallback) ? fallback : "claude";
+}
+
+/**
  * Locates the claude CLI binary the SDK should drive: the image's global
  * install when it is on PATH, else the CLAUDE_BIN_PATH fallback install —
  * launch.ts provisions one under a /tmp prefix (not on PATH) when the
@@ -156,8 +170,7 @@ function claudeExecutablePath(): string {
   try {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync(fallback) ? fallback : "claude";
+    return resolveClaudeBinFallback(process.env.CLAUDE_BIN_PATH, existsSync);
   }
 }
 

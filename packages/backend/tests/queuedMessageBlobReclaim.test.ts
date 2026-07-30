@@ -40,28 +40,45 @@ test("queuedMessages.remove deletes the row's attachment blobs", () => {
 /**
  * The other half of the invariant: dequeuing deletes the queued row too, but it
  * hands the same storage ids to the `messages` row, so it must NOT delete the
- * blobs. Every dequeue site is checked because a new one that forgets the
- * hand-off would silently drop a user's attachments.
+ * blobs. The row-delete now lives once in the shared dequeue
+ * (`startNextQueuedChatMessage`) that all three surfaces call through, so a
+ * regression back to a per-surface copy (or a dropped delete) would move this
+ * count away from exactly one.
  */
-test("every dequeue hands attachments to the messages row instead of deleting them", () => {
+test("the shared dequeue deletes the queued row exactly once, and never a blob", () => {
   const rowDeletes = countOccurrences(
     queueHelpersSource,
     "await ctx.db.delete(nextMessage._id);",
   );
-  const handOffs = countOccurrences(
-    queueHelpersSource,
-    "attachmentStorageIds: nextMessage.attachmentStorageIds,",
-  );
-  expect(rowDeletes).toBeGreaterThan(0);
   expect(
-    handOffs,
-    "each dequeue must copy attachmentStorageIds onto the messages row",
-  ).toBe(rowDeletes);
+    rowDeletes,
+    "the queued-row delete moved, was duplicated, or was dropped",
+  ).toBe(1);
   expect(
     queueHelpersSource,
     "dequeue must not delete blobs the messages row now owns",
   ).not.toContain("ctx.storage.delete");
 });
+
+/**
+ * Each surface's own `insertUserMessage` closure still builds its own message
+ * shape (fields differ per surface), so the attachment hand-off is checked
+ * once per config rather than once per (now-shared) dequeue.
+ */
+test.each([
+  "sessionQueueConfig",
+  "projectChatQueueConfig",
+  "taskChatQueueConfig",
+])(
+  "%s hands attachmentStorageIds to the messages row instead of dropping them",
+  (name) => {
+    const body = configBody(queueHelpersSource, name);
+    expect(
+      body,
+      `${name} must copy attachmentStorageIds onto the messages row`,
+    ).toContain("attachmentStorageIds: next.attachmentStorageIds,");
+  },
+);
 
 function countOccurrences(source: string, needle: string): number {
   let count = 0;
@@ -73,4 +90,12 @@ function countOccurrences(source: string, needle: string): number {
     from = at + needle.length;
   }
   return count;
+}
+
+/** One `const name: SomeConfig<...> = {...}` object literal, ending on the `\n};` that closes it. */
+function configBody(source: string, name: string): string {
+  const startAt = source.indexOf(`const ${name}:`);
+  expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n};", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
 }

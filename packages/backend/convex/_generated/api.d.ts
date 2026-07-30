@@ -32,6 +32,8 @@ import type * as _automations_runs from "../_automations/runs.js";
 import type * as _automations_triggers from "../_automations/triggers.js";
 import type * as _chat_cancelledMessage from "../_chat/cancelledMessage.js";
 import type * as _chat_projectChatDaemon from "../_chat/projectChatDaemon.js";
+import type * as _chat_stallWatchdog from "../_chat/stallWatchdog.js";
+import type * as _chat_surfaceAdapters from "../_chat/surfaceAdapters.js";
 import type * as _chat_taskChatDaemon from "../_chat/taskChatDaemon.js";
 import type * as _deployment_vercel from "../_deployment/vercel.js";
 import type * as _docEditor_markdown from "../_docEditor/markdown.js";
@@ -343,6 +345,8 @@ declare const fullApi: ApiFromModules<{
   "_automations/triggers": typeof _automations_triggers;
   "_chat/cancelledMessage": typeof _chat_cancelledMessage;
   "_chat/projectChatDaemon": typeof _chat_projectChatDaemon;
+  "_chat/stallWatchdog": typeof _chat_stallWatchdog;
+  "_chat/surfaceAdapters": typeof _chat_surfaceAdapters;
   "_chat/taskChatDaemon": typeof _chat_taskChatDaemon;
   "_deployment/vercel": typeof _deployment_vercel;
   "_docEditor/markdown": typeof _docEditor_markdown;

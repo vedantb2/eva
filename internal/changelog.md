@@ -1,5 +1,9 @@
 # Changelog
 
+## Chat-surface resilience logic unified behind adapters - 2026-07-30
+
+Sessions, task chat and project chat each carried a near-identical copy of the stall watchdog, queue dequeue and preview-recovery logic — which is how fixes landed on sessions and had to be hand-ported. All logic now lives once (\_chat/stallWatchdog.ts, a shared queue core, a shared preview-owner recovery) and each surface contributes only a small declarative adapter for its genuine differences (field names, streaming prefixes, interrupt paths, stopped-sandbox status). The per-surface Convex entry points survive as thin wrappers so in-flight scheduled jobs keep resolving, and a new drift-guard contract test fails CI if surface-specific logic ever reappears outside the adapters — a bug fixed in the shared implementation reaches all three surfaces by construction.
+
 ## Task and project chat gain the session resilience stack - 2026-07-30
 
 Today's session fixes are now surface-complete. Task chat and project chat turns get the same no-heartbeat watchdog (stale turns fail in minutes with a liveness probe before the kill, instead of freezing until the 2-hour backstop), the same stopped-sandbox clarity (a "Sandbox stopped" alert and the sandbox status flipped to closed, with the interrupt skipped so nothing resumes the stopped VM), and preview self-heal now resolves the sandbox owner across sessions, tasks and projects. The task-run dev-server launcher gets the same heap cap, and task/project chat prompts now name their managed dev-server port (they already inherited the media and dev-server contracts via the shared edit prompt).

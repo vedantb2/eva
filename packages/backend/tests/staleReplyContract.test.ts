@@ -67,17 +67,39 @@ describe("every turn start clears the streaming row first", () => {
     expect(clearAt).toBeLessThan(placeholderAt);
   });
 
-  test.each([
-    "startNextQueuedSessionMessage",
-    "startNextQueuedProjectChatMessage",
-    "startNextQueuedTaskChatMessage",
-  ])("%s clears before inserting the user turn", (name) => {
-    const body = functionBody(queueHelpers, `export async function ${name}(`);
+  // The three startNextQueuedX functions are now thin config bindings onto one
+  // shared dequeue (startNextQueuedChatMessage in convex/_queues/helpers.ts) —
+  // the clear-before-insert order is its property, not each surface's own.
+  test("the shared dequeue clears before inserting the user turn", () => {
+    const body = functionBody(
+      queueHelpers,
+      "async function startNextQueuedChatMessage<",
+    );
     const clearAt = body.indexOf("clearStreamingActivity(");
-    const userInsertAt = body.indexOf('role: "user"');
+    const insertAt = body.indexOf("config.insertUserMessage(");
     expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
-    expect(userInsertAt, "the user-turn insert moved").toBeGreaterThan(-1);
-    expect(clearAt).toBeLessThan(userInsertAt);
+    expect(insertAt, "the user-turn insert moved").toBeGreaterThan(-1);
+    expect(clearAt).toBeLessThan(insertAt);
+  });
+
+  test.each([
+    "sessionQueueConfig",
+    "projectChatQueueConfig",
+    "taskChatQueueConfig",
+  ])("%s inserts a user-role message when a queued turn starts", (name) => {
+    const body = configBody(queueHelpers, name);
+    expect(body).toContain('role: "user"');
+  });
+
+  test.each([
+    ["startNextQueuedSessionMessage", "sessionQueueConfig"],
+    ["startNextQueuedProjectChatMessage", "projectChatQueueConfig"],
+    ["startNextQueuedTaskChatMessage", "taskChatQueueConfig"],
+  ])("%s still delegates to the shared dequeue with %s", (name, configName) => {
+    const body = functionBody(queueHelpers, `export function ${name}(`);
+    expect(body).toContain(
+      `startNextQueuedChatMessage(ctx, ${name === "startNextQueuedSessionMessage" ? "sessionId" : name === "startNextQueuedProjectChatMessage" ? "projectId" : "taskId"}, ${configName})`,
+    );
   });
 });
 
@@ -104,6 +126,14 @@ function definitionBody(source: string, name: string): string {
   const startAt = source.indexOf(`export const ${name} =`);
   expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
   const end = source.indexOf("\n});", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
+}
+
+/** One `const name: SomeConfig<...> = {...}` object literal, ending on the `\n};` that closes it. */
+function configBody(source: string, name: string): string {
+  const startAt = source.indexOf(`const ${name}:`);
+  expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n};", startAt);
   return source.slice(startAt, end < 0 ? undefined : end);
 }
 

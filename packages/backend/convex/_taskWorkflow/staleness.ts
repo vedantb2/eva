@@ -13,6 +13,8 @@ import { z } from "zod";
 export const STALE_THRESHOLD_MS = 300_000;
 export const STALE_CHECK_DELAY_MS = 90_000;
 export const STALE_RECHECK_MS = 30_000;
+/** Maximum time a workflow run is allowed before being considered stale (2 hours). */
+export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 export const STALE_FINISHING_THRESHOLD_MS = 600_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 // Extended threshold for when the agent is demonstrably running a long tool

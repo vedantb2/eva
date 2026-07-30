@@ -29,6 +29,7 @@ import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
+import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -289,6 +290,12 @@ export function ChatComposer({
                     optionsSubmenu={optionsSubmenu}
                   />
                   {toolsBefore}
+                  <ComposerStash
+                    repoId={repoId}
+                    mentionRef={mentionRef}
+                    attachmentMode={attachmentMode}
+                    disabled={isInputDisabled}
+                  />
                 </PromptInputTools>
                 <div className="flex min-w-0 items-center gap-1">
                   <ModelSelect

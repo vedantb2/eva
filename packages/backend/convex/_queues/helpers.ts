@@ -60,11 +60,11 @@ export async function startNextQueuedSessionMessage(
   }
 
   // Wipe any stale streaming row before the new turn's placeholder appears —
-  // the daemon's post-completion reconcile heartbeat can land after
-  // saveResult's clear and resurrect the finished turn's activity (see
-  // startExecute in _sessions/execution.ts for the full race). Every dequeue
-  // below does this, because not every caller clears first: _sessions/sandbox.ts
-  // drains queued turns straight after a resume, with no clear of its own.
+  // a leftover row (old warm daemon, one-shot provider, crashed turn) would
+  // render the finished turn's reply/activity under the new placeholder (see
+  // startExecute in _sessions/execution.ts). Every dequeue below does this,
+  // because not every caller clears first: _sessions/sandbox.ts drains queued
+  // turns straight after a resume, with no clear of its own.
   await clearStreamingActivity(ctx, String(sessionId));
 
   const now = Date.now();

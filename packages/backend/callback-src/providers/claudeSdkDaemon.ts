@@ -404,6 +404,16 @@ async function finalizeTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  // Final streaming reconcile BEFORE completion. The completion mutation
+  // finalizes the assistant message, after which the server clears the
+  // streaming row and may immediately dequeue the next queued turn — so this
+  // daemon must not write streaming state past that point. When this ran
+  // post-completion it landed after that clear and resurrected this turn's
+  // full reply text into the row, which the NEXT turn's placeholder rendered
+  // as its response until the real reply arrived (stale-reply bug).
+  // setFinalizingState (not plain flushStreaming, which would early-return on
+  // the already-drained buffer) pushes the now-complete steps and final text.
+  await setFinalizingState();
   // Proof: media before completion so the workflow's hasMediaForRun check does
   // not spuriously retry. Chat/coding: completion first so attachMedia can patch
   // the assistant message that was just written.
@@ -418,18 +428,13 @@ async function finalizeTurn(output: string): Promise<void> {
       (Date.now() - completionSentAt) +
       "ms)",
   );
-  // Persist the Claude transcript to the volume for restart recovery, and send a
-  // final streaming reconcile. Both run AFTER completion so the ~5s synchronous
-  // transcript copy never delays the reply the user is waiting on. The sandbox
-  // stays warm between turns, so this only guards against a sandbox restart.
-  // accumulatedSteps is still populated (resetTurnState runs after this returns).
-  // setFinalizingState pushes the now-complete steps to the streaming heartbeat;
-  // the buffer was already drained at the top of finalizeTurn, so a plain
-  // flushStreaming() here would early-return without reflecting the completed
-  // status.
+  // Persist the Claude transcript to the volume for restart recovery. Runs
+  // AFTER completion so the ~5s synchronous transcript copy never delays the
+  // reply the user is waiting on. The sandbox stays warm between turns, so
+  // this only guards against a sandbox restart. accumulatedSteps is still
+  // populated (resetTurnState runs after this returns).
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  await setFinalizingState();
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );

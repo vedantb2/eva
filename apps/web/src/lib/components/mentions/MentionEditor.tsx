@@ -56,6 +56,14 @@ export interface MentionEditorHandle {
   insertMention: (item: MentionItem) => void;
   /** Append a /skill chip (and trailing space) to the current draft. */
   insertSkill: (item: SlashItem) => void;
+  /**
+   * Merge label→id maps from restored tokenized content (e.g. prompt stash)
+   * without wiping chips already in the live draft.
+   */
+  addTokenMaps: (
+    mentions: Map<string, string>,
+    skills: Map<string, string>,
+  ) => void;
 }
 
 export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
@@ -474,6 +482,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       focus: () => editorRef.current?.focus(),
       insertMention: (item: MentionItem) => appendToken("@", item, "mention"),
       insertSkill: (item: SlashItem) => appendToken("/", item, "skill"),
+      addTokenMaps: (mentions, skills) => {
+        setMentionMap((prev) => new Map([...prev, ...mentions]));
+        setSkillMap((prev) => new Map([...prev, ...skills]));
+      },
     }),
     [mentionMap, skillMap, value, onValueChange],
   );

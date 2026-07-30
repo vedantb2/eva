@@ -25,7 +25,11 @@ import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
 import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
 import { z } from "zod";
-import { orphanPlaceholderMessages, resultTargetMessage } from "./resultTarget";
+import {
+  delayedPublishFailureError,
+  orphanPlaceholderMessages,
+  resultTargetMessage,
+} from "./resultTarget";
 import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -820,10 +824,28 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await clearStreamingActivity(ctx, String(args.sessionId));
-
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+
+    // The reply is saved before Eva pushes the branch. If that slower push
+    // later fails, a newer turn may already be running. Report the publish
+    // failure independently: running normal result finalisation again would
+    // overwrite the newer placeholder and clear its streaming state.
+    const publishError = delayedPublishFailureError(args.result, args.error);
+    if (publishError !== undefined) {
+      await ctx.db.insert("messages", {
+        parentId: args.sessionId,
+        role: "assistant",
+        content: "Failed to publish session branch",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: publishError,
+      });
+      await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
+      return null;
+    }
+
+    await clearStreamingActivity(ctx, String(args.sessionId));
 
     const recent = await ctx.db
       .query("messages")
@@ -832,13 +854,6 @@ export const saveResult = internalMutation({
       .take(20);
     const last = resultTargetMessage(recent);
     if (!last) return null;
-
-    const publishFailedAfterResult =
-      args.result !== null &&
-      args.error !== null &&
-      args.error.startsWith(
-        "Session completed locally, but Eva could not publish",
-      );
 
     const isDesignTurn = last.mode === "design";
     const designParsed =
@@ -860,7 +875,7 @@ export const saveResult = internalMutation({
       content:
         designParsed !== null
           ? designParsed.summary || "Here are the design variations:"
-          : args.success || publishFailedAfterResult
+          : args.success
             ? args.result || "I couldn't process your message."
             : `Error: ${args.error || "Unknown error during execution."}`,
       finishedAt: Date.now(),

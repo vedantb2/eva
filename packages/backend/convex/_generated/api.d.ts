@@ -254,6 +254,7 @@ import type * as projectChatWorkflow from "../projectChatWorkflow.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projectSandboxWorkflow from "../projectSandboxWorkflow.js";
 import type * as projects from "../projects.js";
+import type * as promptStash from "../promptStash.js";
 import type * as prompts_design from "../prompts/design.js";
 import type * as prompts_doc from "../prompts/doc.js";
 import type * as prompts_index from "../prompts/index.js";
@@ -561,6 +562,7 @@ declare const fullApi: ApiFromModules<{
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projectSandboxWorkflow: typeof projectSandboxWorkflow;
   projects: typeof projects;
+  promptStash: typeof promptStash;
   "prompts/design": typeof prompts_design;
   "prompts/doc": typeof prompts_doc;
   "prompts/index": typeof prompts_index;

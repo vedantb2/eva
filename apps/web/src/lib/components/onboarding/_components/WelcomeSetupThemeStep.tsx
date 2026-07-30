@@ -2,11 +2,12 @@ import { AppearanceSection } from "@/lib/components/theme/_components/Appearance
 import { AccentColorSection } from "@/lib/components/theme/_components/AccentColorSection";
 import { SectionLabel } from "@/lib/components/theme/_components/SectionLabel";
 import type { AccentColor } from "@/lib/contexts/ThemeContext";
+import type { ThemeMode } from "@/lib/hooks/useThemeMode";
 
 interface WelcomeSetupThemeStepProps {
-  currentMode: "light" | "dark" | "system";
+  currentMode: ThemeMode;
   accentColor: AccentColor;
-  onModeChange: (mode: "light" | "dark" | "system") => void;
+  onModeChange: (mode: ThemeMode) => void;
   onAccentChange: (color: AccentColor) => void;
 }
 

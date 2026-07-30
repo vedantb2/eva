@@ -65,6 +65,41 @@ export function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
   );
 }
 
+interface SessionHoverCardBodyProps {
+  title: string;
+  preview?: string | null;
+  createdAt: number;
+  userId: Id<"users">;
+}
+
+/**
+ * Hover body for a session, shared by the vertical sidebar row and the
+ * horizontal Chrome-style tab so both describe a session the same way.
+ */
+export function SessionHoverCardBody({
+  title,
+  preview,
+  createdAt,
+  userId,
+}: SessionHoverCardBodyProps) {
+  return (
+    <>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {preview ? (
+        <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
+          {preview}
+        </p>
+      ) : null}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <HoverCardAuthor userId={userId} />
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {compactRelativeTime(createdAt)}
+        </span>
+      </div>
+    </>
+  );
+}
+
 interface SidebarListHoverCardProps {
   title: string;
   preview?: string | null;

@@ -16,7 +16,13 @@ import {
   countFiberHooks,
   countFiberProps,
 } from "./react-extractor";
-import { subscribeDark, getDark } from "./theme";
+import { subscribeAppearance, getAppearance } from "./theme";
+import {
+  contrastPanelClasses,
+  contrastPanelShadow,
+  contrastSubtleClasses,
+  contrastMutedClasses,
+} from "./appearance-styles";
 import type { ElementInfo, ExtractedContext } from "@/shared/types";
 
 interface SelectionOverlayProps {
@@ -103,7 +109,7 @@ export function SelectionOverlay({
   const overlayRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
 
-  const dark = useSyncExternalStore(subscribeDark, getDark);
+  const appearance = useSyncExternalStore(subscribeAppearance, getAppearance);
 
   useEffect(() => {
     document.body.style.cursor = "crosshair";
@@ -403,7 +409,7 @@ export function SelectionOverlay({
       {infoData && (
         <div
           ref={infoRef}
-          className={`fixed pointer-events-none rounded-lg border flex flex-col gap-1 ${dark ? "bg-white text-neutral-800 border-neutral-200" : "bg-neutral-800 text-neutral-100 border-neutral-700"}`}
+          className={`fixed pointer-events-none rounded-lg border flex flex-col gap-1 ${contrastPanelClasses(appearance)}`}
           style={{
             zIndex: 2147483647,
             top: infoData.infoTop,
@@ -412,9 +418,7 @@ export function SelectionOverlay({
             padding: "8px 12px",
             fontFamily: FONT,
             fontSize: 12,
-            boxShadow: dark
-              ? "0 2px 12px rgba(0,0,0,0.25)"
-              : "0 2px 12px rgba(255,255,255,0.15)",
+            boxShadow: contrastPanelShadow(appearance),
           }}
         >
           <div className="flex items-center gap-2">
@@ -422,22 +426,20 @@ export function SelectionOverlay({
               &lt;{infoData.componentName}&gt;
             </span>
             <span
-              className={`text-[11px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}
+              className={`text-[11px] ${contrastSubtleClasses(appearance)}`}
             >
               {infoData.width}×{infoData.height}
             </span>
           </div>
           {infoData.parentChain.length > 0 && (
             <div
-              className={`text-[11px] whitespace-nowrap overflow-hidden text-ellipsis ${dark ? "text-neutral-400" : "text-neutral-500"}`}
+              className={`text-[11px] whitespace-nowrap overflow-hidden text-ellipsis ${contrastMutedClasses(appearance)}`}
             >
               {infoData.parentChain.join(" › ")} › {infoData.componentName}
             </div>
           )}
           {hasReactInfo && (
-            <div
-              className={`text-[10px] ${dark ? "text-neutral-500" : "text-neutral-400"}`}
-            >
+            <div className={`text-[10px] ${contrastSubtleClasses(appearance)}`}>
               {[
                 infoData.propsCount > 0 ? `${infoData.propsCount} props` : "",
                 infoData.hooksCount > 0 ? `${infoData.hooksCount} hooks` : "",

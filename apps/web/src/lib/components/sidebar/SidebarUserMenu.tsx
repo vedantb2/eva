@@ -23,11 +23,11 @@ import {
   IconSearch,
   IconSun,
   IconMoon,
+  IconCircleHalf,
   IconLoader2,
 } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 interface SidebarUserMenuProps {
   name: string;
@@ -105,15 +105,18 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => toggleTheme()}>
-            <CrossfadeIcon
-              show={theme === "dark"}
-              trueKey="sun"
-              falseKey="moon"
-              className="relative mr-2 flex size-4 items-center justify-center"
-              whenTrue={<IconSun size={16} />}
-              whenFalse={<IconMoon size={16} />}
-            />
-            {theme === "dark" ? "Light mode" : "Dark mode"}
+            {theme === "dark" ? (
+              <IconSun size={16} className="mr-2" />
+            ) : theme === "neutral" ? (
+              <IconMoon size={16} className="mr-2" />
+            ) : (
+              <IconCircleHalf size={16} className="mr-2" />
+            )}
+            {theme === "dark"
+              ? "Light mode"
+              : theme === "neutral"
+                ? "Dark mode"
+                : "Neutral mode"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

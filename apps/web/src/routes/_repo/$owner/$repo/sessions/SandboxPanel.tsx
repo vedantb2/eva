@@ -6,6 +6,7 @@ import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
@@ -19,7 +20,12 @@ import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
-
+import {
+  getLatestVariations,
+  type SessionDesignMessage,
+} from "./_utils/designVariations";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
@@ -35,6 +41,9 @@ interface SandboxPanelProps {
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
   planContent?: string;
+  messages?: SessionDesignMessage[];
+  lastMode?: SessionMode;
+  selectedVariationIndex?: number;
   isArchived?: boolean;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
@@ -43,7 +52,6 @@ interface SandboxPanelProps {
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
 }
-
 export function SandboxPanel({
   sessionId,
   sandboxId,
@@ -55,6 +63,9 @@ export function SandboxPanel({
   devCommand,
   terminalPanes,
   planContent,
+  messages = [],
+  lastMode,
+  selectedVariationIndex,
   isArchived,
   activeTab,
   onTabChange,
@@ -69,7 +80,11 @@ export function SandboxPanel({
     normalizeAIModel(repo.defaultModel),
   );
   const submitAnnotation = useSessionAnnotationSend(sessionId);
-
+  const selectVariation = useMutation(api.sessions.selectVariation);
+  const latestVariations = getLatestVariations(messages);
+  const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
+  const hasDesignsContent = latestVariations.length > 0;
+  const isDesignExecuting = isAssistantTurnInProgress(messages);
   // Sticky Preview path/port + console tail (same sessions.get as the shell).
   const session = useQuery(api.sessions.get, { id: sessionId });
   const setPreviewPath = useMutation(api.sessions.setPreviewPath);
@@ -78,7 +93,6 @@ export function SandboxPanel({
     api.sessions.setTerminalHistoryTail,
   );
   const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
-
   // Stable identity: a fresh literal each render would re-run TerminalPanel's
   // connect effect, flashing the spinner and dropping the dev-server auto-start
   // (the reconnect sees an existing PTY, so isNewPty is false).
@@ -86,7 +100,6 @@ export function SandboxPanel({
     () => ({ kind: "session" as const, sessionId }),
     [sessionId],
   );
-
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -97,7 +110,6 @@ export function SandboxPanel({
       void setPreviewPort({ id: sessionId, port });
     },
   });
-
   const panes = useSandboxPanes({
     owner,
     storageScope: `session:${sessionIdStr}`,
@@ -106,7 +118,6 @@ export function SandboxPanel({
     setActiveTab: onTabChange,
     terminalPanes,
   });
-
   const {
     computerTabOpen,
     computerRunning,
@@ -119,11 +130,9 @@ export function SandboxPanel({
     activeTab,
     onTabChange,
   );
-
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
   const customTabs = (allCustomTabs ?? []).filter((tab) => tab.enabled);
-
   // If the URL points at a custom tab that no longer exists (deleted / disabled /
   // renamed), fall back to preview. Wait for the query to load before deciding.
   useEffect(() => {
@@ -133,9 +142,8 @@ export function SandboxPanel({
       onTabChange("preview");
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);
-
   const enabledTabs = withBrowserTab(panes.enabledTabs);
-
+  const previewUrl = preview.previewInfo?.url ?? null;
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
@@ -150,6 +158,8 @@ export function SandboxPanel({
         hasPrdContent={
           typeof planContent === "string" && planContent.trim().length > 0
         }
+        showDesignsTab={showDesignsTab}
+        hasDesignsContent={hasDesignsContent}
         showFilesTab
         customTabs={customTabs}
         agentBrowsingAt={agentBrowsingAt}
@@ -189,6 +199,27 @@ export function SandboxPanel({
               </div>
             </div>
           )}
+        </div>
+        <div
+          className={
+            activeTab === "designs"
+              ? "flex h-full min-h-0 flex-col overflow-hidden"
+              : "hidden"
+          }
+        >
+          <DesignVariationsPanel
+            previewUrl={previewUrl}
+            sandboxRunning={isActive}
+            isArchived={isArchived === true}
+            isExecuting={isDesignExecuting}
+            latestVariations={latestVariations}
+            selectedVariationIndex={selectedVariationIndex}
+            isSandboxStarting={isSandboxStarting === true}
+            onStartSandbox={() => onStartSandbox?.()}
+            onSelectVariation={(index) => {
+              void selectVariation({ id: sessionId, variationIndex: index });
+            }}
+          />
         </div>
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel

@@ -39,6 +39,7 @@ function level(rgb: number[]): number {
 const themes = [
   { name: "light", tokens: tokensFor(":root") },
   { name: "dark", tokens: tokensFor(".dark") },
+  { name: "neutral", tokens: tokensFor(".dark.neutral") },
 ];
 
 describe.each(themes)("$name surface tokens", ({ tokens }) => {
@@ -103,4 +104,13 @@ describe.each(themes)("$name surface tokens", ({ tokens }) => {
     ).toBeGreaterThan(8);
     expect(surface("sidebar-border")).toEqual(surface("border"));
   });
+});
+
+it("places neutral background between dark and light", () => {
+  const lightBg = level(tokensFor(":root").get("background") ?? []);
+  const darkBg = level(tokensFor(".dark").get("background") ?? []);
+  const neutralBg = level(tokensFor(".dark.neutral").get("background") ?? []);
+
+  expect(neutralBg).toBeGreaterThan(darkBg);
+  expect(neutralBg).toBeLessThan(lightBg);
 });

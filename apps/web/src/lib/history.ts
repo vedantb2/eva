@@ -2,7 +2,6 @@ import { createBrowserHistory } from "@tanstack/react-router";
 
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "designs",
   "docs",
   "sessions",
   "quick-tasks",

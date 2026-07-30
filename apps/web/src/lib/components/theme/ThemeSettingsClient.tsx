@@ -14,7 +14,7 @@ import type {
   LetterSpacing,
 } from "@/lib/contexts/ThemeContext";
 import { Spinner } from "@eva/ui";
-import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { type ThemeMode } from "@/lib/hooks/useThemeMode";
 import { AppearanceSection } from "./_components/AppearanceSection";
 import { PresetsSection } from "./_components/PresetsSection";
 import { AccentColorSection } from "./_components/AccentColorSection";
@@ -24,21 +24,13 @@ import { ThemePreview } from "./_components/ThemePreview";
 export function ThemeSettingsClient() {
   const { theme, setTheme, customTheme, setCustomTheme, mounted } =
     useThemeContext();
-  const { setTheme: setNextTheme } = useThemeMode();
 
   const resolved = resolveCustomTheme(customTheme);
   const { accentColor, radius, fontFamily, letterSpacing } = resolved;
 
-  const handleModeChange = (mode: "light" | "dark" | "system") => {
-    if (mode === "system") {
-      setNextTheme("system");
-    } else {
-      setTheme(mode);
-    }
+  const handleModeChange = (mode: ThemeMode) => {
+    setTheme(mode);
   };
-
-  const currentMode =
-    theme === "dark" ? "dark" : theme === "light" ? "light" : "system";
 
   const handleAccentChange = (color: AccentColor) => {
     setCustomTheme({ ...customTheme, accentColor: color });
@@ -80,7 +72,7 @@ export function ThemeSettingsClient() {
           bodyClassName="max-w-2xl"
         >
           <AppearanceSection
-            currentMode={currentMode}
+            currentMode={theme}
             onModeChange={handleModeChange}
           />
         </SettingsSection>
@@ -129,7 +121,7 @@ export function ThemeSettingsClient() {
             radius={radius}
             fontFamily={fontFamily}
             letterSpacing={letterSpacing}
-            currentMode={currentMode}
+            currentMode={theme}
           />
         </SettingsSection>
       </div>

@@ -1,38 +1,53 @@
 "use client";
 
 import { cn } from "@eva/ui";
+import type { ThemeMode } from "@/lib/hooks/useThemeMode";
 import {
   IconMoon,
   IconSun,
   IconDeviceDesktop,
+  IconCircleHalf,
   IconCheck,
 } from "@tabler/icons-react";
 
-type Mode = "light" | "dark" | "system";
+const MODES = [
+  "light",
+  "neutral",
+  "dark",
+  "system",
+] as const satisfies readonly ThemeMode[];
 
 export function AppearanceSection({
   currentMode,
   onModeChange,
   compact = false,
 }: {
-  currentMode: Mode;
-  onModeChange: (mode: Mode) => void;
+  currentMode: ThemeMode;
+  onModeChange: (mode: ThemeMode) => void;
   compact?: boolean;
 }) {
   return (
     <div
-      className={cn("grid grid-cols-3", compact ? "gap-1.5" : "gap-2 sm:gap-3")}
+      className={cn("grid grid-cols-2", compact ? "gap-1.5" : "gap-2 sm:gap-3")}
     >
-      {(["light", "dark", "system"] as const).map((mode) => {
+      {MODES.map((mode) => {
         const isActive = currentMode === mode;
         const Icon =
           mode === "light"
             ? IconSun
-            : mode === "dark"
-              ? IconMoon
-              : IconDeviceDesktop;
+            : mode === "neutral"
+              ? IconCircleHalf
+              : mode === "dark"
+                ? IconMoon
+                : IconDeviceDesktop;
         const label =
-          mode === "light" ? "Light" : mode === "dark" ? "Dark" : "System";
+          mode === "light"
+            ? "Light"
+            : mode === "neutral"
+              ? "Neutral"
+              : mode === "dark"
+                ? "Dark"
+                : "System";
 
         return (
           <button
@@ -68,9 +83,11 @@ export function AppearanceSection({
                 compact ? "h-8" : "h-12 sm:h-16",
                 mode === "light"
                   ? "bg-white"
-                  : mode === "dark"
-                    ? "bg-zinc-900"
-                    : "bg-gradient-to-br from-white to-zinc-900",
+                  : mode === "neutral"
+                    ? "bg-zinc-700"
+                    : mode === "dark"
+                      ? "bg-zinc-900"
+                      : "bg-gradient-to-br from-white to-zinc-900",
               )}
             >
               <Icon
@@ -78,9 +95,11 @@ export function AppearanceSection({
                 className={
                   mode === "light"
                     ? "text-amber-500"
-                    : mode === "dark"
-                      ? "text-blue-300"
-                      : "text-muted-foreground"
+                    : mode === "neutral"
+                      ? "text-zinc-300"
+                      : mode === "dark"
+                        ? "text-blue-300"
+                        : "text-muted-foreground"
                 }
               />
             </div>

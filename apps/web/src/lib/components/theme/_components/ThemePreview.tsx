@@ -9,6 +9,7 @@ import type {
   FontFamily,
   LetterSpacing,
 } from "@/lib/contexts/ThemeContext";
+import type { ThemeMode } from "@/lib/hooks/useThemeMode";
 import { RADIUS_OPTIONS } from "./TypographySection";
 
 export function ThemePreview({
@@ -22,7 +23,7 @@ export function ThemePreview({
   radius: RadiusSize;
   fontFamily: FontFamily;
   letterSpacing: LetterSpacing;
-  currentMode: "light" | "dark" | "system";
+  currentMode: ThemeMode;
 }) {
   const radiusLabel =
     RADIUS_OPTIONS.find((r) => r.value === radius)?.label ?? radius;

@@ -41,6 +41,7 @@ export const sessionModeValidator = v.union(
   v.literal("ask"),
   v.literal("execute"),
   v.literal("plan"),
+  v.literal("design"),
 );
 
 export const sessionStatusValidator = v.union(
@@ -99,7 +100,11 @@ export const evalFixStatusValidator = v.union(
   v.literal("fix_error"),
 );
 
-export const themeValidator = v.union(v.literal("light"), v.literal("dark"));
+export const themeValidator = v.union(
+  v.literal("light"),
+  v.literal("dark"),
+  v.literal("neutral"),
+);
 
 export const auditSeverityValidator = v.union(
   v.literal("critical"),

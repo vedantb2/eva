@@ -9,11 +9,6 @@ type SessionChatTarget = {
   sessionId: Id<"sessions">;
 };
 
-type DesignChatTarget = {
-  kind: "designChat";
-  designSessionId: Id<"designSessions">;
-};
-
 type TaskChatTarget = {
   kind: "taskChat";
   taskId: Id<"agentTasks">;
@@ -26,11 +21,10 @@ type ProjectChatTarget = {
 
 export type ChatDraftTarget =
   | SessionChatTarget
-  | DesignChatTarget
   | TaskChatTarget
   | ProjectChatTarget;
 
-/** Seed bundle passed to ChatBody (and used inline in DesignChatPanel). */
+/** Seed bundle passed to ChatBody. */
 export type ChatDraftSeed = {
   target: ChatDraftTarget;
   initialDisplay: string;

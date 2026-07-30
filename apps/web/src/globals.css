@@ -205,6 +205,32 @@ html {
       0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
     --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   }
+
+  /* Neutral — soft-dark surfaces only. Applied as `<html class="dark neutral">`.
+   * Status + accent tokens inherit from `.dark` so custom accents still apply. */
+  .dark.neutral {
+    color-scheme: dark;
+    --background: 34 35 37;
+    --app-shell: 34 35 37;
+    --foreground: 250 250 250;
+    --card: 48 49 52;
+    --card-foreground: 250 250 250;
+    --popover: 48 49 52;
+    --popover-foreground: 250 250 250;
+    --secondary: 68 69 72;
+    --secondary-foreground: 252 252 252;
+    --muted: 58 59 62;
+    --muted-foreground: 159 160 162;
+    --destructive-foreground: 252 252 252;
+    --success-foreground: 22 25 23;
+    --warning-foreground: 26 24 21;
+    --border: 78 79 82;
+    --input: 78 79 82;
+    --sidebar: 34 35 37;
+    --sidebar-foreground: 251 252 253;
+    --sidebar-accent: 58 59 62;
+    --sidebar-border: 78 79 82;
+  }
   * {
     @apply border-border;
   }
@@ -328,6 +354,11 @@ html {
     border-radius: clamp(0.75rem, var(--radius), 1.25rem);
   }
 
+  .rounded-b-surface {
+    border-radius: 0 0 clamp(0.75rem, var(--radius), 1.25rem)
+      clamp(0.75rem, var(--radius), 1.25rem);
+  }
+
   .rounded-menu-item {
     border-radius: min(var(--radius), 0.75rem);
   }
@@ -415,6 +446,22 @@ html {
       );
   }
 
+  .dark.neutral .landing-atmosphere {
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.1),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.045),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--foreground) / 0.06) 1px, transparent 1px);
+  }
+
   .landing-grain::after {
     content: "";
     pointer-events: none;
@@ -427,6 +474,11 @@ html {
 
   .dark .landing-grain::after {
     opacity: 0.22;
+    mix-blend-mode: overlay;
+  }
+
+  .dark.neutral .landing-grain::after {
+    opacity: 0.28;
     mix-blend-mode: overlay;
   }
 

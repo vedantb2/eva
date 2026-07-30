@@ -171,7 +171,7 @@ describe("resumeAfterStop call sites", () => {
   const files = [
     // tryResumeSandbox, reached only from prepareSandbox/createOrResumeSandbox.
     "_sandbox_runtime/git.ts",
-    // resumeReusedSandbox and startDesignSandbox, both stop-checked either side.
+    // resumeReusedSandbox — stop-checked either side of ensureSandboxRunning.
     "_sandbox_runtime/sessions.ts",
     // ensureSandboxRunning itself: forwards the caller's option.
     "_sandbox_runtime/helpers.ts",

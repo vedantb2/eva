@@ -18,11 +18,13 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
   clearStreamingActivity,
+  extractFirstJsonValue,
 } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt } from "./prompts";
+import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
+import { z } from "zod";
 import { orphanPlaceholderMessages, resultTargetMessage } from "./resultTarget";
 import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
@@ -40,10 +42,45 @@ export const sessionCompleteEvent = defineEvent({
 
 // --- Mode config ---
 
-export const MODE_TOOLS: Record<"edit" | "plan", string> = {
+export const MODE_TOOLS: Record<"edit" | "plan" | "design", string> = {
   edit: "Read,Write,Edit,Bash,Glob,Grep",
   plan: "Read,Write,Glob,Grep",
+  design: "Read,Glob,Grep,Skill,Write,Edit,Bash",
 };
+
+type SessionPromptMode = "edit" | "ask" | "execute" | "plan" | "design";
+
+/** Maps a session turn mode to the MODE_TOOLS key used for allowedTools. */
+export function resolveToolMode(
+  mode: SessionPromptMode,
+): keyof typeof MODE_TOOLS {
+  if (mode === "plan") return "plan";
+  if (mode === "design") return "design";
+  return "edit";
+}
+
+const designResultSchema = z.object({
+  summary: z.string().optional(),
+  variations: z
+    .array(
+      z.object({
+        label: z.string(),
+        route: z.string().optional(),
+        filePath: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/** Parses design-turn JSON output from agent text. */
+function parseDesignResult(
+  text: string | null,
+): z.infer<typeof designResultSchema> | null {
+  if (!text) return null;
+  const raw = extractFirstJsonValue(text);
+  const parsed = designResultSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
 
 const WORKSPACE_DIR = "/tmp/repo";
 const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -72,6 +109,7 @@ export const sessionModeArgValidator = v.union(
   v.literal("ask"),
   v.literal("execute"),
   v.literal("plan"),
+  v.literal("design"),
 );
 
 /**
@@ -91,7 +129,9 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
-    mode: "edit" | "ask" | "execute" | "plan";
+    mode: SessionPromptMode;
+    personaId?: Id<"designPersonas">;
+    numDesigns?: number;
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -101,7 +141,6 @@ export async function buildSessionPrompt(
     user?.customInstructions ?? undefined,
   );
 
-  const effectiveMode: "edit" | "plan" = args.mode === "plan" ? "plan" : "edit";
   const branchName = session.branchName || `eva/session-${session._id}`;
 
   const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
@@ -111,7 +150,7 @@ export async function buildSessionPrompt(
   );
 
   let prompt: string;
-  if (effectiveMode === "plan") {
+  if (args.mode === "plan") {
     prompt = buildPlanPrompt(
       { owner: repo.owner, name: repo.name },
       session.planContent || "",
@@ -119,6 +158,51 @@ export async function buildSessionPrompt(
       rootDirectory,
       customInstructionsBlock,
       repo.systemPrompt,
+    );
+  } else if (args.mode === "design") {
+    let persona: { name: string; prompt: string } | null = null;
+    if (args.personaId) {
+      const personaDoc = await ctx.db.get(args.personaId);
+      if (personaDoc) {
+        persona = { name: personaDoc.name, prompt: personaDoc.prompt };
+      }
+    }
+
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+      .collect();
+
+    let selectedBase: { label: string; filePath: string } | null = null;
+    if (session.selectedVariationIndex !== undefined) {
+      const lastAssistant = [...messages]
+        .reverse()
+        .find((m) => m.role === "assistant" && m.variations?.length);
+      if (lastAssistant?.variations) {
+        const variation =
+          lastAssistant.variations[session.selectedVariationIndex];
+        if (variation?.filePath) {
+          selectedBase = {
+            label: variation.label,
+            filePath: variation.filePath,
+          };
+        }
+      }
+    }
+
+    const conversationHistory = messages
+      .filter((m) => m.content)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    prompt = buildDesignPrompt(
+      { owner: repo.owner, name: repo.name },
+      resolvedMessage,
+      conversationHistory,
+      selectedBase,
+      persona,
+      rootDirectory,
+      args.numDesigns ?? 3,
+      customInstructionsBlock,
     );
   } else {
     prompt = buildEditPrompt(
@@ -182,6 +266,8 @@ export const sessionExecuteWorkflow = workflow.define({
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -197,6 +283,8 @@ export const sessionExecuteWorkflow = workflow.define({
       mode: args.mode,
       model: args.model,
       userId: args.userId,
+      personaId: args.personaId,
+      numDesigns: args.numDesigns,
     });
 
     // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
@@ -629,6 +717,8 @@ export const getSessionData = internalQuery({
     mode: sessionModeArgValidator,
     model: aiModelValidator,
     userId: v.id("users"),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -651,9 +741,6 @@ export const getSessionData = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const effectiveMode: "edit" | "plan" =
-      args.mode === "plan" ? "plan" : "edit";
-
     const user = await ctx.db.get(args.userId);
     const { prompt, branchName } = await buildSessionPrompt(ctx, {
       session,
@@ -661,6 +748,8 @@ export const getSessionData = internalQuery({
       user,
       message: args.message,
       mode: args.mode,
+      personaId: args.personaId,
+      numDesigns: args.numDesigns,
     });
 
     // Input images attached to the triggering user message. Used to re-stage
@@ -685,7 +774,7 @@ export const getSessionData = internalQuery({
         session.baseBranch ??
         repo.defaultBaseBranch ??
         FALLBACK_GIT_BASE_BRANCH,
-      allowedTools: MODE_TOOLS[effectiveMode],
+      allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
@@ -750,6 +839,11 @@ export const saveResult = internalMutation({
       args.error.startsWith(
         "Session completed locally, but Eva could not publish",
       );
+
+    const isDesignTurn = last.mode === "design";
+    const designParsed =
+      isDesignTurn && args.success ? parseDesignResult(args.result) : null;
+
     const patch: {
       content: string;
       activityLog?: string;
@@ -757,15 +851,36 @@ export const saveResult = internalMutation({
       pendingQuestion?: string;
       isSystemAlert?: boolean;
       errorDetail?: string;
+      variations?: Array<{
+        label: string;
+        route?: string;
+        filePath?: string;
+      }>;
     } = {
       content:
-        args.success || publishFailedAfterResult
-          ? args.result || "I couldn't process your message."
-          : `Error: ${args.error || "Unknown error during execution."}`,
+        designParsed !== null
+          ? designParsed.summary || "Here are the design variations:"
+          : args.success || publishFailedAfterResult
+            ? args.result || "I couldn't process your message."
+            : `Error: ${args.error || "Unknown error during execution."}`,
       finishedAt: Date.now(),
       isSystemAlert: undefined,
       errorDetail: undefined,
     };
+    if (designParsed?.variations) {
+      patch.variations = designParsed.variations.map((variation) => ({
+        label: variation.label,
+        route: variation.route,
+        filePath: variation.filePath,
+      }));
+    } else if (
+      isDesignTurn &&
+      args.success &&
+      args.result &&
+      designParsed === null
+    ) {
+      patch.content = args.result || "Failed to generate designs.";
+    }
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
     }
@@ -1064,8 +1179,9 @@ export const restageOpenTurn = internalMutation({
     }
     const user = await ctx.db.get(session.userId);
     const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
-    const mode: "edit" | "ask" | "execute" | "plan" =
+    const mode: SessionPromptMode =
       rawMode === "plan" ||
+      rawMode === "design" ||
       rawMode === "ask" ||
       rawMode === "execute" ||
       rawMode === "edit"
@@ -1077,6 +1193,7 @@ export const restageOpenTurn = internalMutation({
       user,
       message: lastUser.content,
       mode,
+      personaId: lastUser.personaId,
     });
 
     await ctx.db.patch(args.sessionId, {

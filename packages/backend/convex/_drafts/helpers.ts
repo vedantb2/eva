@@ -168,26 +168,8 @@ export async function resolveTarget(
     };
   }
 
-  // target.kind === "designChat"
-  const designSession = await db.get(target.designSessionId);
-  if (!designSession) throw new Error("Design session not found");
-  if (!(await hasRepoAccess(db, designSession.repoId, userId))) {
-    throw new Error("Not authorized");
-  }
-  const { repoId } = designSession;
-  const designSessionId = target.designSessionId;
-  return {
-    repoId,
-    findExisting: async () => {
-      const rows = await db
-        .query("drafts")
-        .withIndex("by_user_and_designSession", (q) =>
-          q.eq("userId", userId).eq("designSessionId", designSessionId),
-        )
-        .collect();
-      return rows[0] ?? null;
-    },
-  };
+  const _exhaustive: never = target;
+  throw new Error(`Unsupported draft target kind: ${String(_exhaustive)}`);
 }
 
 /**

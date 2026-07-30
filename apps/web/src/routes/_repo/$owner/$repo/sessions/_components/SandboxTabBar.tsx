@@ -9,6 +9,7 @@ import {
   IconClipboardList,
   IconGitPullRequest,
   IconFileText,
+  IconPalette,
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
@@ -57,6 +58,9 @@ interface SandboxTabBarProps {
   showPrdTab?: boolean;
   /** When true, shows a content indicator on the Plan tab. */
   hasPrdContent?: boolean;
+  showDesignsTab?: boolean;
+  /** When true, shows a content indicator on the Designs tab. */
+  hasDesignsContent?: boolean;
   /** Shows the File Viewer tab (sessions only). */
   showFilesTab?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
@@ -93,6 +97,8 @@ export function SandboxTabBar({
   newTerminalDisabled = false,
   showPrdTab = false,
   hasPrdContent = false,
+  showDesignsTab = false,
+  hasDesignsContent = false,
   showFilesTab = false,
   enabledTabs,
   customTabs,
@@ -123,6 +129,7 @@ export function SandboxTabBar({
     onTabChange,
     enabledTabs,
     showPrdTab,
+    showDesignsTab,
     showFilesTab,
     customTabSlugs,
     showComputerTab,
@@ -130,7 +137,7 @@ export function SandboxTabBar({
   });
 
   return (
-    <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">
+    <div className="relative flex items-end gap-1 px-2 pt-1.5">
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
@@ -235,6 +242,18 @@ export function SandboxTabBar({
                 <span
                   className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
                   aria-label="Plan available"
+                />
+              ) : null}
+            </TabsTrigger>
+          ) : null}
+          {showDesignsTab ? (
+            <TabsTrigger value="designs" className={TAB_TRIGGER_CLASS}>
+              <IconPalette className="w-3.5 h-3.5" />
+              Designs
+              {hasDesignsContent ? (
+                <span
+                  className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
+                  aria-label="Design variations available"
                 />
               ) : null}
             </TabsTrigger>

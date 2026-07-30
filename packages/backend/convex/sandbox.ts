@@ -66,7 +66,6 @@ export {
 export {
   startSessionSandbox,
   prepareSessionSandbox,
-  startDesignSandbox,
   startTaskPreviewSandbox,
   startProjectPreviewSandbox,
 } from "./_sandbox_runtime/sessions";

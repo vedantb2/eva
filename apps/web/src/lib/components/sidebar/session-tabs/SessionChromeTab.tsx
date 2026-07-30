@@ -1,0 +1,270 @@
+"use client";
+
+import type { Id } from "@eva/backend";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+  cn,
+} from "@eva/ui";
+import {
+  IconArchive,
+  IconClipboard,
+  IconCopy,
+  IconGitPullRequest,
+  IconLink,
+  IconPencil,
+  IconX,
+} from "@tabler/icons-react";
+import { DynamicLink } from "@/lib/components/DynamicLink";
+import {
+  SANDBOX_STATUS_STYLES,
+  type SandboxStatus,
+} from "@/lib/components/sandbox/sandboxStatusStyles";
+import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
+import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
+
+/**
+ * Width a tab asks for before the strip starts squeezing, in rem. The tab row
+ * multiplies it by its tab count (see SessionChromeTabGroup) so every tab in the
+ * strip shrinks from the same preferred size and ends up the same width.
+ */
+export const TAB_PREFERRED_WIDTH_REM = 14;
+
+export interface ChromeTabSession {
+  _id: string;
+  _creationTime: number;
+  numId?: number;
+  title: string;
+  status: SandboxStatus;
+  userId: Id<"users">;
+  prUrl?: string;
+  prState?: "draft" | "open" | "merged" | "closed";
+  firstMessagePreview?: string | null;
+}
+
+interface SessionChromeTabProps {
+  session: ChromeTabSession;
+  href: string;
+  isSelected: boolean;
+  /** Chrome draws a hairline only between two adjacent unselected tabs. */
+  showSeparator: boolean;
+  /** Group accent, used for the selected tab's stroke and flared shoulders. */
+  groupColor: TabGroupColor;
+  onRenameRequest: () => void;
+  onArchiveRequest: () => void;
+  onDuplicate: () => Promise<string>;
+  onDuplicateNavigate: (pathSegment: string) => void;
+}
+
+function prStateIconColor(
+  state: "draft" | "open" | "merged" | "closed" | undefined,
+): string {
+  switch (state) {
+    case "open":
+      return "text-success";
+    case "merged":
+      return "text-status-code-review";
+    case "closed":
+      return "text-destructive";
+    case "draft":
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+/**
+ * One Chrome-style session tab.
+ *
+ * Anatomy copied from Chrome. Unselected tabs are chromeless and butt up
+ * against each other with a hairline separator between them. The selected tab is
+ * the only filled surface: it is painted in the page's own colour, flares out at
+ * the bottom corners and covers the strip's divider, so it reads as the top edge
+ * of the content below rather than a card floating on the strip.
+ *
+ * Width is never scrolled — tabs share the strip and shrink as more open, down
+ * to the sandbox status dot. Each tab is its own container query so it can shed
+ * detail as it narrows (PR icon, then close, then the title). The app logo lives
+ * on the group pill, not the tab.
+ */
+export function SessionChromeTab({
+  session,
+  href,
+  isSelected,
+  showSeparator,
+  groupColor,
+  onRenameRequest,
+  onArchiveRequest,
+  onDuplicate,
+  onDuplicateNavigate,
+}: SessionChromeTabProps) {
+  const statusStyle = SANDBOX_STATUS_STYLES[session.status];
+
+  return (
+    <HoverCard openDelay={400} closeDelay={100}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <HoverCardTrigger asChild>
+            <div
+              style={{ flexBasis: `${TAB_PREFERRED_WIDTH_REM}rem` }}
+              className={cn(
+                // Tabs shrink from the shared preferred width down to min-w-8,
+                // which is the sandbox status and nothing else. container-type
+                // makes the tab a query container for the detail ladder below,
+                // and drops its intrinsic width, so a long title cannot resist
+                // shrinking.
+                "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors [container-type:inline-size]",
+                isSelected
+                  ? // Chrome stroke: left/top/right in the group accent — bottom
+                    // stays open so the tab merges into the page; the sides meet
+                    // the group's underline.
+                    cn(
+                      "z-10 border-2 border-b-0 bg-background text-foreground",
+                      groupColor.border,
+                    )
+                  : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+              )}
+            >
+              {showSeparator ? (
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-1/2 h-4 w-px -translate-y-1/2 bg-border transition-opacity group-hover:opacity-0"
+                />
+              ) : null}
+              {isSelected ? (
+                // Chrome's flared shoulders: a quarter disc either side of the
+                // tab, sweeping away from it and into the strip. Each shoulder
+                // is one radial gradient — transparent inside the arc so the
+                // strip shows through, then the group accent for 2px so the
+                // tab's side stroke carries on around the curve, then the page
+                // fill. Offset 10px (8px disc + the tab's 2px border) so the
+                // arc starts exactly where the tab's border box ends.
+                //
+                // The shoulder is 10px wide, not 8: the extra 2px reach back
+                // over the tab's own side border, painting the bottom 8px of it
+                // in page fill. Without that the border would run straight down
+                // to the baseline and stop square, and the curve would read as
+                // a hook beside it instead of the outline turning outwards.
+                <>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "pointer-events-none absolute -left-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
+                      groupColor.accent,
+                    )}
+                  />
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "pointer-events-none absolute -right-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
+                      groupColor.accent,
+                    )}
+                  />
+                </>
+              ) : null}
+              <DynamicLink
+                to={href}
+                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
+              >
+                {/* Sandbox status fills Chrome's favicon slot — stays visible when
+                    the tab is fully squeezed. App logo lives on the group pill. */}
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    statusStyle.dot,
+                  )}
+                  title={statusStyle.label}
+                />
+                <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">
+                  {session.title}
+                </span>
+                {session.prUrl ? (
+                  <IconGitPullRequest
+                    size={14}
+                    className={cn(
+                      "shrink-0 [@container(max-width:11rem)]:hidden",
+                      prStateIconColor(session.prState),
+                    )}
+                  />
+                ) : null}
+              </DynamicLink>
+              <button
+                type="button"
+                aria-label={`Archive ${session.title}`}
+                title="Archive session"
+                className={cn(
+                  "mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
+                  isSelected
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100",
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onArchiveRequest();
+                }}
+              >
+                <IconX size={14} />
+              </button>
+            </div>
+          </HoverCardTrigger>
+        </ContextMenuTrigger>
+        <ContextMenuContent onClick={(e) => e.stopPropagation()}>
+          <ContextMenuItem onSelect={onRenameRequest}>
+            <IconPencil size={16} />
+            Rename
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              void onDuplicate().then((segment) => {
+                onDuplicateNavigate(segment);
+              });
+            }}
+          >
+            <IconCopy size={16} />
+            Duplicate
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              void navigator.clipboard.writeText(session.title);
+            }}
+          >
+            <IconClipboard size={16} />
+            Copy title
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              void navigator.clipboard.writeText(window.location.origin + href);
+            }}
+          >
+            <IconLink size={16} />
+            Copy link
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem className="text-warning" onSelect={onArchiveRequest}>
+            <IconArchive size={16} />
+            Archive
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <HoverCardContent
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        className="w-64 p-3"
+      >
+        <SessionHoverCardBody
+          title={session.title}
+          preview={session.firstMessagePreview}
+          createdAt={session._creationTime}
+          userId={session.userId}
+        />
+      </HoverCardContent>
+    </HoverCard>
+  );
+}

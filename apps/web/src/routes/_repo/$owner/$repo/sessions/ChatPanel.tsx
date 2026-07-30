@@ -16,6 +16,7 @@ import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionModeDropdown } from "./_components/SessionModeDropdown";
+import { SessionDesignComposerTools } from "./_components/SessionDesignComposerTools";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -76,7 +77,7 @@ interface ChatPanelProps {
   backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
-const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
+const AVAILABLE_MODES: SessionMode[] = ["edit", "plan", "design"];
 
 export function ChatPanel({
   sessionId,
@@ -110,6 +111,9 @@ export function ChatPanel({
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] =
+    useState<Id<"designPersonas">>();
+  const [numDesigns, setNumDesigns] = useState(3);
 
   const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
@@ -190,6 +194,8 @@ export function ChatPanel({
     resolveAccountId,
     accounts,
     messages,
+    personaId: selectedPersonaId,
+    numDesigns,
   });
 
   const activeQuestion = useQuery(api.pendingQuestions.getActive, {
@@ -307,7 +313,19 @@ export function ChatPanel({
   );
 
   const toolsBefore = (
-    <SessionModeDropdown mode={mode} onModeChange={setMode} />
+    <>
+      <SessionModeDropdown mode={mode} onModeChange={setMode} />
+      {mode === "design" ? (
+        <SessionDesignComposerTools
+          repoId={repo._id}
+          personaId={selectedPersonaId}
+          onPersonaChange={setSelectedPersonaId}
+          numDesigns={numDesigns}
+          onNumDesignsChange={setNumDesigns}
+          disabled={!isSandboxActive || isReadOnly}
+        />
+      ) : null}
+    </>
   );
   const optionsSubmenu = <SessionOptionsMenu sessionId={sessionId} />;
 
@@ -323,7 +341,9 @@ export function ChatPanel({
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
       ? "Describe what to plan... / for skills · @ for data"
-      : "Ask Eva anything... / for skills · @ for data";
+      : mode === "design"
+        ? "Describe the UI to design... / for skills · @ for data"
+        : "Ask Eva anything... / for skills · @ for data";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,

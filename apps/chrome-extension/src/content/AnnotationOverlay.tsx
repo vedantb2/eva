@@ -27,7 +27,20 @@ import {
   requestBackground,
 } from "@/shared/messaging";
 import { setMode, setSignedOut } from "./toolbar-state";
-import { subscribeDark, getDark } from "./theme";
+import { subscribeAppearance, getAppearance } from "./theme";
+import {
+  surfaceClasses,
+  subtleTextClasses,
+  cardPanelClasses,
+  cardPanelShadow,
+  cardFooterBorderClasses,
+  cardActionButtonClasses,
+  cardEditButtonClasses,
+  cardBodyTextClasses,
+  cardDeleteClasses,
+  cardDetailsLinkClasses,
+  inputClasses,
+} from "./appearance-styles";
 import { getPageUrl } from "./page-url";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
@@ -358,7 +371,7 @@ function InputCard({
   const [text, setText] = useState(initialText);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dark = useSyncExternalStore(subscribeDark, getDark);
+  const appearance = useSyncExternalStore(subscribeAppearance, getAppearance);
   const locked =
     status === "in_progress" ||
     status === "business_review" ||
@@ -382,20 +395,18 @@ function InputCard({
 
   return (
     <div
-      className={`absolute rounded-lg border ${dark ? "bg-neutral-800 border-neutral-700" : "bg-white border-neutral-200"}`}
+      className={`absolute rounded-lg border ${cardPanelClasses(appearance)}`}
       style={{
         left: position.x - 15,
         top: position.y + 22,
         width: 340,
         zIndex: 2147483645,
-        boxShadow: dark
-          ? "0 8px 32px rgba(0,0,0,0.4)"
-          : "0 8px 32px rgba(0,0,0,0.12)",
+        boxShadow: cardPanelShadow(appearance),
         pointerEvents: "auto",
       }}
     >
       <div
-        className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${dark ? "text-neutral-400" : "text-neutral-500"}`}
+        className={`flex items-center justify-between px-3 pt-3 pb-1.5 text-sm font-medium ${subtleTextClasses(appearance)}`}
       >
         <span className="flex items-center gap-1.5">
           {isEdit && creatorInitials && (
@@ -411,7 +422,7 @@ function InputCard({
         {isEdit && !locked && (
           <button
             onClick={() => onDelete(pinId)}
-            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-600"}`}
+            className={`flex items-center gap-0.5 border-none cursor-pointer bg-transparent ${cardDeleteClasses(appearance)}`}
             style={{ fontSize: 11 }}
           >
             <IconTrash size={12} /> Delete
@@ -421,13 +432,13 @@ function InputCard({
       {selectedText ? (
         <div className="px-3 pb-1">
           <p
-            className={`text-xs ${dark ? "text-neutral-400" : "text-neutral-500"}`}
+            className={`text-xs ${subtleTextClasses(appearance)}`}
             style={{ margin: 0 }}
           >
             Selected Text
           </p>
           <p
-            className={`text-sm mt-1 italic ${dark ? "text-neutral-200" : "text-neutral-700"}`}
+            className={`text-sm mt-1 italic ${cardBodyTextClasses(appearance)}`}
             style={{ margin: "4px 0 0" }}
           >
             &ldquo;
@@ -441,7 +452,7 @@ function InputCard({
         <div className="px-3 pb-1">
           <button
             onClick={() => setDetailsOpen((v) => !v)}
-            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${dark ? "text-neutral-400 hover:text-neutral-300" : "text-neutral-500 hover:text-neutral-600"}`}
+            className={`flex items-center gap-1 w-full text-left border-none bg-transparent cursor-pointer text-xs ${cardDetailsLinkClasses(appearance)}`}
             style={{ padding: 0 }}
           >
             <IconChevronRight
@@ -487,13 +498,13 @@ function InputCard({
           readOnly={locked}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500" : "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400"}`}
+          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${inputClasses(appearance)}`}
           style={{ boxSizing: "border-box", display: "block" }}
         />
       </div>
       {!locked && (
         <div
-          className={`flex items-center justify-between px-3 pb-3 border-t ${dark ? "border-neutral-700" : "border-neutral-100"}`}
+          className={`flex items-center justify-between px-3 pb-3 border-t ${cardFooterBorderClasses(appearance)}`}
           style={{ paddingTop: 10 }}
         >
           {isEdit ? (
@@ -508,7 +519,7 @@ function InputCard({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onCancel(pinId)}
-                  className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${cardActionButtonClasses(appearance)}`}
                   style={{ borderRadius: 8 }}
                 >
                   <IconX size={14} /> Cancel
@@ -517,7 +528,7 @@ function InputCard({
                   onClick={() => {
                     if (text.trim()) onTask(pinId, text.trim());
                   }}
-                  className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"}`}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium border-none cursor-pointer transition-colors ${cardEditButtonClasses(appearance)}`}
                   style={{ borderRadius: 8 }}
                 >
                   <IconCheckbox size={14} /> Edit Task
@@ -530,7 +541,7 @@ function InputCard({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onCancel(pinId)}
-                  className={`flex ml-auto items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${dark ? "bg-neutral-700 text-neutral-300 hover:bg-neutral-600" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                  className={`flex ml-auto items-center gap-1 px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${cardActionButtonClasses(appearance)}`}
                   style={{ borderRadius: 8 }}
                 >
                   <IconX size={14} /> Cancel
@@ -1224,7 +1235,7 @@ export function AnnotationOverlay() {
 
   const tooltipPin = tooltipId ? pins.get(tooltipId) : undefined;
   const activePin = activeInputId ? pins.get(activeInputId) : undefined;
-  const dark = useSyncExternalStore(subscribeDark, getDark);
+  const appearance = useSyncExternalStore(subscribeAppearance, getAppearance);
 
   return (
     <>
@@ -1274,7 +1285,7 @@ export function AnnotationOverlay() {
 
           {tooltipPin && tooltipId && !activeInputId && (
             <div
-              className={`absolute pointer-events-none rounded-lg border ${dark ? "bg-neutral-800 text-neutral-100 border-neutral-700" : "bg-white text-neutral-800 border-neutral-200"}`}
+              className={`absolute pointer-events-none rounded-lg border ${surfaceClasses(appearance)}`}
               style={{
                 left: tooltipPin.x - 15,
                 top: tooltipPin.y + 22,

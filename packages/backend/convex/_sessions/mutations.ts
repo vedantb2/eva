@@ -54,6 +54,8 @@ export const create = authMutation({
     ),
     baseBranch: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sessionId: v.id("sessions"),
@@ -136,6 +138,8 @@ export const create = authMutation({
         use1mContext: args.use1mContext,
         providerAccountId,
         attachmentStorageIds: args.attachmentStorageIds,
+        personaId: args.personaId,
+        numDesigns: args.numDesigns,
       });
       if (title === DEFAULT_SESSION_TITLE) {
         await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
@@ -162,6 +166,7 @@ export const addMessage = authMutation({
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     model: v.optional(aiModelValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
+    personaId: v.optional(v.id("designPersonas")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -185,6 +190,7 @@ export const addMessage = authMutation({
       userId: ctx.userId,
       attachmentStorageIds: args.attachmentStorageIds,
       credentialSourceLabel,
+      personaId: args.personaId,
       ...(args.role === "user"
         ? {
             model: args.model,
@@ -482,6 +488,45 @@ export const unarchive = authMutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { archived: false });
+    return null;
+  },
+});
+
+/** Selects a design variation index as the refine base for the next design turn. */
+export const selectVariation = authMutation({
+  args: {
+    id: v.id("sessions"),
+    variationIndex: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
+      .order("desc")
+      .collect();
+    const lastWithVariations = messages.find(
+      (m) => m.role === "assistant" && m.variations && m.variations.length > 0,
+    );
+    if (!lastWithVariations?.variations) {
+      throw new Error("No design variations to select from");
+    }
+    if (
+      args.variationIndex < 0 ||
+      args.variationIndex >= lastWithVariations.variations.length
+    ) {
+      throw new Error("Invalid variation index");
+    }
+
+    await ctx.db.patch(args.id, {
+      selectedVariationIndex: args.variationIndex,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

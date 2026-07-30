@@ -57,6 +57,8 @@ export const userFields = {
   lastChangelogDismissedAt: v.optional(v.number()),
   onboardingCompletedAt: v.optional(v.number()),
   emailNotificationsEnabled: v.optional(v.boolean()),
+  /** Opt-in Chrome-style horizontal session tabs (replaces sessions sidebar). */
+  experimentalSessionTabsEnabled: v.optional(v.boolean()),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one
@@ -81,7 +83,6 @@ export const repoEntityTypeValidator = v.union(
   v.literal("docs"),
   v.literal("projects"),
   v.literal("agentTasks"),
-  v.literal("designSessions"),
   v.literal("automations"),
 );
 
@@ -332,6 +333,8 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
+  // Design mode: index of the variation the user selected as the refine base.
+  selectedVariationIndex: v.optional(v.number()),
 };
 
 export const syncSettingFields = {
@@ -560,12 +563,7 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  parentId: v.union(
-    v.id("sessions"),
-    v.id("designSessions"),
-    v.id("projects"),
-    v.id("agentTasks"),
-  ),
+  parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
   mode: v.optional(sessionModeValidator),
   // Client-generated id (crypto.randomUUID) set when a user message is sent
   // optimistically. Lets the client dedup its local pending row against the
@@ -598,12 +596,7 @@ export const messageFields = {
 };
 
 export const queuedMessageFields = {
-  parentId: v.union(
-    v.id("sessions"),
-    v.id("designSessions"),
-    v.id("projects"),
-    v.id("agentTasks"),
-  ),
+  parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
   content: v.string(),
   /** Compact chat-display text; `content` remains the full agent message. */
   displayContent: v.optional(v.string()),
@@ -741,28 +734,6 @@ export const docFields = {
   updatedAt: v.number(),
 };
 
-export const designSessionFields = {
-  ...entityNumIdFields,
-  repoId: v.id("githubRepos"),
-  userId: v.id("users"),
-  title: v.string(),
-  status: sessionStatusValidator,
-  sandboxId: v.optional(v.string()),
-  branchName: v.optional(v.string()),
-  activeWorkflowId: v.optional(v.string()),
-  archived: v.optional(v.boolean()),
-  selectedVariationIndex: v.optional(v.number()),
-  updatedAt: v.optional(v.number()),
-  devPort: v.optional(v.number()),
-  // Sticky composer prefs (same contract as sessions.*) — design chat used to
-  // keep these in localStorage only, so picks were lost across devices.
-  providerAccountId: v.optional(v.id("userProviderAccounts")),
-  lastModel: v.optional(aiModelValidator),
-  lastReasoningLevel: v.optional(reasoningLevelValidator),
-  lastThinkingEnabled: v.optional(v.boolean()),
-  lastUse1mContext: v.optional(v.boolean()),
-};
-
 export const docCommentFields = {
   docId: v.id("docs"),
   content: v.string(),
@@ -813,13 +784,11 @@ export const draftFields = {
     v.literal("taskChat"),
     v.literal("projectChat"),
     v.literal("sessionChat"),
-    v.literal("designChat"),
   ),
   taskId: v.optional(v.id("agentTasks")),
   parentCommentId: v.optional(v.id("taskComments")),
   projectId: v.optional(v.id("projects")),
   sessionId: v.optional(v.id("sessions")),
-  designSessionId: v.optional(v.id("designSessions")),
   content: v.string(),
   updatedAt: v.number(),
 };
@@ -860,10 +829,6 @@ export const draftTarget = v.union(
   v.object({
     kind: v.literal("sessionChat"),
     sessionId: v.id("sessions"),
-  }),
-  v.object({
-    kind: v.literal("designChat"),
-    designSessionId: v.id("designSessions"),
   }),
 );
 

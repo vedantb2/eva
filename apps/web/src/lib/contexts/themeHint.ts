@@ -6,14 +6,20 @@ type ThemeHint = {
   radius?: string;
   fontFamily?: string;
   letterSpacing?: string;
-  /** Resolved light/dark for FOUC. Convex owns the real preference. */
-  appearance?: "light" | "dark";
+  /** Resolved appearance for FOUC. Convex owns the real preference. */
+  appearance?: "light" | "neutral" | "dark";
 };
 
 function getStringProp(value: object, key: string): string | undefined {
   if (!(key in value)) return undefined;
   const prop = Reflect.get(value, key);
   return typeof prop === "string" ? prop : undefined;
+}
+
+function isAppearance(
+  value: string | undefined,
+): value is "light" | "neutral" | "dark" {
+  return value === "light" || value === "neutral" || value === "dark";
 }
 
 function readThemeHint(): ThemeHint {
@@ -34,9 +40,7 @@ function readThemeHint(): ThemeHint {
       radius: getStringProp(parsed, "radius"),
       fontFamily: getStringProp(parsed, "fontFamily"),
       letterSpacing: getStringProp(parsed, "letterSpacing"),
-      ...(appearance === "light" || appearance === "dark"
-        ? { appearance }
-        : {}),
+      ...(isAppearance(appearance) ? { appearance } : {}),
     };
   } catch {
     return {};
@@ -54,8 +58,10 @@ function writeThemeHint(patch: ThemeHint) {
   }
 }
 
-/** Merge resolved light/dark into the FOUC hint (no `"theme"` localStorage). */
-export function writeThemeAppearanceHint(appearance: "light" | "dark") {
+/** Merge resolved appearance into the FOUC hint (no `"theme"` localStorage). */
+export function writeThemeAppearanceHint(
+  appearance: "light" | "neutral" | "dark",
+) {
   writeThemeHint({ appearance });
 }
 

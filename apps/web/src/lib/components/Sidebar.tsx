@@ -12,15 +12,14 @@ import {
   IconMenu2,
   IconMoon,
   IconSun,
+  IconCircleHalf,
   IconX,
 } from "@tabler/icons-react";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
 import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
@@ -40,6 +39,7 @@ import {
   isHomePath,
 } from "@/lib/components/sidebar/homePaths";
 import { GlobalSettingsSidebar } from "@/lib/components/sidebar/GlobalSettingsSidebar";
+import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -47,7 +47,6 @@ import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
-  "designs",
   "docs",
   "reviews",
   "sessions",
@@ -65,7 +64,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   for (let i = 2; i < segments.length; i++) {
     const s = segments[i];
     if (
-      s === "designs" ||
       s === "settings" ||
       s === "docs" ||
       s === "reviews" ||
@@ -174,15 +172,18 @@ export function Sidebar() {
   // Per-app Sessions sidebar was removed; any sessions URL (landing or deep
   // link like /$owner/$repo/.../sessions/$numId/preview) uses the root list.
   const isRepoSessionsPath = isRepoRoute && pathParts.includes("sessions");
-  const showGlobalSessionsPanel = isGlobalSessionsLanding || isRepoSessionsPath;
+  const isSessionsPath = isGlobalSessionsLanding || isRepoSessionsPath;
+  // Experimental Chrome tabs replace the sessions second column (rail only).
+  const useChromeSessionTabs = useChromeSessionTabsActive(pathname);
+  const showGlobalSessionsPanel = isSessionsPath && !useChromeSessionTabs;
   const showHomePanel = isHomePath(pathname);
   const showGlobalSettingsPanel =
     isGlobalSettingsPath(pathname) ||
     (import.meta.env.DEV &&
       (pathname === "/testing" || pathname.startsWith("/testing/")));
   const showSidePanel =
-    isRepoRoute ||
-    isGlobalSessionsLanding ||
+    (isRepoRoute && !useChromeSessionTabs) ||
+    (isGlobalSessionsLanding && !useChromeSessionTabs) ||
     showHomePanel ||
     showGlobalSettingsPanel;
 
@@ -241,19 +242,17 @@ export function Sidebar() {
           : "main";
 
   const contextSidebarTitle =
-    contextSidebarMode === "designs"
-      ? "Designs"
-      : contextSidebarMode === "settings"
-        ? "Settings"
-        : contextSidebarMode === "docs"
-          ? "Documents"
-          : contextSidebarMode === "reviews"
-            ? "Reviews"
-            : contextSidebarMode === "testing-arena"
-              ? "Testing Arena"
-              : contextSidebarMode === "automations"
-                ? "Automations"
-                : "";
+    contextSidebarMode === "settings"
+      ? "Settings"
+      : contextSidebarMode === "docs"
+        ? "Documents"
+        : contextSidebarMode === "reviews"
+          ? "Reviews"
+          : contextSidebarMode === "testing-arena"
+            ? "Testing Arena"
+            : contextSidebarMode === "automations"
+              ? "Automations"
+              : "";
 
   return (
     <>
@@ -287,14 +286,13 @@ export function Sidebar() {
           onClick={toggleTheme}
           aria-label="Toggle theme"
         >
-          <CrossfadeIcon
-            show={theme === "dark"}
-            trueKey="sun"
-            falseKey="moon"
-            className="relative flex size-[18px] items-center justify-center"
-            whenTrue={<IconSun size={18} className="text-muted-foreground" />}
-            whenFalse={<IconMoon size={18} className="text-muted-foreground" />}
-          />
+          {theme === "dark" ? (
+            <IconSun size={18} className="text-muted-foreground" />
+          ) : theme === "neutral" ? (
+            <IconMoon size={18} className="text-muted-foreground" />
+          ) : (
+            <IconCircleHalf size={18} className="text-muted-foreground" />
+          )}
         </Button>
       </header>
 
@@ -362,8 +360,14 @@ export function Sidebar() {
                           src={teamBackgroundUrl}
                           alt=""
                           className="absolute inset-0 size-full object-cover"
+                          style={{
+                            maskImage:
+                              "linear-gradient(to bottom, black 0%, black 45%, transparent 100%)",
+                            WebkitMaskImage:
+                              "linear-gradient(to bottom, black 0%, black 45%, transparent 100%)",
+                          }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-sidebar/90" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-transparent" />
                       </>
                     ) : null}
                     <m.div
@@ -525,14 +529,7 @@ export function Sidebar() {
                               onNavigate={closeMobileSidebar}
                             />
                           ) : repo && repoBasePath ? (
-                            contextSidebarMode === "designs" ? (
-                              <DesignSessionsSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
-                                pathname={pathname}
-                                onNavigate={closeMobileSidebar}
-                              />
-                            ) : contextSidebarMode === "docs" ? (
+                            contextSidebarMode === "docs" ? (
                               <DocsSidebar
                                 repoId={repo._id}
                                 basePath={repoBasePath}

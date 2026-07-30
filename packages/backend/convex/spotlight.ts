@@ -20,7 +20,6 @@ const spotlightTypeValidator = v.union(
   v.literal("task"),
   v.literal("session"),
   v.literal("doc"),
-  v.literal("design"),
   v.literal("automation"),
   v.literal("artifact"),
 );
@@ -41,7 +40,6 @@ type SpotlightHit = {
     | "task"
     | "session"
     | "doc"
-    | "design"
     | "automation"
     | "artifact";
   title: string;
@@ -251,7 +249,7 @@ export const search = authQuery({
           const label = repoDisplayLabel(repo);
           const base = repoBasePath(repo);
 
-          const [projects, sessions, tasks, docs, designs, automations] =
+          const [projects, sessions, tasks, docs, automations] =
             await Promise.all([
               ctx.db
                 .query("projects")
@@ -267,10 +265,6 @@ export const search = authQuery({
                 .take(PER_REPO_TAKE),
               ctx.db
                 .query("docs")
-                .withIndex("by_repo", (q) => q.eq("repoId", repo._id))
-                .take(PER_REPO_TAKE),
-              ctx.db
-                .query("designSessions")
                 .withIndex("by_repo", (q) => q.eq("repoId", repo._id))
                 .take(PER_REPO_TAKE),
               ctx.db
@@ -341,23 +335,6 @@ export const search = authQuery({
                 subtitle: label,
                 href: `${base}/docs/${doc.numId}/content`,
                 rank: rankMatch(doc.title, query) + 20,
-              },
-              limit,
-            );
-          }
-
-          for (const design of filterActiveEntities(designs)) {
-            if (design.archived === true) continue;
-            if (design.numId === undefined) continue;
-            if (!matchesQuery(design.title, query)) continue;
-            pushHit(
-              hits,
-              {
-                type: "design",
-                title: design.title,
-                subtitle: label,
-                href: `${base}/designs/${design.numId}`,
-                rank: rankMatch(design.title, query) + 20,
               },
               limit,
             );

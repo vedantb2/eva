@@ -154,13 +154,11 @@ export const listActiveSandboxes = internalQuery({
     taskIds: v.array(v.id("agentTasks")),
     projectIds: v.array(v.id("projects")),
     sessionIds: v.array(v.id("sessions")),
-    designIds: v.array(v.id("designSessions")),
   }),
   handler: async (ctx) => {
     const tasks = await ctx.db.query("agentTasks").collect();
     const projects = await ctx.db.query("projects").collect();
     const sessions = await ctx.db.query("sessions").collect();
-    const designs = await ctx.db.query("designSessions").collect();
     return {
       taskIds: tasks
         .filter((t) => t.reviewTaskSandboxStatus === "active" && t.sandboxId)
@@ -171,9 +169,6 @@ export const listActiveSandboxes = internalQuery({
       sessionIds: sessions
         .filter((s) => s.status === "active" && s.sandboxId)
         .map((s) => s._id),
-      designIds: designs
-        .filter((d) => d.status === "active" && d.sandboxId)
-        .map((d) => d._id),
     };
   },
 });
@@ -244,27 +239,6 @@ export const stopSession = internalMutation({
   },
 });
 
-/** Internal: stops one design session sandbox. See `stopTask`. */
-export const stopDesign = internalMutation({
-  args: { designSessionId: v.id("designSessions") },
-  returns: v.null(),
-  handler: async (ctx, { designSessionId }) => {
-    const session = await ctx.db.get(designSessionId);
-    if (!session || !session.sandboxId) return null;
-    if (session.status !== "active") return null;
-    await ctx.scheduler.runAfter(
-      0,
-      internal.designSessions.finalizeStopSandbox,
-      { designSessionId, sandboxId: session.sandboxId, repoId: session.repoId },
-    );
-    await ctx.db.patch(designSessionId, {
-      status: "stopping",
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 /**
  * Cron entry point. Runs every 15 minutes and stops every active sandbox once
  * per day, at (or just after) the configured local time.
@@ -318,11 +292,6 @@ export const run = internalAction({
     for (const sessionId of active.sessionIds) {
       await ctx.runMutation(internal.sandboxAutoStop.stopSession, {
         sessionId,
-      });
-    }
-    for (const designSessionId of active.designIds) {
-      await ctx.runMutation(internal.sandboxAutoStop.stopDesign, {
-        designSessionId,
       });
     }
     return null;

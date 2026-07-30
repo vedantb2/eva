@@ -208,7 +208,7 @@ export function TaskSandboxChatPanel({
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {onToggleSandbox ? (
-        <div className="flex shrink-0 items-center justify-end border-b border-border px-2 py-1">
+        <div className="flex shrink-0 items-center justify-end px-2 py-1">
           <SandboxPanelToggleButton
             collapsed={sandboxCollapsed === true}
             onToggle={onToggleSandbox}

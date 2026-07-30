@@ -55,26 +55,42 @@
     <script>
       (function () {
         // Appearance: prefer FOUC hint (Convex-synced), then legacy "theme" key.
+        // Neutral is dark-family: class="dark neutral".
         var appearance = null;
         try {
           var hintRaw = localStorage.getItem("eva-custom-theme-hint");
           if (hintRaw) {
             var earlyHint = JSON.parse(hintRaw);
-            if (earlyHint.appearance === "dark" || earlyHint.appearance === "light") {
+            if (
+              earlyHint.appearance === "dark" ||
+              earlyHint.appearance === "light" ||
+              earlyHint.appearance === "neutral"
+            ) {
               appearance = earlyHint.appearance;
             }
           }
         } catch (e) {}
         if (!appearance) {
           var legacy = localStorage.getItem("theme");
-          if (legacy === "dark" || legacy === "light") appearance = legacy;
+          if (
+            legacy === "dark" ||
+            legacy === "light" ||
+            legacy === "neutral"
+          ) {
+            appearance = legacy;
+          }
         }
         if (
-          appearance === "dark" ||
-          (!appearance &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches)
+          !appearance &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
         ) {
+          appearance = "dark";
+        }
+        if (appearance === "dark" || appearance === "neutral") {
           document.documentElement.classList.add("dark");
+        }
+        if (appearance === "neutral") {
+          document.documentElement.classList.add("neutral");
         }
         // Apply last-known custom theme before React so fonts/radius don't swap (CLS).
         try {

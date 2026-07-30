@@ -9,6 +9,8 @@ import {
   isGlobalSettingsPath,
   isHomePath,
 } from "@/lib/components/sidebar/homePaths";
+import { SessionChromeTabsBar } from "@/lib/components/sidebar/session-tabs/SessionChromeTabsBar";
+import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -26,13 +28,14 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
+  const chromeSessionTabs = useChromeSessionTabsActive(pathname);
   const onTesting =
     import.meta.env.DEV &&
     (pathname === "/testing" || pathname.startsWith("/testing/"));
   // Sessions / home / root settings show the wide second column; collapsed =
-  // rail only.
+  // rail only. Chrome session tabs use rail-only (no sessions sidebar).
   const hasSecondColumn =
-    isSessionsLanding ||
+    (isSessionsLanding && !chromeSessionTabs) ||
     isHomePath(pathname) ||
     isGlobalSettingsPath(pathname) ||
     onTesting;
@@ -51,6 +54,9 @@ function GlobalMainContent() {
       )}
     >
       <div className="relative flex flex-1 flex-col bg-background">
+        {chromeSessionTabs && isSessionsLanding ? (
+          <SessionChromeTabsBar pathname={pathname} />
+        ) : null}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"

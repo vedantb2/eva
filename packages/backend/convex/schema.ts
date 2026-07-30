@@ -44,7 +44,6 @@ import {
   draftFields,
   evaluationReportFields,
   artifactFields,
-  designSessionFields,
   repoEntityCounterFields,
   appTabFields,
   backgroundProcessFields,
@@ -212,10 +211,6 @@ const schema = defineSchema(
       prompt: v.string(),
     }).index("by_repo", ["repoId"]),
     appTabs: defineTable(appTabFields).index("by_repo", ["repoId"]),
-    designSessions: defineTable(designSessionFields)
-      .index("by_repo", ["repoId"])
-      .index("by_user", ["userId"])
-      .index("by_repo_and_numId", ["repoId", "numId"]),
     auditCategories: defineTable({
       repoId: v.id("githubRepos"),
       name: v.string(),
@@ -440,7 +435,6 @@ const schema = defineSchema(
       .index("by_user_and_task", ["userId", "taskId"])
       .index("by_user_and_project", ["userId", "projectId"])
       .index("by_user_and_session", ["userId", "sessionId"])
-      .index("by_user_and_designSession", ["userId", "designSessionId"])
       .index("by_user_and_repo", ["userId", "repoId"]),
   },
   // DEMO-ONLY (not committed): tolerate pre-existing dev-deployment schema drift.

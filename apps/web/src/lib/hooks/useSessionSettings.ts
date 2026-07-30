@@ -9,13 +9,17 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 
-const SESSION_MODES = ["edit", "plan"] as const;
+const SESSION_MODES = ["edit", "plan", "design"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
+
+function isSessionMode(value: string): value is SessionMode {
+  return value === "edit" || value === "plan" || value === "design";
+}
 
 /** Migrates old stored mode values ("ask"/"execute") to "edit". */
 export function normalizeMode(mode: string): SessionMode {
   if (mode === "ask" || mode === "execute") return "edit";
-  if (mode === "plan") return "plan";
+  if (isSessionMode(mode)) return mode;
   return "edit";
 }
 

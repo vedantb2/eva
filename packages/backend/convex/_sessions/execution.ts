@@ -13,7 +13,7 @@ import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
-import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
+import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
 import {
   assertProviderAccountOwnedBy,
   resolveDefaultProviderAccountId,
@@ -45,6 +45,8 @@ export const startExecute = authMutation({
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -55,7 +57,11 @@ export const startExecute = authMutation({
 
     const normalizedMode =
       args.mode === "ask" || args.mode === "execute" ? "edit" : args.mode;
-    if (normalizedMode !== "edit" && normalizedMode !== "plan") {
+    if (
+      normalizedMode !== "edit" &&
+      normalizedMode !== "plan" &&
+      normalizedMode !== "design"
+    ) {
       throw new Error(`Unsupported mode: ${args.mode}`);
     }
 
@@ -119,6 +125,8 @@ export const startExecute = authMutation({
       user,
       message: args.message,
       mode: args.mode,
+      personaId: args.personaId,
+      numDesigns: args.numDesigns,
     });
 
     // Claude uses daemon-pull (`pendingTurn` + claimPendingTurn). Cursor/Codex/
@@ -161,8 +169,6 @@ export const startExecute = authMutation({
     // one-shot providers (prewarmSessionDaemon already no-ops, but scheduling
     // still races a warm Sonnet daemon against Cursor launches).
     if (usesDaemonPull && session.sandboxId) {
-      const effectiveMode: "edit" | "plan" =
-        args.mode === "plan" ? "plan" : "edit";
       await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
         sandboxId: session.sandboxId,
         sessionId: args.sessionId,
@@ -172,7 +178,7 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
-        allowedTools: MODE_TOOLS[effectiveMode],
+        allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -192,6 +198,8 @@ export const startExecute = authMutation({
         use1mContext: args.use1mContext,
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
+        personaId: args.personaId,
+        numDesigns: args.numDesigns,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -229,13 +237,14 @@ export const prewarmDaemon = authMutation({
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
     // leaves the chat stuck on Working).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
+    const lastMode = session.lastMode ?? "edit";
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
       userId: session.userId,
       model: normalizeAIModel(session.lastModel),
-      allowedTools: MODE_TOOLS.edit,
+      allowedTools: MODE_TOOLS[resolveToolMode(lastMode)],
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
@@ -258,6 +267,8 @@ export const enqueueMessage = authMutation({
     use1mContext: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -284,6 +295,8 @@ export const enqueueMessage = authMutation({
       use1mContext: args.use1mContext,
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
+      personaId: args.personaId,
+      numDesigns: args.numDesigns,
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,

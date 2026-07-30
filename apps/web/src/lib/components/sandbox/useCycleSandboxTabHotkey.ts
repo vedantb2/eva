@@ -21,6 +21,7 @@ const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
 function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
   showPrdTab?: boolean,
+  showDesignsTab?: boolean,
   customTabSlugs?: ReadonlyArray<string>,
   showFilesTab?: boolean,
   showComputerTab?: boolean,
@@ -35,8 +36,9 @@ function getCyclableSandboxTabs(
     : withEditor;
   const withFiles = showFilesTab ? [...withComputer, "files"] : withComputer;
   const withPrd = showPrdTab ? [...withFiles, "prd"] : withFiles;
-  if (!customTabSlugs || customTabSlugs.length === 0) return withPrd;
-  return [...withPrd, ...customTabSlugs];
+  const withDesigns = showDesignsTab ? [...withPrd, "designs"] : withPrd;
+  if (!customTabSlugs || customTabSlugs.length === 0) return withDesigns;
+  return [...withDesigns, ...customTabSlugs];
 }
 
 /** Cycles sandbox tabs (Preview, Terminal, …, custom) with Shift+Tab. */
@@ -45,6 +47,7 @@ export function useCycleSandboxTabHotkey({
   onTabChange,
   enabledTabs,
   showPrdTab,
+  showDesignsTab,
   showFilesTab,
   customTabSlugs,
   showComputerTab,
@@ -55,6 +58,7 @@ export function useCycleSandboxTabHotkey({
   onTabChange: (tab: string) => void;
   enabledTabs?: ReadonlyArray<SandboxTab>;
   showPrdTab?: boolean;
+  showDesignsTab?: boolean;
   showFilesTab?: boolean;
   customTabSlugs?: ReadonlyArray<string>;
   showComputerTab?: boolean;
@@ -64,6 +68,7 @@ export function useCycleSandboxTabHotkey({
   const cyclableTabs = getCyclableSandboxTabs(
     enabledTabs,
     showPrdTab,
+    showDesignsTab,
     customTabSlugs,
     showFilesTab,
     showComputerTab,

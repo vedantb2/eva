@@ -19,6 +19,7 @@ import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerSta
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 import { SessionModeDropdown } from "./SessionModeDropdown";
+import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -50,7 +51,11 @@ export function NewSessionComposer() {
     setProviderAccountId,
     setDraft,
     clearDraft,
+    numDesigns,
+    setNumDesigns,
   } = useNewSessionComposerState(repo._id, defaultModel);
+  const [selectedPersonaId, setSelectedPersonaId] =
+    useState<Id<"designPersonas">>();
   const {
     displayText: draftDisplay,
     mentionMap: draftMentionMap,
@@ -83,6 +88,8 @@ export function NewSessionComposer() {
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
     const accountId = resolveAccountId(providerAccountId) ?? null;
+    const designArgs =
+      mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
       const { numId } = await createSession({
         repoId: repo._id,
@@ -91,6 +98,7 @@ export function NewSessionComposer() {
         model,
         baseBranch,
         ...executionTraits,
+        ...designArgs,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
         reasoningLevel: displayTraits.effortLevel,
@@ -111,7 +119,7 @@ export function NewSessionComposer() {
 
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
-      <div className="flex w-full max-w-2xl flex-col gap-6">
+      <div className="flex w-full max-w-2xl flex-col gap-3">
         <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           <span>
             {firstName
@@ -132,7 +140,9 @@ export function NewSessionComposer() {
           placeholder={
             mode === "plan"
               ? "Describe what to plan... / for skills · @ for data"
-              : "Ask Eva anything... / for skills · @ for data"
+              : mode === "design"
+                ? "Describe the UI to design... / for skills · @ for data"
+                : "Ask Eva anything... / for skills · @ for data"
           }
           model={model}
           setModel={(next) => {
@@ -148,7 +158,19 @@ export function NewSessionComposer() {
           onSend={handleSend}
           onCancel={async () => {}}
           toolsBefore={
-            <SessionModeDropdown mode={mode} onModeChange={setMode} />
+            <>
+              <SessionModeDropdown mode={mode} onModeChange={setMode} />
+              {mode === "design" ? (
+                <SessionDesignComposerTools
+                  repoId={repo._id}
+                  personaId={selectedPersonaId}
+                  onPersonaChange={setSelectedPersonaId}
+                  numDesigns={numDesigns}
+                  onNumDesignsChange={setNumDesigns}
+                  disabled={isSubmitting}
+                />
+              ) : null}
+            </>
           }
           localDraft={{
             initialDisplay: draftDisplay,
@@ -157,17 +179,16 @@ export function NewSessionComposer() {
             onSave: setDraft,
           }}
           attachmentMode="sessionFiles"
+          underCardLeading={
+            <BranchSelect
+              value={baseBranch}
+              onValueChange={setBaseBranch}
+              placeholder="Select a branch"
+              className="h-7 w-auto max-w-full justify-start border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+              disabled={isSubmitting}
+            />
+          }
         />
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <span>Base branch</span>
-          <BranchSelect
-            value={baseBranch}
-            onValueChange={setBaseBranch}
-            placeholder="Select a base branch"
-            className="h-8 w-auto max-w-[240px]"
-            disabled={isSubmitting}
-          />
-        </div>
       </div>
     </div>
   );

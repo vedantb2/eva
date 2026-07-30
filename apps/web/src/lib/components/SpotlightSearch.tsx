@@ -33,7 +33,6 @@ import {
   IconBox,
   IconFolder,
   IconRobot,
-  IconPalette,
   IconFileCode,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
@@ -50,7 +49,6 @@ const GROUP_ORDER: HitType[] = [
   "task",
   "session",
   "doc",
-  "design",
   "automation",
   "artifact",
 ];
@@ -63,7 +61,6 @@ const GROUP_LABEL: Record<HitType, string> = {
   task: "Tasks",
   session: "Sessions",
   doc: "Documents",
-  design: "Designs",
   automation: "Automations",
   artifact: "Artifacts",
 };
@@ -79,7 +76,6 @@ const TYPE_ICON: Record<
   task: IconChecklist,
   session: IconTerminal2,
   doc: IconFileText,
-  design: IconPalette,
   automation: IconRobot,
   artifact: IconFileCode,
 };
@@ -110,8 +106,6 @@ function iconForPageTitle(title: string) {
       return IconFileCode;
     case "Automations":
       return IconRobot;
-    case "Designs":
-      return IconPalette;
     default:
       return IconSearch;
   }

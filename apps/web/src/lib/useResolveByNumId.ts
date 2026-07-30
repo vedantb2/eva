@@ -69,16 +69,3 @@ export function useAgentTaskByNumId(
   );
   return resolveEntity(numIdParam, task);
 }
-
-export function useDesignSessionByNumId(
-  numIdParam: string | undefined,
-  repoId: Id<"githubRepos">,
-): ResolveResult<Id<"designSessions">> {
-  const parsedNumId =
-    numIdParam !== undefined ? parseRouteNumId(numIdParam) : null;
-  const designSession = useQuery(
-    api.designSessions.getByNumId,
-    parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
-  );
-  return resolveEntity(numIdParam, designSession);
-}

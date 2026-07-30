@@ -190,6 +190,7 @@ export function ChatComposer({
           </m.div>
         ) : null}
       </AnimatePresence>
+      {preInputContent}
       <QueuedMessagesPanel
         items={queuedMessageItems}
         renderContent={(content) => {
@@ -220,7 +221,6 @@ export function ChatComposer({
           await reorderQueuedMessages({ parentId, orderedIds });
         }}
       />
-      {preInputContent}
       <div className="relative">
         {isDraftLoading ? (
           // Placeholder that matches the input group's visual footprint.

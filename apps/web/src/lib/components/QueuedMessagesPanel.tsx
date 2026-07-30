@@ -205,8 +205,9 @@ function SortableQueuedItem({
 }
 
 /**
- * Pending-message queue above the composer on sandbox chat pages
- * (sessions, quick tasks, projects, designs). Built on AI Elements Queue.
+ * Pending-message queue flush above the composer on sandbox chat pages
+ * (sessions, quick tasks, projects). Narrower inset bar with square bottom
+ * corners so it blends into the input card — same idea as underCardLeading.
  */
 export function QueuedMessagesPanel({
   items,
@@ -268,7 +269,9 @@ export function QueuedMessagesPanel({
 
   return (
     <>
-      <Queue className="mb-2">
+      {/* Flush above the composer: narrower inset bar, square bottom so it
+          blends into the input card (mirrors underCardLeading below). */}
+      <Queue className="mx-auto mb-0 w-[calc(100%-1.5rem)] rounded-b-none rounded-t-surface bg-muted/50 shadow-none">
         <QueueSection defaultOpen>
           <QueueSectionTrigger>
             <QueueSectionLabel count={items.length} label={label} />

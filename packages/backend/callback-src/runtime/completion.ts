@@ -37,6 +37,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs";
+import { createHash } from "crypto";
 
 function parseJsonObject(line: string): JsonObject | null {
   const parsed = tryParseJson(line);
@@ -622,6 +623,19 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
   if (RUN_ID && !TASK_PROOF_CAPTURE_ENABLED) return;
 
   const uploaded: { storageId: string; fileName: string }[] = [];
+  // Agents re-capture the same frame more than once (a retried screenshot, a
+  // verify loop); byte-identical files add chat noise, so only the first copy
+  // of any content uploads. Distinct captures are the prompt's job — the
+  // deliverable folders are documented as post-everything-to-chat.
+  const seenDigests = new Set<string>();
+  const isDuplicate = (filePath: string): boolean => {
+    const digest = createHash("sha256")
+      .update(readFileSync(filePath))
+      .digest("hex");
+    if (seenDigests.has(digest)) return true;
+    seenDigests.add(digest);
+    return false;
+  };
 
   const { recordings, screenshots } = proofMediaSearchDirs(
     WORK_DIR,
@@ -635,8 +649,10 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
       const fp = recDir + "/" + file;
       const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
       try {
-        const storageId = await uploadMediaFile(fp, mimeType);
-        uploaded.push({ storageId, fileName: file });
+        if (!isDuplicate(fp)) {
+          const storageId = await uploadMediaFile(fp, mimeType);
+          uploaded.push({ storageId, fileName: file });
+        }
       } catch {
         /* ignore upload errors */
       }
@@ -663,8 +679,10 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
       const ext = file.split(".").pop()?.toLowerCase() ?? "png";
       const mimeType = mimeMap[ext] || "image/png";
       try {
-        const storageId = await uploadMediaFile(fp, mimeType);
-        uploaded.push({ storageId, fileName: file });
+        if (!isDuplicate(fp)) {
+          const storageId = await uploadMediaFile(fp, mimeType);
+          uploaded.push({ storageId, fileName: file });
+        }
       } catch {
         /* ignore upload errors */
       }

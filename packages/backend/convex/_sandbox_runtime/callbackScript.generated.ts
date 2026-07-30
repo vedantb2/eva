@@ -1610,6 +1610,7 @@ import {
   unlinkSync,
   writeFileSync as writeFileSync2
 } from "fs";
+import { createHash } from "crypto";
 function parseJsonObject(line) {
   const parsed = tryParseJson(line);
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -2007,6 +2008,13 @@ async function deliverCompletionWithMedia(completionArgs) {
 async function uploadAndAttachSandboxMedia() {
   if (RUN_ID && !TASK_PROOF_CAPTURE_ENABLED) return;
   const uploaded = [];
+  const seenDigests = /* @__PURE__ */ new Set();
+  const isDuplicate = (filePath) => {
+    const digest = createHash("sha256").update(readFileSync2(filePath)).digest("hex");
+    if (seenDigests.has(digest)) return true;
+    seenDigests.add(digest);
+    return false;
+  };
   const { recordings, screenshots } = proofMediaSearchDirs(
     WORK_DIR,
     ROOT_DIRECTORY
@@ -2018,8 +2026,10 @@ async function uploadAndAttachSandboxMedia() {
       const fp = recDir + "/" + file;
       const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
       try {
-        const storageId = await uploadMediaFile(fp, mimeType);
-        uploaded.push({ storageId, fileName: file });
+        if (!isDuplicate(fp)) {
+          const storageId = await uploadMediaFile(fp, mimeType);
+          uploaded.push({ storageId, fileName: file });
+        }
       } catch {
       }
       try {
@@ -2043,8 +2053,10 @@ async function uploadAndAttachSandboxMedia() {
       const ext = file.split(".").pop()?.toLowerCase() ?? "png";
       const mimeType = mimeMap[ext] || "image/png";
       try {
-        const storageId = await uploadMediaFile(fp, mimeType);
-        uploaded.push({ storageId, fileName: file });
+        if (!isDuplicate(fp)) {
+          const storageId = await uploadMediaFile(fp, mimeType);
+          uploaded.push({ storageId, fileName: file });
+        }
       } catch {
       }
       try {

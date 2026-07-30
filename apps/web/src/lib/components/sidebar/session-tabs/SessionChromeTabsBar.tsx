@@ -140,7 +140,7 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
       {/* The strip sits one tone step off the page so the selected tab, painted in
           the page's own colour, reads as part of the content below — Chrome's
           trick. z-20 keeps it above the page's top primary gradient. */}
-      <div className="relative z-20 flex h-12 shrink-0 items-end bg-muted/40">
+      <div className="relative z-20 flex h-10 shrink-0 items-end bg-muted dark:bg-muted/40">
         {/* Divider between strip and content. It is drawn behind the tabs rather
             than as the strip's own border so the selected tab can cover it. */}
         <span

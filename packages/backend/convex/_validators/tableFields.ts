@@ -71,8 +71,6 @@ export const userProviderAccountFields = {
   userId: v.id("users"),
   provider: aiProviderValidator,
   label: v.string(),
-  // Optional hex accent (e.g. "#2563eb") for the account's dot in the picker.
-  accentColor: v.optional(v.string()),
   credentials: v.array(v.object({ key: v.string(), value: v.string() })),
   createdAt: v.number(),
   updatedAt: v.number(),

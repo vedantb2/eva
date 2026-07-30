@@ -16,11 +16,7 @@ import {
   ProviderIcon,
   cn,
 } from "@eva/ui";
-import {
-  PROVIDER_CREDENTIAL_FIELDS,
-  PROVIDER_LABELS,
-  ACCOUNT_ACCENT_SWATCHES,
-} from "./_credentialSpec";
+import { PROVIDER_CREDENTIAL_FIELDS, PROVIDER_LABELS } from "./_credentialSpec";
 
 const PROVIDERS: ReadonlyArray<AIProvider> = [
   "claude",
@@ -34,7 +30,6 @@ export interface EditingAccount {
   _id: Id<"userProviderAccounts">;
   provider: AIProvider;
   label: string;
-  accentColor?: string;
   credentialKeys: ReadonlyArray<string>;
 }
 
@@ -46,7 +41,7 @@ interface AddAccountDialogProps {
 
 /**
  * Create or edit a provider account. Label is derived from the user's first
- * name server-side — this dialog only collects provider, accent, and secrets.
+ * name server-side — this dialog only collects provider and secrets.
  */
 export function AddAccountDialog({
   open,
@@ -81,9 +76,6 @@ function AddAccountForm({
 
   const [provider, setProvider] = useState<AIProvider>(
     editing?.provider ?? "claude",
-  );
-  const [accentColor, setAccentColor] = useState<string>(
-    editing?.accentColor ?? "",
   );
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -128,7 +120,6 @@ function AddAccountForm({
     await upsert({
       accountId: editing?._id,
       provider,
-      accentColor: accentColor || undefined,
       credentials,
     });
     setSaving(false);
@@ -169,31 +160,6 @@ function AddAccountForm({
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Shown as your first name with this provider&apos;s icon.
           </p>
-        </div>
-
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-            Accent (optional)
-          </p>
-          <div className="flex items-center gap-2">
-            {ACCOUNT_ACCENT_SWATCHES.map((swatch) => (
-              <button
-                key={swatch}
-                type="button"
-                aria-label={`Accent ${swatch}`}
-                onClick={() =>
-                  setAccentColor((prev) => (prev === swatch ? "" : swatch))
-                }
-                style={{ backgroundColor: swatch }}
-                className={cn(
-                  "size-6 rounded-full border-2 transition-transform",
-                  accentColor === swatch
-                    ? "border-foreground scale-110"
-                    : "border-transparent hover:scale-105",
-                )}
-              />
-            ))}
-          </div>
         </div>
 
         {prefilling ? (

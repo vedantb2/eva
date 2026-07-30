@@ -48,7 +48,6 @@ export function AccountsClient() {
       _id: account._id,
       provider: account.provider,
       label: account.label,
-      accentColor: account.accentColor,
       credentialKeys: account.credentials.map((entry) => entry.key),
     });
     setDialogOpen(true);
@@ -85,12 +84,6 @@ export function AccountsClient() {
                 key={account._id}
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
               >
-                <span
-                  className="size-3 shrink-0 rounded-full border border-border"
-                  style={{
-                    backgroundColor: account.accentColor ?? "var(--muted)",
-                  }}
-                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {account.label}

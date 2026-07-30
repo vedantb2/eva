@@ -9,7 +9,6 @@ export interface ModelAccount {
   id: string;
   provider: string;
   label: string;
-  accentColor?: string;
 }
 
 export function getProviderLabel(provider: string): string {

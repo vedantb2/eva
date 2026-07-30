@@ -44,7 +44,6 @@ function toModelAccounts(
         _id: Id<"userProviderAccounts">;
         provider: ModelAccount["provider"];
         label: string;
-        accentColor?: string;
         updatedAt: number;
       }>
     | undefined,
@@ -59,7 +58,6 @@ function toModelAccounts(
     id: account._id,
     provider: account.provider,
     label: account.label,
-    accentColor: account.accentColor,
   }));
   const resolveId = (
     id: string | null,

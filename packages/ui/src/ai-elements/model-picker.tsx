@@ -99,10 +99,9 @@ export function ModelSelect<TModel extends string>({
 
   const showAccountBadge = Boolean(
     selectedAccount &&
-    (selectedAccount.accentColor ||
-      instances.filter(
-        (instance) => instance.provider === selectedAccount.provider,
-      ).length > 1),
+    instances.filter(
+      (instance) => instance.provider === selectedAccount.provider,
+    ).length > 1,
   );
 
   return (
@@ -123,14 +122,8 @@ export function ModelSelect<TModel extends string>({
                 size={14}
               />
               <span
-                className={cn(
-                  "pointer-events-none absolute -right-0.5 -bottom-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full px-0.5 text-[7px] font-semibold leading-none",
-                  selectedAccount.accentColor
-                    ? "text-white"
-                    : "bg-muted text-muted-foreground",
-                )}
+                className="pointer-events-none absolute -right-0.5 -bottom-0.5 z-10 flex h-3 min-w-3 items-center justify-center rounded-full bg-muted px-0.5 text-[7px] font-semibold leading-none text-muted-foreground"
                 style={{
-                  backgroundColor: selectedAccount.accentColor,
                   boxShadow: "0 0 0 1.5px rgb(var(--input))",
                 }}
                 aria-hidden

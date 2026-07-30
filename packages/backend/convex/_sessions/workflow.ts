@@ -456,10 +456,12 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
-    // pushes (see prompts.ts). Always push after a successful AGENT turn —
-    // matching project/task chat. Do NOT gate on `git status --porcelain`:
-    // after a proper commit the tree is clean, so that check skipped every
-    // publish and left commits stranded in the sandbox.
+    // pushes (see prompts.ts). Always attempt the push after a successful
+    // AGENT turn — matching project/task chat. Do NOT gate on
+    // `git status --porcelain`: after a proper commit the tree is clean, so
+    // that check skipped every publish and left commits stranded in the
+    // sandbox. pushBranchToOrigin itself skips when HEAD has no commits
+    // origin lacks, so chat-only turns publish nothing.
     let pushSucceeded = false;
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {

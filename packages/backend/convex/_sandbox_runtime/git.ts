@@ -980,6 +980,35 @@ export async function pushBranchToOrigin(
   const details = `${owner}/${name}, branch=${branchName}`;
   await runLoggedGitStep("pushBranchToOrigin", details, async () => {
     const workspaceDir = workspaceDirShell();
+    // Ahead-of-remote gate: a turn that made no commits (chat/Q&A) has nothing
+    // to publish, and its first push would CREATE the remote branch — a ref
+    // update that runs the target repo's pre-push hooks inside a fresh sandbox
+    // where generated artefacts (Next.js route types, say) don't exist, so
+    // chat-only sessions spammed publish-failure alerts. Deliberately not a
+    // dirty-tree check — committed work leaves the tree clean (see
+    // sessionPublishContract); this asks whether HEAD carries any commit
+    // origin does not already have. Fail open: publishing is the critical
+    // path, so a broken gate pushes rather than blocks.
+    let unpushedCount = "unknown";
+    try {
+      unpushedCount = (
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git rev-list --count HEAD --not --remotes=origin`,
+          15,
+        )
+      ).trim();
+    } catch (error) {
+      logGit(
+        `pushBranchToOrigin: ahead-of-remote gate failed, pushing anyway (${details}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (unpushedCount === "0") {
+      logGit(
+        `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
+      );
+      return;
+    }
     const quotedBranch = quote([branchName]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
     await retryGitNetworkOperation(

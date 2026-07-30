@@ -8,6 +8,7 @@ const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
 const sessionWorkflow = readSource("_sessions/workflow.ts");
 const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
+const sandboxGit = readSource("_sandbox_runtime/git.ts");
 
 const PUSH_ACTION = "internal.sandbox.pushSandboxBranch";
 
@@ -142,6 +143,32 @@ describe("a delayed publish failure cannot rewrite a newer turn", () => {
   });
 });
 
+/**
+ * The counterpart to "a successful turn always publishes": a turn that made no
+ * commits (chat/Q&A) must publish NOTHING. Its first push would create the
+ * remote branch — a ref update that runs the target repo's pre-push hooks in a
+ * fresh sandbox where generated artefacts (Next.js route types, say) don't
+ * exist — so chat-only sessions spammed publish-failure alerts. The gate asks
+ * whether HEAD carries commits origin lacks; a dirty-tree check stays banned
+ * (see the porcelain rule above).
+ */
+describe("an empty turn publishes nothing", () => {
+  test("the push gates on commits origin lacks, not a dirty tree", () => {
+    const body = functionBody(
+      sandboxGit,
+      "export async function pushBranchToOrigin(",
+    );
+    const gateAt = body.indexOf(
+      "git rev-list --count HEAD --not --remotes=origin",
+    );
+    const pushAt = body.indexOf("git push");
+    expect(gateAt, "the ahead-of-remote gate moved").toBeGreaterThan(-1);
+    expect(pushAt, "the push moved").toBeGreaterThan(-1);
+    expect(gateAt).toBeLessThan(pushAt);
+    expect(body).not.toContain("porcelain");
+  });
+});
+
 /** Comments name the very calls these rules rule out, so they have to go first. */
 function readSource(relativePath: string): string {
   return stripComments(
@@ -157,6 +184,14 @@ function convexFiles(): string[] {
     .map((entry) => String(entry).replaceAll("\\", "/"))
     .filter((path) => path.endsWith(".ts"))
     .filter((path) => !path.includes("_generated"));
+}
+
+/** One top-level function, ending on the `\n}` that closes it at column 0. */
+function functionBody(source: string, header: string): string {
+  const startAt = source.indexOf(header);
+  expect(startAt, `${header} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n}", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
 }
 
 /** One Convex definition, ending on the `\n});` that closes it. */

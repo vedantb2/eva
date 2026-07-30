@@ -269,6 +269,16 @@ export async function launchScript(
     ...exportLines,
     "nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
     "echo $! > /tmp/run-design.pid",
+    // Privileged half of the OOM bias: the callback lowers its own
+    // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
+    // so that write no-ops unprivileged — observed in prod as the callback
+    // dying silently under memory pressure while dev servers survived. Lower
+    // it here via sudo instead. CLI subtrees are re-raised to 300 at spawn
+    // (callback-src/runtime/cliAttempt.ts), so the kernel kill order becomes:
+    // dev servers and agent work first (both recover — preview self-heal and
+    // turn error reporting), the heartbeat/reporting callback last. Fail open
+    // on images without passwordless sudo.
+    'echo -600 | sudo -n tee "/proc/$(cat /tmp/run-design.pid)/oom_score_adj" >/dev/null 2>&1 || true',
   ].join("\n");
   await sandbox.writeFile("/tmp/eva-launch-runner.sh", runnerLaunchScript);
   // Use the provider-native detached path; waitForRunnerReady confirms the

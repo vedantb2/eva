@@ -59,6 +59,12 @@ export async function launchDevServerInVercelConsole(
     `if command -v fuser >/dev/null 2>&1; then fuser -k ${port}/tcp >/dev/null 2>&1 || true`,
     `elif command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${port} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
     "fi",
+    // Cap the dev server's V8 heap: one leaky Next dev compile at ~5.5GB RSS
+    // was enough to trigger kernel OOM kills of unrelated processes on a 16GB
+    // VM. A clean heap error is the recoverable failure — the preview
+    // self-heal (ensureSessionPreviewServices) relaunches the server. Ours
+    // goes first so an env- or repo-provided NODE_OPTIONS still wins.
+    'export NODE_OPTIONS="--max-old-space-size=6144${NODE_OPTIONS:+ $NODE_OPTIONS}"',
     devCommand,
   ].join("\n");
   await handle.writeFile(CONSOLE_LAUNCH_SCRIPT, script);

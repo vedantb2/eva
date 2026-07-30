@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox OOM kills now land on recoverable processes - 2026-07-30
+
+Kernel OOM kills on 16GB session sandboxes were taking out the callback (the heartbeat and failure reporter), so turns died silently. The callback already tried to lower its own oom_score_adj, but lowering needs root and silently no-opped. The launcher now applies the lowering via sudo (-600, fail-open), CLI subtrees stay re-raised to 300 at spawn, and eva-launched dev servers run with a capped V8 heap (6GB, overridable via NODE_OPTIONS) so one leaky Next compile crashes cleanly and self-heals instead of pushing the VM into kernel kills. Verified live on a prod sandbox: callbacks at -600, dev servers at 300 — the kernel now sacrifices work that recovers and spares the process that reports.
+
 ## Preview dev server and proxy self-heal - 2026-07-30
 
 Nothing watched the dev server or navigation proxy after launch: an OOM kill or a lazily resumed VM left the app port dead while the sandbox ran, the proxy was only ensured on a passing probe, Console showed no dev server, and users had to ask the agent to restart things by hand. The preview readiness poll now schedules recovery on a claimed heal with a failed probe: the dev server relaunches through the single Console launcher (visible in Console, port-busy idempotent, rate-limited by the heal slot), after which the passing probe re-ensures the proxy. The generated proxy script also installs process-level error handlers so one uncaught socket error can no longer kill it.

@@ -137,8 +137,16 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
 
   return (
     <>
-      {/* z-20 keeps the strip above the page's top primary gradient. */}
-      <div className="relative z-20 flex h-12 shrink-0 items-end border-b border-border bg-background">
+      {/* The strip sits one tone step off the page so the selected tab, painted in
+          the page's own colour, reads as part of the content below — Chrome's
+          trick. z-20 keeps it above the page's top primary gradient. */}
+      <div className="relative z-20 flex h-12 shrink-0 items-end bg-muted/40">
+        {/* Divider between strip and content. It is drawn behind the tabs rather
+            than as the strip's own border so the selected tab can cover it. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border"
+        />
         {/* Chrome's strip never scrolls: tabs shrink to fit the width, and the
             chevron menu lists whatever no longer fits. */}
         <div className="flex min-w-0 flex-1 items-end gap-2 overflow-hidden px-1.5">

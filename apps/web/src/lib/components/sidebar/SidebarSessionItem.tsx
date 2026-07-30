@@ -2,14 +2,13 @@
 
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@eva/backend";
-import { compactRelativeTime } from "@eva/shared/dates";
 import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
-import { HoverCardAuthor } from "@/lib/components/sidebar/SidebarListHoverCard";
+import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 function prStateIconColor(
@@ -96,18 +95,12 @@ export function SidebarSessionItem({
         sideOffset={8}
         className="w-64 p-3"
       >
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {firstMessagePreview ? (
-          <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
-            {firstMessagePreview}
-          </p>
-        ) : null}
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <HoverCardAuthor userId={userId} />
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {compactRelativeTime(createdAt)}
-          </span>
-        </div>
+        <SessionHoverCardBody
+          title={title}
+          preview={firstMessagePreview}
+          createdAt={createdAt}
+          userId={userId}
+        />
       </HoverCardContent>
     </HoverCard>
   );

@@ -12,7 +12,10 @@ import {
   repoSessionsIndexPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
-import { SessionChromeTab } from "@/lib/components/sidebar/session-tabs/SessionChromeTab";
+import {
+  SessionChromeTab,
+  TAB_PREFERRED_WIDTH_REM,
+} from "@/lib/components/sidebar/session-tabs/SessionChromeTab";
 import { tabGroupColorForId } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
@@ -84,7 +87,9 @@ export function SessionChromeTabGroup({
     // group at the strip edge, as Chrome does, rather than spilling over the next.
     <div
       className={cn(
-        "relative flex items-end gap-1.5 overflow-hidden px-1",
+        // px-2 leaves room for the selected tab's flared shoulders at either end
+        // of the group; overflow-hidden is only a last-resort clip.
+        "relative flex items-end gap-2 overflow-hidden px-2",
         isOpen ? "min-w-0" : "shrink-0",
       )}
     >
@@ -136,8 +141,16 @@ export function SessionChromeTabGroup({
         </div>
       ) : (
         // Chrome tabs touch each other; separation comes from the hairline.
-        // min-w-0 is what lets the strip's width pressure reach the tabs.
-        <div className="flex min-w-0 items-end">
+        // The row asks for one preferred tab width per tab and shrinks from
+        // there, so tabs stay equal width whatever their titles say. The width
+        // has to be stated rather than measured: a tab is a container query,
+        // which means it cannot also be sized by its own contents.
+        <div
+          className="flex min-w-0 items-end"
+          style={{
+            width: `${visibleTabs.length * TAB_PREFERRED_WIDTH_REM}rem`,
+          }}
+        >
           {visibleTabs.map(({ session, href, isSelected }, index) => (
             <SessionChromeTab
               key={session._id}

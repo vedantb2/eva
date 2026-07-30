@@ -179,16 +179,14 @@ export function NewSessionComposer() {
             onSave: setDraft,
           }}
           attachmentMode="sessionFiles"
-          afterInputContent={
-            <div className="mx-auto w-[calc(100%-1.5rem)]">
-              <BranchSelect
-                value={baseBranch}
-                onValueChange={setBaseBranch}
-                placeholder="Select a branch"
-                className="mt-0 h-9 w-full rounded-b-surface border-border bg-muted/50 text-sm shadow-none"
-                disabled={isSubmitting}
-              />
-            </div>
+          underCardLeading={
+            <BranchSelect
+              value={baseBranch}
+              onValueChange={setBaseBranch}
+              placeholder="Select a branch"
+              className="h-7 w-auto max-w-full justify-start border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+              disabled={isSubmitting}
+            />
           }
         />
       </div>

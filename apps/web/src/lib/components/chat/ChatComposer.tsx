@@ -90,8 +90,8 @@ interface ChatComposerProps {
   onCancel: () => Promise<void>;
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
-  /** Renders flush under the prompt input (e.g. base-branch bar). */
-  afterInputContent?: React.ReactNode;
+  /** Optional left-side control on the under-input card (e.g. base branch). */
+  underCardLeading?: React.ReactNode;
   toolsBefore?: React.ReactNode;
   /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: ReactNode;
@@ -125,7 +125,7 @@ export function ChatComposer({
   onCancel,
   beforeQueuedContent,
   preInputContent,
-  afterInputContent,
+  underCardLeading,
   toolsBefore,
   optionsSubmenu,
   draft,
@@ -356,7 +356,11 @@ export function ChatComposer({
           </PromptInputProvider>
         )}
       </div>
-      {afterInputContent}
+      {underCardLeading ? (
+        <div className="mx-auto flex w-[calc(100%-1.5rem)] items-center rounded-b-surface border border-border bg-muted/50 px-1.5 py-1">
+          <div className="min-w-0">{underCardLeading}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

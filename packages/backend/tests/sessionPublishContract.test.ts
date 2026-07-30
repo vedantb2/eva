@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
 
 const sessionWorkflow = readSource("_sessions/workflow.ts");
+const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
 
 const PUSH_ACTION = "internal.sandbox.pushSandboxBranch";
@@ -92,20 +93,52 @@ describe("the reply is saved before the push", () => {
   });
 
   /**
-   * The publish failure is then patched onto the saved reply, which only works
-   * because saveResult recognises the prefix the workflow produces. A typo in
-   * either literal silently replaces the agent's answer with "Error: …".
+   * The failure is then reported as its own alert, which only works because
+   * saveResult recognises the prefix the workflow produces. A typo in either
+   * literal makes the second saveResult run the generic finaliser again and
+   * replace the saved answer with "Error: …".
    */
   test("saveResult recognises the publish-failure message it is sent", () => {
-    const marker = sessionWorkflow.match(
-      /args\.error\.startsWith\(\s*"([^"]+)"/,
+    const marker = resultTarget.match(
+      /SESSION_PUBLISH_FAILURE_PREFIX =\s*"([^"]+)"/,
     );
-    expect(marker, "the publish-failure guard moved").not.toBeNull();
+    expect(marker, "the publish-failure prefix moved").not.toBeNull();
     const prefix = marker?.[1] ?? "";
     expect(prefix.length).toBeGreaterThan(0);
     const thrown = sessionWorkflow.match(/const publishError = `([^${]+)/);
     expect(thrown, "the publish-failure message moved").not.toBeNull();
     expect(thrown?.[1] ?? "").toContain(prefix);
+  });
+});
+
+/**
+ * Because the reply is saved before the push, a push failure arrives late —
+ * often after the next regular or queued turn has started. Re-running the
+ * generic finaliser then patched the NEWER turn's placeholder with the
+ * previous answer, cleared its live streaming row and wiped its
+ * activeWorkflowId (fix 60a9b977).
+ */
+describe("a delayed publish failure cannot rewrite a newer turn", () => {
+  test("saveResult isolates the failure before touching turn state", () => {
+    const body = definitionBody(sessionWorkflow, "saveResult");
+    const guardAt = body.indexOf("delayedPublishFailureError(");
+    const clearAt = body.indexOf("clearStreamingActivity(");
+    const targetAt = body.indexOf("resultTargetMessage(");
+    expect(guardAt, "the publish-failure guard moved").toBeGreaterThan(-1);
+    expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
+    expect(targetAt, "the result target lookup moved").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(clearAt);
+    expect(guardAt).toBeLessThan(targetAt);
+  });
+
+  test("the failure becomes a standalone system alert", () => {
+    const body = definitionBody(sessionWorkflow, "saveResult");
+    const guard = body.slice(
+      body.indexOf("delayedPublishFailureError("),
+      body.indexOf("clearStreamingActivity("),
+    );
+    expect(guard).toContain("isSystemAlert: true");
+    expect(guard).toContain("return null;");
   });
 });
 

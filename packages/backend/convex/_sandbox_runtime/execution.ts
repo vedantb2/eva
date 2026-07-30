@@ -527,18 +527,28 @@ export const getPreviewUrl = action({
       }
       // Background daemons (e.g. `npx convex dev`) only relaunch on sandbox
       // start/resume. If they die while status stays active, Preview would
-      // keep loading a frontend with a dead backend. Cheap pid check; skip
-      // when still alive.
-      try {
-        await ctx.runAction(internal.sandbox.runBackgroundCommands, {
-          sandboxId: args.sandboxId,
-          repoId: args.repoId,
-          onlyRestartDead: true,
-        });
-      } catch (e) {
-        console.warn(
-          `[sandbox] preview background heal failed sandbox=${args.sandboxId}: ${errorMessage(e, "heal failed")}`,
-        );
+      // keep loading a frontend with a dead backend — the app port can serve
+      // while a backend daemon is down, so this heal must NOT be gated on the
+      // readiness probe. It IS rate-limited: the poll fires every ~2s per
+      // open page and each heal execs a pid check per background command
+      // inside the sandbox, which flooded prod logs and burned action time.
+      // sandboxHeal.claim grants the slot to one caller per interval across
+      // all concurrent viewers.
+      const healClaimed = await ctx.runMutation(internal.sandboxHeal.claim, {
+        sandboxId: args.sandboxId,
+      });
+      if (healClaimed) {
+        try {
+          await ctx.runAction(internal.sandbox.runBackgroundCommands, {
+            sandboxId: args.sandboxId,
+            repoId: args.repoId,
+            onlyRestartDead: true,
+          });
+        } catch (e) {
+          console.warn(
+            `[sandbox] preview background heal failed sandbox=${args.sandboxId}: ${errorMessage(e, "heal failed")}`,
+          );
+        }
       }
       ready = await probePreviewReady(handle, upstreamPort);
       // Preview must not background-launch the app itself: Lifecycle owns

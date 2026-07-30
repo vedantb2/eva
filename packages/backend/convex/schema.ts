@@ -153,6 +153,14 @@ const schema = defineSchema({
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),
+  // Per-sandbox rate-limit stamps for the preview poll's background heal
+  // (sandboxHeal.claim). Rows are tiny and reaped opportunistically on claim.
+  sandboxHealStamps: defineTable({
+    sandboxId: v.string(),
+    lastHealAt: v.number(),
+  })
+    .index("by_sandbox", ["sandboxId"])
+    .index("by_last_heal", ["lastHealAt"]),
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),

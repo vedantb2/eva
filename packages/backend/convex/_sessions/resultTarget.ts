@@ -13,6 +13,29 @@ type AssistantReply = {
   finishedAt?: number;
 };
 
+const SESSION_PUBLISH_FAILURE_PREFIX =
+  "Session completed locally, but Eva could not publish";
+
+/**
+ * A publish failure reported after the assistant reply was already saved.
+ *
+ * This is not another turn result: treating it as one can overwrite a newer
+ * placeholder when the user sends again while the previous branch is pushing.
+ */
+export function delayedPublishFailureError(
+  result: string | null,
+  error: string | null,
+): string | undefined {
+  if (
+    result === null ||
+    error === null ||
+    !error.startsWith(SESSION_PUBLISH_FAILURE_PREFIX)
+  ) {
+    return undefined;
+  }
+  return error;
+}
+
 /**
  * The message a turn's result should be written to, given the newest messages
  * first.

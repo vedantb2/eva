@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  delayedPublishFailureError,
   orphanPlaceholderMessages,
   resultTargetMessage,
 } from "../convex/_sessions/resultTarget";
@@ -20,6 +21,26 @@ function reply(fields: {
     finishedAt: fields.finishedAt,
   };
 }
+
+describe("delayedPublishFailureError", () => {
+  test("identifies a publish failure after a result was already saved", () => {
+    const error =
+      "Session completed locally, but Eva could not publish the branch to GitHub.";
+    expect(delayedPublishFailureError("saved reply", error)).toBe(error);
+  });
+
+  test.each([
+    [
+      "no saved result",
+      null,
+      "Session completed locally, but Eva could not publish",
+    ],
+    ["no error", "saved reply", null],
+    ["an execution error", "saved reply", "Sandbox command failed"],
+  ])("ignores %s", (_label, result, error) => {
+    expect(delayedPublishFailureError(result, error)).toBeUndefined();
+  });
+});
 
 /**
  * A turn's result used to land on whatever the newest message was. A system

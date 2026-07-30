@@ -94,11 +94,13 @@ export const startExecute = authMutation({
       }
     }
 
-    // Wipe any stale streaming row before staging the placeholder. The daemon's
-    // post-completion reconcile heartbeat (finalizeTurn -> setFinalizingState)
-    // races saveResult's clearStreamingActivity; when it loses, a row holding
-    // the finished turn's full activity survives, and the new placeholder below
-    // would flash the previous turn's thinking trace until the next heartbeat.
+    // Wipe any stale streaming row before staging the placeholder. The daemon
+    // sends its final reconcile heartbeat BEFORE the completion mutation (see
+    // finalizeTurn in callback-src/providers/claudeSdkDaemon.ts), so it no
+    // longer resurrects the row post-clear; this clear stays as defence in
+    // depth — old warm daemons, one-shot providers, and crashed turns can
+    // still leave a row holding the finished turn's reply/activity, which the
+    // new placeholder below would render as its own response.
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one

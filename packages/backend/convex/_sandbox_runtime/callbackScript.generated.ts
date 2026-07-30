@@ -4669,6 +4669,7 @@ async function finalizeTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  await setFinalizingState();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
   log(
@@ -4676,7 +4677,6 @@ async function finalizeTurn(output) {
   );
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  await setFinalizingState();
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );

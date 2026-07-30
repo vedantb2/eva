@@ -1,5 +1,13 @@
 # Changelog
 
+## Working bubble no longer replays the previous reply - 2026-07-30
+
+The warm session daemon sent its final streaming reconcile AFTER the completion mutation, behind a ~5s transcript copy. Queued dequeues (which start inside the completion mutation) and quick manual follow-ups began the next turn within that window, so the late reconcile resurrected the finished turn's full reply into the streaming row — and the new turn's Working bubble rendered the previous answer until the real reply landed. The reconcile now runs before completion; the daemon never writes streaming state after a turn completes. The startExecute/dequeue clears remain as defence in depth for old warm daemons and one-shot providers.
+
+## Session replies no longer regress after delayed publish failures - 2026-07-30
+
+Session replies are saved before Eva publishes the sandbox branch so users are not left waiting on Git. A delayed push failure could therefore arrive after the next regular or queued turn had started, reuse the generic result finaliser, and temporarily replace that turn with the previous answer. Publish failures now become isolated system alerts and cannot clear or overwrite the active turn.
+
 ## Prompt stash (⌘S) - 2026-07-30
 
 Typing a follow-up meant losing an in-progress draft or juggling browser tabs. ⌘S now stashes the composer (text + attachments) into a per-user per-repo Convex queue and clears the input; ⌘S on an empty composer (or the footer pill) opens a picker to restore or delete. Restore appends into the current draft and consumes the entry — model/mode/traits stay untouched. Kept separate from autosaved `drafts` (one live WIP per surface); see `internal/docs/prompt-stash-vs-drafts.md`.

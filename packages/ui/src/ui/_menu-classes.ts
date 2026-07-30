@@ -13,7 +13,7 @@ export const menuItemClass =
   "relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0";
 
 export const menuCheckboxRadioItemClass =
-  "relative flex cursor-pointer select-none items-center rounded-lg py-2 pl-9 pr-2.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-lg py-2 pl-9 pr-2.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
 export const menuLabelClass =
   "px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground";

@@ -34,8 +34,8 @@ interface MentionTextareaProps {
   initialSkillMap?: Map<string, string>;
   /**
    * Previously sent messages as editable display text, newest-first. When
-   * provided, ArrowUp on the first line recalls older messages and ArrowDown
-   * moves back toward the live draft (terminal-style history).
+   * provided, Alt+ArrowUp recalls older messages and Alt+ArrowDown moves
+   * back toward the live draft (terminal-style history).
    */
   history?: string[];
   /**
@@ -79,7 +79,7 @@ export const MentionTextarea = forwardRef<
   const { suggestion, dismiss } = useInlineSuggestion(value, completionContext);
 
   // Cursor into `history` (null = editing the live draft) and the draft stashed
-  // when history navigation began, so ArrowDown past the newest entry restores it.
+  // when history navigation began, so Alt+ArrowDown past the newest entry restores it.
   const historyIndexRef = useRef<number | null>(null);
   const stashedDraftRef = useRef("");
   const setInput = controller.textInput.setInput;

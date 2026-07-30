@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@eva/ui";
 
 /**
  * Renders a repo's uploaded logo image when present, otherwise the page's
@@ -9,10 +10,12 @@ export function RepoLogo({
   logoUrl,
   fallback,
   size = 28,
+  className,
 }: {
   logoUrl?: string | null;
   fallback: ReactNode;
   size?: number;
+  className?: string;
 }) {
   if (!logoUrl) return <>{fallback}</>;
   return (
@@ -21,7 +24,10 @@ export function RepoLogo({
       alt=""
       width={size}
       height={size}
-      className="shrink-0 rounded-md border border-border object-cover"
+      className={cn(
+        "shrink-0 rounded-md border border-border object-cover",
+        className,
+      )}
       style={{ width: size, height: size }}
     />
   );

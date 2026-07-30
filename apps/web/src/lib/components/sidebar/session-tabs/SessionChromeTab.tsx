@@ -22,7 +22,6 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
-import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
@@ -51,9 +50,6 @@ export interface ChromeTabSession {
 
 interface SessionChromeTabProps {
   session: ChromeTabSession;
-  /** App logo — Chrome's favicon slot. */
-  appLogoUrl?: string | null;
-  appLabel: string;
   href: string;
   isSelected: boolean;
   /** Chrome draws a hairline only between two adjacent unselected tabs. */
@@ -92,14 +88,12 @@ function prStateIconColor(
  * of the content below rather than a card floating on the strip.
  *
  * Width is never scrolled — tabs share the strip and shrink as more open, down
- * to a favicon. Each tab is its own container query so it can shed detail as it
- * narrows (PR icon, then sandbox dot, then close, then the title), the same
- * order Chrome sheds its own.
+ * to the sandbox status dot. Each tab is its own container query so it can shed
+ * detail as it narrows (PR icon, then close, then the title). The app logo lives
+ * on the group pill, not the tab.
  */
 export function SessionChromeTab({
   session,
-  appLogoUrl,
-  appLabel,
   href,
   isSelected,
   showSeparator,
@@ -120,9 +114,10 @@ export function SessionChromeTab({
               style={{ flexBasis: `${TAB_PREFERRED_WIDTH_REM}rem` }}
               className={cn(
                 // Tabs shrink from the shared preferred width down to min-w-8,
-                // which is a favicon and nothing else. container-type makes the
-                // tab a query container for the detail ladder below, and drops its
-                // intrinsic width, so a long title cannot resist shrinking.
+                // which is the sandbox status and nothing else. container-type
+                // makes the tab a query container for the detail ladder below,
+                // and drops its intrinsic width, so a long title cannot resist
+                // shrinking.
                 "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors [container-type:inline-size]",
                 isSelected
                   ? // Chrome stroke: left/top/right in the group accent — bottom
@@ -149,18 +144,24 @@ export function SessionChromeTab({
                 // tab's side stroke carries on around the curve, then the page
                 // fill. Offset 10px (8px disc + the tab's 2px border) so the
                 // arc starts exactly where the tab's border box ends.
+                //
+                // The shoulder is 10px wide, not 8: the extra 2px reach back
+                // over the tab's own side border, painting the bottom 8px of it
+                // in page fill. Without that the border would run straight down
+                // to the baseline and stop square, and the curve would read as
+                // a hook beside it instead of the outline turning outwards.
                 <>
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute -left-2.5 bottom-0 size-2 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_9.5px,rgb(var(--background))_10px)]",
+                      "pointer-events-none absolute -left-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
                   />
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute -right-2.5 bottom-0 size-2 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_9.5px,rgb(var(--background))_10px)]",
+                      "pointer-events-none absolute -right-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
                   />
@@ -170,26 +171,18 @@ export function SessionChromeTab({
                 to={href}
                 className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
               >
-                <RepoLogo
-                  logoUrl={appLogoUrl}
-                  size={16}
-                  fallback={
-                    <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
-                      {appLabel.charAt(0).toUpperCase()}
-                    </span>
-                  }
-                />
-                <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">
-                  {session.title}
-                </span>
-                {/* Sandbox state rides on the right, like Chrome's per-tab indicators. */}
+                {/* Sandbox status fills Chrome's favicon slot — stays visible when
+                    the tab is fully squeezed. App logo lives on the group pill. */}
                 <span
                   className={cn(
-                    "size-1.5 shrink-0 rounded-full [@container(max-width:9rem)]:hidden",
+                    "size-1.5 shrink-0 rounded-full",
                     statusStyle.dot,
                   )}
                   title={statusStyle.label}
                 />
+                <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">
+                  {session.title}
+                </span>
                 {session.prUrl ? (
                   <IconGitPullRequest
                     size={14}

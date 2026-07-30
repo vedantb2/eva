@@ -6,6 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner, cn } from "@eva/ui";
+import { RepoLogo } from "@/lib/components/RepoLogo";
 import { repoSessionBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import {
@@ -110,13 +111,23 @@ export function SessionChromeTabGroup({
           className={cn(
             // Never shrinks: the app name is the group's identity, so width
             // pressure goes to the tabs instead.
-            "flex max-w-[11rem] shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-85",
+            "flex max-w-[11rem] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-85",
             colors.pill,
           )}
           onClick={() => {
             onOpenChange(!isOpen);
           }}
         >
+          <RepoLogo
+            logoUrl={repo.logoUrl}
+            size={14}
+            className="border-0"
+            fallback={
+              <span className="flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-background/40 text-[8px] font-semibold">
+                {label.charAt(0).toUpperCase()}
+              </span>
+            }
+          />
           <span className="truncate">{label}</span>
         </button>
       </div>
@@ -140,8 +151,6 @@ export function SessionChromeTabGroup({
             <SessionChromeTab
               key={session._id}
               session={session}
-              appLogoUrl={repo.logoUrl}
-              appLabel={label}
               href={href}
               isSelected={isSelected}
               showSeparator={

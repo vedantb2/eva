@@ -82,21 +82,24 @@ export function SessionChromeTabGroup({
     // group at the strip edge, as Chrome does, rather than spilling over the next.
     <div
       className={cn(
-        // px-2 leaves room for the selected tab's flared shoulders at either end
-        // of the group; overflow-hidden is only a last-resort clip.
-        "relative flex items-end gap-2 overflow-hidden px-2",
+        // Same horizontal padding open or collapsed so expanding a group does
+        // not shift neighbouring pills. overflow-hidden is a last-resort clip.
+        "relative flex items-end gap-2 overflow-hidden px-0.5",
         isOpen ? "min-w-0" : "shrink-0",
       )}
     >
       {/* Chrome marks a group with a coloured line beneath it — no tinted fill
-          behind the tabs. The selected tab's card covers the line it crosses. */}
-      <span
-        aria-hidden
-        className={cn(
-          "absolute inset-x-0 bottom-0 h-[3px] rounded-t-sm",
-          colors.underline,
-        )}
-      />
+          behind the tabs. The selected tab's card covers the line it crosses.
+          Collapsed chips are just the pill (+ selected tab), so no underline. */}
+      {isOpen ? (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-x-0 bottom-0 h-[3px] rounded-t-sm",
+            colors.underline,
+          )}
+        />
+      ) : null}
       {/* Group label pill — Chrome puts the name first, then its tabs. The row
           is tab-height so a collapsed chip lines up with expanded groups. */}
       <div className="flex h-9 shrink-0 items-center">
@@ -144,6 +147,7 @@ export function SessionChromeTabGroup({
               showSeparator={
                 index > 0 && !isSelected && !visibleTabs[index - 1]?.isSelected
               }
+              groupBorderClass={colors.border}
               onRenameRequest={() => onRenameRequest(session, repo)}
               onArchiveRequest={() => onArchiveRequest(session, repo)}
               onDuplicate={async () => {

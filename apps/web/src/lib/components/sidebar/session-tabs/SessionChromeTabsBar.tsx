@@ -150,10 +150,10 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
         />
         {/* Chrome's strip never scrolls: tabs shrink to fit the width, and the
             chevron menu lists whatever no longer fits. */}
-        <div className="flex min-w-0 flex-1 items-end gap-2 overflow-hidden px-1.5">
+        <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden px-1">
           {orderedRepos === undefined ? (
             <div
-              className="flex items-end gap-2 pb-0 pl-1"
+              className="flex items-end gap-0.5 pb-0 pl-1"
               aria-busy="true"
               aria-label="Loading session tabs"
             >

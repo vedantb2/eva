@@ -57,6 +57,8 @@ interface SessionChromeTabProps {
   isSelected: boolean;
   /** Chrome draws a hairline only between two adjacent unselected tabs. */
   showSeparator: boolean;
+  /** Group accent for the selected-tab stroke (matches pill/underline). */
+  groupBorderClass: string;
   onRenameRequest: () => void;
   onArchiveRequest: () => void;
   onDuplicate: () => Promise<string>;
@@ -100,6 +102,7 @@ export function SessionChromeTab({
   href,
   isSelected,
   showSeparator,
+  groupBorderClass,
   onRenameRequest,
   onArchiveRequest,
   onDuplicate,
@@ -121,7 +124,13 @@ export function SessionChromeTab({
                 // intrinsic width, so a long title cannot resist shrinking.
                 "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors [container-type:inline-size]",
                 isSelected
-                  ? "z-10 bg-background text-foreground"
+                  ? // Chrome stroke: left/top/right in the group accent — bottom
+                    // stays open so the tab merges into the page; the sides meet
+                    // the group's underline.
+                    cn(
+                      "z-10 border-2 border-b-0 bg-background text-foreground",
+                      groupBorderClass,
+                    )
                   : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
               )}
             >

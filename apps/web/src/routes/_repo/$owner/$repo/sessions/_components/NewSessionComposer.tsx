@@ -179,17 +179,18 @@ export function NewSessionComposer() {
             onSave: setDraft,
           }}
           attachmentMode="sessionFiles"
+          afterInputContent={
+            <div className="mx-auto w-[calc(100%-1.5rem)]">
+              <BranchSelect
+                value={baseBranch}
+                onValueChange={setBaseBranch}
+                placeholder="Select a branch"
+                className="mt-0 h-9 w-full rounded-b-surface border-border bg-muted/50 text-sm shadow-none"
+                disabled={isSubmitting}
+              />
+            </div>
+          }
         />
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <span>Base branch</span>
-          <BranchSelect
-            value={baseBranch}
-            onValueChange={setBaseBranch}
-            placeholder="Select a base branch"
-            className="h-8 w-auto max-w-[240px]"
-            disabled={isSubmitting}
-          />
-        </div>
       </div>
     </div>
   );

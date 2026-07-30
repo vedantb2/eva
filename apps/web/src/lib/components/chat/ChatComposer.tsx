@@ -90,6 +90,8 @@ interface ChatComposerProps {
   onCancel: () => Promise<void>;
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
+  /** Renders flush under the prompt input (e.g. base-branch bar). */
+  afterInputContent?: React.ReactNode;
   toolsBefore?: React.ReactNode;
   /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: ReactNode;
@@ -123,6 +125,7 @@ export function ChatComposer({
   onCancel,
   beforeQueuedContent,
   preInputContent,
+  afterInputContent,
   toolsBefore,
   optionsSubmenu,
   draft,
@@ -353,6 +356,7 @@ export function ChatComposer({
           </PromptInputProvider>
         )}
       </div>
+      {afterInputContent}
     </div>
   );
 }

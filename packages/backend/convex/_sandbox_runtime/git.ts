@@ -20,7 +20,10 @@ import {
   withTimeout,
   workspaceDirShell,
 } from "./helpers";
-import { detectPackageManager } from "./devServer";
+import {
+  detectPackageManager,
+  installPythonDependenciesBestEffort,
+} from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import {
   EVA_ENV_FILE,
@@ -812,9 +815,10 @@ async function installDependencies(
       PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
+    // Bare node24 has no yarn shim — mirror the pnpm branch's global install.
     await execHandle(
       sandbox,
-      `cd ${workspaceDir} && yarn install`,
+      `npm install -g yarn && cd ${workspaceDir} && yarn install`,
       YARN_INSTALL_TIMEOUT_SECONDS,
     );
   } else {
@@ -824,6 +828,21 @@ async function installDependencies(
       NPM_INSTALL_TIMEOUT_SECONDS,
     );
   }
+}
+
+/** Best-effort pip for root requirements.txt / pyproject.toml (never throws). */
+async function installPythonDependencies(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  const result = await installPythonDependenciesBestEffort(sandbox);
+  if (!result.attempted) return;
+  if (result.ok) {
+    logGit("installPythonDependencies: pip install succeeded");
+    return;
+  }
+  logGit(
+    "installPythonDependencies: pip install failed (continuing without Python deps)",
+  );
 }
 
 /**
@@ -911,6 +930,7 @@ export async function cloneAndSetupRepo(
       `installDependencies: detected package manager "${pm}" for ${owner}/${name}`,
     );
     await installDependencies(sandbox, pm);
+    await installPythonDependencies(sandbox);
   });
 }
 

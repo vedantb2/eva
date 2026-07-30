@@ -6,11 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner, cn } from "@eva/ui";
-import { IconPlus } from "@tabler/icons-react";
-import {
-  repoSessionBasePaths,
-  repoSessionsIndexPath,
-} from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { repoSessionBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import {
   SessionChromeTab,
@@ -36,11 +32,10 @@ interface SessionChromeTabGroupProps {
 }
 
 /**
- * Chrome tab group: a group-name pill, that app's active session tabs (and a
- * per-group + for a new session), and the coloured line Chrome draws underneath
- * to tie them together. Selection is resolved here
- * rather than per tab so a tab knows whether its neighbour is selected — Chrome
- * drops the separator hairline next to the selected tab.
+ * Chrome tab group: a group-name pill, that app's active session tabs, and the
+ * coloured line Chrome draws underneath to tie them together. Selection is
+ * resolved here rather than per tab so a tab knows whether its neighbour is
+ * selected — Chrome drops the separator hairline next to the selected tab.
  *
  * Clicking the pill collapses the group to a chip, as in Chrome. A collapsed
  * group still shows the selected tab: hiding the session you are reading would
@@ -104,7 +99,7 @@ export function SessionChromeTabGroup({
       />
       {/* Group label pill — Chrome puts the name first, then its tabs. The row
           is tab-height so a collapsed chip lines up with expanded groups. */}
-      <div className="flex h-9 shrink-0 items-center gap-1">
+      <div className="flex h-9 shrink-0 items-center">
         <button
           type="button"
           aria-expanded={isOpen}
@@ -121,19 +116,6 @@ export function SessionChromeTabGroup({
         >
           <span className="truncate">{label}</span>
         </button>
-        {isOpen ? (
-          <button
-            type="button"
-            aria-label={`New session in ${label}`}
-            title={`New session in ${label}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
-            onClick={() => {
-              navigate({ to: repoSessionsIndexPath(repo) });
-            }}
-          >
-            <IconPlus size={15} />
-          </button>
-        ) : null}
       </div>
       {isLoading ? (
         <div className="flex h-9 items-center px-3">

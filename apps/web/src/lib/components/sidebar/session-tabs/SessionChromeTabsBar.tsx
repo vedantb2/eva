@@ -22,6 +22,7 @@ import {
   type SessionArchiveTarget,
   type SessionRenameTarget,
 } from "@/lib/components/sidebar/session-tabs/SessionTabsDialogs";
+import { SessionTabsNewMenu } from "@/lib/components/sidebar/session-tabs/SessionTabsNewMenu";
 import {
   SessionTabsOverflowMenu,
   type OverflowGroup,
@@ -194,6 +195,13 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
               />
             ))
           )}
+          {/* Chrome's new-tab button: one + after the last group, never squeezed
+              out by tab pressure. A session needs an app, so it asks which. */}
+          {orderedRepos && orderedRepos.length > 0 ? (
+            <div className="flex h-9 shrink-0 items-center">
+              <SessionTabsNewMenu repos={orderedRepos} />
+            </div>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-stretch self-stretch border-l border-border">
           <SessionTabsOverflowMenu

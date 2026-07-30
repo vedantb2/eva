@@ -28,6 +28,7 @@ import {
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
+import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
 
 /**
  * Width a tab asks for before the strip starts squeezing, in rem. The tab row
@@ -57,8 +58,8 @@ interface SessionChromeTabProps {
   isSelected: boolean;
   /** Chrome draws a hairline only between two adjacent unselected tabs. */
   showSeparator: boolean;
-  /** Group accent for the selected-tab stroke (matches pill/underline). */
-  groupBorderClass: string;
+  /** Group accent, used for the selected tab's stroke and flared shoulders. */
+  groupColor: TabGroupColor;
   onRenameRequest: () => void;
   onArchiveRequest: () => void;
   onDuplicate: () => Promise<string>;
@@ -102,7 +103,7 @@ export function SessionChromeTab({
   href,
   isSelected,
   showSeparator,
-  groupBorderClass,
+  groupColor,
   onRenameRequest,
   onArchiveRequest,
   onDuplicate,
@@ -129,7 +130,7 @@ export function SessionChromeTab({
                     // the group's underline.
                     cn(
                       "z-10 border-2 border-b-0 bg-background text-foreground",
-                      groupBorderClass,
+                      groupColor.border,
                     )
                   : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
               )}
@@ -142,16 +143,26 @@ export function SessionChromeTab({
               ) : null}
               {isSelected ? (
                 // Chrome's flared shoulders: a quarter disc either side of the
-                // tab, masked so the curve sweeps away from it and into the
-                // strip. Same fill as the tab, so the merge is seamless.
+                // tab, sweeping away from it and into the strip. Each shoulder
+                // is one radial gradient — transparent inside the arc so the
+                // strip shows through, then the group accent for 2px so the
+                // tab's side stroke carries on around the curve, then the page
+                // fill. Offset 10px (8px disc + the tab's 2px border) so the
+                // arc starts exactly where the tab's border box ends.
                 <>
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute -left-2 bottom-0 size-2 bg-background [mask-image:radial-gradient(circle_at_top_left,transparent_7.5px,black_8px)]"
+                    className={cn(
+                      "pointer-events-none absolute -left-2.5 bottom-0 size-2 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_9.5px,rgb(var(--background))_10px)]",
+                      groupColor.accent,
+                    )}
                   />
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute -right-2 bottom-0 size-2 bg-background [mask-image:radial-gradient(circle_at_top_right,transparent_7.5px,black_8px)]"
+                    className={cn(
+                      "pointer-events-none absolute -right-2.5 bottom-0 size-2 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_9.5px,rgb(var(--background))_10px)]",
+                      groupColor.accent,
+                    )}
                   />
                 </>
               ) : null}

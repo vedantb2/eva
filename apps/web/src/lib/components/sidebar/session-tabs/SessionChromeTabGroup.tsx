@@ -78,13 +78,13 @@ export function SessionChromeTabGroup({
 
   return (
     // Only open groups give up width — their tabs shrink first, so a collapsed
-    // chip never loses characters to someone else's tabs. overflow-hidden cuts a
-    // group at the strip edge, as Chrome does, rather than spilling over the next.
+    // chip never loses characters to someone else's tabs.
     <div
       className={cn(
         // Same horizontal padding open or collapsed so expanding a group does
-        // not shift neighbouring pills. overflow-hidden is a last-resort clip.
-        "relative flex items-end gap-2 overflow-hidden px-0.5",
+        // not shift neighbouring pills. Nothing clips: the selected tab's
+        // flared shoulders reach past the group's edge by design.
+        "relative flex items-end gap-2 px-0.5",
         isOpen ? "min-w-0" : "shrink-0",
       )}
     >
@@ -147,7 +147,7 @@ export function SessionChromeTabGroup({
               showSeparator={
                 index > 0 && !isSelected && !visibleTabs[index - 1]?.isSelected
               }
-              groupBorderClass={colors.border}
+              groupColor={colors}
               onRenameRequest={() => onRenameRequest(session, repo)}
               onArchiveRequest={() => onArchiveRequest(session, repo)}
               onDuplicate={async () => {

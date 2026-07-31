@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button, Input, Card, CardContent, Badge } from "@eva/ui";
 import {
   IconCheck,
@@ -87,6 +87,34 @@ export function MultipleChoiceQuestion({
     setOtherActive((prev) => ({ ...prev, [idx]: false }));
   };
 
+  const handleShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      isLoading ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    ) {
+      return;
+    }
+    const optionIndex = Number(event.key) - 1;
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex > 8) {
+      return;
+    }
+    const option = q?.options[optionIndex];
+    if (!option || !q) return;
+    event.preventDefault();
+    toggleOption(option.label, q.multiSelect);
+  };
+
   const toggleOther = () => {
     const idx = currentStep;
     setOtherActive((prev) => ({ ...prev, [idx]: true }));
@@ -148,7 +176,19 @@ export function MultipleChoiceQuestion({
   if (!q) return null;
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+    <div
+      className="space-y-4 focus:outline-none"
+      tabIndex={0}
+      role="group"
+      aria-label={`Question ${currentStep + 1} of ${totalSteps}`}
+      aria-busy={isLoading}
+      onKeyDown={handleShortcut}
+    >
+      <span className="sr-only" aria-live="polite">
+        {isLoading
+          ? "Submitting answer"
+          : `Question ${currentStep + 1} of ${totalSteps}. Use number keys 1 through 9 to choose an option.`}
+      </span>
       <div className="flex items-center justify-between">
         <p className="text-[15px] font-semibold leading-snug text-foreground">
           {q.question}
@@ -172,7 +212,8 @@ export function MultipleChoiceQuestion({
           const isSelected = (answers[currentStep] ?? []).includes(
             option.label,
           );
-          const letter = optionLetters[optIdx] ?? String(optIdx + 1);
+          const shortcut = optIdx < 9 ? String(optIdx + 1) : undefined;
+          const optionMarker = shortcut ?? optionLetters[optIdx] ?? "";
           return (
             <Card
               key={`${option.label}-${optIdx}`}
@@ -185,6 +226,13 @@ export function MultipleChoiceQuestion({
                 !isLoading && toggleOption(option.label, q.multiSelect)
               }
               role="button"
+              aria-label={
+                shortcut
+                  ? `${option.label}. Shortcut ${shortcut}`
+                  : option.label
+              }
+              aria-pressed={isSelected}
+              aria-disabled={isLoading}
               tabIndex={isLoading ? -1 : 0}
               onKeyDown={(e) => {
                 if (isLoading) return;
@@ -209,7 +257,7 @@ export function MultipleChoiceQuestion({
                   {isSelected ? (
                     <IconCheck size={13} strokeWidth={3} />
                   ) : (
-                    letter
+                    optionMarker
                   )}
                 </span>
                 <div className="flex-1 min-w-0">

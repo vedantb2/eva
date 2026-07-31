@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel, type Id } from "@eva/backend";
+import {
+  api,
+  buildTraitsExecutionPayload,
+  normalizeAIModel,
+  resolveTraitsForDisplay,
+  type Id,
+} from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -44,8 +50,7 @@ export function NewSessionComposer() {
     setMode,
     model,
     setModel,
-    displayTraits,
-    executionTraits,
+    storedTraits,
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
@@ -62,12 +67,27 @@ export function NewSessionComposer() {
     skillMap: draftSkillMap,
   } = tokenizedToEditable(draftTokenized);
 
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const {
     options: accounts,
     resolveId: resolveAccountId,
     ready: accountsReady,
   } = useProviderAccounts();
+  const resolvedProviderAccountId = resolveAccountId(providerAccountId);
+  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
+    repo._id,
+    model,
+    resolvedProviderAccountId,
+  );
+  const displayTraits = resolveTraitsForDisplay(
+    model,
+    storedTraits,
+    providerCapabilities,
+  );
+  const executionTraits = buildTraitsExecutionPayload(
+    model,
+    storedTraits,
+    providerCapabilities,
+  );
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
   // Default account once the provider list is ready. Runs in an effect because
@@ -87,7 +107,7 @@ export function NewSessionComposer() {
     setIsSubmitting(true);
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
-    const accountId = resolveAccountId(providerAccountId) ?? null;
+    const accountId = resolvedProviderAccountId ?? null;
     const designArgs =
       mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
@@ -154,6 +174,7 @@ export function NewSessionComposer() {
           accountId={providerAccountId}
           onAccountChange={setProviderAccountId}
           displayTraits={displayTraits}
+          providerCapabilities={providerCapabilities}
           onTraitsChange={onTraitsChange}
           onSend={handleSend}
           onCancel={async () => {}}

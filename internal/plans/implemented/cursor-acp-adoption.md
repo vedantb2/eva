@@ -1,9 +1,15 @@
 # Plan: Adopt Cursor ACP without adopting t3code's orchestration stack
 
-Status: recommended, not implemented
+Status: implemented; production observation begins after deployment
 
 Research date: 2026-07-31
 t3code revision reviewed: [`fccec9f097ab6b89714161ccab2efc7e19d59c00`](https://github.com/pingdotgg/t3code/tree/fccec9f097ab6b89714161ccab2efc7e19d59c00)
+
+## Implementation outcome
+
+Implemented on `codex/acp-chat-architecture` using the official stable ACP SDK and no Effect dependencies. Cursor chat runs through one warm authenticated ACP daemon per entity; non-chat Cursor execution uses the same typed prompt boundary. Replay isolation, exact prompt completion, protocol cancellation, blocking extensions, durable session resume, live model/config/mode discovery, per-turn configuration, capability snapshots, daemon draining, and exact-turn callbacks are in place.
+
+Because this repository treats the change as greenfield and breaking changes are allowed, the final cleanup was completed in the same implementation series: Cursor's `-p` command, stream-JSON adapter/parser, legacy session translation, and automatic transport fallback were removed. The historical `cursorTransport` schema union remains readable for existing documents, but runtime routing is ACP-only. The seven-day production observation gate can begin only after this branch is deployed; it is an operational rollout check, not remaining implementation work.
 
 ## Executive decision
 

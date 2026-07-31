@@ -116,7 +116,11 @@ async function upsertStreamingActivity(
     attempt?: number;
   },
 ): Promise<void> {
-  if (!(await callbackMatchesEntityId(ctx, args.entityId, args))) return;
+  if (
+    !(await callbackMatchesEntityId(ctx, args.entityId, args, "stream_set"))
+  ) {
+    return;
+  }
   const existing = await ctx.db
     .query("streamingActivity")
     .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
@@ -195,7 +199,11 @@ async function touchStreamingEntity(
   entityId: string,
   identity: OptionalTurnIdentity,
 ): Promise<boolean> {
-  if (!(await callbackMatchesEntityId(ctx, entityId, identity))) return false;
+  if (
+    !(await callbackMatchesEntityId(ctx, entityId, identity, "stream_touch"))
+  ) {
+    return false;
+  }
   const now = Date.now();
   const existing = await ctx.db
     .query("streamingActivity")
@@ -299,6 +307,21 @@ export async function clearStreamingActivityForTurn(
     .withIndex("by_entity", (q) => q.eq("entityId", entityId))
     .first();
   if (existing === null || !turnIdentityMatches(existing, expected)) {
+    if (existing !== null) {
+      console.log(
+        JSON.stringify({
+          event: "chat.stale_callback_ignored",
+          eventKind: "stream_clear",
+          entityId,
+          expectedTurnId: expected.turnId ?? null,
+          expectedAssistantMessageId: expected.assistantMessageId ?? null,
+          expectedAttempt: expected.attempt ?? null,
+          receivedTurnId: existing.turnId ?? null,
+          receivedAssistantMessageId: existing.assistantMessageId ?? null,
+          receivedAttempt: existing.attempt ?? null,
+        }),
+      );
+    }
     return false;
   }
   await ctx.db.delete(existing._id);

@@ -111,6 +111,14 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
   } = useSessionModel(sessionId, defaultModel);
+  const capabilityAccountId = stickyProviderAccountId
+    ? resolveAccountId(stickyProviderAccountId)
+    : undefined;
+  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
+    repo._id,
+    model,
+    capabilityAccountId,
+  );
   const {
     mode,
     setMode,
@@ -127,6 +135,7 @@ export function ChatPanel({
     onModeChange: setStickyMode,
     traits,
     onTraitsPersist: setTraits,
+    providerCapabilities,
     providerAccountId: stickyProviderAccountId,
     onProviderAccountChange: (next: string | null) => {
       setStickyProviderAccountId(
@@ -134,7 +143,6 @@ export function ChatPanel({
       );
     },
   });
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&
@@ -371,6 +379,7 @@ export function ChatPanel({
           setProviderAccountId(next);
         }}
         displayTraits={displayTraits}
+        providerCapabilities={providerCapabilities}
         onTraitsChange={onTraitsChange}
         onSend={runtime.handleSend}
         onCancel={runtime.handleCancel}

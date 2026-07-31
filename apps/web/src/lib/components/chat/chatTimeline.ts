@@ -27,9 +27,10 @@ type TimelineStreamingState = Omit<
 
 type TimelineActiveQuestion = Omit<
   ConvexActiveQuestion,
-  "assistantMessageId"
+  "assistantMessageId" | "questionId"
 > & {
   assistantMessageId?: string;
+  questionId: string;
 };
 
 type TimelineActiveTurn = Omit<ChatActiveTurn, "assistantMessageId"> & {

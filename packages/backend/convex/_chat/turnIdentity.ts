@@ -125,8 +125,28 @@ export async function callbackMatchesEntityId(
   ctx: DatabaseCtx,
   entityId: string,
   received: OptionalTurnIdentity,
+  eventKind?: string,
 ): Promise<boolean> {
   const entity = await resolveChatEntity(ctx, entityId);
-  if (entity === null) return !hasAnyTurnIdentity(received);
-  return callbackMatchesActiveTurn(entity, received);
+  const matches =
+    entity === null
+      ? !hasAnyTurnIdentity(received)
+      : callbackMatchesActiveTurn(entity, received);
+  if (!matches && eventKind !== undefined) {
+    console.log(
+      JSON.stringify({
+        event: "chat.stale_callback_ignored",
+        eventKind,
+        entityId,
+        expectedTurnId: entity?.activeTurn?.turnId ?? null,
+        expectedAssistantMessageId:
+          entity?.activeTurn?.assistantMessageId ?? null,
+        expectedAttempt: entity?.activeTurn?.attempt ?? null,
+        receivedTurnId: received.turnId ?? null,
+        receivedAssistantMessageId: received.assistantMessageId ?? null,
+        receivedAttempt: received.attempt ?? null,
+      }),
+    );
+  }
+  return matches;
 }

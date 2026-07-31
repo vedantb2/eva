@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor and chat now share an exact, capability-aware runtime - 2026-07-31
+
+Cursor is fully ACP-only through the official SDK: chat surfaces use a warm authenticated daemon, non-chat runs use the same structured prompt boundary, and the old `-p` command, stream-JSON adapter/parser, legacy session translation, and automatic transport fallback are removed. Every prompt reapplies its exact advertised model, reasoning/context configuration, and mode; authenticated capability snapshots feed the composer so unavailable models and controls fail before execution instead of being guessed. Exact turn ownership now also covers pending-question document identity, synthetic continuations, media, stale watchdogs, cancel races, and late callbacks, with structured mismatch logs and accessible keyboard-first question controls. Architecture and operations guides preserve the no-latest-row and no-duplicate-execution rules that prevent prior replies from resurfacing.
+
 ## Chat surfaces consume one exact, paginated timeline - 2026-07-31
 
 Session, quick-task, and project sandbox chats now share one controller that submits a client-created turn once, reconciles its authoritative active-or-queued result, cancels and answers questions against the exact attempt, and preserves drafts across rejected sends. Recent history loads through Convex pagination and renders as stable logical turn rows in a virtualized timeline; loading older pages preserves the viewport, completed rows retain object identity during token streaming, jump navigation uses row indexes, and inactive session routes no longer retain hidden chat subscriptions. The old latest-message scans, fake Convex IDs, full-history sandbox query, and whole-session React cache are gone.

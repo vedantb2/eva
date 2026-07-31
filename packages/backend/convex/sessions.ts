@@ -8,7 +8,6 @@ export {
 
 export {
   create,
-  addMessage,
   updateStatus,
   update,
   setModel,

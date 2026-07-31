@@ -46,6 +46,7 @@ import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log } from "../utils.js";
 import type { JsonValue } from "../types.js";
+import type { ChatTurnIdentity } from "../../shared/chatTurnProtocol.js";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
@@ -104,7 +105,13 @@ let lastMessageAtMs = 0;
 
 type DaemonMessage = Record<string, JsonValue>;
 
-type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
+type DaemonTurn =
+  | { kind: "real" }
+  | {
+      kind: "synthetic";
+      messageId: string;
+      identity: ChatTurnIdentity;
+    };
 
 type WarmRunner = {
   push: (text: string) => void;
@@ -412,7 +419,9 @@ async function finalizeTurn(output: string): Promise<void> {
  * `{ prompt }` lives under `.value`. Falls back to the top level in case an
  * unwrapped value is ever passed.
  */
-function readSyntheticTurnMessageId(result: JsonValue): string | null {
+function readSyntheticTurn(
+  result: JsonValue,
+): { messageId: string; identity: ChatTurnIdentity } | null {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
   }
@@ -422,7 +431,21 @@ function readSyntheticTurnMessageId(result: JsonValue): string | null {
       ? inner
       : result;
   const messageId = payload.messageId;
-  return typeof messageId === "string" ? messageId : null;
+  const turnId = payload.turnId;
+  const attempt = payload.attempt;
+  if (
+    typeof messageId !== "string" ||
+    typeof turnId !== "string" ||
+    typeof attempt !== "number" ||
+    !Number.isSafeInteger(attempt) ||
+    attempt < 1
+  ) {
+    return null;
+  }
+  return {
+    messageId,
+    identity: { turnId, assistantMessageId: messageId, attempt },
+  };
 }
 
 function readParentToolUseId(message: DaemonMessage): string | null {
@@ -706,6 +729,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...activeTurnIdentityArgs(),
       }),
     );
   } catch {
@@ -714,6 +738,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
 }
 
@@ -726,21 +751,28 @@ async function ensureSyntheticTurn(): Promise<void> {
     const result = await callConvexWithRetry(
       "mutation",
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({}),
+      entityMutationArgs({
+        callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION,
+      }),
     );
-    const messageId = readSyntheticTurnMessageId(result);
-    if (messageId === null) {
-      log("daemon: openSyntheticTurn returned no messageId");
+    const syntheticTurn = readSyntheticTurn(result);
+    if (syntheticTurn === null) {
+      log("daemon: openSyntheticTurn returned no exact turn identity");
       return;
     }
     resetTurnState();
-    daemonTurn = { kind: "synthetic", messageId };
+    setActiveTurnIdentity(syntheticTurn.identity);
+    daemonTurn = {
+      kind: "synthetic",
+      messageId: syntheticTurn.messageId,
+      identity: syntheticTurn.identity,
+    };
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
     S.activeAttemptStartedAt = agentTurnStartedAt;
     beginWatchedTurn();
-    log("daemon: synthetic turn opened messageId=" + messageId);
+    log("daemon: synthetic turn opened messageId=" + syntheticTurn.messageId);
   } finally {
     openingSyntheticTurn = false;
   }
@@ -764,6 +796,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
+    ...activeTurnIdentityArgs(),
   });
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
@@ -777,6 +810,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }

@@ -33,6 +33,7 @@ import {
   validateClientTurnId,
 } from "../_chat/turnLifecycle";
 import { optionalChatTurnIdentityFields } from "../_validators/tableFields";
+import { clearPendingQuestionsForTurn } from "../pendingQuestions";
 import {
   callbackMatchesActiveTurn,
   exactTurnIdentity,
@@ -354,9 +355,8 @@ export const startExecute = authMutation({
       numDesigns: args.numDesigns,
     });
 
-    // Claude uses daemon-pull (`pendingTurn` + claimPendingTurn). Cursor/Codex/
-    // Opencode are one-shot launch — staging pendingTurn for them only feeds a
-    // leftover Claude daemon mismatch-spam while launchOnExistingSandbox runs.
+    // Claude and Cursor use daemon-pull (`pendingTurn` + claimPendingTurn).
+    // Codex and Opencode launch one process with the prompt.
     const normalizedModel = normalizeAIModel(args.model);
     const usesDaemonPull = usesChatDaemon(
       normalizedModel,
@@ -370,6 +370,7 @@ export const startExecute = authMutation({
               requestedAt: Date.now(),
               attachmentStorageIds: args.attachmentStorageIds,
               model: normalizedModel,
+              mode: args.mode,
             },
           }
         : { pendingTurn: undefined }),
@@ -573,6 +574,11 @@ export const cancelExecution = authMutation({
       ) {
         return null;
       }
+      await clearPendingQuestionsForTurn(
+        ctx.db,
+        String(args.sessionId),
+        turnIdentity,
+      );
       await cancelTrackedWorkflow(ctx, session.activeWorkflowId);
       if (usesChatDaemon(session.lastModel, session.cursorTransport)) {
         await ctx.db.patch(args.sessionId, { cancelRequestedAt: Date.now() });

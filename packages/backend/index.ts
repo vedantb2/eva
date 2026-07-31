@@ -27,3 +27,9 @@ export {
   type ModelComposerControlDescriptor,
   PERSONALISATION_PRESETS,
 } from "./convex/validators";
+export {
+  cursorModelIdForEva,
+  evaModelIdForCursor,
+  type CursorComposerCapability as ProviderComposerCapability,
+  type CursorEvaModel,
+} from "./cursorCapabilities";

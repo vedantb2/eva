@@ -42,6 +42,24 @@ describe("readClaimedTurn", () => {
     });
   });
 
+  test("keeps only a supported per-turn session mode", () => {
+    expect(
+      readClaimedTurn({ prompt: "plan it", attachmentUrls: [], mode: "plan" }),
+    ).toEqual({
+      prompt: "plan it",
+      attachmentUrls: [],
+      identity: null,
+      mode: "plan",
+    });
+    expect(
+      readClaimedTurn({ prompt: "ignore it", mode: "unexpected" }),
+    ).toEqual({
+      prompt: "ignore it",
+      attachmentUrls: [],
+      identity: null,
+    });
+  });
+
   test("rejects claim responses without a prompt", () => {
     expect(readClaimedTurn({ value: { cancelRequested: true } })).toBeNull();
   });

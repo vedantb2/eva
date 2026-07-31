@@ -1,9 +1,15 @@
 # Plan: Harden Eva chat turn identity and frontend architecture
 
-Status: recommended, not implemented
+Status: implemented; production observation begins after deployment
 Research date: 2026-07-31
 t3code revision reviewed: [`fccec9f097ab6b89714161ccab2efc7e19d59c00`](https://github.com/pingdotgg/t3code/tree/fccec9f097ab6b89714161ccab2efc7e19d59c00)
 Related provider plan: [`cursor-acp-adoption.md`](./cursor-acp-adoption.md)
+
+## Implementation outcome
+
+Implemented on `codex/acp-chat-architecture`. Session, task-sandbox, and project-sandbox chat now submit through one atomic start-or-queue contract, preserve a client-created `turnId` through dequeue and optimistic reconciliation, and bind every live artifact to the exact assistant row and attempt. Exact validation covers streams, questions, media, completion, cancellation, watchdogs, recovery, and synthetic continuations; mismatches are ignored with structured observability.
+
+The frontend now uses a shared controller and pure linear timeline projection with stable logical keys, newest-first Convex pagination, page-scoped media, virtualized rendering, prepend anchoring, bottom-follow behavior, and no retained inactive chat subscriptions. The project interview lifecycle is server-owned, provider controls consume normalized live capabilities, and the obsolete public split endpoints/latest-row helpers were removed. The seven-day compatibility-traffic check starts after deployment and does not represent unfinished code in this branch.
 
 ## Executive decision
 

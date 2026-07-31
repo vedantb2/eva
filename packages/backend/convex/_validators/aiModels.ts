@@ -1,4 +1,8 @@
 import { v } from "convex/values";
+import type {
+  CursorComposerCapability,
+  CursorEvaModel,
+} from "../../cursorCapabilities";
 
 export const aiProviderValidator = v.union(
   v.literal("claude"),
@@ -134,6 +138,26 @@ export type ModelComposerControlDescriptor =
       order: number;
     };
 
+export const providerComposerCapabilityValidator = v.union(
+  v.object({
+    kind: v.literal("select"),
+    id: v.literal("reasoningLevel"),
+    label: v.string(),
+    description: v.string(),
+    options: v.array(
+      v.object({ value: reasoningLevelValidator, label: v.string() }),
+    ),
+    defaultValue: reasoningLevelValidator,
+  }),
+  v.object({
+    kind: v.literal("boolean"),
+    id: v.union(v.literal("thinkingEnabled"), v.literal("use1mContext")),
+    label: v.string(),
+    description: v.string(),
+    defaultValue: v.boolean(),
+  }),
+);
+
 const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
   levels: ["low", "medium", "high", "xhigh", "max"],
   default: "high",
@@ -173,12 +197,7 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:grok-4.5-low"
-  | "cursor:grok-4.5-medium"
-  | "cursor:grok-4.5-high"
-  | "cursor:gpt-5.5-low"
-  | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2.5";
+  | CursorEvaModel;
 export type PersistedAIModel =
   | AIModel
   | LegacyClaudeModel
@@ -525,7 +544,35 @@ export function getReasoningLevelLabel(level: string): string {
 export function resolveTraitsForDisplay(
   model: string | null | undefined,
   stored: StoredModelTraits,
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
 ): ModelTraitsDisplay {
+  if (providerCapabilities !== undefined) {
+    const reasoning = providerCapabilities.find(
+      (capability) => capability.id === "reasoningLevel",
+    );
+    const thinking = providerCapabilities.find(
+      (capability) => capability.id === "thinkingEnabled",
+    );
+    const context = providerCapabilities.find(
+      (capability) => capability.id === "use1mContext",
+    );
+    const storedEffort = stored.effortLevel;
+    const effortLevel =
+      reasoning?.kind === "select"
+        ? reasoning.options.some((option) => option.value === storedEffort)
+          ? storedEffort
+          : reasoning.defaultValue
+        : undefined;
+    return {
+      effortLevel,
+      thinkingEnabled:
+        stored.thinkingEnabled ??
+        (thinking?.kind === "boolean" ? thinking.defaultValue : true),
+      use1mContext:
+        stored.use1mContext ??
+        (context?.kind === "boolean" ? context.defaultValue : false),
+    };
+  }
   const traits = getModelTraits(model);
   return {
     effortLevel: traits.reasoning
@@ -540,7 +587,30 @@ export function resolveTraitsForDisplay(
 export function describeModelComposerControls(
   model: string | null | undefined,
   display: ModelTraitsDisplay,
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
 ): ReadonlyArray<ModelComposerControlDescriptor> {
+  if (providerCapabilities !== undefined) {
+    return providerCapabilities.map((capability) => {
+      if (capability.kind === "select") {
+        return {
+          ...capability,
+          currentValue: display.effortLevel ?? capability.defaultValue,
+          mutableDuringActiveTurn: true,
+          promptUltrathink: false,
+          order: 10,
+        };
+      }
+      return {
+        ...capability,
+        currentValue:
+          capability.id === "thinkingEnabled"
+            ? display.thinkingEnabled
+            : display.use1mContext,
+        mutableDuringActiveTurn: true,
+        order: capability.id === "use1mContext" ? 20 : 30,
+      };
+    });
+  }
   const traits = getModelTraits(model);
   const controls: ModelComposerControlDescriptor[] = [];
   if (traits.reasoning) {
@@ -594,7 +664,31 @@ export function describeModelComposerControls(
 export function buildTraitsExecutionPayload(
   model: string | null | undefined,
   stored: StoredModelTraits,
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
 ): ModelTraitsExecutionArgs {
+  if (providerCapabilities !== undefined) {
+    const display = resolveTraitsForDisplay(
+      model,
+      stored,
+      providerCapabilities,
+    );
+    const payload: ModelTraitsExecutionArgs = {};
+    for (const capability of providerCapabilities) {
+      switch (capability.id) {
+        case "reasoningLevel":
+          payload.reasoningLevel =
+            display.effortLevel ?? capability.defaultValue;
+          break;
+        case "thinkingEnabled":
+          payload.thinkingEnabled = display.thinkingEnabled;
+          break;
+        case "use1mContext":
+          payload.use1mContext = display.use1mContext;
+          break;
+      }
+    }
+    return payload;
+  }
   const traits = getModelTraits(model);
   const payload: ModelTraitsExecutionArgs = {};
 

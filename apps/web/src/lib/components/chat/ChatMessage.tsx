@@ -214,6 +214,9 @@ export const ChatMessage = memo(function ChatMessage({
                 {showQuestions && blockingQuestions ? (
                   <div className="mt-3">
                     <MultipleChoiceQuestion
+                      key={blockingQuestions
+                        .map((question) => question.question)
+                        .join("\u0000")}
                       questions={blockingQuestions}
                       onAnswer={() => undefined}
                       onAnswerStructured={onBlockingAnswer}

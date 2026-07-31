@@ -30,6 +30,7 @@ type ModelPickerRow = {
   compositeKey: string;
   modelId: string;
   modelLabel: string;
+  disabledReason?: string;
   instance: ModelPickerInstance;
 };
 
@@ -210,6 +211,9 @@ export function ModelPickerContent<TModel extends string>({
           compositeKey: toCompositeKey(instance.key, option.id),
           modelId: option.id,
           modelLabel: formatModelDisplayLabel(option.provider, option.label),
+          ...(option.disabledReason
+            ? { disabledReason: option.disabledReason }
+            : {}),
           instance,
         });
       }
@@ -409,20 +413,22 @@ export function ModelPickerContent<TModel extends string>({
                   row.instance.key === lockedTeamKey;
                 const isLockedTeamRow =
                   isPersonalTeamVariant && !canSelectTeamWhilePersonal;
-                const showTeamLockedHint =
-                  isPersonalTeamVariant && lockedTeamLabel !== undefined;
+                const disabledReason =
+                  row.disabledReason ??
+                  (isLockedTeamRow ? lockedTeamLabel : undefined);
+                const isDisabled = disabledReason !== undefined;
                 return (
                   <CommandItem
                     key={row.compositeKey}
                     value={row.compositeKey}
-                    disabled={isLockedTeamRow}
+                    disabled={isDisabled}
                     keywords={[
                       row.modelLabel,
                       getProviderLabel(row.instance.provider),
                       row.instance.label,
                     ]}
                     onSelect={() => {
-                      if (isLockedTeamRow) return;
+                      if (isDisabled) return;
                       const option = options.find(
                         (entry) => entry.id === row.modelId,
                       );
@@ -431,8 +437,9 @@ export function ModelPickerContent<TModel extends string>({
                     }}
                     className={cn(
                       "flex flex-col items-stretch gap-1 rounded-md px-2 py-2.5 data-[selected=true]:bg-muted",
-                      isPersonalTeamVariant && "opacity-50",
-                      isLockedTeamRow ? "cursor-not-allowed" : "cursor-pointer",
+                      (isPersonalTeamVariant || row.disabledReason) &&
+                        "opacity-50",
+                      isDisabled ? "cursor-not-allowed" : "cursor-pointer",
                     )}
                   >
                     <Tooltip>
@@ -462,8 +469,8 @@ export function ModelPickerContent<TModel extends string>({
                           </div>
                         </div>
                       </TooltipTrigger>
-                      {showTeamLockedHint ? (
-                        <TooltipContent>{lockedTeamLabel}</TooltipContent>
+                      {disabledReason ? (
+                        <TooltipContent>{disabledReason}</TooltipContent>
                       ) : null}
                     </Tooltip>
                   </CommandItem>

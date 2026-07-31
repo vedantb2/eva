@@ -68,6 +68,7 @@ describe("ChatTimelineProjector", () => {
       attempt: 2,
     };
     const question = {
+      questionId: "question-1",
       toolUseId: "tool-1",
       payload: '{"questions":[]}',
       turnId: "turn-1",

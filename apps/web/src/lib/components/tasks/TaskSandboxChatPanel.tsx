@@ -84,10 +84,22 @@ export function TaskSandboxChatPanel({
     thinkingEnabled: task?.lastThinkingEnabled,
     use1mContext: task?.lastUse1mContext,
   };
-  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
-  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
   const providerAccountId = task?.providerAccountId ?? null;
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
+    repo._id,
+    model,
+    providerAccountId,
+  );
+  const displayTraits = resolveTraitsForDisplay(
+    model,
+    storedTraits,
+    providerCapabilities,
+  );
+  const executionTraits = buildTraitsExecutionPayload(
+    model,
+    storedTraits,
+    providerCapabilities,
+  );
   const { options: accounts, resolveId: resolveAccountId } =
     useTaskOwnerProviderAccounts(taskId);
   const currentUserId = useQuery(api.auth.me);
@@ -234,6 +246,7 @@ export function TaskSandboxChatPanel({
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
+        providerCapabilities={providerCapabilities}
         onTraitsChange={onTraitsChange}
         onSend={runtime.handleSend}
         onCancel={runtime.handleCancel}

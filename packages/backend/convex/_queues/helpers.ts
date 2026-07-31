@@ -223,7 +223,6 @@ const sessionQueueConfig: ChatQueueConfig<
       model: prepared.model,
       reasoningLevel: next.reasoningLevel,
       turnId: next.turnId,
-      clientId: next.turnId,
       turnRequestFingerprint: next.turnRequestFingerprint,
     });
     const assistantMessageId = await ctx.db.insert("messages", {
@@ -234,7 +233,6 @@ const sessionQueueConfig: ChatQueueConfig<
       mode: prepared.mode,
       activityLog: "",
       turnId: next.turnId,
-      clientId: next.turnId,
     });
     return { userMessageId, assistantMessageId };
   },
@@ -312,7 +310,6 @@ const projectChatQueueConfig: ChatQueueConfig<
       model: next.model,
       reasoningLevel: next.reasoningLevel,
       turnId: next.turnId,
-      clientId: next.turnId,
       turnRequestFingerprint: next.turnRequestFingerprint,
     });
     const assistantMessageId = await ctx.db.insert("messages", {
@@ -322,7 +319,6 @@ const projectChatQueueConfig: ChatQueueConfig<
       timestamp: now + 1,
       activityLog: "",
       turnId: next.turnId,
-      clientId: next.turnId,
     });
     return { userMessageId, assistantMessageId };
   },
@@ -404,7 +400,6 @@ const taskChatQueueConfig: ChatQueueConfig<
       model: next.model,
       reasoningLevel: next.reasoningLevel,
       turnId: next.turnId,
-      clientId: next.turnId,
       turnRequestFingerprint: next.turnRequestFingerprint,
     });
     const assistantMessageId = await ctx.db.insert("messages", {
@@ -414,7 +409,6 @@ const taskChatQueueConfig: ChatQueueConfig<
       timestamp: now + 1,
       activityLog: "",
       turnId: next.turnId,
-      clientId: next.turnId,
     });
     return { userMessageId, assistantMessageId };
   },

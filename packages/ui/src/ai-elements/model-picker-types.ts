@@ -2,6 +2,7 @@ export interface ModelOption<TModel extends string = string> {
   id: TModel;
   provider: string;
   label: string;
+  disabledReason?: string;
 }
 
 /** A user's own provider account, surfaced as a selectable group in the picker. */

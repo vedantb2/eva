@@ -4,14 +4,12 @@ import type { cursorTransportValidator } from "../_validators/tableFields";
 
 type CursorTransport = Infer<typeof cursorTransportValidator>;
 
-/** Claude always pulls turns; Cursor does so only for explicitly ACP-owned rows. */
+/** Claude and Cursor ACP always pull turns through their entity daemon. */
 export function usesChatDaemon(
   model: string | null | undefined,
   cursorTransport: CursorTransport | undefined,
 ): boolean {
+  void cursorTransport;
   const provider = getAIModelProvider(model);
-  return (
-    provider === "claude" ||
-    (provider === "cursor" && cursorTransport === "acp-v1")
-  );
+  return provider === "claude" || provider === "cursor";
 }

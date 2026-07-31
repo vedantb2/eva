@@ -38,6 +38,7 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import { clearPendingQuestionsForTurn } from "./pendingQuestions";
 import { usesChatDaemon } from "./_chat/daemonTransport";
 import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
 import {
@@ -301,209 +302,6 @@ export const submitTurn = authMutation({
   },
 });
 
-/** Inserts a user chat message into the project conversation. */
-export const addMessage = authMutation({
-  args: {
-    projectId: v.id("projects"),
-    content: v.string(),
-    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-    model: v.optional(aiModelValidator),
-    reasoningLevel: v.optional(reasoningLevelValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.insert("messages", {
-      parentId: args.projectId,
-      role: "user",
-      content: args.content,
-      timestamp: Date.now(),
-      userId: ctx.userId,
-      attachmentStorageIds: args.attachmentStorageIds,
-      credentialSourceLabel: await resolveCredentialSourceLabel(
-        ctx.db,
-        project.providerAccountId,
-        project.userId,
-      ),
-      model: args.model,
-      reasoningLevel: args.reasoningLevel,
-    });
-    await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
-    return null;
-  },
-});
-
-/** Starts a project chat workflow on the project's existing sandbox. */
-export const startExecute = authMutation({
-  args: {
-    projectId: v.id("projects"),
-    message: v.string(),
-    model: aiModelValidator,
-    reasoningLevel: v.optional(reasoningLevelValidator),
-    thinkingEnabled: v.optional(v.boolean()),
-    use1mContext: v.optional(v.boolean()),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-
-    void args.providerAccountId;
-
-    await ctx.db.insert("messages", {
-      parentId: args.projectId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
-    });
-
-    const { prompt, attachmentStorageIds } = await buildProjectChatTurnPrompt(
-      ctx,
-      {
-        projectId: args.projectId,
-        message: args.message,
-        userId: ctx.userId,
-      },
-    );
-
-    const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = usesChatDaemon(
-      normalizedModel,
-      project.cursorTransport,
-    );
-    await ctx.db.patch(args.projectId, {
-      ...(usesDaemonPull
-        ? {
-            pendingTurn: {
-              prompt,
-              requestedAt: Date.now(),
-              attachmentStorageIds,
-              model: normalizedModel,
-            },
-          }
-        : { pendingTurn: undefined }),
-      lastChatModel: normalizedModel,
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
-        : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
-        : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      updatedAt: Date.now(),
-    });
-
-    if (usesDaemonPull && project.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
-        sandboxId: project.sandboxId,
-        repoId: project.repoId,
-        userId: ctx.userId,
-        entityId: String(args.projectId),
-        entityIdField: "projectId",
-        completionMutation: "projectChatWorkflow:handleCompletion",
-        ...PROJECT_CHAT_DAEMON_MUTATIONS,
-        model: normalizedModel,
-        cursorTransport: project.cursorTransport,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        allowedTools: CHAT_ALLOWED_TOOLS,
-        providerAccountId: project.providerAccountId,
-        credentialOwnerUserId: project.userId,
-        sessionPersistenceId: args.projectId,
-        activeWorkflowField: "activeChatWorkflowId",
-        skipPrewarm: false,
-        entityTable: "projects",
-      });
-    }
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.projectChatWorkflow.projectChatExecuteWorkflow,
-      {
-        projectId: args.projectId,
-        message: args.message,
-        model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        providerAccountId: project.providerAccountId,
-        credentialOwnerUserId: project.userId,
-        userId: ctx.userId,
-      },
-    );
-
-    await trackProjectChatWorkflow(ctx, args.projectId, workflowId);
-
-    return null;
-  },
-});
-
-/** Queues a chat message to run after the current workflow finishes. */
-export const enqueueMessage = authMutation({
-  args: {
-    projectId: v.id("projects"),
-    message: v.string(),
-    model: aiModelValidator,
-    reasoningLevel: v.optional(reasoningLevelValidator),
-    thinkingEnabled: v.optional(v.boolean()),
-    use1mContext: v.optional(v.boolean()),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const content = args.message.trim();
-    if (!content) return null;
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-    if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-
-    await ctx.db.insert("queuedMessages", {
-      parentId: args.projectId,
-      content,
-      createdAt: Date.now(),
-      order: Date.now(),
-      userId: ctx.userId,
-      model: args.model,
-      reasoningLevel: args.reasoningLevel,
-      thinkingEnabled: args.thinkingEnabled,
-      use1mContext: args.use1mContext,
-      providerAccountId: project.providerAccountId,
-      attachmentStorageIds: args.attachmentStorageIds,
-    });
-    await ctx.db.patch(args.projectId, {
-      lastChatModel: normalizeAIModel(args.model),
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
-        : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
-        : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 /**
  * Cancels the active project chat workflow and starts any queued message. For
  * a Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
@@ -532,6 +330,11 @@ export const cancelExecution = authMutation({
       ) {
         return null;
       }
+      await clearPendingQuestionsForTurn(
+        ctx.db,
+        String(args.projectId),
+        turnIdentity,
+      );
       await cancelTrackedWorkflow(ctx, project.activeChatWorkflowId);
       if (
         usesChatDaemon(
@@ -1071,6 +874,14 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
     if (!callbackMatchesActiveTurn(project, args)) return null;
+    const completionTurnIdentity = exactTurnIdentity(args);
+    if (completionTurnIdentity !== null) {
+      await clearPendingQuestionsForTurn(
+        ctx.db,
+        String(args.projectId),
+        completionTurnIdentity,
+      );
+    }
 
     if (project.pendingTurn !== undefined) {
       await ctx.db.patch(args.projectId, { pendingTurn: undefined });

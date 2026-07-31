@@ -39,6 +39,7 @@ import {
   type AIModel,
   type Id,
   type ReasoningLevel,
+  type ProviderComposerCapability,
   type StoredModelTraits,
 } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -86,6 +87,7 @@ interface ChatComposerProps {
     thinkingEnabled: boolean;
     use1mContext: boolean;
   };
+  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
@@ -125,6 +127,7 @@ export function ChatComposer({
   accountId,
   onAccountChange,
   displayTraits,
+  providerCapabilities,
   onTraitsChange,
   onSend,
   onCancel,
@@ -149,7 +152,7 @@ export function ChatComposer({
   // Convex draft wins when both are passed (existing sessions).
   const seed = draft ?? localDraft;
   const capabilityControls = displayTraits
-    ? describeModelComposerControls(model, displayTraits)
+    ? describeModelComposerControls(model, displayTraits, providerCapabilities)
     : [];
 
   const handleSubmit = async (

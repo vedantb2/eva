@@ -6,10 +6,10 @@ describe("usesChatDaemon", () => {
     expect(usesChatDaemon("claude:sonnet", undefined)).toBe(true);
   });
 
-  test("routes Cursor only when the entity explicitly owns ACP", () => {
+  test("routes every Cursor entity through its ACP daemon", () => {
     expect(usesChatDaemon("cursor:composer-2.5", "acp-v1")).toBe(true);
-    expect(usesChatDaemon("cursor:composer-2.5", undefined)).toBe(false);
-    expect(usesChatDaemon("cursor:composer-2.5", "stream-json")).toBe(false);
+    expect(usesChatDaemon("cursor:composer-2.5", undefined)).toBe(true);
+    expect(usesChatDaemon("cursor:composer-2.5", "stream-json")).toBe(true);
   });
 
   test("keeps remaining providers one-shot", () => {

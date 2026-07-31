@@ -10,12 +10,13 @@ import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { ChatVirtualizedTimeline } from "./ChatVirtualizedTimeline";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
   type AIModel,
   type Id,
+  type ProviderComposerCapability,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
@@ -74,6 +75,7 @@ interface ChatBodyProps {
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
   displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
+  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
@@ -159,6 +161,7 @@ export function ChatBody({
   accountId,
   onAccountChange,
   displayTraits,
+  providerCapabilities,
   onTraitsChange,
   onSend,
   onCancel,
@@ -179,6 +182,7 @@ export function ChatBody({
   const { isExecuting, isInputDisabled, isArchived } = availability;
   const [timelineProjector] = useState(() => new ChatTimelineProjector());
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
+  const answeringQuestionRef = useRef<string | null>(null);
   const timeline = timelineProjector.project({
     messages,
     streaming,
@@ -192,14 +196,23 @@ export function ChatBody({
 
   const handleBlockingAnswer = async (answers: Record<string, string>) => {
     if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+    if (answeringQuestionRef.current !== null) return;
+    const toolUseId = blockingQuestion.toolUseId;
+    answeringQuestionRef.current = toolUseId;
     setIsAnsweringQuestion(true);
     try {
-      await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+      await onAnswerBlockingQuestion(toolUseId, answers);
     } catch (error) {
-      setIsAnsweringQuestion(false);
+      if (answeringQuestionRef.current === toolUseId) {
+        answeringQuestionRef.current = null;
+        setIsAnsweringQuestion(false);
+      }
       throw error;
     }
-    setIsAnsweringQuestion(false);
+    if (answeringQuestionRef.current === toolUseId) {
+      answeringQuestionRef.current = null;
+      setIsAnsweringQuestion(false);
+    }
   };
 
   const currentUserId = useQuery(api.auth.me);
@@ -243,6 +256,7 @@ export function ChatBody({
   const standaloneQuestion =
     blockingQuestions && !timeline.questionAttached ? (
       <MultipleChoiceQuestion
+        key={blockingQuestion?.toolUseId}
         questions={blockingQuestions}
         onAnswer={() => undefined}
         onAnswerStructured={handleBlockingAnswer}
@@ -288,6 +302,7 @@ export function ChatBody({
           accountId={accountId}
           onAccountChange={onAccountChange}
           displayTraits={displayTraits}
+          providerCapabilities={providerCapabilities}
           onTraitsChange={onTraitsChange}
           onSend={onSend}
           onCancel={onCancel}

@@ -268,6 +268,7 @@ import type * as prompts_index from "../prompts/index.js";
 import type * as prompts_project from "../prompts/project.js";
 import type * as prompts_shared from "../prompts/shared.js";
 import type * as prosemirrorSync from "../prosemirrorSync.js";
+import type * as providerCapabilities from "../providerCapabilities.js";
 import type * as pty from "../pty.js";
 import type * as queuedMessages from "../queuedMessages.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
@@ -584,6 +585,7 @@ declare const fullApi: ApiFromModules<{
   "prompts/project": typeof prompts_project;
   "prompts/shared": typeof prompts_shared;
   prosemirrorSync: typeof prosemirrorSync;
+  providerCapabilities: typeof providerCapabilities;
   pty: typeof pty;
   queuedMessages: typeof queuedMessages;
   repoEnvVars: typeof repoEnvVars;

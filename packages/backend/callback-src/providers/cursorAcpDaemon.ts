@@ -245,7 +245,9 @@ export async function runCursorAcpDaemon(): Promise<void> {
     session: CursorAcpSession,
     turn: ClaimedTurn,
   ): Promise<CursorAcpAttemptResult> => {
-    const promptPromise = session.prompt(turn.prompt).then(settledPrompt);
+    const promptPromise = session
+      .prompt(turn.prompt, turn.mode ? { mode: turn.mode } : undefined)
+      .then(settledPrompt);
     while (true) {
       const outcome = await Promise.race([promptPromise, promptPoll()]);
       if (outcome.kind === "settled") return outcome.attempt;

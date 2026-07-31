@@ -35,6 +35,7 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import { clearPendingQuestionsForTurn } from "./pendingQuestions";
 import { usesChatDaemon } from "./_chat/daemonTransport";
 import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
 import {
@@ -294,219 +295,6 @@ export const submitTurn = authMutation({
   },
 });
 
-/** Inserts a user chat message into the task conversation. */
-export const addMessage = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    content: v.string(),
-    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-    model: v.optional(aiModelValidator),
-    reasoningLevel: v.optional(reasoningLevelValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-    if (
-      !task.repoId ||
-      !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
-    ) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.insert("messages", {
-      parentId: args.taskId,
-      role: "user",
-      content: args.content,
-      timestamp: Date.now(),
-      userId: ctx.userId,
-      attachmentStorageIds: args.attachmentStorageIds,
-      credentialSourceLabel: await resolveCredentialSourceLabel(
-        ctx.db,
-        task.providerAccountId,
-        task.createdBy,
-      ),
-      model: args.model,
-      reasoningLevel: args.reasoningLevel,
-    });
-    await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
-    return null;
-  },
-});
-
-/** Starts a task chat workflow on the task's existing sandbox. */
-export const startExecute = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    message: v.string(),
-    model: aiModelValidator,
-    reasoningLevel: v.optional(reasoningLevelValidator),
-    thinkingEnabled: v.optional(v.boolean()),
-    use1mContext: v.optional(v.boolean()),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-    if (
-      !task.repoId ||
-      !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
-    ) {
-      throw new Error("Not authorized");
-    }
-
-    // Owner-sticky: always bill the task owner's account, ignoring per-message
-    // picker overrides from collaborators (and from localStorage).
-    void args.providerAccountId;
-
-    await ctx.db.insert("messages", {
-      parentId: args.taskId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
-    });
-
-    const { prompt, attachmentStorageIds } = await buildTaskChatTurnPrompt(
-      ctx,
-      {
-        taskId: args.taskId,
-        message: args.message,
-        userId: ctx.userId,
-      },
-    );
-
-    const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = usesChatDaemon(
-      normalizedModel,
-      task.cursorTransport,
-    );
-    await ctx.db.patch(args.taskId, {
-      ...(usesDaemonPull
-        ? {
-            pendingTurn: {
-              prompt,
-              requestedAt: Date.now(),
-              attachmentStorageIds,
-              model: normalizedModel,
-            },
-          }
-        : { pendingTurn: undefined }),
-      lastChatModel: normalizedModel,
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
-        : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
-        : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      updatedAt: Date.now(),
-    });
-
-    if (usesDaemonPull && task.sandboxId && task.repoId) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
-        sandboxId: task.sandboxId,
-        repoId: task.repoId,
-        userId: ctx.userId,
-        entityId: String(args.taskId),
-        entityIdField: "taskId",
-        completionMutation: "agentTaskChatWorkflow:handleCompletion",
-        ...TASK_CHAT_DAEMON_MUTATIONS,
-        model: normalizedModel,
-        cursorTransport: task.cursorTransport,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        allowedTools: CHAT_ALLOWED_TOOLS,
-        providerAccountId: task.providerAccountId,
-        credentialOwnerUserId: task.createdBy,
-        sessionPersistenceId: args.taskId,
-        activeWorkflowField: "activeChatWorkflowId",
-        skipPrewarm: false,
-        entityTable: "agentTasks",
-      });
-    }
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
-      {
-        taskId: args.taskId,
-        message: args.message,
-        model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        providerAccountId: task.providerAccountId,
-        credentialOwnerUserId: task.createdBy,
-        userId: ctx.userId,
-      },
-    );
-
-    await trackAgentTaskChatWorkflow(ctx, args.taskId, workflowId);
-    return null;
-  },
-});
-
-/** Queues a chat message to run after the current workflow finishes. */
-export const enqueueMessage = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    message: v.string(),
-    model: aiModelValidator,
-    reasoningLevel: v.optional(reasoningLevelValidator),
-    thinkingEnabled: v.optional(v.boolean()),
-    use1mContext: v.optional(v.boolean()),
-    providerAccountId: v.optional(v.id("userProviderAccounts")),
-    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const content = args.message.trim();
-    if (!content) return null;
-
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-    if (
-      !task.repoId ||
-      !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
-    ) {
-      throw new Error("Not authorized");
-    }
-
-    await ctx.db.insert("queuedMessages", {
-      parentId: args.taskId,
-      content,
-      createdAt: Date.now(),
-      order: Date.now(),
-      userId: ctx.userId,
-      model: args.model,
-      reasoningLevel: args.reasoningLevel,
-      thinkingEnabled: args.thinkingEnabled,
-      use1mContext: args.use1mContext,
-      providerAccountId: task.providerAccountId,
-      attachmentStorageIds: args.attachmentStorageIds,
-    });
-    await ctx.db.patch(args.taskId, {
-      lastChatModel: normalizeAIModel(args.model),
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
-        : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
-        : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 /**
  * Cancels the active task chat workflow and starts any queued message. For a
  * Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
@@ -538,6 +326,11 @@ export const cancelExecution = authMutation({
       ) {
         return null;
       }
+      await clearPendingQuestionsForTurn(
+        ctx.db,
+        String(args.taskId),
+        turnIdentity,
+      );
       await cancelTrackedWorkflow(ctx, task.activeChatWorkflowId);
       if (
         usesChatDaemon(task.lastChatModel ?? task.model, task.cursorTransport)
@@ -1084,6 +877,14 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
     if (!callbackMatchesActiveTurn(task, args)) return null;
+    const completionTurnIdentity = exactTurnIdentity(args);
+    if (completionTurnIdentity !== null) {
+      await clearPendingQuestionsForTurn(
+        ctx.db,
+        String(args.taskId),
+        completionTurnIdentity,
+      );
+    }
 
     if (task.pendingTurn !== undefined) {
       await ctx.db.patch(args.taskId, { pendingTurn: undefined });

@@ -11,6 +11,7 @@ import {
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
+  sessionModeValidator,
   cursorTransportValidator,
 } from "../validators";
 import { usesChatDaemon } from "../_chat/daemonTransport";
@@ -1430,6 +1431,7 @@ export const prewarmSessionDaemon = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    mode: v.optional(sessionModeValidator),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
@@ -1482,6 +1484,7 @@ export const launchOnExistingSandbox = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    mode: v.optional(sessionModeValidator),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1541,6 +1544,9 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
+    }
+    if (args.mode !== undefined) {
+      extraEnvVars.EVA_SESSION_MODE = args.mode;
     }
     // Session-wide trait overrides. Only non-default values are sent from the UI;
     // the runner maps effort to each provider's native control (see config.ts).

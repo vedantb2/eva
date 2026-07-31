@@ -76,6 +76,58 @@ export const userProviderAccountFields = {
   updatedAt: v.number(),
 };
 
+export const cursorCapabilitySelectValueFields = {
+  value: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+};
+
+export const cursorCapabilityConfigOptionValidator = v.union(
+  v.object({
+    type: v.literal("select"),
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+    currentValue: v.string(),
+    options: v.array(v.object(cursorCapabilitySelectValueFields)),
+  }),
+  v.object({
+    type: v.literal("boolean"),
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+    currentValue: v.boolean(),
+  }),
+);
+
+export const cursorAdvertisedModelValidator = v.object({
+  value: v.string(),
+  name: v.string(),
+  configOptions: v.array(cursorCapabilityConfigOptionValidator),
+});
+
+export const cursorAdvertisedModeValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+});
+
+/** Sanitized, account-scoped Cursor ACP capabilities with a bounded TTL. */
+export const providerCapabilitySnapshotFields = {
+  provider: v.literal("cursor"),
+  repoId: v.id("githubRepos"),
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  scopeKey: v.string(),
+  cliVersion: v.string(),
+  models: v.array(cursorAdvertisedModelValidator),
+  sessionConfigOptions: v.array(cursorCapabilityConfigOptionValidator),
+  availableModes: v.array(cursorAdvertisedModeValidator),
+  fetchedAt: v.number(),
+  expiresAt: v.number(),
+};
+
 export const repoEntityTypeValidator = v.union(
   v.literal("sessions"),
   v.literal("docs"),
@@ -145,6 +197,7 @@ export const pendingTurnFields = {
   ),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
+  mode: v.optional(sessionModeValidator),
 };
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));

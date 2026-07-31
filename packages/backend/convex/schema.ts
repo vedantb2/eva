@@ -50,6 +50,7 @@ import {
   backgroundProcessFields,
   streamingActivityFields,
   pendingQuestionFields,
+  providerCapabilitySnapshotFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -360,6 +361,9 @@ const schema = defineSchema({
   userProviderAccounts: defineTable(userProviderAccountFields)
     .index("by_user", ["userId"])
     .index("by_user_and_provider", ["userId", "provider"]),
+  providerCapabilitySnapshots: defineTable(providerCapabilitySnapshotFields)
+    .index("by_scope_and_cli", ["scopeKey", "cliVersion"])
+    .index("by_scope_and_fetched", ["scopeKey", "fetchedAt"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
     vars: v.array(

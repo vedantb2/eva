@@ -141,21 +141,13 @@ export function useChatRuntime({
       ...optimisticMetadata,
     });
 
+    let result: Awaited<ReturnType<typeof submitAction>>;
     try {
-      const result = await submitAction({
+      result = await submitAction({
         turnId,
         content,
         attachmentStorageIds,
       });
-      retrySubmissionRef.current = null;
-      const authoritativePlacement = isQueuedResult(result)
-        ? "queued"
-        : "active";
-      setOptimisticTurn((current) =>
-        current?.turnId === turnId
-          ? { ...current, placement: authoritativePlacement }
-          : current,
-      );
     } catch (error) {
       setOptimisticTurn((current) =>
         current?.turnId === turnId ? null : current,
@@ -165,6 +157,13 @@ export function useChatRuntime({
       );
       throw error;
     }
+    retrySubmissionRef.current = null;
+    const authoritativePlacement = isQueuedResult(result) ? "queued" : "active";
+    setOptimisticTurn((current) =>
+      current?.turnId === turnId
+        ? { ...current, placement: authoritativePlacement }
+        : current,
+    );
   };
 
   const handleCancel = async () => {
@@ -183,14 +182,18 @@ export function useChatRuntime({
       toast.error("That question belongs to an older turn.");
       return;
     }
-    await answerPendingQuestion({
+    const result = await answerPendingQuestion({
       entityId: questionEntityId,
+      questionId: activeQuestion.questionId,
       toolUseId,
       answer: JSON.stringify(answers),
       turnId: activeQuestion.turnId,
       assistantMessageId: activeQuestion.assistantMessageId,
       attempt: activeQuestion.attempt,
     });
+    if (result.status === "stale") {
+      toast.error("That question is no longer active.");
+    }
   };
 
   return {

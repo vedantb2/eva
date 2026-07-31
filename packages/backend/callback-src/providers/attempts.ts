@@ -1,10 +1,8 @@
 import {
   CODEX_RUNTIME_HOME_DIR,
-  CURSOR_RUNTIME_HOME_DIR,
   PROVIDER,
   codexExecBaseCmd,
   codexPromptCmd,
-  cursorExecBaseCmd,
   opencodeExecBaseCmd,
   opencodePromptCmd,
 } from "../config.js";
@@ -22,7 +20,6 @@ import {
 } from "../session/opencodeSession.js";
 import {
   prepareCursorSessionState,
-  readCursorProviderState,
   syncCursorStateToPersist,
 } from "../session/cursorSession.js";
 import { codexAdapter } from "./codex.js";
@@ -116,31 +113,10 @@ async function runCursorAttempt(sessionMode: SessionMode) {
       "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",
     );
   }
-  const providerState = readCursorProviderState();
-  if (providerState?.transport !== "stream-json") {
-    return await runCursorAcpAttempt({
-      sessionMode,
-      prompt: readCursorPromptFile(),
-      mcpServers: readCursorAcpMcpServers(),
-    });
-  }
-  const sessionArg =
-    sessionMode.mode === "resume" && sessionMode.sessionId
-      ? " --resume " + JSON.stringify(sessionMode.sessionId)
-      : "";
-  const cmd = cursorExecBaseCmd + sessionArg;
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
-    processLabel: "cursor",
-    attemptLabel: "runCursorAttempt",
-    startupStep: {
-      label: "Starting Cursor CLI...",
-      detail:
-        sessionMode.mode === "resume"
-          ? "Restoring saved context..."
-          : "Launching Cursor process...",
-    },
+  return await runCursorAcpAttempt({
+    sessionMode,
+    prompt: readCursorPromptFile(),
+    mcpServers: readCursorAcpMcpServers(),
   });
 }
 

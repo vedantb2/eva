@@ -132,7 +132,6 @@ export async function insertAcceptedTurnMessages(
     reasoningLevel: args.reasoningLevel,
     personaId: args.personaId,
     turnId: args.turnId,
-    clientId: args.turnId,
     turnRequestFingerprint: args.fingerprint,
   });
   const assistantMessageId = await ctx.db.insert("messages", {
@@ -143,7 +142,6 @@ export async function insertAcceptedTurnMessages(
     mode: args.mode,
     activityLog: "",
     turnId: args.turnId,
-    clientId: args.turnId,
   });
   return { userMessageId, assistantMessageId };
 }

@@ -532,7 +532,11 @@ export async function signAndLaunchScript(
       opts.model,
     );
     if (Object.keys(accountEnv).length > 0) {
-      extraEnvVars = { ...extraEnvVars, ...accountEnv };
+      extraEnvVars = {
+        ...extraEnvVars,
+        ...accountEnv,
+        PROVIDER_ACCOUNT_ID: String(opts.providerAccountId),
+      };
       console.log(
         `[sandbox][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
       );

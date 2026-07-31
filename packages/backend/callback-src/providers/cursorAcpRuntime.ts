@@ -4,15 +4,20 @@ import { Readable, Writable } from "node:stream";
 import * as acp from "@agentclientprotocol/sdk";
 import type {
   AgentCapabilities,
+  ClientCapabilities,
   ClientContext,
   McpServer,
   SessionConfigOption,
   SessionModeState,
 } from "@agentclientprotocol/sdk";
 import {
+  AI_CONTEXT_1M,
+  AI_THINKING_ENABLED,
   CURSOR_BIN_PATH,
   CURSOR_RUNTIME_HOME_DIR,
+  EVA_SESSION_MODE,
   MODEL,
+  REASONING_EFFORT,
   SYSTEM_PROMPT,
   WORK_DIR,
   normalizedCursorModel,
@@ -26,6 +31,18 @@ import type {
 } from "../types.js";
 import { log, tryParseJson } from "../utils.js";
 import { CursorAcpEventAdapter } from "./cursorAcpEvents.js";
+import {
+  discoverCursorModels,
+  reportCursorCapabilities,
+  sanitizeCursorConfigOptions,
+} from "./cursorAcpCapabilities.js";
+import {
+  cursorModeIdForEva,
+  resolveCursorConfigUpdates,
+  type CursorAdvertisedMode,
+  type CursorReasoningLevel,
+  type EvaSessionMode,
+} from "../../cursorCapabilities.js";
 import {
   acceptCursorPlan,
   answerCursorQuestion,
@@ -57,7 +74,7 @@ export type CursorAcpSession = {
   sessionId: string;
   prompt: (
     prompt: string,
-    signal?: AbortSignal,
+    options?: { signal?: AbortSignal; mode?: EvaSessionMode },
   ) => Promise<CursorAcpAttemptResult>;
   cancel: () => Promise<void>;
 };
@@ -138,7 +155,7 @@ function selectValues(option: SessionConfigOption): string[] {
   return values;
 }
 
-async function configureModel(
+async function configureModelForPrompt(
   context: ClientContext,
   setup: CursorAcpSessionSetup,
 ): Promise<void> {
@@ -161,11 +178,104 @@ async function configureModel(
     );
   }
   if (modelOption.currentValue === normalizedCursorModel) return;
-  await context.request(acp.methods.agent.session.setConfigOption, {
+  const response = await context.request(
+    acp.methods.agent.session.setConfigOption,
+    {
+      sessionId: setup.sessionId,
+      configId: modelOption.id,
+      value: normalizedCursorModel,
+    },
+  );
+  setup.configOptions = response.configOptions;
+}
+
+function cursorReasoningLevel(): CursorReasoningLevel | undefined {
+  switch (REASONING_EFFORT) {
+    case "off":
+    case "low":
+    case "medium":
+    case "high":
+    case "xhigh":
+    case "max":
+      return REASONING_EFFORT;
+    default:
+      return undefined;
+  }
+}
+
+function advertisedModes(
+  state: SessionModeState | null | undefined,
+): CursorAdvertisedMode[] {
+  return (state?.availableModes ?? []).map((mode) => ({
+    id: mode.id,
+    name: mode.name,
+    ...(mode.description ? { description: mode.description } : {}),
+  }));
+}
+
+async function configurePrompt(
+  context: ClientContext,
+  setup: CursorAcpSessionSetup,
+  mode: EvaSessionMode | undefined,
+): Promise<void> {
+  await configureModelForPrompt(context, setup);
+  const requestedTraits = {
+    ...(REASONING_EFFORT ? { reasoningLevel: cursorReasoningLevel() } : {}),
+    ...(AI_THINKING_ENABLED
+      ? { thinkingEnabled: AI_THINKING_ENABLED !== "0" }
+      : {}),
+    ...(AI_CONTEXT_1M ? { use1mContext: AI_CONTEXT_1M === "1" } : {}),
+  };
+  const resolved = resolveCursorConfigUpdates(
+    sanitizeCursorConfigOptions(setup.configOptions),
+    requestedTraits,
+  );
+  if (resolved.unsupported.length > 0) {
+    throw new Error(
+      `Cursor ACP does not support the selected controls: ${resolved.unsupported.join(", ")}`,
+    );
+  }
+  for (const update of resolved.updates) {
+    if (typeof update.value === "boolean") {
+      const response = await context.request(
+        acp.methods.agent.session.setConfigOption,
+        {
+          sessionId: setup.sessionId,
+          configId: update.configId,
+          type: "boolean",
+          value: update.value,
+        },
+      );
+      setup.configOptions = response.configOptions;
+    } else {
+      const response = await context.request(
+        acp.methods.agent.session.setConfigOption,
+        {
+          sessionId: setup.sessionId,
+          configId: update.configId,
+          value: update.value,
+        },
+      );
+      setup.configOptions = response.configOptions;
+    }
+  }
+
+  const resolvedMode = cursorModeIdForEva(mode, advertisedModes(setup.modes));
+  if (resolvedMode.error) throw new Error(resolvedMode.error);
+  if (
+    resolvedMode.modeId === undefined ||
+    resolvedMode.modeId === setup.modes?.currentModeId
+  ) {
+    return;
+  }
+  await context.request(acp.methods.agent.session.setMode, {
     sessionId: setup.sessionId,
-    configId: modelOption.id,
-    value: normalizedCursorModel,
+    modeId: resolvedMode.modeId,
   });
+  setup.modes = {
+    currentModeId: resolvedMode.modeId,
+    availableModes: setup.modes?.availableModes ?? [],
+  };
 }
 
 async function startOrRestoreSession(
@@ -332,16 +442,19 @@ export async function withCursorAcpSession<T>(
     Writable.toWeb(child.stdin),
     Readable.toWeb(child.stdout),
   );
+  const cursorClientCapabilities: ClientCapabilities = {
+    fs: { readTextFile: false, writeTextFile: false },
+    terminal: false,
+    plan: {},
+    session: { configOptions: { boolean: {} } },
+    _meta: { parameterizedModelPicker: true },
+  };
 
   try {
     return await client.connectWith(stream, async (context) => {
       const initialized = await context.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
-        clientCapabilities: {
-          fs: { readTextFile: false, writeTextFile: false },
-          terminal: false,
-          plan: {},
-        },
+        clientCapabilities: cursorClientCapabilities,
         clientInfo: { name: "eva", version: "1.0.0" },
       });
       if (initialized.protocolVersion !== acp.PROTOCOL_VERSION) {
@@ -352,6 +465,7 @@ export async function withCursorAcpSession<T>(
       await context.request(acp.methods.agent.authenticate, {
         methodId: "cursor_login",
       });
+      const discoveredModels = await discoverCursorModels(context);
 
       const setup = await startOrRestoreSession(
         context,
@@ -361,7 +475,12 @@ export async function withCursorAcpSession<T>(
         adapter,
       );
       const sessionId = setup.sessionId;
-      await configureModel(context, setup);
+      await reportCursorCapabilities({
+        cliVersion: initialized.agentInfo?.version,
+        discoveredModels,
+        configOptions: setup.configOptions,
+        modes: setup.modes,
+      });
       writeCursorAcpSessionState(sessionId);
       let promptInFlight = false;
       const cancel = async (): Promise<void> => {
@@ -371,7 +490,7 @@ export async function withCursorAcpSession<T>(
       return await operation({
         sessionId,
         cancel,
-        async prompt(prompt, signal) {
+        async prompt(prompt, promptOptions) {
           if (promptInFlight) {
             throw new Error(
               "Cursor ACP received an overlapping prompt for one session",
@@ -383,9 +502,11 @@ export async function withCursorAcpSession<T>(
           const cancelFromCaller = (): void => {
             void cancel();
           };
+          const signal = promptOptions?.signal;
           signal?.addEventListener("abort", cancelFromCaller, { once: true });
           let stopReason: CursorAcpAttemptResult["stopReason"] = "cancelled";
           try {
+            await configurePrompt(context, setup, promptOptions?.mode);
             const response = await context.request(
               acp.methods.agent.session.prompt,
               {
@@ -427,7 +548,10 @@ export async function runCursorAcpAttempt(
   options: CursorAcpRunOptions,
 ): Promise<CursorAcpAttemptResult> {
   return await withCursorAcpSession(options, async (session) => {
-    return await session.prompt(options.prompt, options.signal);
+    return await session.prompt(options.prompt, {
+      signal: options.signal,
+      mode: EVA_SESSION_MODE,
+    });
   });
 }
 

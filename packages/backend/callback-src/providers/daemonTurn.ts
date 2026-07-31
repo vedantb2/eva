@@ -3,12 +3,29 @@ import { fetchWithTimeout } from "../http/convexClient.js";
 import type { JsonValue } from "../types.js";
 import { log } from "../utils.js";
 import type { ChatTurnIdentity } from "../../shared/chatTurnProtocol.js";
+import type { EvaSessionMode } from "../../cursorCapabilities.js";
 
 export type ClaimedTurn = {
   prompt: string;
   attachmentUrls: string[];
   identity: ChatTurnIdentity | null;
+  mode?: EvaSessionMode;
 };
+
+function readSessionMode(
+  value: JsonValue | undefined,
+): EvaSessionMode | undefined {
+  switch (value) {
+    case "edit":
+    case "ask":
+    case "execute":
+    case "plan":
+    case "design":
+      return value;
+    default:
+      return undefined;
+  }
+}
 
 function readClaimPayload(result: JsonValue): Record<string, JsonValue> | null {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -43,7 +60,13 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
           attempt: payload.attempt,
         }
       : null;
-  return { prompt: payload.prompt, attachmentUrls, identity };
+  const mode = readSessionMode(payload.mode);
+  return {
+    prompt: payload.prompt,
+    attachmentUrls,
+    identity,
+    ...(mode ? { mode } : {}),
+  };
 }
 
 /** Mirrors attachmentExtensionForMimeType in Convex's sandbox runtime. */

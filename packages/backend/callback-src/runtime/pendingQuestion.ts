@@ -4,7 +4,7 @@ import { callbackState as S } from "./state.js";
 import { activeTurnIdentityArgs } from "./turnIdentity.js";
 import type { JsonValue } from "../types.js";
 import type { SdkCanUseTool } from "../providers/claudeSdk.js";
-import { log } from "../utils.js";
+import { log, tryParseJson } from "../utils.js";
 
 // How often the paused turn polls Convex for the user's answer. Matches the
 // daemon's turn-claim cadence — the model is idle while waiting, so this only
@@ -69,21 +69,13 @@ async function pollForAnswer(
 export function parsePendingQuestionAnswers(
   answerJson: string,
 ): Record<string, string> {
-  try {
-    const parsed: JsonValue = JSON.parse(answerJson);
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
-      const answers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(parsed)) {
-        if (typeof value === "string") answers[key] = value;
-      }
-      return answers;
+  const parsed = tryParseJson(answerJson);
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    const answers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") answers[key] = value;
     }
-  } catch {
-    /* malformed answer — fall through to empty */
+    return answers;
   }
   return {};
 }
@@ -97,6 +89,9 @@ export async function waitForPendingQuestionAnswer(
   S.awaitingQuestionAnswer = true;
   try {
     await postQuestion(toolUseId, payload);
+    // Blocking questions live only in the exact pendingQuestions row. Keeping
+    // the legacy stream/message copy would let an answered request reappear.
+    S.pendingQuestionData = "";
     const answerJson = await pollForAnswer(toolUseId, signal);
     return answerJson === null ? null : parsePendingQuestionAnswers(answerJson);
   } finally {

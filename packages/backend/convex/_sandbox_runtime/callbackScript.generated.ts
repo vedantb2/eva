@@ -21,6 +21,150 @@ import { existsSync } from "fs";
 // shared/chatTurnProtocol.ts
 var CHAT_TURN_PROTOCOL_VERSION = 2;
 
+// cursorCapabilities.ts
+var cursorModelPairs = [
+  { eva: "cursor:grok-4.5-low", cursor: "cursor-grok-4.5-low" },
+  { eva: "cursor:grok-4.5-medium", cursor: "cursor-grok-4.5-medium" },
+  { eva: "cursor:grok-4.5-high", cursor: "cursor-grok-4.5-high" },
+  { eva: "cursor:gpt-5.5-low", cursor: "gpt-5.5-low" },
+  { eva: "cursor:gemini-3.1-pro", cursor: "gemini-3.1-pro" },
+  { eva: "cursor:composer-2.5", cursor: "composer-2.5" }
+];
+function stripCursorPrefix(model) {
+  return model.startsWith("cursor:") ? model.slice("cursor:".length) : model;
+}
+function cursorModelIdForEva(model) {
+  const normalized = stripCursorPrefix(model);
+  const match = cursorModelPairs.find(
+    (entry) => stripCursorPrefix(entry.eva) === normalized
+  );
+  return match?.cursor ?? normalized;
+}
+function normalizedToken(value) {
+  return value.trim().toLowerCase().replace(/[\\s_-]+/g, "-");
+}
+function normalizedReasoningLevel(value) {
+  switch (normalizedToken(value)) {
+    case "off":
+    case "none":
+    case "minimal":
+      return "off";
+    case "low":
+      return "low";
+    case "medium":
+      return "medium";
+    case "high":
+      return "high";
+    case "xhigh":
+    case "extra-high":
+      return "xhigh";
+    case "max":
+    case "maximum":
+      return "max";
+    default:
+      return void 0;
+  }
+}
+function optionIdentity(option) {
+  return normalizedToken(
+    \`\${option.category ?? ""} \${option.id} \${option.name}\`
+  );
+}
+function findReasoningOption(options) {
+  return options.find((option) => {
+    const identity = optionIdentity(option);
+    return option.type === "select" && (identity.includes("thought-level") || identity.includes("reasoning") || identity.includes("effort"));
+  });
+}
+function findThinkingOption(options) {
+  return options.find((option) => optionIdentity(option).includes("thinking"));
+}
+function findContextOption(options) {
+  return options.find((option) => {
+    const identity = optionIdentity(option);
+    return identity.includes("context") || identity.includes("1m");
+  });
+}
+function selectBooleanValue(option, requested) {
+  if (option.type === "boolean") return requested;
+  const expected = String(requested);
+  return option.options.find(
+    (value) => normalizedToken(value.value) === expected || normalizedToken(value.name) === expected
+  )?.value;
+}
+function isExtendedContextValue(value) {
+  const token = normalizedToken(\`\${value.value} \${value.name}\`);
+  return token.includes("1m") || token.includes("1000000") || token.includes("million") || token.includes("extended") || token.includes("maximum");
+}
+function selectContextValue(option, requested) {
+  if (option.type === "boolean") return requested;
+  const match = option.options.find((value) => {
+    const isExtended = isExtendedContextValue(value);
+    return requested ? isExtended : !isExtended;
+  });
+  return match?.value;
+}
+function resolveCursorConfigUpdates(configOptions, request) {
+  const updates = [];
+  const unsupported = [];
+  if (request.reasoningLevel !== void 0) {
+    const option = findReasoningOption(configOptions);
+    const value = option?.type === "select" ? option.options.find(
+      (candidate) => normalizedReasoningLevel(candidate.value) === request.reasoningLevel || normalizedReasoningLevel(candidate.name) === request.reasoningLevel
+    )?.value : void 0;
+    if (!option || value === void 0) {
+      unsupported.push(\`reasoning level \${request.reasoningLevel}\`);
+    } else {
+      updates.push({ configId: option.id, value });
+    }
+  }
+  if (request.thinkingEnabled !== void 0) {
+    const option = findThinkingOption(configOptions);
+    const value = option ? selectBooleanValue(option, request.thinkingEnabled) : void 0;
+    if (!option || value === void 0) {
+      unsupported.push(
+        \`thinking \${request.thinkingEnabled ? "enabled" : "disabled"}\`
+      );
+    } else {
+      updates.push({ configId: option.id, value });
+    }
+  }
+  if (request.use1mContext !== void 0) {
+    const option = findContextOption(configOptions);
+    const value = option ? selectContextValue(option, request.use1mContext) : void 0;
+    if (!option || value === void 0) {
+      unsupported.push(
+        request.use1mContext ? "1M context enabled" : "1M context disabled"
+      );
+    } else {
+      updates.push({ configId: option.id, value });
+    }
+  }
+  return { updates, unsupported };
+}
+function findMode(modes, candidates) {
+  return modes.find((mode) => {
+    const identity = normalizedToken(\`\${mode.id} \${mode.name}\`);
+    return candidates.some((candidate) => identity.includes(candidate));
+  });
+}
+function cursorModeIdForEva(mode, modes) {
+  if (mode === void 0) return {};
+  if (mode === "ask") {
+    const match2 = findMode(modes, ["ask"]);
+    return match2 ? { modeId: match2.id } : { error: "Cursor ACP does not advertise Ask mode." };
+  }
+  if (mode === "plan") {
+    const match2 = findMode(modes, ["plan"]);
+    return match2 ? { modeId: match2.id } : { error: "Cursor ACP does not advertise Plan mode." };
+  }
+  if (modes.length === 0) return {};
+  const match = findMode(modes, ["agent", "edit", "execute", "code"]);
+  return match ? { modeId: match.id } : {
+    error: \`Cursor ACP does not advertise an Agent-compatible mode for \${mode}.\`
+  };
+}
+
 // callback-src/config.ts
 var CHAT_TURN_PROTOCOL_VERSION2 = CHAT_TURN_PROTOCOL_VERSION;
 var CONVEX_URL = process.env.CONVEX_URL;
@@ -156,6 +300,22 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID;
+function readEvaSessionMode(value) {
+  switch (value) {
+    case "edit":
+    case "ask":
+    case "execute":
+    case "plan":
+    case "design":
+      return value;
+    default:
+      return void 0;
+  }
+}
+var EVA_SESSION_MODE = readEvaSessionMode(
+  process.env.EVA_SESSION_MODE
+);
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
@@ -187,25 +347,13 @@ var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var CURSOR_CLI_MODEL_IDS = {
-  "grok-4.5-low": "cursor-grok-4.5-low",
-  "grok-4.5-medium": "cursor-grok-4.5-medium",
-  "grok-4.5-high": "cursor-grok-4.5-high",
-  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
-  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
-  "cursor-grok-4.5-high": "cursor-grok-4.5-high"
-};
-var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
-var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+var normalizedCursorModel = cursorModelIdForEva(MODEL);
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
-var cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
 var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
 var opencodePromptCmd = codexPromptCmd;
 var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto --json --model " + JSON.stringify(normalizedCodexModel);
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
-var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
-var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -265,7 +413,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync11, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -1174,155 +1322,6 @@ function opencodeToolToStep(part) {
       };
       break;
   }
-  if (toolUseId) {
-    step.toolUseId = toolUseId;
-  }
-  return step;
-}
-function resolveCursorToolCall(toolCall) {
-  for (const key of Object.keys(toolCall)) {
-    if (!key.endsWith("ToolCall")) continue;
-    const payload = toolCall[key];
-    if (!payload || typeof payload !== "object" || Array.isArray(payload))
-      continue;
-    const args = "args" in payload && payload.args && typeof payload.args === "object" && !Array.isArray(payload.args) ? payload.args : "input" in payload && payload.input && typeof payload.input === "object" && !Array.isArray(payload.input) ? payload.input : "parameters" in payload && payload.parameters && typeof payload.parameters === "object" && !Array.isArray(payload.parameters) ? payload.parameters : payload;
-    return {
-      kind: key.slice(0, -"ToolCall".length).toLowerCase(),
-      args,
-      displayName: key
-    };
-  }
-  const flatName = typeof toolCall.name === "string" ? toolCall.name : typeof toolCall.tool === "string" ? toolCall.tool : typeof toolCall.type === "string" ? toolCall.type : "";
-  const flatArgs = toolCall.args && typeof toolCall.args === "object" && !Array.isArray(toolCall.args) ? toolCall.args : toolCall.input && typeof toolCall.input === "object" && !Array.isArray(toolCall.input) ? toolCall.input : toolCall.parameters && typeof toolCall.parameters === "object" && !Array.isArray(toolCall.parameters) ? toolCall.parameters : {};
-  return {
-    kind: flatName.toLowerCase(),
-    args: flatArgs,
-    displayName: flatName
-  };
-}
-function cursorToolToStep(toolCall) {
-  const { kind, args, displayName } = resolveCursorToolCall(toolCall);
-  const pickString = (keys) => {
-    for (const key of keys) {
-      if (typeof args[key] === "string" && args[key].trim()) {
-        return args[key];
-      }
-    }
-    return "";
-  };
-  const rawPath = pickString([
-    "path",
-    "file_path",
-    "filePath",
-    "target_file",
-    "targetFile",
-    "relativePath",
-    "relative_path"
-  ]);
-  const path = rawPath ? shortenPath(String(rawPath)) : "";
-  const command = pickString(["command", "cmd"]);
-  const query = pickString([
-    "query",
-    "pattern",
-    "url",
-    "glob_pattern",
-    "globPattern"
-  ]);
-  const tool = kind || displayName.toLowerCase();
-  let step;
-  if (tool.includes("read")) {
-    step = {
-      type: "read",
-      label: "Reading file...",
-      detail: path || void 0,
-      path: rawPath || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("write") || tool.includes("create")) {
-    step = {
-      type: "write",
-      label: "Creating file...",
-      detail: path || void 0,
-      path: rawPath || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply") || tool.includes("replace") || tool.includes("strreplace")) {
-    step = {
-      type: "edit",
-      label: "Editing file...",
-      detail: path || void 0,
-      path: rawPath || void 0,
-      status: "active",
-      edits: extractClaudeEdits(args)
-    };
-  } else if (tool.includes("delete") || tool.includes("remove")) {
-    step = {
-      type: "edit",
-      label: "Deleting file...",
-      detail: path || void 0,
-      path: rawPath || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
-    step = {
-      type: "search_files",
-      label: "Searching files...",
-      detail: query || path || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("grep") || tool.includes("search")) {
-    step = {
-      type: tool.includes("file") ? "search_files" : "search_code",
-      label: tool.includes("file") ? "Searching files..." : "Searching code...",
-      detail: query || path || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
-    step = {
-      type: "bash",
-      label: "Running command...",
-      detail: command ? command.slice(0, 300) : void 0,
-      command: command ? capCommand(command) : void 0,
-      status: "active"
-    };
-  } else if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch") && !tool.includes("search")) {
-    step = {
-      type: "web_fetch",
-      label: "Fetching URL...",
-      detail: query || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("websearch") || tool.includes("web_search")) {
-    step = {
-      type: "web_search",
-      label: "Searching web...",
-      detail: query || void 0,
-      status: "active"
-    };
-  } else if (tool.includes("todo")) {
-    step = { type: "tool", label: "Updating tasks...", status: "active" };
-  } else if (tool.includes("mcp")) {
-    const server = pickString([
-      "server",
-      "serverName",
-      "server_name",
-      "toolName",
-      "tool_name"
-    ]);
-    step = {
-      type: "tool",
-      label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
-      status: "active"
-    };
-  } else {
-    const fallbackName = displayName || kind || "tool";
-    step = {
-      type: "tool",
-      label: "Using " + fallbackName + "...",
-      status: "active"
-    };
-  }
-  const toolUseId = pickToolCallId(toolCall);
   if (toolUseId) {
     step.toolUseId = toolUseId;
   }
@@ -3243,237 +3242,9 @@ var codexAdapter = {
   onStdoutText: inspectCodexStdout
 };
 
-// callback-src/session/cursorSession.ts
-import {
-  existsSync as existsSync6,
-  mkdirSync as mkdirSync5,
-  readFileSync as readFileSync5,
-  renameSync,
-  writeFileSync as writeFileSync6
-} from "fs";
-var store2 = createSessionStore({
-  runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
-  persistDir: CURSOR_PERSIST_DIR,
-  localStateFile: CURSOR_LOCAL_STATE_FILE,
-  persistStateFile: CURSOR_PERSIST_STATE_FILE,
-  resumeField: "resumeSessionId",
-  getActiveId: () => callbackState.activeCursorSessionId,
-  setActiveId: (id) => {
-    callbackState.activeCursorSessionId = id;
-  }
-});
-var readCursorSessionState = store2.readSessionState;
-var writeCursorSessionState = store2.writeSessionState;
-function syncCursorStateToPersist() {
-  const providerState = readCursorProviderState();
-  if (providerState?.transport === "acp-v1") {
-    writeCursorAcpSessionState(providerState.sessionId);
-    return;
-  }
-  store2.syncStateToPersist("syncCursorStateToPersist");
-}
-function parseCursorProviderState(raw) {
-  const parsed = tryParseJson(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  if (parsed.schemaVersion === 2 && parsed.transport === "acp-v1" && typeof parsed.sessionId === "string" && parsed.sessionId.trim()) {
-    return {
-      schemaVersion: 2,
-      transport: "acp-v1",
-      sessionId: parsed.sessionId.trim()
-    };
-  }
-  if (typeof parsed.resumeSessionId === "string" && parsed.resumeSessionId.trim()) {
-    return {
-      schemaVersion: 1,
-      transport: "stream-json",
-      sessionId: parsed.resumeSessionId.trim()
-    };
-  }
-  return null;
-}
-function readCursorProviderState() {
-  for (const path of [CURSOR_LOCAL_STATE_FILE, CURSOR_PERSIST_STATE_FILE]) {
-    if (!existsSync6(path)) continue;
-    try {
-      const state = parseCursorProviderState(readFileSync5(path, "utf8"));
-      if (state) return state;
-    } catch (error40) {
-      console.error("Failed to read Cursor provider state:", String(error40));
-    }
-  }
-  return null;
-}
-function writeJsonAtomically(path, value) {
-  const directory = path.slice(0, path.lastIndexOf("/"));
-  if (directory) mkdirSync5(directory, { recursive: true });
-  const temporaryPath = \`\${path}.\${process.pid}.tmp\`;
-  writeFileSync6(temporaryPath, value, { mode: 384 });
-  renameSync(temporaryPath, path);
-}
-function writeCursorAcpSessionState(sessionId) {
-  const value = JSON.stringify({
-    schemaVersion: 2,
-    transport: "acp-v1",
-    sessionId
-  });
-  writeJsonAtomically(CURSOR_LOCAL_STATE_FILE, value);
-  writeJsonAtomically(CURSOR_PERSIST_STATE_FILE, value);
-  callbackState.activeCursorSessionId = sessionId;
-}
-function hydratePersistedCursorState() {
-  store2.hydratePersistedState("hydratePersistedCursorState");
-  if (existsSync6("/tmp/eva-mcp.json")) {
-    try {
-      const raw = readFileSync5("/tmp/eva-mcp.json", "utf8");
-      const evaMcp = tryParseJson(raw);
-      const cursorDir = WORK_DIR + "/.cursor";
-      mkdirSync5(cursorDir, { recursive: true });
-      const cursorMcp = { mcpServers: {} };
-      if (evaMcp && typeof evaMcp === "object" && !Array.isArray(evaMcp) && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object" && !Array.isArray(evaMcp.mcpServers)) {
-        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
-          if (!server || typeof server !== "object" || Array.isArray(server))
-            continue;
-          const entry = {};
-          if (typeof server.url === "string") entry.url = server.url;
-          if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
-            const headers = {};
-            for (const [hk, hv] of Object.entries(server.headers)) {
-              if (typeof hv === "string") headers[hk] = hv;
-            }
-            if (Object.keys(headers).length > 0) entry.headers = headers;
-          }
-          if (Object.keys(entry).length > 0) {
-            cursorMcp.mcpServers[name] = entry;
-          }
-        }
-      }
-      writeFileSync6(
-        cursorDir + "/mcp.json",
-        JSON.stringify(cursorMcp, null, 2)
-      );
-    } catch (error40) {
-      console.error(
-        "Failed to translate MCP config for Cursor:",
-        String(error40)
-      );
-    }
-  }
-}
-function prepareCursorSessionState() {
-  updateThinkingStep(
-    "Preparing Cursor session...",
-    "Hydrating saved session..."
-  );
-  hydratePersistedCursorState();
-  const providerState = readCursorProviderState();
-  if (providerState?.transport === "acp-v1") {
-    callbackState.activeCursorSessionId = providerState.sessionId;
-    return { mode: "resume", sessionId: providerState.sessionId };
-  }
-  const persistedState = readCursorSessionState();
-  updateThinkingStep(
-    "Preparing Cursor session...",
-    persistedState ? "Saved session hydrated. Starting Cursor..." : "Preparing fresh Cursor session..."
-  );
-  if (persistedState && persistedState.resumeSessionId) {
-    callbackState.activeCursorSessionId = persistedState.resumeSessionId;
-    return { mode: "resume", sessionId: persistedState.resumeSessionId };
-  }
-  return { mode: "none", sessionId: null };
-}
-
-// callback-src/providers/cursor.ts
-function cursorParseLine(event) {
-  const events = [];
-  if (event.type === "system" && event.subtype === "init") {
-    events.push({
-      kind: "update_thinking",
-      label: "Starting Cursor CLI...",
-      detail: "Cursor session initializing..."
-    });
-    return events;
-  }
-  if (event.type === "assistant") {
-    const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
-        events.push({ kind: "append_text", text: block.text });
-      } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
-        events.push({ kind: "update_reasoning", text: block.thinking });
-      }
-    }
-    return events;
-  }
-  if (event.type === "tool_call" && event.subtype === "started" && event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call)) {
-    const step = cursorToolToStep(event.tool_call);
-    const trackingId = pickToolCallId(event) ?? step.toolUseId ?? pickToolCallId(event.tool_call);
-    if (trackingId) {
-      step.toolUseId = trackingId;
-      events.push({ kind: "push_step", step, trackingId });
-    } else {
-      events.push({ kind: "push_step", step });
-    }
-    return events;
-  }
-  if (event.type === "tool_call" && event.subtype === "completed") {
-    const trackingId = pickToolCallId(event) ?? (event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call) ? pickToolCallId(event.tool_call) : void 0);
-    const result = probeToolCompleteResult(event);
-    events.push(
-      result ? { kind: "complete_tool", trackingId, result } : { kind: "complete_tool", trackingId }
-    );
-    return events;
-  }
-  if (event.type === "result") {
-    events.push({ kind: "mark_last_complete" });
-    return events;
-  }
-  return events;
-}
-function onStreamLine3(parsed) {
-  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
-    const sid = parsed.session_id.trim();
-    if (sid !== callbackState.activeCursorSessionId) {
-      callbackState.activeCursorSessionId = sid;
-      writeCursorSessionState();
-      return { needsHeartbeat: true };
-    }
-    return {};
-  }
-  if (parsed.type === "assistant") {
-    if (callbackState.firstAssistantEventAt === 0) callbackState.firstAssistantEventAt = Date.now();
-    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && callbackState.firstTextBlockAt === 0) {
-        callbackState.firstTextBlockAt = Date.now();
-        break;
-      }
-    }
-    return {};
-  }
-  if (parsed.type === "tool_call") {
-    callbackState.firstTextBlockAt = 0;
-    return {};
-  }
-  if (parsed.type === "result" && !callbackState.resultEventSeen) {
-    callbackState.resultEventSeen = true;
-    syncCursorStateToPersist();
-  }
-  return {};
-}
-var cursorAdapter = {
-  parseLine: cursorParseLine,
-  onStreamLine(_line, parsed) {
-    return onStreamLine3(parsed);
-  }
-};
-
 // callback-src/session/opencodeSession.ts
-import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync7 } from "fs";
-var store3 = createSessionStore({
+import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync6 } from "fs";
+var store2 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
   persistDir: OPENCODE_PERSIST_DIR,
   localStateFile: OPENCODE_LOCAL_STATE_FILE,
@@ -3484,10 +3255,10 @@ var store3 = createSessionStore({
     callbackState.activeOpencodeSessionId = id;
   }
 });
-var readOpencodeSessionState = store3.readSessionState;
-var writeOpencodeSessionState = store3.writeSessionState;
+var readOpencodeSessionState = store2.readSessionState;
+var writeOpencodeSessionState = store2.writeSessionState;
 function syncOpencodeStateToPersist() {
-  store3.syncStateToPersist("syncOpencodeStateToPersist");
+  store2.syncStateToPersist("syncOpencodeStateToPersist");
   copyFileIfPresent(
     OPENCODE_AUTH_FILE,
     OPENCODE_PERSIST_AUTH_FILE,
@@ -3495,15 +3266,15 @@ function syncOpencodeStateToPersist() {
   );
 }
 function hydratePersistedOpencodeState() {
-  store3.hydratePersistedState("hydratePersistedOpencodeState");
+  store2.hydratePersistedState("hydratePersistedOpencodeState");
   const configJson = OPENCODE_CONFIG_JSON || (OPENCODE_CONFIG_JSON_BASE64 ? decodeBase64(OPENCODE_CONFIG_JSON_BASE64) : "");
   if (configJson) {
     process.env.OPENCODE_CONFIG_CONTENT = configJson;
   }
-  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
+  mkdirSync5(OPENCODE_AUTH_DIR, { recursive: true });
   const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
   if (authJson) {
-    writeFileSync7(OPENCODE_AUTH_FILE, authJson);
+    writeFileSync6(OPENCODE_AUTH_FILE, authJson);
   } else {
     copyFileIfPresent(
       OPENCODE_PERSIST_AUTH_FILE,
@@ -3577,7 +3348,7 @@ function opencodeParseLine(event) {
   }
   return events;
 }
-function onStreamLine4(parsed) {
+function onStreamLine3(parsed) {
   const sessionID = typeof parsed.sessionID === "string" && parsed.sessionID.trim() ? parsed.sessionID.trim() : "";
   let needsHeartbeat = false;
   if (sessionID && sessionID !== callbackState.activeOpencodeSessionId) {
@@ -3607,7 +3378,7 @@ function onStreamLine4(parsed) {
 var opencodeAdapter = {
   parseLine: opencodeParseLine,
   onStreamLine(_line, parsed) {
-    return onStreamLine4(parsed);
+    return onStreamLine3(parsed);
   }
 };
 
@@ -3707,7 +3478,9 @@ function pushProgressStep(step) {
   callbackState.lastStepType = "tool";
 }
 function parseToCanonical(event, provider = PROVIDER) {
-  if (provider === "cursor") return cursorParseLine(event);
+  if (provider === "cursor") {
+    throw new Error("Cursor events must be handled by the ACP runtime");
+  }
   if (provider === "opencode") return opencodeParseLine(event);
   if (provider === "codex") return codexParseLine(event);
   return claudeParseLine(event);
@@ -3804,7 +3577,7 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 }
 
 // callback-src/runtime/heartbeats.ts
-import { writeFileSync as writeFileSync8 } from "fs";
+import { writeFileSync as writeFileSync7 } from "fs";
 
 // callback-src/runtime/processControl.ts
 import { spawnSync as spawnSync2 } from "child_process";
@@ -4022,7 +3795,7 @@ async function runPreflightHeartbeat() {
   try {
     await initialHeartbeat();
     try {
-      writeFileSync8(READY_FILE, String(Date.now()));
+      writeFileSync7(READY_FILE, String(Date.now()));
       log(
         "ready file written after " + String(Date.now() - SCRIPT_STARTED_AT) + "ms"
       );
@@ -4037,9 +3810,11 @@ async function runPreflightHeartbeat() {
 
 // callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
+  if (provider === "cursor") {
+    throw new Error("Cursor events must be handled by the ACP runtime");
+  }
   if (provider === "codex") return codexAdapter;
   if (provider === "opencode") return opencodeAdapter;
-  if (provider === "cursor") return cursorAdapter;
   return claudeAdapter;
 }
 
@@ -4110,11 +3885,11 @@ function appendToRawLogFile(text) {
 
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 
 // callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
-import { writeFileSync as writeFileSync9 } from "fs";
+import { writeFileSync as writeFileSync8 } from "fs";
 function evaluateAttemptHealth(input) {
   const result = {
     shouldTerminate: false,
@@ -4194,7 +3969,7 @@ async function runCliAttempt(options) {
     callbackState.activeAttemptChild = child;
     if (child.pid) {
       try {
-        writeFileSync9("/proc/" + String(child.pid) + "/oom_score_adj", "300");
+        writeFileSync8("/proc/" + String(child.pid) + "/oom_score_adj", "300");
       } catch {
       }
     }
@@ -4321,16 +4096,13 @@ async function pollForAnswer(toolUseId, signal) {
   return null;
 }
 function parsePendingQuestionAnswers(answerJson) {
-  try {
-    const parsed = JSON.parse(answerJson);
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      const answers = {};
-      for (const [key, value] of Object.entries(parsed)) {
-        if (typeof value === "string") answers[key] = value;
-      }
-      return answers;
+  const parsed = tryParseJson(answerJson);
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    const answers = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") answers[key] = value;
     }
-  } catch {
+    return answers;
   }
   return {};
 }
@@ -4338,6 +4110,7 @@ async function waitForPendingQuestionAnswer(toolUseId, payload, signal) {
   callbackState.awaitingQuestionAnswer = true;
   try {
     await postQuestion(toolUseId, payload);
+    callbackState.pendingQuestionData = "";
     const answerJson = await pollForAnswer(toolUseId, signal);
     return answerJson === null ? null : parsePendingQuestionAnswers(answerJson);
   } finally {
@@ -4383,11 +4156,11 @@ var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 async function loadSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
   const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
-  if (existsSync7(globalEntry)) {
+  if (existsSync6(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync7(localEntry)) {
+  if (!existsSync6(localEntry)) {
     log(
       "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
     );
@@ -4404,15 +4177,15 @@ function claudeExecutablePath() {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
     const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync7(fallback) ? fallback : "claude";
+    return fallback && existsSync6(fallback) ? fallback : "claude";
   }
 }
 function readPromptText() {
-  return readFileSync6("/tmp/design-prompt.txt", "utf8");
+  return readFileSync5("/tmp/design-prompt.txt", "utf8");
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
-  if (existsSync7(MCP_CONFIG_PATH)) {
+  if (existsSync6(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
@@ -4603,7 +4376,19 @@ function readCancelRequested(result) {
 }
 
 // callback-src/providers/daemonTurn.ts
-import { writeFileSync as writeFileSync10 } from "node:fs";
+import { writeFileSync as writeFileSync9 } from "node:fs";
+function readSessionMode(value) {
+  switch (value) {
+    case "edit":
+    case "ask":
+    case "execute":
+    case "plan":
+    case "design":
+      return value;
+    default:
+      return void 0;
+  }
+}
 function readClaimPayload(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
@@ -4624,7 +4409,13 @@ function readClaimedTurn(result) {
     assistantMessageId: payload.assistantMessageId,
     attempt: payload.attempt
   } : null;
-  return { prompt: payload.prompt, attachmentUrls, identity };
+  const mode = readSessionMode(payload.mode);
+  return {
+    prompt: payload.prompt,
+    attachmentUrls,
+    identity,
+    ...mode ? { mode } : {}
+  };
 }
 function attachmentExtensionForMimeType(mimeType) {
   const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
@@ -4666,7 +4457,7 @@ async function materializeTurnAttachments(turn) {
         response.headers.get("content-type") ?? ""
       );
       const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync10(path, bytes);
+      writeFileSync9(path, bytes);
       paths.push(path);
     } catch (error40) {
       log(
@@ -4919,14 +4710,22 @@ async function finalizeTurn(output) {
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
 }
-function readSyntheticTurnMessageId(result) {
+function readSyntheticTurn(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   const messageId = payload.messageId;
-  return typeof messageId === "string" ? messageId : null;
+  const turnId = payload.turnId;
+  const attempt = payload.attempt;
+  if (typeof messageId !== "string" || typeof turnId !== "string" || typeof attempt !== "number" || !Number.isSafeInteger(attempt) || attempt < 1) {
+    return null;
+  }
+  return {
+    messageId,
+    identity: { turnId, assistantMessageId: messageId, attempt }
+  };
 }
 function readParentToolUseId(message) {
   const parentField = message.parent_tool_use_id;
@@ -5157,7 +4956,8 @@ async function failSyntheticTurn(error40) {
         success: false,
         result: null,
         error: error40,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...activeTurnIdentityArgs()
       })
     );
   } catch {
@@ -5165,6 +4965,7 @@ async function failSyntheticTurn(error40) {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
 }
 async function ensureSyntheticTurn() {
@@ -5176,21 +4977,28 @@ async function ensureSyntheticTurn() {
     const result = await callConvexWithRetry(
       "mutation",
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({})
+      entityMutationArgs({
+        callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION2
+      })
     );
-    const messageId = readSyntheticTurnMessageId(result);
-    if (messageId === null) {
-      log("daemon: openSyntheticTurn returned no messageId");
+    const syntheticTurn = readSyntheticTurn(result);
+    if (syntheticTurn === null) {
+      log("daemon: openSyntheticTurn returned no exact turn identity");
       return;
     }
     resetTurnState();
-    daemonTurn = { kind: "synthetic", messageId };
+    setActiveTurnIdentity(syntheticTurn.identity);
+    daemonTurn = {
+      kind: "synthetic",
+      messageId: syntheticTurn.messageId,
+      identity: syntheticTurn.identity
+    };
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
     callbackState.activeAttemptStartedAt = agentTurnStartedAt;
     beginWatchedTurn();
-    log("daemon: synthetic turn opened messageId=" + messageId);
+    log("daemon: synthetic turn opened messageId=" + syntheticTurn.messageId);
   } finally {
     openingSyntheticTurn = false;
   }
@@ -5212,7 +5020,8 @@ async function finalizeSyntheticTurn(output) {
     success: success2,
     result: resultEvent?.result ?? callbackState.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
-    activityLog
+    activityLog,
+    ...activeTurnIdentityArgs()
   });
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
@@ -5226,6 +5035,7 @@ async function finalizeSyntheticTurn(output) {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success2);
 }
@@ -5500,7 +5310,7 @@ function createWarmAgentRunner(sdk, options) {
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
+    const onDisk = readFileSync6("/tmp/eva-callback-fp", "utf8").trim();
     return onDisk !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
@@ -5517,9 +5327,9 @@ async function runSdkDaemon() {
     );
     process.exit(1);
   }
-  writeFileSync11(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync11(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync11(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync10(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) {
     log("daemon: preflight failed");
@@ -5583,6 +5393,71 @@ async function runSdkDaemon() {
 
 // callback-src/providers/cursorAcpDaemon.ts
 import { readFileSync as readFileSync9, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "node:fs";
+
+// callback-src/session/cursorSession.ts
+import {
+  existsSync as existsSync7,
+  mkdirSync as mkdirSync6,
+  readFileSync as readFileSync7,
+  renameSync,
+  writeFileSync as writeFileSync11
+} from "fs";
+function parseCursorProviderState(raw) {
+  const parsed = tryParseJson(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || parsed.schemaVersion !== 2 || parsed.transport !== "acp-v1" || typeof parsed.sessionId !== "string" || !parsed.sessionId.trim()) {
+    return null;
+  }
+  return {
+    schemaVersion: 2,
+    transport: "acp-v1",
+    sessionId: parsed.sessionId.trim()
+  };
+}
+function readCursorProviderState() {
+  for (const path of [CURSOR_LOCAL_STATE_FILE, CURSOR_PERSIST_STATE_FILE]) {
+    if (!existsSync7(path)) continue;
+    try {
+      const state = parseCursorProviderState(readFileSync7(path, "utf8"));
+      if (state) return state;
+    } catch (error40) {
+      console.error("Failed to read Cursor ACP state:", String(error40));
+    }
+  }
+  return null;
+}
+function writeJsonAtomically(path, value) {
+  const directory = path.slice(0, path.lastIndexOf("/"));
+  if (directory) mkdirSync6(directory, { recursive: true });
+  const temporaryPath = \`\${path}.\${process.pid}.tmp\`;
+  writeFileSync11(temporaryPath, value, { mode: 384 });
+  renameSync(temporaryPath, path);
+}
+function writeCursorAcpSessionState(sessionId) {
+  const value = JSON.stringify({
+    schemaVersion: 2,
+    transport: "acp-v1",
+    sessionId
+  });
+  writeJsonAtomically(CURSOR_LOCAL_STATE_FILE, value);
+  writeJsonAtomically(CURSOR_PERSIST_STATE_FILE, value);
+  callbackState.activeCursorSessionId = sessionId;
+}
+function syncCursorStateToPersist() {
+  const sessionId = callbackState.activeCursorSessionId;
+  if (sessionId) writeCursorAcpSessionState(sessionId);
+}
+function prepareCursorSessionState() {
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    "Hydrating saved ACP session..."
+  );
+  const providerState = readCursorProviderState();
+  if (providerState) {
+    callbackState.activeCursorSessionId = providerState.sessionId;
+    return { mode: "resume", sessionId: providerState.sessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
 
 // callback-src/providers/cursorAcpRuntime.ts
 import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
@@ -24690,6 +24565,229 @@ var coerce = {
 };
 var NEVER2 = INVALID;
 
+// callback-src/providers/cursorAcpCapabilities.ts
+var MAX_MODELS = 100;
+var MAX_CONFIG_OPTIONS = 40;
+var MAX_SELECT_VALUES = 100;
+var MAX_TEXT_LENGTH = 500;
+var selectValueSchema = external_exports2.object({
+  value: external_exports2.string(),
+  name: external_exports2.string(),
+  description: external_exports2.string().nullish()
+});
+var selectGroupSchema = external_exports2.object({
+  group: external_exports2.string(),
+  name: external_exports2.string(),
+  options: external_exports2.array(selectValueSchema)
+});
+var configOptionSchema = external_exports2.union([
+  external_exports2.object({
+    type: external_exports2.literal("select"),
+    id: external_exports2.string(),
+    name: external_exports2.string(),
+    description: external_exports2.string().nullish(),
+    category: external_exports2.string().nullish(),
+    currentValue: external_exports2.string(),
+    options: external_exports2.union([external_exports2.array(selectValueSchema), external_exports2.array(selectGroupSchema)])
+  }),
+  external_exports2.object({
+    type: external_exports2.literal("boolean"),
+    id: external_exports2.string(),
+    name: external_exports2.string(),
+    description: external_exports2.string().nullish(),
+    category: external_exports2.string().nullish(),
+    currentValue: external_exports2.boolean()
+  })
+]);
+var availableModelsResponseSchema = external_exports2.object({
+  models: external_exports2.array(
+    external_exports2.object({
+      value: external_exports2.string(),
+      name: external_exports2.string(),
+      configOptions: external_exports2.array(configOptionSchema).optional()
+    })
+  )
+});
+function boundedText(value) {
+  return value.trim().slice(0, MAX_TEXT_LENGTH);
+}
+function optionalText(value) {
+  const bounded = value ? boundedText(value) : "";
+  return bounded.length > 0 ? bounded : void 0;
+}
+function sanitizeSelectValue(input) {
+  const value = boundedText(input.value);
+  const name = boundedText(input.name);
+  if (!value || !name) return null;
+  return {
+    value,
+    name,
+    ...optionalText(input.description) ? { description: optionalText(input.description) } : {}
+  };
+}
+function flattenSelectValues(options) {
+  const values = [];
+  for (const entry of options.options) {
+    if (values.length >= MAX_SELECT_VALUES) break;
+    if ("value" in entry) {
+      const value = sanitizeSelectValue(entry);
+      if (value) values.push(value);
+      continue;
+    }
+    for (const nested of entry.options) {
+      if (values.length >= MAX_SELECT_VALUES) break;
+      const value = sanitizeSelectValue(nested);
+      if (value) values.push(value);
+    }
+  }
+  return values;
+}
+function sanitizeCursorConfigOptions(options) {
+  const sanitized = [];
+  for (const option of options ?? []) {
+    if (sanitized.length >= MAX_CONFIG_OPTIONS) break;
+    const id = boundedText(option.id);
+    const name = boundedText(option.name);
+    if (!id || !name) continue;
+    const common = {
+      id,
+      name,
+      ...optionalText(option.description) ? { description: optionalText(option.description) } : {},
+      ...optionalText(option.category) ? { category: optionalText(option.category) } : {}
+    };
+    if (option.type === "boolean") {
+      sanitized.push({
+        type: "boolean",
+        ...common,
+        currentValue: option.currentValue
+      });
+      continue;
+    }
+    sanitized.push({
+      type: "select",
+      ...common,
+      currentValue: boundedText(option.currentValue),
+      options: flattenSelectValues(option)
+    });
+  }
+  return sanitized;
+}
+function sanitizeParsedConfigOptions(options) {
+  const sdkCompatible = [];
+  for (const option of options ?? []) {
+    sdkCompatible.push(option);
+  }
+  return sanitizeCursorConfigOptions(sdkCompatible);
+}
+async function discoverCursorModels(context) {
+  try {
+    const raw = await context.request(
+      "cursor/list_available_models",
+      {}
+    );
+    const parsed = availableModelsResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      log("cursor_acp capability discovery returned an invalid payload");
+      return null;
+    }
+    const models = [];
+    for (const model of parsed.data.models) {
+      if (models.length >= MAX_MODELS) break;
+      const value = boundedText(model.value);
+      const name = boundedText(model.name);
+      if (!value || !name) continue;
+      models.push({
+        value,
+        name,
+        configOptions: sanitizeParsedConfigOptions(model.configOptions)
+      });
+    }
+    return models;
+  } catch (error40) {
+    log(
+      \`cursor_acp capability discovery unavailable: \${error40 instanceof Error ? error40.message : String(error40)}\`
+    );
+    return null;
+  }
+}
+function fallbackModelsFromSessionOptions(configOptions) {
+  const modelOption = (configOptions ?? []).find(
+    (option) => option.type === "select" && (option.category === "model" || option.id.toLowerCase().includes("model"))
+  );
+  if (modelOption?.type !== "select") return [];
+  return flattenSelectValues(modelOption).slice(0, MAX_MODELS).map((model) => ({
+    value: model.value,
+    name: model.name,
+    configOptions: sanitizeCursorConfigOptions(configOptions)
+  }));
+}
+function sanitizeModes(modes) {
+  return (modes?.availableModes ?? []).flatMap((mode) => {
+    const id = boundedText(mode.id);
+    const name = boundedText(mode.name);
+    if (!id || !name) return [];
+    return [
+      {
+        id,
+        name,
+        ...optionalText(mode.description) ? { description: optionalText(mode.description) } : {}
+      }
+    ];
+  });
+}
+function configOptionJson(option) {
+  const common = {
+    type: option.type,
+    id: option.id,
+    name: option.name,
+    ...option.description ? { description: option.description } : {},
+    ...option.category ? { category: option.category } : {}
+  };
+  return option.type === "boolean" ? { ...common, currentValue: option.currentValue } : {
+    ...common,
+    currentValue: option.currentValue,
+    options: option.options.map((value) => ({
+      value: value.value,
+      name: value.name,
+      ...value.description ? { description: value.description } : {}
+    }))
+  };
+}
+function modelJson(model) {
+  return {
+    value: model.value,
+    name: model.name,
+    configOptions: model.configOptions.map(configOptionJson)
+  };
+}
+function modeJson(mode) {
+  return {
+    id: mode.id,
+    name: mode.name,
+    ...mode.description ? { description: mode.description } : {}
+  };
+}
+async function reportCursorCapabilities(input) {
+  if (!REPO_ID) return;
+  const models = input.discoveredModels && input.discoveredModels.length > 0 ? input.discoveredModels : fallbackModelsFromSessionOptions(input.configOptions);
+  const sessionConfigOptions = sanitizeCursorConfigOptions(input.configOptions);
+  const availableModes = sanitizeModes(input.modes);
+  try {
+    await callConvexWithRetry("mutation", "providerCapabilities:recordCursor", {
+      repoId: REPO_ID,
+      ...PROVIDER_ACCOUNT_ID ? { providerAccountId: PROVIDER_ACCOUNT_ID } : {},
+      cliVersion: boundedText(input.cliVersion ?? "unreported") || "unreported",
+      models: models.map(modelJson),
+      sessionConfigOptions: sessionConfigOptions.map(configOptionJson),
+      availableModes: availableModes.map(modeJson)
+    });
+  } catch (error40) {
+    log(
+      \`cursor_acp capability report failed: \${error40 instanceof Error ? error40.message : String(error40)}\`
+    );
+  }
+}
+
 // callback-src/providers/cursorAcpInteractions.ts
 var cursorQuestionOptionSchema = external_exports2.object({
   id: external_exports2.string(),
@@ -24905,7 +25003,7 @@ function appendBoundedTail(current, chunk) {
   const combined = current + chunk;
   return combined.length <= STDERR_TAIL_LIMIT ? combined : combined.slice(combined.length - STDERR_TAIL_LIMIT);
 }
-function cursorCommand2() {
+function cursorCommand() {
   return existsSync8(CURSOR_BIN_PATH) ? CURSOR_BIN_PATH : "cursor-agent";
 }
 function combinedPrompt(prompt) {
@@ -24925,7 +25023,7 @@ function selectValues(option) {
   }
   return values;
 }
-async function configureModel(context, setup) {
+async function configureModelForPrompt(context, setup) {
   const options = setup.configOptions ?? [];
   const modelOption = options.find(
     (option) => option.type === "select" && (option.category === "model" || option.id.toLowerCase().includes("model"))
@@ -24942,11 +25040,89 @@ async function configureModel(context, setup) {
     );
   }
   if (modelOption.currentValue === normalizedCursorModel) return;
-  await context.request(methods.agent.session.setConfigOption, {
+  const response = await context.request(
+    methods.agent.session.setConfigOption,
+    {
+      sessionId: setup.sessionId,
+      configId: modelOption.id,
+      value: normalizedCursorModel
+    }
+  );
+  setup.configOptions = response.configOptions;
+}
+function cursorReasoningLevel() {
+  switch (REASONING_EFFORT) {
+    case "off":
+    case "low":
+    case "medium":
+    case "high":
+    case "xhigh":
+    case "max":
+      return REASONING_EFFORT;
+    default:
+      return void 0;
+  }
+}
+function advertisedModes(state) {
+  return (state?.availableModes ?? []).map((mode) => ({
+    id: mode.id,
+    name: mode.name,
+    ...mode.description ? { description: mode.description } : {}
+  }));
+}
+async function configurePrompt(context, setup, mode) {
+  await configureModelForPrompt(context, setup);
+  const requestedTraits = {
+    ...REASONING_EFFORT ? { reasoningLevel: cursorReasoningLevel() } : {},
+    ...AI_THINKING_ENABLED ? { thinkingEnabled: AI_THINKING_ENABLED !== "0" } : {},
+    ...AI_CONTEXT_1M ? { use1mContext: AI_CONTEXT_1M === "1" } : {}
+  };
+  const resolved = resolveCursorConfigUpdates(
+    sanitizeCursorConfigOptions(setup.configOptions),
+    requestedTraits
+  );
+  if (resolved.unsupported.length > 0) {
+    throw new Error(
+      \`Cursor ACP does not support the selected controls: \${resolved.unsupported.join(", ")}\`
+    );
+  }
+  for (const update of resolved.updates) {
+    if (typeof update.value === "boolean") {
+      const response = await context.request(
+        methods.agent.session.setConfigOption,
+        {
+          sessionId: setup.sessionId,
+          configId: update.configId,
+          type: "boolean",
+          value: update.value
+        }
+      );
+      setup.configOptions = response.configOptions;
+    } else {
+      const response = await context.request(
+        methods.agent.session.setConfigOption,
+        {
+          sessionId: setup.sessionId,
+          configId: update.configId,
+          value: update.value
+        }
+      );
+      setup.configOptions = response.configOptions;
+    }
+  }
+  const resolvedMode = cursorModeIdForEva(mode, advertisedModes(setup.modes));
+  if (resolvedMode.error) throw new Error(resolvedMode.error);
+  if (resolvedMode.modeId === void 0 || resolvedMode.modeId === setup.modes?.currentModeId) {
+    return;
+  }
+  await context.request(methods.agent.session.setMode, {
     sessionId: setup.sessionId,
-    configId: modelOption.id,
-    value: normalizedCursorModel
+    modeId: resolvedMode.modeId
   });
+  setup.modes = {
+    currentModeId: resolvedMode.modeId,
+    availableModes: setup.modes?.availableModes ?? []
+  };
 }
 async function startOrRestoreSession(context, capabilities, sessionMode, mcpServers, adapter) {
   const savedSessionId = sessionMode.sessionId?.trim() || "";
@@ -25050,7 +25226,7 @@ async function withCursorAcpSession(options, operation) {
       "CURSOR_API_KEY is missing in the sandbox environment \\xE2\\u20AC\\u201D Cursor ACP cannot authenticate"
     );
   }
-  const child = spawn2(cursorCommand2(), ["acp"], {
+  const child = spawn2(cursorCommand(), ["acp"], {
     cwd: WORK_DIR,
     env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
     stdio: ["pipe", "pipe", "pipe"]
@@ -25084,15 +25260,18 @@ async function withCursorAcpSession(options, operation) {
     Writable.toWeb(child.stdin),
     Readable.toWeb(child.stdout)
   );
+  const cursorClientCapabilities = {
+    fs: { readTextFile: false, writeTextFile: false },
+    terminal: false,
+    plan: {},
+    session: { configOptions: { boolean: {} } },
+    _meta: { parameterizedModelPicker: true }
+  };
   try {
     return await client2.connectWith(stream, async (context) => {
       const initialized = await context.request(methods.agent.initialize, {
         protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {
-          fs: { readTextFile: false, writeTextFile: false },
-          terminal: false,
-          plan: {}
-        },
+        clientCapabilities: cursorClientCapabilities,
         clientInfo: { name: "eva", version: "1.0.0" }
       });
       if (initialized.protocolVersion !== PROTOCOL_VERSION) {
@@ -25103,6 +25282,7 @@ async function withCursorAcpSession(options, operation) {
       await context.request(methods.agent.authenticate, {
         methodId: "cursor_login"
       });
+      const discoveredModels = await discoverCursorModels(context);
       const setup = await startOrRestoreSession(
         context,
         initialized.agentCapabilities,
@@ -25111,7 +25291,12 @@ async function withCursorAcpSession(options, operation) {
         adapter
       );
       const sessionId = setup.sessionId;
-      await configureModel(context, setup);
+      await reportCursorCapabilities({
+        cliVersion: initialized.agentInfo?.version,
+        discoveredModels,
+        configOptions: setup.configOptions,
+        modes: setup.modes
+      });
       writeCursorAcpSessionState(sessionId);
       let promptInFlight = false;
       const cancel = async () => {
@@ -25121,7 +25306,7 @@ async function withCursorAcpSession(options, operation) {
       return await operation({
         sessionId,
         cancel,
-        async prompt(prompt, signal) {
+        async prompt(prompt, promptOptions) {
           if (promptInFlight) {
             throw new Error(
               "Cursor ACP received an overlapping prompt for one session"
@@ -25133,9 +25318,11 @@ async function withCursorAcpSession(options, operation) {
           const cancelFromCaller = () => {
             void cancel();
           };
+          const signal = promptOptions?.signal;
           signal?.addEventListener("abort", cancelFromCaller, { once: true });
           let stopReason = "cancelled";
           try {
+            await configurePrompt(context, setup, promptOptions?.mode);
             const response = await context.request(
               methods.agent.session.prompt,
               {
@@ -25173,7 +25360,10 @@ async function withCursorAcpSession(options, operation) {
 }
 async function runCursorAcpAttempt(options) {
   return await withCursorAcpSession(options, async (session) => {
-    return await session.prompt(options.prompt, options.signal);
+    return await session.prompt(options.prompt, {
+      signal: options.signal,
+      mode: EVA_SESSION_MODE
+    });
   });
 }
 function readCursorPromptFile() {
@@ -25380,7 +25570,7 @@ async function runCursorAcpDaemon() {
     }
   };
   const waitForPrompt = async (session, turn) => {
-    const promptPromise = session.prompt(turn.prompt).then(settledPrompt);
+    const promptPromise = session.prompt(turn.prompt, turn.mode ? { mode: turn.mode } : void 0).then(settledPrompt);
     while (true) {
       const outcome = await Promise.race([promptPromise, promptPoll()]);
       if (outcome.kind === "settled") return outcome.attempt;
@@ -25558,25 +25748,10 @@ async function runCursorAttempt(sessionMode) {
       "CURSOR_API_KEY is missing in the sandbox environment \\u2014 Cursor CLI cannot authenticate"
     );
   }
-  const providerState = readCursorProviderState();
-  if (providerState?.transport !== "stream-json") {
-    return await runCursorAcpAttempt({
-      sessionMode,
-      prompt: readCursorPromptFile(),
-      mcpServers: readCursorAcpMcpServers()
-    });
-  }
-  const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = cursorExecBaseCmd + sessionArg;
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
-    processLabel: "cursor",
-    attemptLabel: "runCursorAttempt",
-    startupStep: {
-      label: "Starting Cursor CLI...",
-      detail: sessionMode.mode === "resume" ? "Restoring saved context..." : "Launching Cursor process..."
-    }
+  return await runCursorAcpAttempt({
+    sessionMode,
+    prompt: readCursorPromptFile(),
+    mcpServers: readCursorAcpMcpServers()
   });
 }
 async function runProviderAttempt(sessionMode) {

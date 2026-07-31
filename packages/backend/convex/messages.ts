@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
-import { variationValidator, messageFields } from "./validators";
+import { messageFields } from "./validators";
 import {
   paginationOptsValidator,
   paginationResultValidator,
@@ -48,18 +48,6 @@ export const generateUploadUrl = authMutation({
   returns: v.string(),
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
 });
-
-/** Fetches messages for a parent and resolves their image/video/attachment storage URLs. */
-async function resolveMessageUrls(
-  ctx: Pick<QueryCtx, "db" | "storage">,
-  parentId: typeof parentIdValidator.type,
-) {
-  const messages = await ctx.db
-    .query("messages")
-    .withIndex("by_parent", (q) => q.eq("parentId", parentId))
-    .collect();
-  return await resolveMessagesUrls(ctx, messages);
-}
 
 /** Resolves storage only for the documents in the current result page. */
 async function resolveMessagesUrls(
@@ -109,57 +97,6 @@ async function resolveMessagesUrls(
     }),
   );
 }
-
-/** Lists all messages for a parent entity (session, doc, etc.) with resolved media URLs. */
-export const listByParent = authQuery({
-  args: { parentId: parentIdValidator },
-  returns: v.array(messageValidator),
-  handler: async (ctx, args) => resolveMessageUrls(ctx, args.parentId),
-});
-
-/** Updates the most recent message for a parent (internal use, for streaming updates). */
-export const updateLastInternal = internalMutation({
-  args: {
-    parentId: parentIdValidator,
-    content: v.optional(v.string()),
-    activityLog: v.optional(v.string()),
-    variations: v.optional(v.array(variationValidator)),
-    // Legacy single-media args: stale callback bundles still in flight during
-    // a deploy call with these instead of mediaStorageIds. New callers use
-    // mediaStorageIds.
-    imageStorageId: v.optional(v.id("_storage")),
-    videoStorageId: v.optional(v.id("_storage")),
-    mediaStorageIds: v.optional(v.array(v.id("_storage"))),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
-      .order("desc")
-      .first();
-    if (!last) return null;
-
-    const patch: {
-      content?: string;
-      activityLog?: string;
-      variations?: (typeof variationValidator.type)[];
-      mediaStorageIds?: Id<"_storage">[];
-    } = {};
-    if (args.content !== undefined) patch.content = args.content;
-    if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
-    if (args.variations !== undefined) patch.variations = args.variations;
-
-    // Accumulates within a turn, so a second capture cannot orphan the first.
-    const mediaStorageIds = appendMediaStorageIds(last.mediaStorageIds, args);
-    if (mediaStorageIds !== undefined) {
-      patch.mediaStorageIds = mediaStorageIds;
-    }
-
-    await ctx.db.patch(last._id, patch);
-    return null;
-  },
-});
 
 /** Newest-first reactive pages; clients reverse loaded results for chronology. */
 export const listByParentPaginated = authQuery({

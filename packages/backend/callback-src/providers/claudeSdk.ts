@@ -427,6 +427,7 @@ export async function runClaudeSdkAttempt(
   );
   return {
     code,
+    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,

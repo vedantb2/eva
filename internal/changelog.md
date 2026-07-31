@@ -1,5 +1,9 @@
 # Changelog
 
+## Recording turns cannot self-terminate and report a promise as success - 2026-07-31
+
+All-feature walkthrough turns were using broad `pkill -f` cleanup that could match the Cursor CLI's own command line because the recording instructions are part of its process arguments. The agent died during setup, then the callback discarded Node's close signal and promoted the last streamed "recording now" preamble to a successful final reply. Recording prompts now require exact-PID cleanup, a named feature checklist, and a real deliverable per item; the callback preserves direct signal termination and rejects both direct and shell-translated interruptions even when partial assistant text exists.
+
 ## Chat-surface resilience logic unified behind adapters - 2026-07-30
 
 Sessions, task chat and project chat each carried a near-identical copy of the stall watchdog, queue dequeue and preview-recovery logic — which is how fixes landed on sessions and had to be hand-ported. All logic now lives once (\_chat/stallWatchdog.ts, a shared queue core, a shared preview-owner recovery) and each surface contributes only a small declarative adapter for its genuine differences (field names, streaming prefixes, interrupt paths, stopped-sandbox status). The per-surface Convex entry points survive as thin wrappers so in-flight scheduled jobs keep resolving, and a new drift-guard contract test fails CI if surface-specific logic ever reappears outside the adapters — a bug fixed in the shared implementation reaches all three surfaces by construction.

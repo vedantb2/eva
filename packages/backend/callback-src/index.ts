@@ -191,6 +191,7 @@ try {
     firstAttempt.timedOutAfterFirstText,
   );
   let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
+  const finalTerminatedBySignal = firstAttempt.terminatedBySignal;
   const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
@@ -210,16 +211,14 @@ try {
 
   await setFinalizingState();
 
-  // A signal-kill exit (SIGTERM=143, SIGKILL=137 — anything above 128) means the
-  // agent process was stopped externally: a cancel, a sandbox stop or timeout,
-  // an OOM, or a prior turn's kill landing on this one. Cursor can still flush a
-  // partial `type:result`, and extractResultEvent otherwise falls back to the
-  // last streamed assistant text, so finalResultEvent looks non-error even
-  // though nothing finished. Without this guard an interrupted recording turn
-  // reported success with the agent's "recording now…" preamble as its final
-  // answer. A healthy one-shot agent always exits 0, so this never misfires on a
-  // genuine completion.
-  const killedBySignal = finalCode > 128;
+  // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
+  // down the process. extractResultEvent deliberately falls back to that text,
+  // so without this guard an interrupted recording turn reported its
+  // "recording now…" preamble as a successful final answer. Node reports a
+  // direct signal with `code=null`; shells can translate it to 137/143. Keep
+  // both forms so neither can masquerade as genuine completion.
+  const agentWasInterrupted =
+    finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
 
   const attemptEndedDueToTimeout =
     finalTimedOutAfterFirstText ||
@@ -231,7 +230,9 @@ try {
     Boolean(finalToolStallErrorMessage);
 
   const runSucceededWithResult =
-    finalResultEvent != null && !finalResultEvent.isError && !killedBySignal;
+    finalResultEvent != null &&
+    !finalResultEvent.isError &&
+    !agentWasInterrupted;
 
   let errorValue: string | null = null;
   if (finalResultEvent?.isError) {
@@ -284,7 +285,7 @@ try {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
 
-  let completionSuccess = killedBySignal
+  let completionSuccess = agentWasInterrupted
     ? false
     : finalResultEvent
       ? !finalResultEvent.isError

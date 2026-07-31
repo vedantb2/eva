@@ -4134,14 +4134,16 @@ async function runCliAttempt(options) {
       );
       callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + text);
     });
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       clearInterval(noOutputTimer);
       callbackState.activeAttemptChild = null;
+      const terminatedBySignal = signal !== null;
       log(
-        options.attemptLabel + " finished in " + elapsedAttemptMs() + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutForFirstAssistant=" + timedOutForFirstAssistant + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", timedOutForZombie=" + timedOutForZombie + ", toolStallError=" + (toolStallErrorMessage || "none") + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + callbackState.stderrOutput.length + ")"
+        options.attemptLabel + " finished in " + elapsedAttemptMs() + "ms (code=" + code + ", signal=" + (signal ?? "none") + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutForFirstAssistant=" + timedOutForFirstAssistant + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", timedOutForZombie=" + timedOutForZombie + ", toolStallError=" + (toolStallErrorMessage || "none") + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + callbackState.stderrOutput.length + ")"
       );
       resolve({
         code: code ?? 1,
+        terminatedBySignal,
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,
@@ -4429,6 +4431,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   );
   return {
     code,
+    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,
@@ -5610,6 +5613,7 @@ try {
     firstAttempt.timedOutAfterFirstText
   );
   let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
+  const finalTerminatedBySignal = firstAttempt.terminatedBySignal;
   const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
@@ -5621,9 +5625,9 @@ try {
     log("skipping post-attempt sync because result-event sync already ran");
   }
   await setFinalizingState();
-  const killedBySignal = finalCode > 128;
+  const agentWasInterrupted = finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
-  const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !killedBySignal;
+  const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !agentWasInterrupted;
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
@@ -5658,7 +5662,7 @@ try {
   }
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(callbackState.accumulatedSteps);
-  let completionSuccess = killedBySignal ? false : finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  let completionSuccess = agentWasInterrupted ? false : finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }

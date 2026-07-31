@@ -11,6 +11,7 @@ import {
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
+import type { ChatTurnIdentity } from "../../shared/chatTurnProtocol";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -509,6 +510,7 @@ export async function signAndLaunchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    turnIdentity?: ChatTurnIdentity;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();

@@ -32,6 +32,8 @@ import {
 } from "./providers/cursorAcpResult.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
+import { activeTurnIdentityArgs } from "./runtime/turnIdentity.js";
+import type { JsonValue } from "./types.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -361,12 +363,13 @@ try {
       S.accumulatedSteps.length,
   );
 
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: completionSuccess,
     result: finalResultEvent?.result ?? S.rawOutput,
     error: errorValue,
     activityLog,
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (finalResultEvent?.rawResultEvent) {
@@ -400,7 +403,7 @@ try {
   writeDoneFile("fatal-error", {
     error: err instanceof Error ? err.message : String(err),
   });
-  const errorArgs: Record<string, string | boolean | null> = {
+  const errorArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: false,
     result: null,
@@ -418,6 +421,7 @@ try {
             " CLI",
     ),
     activityLog: serializeSteps(S.accumulatedSteps),
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {

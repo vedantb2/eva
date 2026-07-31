@@ -33,10 +33,21 @@ import {
 import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { finalizeCancelledAssistantMessage } from "../streaming";
-import { backgroundAgentEntryValidator } from "../_validators/tableFields";
+import {
+  clearStreamingActivityForTurn,
+  finalizeCancelledAssistantMessage,
+} from "../streaming";
+import {
+  backgroundAgentEntryValidator,
+  optionalChatTurnIdentityFields,
+} from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
 import { usesChatDaemon } from "../_chat/daemonTransport";
+import { CHAT_TURN_PROTOCOL_VERSION } from "../../shared/chatTurnProtocol";
+import {
+  callbackMatchesActiveTurn,
+  exactTurnIdentity,
+} from "../_chat/turnIdentity";
 
 // --- Completion event ---
 
@@ -276,11 +287,14 @@ export const sessionExecuteWorkflow = workflow.define({
     numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
+    ...optionalChatTurnIdentityFields,
   },
   handler: async (step, args): Promise<void> => {
+    const turnIdentity = exactTurnIdentity(args);
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
       sessionId: args.sessionId,
       mode: args.mode,
+      ...turnIdentity,
     });
 
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
@@ -328,6 +342,7 @@ export const sessionExecuteWorkflow = workflow.define({
               ? error.message
               : "Sandbox could not be restored from cold storage. Please retry.",
           activityLog: null,
+          ...turnIdentity,
         });
         return;
       }
@@ -383,6 +398,7 @@ export const sessionExecuteWorkflow = workflow.define({
         prompt: data.prompt,
         attachmentStorageIds: data.attachmentStorageIds,
         model: args.model,
+        ...turnIdentity,
       });
     }
 
@@ -425,6 +441,7 @@ export const sessionExecuteWorkflow = workflow.define({
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         attachmentStorageIds: data.attachmentStorageIds,
+        turnIdentity: turnIdentity ?? undefined,
       });
     }
 
@@ -456,6 +473,7 @@ export const sessionExecuteWorkflow = workflow.define({
       activityLog: result.activityLog,
       planContent,
       pendingQuestion: result.pendingQuestion,
+      ...turnIdentity,
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
@@ -679,11 +697,26 @@ export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     mode: sessionModeArgValidator,
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
+
+    const turnIdentity = exactTurnIdentity(args);
+    if (turnIdentity !== null) {
+      const assistant = await ctx.db.get(turnIdentity.assistantMessageId);
+      if (
+        assistant === null ||
+        assistant.parentId !== args.sessionId ||
+        assistant.turnId !== turnIdentity.turnId ||
+        assistant.role !== "assistant"
+      ) {
+        throw new Error("Accepted session turn is missing its assistant row");
+      }
+      return null;
+    }
 
     const recent = await ctx.db
       .query("messages")
@@ -828,6 +861,7 @@ export const saveResult = internalMutation({
     activityLog: v.union(v.string(), v.null()),
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -852,15 +886,36 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    await clearStreamingActivity(ctx, String(args.sessionId));
-
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .order("desc")
-      .take(20);
-    const last = resultTargetMessage(recent);
-    if (!last) return null;
+    const turnIdentity = exactTurnIdentity(args);
+    let recent: Doc<"messages">[] = [];
+    let last: Doc<"messages"> | null = null;
+    if (turnIdentity !== null) {
+      if (!callbackMatchesActiveTurn(session, turnIdentity)) return null;
+      await clearStreamingActivityForTurn(
+        ctx,
+        String(args.sessionId),
+        turnIdentity,
+      );
+      const exactAssistant = await ctx.db.get(turnIdentity.assistantMessageId);
+      if (
+        exactAssistant === null ||
+        exactAssistant.parentId !== args.sessionId ||
+        exactAssistant.turnId !== turnIdentity.turnId ||
+        exactAssistant.role !== "assistant"
+      ) {
+        return null;
+      }
+      last = exactAssistant;
+    } else {
+      await clearStreamingActivity(ctx, String(args.sessionId));
+      recent = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+        .order("desc")
+        .take(20);
+      last = resultTargetMessage(recent) ?? null;
+      if (last === null) return null;
+    }
 
     const isDesignTurn = last.mode === "design";
     const designParsed =
@@ -913,8 +968,10 @@ export const saveResult = internalMutation({
 
     // Drop any orphan empty placeholders left when a system alert sat on top
     // and addAssistantPlaceholder / startExecute staged a second bubble.
-    for (const message of orphanPlaceholderMessages(recent, last)) {
-      await ctx.db.delete(message._id);
+    if (turnIdentity === null) {
+      for (const message of orphanPlaceholderMessages(recent, last)) {
+        await ctx.db.delete(message._id);
+      }
     }
 
     const sessionPatch: {
@@ -922,11 +979,13 @@ export const saveResult = internalMutation({
       updatedAt: number;
       planContent?: string;
       agentBrowsingAt?: undefined;
+      activeTurn?: undefined;
     } = {
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
       // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
       agentBrowsingAt: undefined,
+      ...(turnIdentity !== null ? { activeTurn: undefined } : {}),
     };
     if (args.planContent) {
       sessionPatch.planContent = args.planContent;
@@ -953,6 +1012,7 @@ export const claimPendingTurn = authMutation({
   args: {
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
+    callbackProtocolVersion: v.optional(v.number()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
@@ -961,6 +1021,7 @@ export const claimPendingTurn = authMutation({
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    ...optionalChatTurnIdentityFields,
   }),
   handler: async (ctx, args) => {
     const emptyClaim = {
@@ -1005,6 +1066,13 @@ export const claimPendingTurn = authMutation({
       return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
     }
 
+    if (
+      session.pendingTurn.turnId !== undefined &&
+      args.callbackProtocolVersion !== CHAT_TURN_PROTOCOL_VERSION
+    ) {
+      return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+    }
+
     const pendingModel = session.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
@@ -1026,11 +1094,33 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
-    await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+    await ctx.db.patch(args.sessionId, {
+      pendingTurn: undefined,
+      activeTurn:
+        session.pendingTurn.turnId !== undefined &&
+        session.pendingTurn.assistantMessageId !== undefined &&
+        session.pendingTurn.attempt !== undefined
+          ? {
+              turnId: session.pendingTurn.turnId,
+              assistantMessageId: session.pendingTurn.assistantMessageId,
+              attempt: session.pendingTurn.attempt,
+              acceptedAt: Date.now(),
+            }
+          : undefined,
+      daemonTurnProtocolVersion: args.callbackProtocolVersion,
+    });
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    return {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      turnId: session.pendingTurn.turnId,
+      assistantMessageId: session.pendingTurn.assistantMessageId,
+      attempt: session.pendingTurn.attempt,
+    };
   },
 });
 
@@ -1094,11 +1184,19 @@ export const ensurePendingTurn = internalMutation({
     prompt: v.string(),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     model: v.optional(aiModelValidator),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    const turnIdentity = exactTurnIdentity(args);
+    if (
+      turnIdentity !== null &&
+      !callbackMatchesActiveTurn(session, turnIdentity)
+    ) {
+      return null;
+    }
     // One-shot providers push the prompt; restaging would only spam a leftover
     // Claude daemon with claimPendingTurn model-mismatch logs.
     if (
@@ -1130,6 +1228,7 @@ export const ensurePendingTurn = internalMutation({
         ...(args.model !== undefined
           ? { model: normalizeAIModel(args.model) }
           : {}),
+        ...turnIdentity,
       },
       updatedAt: Date.now(),
     });
@@ -1388,6 +1487,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1396,6 +1496,7 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+    if (!callbackMatchesActiveTurn(session, args)) return null;
 
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,

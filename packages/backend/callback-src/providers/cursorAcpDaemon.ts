@@ -1,6 +1,7 @@
 import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import {
   CALLBACK_SCRIPT_FP,
+  CHAT_TURN_PROTOCOL_VERSION,
   CLAIM_MUTATION,
   DAEMON_OPTS_SIG,
   ENTITY_ID,
@@ -27,7 +28,7 @@ import {
   prepareCursorSessionState,
   syncCursorStateToPersist,
 } from "../session/cursorSession.js";
-import type { CursorAcpAttemptResult } from "../types.js";
+import type { CursorAcpAttemptResult, JsonValue } from "../types.js";
 import { log } from "../utils.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
@@ -38,6 +39,10 @@ import {
 import { cursorAcpFailure, cursorAcpResultEvent } from "./cursorAcpResult.js";
 import { resolveDaemonPaths } from "./daemonPaths.js";
 import { ensureDaemonGithubToken } from "./daemonAuth.js";
+import {
+  activeTurnIdentityArgs,
+  setActiveTurnIdentity,
+} from "../runtime/turnIdentity.js";
 import {
   materializeTurnAttachments,
   readClaimedTurn,
@@ -97,13 +102,14 @@ async function finalizeTurn(attempt: CursorAcpAttemptResult): Promise<void> {
   const failure = cursorAcpFailure(attempt);
   const resultEvent = cursorAcpResultEvent(attempt);
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success: failure === null,
     result: resultEvent.result,
     error: failure,
     activityLog: serializeSteps(S.accumulatedSteps),
     rawResultEvent: resultEvent.rawResultEvent,
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (S.pendingQuestionData) {
@@ -122,12 +128,13 @@ async function finalizeTurn(attempt: CursorAcpAttemptResult): Promise<void> {
 
 async function failTurn(message: string): Promise<void> {
   for (const step of S.accumulatedSteps) step.status = "complete";
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success: false,
     result: S.currentStreamedContent || null,
     error: message,
     activityLog: serializeSteps(S.accumulatedSteps),
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   await setFinalizingState();
@@ -210,6 +217,7 @@ export async function runCursorAcpDaemon(): Promise<void> {
         const claimed = await callConvexWithRetry("mutation", claimMutation, {
           [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
           model: MODEL,
+          callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION,
         });
         if (readCancelRequested(claimed)) {
           await requestCancellation("server");
@@ -283,6 +291,7 @@ export async function runCursorAcpDaemon(): Promise<void> {
             const turn = pendingTurn;
             pendingTurn = null;
             resetTurnState();
+            setActiveTurnIdentity(turn.identity);
             activeTurn = true;
             cancellationKind = "none";
             completionAttempted = false;
@@ -319,6 +328,7 @@ export async function runCursorAcpDaemon(): Promise<void> {
               acceptingClaims = false;
               daemonExiting = true;
             } finally {
+              setActiveTurnIdentity(null);
               activeTurn = false;
               cancellationKind = "none";
               resetTurnState();
@@ -364,6 +374,7 @@ export async function runCursorAcpDaemon(): Promise<void> {
     }
   } finally {
     daemonExiting = true;
+    setActiveTurnIdentity(null);
     currentSession = null;
     cleanupDaemonMarkers();
     await stopStreamingLoops();

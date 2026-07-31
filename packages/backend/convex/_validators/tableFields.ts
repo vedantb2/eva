@@ -114,9 +114,31 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const chatTurnIdentityFields = {
+  turnId: v.string(),
+  assistantMessageId: v.id("messages"),
+  attempt: v.number(),
+};
+
+export const chatTurnIdentityValidator = v.object(chatTurnIdentityFields);
+
+export const optionalChatTurnIdentityFields = {
+  turnId: v.optional(v.string()),
+  assistantMessageId: v.optional(v.id("messages")),
+  attempt: v.optional(v.number()),
+};
+
+export const activeTurnFields = {
+  ...chatTurnIdentityFields,
+  acceptedAt: v.number(),
+};
+
+export const activeTurnValidator = v.object(activeTurnFields);
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  ...optionalChatTurnIdentityFields,
   // legacy field, no longer written — cleanup migration later
   turnKind: v.optional(
     v.union(v.literal("conversational"), v.literal("agent")),
@@ -136,6 +158,8 @@ export const chatDaemonEntityFields = {
   // Durable transport ownership. Existing rows omit this field and remain on
   // stream-json; every newly created chat entity explicitly starts on ACP.
   cursorTransport: v.optional(cursorTransportValidator),
+  activeTurn: v.optional(activeTurnValidator),
+  daemonTurnProtocolVersion: v.optional(v.number()),
   pendingTurn: pendingTurnValidator,
   syntheticTurnMessageId: v.optional(v.id("messages")),
   backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
@@ -575,6 +599,8 @@ export const messageFields = {
   // optimistically. Lets the client dedup its local pending row against the
   // server row once the reactive query delivers it.
   clientId: v.optional(v.string()),
+  turnId: v.optional(v.string()),
+  turnRequestFingerprint: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
@@ -603,6 +629,8 @@ export const messageFields = {
 
 export const queuedMessageFields = {
   parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+  turnId: v.optional(v.string()),
+  turnRequestFingerprint: v.optional(v.string()),
   content: v.string(),
   /** Compact chat-display text; `content` remains the full agent message. */
   displayContent: v.optional(v.string()),
@@ -625,6 +653,25 @@ export const queuedMessageFields = {
   numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+};
+
+export const streamingActivityFields = {
+  entityId: v.string(),
+  currentActivity: v.string(),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+  lastUpdatedAt: v.optional(v.number()),
+  ...optionalChatTurnIdentityFields,
+};
+
+export const pendingQuestionFields = {
+  entityId: v.string(),
+  toolUseId: v.string(),
+  payload: v.string(),
+  answer: v.optional(v.string()),
+  answeredAt: v.optional(v.number()),
+  createdAt: v.number(),
+  ...optionalChatTurnIdentityFields,
 };
 
 export const taskSandboxEventFields = {

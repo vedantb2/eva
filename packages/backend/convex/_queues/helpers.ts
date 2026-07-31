@@ -13,6 +13,8 @@ import {
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import type { ExactTurnIdentity } from "../_chat/turnIdentity";
+import type { AcceptedTurnIds } from "../_chat/turnLifecycle";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -48,12 +50,18 @@ type ChatQueueConfig<
     entity: TEntity,
     next: Doc<"queuedMessages">,
   ) => Promise<ChatQueueGuardResult<TPrepared>>;
-  insertUserMessage: (
+  insertMessages: (
     ctx: MutationCtx,
     id: TId,
     entity: TEntity,
     next: Doc<"queuedMessages">,
     prepared: TPrepared,
+    now: number,
+  ) => Promise<AcceptedTurnIds>;
+  installActiveTurn: (
+    ctx: MutationCtx,
+    id: TId,
+    identity: ExactTurnIdentity | null,
     now: number,
   ) => Promise<void>;
   startWorkflow: (
@@ -62,6 +70,7 @@ type ChatQueueConfig<
     entity: TEntity,
     next: Doc<"queuedMessages">,
     prepared: TPrepared,
+    identity: ExactTurnIdentity | null,
   ) => Promise<WorkflowId>;
   /** Patches `updatedAt` and records the started workflow as this entity's active one. */
   onStarted: (
@@ -71,7 +80,12 @@ type ChatQueueConfig<
     now: number,
   ) => Promise<void>;
   /** Inserts an assistant error bubble and touches `updatedAt`. */
-  recordError: (ctx: MutationCtx, id: TId, content: string) => Promise<void>;
+  recordError: (
+    ctx: MutationCtx,
+    id: TId,
+    assistantMessageId: Id<"messages"> | null,
+    content: string,
+  ) => Promise<void>;
   defaultStartErrorMessage: string;
 };
 
@@ -108,7 +122,7 @@ async function startNextQueuedChatMessage<
 
   const guard = await config.prepareGuard(ctx, entity, nextMessage);
   if (!guard.ok) {
-    await config.recordError(ctx, id, guard.error);
+    await config.recordError(ctx, id, null, guard.error);
     return false;
   }
 
@@ -121,7 +135,23 @@ async function startNextQueuedChatMessage<
   await clearStreamingActivity(ctx, config.streamingEntityId(id));
 
   const now = Date.now();
-  await config.insertUserMessage(ctx, id, entity, nextMessage, guard.data, now);
+  const ids = await config.insertMessages(
+    ctx,
+    id,
+    entity,
+    nextMessage,
+    guard.data,
+    now,
+  );
+  const identity =
+    nextMessage.turnId === undefined
+      ? null
+      : {
+          turnId: nextMessage.turnId,
+          assistantMessageId: ids.assistantMessageId,
+          attempt: 1,
+        };
+  await config.installActiveTurn(ctx, id, identity, now);
 
   try {
     const workflowId = await config.startWorkflow(
@@ -130,13 +160,19 @@ async function startNextQueuedChatMessage<
       entity,
       nextMessage,
       guard.data,
+      identity,
     );
     await config.onStarted(ctx, id, workflowId, now);
     return true;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : config.defaultStartErrorMessage;
-    await config.recordError(ctx, id, `Error: ${errorMessage}`);
+    await config.recordError(
+      ctx,
+      id,
+      ids.assistantMessageId,
+      `Error: ${errorMessage}`,
+    );
     return false;
   }
 }
@@ -153,7 +189,8 @@ const sessionQueueConfig: ChatQueueConfig<
   SessionQueuePrepared
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
-  hasActiveWorkflow: (session) => session.activeWorkflowId !== undefined,
+  hasActiveWorkflow: (session) =>
+    session.activeWorkflowId !== undefined || session.activeTurn !== undefined,
   streamingEntityId: (id) => String(id),
   prepareGuard: async (ctx, session, next) => {
     if (!next.mode || !next.model) {
@@ -168,8 +205,8 @@ const sessionQueueConfig: ChatQueueConfig<
     }
     return { ok: true, data: { repo, mode: next.mode, model: next.model } };
   },
-  insertUserMessage: async (ctx, id, session, next, prepared, now) => {
-    await ctx.db.insert("messages", {
+  insertMessages: async (ctx, id, session, next, prepared, now) => {
+    const userMessageId = await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
       content: next.displayContent ?? next.content,
@@ -185,9 +222,30 @@ const sessionQueueConfig: ChatQueueConfig<
       ),
       model: prepared.model,
       reasoningLevel: next.reasoningLevel,
+      turnId: next.turnId,
+      clientId: next.turnId,
+      turnRequestFingerprint: next.turnRequestFingerprint,
+    });
+    const assistantMessageId = await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: "",
+      timestamp: now + 1,
+      mode: prepared.mode,
+      activityLog: "",
+      turnId: next.turnId,
+      clientId: next.turnId,
+    });
+    return { userMessageId, assistantMessageId };
+  },
+  installActiveTurn: async (ctx, id, identity, now) => {
+    await ctx.db.patch(id, {
+      activeTurn:
+        identity === null ? undefined : { ...identity, acceptedAt: now },
+      updatedAt: now,
     });
   },
-  startWorkflow: (ctx, id, session, next, prepared) =>
+  startWorkflow: (ctx, id, session, next, prepared, identity) =>
     workflow.start(ctx, internal.sessionWorkflow.sessionExecuteWorkflow, {
       sessionId: id,
       message: next.content,
@@ -202,19 +260,27 @@ const sessionQueueConfig: ChatQueueConfig<
       numDesigns: next.numDesigns,
       userId: next.userId,
       installationId: prepared.repo.installationId,
+      ...identity,
     }),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
     await trackSessionWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
   },
-  recordError: async (ctx, id, content) => {
-    await ctx.db.insert("messages", {
-      parentId: id,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-    });
-    await ctx.db.patch(id, { updatedAt: Date.now() });
+  recordError: async (ctx, id, assistantMessageId, content) => {
+    if (assistantMessageId === null) {
+      await ctx.db.insert("messages", {
+        parentId: id,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(assistantMessageId, {
+        content,
+        finishedAt: Date.now(),
+      });
+    }
+    await ctx.db.patch(id, { activeTurn: undefined, updatedAt: Date.now() });
   },
   defaultStartErrorMessage: "Failed to start queued message.",
 };
@@ -225,11 +291,13 @@ const projectChatQueueConfig: ChatQueueConfig<
   undefined
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
-  hasActiveWorkflow: (project) => project.activeChatWorkflowId !== undefined,
+  hasActiveWorkflow: (project) =>
+    project.activeChatWorkflowId !== undefined ||
+    project.activeTurn !== undefined,
   streamingEntityId: (id) => `${PROJECT_CHAT_STREAM_PREFIX}${String(id)}`,
   prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, project, next, _prepared, now) => {
-    await ctx.db.insert("messages", {
+  insertMessages: async (ctx, id, project, next, _prepared, now) => {
+    const userMessageId = await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
       content: next.content,
@@ -243,9 +311,30 @@ const projectChatQueueConfig: ChatQueueConfig<
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
+      turnId: next.turnId,
+      clientId: next.turnId,
+      turnRequestFingerprint: next.turnRequestFingerprint,
+    });
+    const assistantMessageId = await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: "",
+      timestamp: now + 1,
+      activityLog: "",
+      turnId: next.turnId,
+      clientId: next.turnId,
+    });
+    return { userMessageId, assistantMessageId };
+  },
+  installActiveTurn: async (ctx, id, identity, now) => {
+    await ctx.db.patch(id, {
+      activeTurn:
+        identity === null ? undefined : { ...identity, acceptedAt: now },
+      updatedAt: now,
+      lastSandboxActivity: now,
     });
   },
-  startWorkflow: (ctx, id, project, next) =>
+  startWorkflow: (ctx, id, project, next, _prepared, identity) =>
     workflow.start(
       ctx,
       internal.projectChatWorkflow.projectChatExecuteWorkflow,
@@ -259,20 +348,32 @@ const projectChatQueueConfig: ChatQueueConfig<
         providerAccountId: project.providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: next.userId,
+        ...identity,
       },
     ),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
     await trackProjectChatWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
   },
-  recordError: async (ctx, id, content) => {
-    await ctx.db.insert("messages", {
-      parentId: id,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
+  recordError: async (ctx, id, assistantMessageId, content) => {
+    if (assistantMessageId === null) {
+      await ctx.db.insert("messages", {
+        parentId: id,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(assistantMessageId, {
+        content,
+        finishedAt: Date.now(),
+      });
+    }
+    await ctx.db.patch(id, {
+      activeTurn: undefined,
+      updatedAt: Date.now(),
+      lastSandboxActivity: Date.now(),
     });
-    await ctx.db.patch(id, { updatedAt: Date.now() });
   },
   defaultStartErrorMessage: "Failed to start queued chat message.",
 };
@@ -283,11 +384,12 @@ const taskChatQueueConfig: ChatQueueConfig<
   undefined
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
-  hasActiveWorkflow: (task) => task.activeChatWorkflowId !== undefined,
+  hasActiveWorkflow: (task) =>
+    task.activeChatWorkflowId !== undefined || task.activeTurn !== undefined,
   streamingEntityId: (id) => `${TASK_CHAT_STREAM_PREFIX}${String(id)}`,
   prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, task, next, _prepared, now) => {
-    await ctx.db.insert("messages", {
+  insertMessages: async (ctx, id, task, next, _prepared, now) => {
+    const userMessageId = await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
       content: next.content,
@@ -301,9 +403,29 @@ const taskChatQueueConfig: ChatQueueConfig<
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
+      turnId: next.turnId,
+      clientId: next.turnId,
+      turnRequestFingerprint: next.turnRequestFingerprint,
+    });
+    const assistantMessageId = await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: "",
+      timestamp: now + 1,
+      activityLog: "",
+      turnId: next.turnId,
+      clientId: next.turnId,
+    });
+    return { userMessageId, assistantMessageId };
+  },
+  installActiveTurn: async (ctx, id, identity, now) => {
+    await ctx.db.patch(id, {
+      activeTurn:
+        identity === null ? undefined : { ...identity, acceptedAt: now },
+      updatedAt: now,
     });
   },
-  startWorkflow: (ctx, id, task, next) =>
+  startWorkflow: (ctx, id, task, next, _prepared, identity) =>
     workflow.start(
       ctx,
       internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
@@ -317,20 +439,28 @@ const taskChatQueueConfig: ChatQueueConfig<
         providerAccountId: task.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: next.userId,
+        ...identity,
       },
     ),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
     await trackAgentTaskChatWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
   },
-  recordError: async (ctx, id, content) => {
-    await ctx.db.insert("messages", {
-      parentId: id,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-    });
-    await ctx.db.patch(id, { updatedAt: Date.now() });
+  recordError: async (ctx, id, assistantMessageId, content) => {
+    if (assistantMessageId === null) {
+      await ctx.db.insert("messages", {
+        parentId: id,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(assistantMessageId, {
+        content,
+        finishedAt: Date.now(),
+      });
+    }
+    await ctx.db.patch(id, { activeTurn: undefined, updatedAt: Date.now() });
   },
   defaultStartErrorMessage: "Failed to start queued chat message.",
 };

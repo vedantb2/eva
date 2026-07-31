@@ -1,5 +1,9 @@
 # Changelog
 
+## Every chat callback now belongs to one exact turn - 2026-07-31
+
+Session, quick-task, and project chat submission is now one atomic Convex operation: the server records the canonical user/assistant pair, decides whether the turn starts or queues, and preserves the same client-created turn ID and request fingerprint through dequeue. The active turn is a durable `(turnId, assistantMessageId, attempt, protocolVersion)` tuple carried through sandbox launch, warm Claude/Cursor daemon claims, streams, questions, screenshots, cancellation, and completion. Every mutation validates that tuple before changing state, final results target the accepted assistant row instead of “latest,” and stale callbacks become harmless. Protocol-versioned claims also prevent an old daemon from taking a v2 turn. This removes the inference races that let delayed work display or overwrite a different reply and supplies a paginated newest-first message query for the frontend migration.
+
 ## Cursor ACP becomes a durable warm chat transport - 2026-07-31
 
 New sessions, projects, and task chats now explicitly own ACP in Convex and run their Cursor turns through one reusable `cursor-agent acp` process and session. The daemon uses the same atomic turn claim, attachment materialisation, pre-completion streaming reconcile, queued-turn parking, protocol cancellation, watchdog, stale-bundle drain, and entity-scoped process markers as Eva's proven Claude path; existing entities without the ownership marker stay on stream-JSON so a conversation can never change transport halfway through its history. Queue staging, cancellation, recovery, page-open prewarm, and sandbox launch now consult that durable marker across all three chat surfaces. Cursor extension events are replay-gated and merge with standard ACP tool lifecycles by tool-call ID, preventing duplicate subagent/image steps as well as prior-session content leakage.

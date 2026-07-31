@@ -34,3 +34,12 @@ export const dataMigrations = new Migrations<DataModel>(components.migrations, {
 
 /** Generic runner: `npx convex run dataMigrations:run '{fn:"dataMigrations:…"}'`. */
 export const run = dataMigrations.runner();
+
+/** Gives every pre-identity queued row a deterministic, rerunnable turn key. */
+export const backfillQueuedTurnIds = dataMigrations.define({
+  table: "queuedMessages",
+  migrateOne: (_ctx, message) => {
+    if (message.turnId !== undefined) return;
+    return { turnId: `legacy-queue:${String(message._id)}` };
+  },
+});

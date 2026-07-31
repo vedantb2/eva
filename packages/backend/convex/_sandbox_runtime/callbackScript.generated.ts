@@ -17,6 +17,12 @@ import {
 
 // callback-src/config.ts
 import { existsSync } from "fs";
+
+// shared/chatTurnProtocol.ts
+var CHAT_TURN_PROTOCOL_VERSION = 2;
+
+// callback-src/config.ts
+var CHAT_TURN_PROTOCOL_VERSION2 = CHAT_TURN_PROTOCOL_VERSION;
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -25,6 +31,13 @@ var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+var TURN_ID = process.env.CHAT_TURN_ID || "";
+var ASSISTANT_MESSAGE_ID = process.env.CHAT_ASSISTANT_MESSAGE_ID || "";
+var TURN_ATTEMPT = Number(process.env.CHAT_TURN_ATTEMPT || "0");
+var CALLBACK_TURN_PROTOCOL_VERSION = Number(
+  process.env.CHAT_TURN_PROTOCOL_VERSION || "0"
+);
+var supportsExactTurnIdentity = CALLBACK_TURN_PROTOCOL_VERSION === CHAT_TURN_PROTOCOL_VERSION2 && TURN_ID.length > 0 && ASSISTANT_MESSAGE_ID.length > 0 && Number.isSafeInteger(TURN_ATTEMPT) && TURN_ATTEMPT > 0;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
@@ -627,7 +640,35 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
+// callback-src/runtime/turnIdentity.ts
+var activeTurnIdentity = supportsExactTurnIdentity ? {
+  turnId: TURN_ID,
+  assistantMessageId: ASSISTANT_MESSAGE_ID,
+  attempt: TURN_ATTEMPT
+} : null;
+function setActiveTurnIdentity(identity) {
+  activeTurnIdentity = identity;
+}
+function activeTurnIdentityArgs() {
+  if (activeTurnIdentity === null) return {};
+  return {
+    turnId: activeTurnIdentity.turnId,
+    assistantMessageId: activeTurnIdentity.assistantMessageId,
+    attempt: activeTurnIdentity.attempt
+  };
+}
+
 // callback-src/http/convexClient.ts
+function appendActiveTurnIdentity(body) {
+  const identity = activeTurnIdentityArgs();
+  if (identity.turnId !== void 0) body.set("turnId", identity.turnId);
+  if (identity.assistantMessageId !== void 0) {
+    body.set("assistantMessageId", identity.assistantMessageId);
+  }
+  if (identity.attempt !== void 0) {
+    body.set("attempt", String(identity.attempt));
+  }
+}
 async function fetchWithTimeout(url2, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -684,6 +725,7 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
+    appendActiveTurnIdentity(body);
     const res = await fetchWithTimeout(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       {
@@ -700,7 +742,10 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     }
     return res.text();
   }
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  return await callConvex("mutation", "streaming:touch", {
+    entityId,
+    ...activeTurnIdentityArgs()
+  });
 }
 async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -709,6 +754,7 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendActiveTurnIdentity(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
@@ -729,7 +775,8 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
   const args = {
     entityId,
     currentActivity,
-    currentContent
+    currentContent,
+    ...activeTurnIdentityArgs()
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
@@ -1974,7 +2021,8 @@ async function persistTaskProofIfNeeded(uploaded) {
     }
     const mediaArgs = {
       parentId: ENTITY_ID ?? "",
-      mediaStorageIds: uploaded.map((item) => item.storageId)
+      mediaStorageIds: uploaded.map((item) => item.storageId),
+      ...activeTurnIdentityArgs()
     };
     await callConvexWithRetry(
       "action",
@@ -4251,7 +4299,8 @@ async function postQuestion(toolUseId, payload) {
   await callConvexWithRetry("mutation", "pendingQuestions:post", {
     entityId: ENTITY_ID ?? "",
     toolUseId,
-    payload
+    payload,
+    ...activeTurnIdentityArgs()
   });
 }
 async function pollForAnswer(toolUseId, signal) {
@@ -4259,7 +4308,11 @@ async function pollForAnswer(toolUseId, signal) {
     const result = await callConvexWithRetry(
       "mutation",
       "pendingQuestions:claimAnswer",
-      { entityId: ENTITY_ID ?? "", toolUseId }
+      {
+        entityId: ENTITY_ID ?? "",
+        toolUseId,
+        ...activeTurnIdentityArgs()
+      }
     );
     const answer = readClaimedAnswer(result);
     if (answer !== null) return answer;
@@ -4566,7 +4619,12 @@ function readClaimedTurn(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url2) => typeof url2 === "string"
   ) : [];
-  return { prompt: payload.prompt, attachmentUrls };
+  const identity = typeof payload.turnId === "string" && typeof payload.assistantMessageId === "string" && typeof payload.attempt === "number" && Number.isSafeInteger(payload.attempt) && payload.attempt > 0 ? {
+    turnId: payload.turnId,
+    assistantMessageId: payload.assistantMessageId,
+    attempt: payload.attempt
+  } : null;
+  return { prompt: payload.prompt, attachmentUrls, identity };
 }
 function attachmentExtensionForMimeType(mimeType) {
   const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
@@ -4719,7 +4777,8 @@ async function failTurnAndExit(error40) {
       result: null,
       error: error40,
       activityLog: serializeSteps(callbackState.accumulatedSteps),
-      ...RUN_ID ? { runId: RUN_ID } : {}
+      ...RUN_ID ? { runId: RUN_ID } : {},
+      ...activeTurnIdentityArgs()
     });
   } catch {
   }
@@ -4838,7 +4897,8 @@ async function finalizeTurn(output) {
     success: success2,
     result: resultEvent?.result ?? callbackState.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
-    activityLog
+    activityLog,
+    ...activeTurnIdentityArgs()
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (resultEvent?.rawResultEvent) {
@@ -5171,6 +5231,7 @@ async function finalizeSyntheticTurn(output) {
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
+  setActiveTurnIdentity(turn.identity);
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
@@ -5210,7 +5271,10 @@ function startClaimWatcher(agentRunner) {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL })
+          entityMutationArgs({
+            model: MODEL,
+            callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION2
+          })
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -5291,6 +5355,7 @@ async function runDaemonMessagePump(agentRunner) {
         continue;
       }
       resetTurnState();
+      setActiveTurnIdentity(null);
       daemonTurn = null;
       agentTurnOutput = "";
       turnCancelInFlight = false;
@@ -5339,6 +5404,7 @@ async function runDaemonMessagePump(agentRunner) {
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
       );
       daemonTurn = null;
+      setActiveTurnIdentity(null);
     }
     if (pendingClaimedTurn !== null && daemonTurn === null) {
       const parked = pendingClaimedTurn;
@@ -5483,7 +5549,8 @@ async function runSdkDaemon() {
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...activeTurnIdentityArgs()
       });
     } catch {
     }
@@ -25198,7 +25265,8 @@ async function finalizeTurn2(attempt) {
     result: resultEvent.result,
     error: failure,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
-    rawResultEvent: resultEvent.rawResultEvent
+    rawResultEvent: resultEvent.rawResultEvent,
+    ...activeTurnIdentityArgs()
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (callbackState.pendingQuestionData) {
@@ -25218,7 +25286,8 @@ async function failTurn(message) {
     success: false,
     result: callbackState.currentStreamedContent || null,
     error: message,
-    activityLog: serializeSteps(callbackState.accumulatedSteps)
+    activityLog: serializeSteps(callbackState.accumulatedSteps),
+    ...activeTurnIdentityArgs()
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   await setFinalizingState();
@@ -25287,7 +25356,8 @@ async function runCursorAcpDaemon() {
       try {
         const claimed = await callConvexWithRetry("mutation", claimMutation, {
           [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
-          model: MODEL
+          model: MODEL,
+          callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION2
         });
         if (readCancelRequested(claimed)) {
           await requestCancellation("server");
@@ -25349,6 +25419,7 @@ async function runCursorAcpDaemon() {
             const turn = pendingTurn;
             pendingTurn = null;
             resetTurnState2();
+            setActiveTurnIdentity(turn.identity);
             activeTurn = true;
             cancellationKind = "none";
             completionAttempted = false;
@@ -25383,6 +25454,7 @@ async function runCursorAcpDaemon() {
               acceptingClaims = false;
               daemonExiting2 = true;
             } finally {
+              setActiveTurnIdentity(null);
               activeTurn = false;
               cancellationKind = "none";
               resetTurnState2();
@@ -25418,6 +25490,7 @@ async function runCursorAcpDaemon() {
     }
   } finally {
     daemonExiting2 = true;
+    setActiveTurnIdentity(null);
     currentSession = null;
     cleanupDaemonMarkers();
     await stopStreamingLoops();
@@ -25675,7 +25748,8 @@ try {
     success: completionSuccess,
     result: finalResultEvent?.result ?? callbackState.rawOutput,
     error: errorValue,
-    activityLog
+    activityLog,
+    ...activeTurnIdentityArgs()
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (finalResultEvent?.rawResultEvent) {
@@ -25715,7 +25789,8 @@ try {
     error: appendDiagnosticTail(
       err instanceof Error ? err.message : "Failed to run " + (PROVIDER === "codex" ? "Codex" : PROVIDER === "opencode" ? "Opencode" : PROVIDER === "cursor" ? "Cursor" : "Claude") + " CLI"
     ),
-    activityLog: serializeSteps(callbackState.accumulatedSteps)
+    activityLog: serializeSteps(callbackState.accumulatedSteps),
+    ...activeTurnIdentityArgs()
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {

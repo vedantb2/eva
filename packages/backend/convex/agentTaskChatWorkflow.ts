@@ -20,7 +20,10 @@ import {
   clearStreamingActivity,
   resolveTaskBranchName,
 } from "./_taskWorkflow/helpers";
-import { finalizeCancelledAssistantMessage } from "./streaming";
+import {
+  clearStreamingActivityForTurn,
+  finalizeCancelledAssistantMessage,
+} from "./streaming";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
 import {
   trackAgentTaskChatWorkflow,
@@ -33,6 +36,31 @@ import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credential
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 import { usesChatDaemon } from "./_chat/daemonTransport";
+import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
+import {
+  callbackMatchesActiveTurn,
+  exactTurnIdentity,
+  turnIdentityMatches,
+} from "./_chat/turnIdentity";
+import {
+  enqueueAcceptedTurn,
+  findExistingTurn,
+  insertAcceptedTurnMessages,
+  turnRequestFingerprint,
+  validateClientTurnId,
+} from "./_chat/turnLifecycle";
+
+const submitTurnResultValidator = v.object({
+  kind: v.union(
+    v.literal("active"),
+    v.literal("queued"),
+    v.literal("existing"),
+  ),
+  turnId: v.string(),
+  userMessageId: v.optional(v.id("messages")),
+  assistantMessageId: v.optional(v.id("messages")),
+  queuedMessageId: v.optional(v.id("queuedMessages")),
+});
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -121,6 +149,150 @@ export const agentTaskChatCompleteEvent = defineEvent({
 });
 
 // --- Public mutations ---
+
+/** Atomically accepts one task chat turn and chooses active or queued. */
+export const submitTurn = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    turnId: v.string(),
+    message: v.string(),
+    model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
+    thinkingEnabled: v.optional(v.boolean()),
+    use1mContext: v.optional(v.boolean()),
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  },
+  returns: submitTurnResultValidator,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<typeof submitTurnResultValidator.type> => {
+    validateClientTurnId(args.turnId);
+    const content = args.message.trim();
+    if (content.length === 0) throw new Error("Message cannot be empty");
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (
+      !task.repoId ||
+      !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
+    ) {
+      throw new Error("Not authorized");
+    }
+
+    void args.providerAccountId;
+    const normalizedModel = normalizeAIModel(args.model);
+    const snapshot = {
+      content,
+      model: normalizedModel,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      providerAccountId: task.providerAccountId,
+      attachmentStorageIds: args.attachmentStorageIds,
+    };
+    const fingerprint = turnRequestFingerprint(snapshot);
+    const existing = await findExistingTurn(
+      ctx,
+      args.taskId,
+      args.turnId,
+      fingerprint,
+    );
+    if (existing !== null) {
+      return {
+        kind: "existing",
+        turnId: args.turnId,
+        ...(existing.kind === "queued"
+          ? { queuedMessageId: existing.queuedMessageId }
+          : {
+              userMessageId: existing.userMessageId,
+              assistantMessageId: existing.assistantMessageId,
+            }),
+      };
+    }
+
+    const busy =
+      task.activeTurn !== undefined ||
+      task.activeChatWorkflowId !== undefined ||
+      task.pendingTurn !== undefined;
+    if (busy) {
+      const queuedMessageId = await enqueueAcceptedTurn(ctx, {
+        parentId: args.taskId,
+        turnId: args.turnId,
+        fingerprint,
+        userId: ctx.userId,
+        snapshot,
+      });
+      await ctx.db.patch(args.taskId, {
+        lastChatModel: normalizedModel,
+        lastReasoningLevel: args.reasoningLevel,
+        lastThinkingEnabled: args.thinkingEnabled,
+        lastUse1mContext: args.use1mContext,
+        updatedAt: Date.now(),
+      });
+      return { kind: "queued", turnId: args.turnId, queuedMessageId };
+    }
+
+    const ids = await insertAcceptedTurnMessages(ctx, {
+      parentId: args.taskId,
+      turnId: args.turnId,
+      fingerprint,
+      userId: ctx.userId,
+      content,
+      attachmentStorageIds: args.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        task.providerAccountId,
+        task.createdBy,
+      ),
+      model: normalizedModel,
+      reasoningLevel: args.reasoningLevel,
+    });
+    const activeTurn = {
+      turnId: args.turnId,
+      assistantMessageId: ids.assistantMessageId,
+      attempt: 1,
+      acceptedAt: Date.now(),
+    };
+    await ctx.db.patch(args.taskId, {
+      activeTurn,
+      lastChatModel: normalizedModel,
+      lastReasoningLevel: args.reasoningLevel,
+      lastThinkingEnabled: args.thinkingEnabled,
+      lastUse1mContext: args.use1mContext,
+      updatedAt: Date.now(),
+    });
+    await clearStreamingActivity(
+      ctx,
+      `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
+    );
+    const workflowId = await workflow.start(
+      ctx,
+      internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
+      {
+        taskId: args.taskId,
+        message: content,
+        model: normalizedModel,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        providerAccountId: task.providerAccountId,
+        credentialOwnerUserId: task.createdBy,
+        userId: ctx.userId,
+        turnId: activeTurn.turnId,
+        assistantMessageId: activeTurn.assistantMessageId,
+        attempt: activeTurn.attempt,
+      },
+    );
+    await trackAgentTaskChatWorkflow(ctx, args.taskId, workflowId);
+    return {
+      kind: "active",
+      turnId: args.turnId,
+      userMessageId: ids.userMessageId,
+      assistantMessageId: ids.assistantMessageId,
+    };
+  },
+});
 
 /** Inserts a user chat message into the task conversation. */
 export const addMessage = authMutation({
@@ -345,6 +517,7 @@ export const enqueueMessage = authMutation({
 export const cancelExecution = authMutation({
   args: {
     taskId: v.id("agentTasks"),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -355,6 +528,57 @@ export const cancelExecution = authMutation({
       !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
     ) {
       throw new Error("Not authorized");
+    }
+
+    const turnIdentity = exactTurnIdentity(args);
+    if (task.activeTurn !== undefined) {
+      if (
+        turnIdentity === null ||
+        !callbackMatchesActiveTurn(task, turnIdentity)
+      ) {
+        return null;
+      }
+      await cancelTrackedWorkflow(ctx, task.activeChatWorkflowId);
+      if (
+        usesChatDaemon(task.lastChatModel ?? task.model, task.cursorTransport)
+      ) {
+        await ctx.db.patch(args.taskId, { cancelRequestedAt: Date.now() });
+      } else if (task.sandboxId && task.repoId) {
+        await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
+          sandboxId: task.sandboxId,
+          repoId: task.repoId,
+        });
+      }
+      const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
+      const streaming = await ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
+        .first();
+      const assistant = await ctx.db.get(turnIdentity.assistantMessageId);
+      if (
+        assistant !== null &&
+        assistant.parentId === args.taskId &&
+        assistant.turnId === turnIdentity.turnId &&
+        assistant.finishedAt === undefined
+      ) {
+        await finalizeCancelledAssistantMessage(
+          ctx,
+          assistant,
+          streaming !== null && turnIdentityMatches(streaming, turnIdentity)
+            ? streaming
+            : null,
+        );
+      }
+      await clearStreamingActivityForTurn(ctx, streamingEntityId, turnIdentity);
+      await ctx.db.patch(args.taskId, {
+        activeTurn: undefined,
+        activeChatWorkflowId: undefined,
+        pendingTurn: undefined,
+        syntheticTurnMessageId: undefined,
+        updatedAt: Date.now(),
+      });
+      await startNextQueuedTaskChatMessage(ctx, args.taskId);
+      return null;
     }
 
     await cancelTrackedWorkflow(ctx, task.activeChatWorkflowId);
@@ -466,11 +690,13 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
+    ...optionalChatTurnIdentityFields,
   },
   handler: async (step, args): Promise<void> => {
+    const turnIdentity = exactTurnIdentity(args);
     await step.runMutation(
       internal.agentTaskChatWorkflow.addAssistantPlaceholder,
-      { taskId: args.taskId },
+      { taskId: args.taskId, ...turnIdentity },
     );
 
     const data = await step.runQuery(
@@ -491,6 +717,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         error:
           "No active sandbox. Start the task sandbox before sending chat messages.",
         activityLog: null,
+        ...turnIdentity,
       });
       return;
     }
@@ -518,6 +745,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
             ? error.message
             : "Task sandbox could not be restored from cold storage. Please retry.",
         activityLog: null,
+        ...turnIdentity,
       });
       return;
     }
@@ -531,6 +759,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         error:
           "No active sandbox. Start the task sandbox before sending chat messages.",
         activityLog: null,
+        ...turnIdentity,
       });
       return;
     }
@@ -549,6 +778,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         error:
           "Task sandbox is no longer reachable. Restart it from the sandbox panel.",
         activityLog: null,
+        ...turnIdentity,
       });
       return;
     }
@@ -559,6 +789,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         prompt: data.prompt,
         attachmentStorageIds: data.attachmentStorageIds,
         model: args.model,
+        ...turnIdentity,
       });
 
       await step.runAction(internal.sandbox.prewarmEntityDaemon, {
@@ -601,6 +832,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         sessionPersistenceId: args.taskId,
         streamingEntityId,
         attachmentStorageIds: data.attachmentStorageIds,
+        turnIdentity: turnIdentity ?? undefined,
       });
     }
 
@@ -635,6 +867,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       error: savedError,
       activityLog: result.activityLog,
       pendingQuestion: result.pendingQuestion,
+      ...turnIdentity,
     });
 
     // Fire a detached audit when the task has chat audit enabled. No-ops when
@@ -659,11 +892,27 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
 
 /** Inserts an empty assistant message into the task chat for streaming updates. */
 export const addAssistantPlaceholder = internalMutation({
-  args: { taskId: v.id("agentTasks") },
+  args: {
+    taskId: v.id("agentTasks"),
+    ...optionalChatTurnIdentityFields,
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
+    const turnIdentity = exactTurnIdentity(args);
+    if (turnIdentity !== null) {
+      const assistant = await ctx.db.get(turnIdentity.assistantMessageId);
+      if (
+        assistant === null ||
+        assistant.parentId !== args.taskId ||
+        assistant.turnId !== turnIdentity.turnId ||
+        assistant.role !== "assistant"
+      ) {
+        throw new Error("Accepted task turn is missing its assistant row");
+      }
+      return null;
+    }
 
     const recent = await ctx.db
       .query("messages")
@@ -758,20 +1007,34 @@ export const saveResult = internalMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
-    await clearStreamingActivity(ctx, streamingEntityId);
-
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
-
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
-      .order("desc")
-      .first();
+    const turnIdentity = exactTurnIdentity(args);
+    let last: Doc<"messages"> | null;
+    if (turnIdentity !== null) {
+      if (!callbackMatchesActiveTurn(task, turnIdentity)) return null;
+      await clearStreamingActivityForTurn(ctx, streamingEntityId, turnIdentity);
+      last = await ctx.db.get(turnIdentity.assistantMessageId);
+      if (
+        last === null ||
+        last.parentId !== args.taskId ||
+        last.turnId !== turnIdentity.turnId
+      ) {
+        return null;
+      }
+    } else {
+      await clearStreamingActivity(ctx, streamingEntityId);
+      last = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
+        .order("desc")
+        .first();
+    }
     if (last && last.role === "assistant" && last.isSyntheticTurn !== true) {
       const patch: {
         content: string;
@@ -791,6 +1054,7 @@ export const saveResult = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      ...(turnIdentity !== null ? { activeTurn: undefined } : {}),
       updatedAt: Date.now(),
     });
 
@@ -809,6 +1073,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -818,6 +1083,7 @@ export const handleCompletion = authMutation({
     if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    if (!callbackMatchesActiveTurn(task, args)) return null;
 
     if (task.pendingTurn !== undefined) {
       await ctx.db.patch(args.taskId, { pendingTurn: undefined });

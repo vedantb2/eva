@@ -1,4 +1,7 @@
 import { existsSync } from "fs";
+import { CHAT_TURN_PROTOCOL_VERSION as CURRENT_CHAT_TURN_PROTOCOL_VERSION } from "../shared/chatTurnProtocol.js";
+
+export const CHAT_TURN_PROTOCOL_VERSION = CURRENT_CHAT_TURN_PROTOCOL_VERSION;
 
 export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -8,6 +11,18 @@ export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+export const TURN_ID = process.env.CHAT_TURN_ID || "";
+export const ASSISTANT_MESSAGE_ID = process.env.CHAT_ASSISTANT_MESSAGE_ID || "";
+export const TURN_ATTEMPT = Number(process.env.CHAT_TURN_ATTEMPT || "0");
+export const CALLBACK_TURN_PROTOCOL_VERSION = Number(
+  process.env.CHAT_TURN_PROTOCOL_VERSION || "0",
+);
+export const supportsExactTurnIdentity =
+  CALLBACK_TURN_PROTOCOL_VERSION === CHAT_TURN_PROTOCOL_VERSION &&
+  TURN_ID.length > 0 &&
+  ASSISTANT_MESSAGE_ID.length > 0 &&
+  Number.isSafeInteger(TURN_ATTEMPT) &&
+  TURN_ATTEMPT > 0;
 export const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */

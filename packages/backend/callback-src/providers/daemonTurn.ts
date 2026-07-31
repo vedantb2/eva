@@ -2,10 +2,12 @@ import { writeFileSync } from "node:fs";
 import { fetchWithTimeout } from "../http/convexClient.js";
 import type { JsonValue } from "../types.js";
 import { log } from "../utils.js";
+import type { ChatTurnIdentity } from "../../shared/chatTurnProtocol.js";
 
 export type ClaimedTurn = {
   prompt: string;
   attachmentUrls: string[];
+  identity: ChatTurnIdentity | null;
 };
 
 function readClaimPayload(result: JsonValue): Record<string, JsonValue> | null {
@@ -29,7 +31,19 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
         (url): url is string => typeof url === "string",
       )
     : [];
-  return { prompt: payload.prompt, attachmentUrls };
+  const identity =
+    typeof payload.turnId === "string" &&
+    typeof payload.assistantMessageId === "string" &&
+    typeof payload.attempt === "number" &&
+    Number.isSafeInteger(payload.attempt) &&
+    payload.attempt > 0
+      ? {
+          turnId: payload.turnId,
+          assistantMessageId: payload.assistantMessageId,
+          attempt: payload.attempt,
+        }
+      : null;
+  return { prompt: payload.prompt, attachmentUrls, identity };
 }
 
 /** Mirrors attachmentExtensionForMimeType in Convex's sandbox runtime. */

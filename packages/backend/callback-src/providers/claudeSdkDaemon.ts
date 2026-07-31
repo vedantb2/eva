@@ -1,6 +1,7 @@
 import { unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
   CLAIM_MUTATION,
+  CHAT_TURN_PROTOCOL_VERSION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
   CALLBACK_SCRIPT_FP,
@@ -55,6 +56,10 @@ import {
   type ClaimedTurn,
 } from "./daemonTurn.js";
 import { ensureDaemonGithubToken } from "./daemonAuth.js";
+import {
+  activeTurnIdentityArgs,
+  setActiveTurnIdentity,
+} from "../runtime/turnIdentity.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -188,6 +193,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
+      ...activeTurnIdentityArgs(),
     });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -348,12 +354,13 @@ async function finalizeTurn(output: string): Promise<void> {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (resultEvent?.rawResultEvent) {
@@ -779,6 +786,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
   resetTurnState();
+  setActiveTurnIdentity(turn.identity);
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
@@ -828,7 +836,10 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL }),
+          entityMutationArgs({
+            model: MODEL,
+            callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION,
+          }),
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -947,6 +958,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       // the cancel. Reset per-turn state and let the pump either pick up a
       // parked turn (next loop iteration) or go idle.
       resetTurnState();
+      setActiveTurnIdentity(null);
       daemonTurn = null;
       agentTurnOutput = "";
       turnCancelInFlight = false;
@@ -1005,6 +1017,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
       daemonTurn = null;
+      setActiveTurnIdentity(null);
     }
     // Leave any already-queued SDK messages in the pump. The next loop
     // iteration will ensureSyntheticTurn() / handle them — draining here
@@ -1230,6 +1243,7 @@ export async function runSdkDaemon(): Promise<void> {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...activeTurnIdentityArgs(),
       });
     } catch {
       /* ignore */

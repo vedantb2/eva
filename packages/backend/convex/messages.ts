@@ -1,9 +1,13 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation } from "./functions";
 import { variationValidator, messageFields } from "./validators";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import {
   appendMediaStorageIds,
   messageMediaStorageIds,
@@ -54,6 +58,14 @@ async function resolveMessageUrls(
     .query("messages")
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .collect();
+  return await resolveMessagesUrls(ctx, messages);
+}
+
+/** Resolves storage only for the documents in the current result page. */
+async function resolveMessagesUrls(
+  ctx: Pick<QueryCtx, "storage">,
+  messages: Doc<"messages">[],
+) {
   return Promise.all(
     messages.map(async (m) => {
       const attachmentEntries = m.attachmentStorageIds
@@ -146,5 +158,60 @@ export const updateLastInternal = internalMutation({
 
     await ctx.db.patch(last._id, patch);
     return null;
+  },
+});
+
+/** Newest-first reactive pages; clients reverse loaded results for chronology. */
+export const listByParentPaginated = authQuery({
+  args: {
+    parentId: parentIdValidator,
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(messageValidator),
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+      .order("desc")
+      .paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: await resolveMessagesUrls(ctx, result.page),
+    };
+  },
+});
+
+/** Applies callback output to one explicitly owned assistant row. */
+export const updateExactInternal = internalMutation({
+  args: {
+    parentId: parentIdValidator,
+    turnId: v.string(),
+    assistantMessageId: v.id("messages"),
+    attempt: v.number(),
+    content: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
+    mediaStorageIds: v.optional(v.array(v.id("_storage"))),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    void args.attempt;
+    const message = await ctx.db.get(args.assistantMessageId);
+    if (
+      message === null ||
+      message.parentId !== args.parentId ||
+      message.turnId !== args.turnId ||
+      message.role !== "assistant"
+    ) {
+      return false;
+    }
+    const mediaStorageIds = appendMediaStorageIds(message.mediaStorageIds, {
+      mediaStorageIds: args.mediaStorageIds,
+    });
+    await ctx.db.patch(args.assistantMessageId, {
+      content: args.content,
+      activityLog: args.activityLog,
+      mediaStorageIds,
+    });
+    return true;
   },
 });

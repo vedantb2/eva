@@ -3,17 +3,19 @@ import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
+import { aiModelValidator, normalizeAIModel } from "../validators";
 import {
-  aiModelValidator,
-  getAIModelProvider,
-  normalizeAIModel,
-} from "../validators";
-import { backgroundAgentEntryValidator } from "../_validators/tableFields";
+  backgroundAgentEntryValidator,
+  optionalChatTurnIdentityFields,
+} from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedTaskChatMessage } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { CHAT_TURN_PROTOCOL_VERSION } from "../../shared/chatTurnProtocol";
+import { usesChatDaemon } from "./daemonTransport";
+import { callbackMatchesActiveTurn, exactTurnIdentity } from "./turnIdentity";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -36,12 +38,15 @@ export const claimPendingTurn = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     model: v.optional(aiModelValidator),
+    ...optionalChatTurnIdentityFields,
+    callbackProtocolVersion: v.optional(v.number()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    ...optionalChatTurnIdentityFields,
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -78,6 +83,13 @@ export const claimPendingTurn = authMutation({
       return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
     }
 
+    if (
+      task.pendingTurn.turnId !== undefined &&
+      args.callbackProtocolVersion !== CHAT_TURN_PROTOCOL_VERSION
+    ) {
+      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+    }
+
     const pendingModel = task.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
@@ -95,8 +107,30 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
-    await ctx.db.patch(args.taskId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    await ctx.db.patch(args.taskId, {
+      pendingTurn: undefined,
+      activeTurn:
+        task.pendingTurn.turnId !== undefined &&
+        task.pendingTurn.assistantMessageId !== undefined &&
+        task.pendingTurn.attempt !== undefined
+          ? {
+              turnId: task.pendingTurn.turnId,
+              assistantMessageId: task.pendingTurn.assistantMessageId,
+              attempt: task.pendingTurn.attempt,
+              acceptedAt: Date.now(),
+            }
+          : undefined,
+      daemonTurnProtocolVersion: args.callbackProtocolVersion,
+    });
+    return {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      turnId: task.pendingTurn.turnId,
+      assistantMessageId: task.pendingTurn.assistantMessageId,
+      attempt: task.pendingTurn.attempt,
+    };
   },
 });
 
@@ -290,22 +324,33 @@ export const ensurePendingTurn = internalMutation({
     prompt: v.string(),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     model: v.optional(aiModelValidator),
+    ...optionalChatTurnIdentityFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task || task.pendingTurn) return null;
+    const turnIdentity = exactTurnIdentity(args);
     if (
-      args.model !== undefined &&
-      getAIModelProvider(normalizeAIModel(args.model)) !== "claude"
+      turnIdentity !== null &&
+      !callbackMatchesActiveTurn(task, turnIdentity)
     ) {
       return null;
     }
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
-      .order("desc")
-      .first();
+    if (
+      args.model !== undefined &&
+      !usesChatDaemon(args.model, task.cursorTransport)
+    ) {
+      return null;
+    }
+    const last =
+      turnIdentity === null
+        ? await ctx.db
+            .query("messages")
+            .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
+            .order("desc")
+            .first()
+        : await ctx.db.get(turnIdentity.assistantMessageId);
     if (
       !last ||
       last.role !== "assistant" ||
@@ -319,6 +364,7 @@ export const ensurePendingTurn = internalMutation({
         prompt: args.prompt,
         requestedAt: Date.now(),
         attachmentStorageIds: args.attachmentStorageIds,
+        ...turnIdentity,
         ...(args.model !== undefined
           ? { model: normalizeAIModel(args.model) }
           : {}),

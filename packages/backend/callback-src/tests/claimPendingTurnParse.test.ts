@@ -18,6 +18,27 @@ describe("readClaimedTurn", () => {
     ).toEqual({
       prompt: "current prompt",
       attachmentUrls: ["https://files.test/a"],
+      identity: null,
+    });
+  });
+
+  test("preserves an exact v2 turn identity", () => {
+    expect(
+      readClaimedTurn({
+        prompt: "current prompt",
+        attachmentUrls: [],
+        turnId: "2c2d6de9-9e86-4bd9-a365-8ab42de9f115",
+        assistantMessageId: "message-id",
+        attempt: 2,
+      }),
+    ).toEqual({
+      prompt: "current prompt",
+      attachmentUrls: [],
+      identity: {
+        turnId: "2c2d6de9-9e86-4bd9-a365-8ab42de9f115",
+        assistantMessageId: "message-id",
+        attempt: 2,
+      },
     });
   });
 

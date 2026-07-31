@@ -1,6 +1,7 @@
 import { CLAIM_MUTATION, ENTITY_ID } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
+import { activeTurnIdentityArgs } from "./turnIdentity.js";
 import type { JsonValue } from "../types.js";
 import type { SdkCanUseTool } from "../providers/claudeSdk.js";
 import { log } from "../utils.js";
@@ -38,6 +39,7 @@ async function postQuestion(toolUseId: string, payload: string): Promise<void> {
     entityId: ENTITY_ID ?? "",
     toolUseId,
     payload,
+    ...activeTurnIdentityArgs(),
   });
 }
 
@@ -50,7 +52,11 @@ async function pollForAnswer(
     const result = await callConvexWithRetry(
       "mutation",
       "pendingQuestions:claimAnswer",
-      { entityId: ENTITY_ID ?? "", toolUseId },
+      {
+        entityId: ENTITY_ID ?? "",
+        toolUseId,
+        ...activeTurnIdentityArgs(),
+      },
     );
     const answer = readClaimedAnswer(result);
     if (answer !== null) return answer;

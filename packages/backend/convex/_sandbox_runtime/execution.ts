@@ -44,6 +44,7 @@ import {
 } from "./convexLocalBackend";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+import { chatTurnIdentityFields } from "../_validators/tableFields";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -1493,6 +1494,7 @@ export const launchOnExistingSandbox = internalAction({
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
     credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    turnIdentity: v.optional(v.object(chatTurnIdentityFields)),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1577,6 +1579,7 @@ export const launchOnExistingSandbox = internalAction({
         claudeSessionId,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
+        turnIdentity: args.turnIdentity,
         enableMcp: true,
       },
     );

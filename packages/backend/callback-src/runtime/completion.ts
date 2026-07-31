@@ -464,6 +464,20 @@ export function buildErrorMessage(
       cliName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms"
     );
   }
+  // Signal kills (128 + signal number) reached here only when no timeout flag
+  // fired, so the process was stopped by something outside the callback: a new
+  // message cancelling the run, the sandbox being stopped or hitting its
+  // timeout, or the kernel OOM-killer. Report it as an interruption, not a raw
+  // exit code — an interrupted turn is never a success.
+  if (code === 137 || code === 143) {
+    return (
+      cliName +
+      (code === 137
+        ? " was killed before it finished — the sandbox ran out of memory."
+        : " was stopped before it finished — the run was interrupted.") +
+      " This usually means the sandbox was stopped or a new message cancelled the run, so nothing was completed. Send the request again on a running sandbox."
+    );
+  }
   return cliName + " exited with code " + code;
 }
 

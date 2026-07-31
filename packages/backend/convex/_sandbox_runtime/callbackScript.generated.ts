@@ -1906,6 +1906,9 @@ function buildErrorMessage(code, fatalHeartbeatError, toolStallError, timedOutFo
   if (timedOutForNoOutput) {
     return cliName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
   }
+  if (code === 137 || code === 143) {
+    return cliName + (code === 137 ? " was killed before it finished \\u2014 the sandbox ran out of memory." : " was stopped before it finished \\u2014 the run was interrupted.") + " This usually means the sandbox was stopped or a new message cancelled the run, so nothing was completed. Send the request again on a running sandbox.";
+  }
   return cliName + " exited with code " + code;
 }
 function appendDiagnosticTail(message) {
@@ -5618,8 +5621,9 @@ try {
     log("skipping post-attempt sync because result-event sync already ran");
   }
   await setFinalizingState();
+  const killedBySignal = finalCode > 128;
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
-  const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError;
+  const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !killedBySignal;
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
@@ -5654,7 +5658,7 @@ try {
   }
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(callbackState.accumulatedSteps);
-  let completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  let completionSuccess = killedBySignal ? false : finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }

@@ -210,6 +210,17 @@ try {
 
   await setFinalizingState();
 
+  // A signal-kill exit (SIGTERM=143, SIGKILL=137 — anything above 128) means the
+  // agent process was stopped externally: a cancel, a sandbox stop or timeout,
+  // an OOM, or a prior turn's kill landing on this one. Cursor can still flush a
+  // partial `type:result`, and extractResultEvent otherwise falls back to the
+  // last streamed assistant text, so finalResultEvent looks non-error even
+  // though nothing finished. Without this guard an interrupted recording turn
+  // reported success with the agent's "recording now…" preamble as its final
+  // answer. A healthy one-shot agent always exits 0, so this never misfires on a
+  // genuine completion.
+  const killedBySignal = finalCode > 128;
+
   const attemptEndedDueToTimeout =
     finalTimedOutAfterFirstText ||
     finalTimedOutForNoOutput ||
@@ -220,7 +231,7 @@ try {
     Boolean(finalToolStallErrorMessage);
 
   const runSucceededWithResult =
-    finalResultEvent != null && !finalResultEvent.isError;
+    finalResultEvent != null && !finalResultEvent.isError && !killedBySignal;
 
   let errorValue: string | null = null;
   if (finalResultEvent?.isError) {
@@ -273,9 +284,11 @@ try {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
 
-  let completionSuccess = finalResultEvent
-    ? !finalResultEvent.isError
-    : finalCode === 0;
+  let completionSuccess = killedBySignal
+    ? false
+    : finalResultEvent
+      ? !finalResultEvent.isError
+      : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }

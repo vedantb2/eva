@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
@@ -8,31 +7,16 @@ import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../SessionDetailClient";
 import { useSessionRouteSandboxTab } from "../_utils/useSessionRouteSandboxTab";
 
-interface CachedSessionShellProps {
+interface SessionRouteShellProps {
   numId: string;
-  /** True when this shell matches the URL `$numId` (visible). */
-  isActiveRoute: boolean;
 }
 
-/**
- * One kept-alive session detail tree. While `isActiveRoute` is false the shell
- * stays mounted (parent uses `hidden`) and freezes its sandbox tab so the
- * active session's URL does not rewrite sibling caches.
- */
-export function CachedSessionShell({
-  numId,
-  isActiveRoute,
-}: CachedSessionShellProps) {
+/** Resolves one URL numId and owns navigation for the active session only. */
+export function SessionRouteShell({ numId }: SessionRouteShellProps) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
-  const urlSandboxTab = useSessionRouteSandboxTab();
-  const [sandboxTab, setSandboxTab] = useState(urlSandboxTab);
-
-  useEffect(() => {
-    if (!isActiveRoute) return;
-    setSandboxTab(urlSandboxTab);
-  }, [isActiveRoute, urlSandboxTab]);
+  const sandboxTab = useSessionRouteSandboxTab();
 
   const openFile = (path: string) => {
     void navigate({
@@ -79,7 +63,6 @@ export function CachedSessionShell({
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
           onViewDiff={openDiffs}
-          isRouteActive={isActiveRoute}
         />
       )}
     </EntityNumIdGate>

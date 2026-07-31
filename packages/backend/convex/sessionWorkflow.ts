@@ -20,6 +20,7 @@ export {
 } from "./_sessions/workflow";
 
 export {
+  submitTurn,
   startExecute,
   prewarmDaemon,
   enqueueMessage,

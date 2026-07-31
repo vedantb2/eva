@@ -101,6 +101,39 @@ export interface ModelTraitsExecutionArgs {
   use1mContext?: boolean;
 }
 
+export interface ModelTraitsDisplay {
+  effortLevel: ReasoningLevel | undefined;
+  thinkingEnabled: boolean;
+  use1mContext: boolean;
+}
+
+export type ModelComposerControlDescriptor =
+  | {
+      kind: "select";
+      id: "reasoningLevel";
+      label: string;
+      description: string;
+      options: ReadonlyArray<{
+        value: ReasoningLevel;
+        label: string;
+      }>;
+      currentValue: ReasoningLevel;
+      defaultValue: ReasoningLevel;
+      mutableDuringActiveTurn: boolean;
+      promptUltrathink: boolean;
+      order: number;
+    }
+  | {
+      kind: "boolean";
+      id: "thinkingEnabled" | "use1mContext";
+      label: string;
+      description: string;
+      currentValue: boolean;
+      defaultValue: boolean;
+      mutableDuringActiveTurn: boolean;
+      order: number;
+    };
+
 const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
   levels: ["low", "medium", "high", "xhigh", "max"],
   default: "high",
@@ -492,11 +525,7 @@ export function getReasoningLevelLabel(level: string): string {
 export function resolveTraitsForDisplay(
   model: string | null | undefined,
   stored: StoredModelTraits,
-): {
-  effortLevel: ReasoningLevel | undefined;
-  thinkingEnabled: boolean;
-  use1mContext: boolean;
-} {
+): ModelTraitsDisplay {
   const traits = getModelTraits(model);
   return {
     effortLevel: traits.reasoning
@@ -505,6 +534,57 @@ export function resolveTraitsForDisplay(
     thinkingEnabled: stored.thinkingEnabled ?? true,
     use1mContext: stored.use1mContext ?? false,
   };
+}
+
+/** Plain provider-normalized controls consumed by the React composer. */
+export function describeModelComposerControls(
+  model: string | null | undefined,
+  display: ModelTraitsDisplay,
+): ReadonlyArray<ModelComposerControlDescriptor> {
+  const traits = getModelTraits(model);
+  const controls: ModelComposerControlDescriptor[] = [];
+  if (traits.reasoning) {
+    controls.push({
+      kind: "select",
+      id: "reasoningLevel",
+      label: "Reasoning",
+      description: "How much reasoning the provider should use.",
+      options: traits.reasoning.levels.map((level) => ({
+        value: level,
+        label: getReasoningLevelLabel(level),
+      })),
+      currentValue: display.effortLevel ?? traits.reasoning.default,
+      defaultValue: traits.reasoning.default,
+      mutableDuringActiveTurn: true,
+      promptUltrathink: traits.reasoning.ultrathink === true,
+      order: 10,
+    });
+  }
+  if (traits.contextWindow1m) {
+    controls.push({
+      kind: "boolean",
+      id: "use1mContext",
+      label: "1M context",
+      description: "Use the provider's extended context window.",
+      currentValue: display.use1mContext,
+      defaultValue: false,
+      mutableDuringActiveTurn: true,
+      order: 20,
+    });
+  }
+  if (traits.thinkingToggle) {
+    controls.push({
+      kind: "boolean",
+      id: "thinkingEnabled",
+      label: "Thinking",
+      description: "Allow the provider's extended thinking mode.",
+      currentValue: display.thinkingEnabled,
+      defaultValue: true,
+      mutableDuringActiveTurn: true,
+      order: 30,
+    });
+  }
+  return controls;
 }
 
 /**

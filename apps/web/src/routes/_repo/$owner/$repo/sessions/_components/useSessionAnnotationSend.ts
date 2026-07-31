@@ -2,12 +2,10 @@
 
 import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
-import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 
 /**
  * Sends an annotation as chat display text + rich agent prompt.
@@ -35,59 +33,21 @@ export function useSessionAnnotationSend(
     });
   const { resolveId: resolveAccountId } = useProviderAccounts();
 
-  const messages = useQuery(api.messages.listByParent, {
-    parentId: sessionId,
-  });
-  const addMessage = useMutation(api.sessions.addMessage);
-  const startExecution = useMutation(api.sessionWorkflow.startExecute);
-  const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
-
-  const isExecuting = isAssistantTurnInProgress(messages ?? []);
+  const submitTurn = useMutation(api.sessionWorkflow.submitTurn);
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);
     const reasoningLevel = displayTraits.effortLevel;
-    if (isExecuting) {
-      await enqueueMessage({
-        sessionId,
-        message: full,
-        displayContent: display,
-        mode,
-        model,
-        ...executionTraits,
-        reasoningLevel,
-        providerAccountId: accountId,
-      });
-      return;
-    }
-    await Promise.all([
-      addMessage({
-        id: sessionId,
-        role: "user",
-        content: display,
-        mode,
-        providerAccountId: accountId,
-        model,
-        reasoningLevel,
-      }),
-      startExecution({
-        sessionId,
-        message: full,
-        mode,
-        model,
-        ...executionTraits,
-        reasoningLevel,
-        providerAccountId: accountId,
-      }),
-    ]).catch(async (error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to send annotation";
-      await addMessage({
-        id: sessionId,
-        role: "assistant",
-        content: `Error: ${errorMessage}`,
-        mode,
-      });
+    await submitTurn({
+      sessionId,
+      turnId: crypto.randomUUID(),
+      message: full,
+      displayContent: display,
+      mode,
+      model,
+      ...executionTraits,
+      reasoningLevel,
+      providerAccountId: accountId,
     });
   };
 }

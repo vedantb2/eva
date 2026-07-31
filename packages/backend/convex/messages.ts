@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { variationValidator, messageFields } from "./validators";
 import {
   paginationOptsValidator,
@@ -178,6 +178,32 @@ export const listByParentPaginated = authQuery({
       ...result,
       page: await resolveMessagesUrls(ctx, result.page),
     };
+  },
+});
+
+/** Narrow sandbox-panel read: the newest assistant turn containing designs. */
+export const getLatestSessionDesignMessage = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(messageValidator, v.null()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (
+      session === null ||
+      !(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))
+    ) {
+      return null;
+    }
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "assistant"),
+          q.neq(q.field("variations"), undefined),
+        ),
+      )
+      .first();
   },
 });
 

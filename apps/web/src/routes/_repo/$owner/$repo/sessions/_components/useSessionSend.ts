@@ -2,76 +2,18 @@ import { api } from "@eva/backend";
 import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
 import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
-import type { OptimisticLocalStore } from "convex/browser";
-import type { FunctionArgs, FunctionReturnType } from "convex/server";
 
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
-import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
+import {
+  appendReviewCommentsToPrompt,
+  stripReviewCommentBlocks,
+} from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
-import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
-export type SessionMessage = NonNullable<
-  FunctionReturnType<typeof api.messages.listByParent>
->[number];
-
-// Convex has no non-assertion way to mint an Id<T> before the server assigns
-// one; this is the single, contained assertion for optimistic-insert temp ids.
-function optimisticMessageId(): Id<"messages"> {
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- Convex Id<T> is an opaque branded string; there is no non-assertion way to mint a client-side optimistic temp id
-  return crypto.randomUUID() as Id<"messages">;
-}
-
-function applyAddMessageOptimistically(
-  localStore: OptimisticLocalStore,
-  args: FunctionArgs<typeof api.sessions.addMessage>,
-  accounts: ReadonlyArray<ModelAccount>,
-) {
-  if (args.role !== "user") return;
-  const existing = localStore.getQuery(api.messages.listByParent, {
-    parentId: args.id,
-  });
-  if (existing === undefined) return;
-
-  const now = Date.now();
-  const userMsg: SessionMessage = {
-    _id: optimisticMessageId(),
-    _creationTime: now,
-    parentId: args.id,
-    role: "user",
-    content: args.content,
-    timestamp: now,
-    mode: args.mode,
-    activityLog: "",
-    media: undefined,
-    attachmentStorageIds: args.attachmentStorageIds,
-    attachmentUrls: undefined,
-    attachments: undefined,
-    credentialSourceLabel: resolveCredentialSourceLabel(
-      args.providerAccountId,
-      accounts,
-    ),
-    model: args.model,
-    reasoningLevel: args.reasoningLevel,
-  };
-  const assistantPlaceholder: SessionMessage = {
-    _id: optimisticMessageId(),
-    _creationTime: now + 1,
-    parentId: args.id,
-    role: "assistant",
-    content: "",
-    timestamp: now + 1,
-    mode: args.mode,
-    activityLog: "",
-    media: undefined,
-    attachmentUrls: undefined,
-    attachments: undefined,
-  };
-  localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
-    ...existing,
-    userMsg,
-    assistantPlaceholder,
-  ]);
-}
+import {
+  useChatRuntime,
+  type ChatActiveTurn,
+} from "@/lib/components/chat/useChatRuntime";
 
 interface UseSessionSendParams {
   sessionId: Id<"sessions">;
@@ -85,7 +27,8 @@ interface UseSessionSendParams {
     id: string | null,
   ) => Id<"userProviderAccounts"> | undefined;
   accounts: ReadonlyArray<ModelAccount>;
-  messages: SessionMessage[];
+  activeTurn?: ChatActiveTurn;
+  legacyBusy: boolean;
   personaId?: Id<"designPersonas">;
   numDesigns?: number;
 }
@@ -99,30 +42,67 @@ export function useSessionSend({
   providerAccountId,
   resolveAccountId,
   accounts,
-  messages,
+  activeTurn,
+  legacyBusy,
   personaId,
   numDesigns,
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
-  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
-    (localStore, args) =>
-      applyAddMessageOptimistically(localStore, args, accounts),
-  );
-  const startExecution = useMutation(api.sessionWorkflow.startExecute);
-  const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
-  const cancelExecutionMutation = useMutation(
-    api.sessionWorkflow.cancelExecution,
-  );
+  const submitTurn = useMutation(api.sessionWorkflow.submitTurn);
+  const cancelExecution = useMutation(api.sessionWorkflow.cancelExecution);
+  const accountId = resolveAccountId(providerAccountId);
+  const effectiveReasoningLevel =
+    reasoningLevel ?? executionTraits.reasoningLevel;
 
-  const isExecuting = isAssistantTurnInProgress(messages);
-
-  const designArgs =
-    mode === "design"
-      ? {
-          personaId,
-          numDesigns,
-        }
-      : {};
+  const runtime = useChatRuntime({
+    parentId: sessionId,
+    streamingEntityId: sessionId,
+    questionEntityId: sessionId,
+    activeTurn,
+    legacyBusy,
+    submissionKey: [
+      mode,
+      model,
+      effectiveReasoningLevel ?? "",
+      String(executionTraits.thinkingEnabled ?? ""),
+      String(executionTraits.use1mContext ?? ""),
+      providerAccountId ?? "",
+      personaId ?? "",
+      String(numDesigns ?? ""),
+    ].join("|"),
+    optimisticMetadata: {
+      mode,
+      model,
+      reasoningLevel: effectiveReasoningLevel,
+      credentialSourceLabel: resolveCredentialSourceLabel(accountId, accounts),
+    },
+    submitAction: ({ turnId, content, attachmentStorageIds }) =>
+      submitTurn({
+        sessionId,
+        turnId,
+        message: content,
+        displayContent: stripReviewCommentBlocks(content).text,
+        mode,
+        model,
+        ...executionTraits,
+        reasoningLevel: effectiveReasoningLevel,
+        providerAccountId: accountId,
+        attachmentStorageIds,
+        ...(mode === "design" ? { personaId, numDesigns } : {}),
+      }),
+    cancelAction: async (turn) => {
+      await cancelExecution({
+        sessionId,
+        ...(turn === undefined
+          ? {}
+          : {
+              turnId: turn.turnId,
+              assistantMessageId: turn.assistantMessageId,
+              attempt: turn.attempt,
+            }),
+      });
+    },
+  });
 
   const handleSend = async (
     content: string,
@@ -132,64 +112,9 @@ export function useSessionSend({
       content,
       review?.comments ?? [],
     );
-    if (isExecuting) {
-      await enqueueMessage({
-        sessionId,
-        message: finalContent,
-        mode,
-        model,
-        ...executionTraits,
-        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        providerAccountId: resolveAccountId(providerAccountId),
-        attachmentStorageIds,
-        ...designArgs,
-      });
-      review?.clear();
-      return;
-    }
-    const accountId = resolveAccountId(providerAccountId);
-    void Promise.all([
-      addMessage({
-        id: sessionId,
-        role: "user",
-        content: finalContent,
-        mode,
-        attachmentStorageIds,
-        providerAccountId: accountId,
-        model,
-        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        ...designArgs,
-      }),
-      startExecution({
-        sessionId,
-        message: finalContent,
-        mode,
-        model,
-        ...executionTraits,
-        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        providerAccountId: accountId,
-        attachmentStorageIds,
-        ...designArgs,
-      }),
-    ])
-      .catch(async (error) => {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to send message";
-        await addMessage({
-          id: sessionId,
-          role: "assistant",
-          content: `Error: ${errorMessage}`,
-          mode,
-        });
-      })
-      .finally(() => {
-        review?.clear();
-      });
+    await runtime.handleSend(finalContent, attachmentStorageIds);
+    review?.clear();
   };
 
-  const handleCancel = async () => {
-    await cancelExecutionMutation({ sessionId });
-  };
-
-  return { isExecuting, handleSend, handleCancel };
+  return { ...runtime, handleSend };
 }

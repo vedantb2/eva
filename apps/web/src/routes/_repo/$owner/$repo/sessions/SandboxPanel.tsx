@@ -20,11 +20,6 @@ import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
-import {
-  getLatestVariations,
-  type SessionDesignMessage,
-} from "./_utils/designVariations";
-import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
@@ -41,7 +36,6 @@ interface SandboxPanelProps {
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
   planContent?: string;
-  messages?: SessionDesignMessage[];
   lastMode?: SessionMode;
   selectedVariationIndex?: number;
   isArchived?: boolean;
@@ -63,7 +57,6 @@ export function SandboxPanel({
   devCommand,
   terminalPanes,
   planContent,
-  messages = [],
   lastMode,
   selectedVariationIndex,
   isArchived,
@@ -81,12 +74,19 @@ export function SandboxPanel({
   );
   const submitAnnotation = useSessionAnnotationSend(sessionId);
   const selectVariation = useMutation(api.sessions.selectVariation);
-  const latestVariations = getLatestVariations(messages);
+  const session = useQuery(api.sessions.get, { id: sessionId });
+  const latestDesignMessage = useQuery(
+    api.messages.getLatestSessionDesignMessage,
+    { sessionId },
+  );
+  const latestVariations = latestDesignMessage?.variations ?? [];
   const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
   const hasDesignsContent = latestVariations.length > 0;
-  const isDesignExecuting = isAssistantTurnInProgress(messages);
+  const isDesignExecuting =
+    lastMode === "design" &&
+    (session?.activeTurn !== undefined ||
+      session?.activeWorkflowId !== undefined);
   // Sticky Preview path/port + console tail (same sessions.get as the shell).
-  const session = useQuery(api.sessions.get, { id: sessionId });
   const setPreviewPath = useMutation(api.sessions.setPreviewPath);
   const setPreviewPort = useMutation(api.sessions.setPreviewPort);
   const setTerminalHistoryTail = useMutation(

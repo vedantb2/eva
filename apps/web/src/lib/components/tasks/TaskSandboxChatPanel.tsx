@@ -14,6 +14,7 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
+import { useChatRuntime } from "@/lib/components/chat/useChatRuntime";
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
@@ -42,17 +43,7 @@ export function TaskSandboxChatPanel({
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const task = useQuery(api.agentTasks.get, { id: taskId });
-  const messages = useQuery(api.messages.listByParent, { parentId: taskId });
-  const queuedMessages = useQuery(api.queuedMessages.listByParent, {
-    parentId: taskId,
-  });
-  const streaming = useQuery(api.streaming.get, {
-    entityId: `task-chat-${taskId}`,
-  });
-
-  const addMessage = useMutation(api.agentTaskChatWorkflow.addMessage);
-  const startExecute = useMutation(api.agentTaskChatWorkflow.startExecute);
-  const enqueueMessage = useMutation(api.agentTaskChatWorkflow.enqueueMessage);
+  const submitTurn = useMutation(api.agentTaskChatWorkflow.submitTurn);
   const cancelExecution = useMutation(
     api.agentTaskChatWorkflow.cancelExecution,
   );
@@ -118,22 +109,6 @@ export function TaskSandboxChatPanel({
       }
     : undefined;
 
-  // Same entityId the task-chat sandbox posts with (task id, not stream prefix).
-  const activeQuestion = useQuery(api.pendingQuestions.getActive, {
-    entityId: taskId,
-  });
-  const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const handleAnswerBlockingQuestion = async (
-    toolUseId: string,
-    answers: Record<string, string>,
-  ) => {
-    await answerPendingQuestion({
-      entityId: taskId,
-      toolUseId,
-      answer: JSON.stringify(answers),
-    });
-  };
-
   const setModel = (next: AIModel) => {
     void updateTask({ id: taskId, model: normalizeAIModel(next) });
   };
@@ -160,19 +135,29 @@ export function TaskSandboxChatPanel({
     });
   };
 
-  const lastMessage = messages?.[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting =
-    Boolean(task?.activeChatWorkflowId) || lastAssistantHasNoContent;
-
-  const handleSend = async (
-    content: string,
-    attachmentStorageIds?: Id<"_storage">[],
-  ) => {
-    if (isExecuting) {
-      await enqueueMessage({
+  const runtime = useChatRuntime({
+    parentId: taskId,
+    streamingEntityId: `task-chat-${taskId}`,
+    questionEntityId: taskId,
+    activeTurn: task?.activeTurn,
+    legacyBusy:
+      task?.activeTurn === undefined &&
+      task?.activeChatWorkflowId !== undefined,
+    submissionKey: [
+      model,
+      displayTraits.effortLevel ?? "",
+      String(executionTraits.thinkingEnabled ?? ""),
+      String(executionTraits.use1mContext ?? ""),
+      providerAccountId ?? "",
+    ].join("|"),
+    optimisticMetadata: {
+      model,
+      reasoningLevel: displayTraits.effortLevel,
+    },
+    submitAction: ({ turnId, content, attachmentStorageIds }) =>
+      submitTurn({
         taskId,
+        turnId,
         message: content,
         model,
         ...executionTraits,
@@ -180,30 +165,20 @@ export function TaskSandboxChatPanel({
           displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
+      }),
+    cancelAction: async (activeTurn) => {
+      await cancelExecution({
+        taskId,
+        ...(activeTurn === undefined
+          ? {}
+          : {
+              turnId: activeTurn.turnId,
+              assistantMessageId: activeTurn.assistantMessageId,
+              attempt: activeTurn.attempt,
+            }),
       });
-      return;
-    }
-    const accountId = resolveAccountId(providerAccountId);
-    await addMessage({
-      taskId,
-      content,
-      attachmentStorageIds,
-      providerAccountId: accountId,
-      model,
-      reasoningLevel: displayTraits.effortLevel,
-    });
-    await startExecute({
-      taskId,
-      message: content,
-      model,
-      ...executionTraits,
-      providerAccountId: accountId,
-    });
-  };
-
-  const handleCancel = async () => {
-    await cancelExecution({ taskId });
-  };
+    },
+  });
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -225,15 +200,23 @@ export function TaskSandboxChatPanel({
         repoId={repo._id}
         repoBasePath={basePath}
         conversationId={taskId}
-        messages={messages ?? []}
-        queuedMessages={queuedMessages ?? []}
-        streamingActivity={streaming?.currentActivity}
-        streamingContent={streaming?.currentContent}
-        streamingPendingQuestion={streaming?.pendingQuestion}
-        blockingQuestion={activeQuestion ?? undefined}
-        onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
-        isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        messages={runtime.messages}
+        queuedMessages={runtime.queuedMessages}
+        activeTurn={task?.activeTurn}
+        streaming={runtime.streaming ?? undefined}
+        blockingQuestion={runtime.activeQuestion ?? undefined}
+        optimisticTurn={runtime.optimisticTurn}
+        history={{
+          firstItemIndex: runtime.firstItemIndex,
+          canLoadOlder: runtime.canLoadOlder,
+          isLoadingOlder: runtime.isLoadingOlder,
+          onLoadOlder: runtime.loadOlder,
+        }}
+        onAnswerBlockingQuestion={runtime.handleAnswerBlockingQuestion}
+        availability={{
+          isExecuting: runtime.isExecuting,
+          isInputDisabled: !isSandboxActive,
+        }}
         placeholder={
           !isSandboxActive
             ? "Sandbox must be running to chat..."
@@ -252,8 +235,8 @@ export function TaskSandboxChatPanel({
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
-        onSend={handleSend}
-        onCancel={handleCancel}
+        onSend={runtime.handleSend}
+        onCancel={runtime.handleCancel}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

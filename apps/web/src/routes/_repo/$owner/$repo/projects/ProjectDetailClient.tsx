@@ -63,6 +63,7 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
+import { projectProjectInterview } from "@/lib/components/projects/projectChatMessage.utils";
 
 export function ProjectDetailClient({
   projectId,
@@ -553,7 +554,6 @@ export function ProjectDetailClient({
             projectId={projectId}
             projectPhase={project.phase}
             activeWorkflowId={project.activeWorkflowId}
-            rawInput={project.rawInput}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             streamingActivity={streaming?.currentActivity}
@@ -693,7 +693,11 @@ export function ProjectDetailClient({
           </DialogHeader>
           <DialogBody>
             <div className="flex flex-col gap-3 py-2">
-              <ProjectChatMessageList messages={project.conversationHistory} />
+              <ProjectChatMessageList
+                projection={projectProjectInterview(
+                  project.conversationHistory,
+                )}
+              />
             </div>
           </DialogBody>
         </DialogContent>

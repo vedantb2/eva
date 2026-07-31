@@ -1,5 +1,13 @@
 # Changelog
 
+## Chat surfaces consume one exact, paginated timeline - 2026-07-31
+
+Session, quick-task, and project sandbox chats now share one controller that submits a client-created turn once, reconciles its authoritative active-or-queued result, cancels and answers questions against the exact attempt, and preserves drafts across rejected sends. Recent history loads through Convex pagination and renders as stable logical turn rows in a virtualized timeline; loading older pages preserves the viewport, completed rows retain object identity during token streaming, jump navigation uses row indexes, and inactive session routes no longer retain hidden chat subscriptions. The old latest-message scans, fake Convex IDs, full-history sandbox query, and whole-session React cache are gone.
+
+## Project interviews become server-owned event flows - 2026-07-31
+
+The planning interview remains a distinct product, but React no longer coordinates its durable workflow. Project creation atomically schedules the first step; answering validates the exact visible question identity and appends the answer plus next workflow in one mutation; rejected plans and resets are single server transitions; and spec generation remains chained by the workflow itself. Transcript entries now carry stable IDs with an online backfill, and one Convex-derived discriminated projection parses stored JSON once for both the transcript and shared multiple-choice controls, eliminating duplicated document types, index keys, repeated render-time parsing, and stale-question advancement.
+
 ## Every chat callback now belongs to one exact turn - 2026-07-31
 
 Session, quick-task, and project chat submission is now one atomic Convex operation: the server records the canonical user/assistant pair, decides whether the turn starts or queues, and preserves the same client-created turn ID and request fingerprint through dequeue. The active turn is a durable `(turnId, assistantMessageId, attempt, protocolVersion)` tuple carried through sandbox launch, warm Claude/Cursor daemon claims, streams, questions, screenshots, cancellation, and completion. Every mutation validates that tuple before changing state, final results target the accepted assistant row instead of “latest,” and stale callbacks become harmless. Protocol-versioned claims also prevent an old daemon from taking a v2 turn. This removes the inference races that let delayed work display or overwrite a different reply and supplies a paginated newest-first message query for the frontend migration.

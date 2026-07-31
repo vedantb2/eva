@@ -1,5 +1,13 @@
 # Changelog
 
+## Exact-turn chat and frontend architecture plan - 2026-07-31
+
+The recent stale-reply incidents exposed a broader ownership problem: message insertion, execution start, queue selection, streaming, questions, and completion can still infer the current turn from separate client state or the latest assistant row. A new detailed implementation plan makes one Convex `submitTurn` transaction the start-or-queue authority, preserves one client-created turn identity through optimistic UI and dequeue, binds every callback to the exact assistant row and attempt, and then layers stable timeline projection, pagination, virtualization, and narrow resource retention on that correctness foundation. The plan adopts t3code's useful command identity and projection ideas while explicitly retaining Convex and rejecting Effect, WebSocket replay, and event-store machinery.
+
+## Cursor ACP adoption decision and migration plan - 2026-07-31
+
+A commit-pinned review of t3code confirmed that its Cursor integration still runs the Cursor CLI, but controls a long-lived `cursor-agent acp` child through typed, bidirectional ACP instead of inferring completion from `stream-json` text and process exit. Eva should adopt that protocol boundary through the official ACP TypeScript SDK while retaining Convex as the durable queue/workflow owner. The new staged plan first swaps in one-shot ACP for protocol-correct completion, then extends Eva's existing daemon-pull path to Cursor with replay isolation, protocol cancellation, visible subagents, durable per-entity transport markers, and a no-duplicate fallback policy. The older Cursor SDK/OpenCode plan is marked superseded so future implementation has one source of truth.
+
 ## Recording turns cannot self-terminate and report a promise as success - 2026-07-31
 
 All-feature walkthrough turns were using broad `pkill -f` cleanup that could match the Cursor CLI's own command line because the recording instructions are part of its process arguments. The agent died during setup, then the callback discarded Node's close signal and promoted the last streamed "recording now" preamble to a successful final reply. Recording prompts now require exact-PID cleanup, a named feature checklist, and a real deliverable per item; the callback preserves direct signal termination and rejects both direct and shell-translated interruptions even when partial assistant text exists.

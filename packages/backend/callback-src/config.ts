@@ -149,7 +149,7 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-const CURSOR_BIN_PATH =
+export const CURSOR_BIN_PATH =
   process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
 const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =

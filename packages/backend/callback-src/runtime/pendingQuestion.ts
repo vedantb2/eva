@@ -2,7 +2,7 @@ import { CLAIM_MUTATION, ENTITY_ID } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
-import type { JsonLike, SdkCanUseTool } from "../providers/claudeSdk.js";
+import type { SdkCanUseTool } from "../providers/claudeSdk.js";
 import { log } from "../utils.js";
 
 // How often the paused turn polls Convex for the user's answer. Matches the
@@ -60,20 +60,42 @@ async function pollForAnswer(
 }
 
 /** Parses the stored answer JSON into an object safe to merge into tool input. */
-function parseAnswers(answerJson: string): Record<string, JsonLike> {
+export function parsePendingQuestionAnswers(
+  answerJson: string,
+): Record<string, string> {
   try {
-    const parsed: JsonLike = JSON.parse(answerJson);
+    const parsed: JsonValue = JSON.parse(answerJson);
     if (
       typeof parsed === "object" &&
       parsed !== null &&
       !Array.isArray(parsed)
     ) {
-      return parsed;
+      const answers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === "string") answers[key] = value;
+      }
+      return answers;
     }
   } catch {
     /* malformed answer — fall through to empty */
   }
   return {};
+}
+
+/** Publishes a blocking interaction and waits for the UI's structured answer. */
+export async function waitForPendingQuestionAnswer(
+  toolUseId: string,
+  payload: string,
+  signal: AbortSignal,
+): Promise<Record<string, string> | null> {
+  S.awaitingQuestionAnswer = true;
+  try {
+    await postQuestion(toolUseId, payload);
+    const answerJson = await pollForAnswer(toolUseId, signal);
+    return answerJson === null ? null : parsePendingQuestionAnswers(answerJson);
+  } finally {
+    S.awaitingQuestionAnswer = false;
+  }
 }
 
 /**
@@ -107,20 +129,18 @@ export function buildCanUseTool(): SdkCanUseTool {
       typeof options.toolUseID === "string" && options.toolUseID
         ? options.toolUseID
         : "";
-    S.awaitingQuestionAnswer = true;
     log("canUseTool: AskUserQuestion — posting question, awaiting user answer");
-    try {
-      await postQuestion(toolUseId, JSON.stringify(input));
-      const answerJson = await pollForAnswer(toolUseId, options.signal);
-      if (answerJson === null) {
-        return { behavior: "deny", message: "The question was cancelled." };
-      }
-      return {
-        behavior: "allow",
-        updatedInput: { ...input, answers: parseAnswers(answerJson) },
-      };
-    } finally {
-      S.awaitingQuestionAnswer = false;
+    const answers = await waitForPendingQuestionAnswer(
+      toolUseId,
+      JSON.stringify(input),
+      options.signal,
+    );
+    if (answers === null) {
+      return { behavior: "deny", message: "The question was cancelled." };
     }
+    return {
+      behavior: "allow",
+      updatedInput: { ...input, answers },
+    };
   };
 }

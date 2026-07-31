@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor turns gain an exact ACP completion boundary - 2026-07-31
+
+New Cursor conversations now use the official stable ACP v1 TypeScript SDK to control `cursor-agent acp`, while conversations with persisted stream-JSON state remain explicitly legacy. The adapter filters load replay and foreign-session updates, correlates tools by ACP IDs, keeps thoughts out of final text, handles Cursor permissions/questions/plans/todos/subagents/generated images, validates the selected model against live session options, and classifies the exact `session/prompt` stop response instead of accepting whichever prior-looking stdout result appears last. Cursor session state is now transport-versioned and written atomically, direct HTTP MCP descriptors are passed alongside the short-lived file compatibility path, and a redacted live probe records protocol/capability behavior without prompts, content, credentials, or headers. This removes the ambiguous completion mechanism behind stale or mismatched Cursor replies and establishes the reusable protocol boundary needed for the warm Cursor daemon.
+
 ## Exact-turn chat and frontend architecture plan - 2026-07-31
 
 The recent stale-reply incidents exposed a broader ownership problem: message insertion, execution start, queue selection, streaming, questions, and completion can still infer the current turn from separate client state or the latest assistant row. A new detailed implementation plan makes one Convex `submitTurn` transaction the start-or-queue authority, preserves one client-created turn identity through optimistic UI and dequeue, binds every callback to the exact assistant row and attempt, and then layers stable timeline projection, pagination, virtualization, and narrow resource retention on that correctness foundation. The plan adopts t3code's useful command identity and projection ideas while explicitly retaining Convex and rejecting Effect, WebSocket replay, and event-store machinery.

@@ -53,6 +53,56 @@ import {
   readResponseJson,
 } from "./utils.js";
 import { serializeSteps } from "./parse/stepBudget.js";
+import type {
+  CliAttemptResult,
+  CursorAcpAttemptResult,
+  ResultEvent,
+} from "./types.js";
+
+function isCursorAcpAttempt(
+  attempt: CliAttemptResult | CursorAcpAttemptResult,
+): attempt is CursorAcpAttemptResult {
+  return "transport" in attempt && attempt.transport === "acp-v1";
+}
+
+function cursorAcpFailure(attempt: CursorAcpAttemptResult): string | null {
+  const hasMedia = attempt.events.some(
+    (event) =>
+      event.kind === "complete_tool" &&
+      event.result?.files !== undefined &&
+      event.result.files.length > 0,
+  );
+  if (attempt.stopReason === "end_turn") {
+    return attempt.result.trim() || hasMedia
+      ? null
+      : "Cursor completed the turn without an assistant response.";
+  }
+  if (attempt.stopReason === "max_tokens") {
+    return "Cursor reached the model token limit before completing the turn.";
+  }
+  if (attempt.stopReason === "max_turn_requests") {
+    return "Cursor reached its turn-request limit before completing the turn.";
+  }
+  if (attempt.stopReason === "refusal") {
+    return "Cursor refused the request.";
+  }
+  return "Cursor cancelled the turn before completion.";
+}
+
+function cursorAcpResultEvent(attempt: CursorAcpAttemptResult): ResultEvent {
+  return {
+    result: attempt.result,
+    isError: false,
+    rawResultEvent: JSON.stringify({
+      transport: attempt.transport,
+      sessionId: attempt.sessionId,
+      stopReason: attempt.stopReason,
+      durationMs: attempt.durationMs,
+      promptSubmitted: attempt.promptSubmitted,
+      cancellationAcknowledged: attempt.cancellationAcknowledged,
+    }),
+  };
+}
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -180,23 +230,50 @@ try {
   const firstAttempt = await runProviderAttempt(initialSessionMode);
   await flushStreaming();
 
-  let finalCode = firstAttempt.code;
-  let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
-  let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
-  let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
-  let finalTimedOutForFirstAssistant = Boolean(
-    firstAttempt.timedOutForFirstAssistant,
-  );
-  let finalTimedOutAfterFirstText = Boolean(
-    firstAttempt.timedOutAfterFirstText,
-  );
-  let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
-  const finalTerminatedBySignal = firstAttempt.terminatedBySignal;
-  const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
-  let finalResultEvent = extractResultEvent(firstAttempt.output);
+  const cursorAcpAttempt = isCursorAcpAttempt(firstAttempt)
+    ? firstAttempt
+    : null;
+  const cliAttempt = isCursorAcpAttempt(firstAttempt) ? null : firstAttempt;
+  const cursorAcpError = cursorAcpAttempt
+    ? cursorAcpFailure(cursorAcpAttempt)
+    : null;
+  const finalCode = cursorAcpAttempt
+    ? cursorAcpError === null
+      ? 0
+      : 1
+    : (cliAttempt?.code ?? 1);
+  const finalTimedOutForNoOutput = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutForNoOutput);
+  const finalTimedOutForMaxRuntime = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutForMaxRuntime);
+  const finalTimedOutForFirstEvent = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutForFirstEvent);
+  const finalTimedOutForFirstAssistant = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutForFirstAssistant);
+  const finalTimedOutAfterFirstText = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutAfterFirstText);
+  const finalTimedOutForZombie = cursorAcpAttempt
+    ? false
+    : Boolean(cliAttempt?.timedOutForZombie);
+  const finalTerminatedBySignal = cursorAcpAttempt
+    ? cursorAcpAttempt.childSignal !== null
+    : Boolean(cliAttempt?.terminatedBySignal);
+  const finalToolStallErrorMessage = cursorAcpAttempt
+    ? ""
+    : cliAttempt?.toolStallErrorMessage || "";
+  const finalResultEvent = cursorAcpAttempt
+    ? cursorAcpResultEvent(cursorAcpAttempt)
+    : extractResultEvent(cliAttempt?.output ?? "");
   log(
     "firstAttempt result: code=" +
-      firstAttempt.code +
+      finalCode +
+      " transport=" +
+      (cursorAcpAttempt?.transport ?? "legacy") +
       " isError=" +
       Boolean(finalResultEvent?.isError) +
       " hasToolActivity=" +
@@ -229,17 +306,19 @@ try {
     finalTimedOutForZombie ||
     Boolean(finalToolStallErrorMessage);
 
-  const runSucceededWithResult =
-    finalResultEvent != null &&
-    !finalResultEvent.isError &&
-    !agentWasInterrupted;
+  const runSucceededWithResult = cursorAcpAttempt
+    ? cursorAcpError === null && !agentWasInterrupted
+    : finalResultEvent != null &&
+      !finalResultEvent.isError &&
+      !agentWasInterrupted;
 
-  let errorValue: string | null = null;
-  if (finalResultEvent?.isError) {
+  let errorValue: string | null = cursorAcpError;
+  if (!cursorAcpAttempt && finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
   } else if (
-    (!runSucceededWithResult && finalCode !== 0) ||
-    (attemptEndedDueToTimeout && !runSucceededWithResult)
+    !cursorAcpAttempt &&
+    ((!runSucceededWithResult && finalCode !== 0) ||
+      (attemptEndedDueToTimeout && !runSucceededWithResult))
   ) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
@@ -285,11 +364,13 @@ try {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
 
-  let completionSuccess = agentWasInterrupted
-    ? false
-    : finalResultEvent
-      ? !finalResultEvent.isError
-      : finalCode === 0;
+  let completionSuccess = cursorAcpAttempt
+    ? cursorAcpError === null && !agentWasInterrupted
+    : agentWasInterrupted
+      ? false
+      : finalResultEvent
+        ? !finalResultEvent.isError
+        : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }

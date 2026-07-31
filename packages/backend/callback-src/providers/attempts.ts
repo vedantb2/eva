@@ -22,12 +22,18 @@ import {
 } from "../session/opencodeSession.js";
 import {
   prepareCursorSessionState,
+  readCursorProviderState,
   syncCursorStateToPersist,
 } from "../session/cursorSession.js";
 import { codexAdapter } from "./codex.js";
 import { runClaudeSdkAttempt } from "./claudeSdk.js";
 import { runCliAttempt } from "../runtime/cliAttempt.js";
 import type { SessionMode } from "../types.js";
+import {
+  readCursorAcpMcpServers,
+  readCursorPromptFile,
+  runCursorAcpAttempt,
+} from "./cursorAcpRuntime.js";
 
 export function prepareProviderSessionState(): SessionMode {
   if (PROVIDER === "codex") return prepareCodexSessionState();
@@ -109,6 +115,14 @@ async function runCursorAttempt(sessionMode: SessionMode) {
     throw new Error(
       "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",
     );
+  }
+  const providerState = readCursorProviderState();
+  if (providerState?.transport !== "stream-json") {
+    return await runCursorAcpAttempt({
+      sessionMode,
+      prompt: readCursorPromptFile(),
+      mcpServers: readCursorAcpMcpServers(),
+    });
   }
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId

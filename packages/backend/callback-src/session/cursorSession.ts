@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "fs";
 import {
   CURSOR_LOCAL_STATE_FILE,
   CURSOR_PERSIST_DIR,
@@ -27,7 +33,78 @@ const store = createSessionStore({
 const readCursorSessionState = store.readSessionState;
 export const writeCursorSessionState = store.writeSessionState;
 export function syncCursorStateToPersist(): void {
+  const providerState = readCursorProviderState();
+  if (providerState?.transport === "acp-v1") {
+    writeCursorAcpSessionState(providerState.sessionId);
+    return;
+  }
   store.syncStateToPersist("syncCursorStateToPersist");
+}
+
+export type CursorProviderState =
+  | { schemaVersion: 1; transport: "stream-json"; sessionId: string }
+  | { schemaVersion: 2; transport: "acp-v1"; sessionId: string };
+
+function parseCursorProviderState(raw: string): CursorProviderState | null {
+  const parsed = tryParseJson(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  if (
+    parsed.schemaVersion === 2 &&
+    parsed.transport === "acp-v1" &&
+    typeof parsed.sessionId === "string" &&
+    parsed.sessionId.trim()
+  ) {
+    return {
+      schemaVersion: 2,
+      transport: "acp-v1",
+      sessionId: parsed.sessionId.trim(),
+    };
+  }
+  if (
+    typeof parsed.resumeSessionId === "string" &&
+    parsed.resumeSessionId.trim()
+  ) {
+    return {
+      schemaVersion: 1,
+      transport: "stream-json",
+      sessionId: parsed.resumeSessionId.trim(),
+    };
+  }
+  return null;
+}
+
+export function readCursorProviderState(): CursorProviderState | null {
+  for (const path of [CURSOR_LOCAL_STATE_FILE, CURSOR_PERSIST_STATE_FILE]) {
+    if (!existsSync(path)) continue;
+    try {
+      const state = parseCursorProviderState(readFileSync(path, "utf8"));
+      if (state) return state;
+    } catch (error) {
+      console.error("Failed to read Cursor provider state:", String(error));
+    }
+  }
+  return null;
+}
+
+function writeJsonAtomically(path: string, value: string): void {
+  const directory = path.slice(0, path.lastIndexOf("/"));
+  if (directory) mkdirSync(directory, { recursive: true });
+  const temporaryPath = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporaryPath, value, { mode: 0o600 });
+  renameSync(temporaryPath, path);
+}
+
+export function writeCursorAcpSessionState(sessionId: string): void {
+  const value = JSON.stringify({
+    schemaVersion: 2,
+    transport: "acp-v1",
+    sessionId,
+  });
+  writeJsonAtomically(CURSOR_LOCAL_STATE_FILE, value);
+  writeJsonAtomically(CURSOR_PERSIST_STATE_FILE, value);
+  S.activeCursorSessionId = sessionId;
 }
 
 function hydratePersistedCursorState(): void {
@@ -92,6 +169,11 @@ export function prepareCursorSessionState(): SessionMode {
     "Hydrating saved session...",
   );
   hydratePersistedCursorState();
+  const providerState = readCursorProviderState();
+  if (providerState?.transport === "acp-v1") {
+    S.activeCursorSessionId = providerState.sessionId;
+    return { mode: "resume", sessionId: providerState.sessionId };
+  }
   const persistedState = readCursorSessionState();
   updateThinkingStep(
     "Preparing Cursor session...",

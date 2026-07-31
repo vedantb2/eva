@@ -104,6 +104,7 @@ export class CursorAcpEventAdapter {
   private lastMessageId = "";
   private messageStarted = false;
   private finalText = "";
+  private readonly knownToolIds = new Set<string>();
   private readonly terminalToolIds = new Set<string>();
   private readonly emittedEvents: CanonicalEvent[] = [];
   private replayNotificationCount = 0;
@@ -132,6 +133,7 @@ export class CursorAcpEventAdapter {
     this.lastMessageId = "";
     this.messageStarted = false;
     this.finalText = "";
+    this.knownToolIds.clear();
     this.terminalToolIds.clear();
     this.emittedEvents.length = 0;
     return this.activeGeneration;
@@ -149,8 +151,23 @@ export class CursorAcpEventAdapter {
     return [...this.emittedEvents];
   }
 
-  record(events: CanonicalEvent[]): void {
+  record(events: CanonicalEvent[]): CanonicalEvent[] {
+    if (this.replaying || !this.turnActive) return [];
     this.emittedEvents.push(...events);
+    return events;
+  }
+
+  recordToolCompletion(
+    events: CanonicalEvent[],
+    toolId: string,
+  ): CanonicalEvent[] {
+    if (this.terminalToolIds.has(toolId)) return [];
+    const currentEvents = this.knownToolIds.has(toolId)
+      ? events.filter((event) => event.kind !== "push_step")
+      : events;
+    this.knownToolIds.add(toolId);
+    this.terminalToolIds.add(toolId);
+    return this.record(currentEvents);
   }
 
   handle(notification: SessionNotification): CanonicalEvent[] {
@@ -194,6 +211,7 @@ export class CursorAcpEventAdapter {
 
   private mapToolCall(tool: ToolCall): CanonicalEvent[] {
     if (this.terminalToolIds.has(tool.toolCallId)) return [];
+    this.knownToolIds.add(tool.toolCallId);
     const step: ProgressStep = {
       type: toolStepType(tool.kind),
       label: toolLabel(tool.kind, tool.title),

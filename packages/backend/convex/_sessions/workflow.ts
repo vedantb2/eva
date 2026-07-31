@@ -9,9 +9,9 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
-  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
+  cursorTransportValidator,
 } from "../validators";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
@@ -36,6 +36,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
+import { usesChatDaemon } from "../_chat/daemonTransport";
 
 // --- Completion event ---
 
@@ -376,7 +377,7 @@ export const sessionExecuteWorkflow = workflow.define({
 
     // Claude only: cancel can race with startExecute and wipe pendingTurn while
     // this workflow waits. One-shot providers never use claimPendingTurn.
-    if (getAIModelProvider(data.model) === "claude") {
+    if (usesChatDaemon(data.model, data.cursorTransport)) {
       await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
         sessionId: args.sessionId,
         prompt: data.prompt,
@@ -389,13 +390,14 @@ export const sessionExecuteWorkflow = workflow.define({
     // Cursor/Codex/Opencode have no pull daemon — push the prompt via one-shot
     // launch, otherwise a Cursor prewarm would run with an empty prompt and die
     // as "no parseable stream-json events within 90000ms".
-    if (getAIModelProvider(data.model) === "claude") {
+    if (usesChatDaemon(data.model, data.cursorTransport)) {
       await step.runAction(internal.sandbox.prewarmSessionDaemon, {
         sandboxId,
         sessionId: args.sessionId,
         repoId: data.repoId,
         userId: args.userId,
         model: data.model,
+        cursorTransport: data.cursorTransport,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
@@ -738,6 +740,7 @@ export const getSessionData = internalQuery({
     baseBranch: v.string(),
     allowedTools: v.string(),
     model: aiModelValidator,
+    cursorTransport: v.optional(cursorTransportValidator),
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
@@ -783,6 +786,7 @@ export const getSessionData = internalQuery({
         FALLBACK_GIT_BASE_BRANCH,
       allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
+      cursorTransport: session.cursorTransport,
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
     };
@@ -1099,7 +1103,7 @@ export const ensurePendingTurn = internalMutation({
     // Claude daemon with claimPendingTurn model-mismatch logs.
     if (
       args.model !== undefined &&
-      getAIModelProvider(normalizeAIModel(args.model)) !== "claude"
+      !usesChatDaemon(args.model, session.cursorTransport)
     ) {
       return null;
     }
@@ -1189,10 +1193,10 @@ export const restageOpenTurn = internalMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) return { restaged: false as const, reason: "repo not found" };
     // Daemon-pull recovery only — Cursor/Codex/Opencode push via launch.
-    if (getAIModelProvider(normalizeAIModel(session.lastModel)) !== "claude") {
+    if (!usesChatDaemon(session.lastModel, session.cursorTransport)) {
       return {
         restaged: false as const,
-        reason: "not a Claude daemon-pull session",
+        reason: "not a daemon-pull session",
       };
     }
     const user = await ctx.db.get(session.userId);

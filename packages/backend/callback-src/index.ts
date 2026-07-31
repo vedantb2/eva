@@ -24,6 +24,12 @@ import {
   hasMcpConfig,
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
+import { runCursorAcpDaemon } from "./providers/cursorAcpDaemon.js";
+import {
+  cursorAcpFailure,
+  cursorAcpResultEvent,
+  isCursorAcpAttempt,
+} from "./providers/cursorAcpResult.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import {
@@ -53,56 +59,6 @@ import {
   readResponseJson,
 } from "./utils.js";
 import { serializeSteps } from "./parse/stepBudget.js";
-import type {
-  CliAttemptResult,
-  CursorAcpAttemptResult,
-  ResultEvent,
-} from "./types.js";
-
-function isCursorAcpAttempt(
-  attempt: CliAttemptResult | CursorAcpAttemptResult,
-): attempt is CursorAcpAttemptResult {
-  return "transport" in attempt && attempt.transport === "acp-v1";
-}
-
-function cursorAcpFailure(attempt: CursorAcpAttemptResult): string | null {
-  const hasMedia = attempt.events.some(
-    (event) =>
-      event.kind === "complete_tool" &&
-      event.result?.files !== undefined &&
-      event.result.files.length > 0,
-  );
-  if (attempt.stopReason === "end_turn") {
-    return attempt.result.trim() || hasMedia
-      ? null
-      : "Cursor completed the turn without an assistant response.";
-  }
-  if (attempt.stopReason === "max_tokens") {
-    return "Cursor reached the model token limit before completing the turn.";
-  }
-  if (attempt.stopReason === "max_turn_requests") {
-    return "Cursor reached its turn-request limit before completing the turn.";
-  }
-  if (attempt.stopReason === "refusal") {
-    return "Cursor refused the request.";
-  }
-  return "Cursor cancelled the turn before completion.";
-}
-
-function cursorAcpResultEvent(attempt: CursorAcpAttemptResult): ResultEvent {
-  return {
-    result: attempt.result,
-    isError: false,
-    rawResultEvent: JSON.stringify({
-      transport: attempt.transport,
-      sessionId: attempt.sessionId,
-      stopReason: attempt.stopReason,
-      durationMs: attempt.durationMs,
-      promptSubmitted: attempt.promptSubmitted,
-      cancellationAcknowledged: attempt.cancellationAcknowledged,
-    }),
-  };
-}
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -137,8 +93,9 @@ S.lastStepType = "thinking";
 // Persistent warm-session daemon (Claude chat entities with CLAIM_MUTATION).
 // Job runs (tasks / automations / arena) omit CLAIM_MUTATION and use one-shot
 // SDK below. Keeps one warm query() across turns instead of respawning per turn.
-if (PROVIDER === "claude" && CLAIM_MUTATION) {
-  await runSdkDaemon();
+if (CLAIM_MUTATION) {
+  if (PROVIDER === "claude") await runSdkDaemon();
+  if (PROVIDER === "cursor") await runCursorAcpDaemon();
 }
 
 const preflightOk = await runPreflightHeartbeat();

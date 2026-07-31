@@ -23,6 +23,9 @@ test("Cursor ACP ignores load replay and foreign-session updates", () => {
     }),
   ).toEqual([]);
   expect(adapter.getReplayNotificationCount()).toBe(1);
+  expect(
+    adapter.record([{ kind: "update_reasoning", text: "replayed extension" }]),
+  ).toEqual([]);
   adapter.endReplay();
   expect(
     adapter.handle({
@@ -119,6 +122,38 @@ test("Cursor ACP tool completion is correlated and idempotent", () => {
     },
   ]);
   expect(duplicate).toEqual([]);
+});
+
+test("Cursor task extension completes an existing ACP tool without duplicating it", () => {
+  const adapter = new CursorAcpEventAdapter();
+  adapter.setSession("session-current");
+  adapter.beginTurn();
+  adapter.handle({
+    sessionId: "session-current",
+    update: {
+      sessionUpdate: "tool_call",
+      toolCallId: "task-1",
+      title: "Explore auth",
+      kind: "other",
+      status: "in_progress",
+    },
+  });
+  const events = adapter.recordToolCompletion(
+    cursorTaskToCanonical({
+      toolCallId: "task-1",
+      description: "Explore auth",
+      prompt: "Find auth",
+      subagentType: "explore",
+    }),
+    "task-1",
+  );
+  expect(events).toEqual([
+    {
+      kind: "complete_tool",
+      trackingId: "task-1",
+      result: undefined,
+    },
+  ]);
 });
 
 test("Cursor ACP auto-approval chooses semantic allow options", () => {

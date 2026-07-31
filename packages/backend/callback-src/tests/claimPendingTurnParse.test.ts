@@ -4,6 +4,27 @@ import {
   readStopTaskToolUseIds,
 } from "../providers/claimPendingTurnParse.js";
 import type { JsonValue } from "../types.js";
+import { readClaimedTurn } from "../providers/daemonTurn.js";
+
+describe("readClaimedTurn", () => {
+  test("unwraps the atomic prompt and keeps only string attachment URLs", () => {
+    expect(
+      readClaimedTurn({
+        value: {
+          prompt: "current prompt",
+          attachmentUrls: ["https://files.test/a", 4, null],
+        },
+      }),
+    ).toEqual({
+      prompt: "current prompt",
+      attachmentUrls: ["https://files.test/a"],
+    });
+  });
+
+  test("rejects claim responses without a prompt", () => {
+    expect(readClaimedTurn({ value: { cancelRequested: true } })).toBeNull();
+  });
+});
 
 /**
  * `readCancelRequested` gates interrupt-based cancel (fix 1fc211db): the daemon

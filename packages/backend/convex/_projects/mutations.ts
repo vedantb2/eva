@@ -79,6 +79,7 @@ export const create = authMutation({
       description: skipPlanning ? args.rawInput : undefined,
       baseBranch: args.baseBranch,
       phase: skipPlanning ? "business_review" : "draft",
+      cursorTransport: "acp-v1",
       planningMode: skipPlanning ? "tasks_only" : "interview",
       projectStartDate: Date.now(),
       priority: args.priority,

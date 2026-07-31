@@ -42,12 +42,24 @@ import {
 
 const STDERR_TAIL_LIMIT = 32_000;
 
-export type CursorAcpRunOptions = {
+export type CursorAcpSessionOptions = {
   sessionMode: SessionMode;
-  prompt: string;
   mcpServers?: McpServer[];
-  signal?: AbortSignal;
   onEvents?: (events: CanonicalEvent[]) => void | Promise<void>;
+};
+
+export type CursorAcpRunOptions = CursorAcpSessionOptions & {
+  prompt: string;
+  signal?: AbortSignal;
+};
+
+export type CursorAcpSession = {
+  sessionId: string;
+  prompt: (
+    prompt: string,
+    signal?: AbortSignal,
+  ) => Promise<CursorAcpAttemptResult>;
+  cancel: () => Promise<void>;
 };
 
 /** Reads Eva's generated HTTP MCP descriptors without exposing header values. */
@@ -243,8 +255,7 @@ function registerClientHandlers(
       cursorCreatePlanRequestSchema,
       async ({ params }) => {
         const accepted = acceptCursorPlan(params);
-        adapter.record(accepted.events);
-        await emit(accepted.events);
+        await emit(adapter.record(accepted.events));
         return accepted.response;
       },
     )
@@ -253,8 +264,7 @@ function registerClientHandlers(
       cursorUpdateTodosRequestSchema,
       async ({ params }) => {
         const events = cursorTodosToCanonical(params.todos);
-        adapter.record(events);
-        await emit(events);
+        await emit(adapter.record(events));
       },
     )
     .onNotification(
@@ -262,8 +272,7 @@ function registerClientHandlers(
       cursorTaskRequestSchema,
       async ({ params }) => {
         const events = cursorTaskToCanonical(params);
-        adapter.record(events);
-        await emit(events);
+        await emit(adapter.recordToolCompletion(events, params.toolCallId));
       },
     )
     .onNotification(
@@ -271,23 +280,22 @@ function registerClientHandlers(
       cursorGenerateImageRequestSchema,
       async ({ params }) => {
         const events = cursorGeneratedImageToCanonical(params);
-        adapter.record(events);
-        await emit(events);
+        await emit(adapter.recordToolCompletion(events, params.toolCallId));
       },
     );
 }
 
-/** Runs one prompt through the official ACP SDK and returns its exact stop. */
-export async function runCursorAcpAttempt(
-  options: CursorAcpRunOptions,
-): Promise<CursorAcpAttemptResult> {
+/** Opens one reusable Cursor ACP child/session for a scoped operation. */
+export async function withCursorAcpSession<T>(
+  options: CursorAcpSessionOptions,
+  operation: (session: CursorAcpSession) => Promise<T>,
+): Promise<T> {
   if (!process.env.CURSOR_API_KEY?.trim()) {
     throw new Error(
       "CURSOR_API_KEY is missing in the sandbox environment â€” Cursor ACP cannot authenticate",
     );
   }
 
-  const startedAt = Date.now();
   const child = spawn(cursorCommand(), ["acp"], {
     cwd: WORK_DIR,
     env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
@@ -325,15 +333,8 @@ export async function runCursorAcpAttempt(
     Readable.toWeb(child.stdout),
   );
 
-  let promptSubmitted = false;
-  let sessionId = "";
-  let stopReason: CursorAcpAttemptResult["stopReason"] = "cancelled";
-  const promptAbort = new AbortController();
-  const cancelFromCaller = (): void => promptAbort.abort();
-  options.signal?.addEventListener("abort", cancelFromCaller, { once: true });
-
   try {
-    await client.connectWith(stream, async (context) => {
+    return await client.connectWith(stream, async (context) => {
       const initialized = await context.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
         clientCapabilities: {
@@ -359,52 +360,75 @@ export async function runCursorAcpAttempt(
         options.mcpServers ?? [],
         adapter,
       );
-      sessionId = setup.sessionId;
+      const sessionId = setup.sessionId;
       await configureModel(context, setup);
       writeCursorAcpSessionState(sessionId);
-
-      const generation = adapter.beginTurn();
-      const cancelPrompt = (): void => {
-        void context.notify(acp.methods.agent.session.cancel, { sessionId });
+      let promptInFlight = false;
+      const cancel = async (): Promise<void> => {
+        if (!promptInFlight) return;
+        await context.notify(acp.methods.agent.session.cancel, { sessionId });
       };
-      promptAbort.signal.addEventListener("abort", cancelPrompt, {
-        once: true,
+      return await operation({
+        sessionId,
+        cancel,
+        async prompt(prompt, signal) {
+          if (promptInFlight) {
+            throw new Error(
+              "Cursor ACP received an overlapping prompt for one session",
+            );
+          }
+          promptInFlight = true;
+          const promptStartedAt = Date.now();
+          const generation = adapter.beginTurn();
+          const cancelFromCaller = (): void => {
+            void cancel();
+          };
+          signal?.addEventListener("abort", cancelFromCaller, { once: true });
+          let stopReason: CursorAcpAttemptResult["stopReason"] = "cancelled";
+          try {
+            const response = await context.request(
+              acp.methods.agent.session.prompt,
+              {
+                sessionId,
+                prompt: [{ type: "text", text: combinedPrompt(prompt) }],
+              },
+            );
+            stopReason = response.stopReason;
+            await eventChain;
+            return {
+              transport: "acp-v1",
+              sessionId,
+              stopReason,
+              result: adapter.getFinalText(),
+              events: adapter.getEvents(),
+              durationMs: Date.now() - promptStartedAt,
+              promptSubmitted: true,
+              cancellationAcknowledged: stopReason === "cancelled",
+              childExitCode,
+              childSignal,
+              stderrTail,
+            };
+          } finally {
+            signal?.removeEventListener("abort", cancelFromCaller);
+            adapter.endTurn(generation);
+            promptInFlight = false;
+          }
+        },
       });
-      try {
-        promptSubmitted = true;
-        const response = await context.request(
-          acp.methods.agent.session.prompt,
-          {
-            sessionId,
-            prompt: [{ type: "text", text: combinedPrompt(options.prompt) }],
-          },
-        );
-        stopReason = response.stopReason;
-      } finally {
-        promptAbort.signal.removeEventListener("abort", cancelPrompt);
-        adapter.endTurn(generation);
-      }
-      await eventChain;
     });
-
-    return {
-      transport: "acp-v1",
-      sessionId,
-      stopReason,
-      result: adapter.getFinalText(),
-      events: adapter.getEvents(),
-      durationMs: Date.now() - startedAt,
-      promptSubmitted,
-      cancellationAcknowledged: stopReason === "cancelled",
-      childExitCode,
-      childSignal,
-      stderrTail,
-    };
   } finally {
-    options.signal?.removeEventListener("abort", cancelFromCaller);
     child.stdin.end();
     if (!child.killed) child.kill();
   }
+}
+
+/** Runs one prompt through the official ACP SDK and returns its exact stop. */
+export async function runCursorAcpAttempt(
+  options: CursorAcpRunOptions,
+): Promise<CursorAcpAttemptResult> {
+  return await withCursorAcpSession(options, async (session) => {
+    return await session.prompt(options.prompt, options.signal);
+  });
 }
 
 export function readCursorPromptFile(): string {

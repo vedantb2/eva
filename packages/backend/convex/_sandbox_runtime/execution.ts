@@ -11,7 +11,9 @@ import {
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
+  cursorTransportValidator,
 } from "../validators";
+import { usesChatDaemon } from "../_chat/daemonTransport";
 import {
   execHandle,
   resolveSandboxContext,
@@ -1153,6 +1155,7 @@ type PrewarmEntityDaemonBaseParams = {
   completeSyntheticTurnMutation: string;
   updateBackgroundAgentsMutation: string;
   model?: string;
+  cursorTransport?: Infer<typeof cursorTransportValidator>;
   reasoningLevel?: Infer<typeof reasoningLevelValidator>;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
@@ -1209,9 +1212,9 @@ async function runPrewarmEntityDaemon(
     const entityIdStr = args.entityId;
     const fp = CALLBACK_SCRIPT_FINGERPRINT;
     const normalizedModel = normalizeAIModel(args.model);
-    if (getAIModelProvider(normalizedModel) !== "claude") {
+    if (!usesChatDaemon(normalizedModel, args.cursorTransport)) {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: skip non-claude entityId=${entityIdStr} model=${normalizedModel}`,
+        `[sandbox][execution] prewarmEntityDaemon: skip one-shot provider entityId=${entityIdStr} model=${normalizedModel}`,
       );
       return { prewarmed: false };
     }
@@ -1354,6 +1357,7 @@ export const prewarmEntityDaemon = internalAction({
     completeSyntheticTurnMutation: v.string(),
     updateBackgroundAgentsMutation: v.string(),
     model: v.optional(v.string()),
+    cursorTransport: v.optional(cursorTransportValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
@@ -1421,6 +1425,7 @@ export const prewarmSessionDaemon = internalAction({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
     model: v.optional(v.string()),
+    cursorTransport: v.optional(cursorTransportValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
@@ -1448,6 +1453,7 @@ export const prewarmSessionDaemon = internalAction({
       completionMutation: "sessionWorkflow:handleCompletion",
       ...SESSION_DAEMON_MUTATIONS,
       model: args.model,
+      cursorTransport: args.cursorTransport,
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,

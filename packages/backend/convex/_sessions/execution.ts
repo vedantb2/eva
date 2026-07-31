@@ -20,6 +20,7 @@ import {
 } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { usesChatDaemon } from "../_chat/daemonTransport";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -135,7 +136,10 @@ export const startExecute = authMutation({
     // Opencode are one-shot launch — staging pendingTurn for them only feeds a
     // leftover Claude daemon mismatch-spam while launchOnExistingSandbox runs.
     const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const usesDaemonPull = usesChatDaemon(
+      normalizedModel,
+      session.cursorTransport,
+    );
     await ctx.db.patch(args.sessionId, {
       ...(usesDaemonPull
         ? {
@@ -177,6 +181,7 @@ export const startExecute = authMutation({
         repoId: session.repoId,
         userId: ctx.userId,
         model: normalizedModel,
+        cursorTransport: session.cursorTransport,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
@@ -246,6 +251,7 @@ export const prewarmDaemon = authMutation({
       repoId: session.repoId,
       userId: session.userId,
       model: normalizeAIModel(session.lastModel),
+      cursorTransport: session.cursorTransport,
       allowedTools: MODE_TOOLS[resolveToolMode(lastMode)],
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
@@ -344,7 +350,7 @@ export const cancelExecution = authMutation({
 
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
-    if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
+    if (usesChatDaemon(session.lastModel, session.cursorTransport)) {
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: Date.now() });
     } else if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {

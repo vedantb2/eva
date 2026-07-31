@@ -87,6 +87,7 @@ export const create = authMutation({
       userId: ctx.userId,
       title,
       status: "starting",
+      cursorTransport: "acp-v1",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
       numId,

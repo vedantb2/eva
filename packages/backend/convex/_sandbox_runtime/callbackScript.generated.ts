@@ -11,8 +11,8 @@ import {
   existsSync as existsSync9,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
-  unlinkSync as unlinkSync3,
-  writeFileSync as writeFileSync11
+  unlinkSync as unlinkSync4,
+  writeFileSync as writeFileSync13
 } from "fs";
 
 // callback-src/config.ts
@@ -252,7 +252,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync11, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -4549,6 +4549,118 @@ function readCancelRequested(result) {
   return payload.cancelRequested === true;
 }
 
+// callback-src/providers/daemonTurn.ts
+import { writeFileSync as writeFileSync10 } from "node:fs";
+function readClaimPayload(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  return typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+}
+function readClaimedTurn(result) {
+  const payload = readClaimPayload(result);
+  if (payload === null || typeof payload.prompt !== "string") {
+    return null;
+  }
+  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
+    (url2) => typeof url2 === "string"
+  ) : [];
+  return { prompt: payload.prompt, attachmentUrls };
+}
+function attachmentExtensionForMimeType(mimeType) {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    case "image/png":
+      return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      return type.startsWith("image/") ? ".png" : ".bin";
+  }
+}
+async function materializeTurnAttachments(turn) {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url2 = turn.attachmentUrls[index];
+    if (!url2) continue;
+    try {
+      const response = await fetchWithTimeout(url2, { method: "GET" });
+      if (!response.ok) {
+        log(\`daemon: attachment download failed status=\${response.status}\`);
+        continue;
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      const extension = attachmentExtensionForMimeType(
+        response.headers.get("content-type") ?? ""
+      );
+      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
+      writeFileSync10(path, bytes);
+      paths.push(path);
+    } catch (error40) {
+      log(
+        \`daemon: attachment download error \${error40 instanceof Error ? error40.message : String(error40)}\`
+      );
+    }
+  }
+  if (paths.length === 0) return;
+  const list = paths.map((path) => \`- \${path}\`).join("\\n");
+  turn.prompt += \`
+
+---
+The user attached the following file(s). Read them with your file-reading tool before responding:
+\${list}\`;
+}
+
+// callback-src/providers/daemonAuth.ts
+function readGithubToken(data) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return null;
+  }
+  const value = data.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const payload = value;
+  return typeof payload.token === "string" ? payload.token : null;
+}
+async function ensureDaemonGithubToken() {
+  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
+  try {
+    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + CONVEX_TOKEN
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: REPO_ID },
+        format: "json"
+      })
+    });
+    if (!response.ok) return;
+    const token = readGithubToken(await readResponseJson(response));
+    if (!token) return;
+    process.env.GITHUB_TOKEN = token;
+    process.env.GH_TOKEN = token;
+  } catch {
+  }
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -4702,42 +4814,6 @@ function createPromptStream() {
   };
   return { push, iterable };
 }
-async function ensureGithubToken() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-  }
-}
-function readGithubToken(data) {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value = data.value;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const payload = value;
-  return typeof payload.token === "string" ? payload.token : null;
-}
 function resetTurnState() {
   callbackState.accumulatedSteps.length = 0;
   callbackState.currentStreamedContent = "";
@@ -4782,37 +4858,6 @@ async function finalizeTurn(output) {
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
-}
-function readClaimedPrompt(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  const prompt = payload.prompt;
-  return typeof prompt === "string" ? prompt : null;
-}
-function readClaimedAttachmentUrls(payload) {
-  const field = payload.attachmentUrls;
-  if (!Array.isArray(field)) {
-    return [];
-  }
-  return field.filter((url2) => typeof url2 === "string");
-}
-function readClaimedTurn(result) {
-  const prompt = readClaimedPrompt(result);
-  if (prompt === null) {
-    return null;
-  }
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  return {
-    prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload)
-  };
 }
 function readSyntheticTurnMessageId(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -5395,63 +5440,6 @@ function callbackScriptWentStaleOnDisk() {
     return false;
   }
 }
-function attachmentExtensionForMimeType(mimeType) {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      if (type.startsWith("image/")) return ".png";
-      return ".bin";
-  }
-}
-async function materializeTurnAttachments(turn) {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url2 = turn.attachmentUrls[index];
-    if (!url2) continue;
-    try {
-      const res = await fetchWithTimeout(url2, { method: "GET" });
-      if (!res.ok) {
-        log(\`daemon: attachment download failed status=\${res.status}\`);
-        continue;
-      }
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const extension = attachmentExtensionForMimeType(
-        res.headers.get("content-type") ?? ""
-      );
-      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync10(path, bytes);
-      paths.push(path);
-    } catch (error40) {
-      log(
-        \`daemon: attachment download error \${error40 instanceof Error ? error40.message : String(error40)}\`
-      );
-    }
-  }
-  if (paths.length === 0) return;
-  const list = paths.map((p) => \`- \${p}\`).join("\\n");
-  turn.prompt += \`
-
----
-The user attached the following file(s). Read them with your file-reading tool before responding:
-\${list}\`;
-}
 async function runSdkDaemon() {
   if (!CLAIM_MUTATION) {
     log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
@@ -5463,16 +5451,16 @@ async function runSdkDaemon() {
     );
     process.exit(1);
   }
-  writeFileSync10(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync11(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync11(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync11(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) {
     log("daemon: preflight failed");
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await ensureDaemonGithubToken();
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
@@ -5525,6 +5513,9 @@ async function runSdkDaemon() {
   }
   process.exit(0);
 }
+
+// callback-src/providers/cursorAcpDaemon.ts
+import { readFileSync as readFileSync9, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "node:fs";
 
 // callback-src/providers/cursorAcpRuntime.ts
 import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
@@ -20442,6 +20433,7 @@ var CursorAcpEventAdapter = class {
   lastMessageId = "";
   messageStarted = false;
   finalText = "";
+  knownToolIds = /* @__PURE__ */ new Set();
   terminalToolIds = /* @__PURE__ */ new Set();
   emittedEvents = [];
   replayNotificationCount = 0;
@@ -20465,6 +20457,7 @@ var CursorAcpEventAdapter = class {
     this.lastMessageId = "";
     this.messageStarted = false;
     this.finalText = "";
+    this.knownToolIds.clear();
     this.terminalToolIds.clear();
     this.emittedEvents.length = 0;
     return this.activeGeneration;
@@ -20479,7 +20472,16 @@ var CursorAcpEventAdapter = class {
     return [...this.emittedEvents];
   }
   record(events) {
+    if (this.replaying || !this.turnActive) return [];
     this.emittedEvents.push(...events);
+    return events;
+  }
+  recordToolCompletion(events, toolId) {
+    if (this.terminalToolIds.has(toolId)) return [];
+    const currentEvents = this.knownToolIds.has(toolId) ? events.filter((event) => event.kind !== "push_step") : events;
+    this.knownToolIds.add(toolId);
+    this.terminalToolIds.add(toolId);
+    return this.record(currentEvents);
   }
   handle(notification) {
     if (notification.sessionId !== this.activeSessionId) return [];
@@ -20511,6 +20513,7 @@ var CursorAcpEventAdapter = class {
   }
   mapToolCall(tool) {
     if (this.terminalToolIds.has(tool.toolCallId)) return [];
+    this.knownToolIds.add(tool.toolCallId);
     const step = {
       type: toolStepType(tool.kind),
       label: toolLabel(tool.kind, tool.title),
@@ -24808,6 +24811,29 @@ function cursorGeneratedImageToCanonical(request) {
 
 // callback-src/providers/cursorAcpRuntime.ts
 var STDERR_TAIL_LIMIT = 32e3;
+function readCursorAcpMcpServers() {
+  if (!existsSync8("/tmp/eva-mcp.json")) return [];
+  const parsed = tryParseJson(readFileSync8("/tmp/eva-mcp.json", "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) {
+    return [];
+  }
+  const servers = [];
+  for (const [name, value] of Object.entries(parsed.mcpServers)) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.url !== "string") {
+      continue;
+    }
+    const headers = [];
+    if (value.headers && typeof value.headers === "object" && !Array.isArray(value.headers)) {
+      for (const [headerName, headerValue] of Object.entries(value.headers)) {
+        if (typeof headerValue === "string") {
+          headers.push({ name: headerName, value: headerValue });
+        }
+      }
+    }
+    servers.push({ type: "http", name, url: value.url, headers });
+  }
+  return servers;
+}
 function appendBoundedTail(current, chunk) {
   const combined = current + chunk;
   return combined.length <= STDERR_TAIL_LIMIT ? combined : combined.slice(combined.length - STDERR_TAIL_LIMIT);
@@ -24911,12 +24937,9 @@ async function startOrRestoreSession(context, capabilities, sessionMode, mcpServ
   };
 }
 function registerClientHandlers(adapter, emit) {
-  return client({ name: "eva-cursor-acp" }).onNotification(
-    methods.client.session.update,
-    async ({ params }) => {
-      await emit(adapter.handle(params));
-    }
-  ).onRequest(
+  return client({ name: "eva-cursor-acp" }).onNotification(methods.client.session.update, async ({ params }) => {
+    await emit(adapter.handle(params));
+  }).onRequest(
     methods.client.session.requestPermission,
     ({ params }) => autoApproveCursorPermission(params)
   ).onRequest(
@@ -24928,8 +24951,7 @@ function registerClientHandlers(adapter, emit) {
     cursorCreatePlanRequestSchema,
     async ({ params }) => {
       const accepted = acceptCursorPlan(params);
-      adapter.record(accepted.events);
-      await emit(accepted.events);
+      await emit(adapter.record(accepted.events));
       return accepted.response;
     }
   ).onNotification(
@@ -24937,34 +24959,30 @@ function registerClientHandlers(adapter, emit) {
     cursorUpdateTodosRequestSchema,
     async ({ params }) => {
       const events = cursorTodosToCanonical(params.todos);
-      adapter.record(events);
-      await emit(events);
+      await emit(adapter.record(events));
     }
   ).onNotification(
     "cursor/task",
     cursorTaskRequestSchema,
     async ({ params }) => {
       const events = cursorTaskToCanonical(params);
-      adapter.record(events);
-      await emit(events);
+      await emit(adapter.recordToolCompletion(events, params.toolCallId));
     }
   ).onNotification(
     "cursor/generate_image",
     cursorGenerateImageRequestSchema,
     async ({ params }) => {
       const events = cursorGeneratedImageToCanonical(params);
-      adapter.record(events);
-      await emit(events);
+      await emit(adapter.recordToolCompletion(events, params.toolCallId));
     }
   );
 }
-async function runCursorAcpAttempt(options) {
+async function withCursorAcpSession(options, operation) {
   if (!process.env.CURSOR_API_KEY?.trim()) {
     throw new Error(
       "CURSOR_API_KEY is missing in the sandbox environment \\xE2\\u20AC\\u201D Cursor ACP cannot authenticate"
     );
   }
-  const startedAt = Date.now();
   const child = spawn2(cursorCommand2(), ["acp"], {
     cwd: WORK_DIR,
     env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
@@ -24999,26 +25017,17 @@ async function runCursorAcpAttempt(options) {
     Writable.toWeb(child.stdin),
     Readable.toWeb(child.stdout)
   );
-  let promptSubmitted = false;
-  let sessionId = "";
-  let stopReason = "cancelled";
-  const promptAbort = new AbortController();
-  const cancelFromCaller = () => promptAbort.abort();
-  options.signal?.addEventListener("abort", cancelFromCaller, { once: true });
   try {
-    await client2.connectWith(stream, async (context) => {
-      const initialized = await context.request(
-        methods.agent.initialize,
-        {
-          protocolVersion: PROTOCOL_VERSION,
-          clientCapabilities: {
-            fs: { readTextFile: false, writeTextFile: false },
-            terminal: false,
-            plan: {}
-          },
-          clientInfo: { name: "eva", version: "1.0.0" }
-        }
-      );
+    return await client2.connectWith(stream, async (context) => {
+      const initialized = await context.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {
+          fs: { readTextFile: false, writeTextFile: false },
+          terminal: false,
+          plan: {}
+        },
+        clientInfo: { name: "eva", version: "1.0.0" }
+      });
       if (initialized.protocolVersion !== PROTOCOL_VERSION) {
         throw new Error(
           \`Cursor negotiated unsupported ACP version \${initialized.protocolVersion}\`
@@ -25034,53 +25043,386 @@ async function runCursorAcpAttempt(options) {
         options.mcpServers ?? [],
         adapter
       );
-      sessionId = setup.sessionId;
+      const sessionId = setup.sessionId;
       await configureModel(context, setup);
       writeCursorAcpSessionState(sessionId);
-      const generation = adapter.beginTurn();
-      const cancelPrompt = () => {
-        void context.notify(methods.agent.session.cancel, { sessionId });
+      let promptInFlight = false;
+      const cancel = async () => {
+        if (!promptInFlight) return;
+        await context.notify(methods.agent.session.cancel, { sessionId });
       };
-      promptAbort.signal.addEventListener("abort", cancelPrompt, { once: true });
-      try {
-        promptSubmitted = true;
-        const response = await context.request(
-          methods.agent.session.prompt,
-          {
-            sessionId,
-            prompt: [
-              { type: "text", text: combinedPrompt(options.prompt) }
-            ]
+      return await operation({
+        sessionId,
+        cancel,
+        async prompt(prompt, signal) {
+          if (promptInFlight) {
+            throw new Error(
+              "Cursor ACP received an overlapping prompt for one session"
+            );
           }
-        );
-        stopReason = response.stopReason;
-      } finally {
-        promptAbort.signal.removeEventListener("abort", cancelPrompt);
-        adapter.endTurn(generation);
-      }
-      await eventChain;
+          promptInFlight = true;
+          const promptStartedAt = Date.now();
+          const generation = adapter.beginTurn();
+          const cancelFromCaller = () => {
+            void cancel();
+          };
+          signal?.addEventListener("abort", cancelFromCaller, { once: true });
+          let stopReason = "cancelled";
+          try {
+            const response = await context.request(
+              methods.agent.session.prompt,
+              {
+                sessionId,
+                prompt: [{ type: "text", text: combinedPrompt(prompt) }]
+              }
+            );
+            stopReason = response.stopReason;
+            await eventChain;
+            return {
+              transport: "acp-v1",
+              sessionId,
+              stopReason,
+              result: adapter.getFinalText(),
+              events: adapter.getEvents(),
+              durationMs: Date.now() - promptStartedAt,
+              promptSubmitted: true,
+              cancellationAcknowledged: stopReason === "cancelled",
+              childExitCode,
+              childSignal,
+              stderrTail
+            };
+          } finally {
+            signal?.removeEventListener("abort", cancelFromCaller);
+            adapter.endTurn(generation);
+            promptInFlight = false;
+          }
+        }
+      });
     });
-    return {
-      transport: "acp-v1",
-      sessionId,
-      stopReason,
-      result: adapter.getFinalText(),
-      events: adapter.getEvents(),
-      durationMs: Date.now() - startedAt,
-      promptSubmitted,
-      cancellationAcknowledged: stopReason === "cancelled",
-      childExitCode,
-      childSignal,
-      stderrTail
-    };
   } finally {
-    options.signal?.removeEventListener("abort", cancelFromCaller);
     child.stdin.end();
     if (!child.killed) child.kill();
   }
 }
+async function runCursorAcpAttempt(options) {
+  return await withCursorAcpSession(options, async (session) => {
+    return await session.prompt(options.prompt, options.signal);
+  });
+}
 function readCursorPromptFile() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
+}
+
+// callback-src/providers/cursorAcpResult.ts
+function isCursorAcpAttempt(attempt) {
+  return "transport" in attempt && attempt.transport === "acp-v1";
+}
+function cursorAcpFailure(attempt) {
+  const hasMedia = attempt.events.some(
+    (event) => event.kind === "complete_tool" && event.result?.files !== void 0 && event.result.files.length > 0
+  );
+  if (attempt.stopReason === "end_turn") {
+    return attempt.result.trim() || hasMedia ? null : "Cursor completed the turn without an assistant response.";
+  }
+  if (attempt.stopReason === "max_tokens") {
+    return "Cursor reached the model token limit before completing the turn.";
+  }
+  if (attempt.stopReason === "max_turn_requests") {
+    return "Cursor reached its turn-request limit before completing the turn.";
+  }
+  if (attempt.stopReason === "refusal") {
+    return "Cursor refused the request.";
+  }
+  return "Cursor cancelled the turn before completion.";
+}
+function cursorAcpResultEvent(attempt) {
+  return {
+    result: attempt.result,
+    isError: false,
+    rawResultEvent: JSON.stringify({
+      transport: attempt.transport,
+      sessionId: attempt.sessionId,
+      stopReason: attempt.stopReason,
+      durationMs: attempt.durationMs,
+      promptSubmitted: attempt.promptSubmitted,
+      cancellationAcknowledged: attempt.cancellationAcknowledged
+    })
+  };
+}
+
+// callback-src/providers/cursorAcpDaemon.ts
+var IDLE_EXIT_MS2 = 45 * 60 * 1e3;
+var PROMPT_POLL_INTERVAL_MS2 = 50;
+var PROMPT_SETTLE_POLL_MS = 250;
+var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
+var NO_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+function sleep3(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function resetTurnState2() {
+  callbackState.accumulatedSteps.length = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.pendingParagraphBreak = false;
+  callbackState.resultEventSeen = false;
+  callbackState.rawOutput = "";
+  callbackState.lastProcessed = 0;
+  callbackState.inFlightToolUses = 0;
+  callbackState.pendingQuestionData = "";
+  callbackState.todoState.length = 0;
+  callbackState.awaitingQuestionAnswer = false;
+  callbackState.lastStepType = "thinking";
+}
+function callbackScriptWentStaleOnDisk2() {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    return readFileSync9("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
+  }
+}
+function settledPrompt(attempt) {
+  return { kind: "settled", attempt };
+}
+async function promptPoll() {
+  await sleep3(PROMPT_SETTLE_POLL_MS);
+  return { kind: "poll" };
+}
+async function finalizeTurn2(attempt) {
+  const failure = cursorAcpFailure(attempt);
+  const resultEvent = cursorAcpResultEvent(attempt);
+  for (const step of callbackState.accumulatedSteps) step.status = "complete";
+  const completionArgs = {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success: failure === null,
+    result: resultEvent.result,
+    error: failure,
+    activityLog: serializeSteps(callbackState.accumulatedSteps),
+    rawResultEvent: resultEvent.rawResultEvent
+  };
+  if (RUN_ID) completionArgs.runId = RUN_ID;
+  if (callbackState.pendingQuestionData) {
+    completionArgs.pendingQuestion = callbackState.pendingQuestionData;
+  }
+  await setFinalizingState();
+  await deliverCompletionWithMedia(completionArgs);
+  syncCursorStateToPersist();
+  log(
+    \`cursor_acp daemon turn finalized success=\${failure === null} steps=\${callbackState.accumulatedSteps.length}\`
+  );
+}
+async function failTurn(message) {
+  for (const step of callbackState.accumulatedSteps) step.status = "complete";
+  const completionArgs = {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success: false,
+    result: callbackState.currentStreamedContent || null,
+    error: message,
+    activityLog: serializeSteps(callbackState.accumulatedSteps)
+  };
+  if (RUN_ID) completionArgs.runId = RUN_ID;
+  await setFinalizingState();
+  await deliverCompletionWithMedia(completionArgs);
+}
+function cleanupDaemonMarkers() {
+  const paths = resolveDaemonPaths();
+  for (const path of [paths.pid, paths.entity, paths.opts]) {
+    try {
+      unlinkSync3(path);
+    } catch {
+    }
+  }
+}
+async function runCursorAcpDaemon() {
+  if (!CLAIM_MUTATION) {
+    log("cursor_acp daemon requires CLAIM_MUTATION");
+    process.exit(1);
+  }
+  const claimMutation = CLAIM_MUTATION;
+  const paths = resolveDaemonPaths();
+  writeFileSync12(paths.pid, String(process.pid));
+  writeFileSync12(paths.entity, ENTITY_ID ?? "");
+  writeFileSync12(paths.opts, DAEMON_OPTS_SIG);
+  const preflightOk2 = await runPreflightHeartbeat();
+  if (!preflightOk2) {
+    cleanupDaemonMarkers();
+    process.exit(1);
+  }
+  startStreamingLoops();
+  await ensureDaemonGithubToken();
+  let daemonExiting2 = false;
+  let acceptingClaims = true;
+  let activeTurn = false;
+  let pendingTurn = null;
+  let cancellationKind = "none";
+  let cancelRequestedAt = 0;
+  let turnStartedAt = 0;
+  let lastEventAt = Date.now();
+  let lastIdleActivityAt = Date.now();
+  let currentSession = null;
+  let completionAttempted = false;
+  const currentCancellationKind = () => cancellationKind;
+  const requestCancellation = async (kind) => {
+    if (!activeTurn || cancellationKind !== "none") return;
+    cancellationKind = kind;
+    cancelRequestedAt = Date.now();
+    const session = currentSession;
+    if (session === null) return;
+    try {
+      await session.cancel();
+      log(\`cursor_acp daemon cancellation sent kind=\${kind}\`);
+    } catch (error40) {
+      log(
+        \`cursor_acp daemon cancellation failed: \${error40 instanceof Error ? error40.message : String(error40)}\`
+      );
+    }
+  };
+  const claimWatcher = async () => {
+    while (!daemonExiting2 && acceptingClaims) {
+      if (callbackScriptWentStaleOnDisk2()) {
+        acceptingClaims = false;
+        log("cursor_acp daemon callback script changed; draining current turn");
+        break;
+      }
+      try {
+        const claimed = await callConvexWithRetry("mutation", claimMutation, {
+          [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+          model: MODEL
+        });
+        if (readCancelRequested(claimed)) {
+          await requestCancellation("server");
+        }
+        const claimedTurn = readClaimedTurn(claimed);
+        if (claimedTurn !== null) {
+          await materializeTurnAttachments(claimedTurn);
+          lastIdleActivityAt = Date.now();
+          if (pendingTurn === null) {
+            pendingTurn = claimedTurn;
+          } else {
+            log(
+              "cursor_acp daemon received an extra claimed turn; preserving the first"
+            );
+          }
+        }
+      } catch {
+      }
+      await sleep3(PROMPT_POLL_INTERVAL_MS2);
+    }
+  };
+  const waitForPrompt = async (session, turn) => {
+    const promptPromise = session.prompt(turn.prompt).then(settledPrompt);
+    while (true) {
+      const outcome = await Promise.race([promptPromise, promptPoll()]);
+      if (outcome.kind === "settled") return outcome.attempt;
+      const now = Date.now();
+      if (cancellationKind !== "none" && now - cancelRequestedAt > CANCEL_SETTLE_TIMEOUT_MS2) {
+        throw new Error("Cursor ACP did not settle after cancellation");
+      }
+      if (cancellationKind !== "none") continue;
+      const exceededRuntime = now - turnStartedAt > MAX_TOTAL_RUNTIME_MS;
+      const stoppedProducingEvents = !callbackState.awaitingQuestionAnswer && now - lastEventAt > NO_EVENT_TIMEOUT_MS;
+      if (callbackState.fatalHeartbeatErrorMessage) {
+        await requestCancellation("watchdog");
+      } else if (exceededRuntime || stoppedProducingEvents) {
+        await requestCancellation("watchdog");
+      }
+    }
+  };
+  try {
+    const sessionMode = prepareCursorSessionState();
+    await withCursorAcpSession(
+      {
+        sessionMode,
+        mcpServers: readCursorAcpMcpServers(),
+        onEvents: () => {
+          lastEventAt = Date.now();
+        }
+      },
+      async (session) => {
+        currentSession = session;
+        log(
+          \`cursor_acp daemon warm entityId=\${ENTITY_ID ?? "none"} sessionId=\${session.sessionId}\`
+        );
+        const watcher = claimWatcher();
+        while (!daemonExiting2) {
+          if (!activeTurn && pendingTurn !== null) {
+            const turn = pendingTurn;
+            pendingTurn = null;
+            resetTurnState2();
+            activeTurn = true;
+            cancellationKind = "none";
+            completionAttempted = false;
+            cancelRequestedAt = 0;
+            turnStartedAt = Date.now();
+            lastEventAt = turnStartedAt;
+            try {
+              const attempt = await waitForPrompt(session, turn);
+              if (currentCancellationKind() === "server") {
+                log(
+                  "cursor_acp daemon cancelled turn settled without completion"
+                );
+              } else if (currentCancellationKind() === "watchdog") {
+                completionAttempted = true;
+                await failTurn(
+                  callbackState.fatalHeartbeatErrorMessage || "Cursor stopped responding before the turn completed."
+                );
+              } else {
+                completionAttempted = true;
+                await finalizeTurn2(attempt);
+              }
+            } catch (error40) {
+              const message = error40 instanceof Error ? error40.message : String(error40);
+              if (currentCancellationKind() === "server") {
+                log(\`cursor_acp daemon cancel settle failed: \${message}\`);
+              } else if (completionAttempted) {
+                log(\`cursor_acp daemon completion failed: \${message}\`);
+              } else {
+                completionAttempted = true;
+                await failTurn(\`Cursor ACP daemon failed: \${message}\`);
+              }
+              acceptingClaims = false;
+              daemonExiting2 = true;
+            } finally {
+              activeTurn = false;
+              cancellationKind = "none";
+              resetTurnState2();
+              lastIdleActivityAt = Date.now();
+            }
+            continue;
+          }
+          if (!acceptingClaims && !activeTurn) {
+            daemonExiting2 = true;
+            break;
+          }
+          if (!activeTurn && pendingTurn === null && Date.now() - lastIdleActivityAt > IDLE_EXIT_MS2) {
+            acceptingClaims = false;
+            daemonExiting2 = true;
+            log("cursor_acp daemon idle timeout");
+            break;
+          }
+          await sleep3(PROMPT_POLL_INTERVAL_MS2);
+        }
+        await watcher;
+      }
+    );
+    writeDoneFile("daemon-exit");
+  } catch (error40) {
+    const message = error40 instanceof Error ? error40.message : String(error40);
+    log(\`cursor_acp daemon failed: \${message}\`);
+    if (activeTurn && !completionAttempted && currentCancellationKind() !== "server") {
+      completionAttempted = true;
+      try {
+        await failTurn(\`Cursor ACP daemon failed: \${message}\`);
+      } catch {
+      }
+    }
+  } finally {
+    daemonExiting2 = true;
+    currentSession = null;
+    cleanupDaemonMarkers();
+    await stopStreamingLoops();
+  }
+  process.exit(0);
 }
 
 // callback-src/providers/attempts.ts
@@ -25147,7 +25489,8 @@ async function runCursorAttempt(sessionMode) {
   if (providerState?.transport !== "stream-json") {
     return await runCursorAcpAttempt({
       sessionMode,
-      prompt: readCursorPromptFile()
+      prompt: readCursorPromptFile(),
+      mcpServers: readCursorAcpMcpServers()
     });
   }
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
@@ -25171,41 +25514,6 @@ async function runProviderAttempt(sessionMode) {
 }
 
 // callback-src/index.ts
-function isCursorAcpAttempt(attempt) {
-  return "transport" in attempt && attempt.transport === "acp-v1";
-}
-function cursorAcpFailure(attempt) {
-  const hasMedia = attempt.events.some(
-    (event) => event.kind === "complete_tool" && event.result?.files !== void 0 && event.result.files.length > 0
-  );
-  if (attempt.stopReason === "end_turn") {
-    return attempt.result.trim() || hasMedia ? null : "Cursor completed the turn without an assistant response.";
-  }
-  if (attempt.stopReason === "max_tokens") {
-    return "Cursor reached the model token limit before completing the turn.";
-  }
-  if (attempt.stopReason === "max_turn_requests") {
-    return "Cursor reached its turn-request limit before completing the turn.";
-  }
-  if (attempt.stopReason === "refusal") {
-    return "Cursor refused the request.";
-  }
-  return "Cursor cancelled the turn before completion.";
-}
-function cursorAcpResultEvent(attempt) {
-  return {
-    result: attempt.result,
-    isError: false,
-    rawResultEvent: JSON.stringify({
-      transport: attempt.transport,
-      sessionId: attempt.sessionId,
-      stopReason: attempt.stopReason,
-      durationMs: attempt.durationMs,
-      promptSubmitted: attempt.promptSubmitted,
-      cancellationAcknowledged: attempt.cancellationAcknowledged
-    })
-  };
-}
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
     exitCode: typeof code === "number" ? code : null
@@ -25216,16 +25524,17 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync3(READY_FILE);
+  unlinkSync4(READY_FILE);
 } catch {
 }
 try {
-  writeFileSync11("/proc/self/oom_score_adj", "-600");
+  writeFileSync13("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";
-if (PROVIDER === "claude" && CLAIM_MUTATION) {
-  await runSdkDaemon();
+if (CLAIM_MUTATION) {
+  if (PROVIDER === "claude") await runSdkDaemon();
+  if (PROVIDER === "cursor") await runCursorAcpDaemon();
 }
 var preflightOk = await runPreflightHeartbeat();
 if (!preflightOk) {
@@ -25237,7 +25546,7 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   if (existsSync9(d)) {
     for (const f of readdirSync3(d)) {
       try {
-        unlinkSync3(d + "/" + f);
+        unlinkSync4(d + "/" + f);
       } catch {
       }
     }
@@ -25313,7 +25622,7 @@ try {
   let errorValue = cursorAcpError;
   if (!cursorAcpAttempt && finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
-  } else if (!cursorAcpAttempt && (!runSucceededWithResult && finalCode !== 0) || !cursorAcpAttempt && attemptEndedDueToTimeout && !runSucceededWithResult) {
+  } else if (!cursorAcpAttempt && (!runSucceededWithResult && finalCode !== 0 || attemptEndedDueToTimeout && !runSucceededWithResult)) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,

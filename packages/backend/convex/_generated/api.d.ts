@@ -31,6 +31,7 @@ import type * as _automations_helpers from "../_automations/helpers.js";
 import type * as _automations_runs from "../_automations/runs.js";
 import type * as _automations_triggers from "../_automations/triggers.js";
 import type * as _chat_cancelledMessage from "../_chat/cancelledMessage.js";
+import type * as _chat_daemonTransport from "../_chat/daemonTransport.js";
 import type * as _chat_projectChatDaemon from "../_chat/projectChatDaemon.js";
 import type * as _chat_stallWatchdog from "../_chat/stallWatchdog.js";
 import type * as _chat_surfaceAdapters from "../_chat/surfaceAdapters.js";
@@ -344,6 +345,7 @@ declare const fullApi: ApiFromModules<{
   "_automations/runs": typeof _automations_runs;
   "_automations/triggers": typeof _automations_triggers;
   "_chat/cancelledMessage": typeof _chat_cancelledMessage;
+  "_chat/daemonTransport": typeof _chat_daemonTransport;
   "_chat/projectChatDaemon": typeof _chat_projectChatDaemon;
   "_chat/stallWatchdog": typeof _chat_stallWatchdog;
   "_chat/surfaceAdapters": typeof _chat_surfaceAdapters;

@@ -12,7 +12,7 @@ import {
   workflowCompleteValidator,
   normalizeAIModel,
   taskSandboxStatusValidator,
-  getAIModelProvider,
+  cursorTransportValidator,
 } from "./validators";
 import {
   recordCompletionLog,
@@ -35,6 +35,7 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import { usesChatDaemon } from "./_chat/daemonTransport";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -205,7 +206,10 @@ export const startExecute = authMutation({
     );
 
     const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const usesDaemonPull = usesChatDaemon(
+      normalizedModel,
+      project.cursorTransport,
+    );
     await ctx.db.patch(args.projectId, {
       ...(usesDaemonPull
         ? {
@@ -240,6 +244,7 @@ export const startExecute = authMutation({
         completionMutation: "projectChatWorkflow:handleCompletion",
         ...PROJECT_CHAT_DAEMON_MUTATIONS,
         model: normalizedModel,
+        cursorTransport: project.cursorTransport,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
@@ -353,9 +358,10 @@ export const cancelExecution = authMutation({
     const pendingRequestedAt = project.pendingTurn?.requestedAt;
 
     if (
-      getAIModelProvider(
-        normalizeAIModel(project.lastChatModel ?? project.model),
-      ) === "claude"
+      usesChatDaemon(
+        project.lastChatModel ?? project.model,
+        project.cursorTransport,
+      )
     ) {
       await ctx.db.patch(args.projectId, { cancelRequestedAt: Date.now() });
     } else if (project.sandboxId) {
@@ -533,7 +539,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    if (getAIModelProvider(data.model) === "claude") {
+    if (usesChatDaemon(data.model, data.cursorTransport)) {
       await step.runMutation(internal.projectChatWorkflow.ensurePendingTurn, {
         projectId: args.projectId,
         prompt: data.prompt,
@@ -550,6 +556,7 @@ export const projectChatExecuteWorkflow = workflow.define({
         completionMutation: "projectChatWorkflow:handleCompletion",
         ...PROJECT_CHAT_DAEMON_MUTATIONS,
         model: data.model,
+        cursorTransport: data.cursorTransport,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
@@ -689,6 +696,7 @@ export const getChatData = internalQuery({
     branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
+    cursorTransport: v.optional(cursorTransportValidator),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   }),
   handler: async (ctx, args) => {
@@ -721,6 +729,7 @@ export const getChatData = internalQuery({
       branchName,
       prompt,
       model: normalizeAIModel(args.model),
+      cursorTransport: project.cursorTransport,
       attachmentStorageIds,
     };
   },
@@ -845,6 +854,7 @@ export const prewarmChatDaemon = authMutation({
       completionMutation: "projectChatWorkflow:handleCompletion",
       ...PROJECT_CHAT_DAEMON_MUTATIONS,
       model: normalizeAIModel(project.lastChatModel ?? project.model),
+      cursorTransport: project.cursorTransport,
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: project.providerAccountId,
       credentialOwnerUserId: project.userId,

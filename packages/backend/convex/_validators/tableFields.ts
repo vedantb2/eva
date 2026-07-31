@@ -127,12 +127,20 @@ export const pendingTurnFields = {
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
 
+export const cursorTransportValidator = v.union(
+  v.literal("stream-json"),
+  v.literal("acp-v1"),
+);
+
 export const chatDaemonEntityFields = {
+  // Durable transport ownership. Existing rows omit this field and remain on
+  // stream-json; every newly created chat entity explicitly starts on ACP.
+  cursorTransport: v.optional(cursorTransportValidator),
   pendingTurn: pendingTurnValidator,
   syntheticTurnMessageId: v.optional(v.id("messages")),
   backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
   pendingTaskStops: v.optional(v.array(v.string())),
-  // Interrupt-cancel signal for a warm Claude daemon: cancelExecution sets this
+  // Interrupt-cancel signal for a warm provider daemon: cancelExecution sets this
   // instead of killing the sandbox process; claimPendingTurn drains it
   // unconditionally (even mid-turn, with no pendingTurn) so the daemon's poll
   // loop notices and aborts its in-flight SDK query.

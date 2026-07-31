@@ -191,6 +191,7 @@ try {
     firstAttempt.timedOutAfterFirstText,
   );
   let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
+  const finalTerminatedBySignal = firstAttempt.terminatedBySignal;
   const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
@@ -210,6 +211,15 @@ try {
 
   await setFinalizingState();
 
+  // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
+  // down the process. extractResultEvent deliberately falls back to that text,
+  // so without this guard an interrupted recording turn reported its
+  // "recording now…" preamble as a successful final answer. Node reports a
+  // direct signal with `code=null`; shells can translate it to 137/143. Keep
+  // both forms so neither can masquerade as genuine completion.
+  const agentWasInterrupted =
+    finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
+
   const attemptEndedDueToTimeout =
     finalTimedOutAfterFirstText ||
     finalTimedOutForNoOutput ||
@@ -220,7 +230,9 @@ try {
     Boolean(finalToolStallErrorMessage);
 
   const runSucceededWithResult =
-    finalResultEvent != null && !finalResultEvent.isError;
+    finalResultEvent != null &&
+    !finalResultEvent.isError &&
+    !agentWasInterrupted;
 
   let errorValue: string | null = null;
   if (finalResultEvent?.isError) {
@@ -273,9 +285,11 @@ try {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
 
-  let completionSuccess = finalResultEvent
-    ? !finalResultEvent.isError
-    : finalCode === 0;
+  let completionSuccess = agentWasInterrupted
+    ? false
+    : finalResultEvent
+      ? !finalResultEvent.isError
+      : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }

@@ -40,49 +40,70 @@ test("startExecute clears streamingActivity before staging the placeholder", () 
 });
 
 /**
- * All three queue arms clear streaming before staging the next user message.
- * Design sessions now use the session queue path.
+ * The three queue arms (session, project chat, task chat) no longer stage
+ * their own turns — they are thin `ChatQueueConfig` bindings onto one shared
+ * dequeue (`startNextQueuedChatMessage` in convex/_queues/helpers.ts), so the
+ * clear-before-stage order is that shared function's property now, not each
+ * config's own.
  */
-test.each([
-  "startNextQueuedSessionMessage",
-  "startNextQueuedProjectChatMessage",
-  "startNextQueuedTaskChatMessage",
-])("%s clears streamingActivity before staging", (name) => {
-  const body = functionBody(queueHelpersSource, name);
+test("the shared dequeue clears streamingActivity before staging the user turn", () => {
+  const body = functionBody(
+    queueHelpersSource,
+    "async function startNextQueuedChatMessage<",
+  );
   const clearAt = body.indexOf("await clearStreamingActivity(");
-  const userMessageAt = body.indexOf('role: "user"');
-  expect(clearAt, `${name} must clear streamingActivity`).toBeGreaterThan(-1);
-  expect(userMessageAt).toBeGreaterThan(-1);
-  expect(clearAt).toBeLessThan(userMessageAt);
+  const insertAt = body.indexOf("config.insertUserMessage(");
+  expect(
+    clearAt,
+    "startNextQueuedChatMessage must clear streamingActivity",
+  ).toBeGreaterThan(-1);
+  expect(insertAt).toBeGreaterThan(-1);
+  expect(clearAt).toBeLessThan(insertAt);
 });
 
 /**
- * Chat rows are keyed by a prefixed entityId, so clearing the bare id would pass
- * the ordering test above while leaving the stale row exactly where it was.
+ * Each config still stages a user-role message when its turn is dequeued —
+ * that part of the behavior is per-surface (message shape differs), even
+ * though the shared core now owns the clear-then-insert ordering.
  */
 test.each([
-  {
-    name: "startNextQueuedProjectChatMessage",
-    prefix: "PROJECT_CHAT_STREAM_PREFIX",
-    id: "projectId",
-  },
-  {
-    name: "startNextQueuedTaskChatMessage",
-    prefix: "TASK_CHAT_STREAM_PREFIX",
-    id: "taskId",
-  },
-])("$name clears the prefixed streaming entityId", ({ name, prefix, id }) => {
-  const body = functionBody(queueHelpersSource, name);
-  expect(body).toContain(`\`\${${prefix}}\${String(${id})}\``);
+  "sessionQueueConfig",
+  "projectChatQueueConfig",
+  "taskChatQueueConfig",
+])("%s inserts a user-role message", (name) => {
+  const body = configBody(queueHelpersSource, name);
+  expect(body).toContain('role: "user"');
 });
 
 /**
- * Slices from `export async function <name>` to the next top-level export, so an
- * ordering assertion cannot be satisfied by a match in a neighbouring helper.
+ * Chat rows are keyed by a prefixed entityId, so clearing the bare id would
+ * pass the ordering test above while leaving the stale row exactly where it
+ * was. Each config's `streamingEntityId` closure is what the shared core
+ * calls to compute the key it clears.
  */
-function functionBody(source: string, name: string): string {
-  const startAt = source.indexOf(`export async function ${name}(`);
+test.each([
+  { name: "projectChatQueueConfig", prefix: "PROJECT_CHAT_STREAM_PREFIX" },
+  { name: "taskChatQueueConfig", prefix: "TASK_CHAT_STREAM_PREFIX" },
+])("$name's streamingEntityId uses the prefixed key", ({ name, prefix }) => {
+  const body = configBody(queueHelpersSource, name);
+  expect(body).toContain(`\`\${${prefix}}\${String(id)}\``);
+});
+
+/**
+ * Slices from a top-level function header to the `\n}` that closes it at
+ * column 0 — nested closing braces stay indented so they cannot satisfy this.
+ */
+function functionBody(source: string, header: string): string {
+  const startAt = source.indexOf(header);
+  expect(startAt, `${header} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n}", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
+}
+
+/** One `const name: SomeConfig<...> = {...}` object literal, ending on the `\n};` that closes it. */
+function configBody(source: string, name: string): string {
+  const startAt = source.indexOf(`const ${name}:`);
   expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
-  const nextAt = source.indexOf("\nexport ", startAt + 1);
-  return source.slice(startAt, nextAt < 0 ? undefined : nextAt);
+  const end = source.indexOf("\n};", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
 }

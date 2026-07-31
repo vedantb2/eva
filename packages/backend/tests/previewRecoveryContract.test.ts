@@ -41,16 +41,21 @@ describe("a dead dev server recovers through the Console launcher", () => {
     expect(body).not.toContain("launchDevServerInVercelConsole");
   });
 
-  test("recovery stands down while startup owns the launch", () => {
+  // recoverPreviewOwner is one shared guard+recovery function called once per
+  // owner kind (session, task, project) — the status/port/state guards below
+  // are its property now, not any one owner's. Each owner's own field mapping
+  // (which status field, which owner key) is pinned separately below against
+  // its PreviewOwnerConfig.
+  test("recovery stands down while startup owns the launch (shared across every owner)", () => {
     // The startup flow resolves the real port and launches the dev server
     // itself; a recovery racing it with a stale sticky devPort launched a
     // duplicate server on the wrong port (prod: 13000 by startup, 3001 by
     // recovery one second later).
-    const body = definitionBody(
+    const body = functionBody(
       previewRecovery,
-      "ensureSessionPreviewServices",
+      "async function recoverPreviewOwner<TEntity>(",
     );
-    const startingGuardAt = body.indexOf('session.status === "starting"');
+    const startingGuardAt = body.indexOf('status === "starting"');
     const launchAt = body.indexOf("launchPreviewDevServer(");
     expect(startingGuardAt, "the starting guard moved").toBeGreaterThan(-1);
     expect(startingGuardAt).toBeLessThan(launchAt);
@@ -66,13 +71,13 @@ describe("a dead dev server recovers through the Console launcher", () => {
     expect(prompts).toContain("A cold compile takes 1-2 minutes");
   });
 
-  test("recovery relaunches via the Console launcher, guarded", () => {
-    const body = definitionBody(
+  test("recovery relaunches via the Console launcher, guarded (shared across every owner)", () => {
+    const body = functionBody(
       previewRecovery,
-      "ensureSessionPreviewServices",
+      "async function recoverPreviewOwner<TEntity>(",
     );
     const stateGuardAt = body.indexOf('handle.state !== "running"');
-    const portGuardAt = body.indexOf("session.devPort !== args.expectedPort");
+    const portGuardAt = body.indexOf("devPort !== args.expectedPort");
     const launchAt = body.indexOf("launchPreviewDevServer(");
     expect(stateGuardAt, "the non-running guard moved").toBeGreaterThan(-1);
     expect(portGuardAt, "the port guard moved").toBeGreaterThan(-1);
@@ -81,9 +86,37 @@ describe("a dead dev server recovers through the Console launcher", () => {
     // own dev server.
     expect(stateGuardAt).toBeLessThan(launchAt);
     expect(portGuardAt).toBeLessThan(launchAt);
-    // Console visibility: the relaunch uses the session PTY owner key.
-    expect(body).toContain("`session-${session._id}`");
   });
+
+  test.each([
+    {
+      name: "sessionOwnerConfig",
+      statusField: "session.status",
+      devPortField: "session.devPort",
+      ownerKeyLiteral: "`session-${session._id}`",
+    },
+    {
+      name: "taskOwnerConfig",
+      statusField: "task.reviewTaskSandboxStatus",
+      devPortField: "task.devPort",
+      ownerKeyLiteral: "`task-${task._id}`",
+    },
+    {
+      name: "projectOwnerConfig",
+      statusField: "project.reviewProjectSandboxStatus",
+      devPortField: "project.devPort",
+      ownerKeyLiteral: "`project-${project._id}`",
+    },
+  ])(
+    "$name maps status, devPort and Console owner key onto its own entity",
+    ({ name, statusField, devPortField, ownerKeyLiteral }) => {
+      const body = configBody(previewRecovery, name);
+      expect(body).toContain(statusField);
+      expect(body).toContain(devPortField);
+      // Console visibility: each owner relaunches under its own PTY owner key.
+      expect(body).toContain(ownerKeyLiteral);
+    },
+  );
 });
 
 /**
@@ -104,16 +137,11 @@ describe("preview recovery falls back to task and project owners", () => {
     expect(taskAt, "the task lookup moved").toBeGreaterThan(-1);
     expect(sessionAt).toBeLessThan(taskAt);
 
-    const startingGuardAt = body.indexOf(
-      'task.reviewTaskSandboxStatus === "starting"',
-    );
-    const launchAt = body.indexOf("`task-${task._id}`");
-    expect(startingGuardAt, "the task starting guard moved").toBeGreaterThan(
-      -1,
-    );
-    expect(launchAt, "the task launcher call moved").toBeGreaterThan(-1);
-    expect(startingGuardAt).toBeLessThan(launchAt);
-    expect(body).toContain("task.devPort !== args.expectedPort");
+    // The task branch must route through the same shared guard+recovery
+    // function, bound to the task's own config — not a separate copy.
+    const taskBranch = body.slice(taskAt);
+    expect(taskBranch).toContain('recoverPreviewOwner<Doc<"agentTasks">>(');
+    expect(taskBranch).toContain("taskOwnerConfig");
   });
 
   test("a project owner is checked last, after session and task", () => {
@@ -126,16 +154,9 @@ describe("preview recovery falls back to task and project owners", () => {
     expect(projectAt, "the project lookup moved").toBeGreaterThan(-1);
     expect(taskAt).toBeLessThan(projectAt);
 
-    const startingGuardAt = body.indexOf(
-      'project.reviewProjectSandboxStatus === "starting"',
-    );
-    const launchAt = body.indexOf("`project-${project._id}`");
-    expect(startingGuardAt, "the project starting guard moved").toBeGreaterThan(
-      -1,
-    );
-    expect(launchAt, "the project launcher call moved").toBeGreaterThan(-1);
-    expect(startingGuardAt).toBeLessThan(launchAt);
-    expect(body).toContain("project.devPort !== args.expectedPort");
+    const projectBranch = body.slice(projectAt);
+    expect(projectBranch).toContain('recoverPreviewOwner<Doc<"projects">>(');
+    expect(projectBranch).toContain("projectOwnerConfig");
   });
 });
 
@@ -164,6 +185,22 @@ function definitionBody(source: string, name: string): string {
   const startAt = source.indexOf(`export const ${name} =`);
   expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
   const end = source.indexOf("\n});", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
+}
+
+/** One top-level function, ending on the `\n}` that closes it at column 0. */
+function functionBody(source: string, header: string): string {
+  const startAt = source.indexOf(header);
+  expect(startAt, `${header} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n}", startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
+}
+
+/** One `const name: SomeConfig<...> = {...}` object literal, ending on the `\n};` that closes it. */
+function configBody(source: string, name: string): string {
+  const startAt = source.indexOf(`const ${name}:`);
+  expect(startAt, `${name} moved or was renamed`).toBeGreaterThan(-1);
+  const end = source.indexOf("\n};", startAt);
   return source.slice(startAt, end < 0 ? undefined : end);
 }
 

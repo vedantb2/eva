@@ -109,6 +109,7 @@ export type CliAttemptOptions = {
 
 export type CliAttemptResult = {
   code: number;
+  terminatedBySignal: boolean;
   output: string;
   timedOutForNoOutput: boolean;
   timedOutForMaxRuntime: boolean;

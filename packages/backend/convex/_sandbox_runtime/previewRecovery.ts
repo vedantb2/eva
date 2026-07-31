@@ -1,10 +1,101 @@
 "use node";
 
 import { v } from "convex/values";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getSandboxHandle } from "./helpers";
 import { launchPreviewDevServer } from "./sessions";
+
+type SandboxStatus = "closed" | "stopping" | "starting" | string;
+
+/**
+ * The status/devPort/devCommand/ownerKey field access for one possible
+ * sandbox owner (session, quick task, project chat) — the only thing that
+ * differs between owners, since the guard shape and recovery steps
+ * (`recoverPreviewOwner` below) are identical.
+ */
+type PreviewOwnerConfig<TEntity> = {
+  status: (entity: TEntity) => SandboxStatus | undefined;
+  devPort: (entity: TEntity) => number | undefined;
+  devCommand: (entity: TEntity) => string | undefined;
+  ownerKey: (entity: TEntity) => string;
+};
+
+const sessionOwnerConfig: PreviewOwnerConfig<Doc<"sessions">> = {
+  status: (session) => session.status,
+  devPort: (session) => session.devPort,
+  devCommand: (session) => session.devCommand,
+  ownerKey: (session) => `session-${session._id}`,
+};
+
+const taskOwnerConfig: PreviewOwnerConfig<Doc<"agentTasks">> = {
+  status: (task) => task.reviewTaskSandboxStatus,
+  devPort: (task) => task.devPort,
+  devCommand: (task) => task.devCommand,
+  ownerKey: (task) => `task-${task._id}`,
+};
+
+const projectOwnerConfig: PreviewOwnerConfig<Doc<"projects">> = {
+  status: (project) => project.reviewProjectSandboxStatus,
+  devPort: (project) => project.devPort,
+  devCommand: (project) => project.devCommand,
+  ownerKey: (project) => `project-${project._id}`,
+};
+
+/**
+ * Runs the shared recovery guard chain for one already-resolved sandbox
+ * owner: bail on a closing/starting status, a missing or mismatched devPort,
+ * or a non-running sandbox; otherwise relaunch the dev server through the
+ * single Console launcher. Called once per owner kind (never looped over a
+ * heterogeneous list) so each call site stays monomorphic — TypeScript can't
+ * safely narrow a union of differently-shaped owner entities inside a shared
+ * loop body.
+ */
+async function recoverPreviewOwner<TEntity>(
+  ctx: ActionCtx,
+  args: { sandboxId: string; repoId: Id<"githubRepos">; expectedPort: number },
+  entity: TEntity,
+  config: PreviewOwnerConfig<TEntity>,
+): Promise<null> {
+  // "starting" owns service launches: the startup flow resolves the real
+  // port and launches the dev server itself, and this recovery racing it
+  // with a stale sticky devPort is exactly how a duplicate server appeared
+  // on the wrong port (observed in prod: startup launched 13000, a recovery
+  // scheduled during startup launched 3001 one second later).
+  const status = config.status(entity);
+  if (status === "closed" || status === "stopping" || status === "starting")
+    return null;
+
+  const devPort = config.devPort(entity);
+  const devCommand = config.devCommand(entity);
+  if (devPort === undefined || devCommand === undefined) return null;
+  // Multi-app repos preview secondary apps on their own ports; this recovery
+  // only owns the primary dev server.
+  if (devPort !== args.expectedPort) return null;
+
+  const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+  // Never exec on a non-running sandbox — on Vercel any exec lazily resumes
+  // a stopped VM (see prewarmNeverResurrects contract). handle.state is
+  // fresh: getSandboxHandle fetches with resume:false.
+  if (handle.state !== "running") return null;
+
+  const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+    id: args.repoId,
+  });
+  console.log(
+    `[sandbox] preview recovery: relaunching dev server sandbox=${args.sandboxId} port=${devPort}`,
+  );
+  await launchPreviewDevServer(
+    handle,
+    config.ownerKey(entity),
+    devCommand,
+    devPort,
+    repo?.rootDirectory ?? "",
+  );
+  return null;
+}
 
 /**
  * Relaunches the managed dev server when the preview readiness poll finds the
@@ -35,114 +126,46 @@ export const ensureSessionPreviewServices = internalAction({
     expectedPort: v.number(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.runQuery(internal.sessions.getBySandboxInternal, {
-      sandboxId: args.sandboxId,
-    });
+  handler: async (ctx, args): Promise<null> => {
+    const session: Doc<"sessions"> | null = await ctx.runQuery(
+      internal.sessions.getBySandboxInternal,
+      { sandboxId: args.sandboxId },
+    );
     if (session) {
-      // "starting" owns service launches: the startup flow resolves the real
-      // port and launches the dev server itself, and this recovery racing it
-      // with a stale sticky devPort is exactly how a duplicate server
-      // appeared on the wrong port (observed in prod: startup launched
-      // 13000, a recovery scheduled during startup launched 3001 one second
-      // later).
-      if (
-        session.status === "closed" ||
-        session.status === "stopping" ||
-        session.status === "starting"
-      )
-        return null;
-      if (session.devPort === undefined || session.devCommand === undefined)
-        return null;
-      // Multi-app repos preview secondary apps on their own ports; this
-      // recovery only owns the primary dev server.
-      if (session.devPort !== args.expectedPort) return null;
-
-      const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      // Never exec on a non-running sandbox — on Vercel any exec lazily
-      // resumes a stopped VM (see prewarmNeverResurrects contract).
-      // handle.state is fresh: getSandboxHandle fetches with resume:false.
-      if (handle.state !== "running") return null;
-
-      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
-        id: args.repoId,
-      });
-      console.log(
-        `[sandbox] preview recovery: relaunching dev server sandbox=${args.sandboxId} port=${session.devPort}`,
+      return recoverPreviewOwner<Doc<"sessions">>(
+        ctx,
+        args,
+        session,
+        sessionOwnerConfig,
       );
-      await launchPreviewDevServer(
-        handle,
-        `session-${session._id}`,
-        session.devCommand,
-        session.devPort,
-        repo?.rootDirectory ?? "",
-      );
-      return null;
     }
 
-    const task = await ctx.runQuery(internal.agentTasks.getBySandboxInternal, {
-      sandboxId: args.sandboxId,
-    });
+    const task: Doc<"agentTasks"> | null = await ctx.runQuery(
+      internal.agentTasks.getBySandboxInternal,
+      { sandboxId: args.sandboxId },
+    );
     if (task) {
-      if (
-        task.reviewTaskSandboxStatus === "closed" ||
-        task.reviewTaskSandboxStatus === "stopping" ||
-        task.reviewTaskSandboxStatus === "starting"
-      )
-        return null;
-      if (task.devPort === undefined || task.devCommand === undefined)
-        return null;
-      if (task.devPort !== args.expectedPort) return null;
-
-      const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      if (handle.state !== "running") return null;
-
-      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
-        id: args.repoId,
-      });
-      console.log(
-        `[sandbox] preview recovery: relaunching dev server sandbox=${args.sandboxId} port=${task.devPort}`,
+      return recoverPreviewOwner<Doc<"agentTasks">>(
+        ctx,
+        args,
+        task,
+        taskOwnerConfig,
       );
-      await launchPreviewDevServer(
-        handle,
-        `task-${task._id}`,
-        task.devCommand,
-        task.devPort,
-        repo?.rootDirectory ?? "",
-      );
-      return null;
     }
 
-    const project = await ctx.runQuery(internal.projects.getBySandboxInternal, {
-      sandboxId: args.sandboxId,
-    });
-    if (!project) return null;
-    if (
-      project.reviewProjectSandboxStatus === "closed" ||
-      project.reviewProjectSandboxStatus === "stopping" ||
-      project.reviewProjectSandboxStatus === "starting"
-    )
-      return null;
-    if (project.devPort === undefined || project.devCommand === undefined)
-      return null;
-    if (project.devPort !== args.expectedPort) return null;
-
-    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    if (handle.state !== "running") return null;
-
-    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
-      id: args.repoId,
-    });
-    console.log(
-      `[sandbox] preview recovery: relaunching dev server sandbox=${args.sandboxId} port=${project.devPort}`,
+    const project: Doc<"projects"> | null = await ctx.runQuery(
+      internal.projects.getBySandboxInternal,
+      { sandboxId: args.sandboxId },
     );
-    await launchPreviewDevServer(
-      handle,
-      `project-${project._id}`,
-      project.devCommand,
-      project.devPort,
-      repo?.rootDirectory ?? "",
-    );
+    if (project) {
+      return recoverPreviewOwner<Doc<"projects">>(
+        ctx,
+        args,
+        project,
+        projectOwnerConfig,
+      );
+    }
+
     return null;
   },
 });

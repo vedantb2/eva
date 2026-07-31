@@ -206,15 +206,18 @@ export async function runCliAttempt(
       );
       S.stderrOutput = trimBufferHead(S.stderrOutput + text);
     });
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       clearInterval(noOutputTimer);
       S.activeAttemptChild = null;
+      const terminatedBySignal = signal !== null;
       log(
         options.attemptLabel +
           " finished in " +
           elapsedAttemptMs() +
           "ms (code=" +
           code +
+          ", signal=" +
+          (signal ?? "none") +
           ", timedOutForNoOutput=" +
           timedOutForNoOutput +
           ", timedOutForMaxRuntime=" +
@@ -237,6 +240,7 @@ export async function runCliAttempt(
       );
       resolve({
         code: code ?? 1,
+        terminatedBySignal,
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,

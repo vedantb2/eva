@@ -4,6 +4,7 @@ import { IconChecklist } from "@tabler/icons-react";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner } from "@eva/ui";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
@@ -40,6 +41,12 @@ interface QuickTasksListSplitProps {
  * The left list stays mounted across all detail-pane states (loading,
  * not-found, resolved, no selection) so switching tasks never unmounts the
  * virtuoso list or loses its scroll position.
+ *
+ * Split mechanics come from `ResizablePanelLayout`, the same primitive the
+ * project, session and task detail views use. This pane used to hand-roll its
+ * own flex split at a fixed `md:w-1/3`, which meant the width was neither
+ * draggable nor remembered — the only three-pane surface in the app where that
+ * was true.
  */
 export function QuickTasksListSplit({
   tasks,
@@ -57,46 +64,59 @@ export function QuickTasksListSplit({
   const { basePath } = useRepo();
   return (
     <QuickTaskHeaderActionsSlotProvider>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:flex-row">
-        <div className="flex h-1/2 w-full min-h-0 shrink-0 flex-col overflow-hidden md:h-full md:w-1/3 lg:w-1/4">
-          <QuickTasksListView
-            tasks={tasks}
-            projectNames={projectNames}
-            isSelecting={isSelecting}
-            selectedIds={selectedIds}
-            onToggleSelect={onToggleSelect}
-            onOpenTask={onOpenTask}
-            selectedTaskId={selectedTaskId}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-          {selectedTaskStatus === "loading" ? (
-            <div className="flex h-full items-center justify-center">
-              <Spinner size="lg" />
-            </div>
-          ) : selectedTaskStatus === "not-found" ? (
-            <EntityNotFound
-              entityLabel="task"
-              backTo={`${basePath}/quick-tasks`}
-              backLabel="Back to Quick Tasks"
-            />
-          ) : selectedTaskId ? (
-            <QuickTaskSplitDetailPane
-              key={selectedTaskId}
-              taskId={selectedTaskId}
-              detailTab={detailTab ?? "activity"}
-              sandboxTab={sandboxTab}
-              navSurface={navSurface}
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
-              <IconChecklist size={32} className="text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Select a task to view details
-              </p>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ResizablePanelLayout
+          storageKey="quick-tasks-split"
+          leftDefaultSize="33%"
+          leftMinWidthPx={260}
+          rightMinWidthPx={360}
+          // The detail pane is the point of this view, so it starts open —
+          // unlike the sidebar-style panels the other call sites use.
+          defaultRightCollapsed={false}
+          leftPanel={() => (
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <QuickTasksListView
+                tasks={tasks}
+                projectNames={projectNames}
+                isSelecting={isSelecting}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+                onOpenTask={onOpenTask}
+                selectedTaskId={selectedTaskId}
+              />
             </div>
           )}
-        </div>
+          rightPanel={
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+              {selectedTaskStatus === "loading" ? (
+                <div className="flex h-full items-center justify-center">
+                  <Spinner size="lg" />
+                </div>
+              ) : selectedTaskStatus === "not-found" ? (
+                <EntityNotFound
+                  entityLabel="task"
+                  backTo={`${basePath}/quick-tasks`}
+                  backLabel="Back to Quick Tasks"
+                />
+              ) : selectedTaskId ? (
+                <QuickTaskSplitDetailPane
+                  key={selectedTaskId}
+                  taskId={selectedTaskId}
+                  detailTab={detailTab ?? "activity"}
+                  sandboxTab={sandboxTab}
+                  navSurface={navSurface}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+                  <IconChecklist className="size-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Select a task to view details
+                  </p>
+                </div>
+              )}
+            </div>
+          }
+        />
       </div>
     </QuickTaskHeaderActionsSlotProvider>
   );

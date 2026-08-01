@@ -3,6 +3,7 @@
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
+import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -214,13 +215,10 @@ export function LogsClient() {
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-surface border border-border bg-muted/60"
-              />
+              <Skeleton key={i} className="h-20 border border-border" />
             ))}
           </div>
-          <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <Skeleton className="h-64 border border-border" />
         </div>
       ) : isEmpty ? (
         <div className="rounded-surface bg-card smooth-shadow-ring-sm">

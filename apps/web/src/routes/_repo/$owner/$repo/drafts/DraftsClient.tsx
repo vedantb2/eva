@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
+import { Skeleton } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -24,10 +25,7 @@ export function DraftsClient() {
           aria-label="Loading drafts"
         >
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
-            />
+            <Skeleton key={i} className="h-28 border border-border" />
           ))}
         </div>
       </PageWrapper>

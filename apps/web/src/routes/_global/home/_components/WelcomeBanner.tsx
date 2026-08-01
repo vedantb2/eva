@@ -1,5 +1,5 @@
 import { m } from "motion/react";
-import { Card, CardContent, Button } from "@eva/ui";
+import { Card, CardContent, Button, Surface } from "@eva/ui";
 import { IconX, IconSparkles } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -40,9 +40,10 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PLATFORM_SECTIONS.map((section) => (
-                <div
+                <Surface
                   key={section.label}
-                  className="rounded-surface flex flex-col gap-1.5 border border-border bg-card p-2.5"
+                  density="none"
+                  className="flex flex-col gap-1.5 p-2.5"
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                     <section.icon size={13} className="text-primary" />
@@ -53,7 +54,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                   <p className="text-2xs leading-relaxed text-muted-foreground">
                     {section.shortDesc}
                   </p>
-                </div>
+                </Surface>
               ))}
             </div>
           </div>

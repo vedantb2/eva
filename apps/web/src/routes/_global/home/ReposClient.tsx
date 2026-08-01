@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Skeleton,
 } from "@eva/ui";
 import {
   IconDots,
@@ -216,13 +217,10 @@ export function ReposClient() {
           aria-busy="true"
           aria-label="Loading repositories"
         >
-          <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
+          <Skeleton className="h-8 w-40" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
-              />
+              <Skeleton key={i} className="h-28 border border-border" />
             ))}
           </div>
         </div>

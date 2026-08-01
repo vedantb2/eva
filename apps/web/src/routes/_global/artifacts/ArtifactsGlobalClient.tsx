@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
+import { Skeleton } from "@eva/ui";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ArtifactList } from "@/lib/components/artifacts/ArtifactList";
 import { ArtifactUploadDialog } from "@/lib/components/artifacts/ArtifactUploadDialog";
@@ -27,10 +28,7 @@ export function ArtifactsGlobalClient() {
           aria-label="Loading artifacts"
         >
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-surface border border-border bg-muted/60"
-            />
+            <Skeleton key={i} className="h-32 border border-border" />
           ))}
         </div>
       ) : (

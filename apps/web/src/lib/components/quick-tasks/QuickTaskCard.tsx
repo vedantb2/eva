@@ -2,8 +2,6 @@
 
 import {
   Badge,
-  Card,
-  CardContent,
   Checkbox,
   cn,
   ContextMenu,
@@ -12,6 +10,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  LIST_ROW_CONTROL_CLASS,
+  ListRow,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -161,176 +161,162 @@ export function QuickTaskCard({
     createdByUser?.firstName ?? createdByUser?.fullName?.split(/\s+/)[0];
 
   const card = (
-    <Card
-      className={`group relative overflow-hidden transition-[transform,background-color] duration-150 ${
+    <ListRow
+      accentClassName={accentClass}
+      selected={isActive}
+      href={href}
+      onClick={
+        onClick
+          ? () => {
+              if (hasDialogOpen) return;
+              onClick();
+            }
+          : undefined
+      }
+      aria-label={title}
+      contentClassName="px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
+      className={cn(
         showError
-          ? "[--smooth-ring-color:rgb(var(--destructive)/0.4)] bg-destructive/5"
+          ? "bg-destructive/5 [--smooth-ring-color:rgb(var(--destructive)/0.4)]"
           : isInProgress
             ? "bg-card"
-            : isActive
-              ? "[--smooth-ring-color:rgb(var(--primary)/0.4)] bg-primary/5"
-              : "bg-card hover:bg-muted/40"
-      } ${isSelected ? "ring-2 ring-primary/40" : ""} ${
-        onClick
-          ? "motion-press cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-          : ""
-      }`}
-      onClick={(e) => {
-        if (e.detail === 0) return;
-        if (hasDialogOpen) return;
-        if (href && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(href, "_blank");
-          return;
-        }
-        onClick?.();
-      }}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={(event) => {
-        if (!onClick || hasDialogOpen) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClick();
-        }
-      }}
+            : undefined,
+        isSelected && "ring-2 ring-primary/40",
+      )}
     >
-      <div
-        className={`absolute inset-y-1.5 left-0 w-[3px] rounded-r-full ${accentClass}`}
-      />
-      <CardContent className="relative z-[1] px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
-        <div className="flex min-w-0 items-start gap-1.5">
-          {isSelecting && (
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => onToggleSelect?.()}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-0.5 flex-shrink-0"
-            />
-          )}
-          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
-            {taskNumber !== undefined && (
-              <span className="mr-1.5 font-mono text-xs tabular-nums text-subtle-foreground">
-                #{taskNumber}
-              </span>
-            )}
-            {title}
-          </MarqueeOnHover>
-
-          <div className="flex shrink-0 items-center gap-1">
-            {priority ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center">
-                    <PriorityIcon level={priority} size={14} />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{PRIORITY_LABELS[priority]}</TooltipContent>
-              </Tooltip>
-            ) : null}
-            {sandboxStatus ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      SANDBOX_STATUS_STYLES[sandboxStatus].dot,
-                    )}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {SANDBOX_STATUS_STYLES[sandboxStatus].label}
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-            {scheduledAt ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center text-primary">
-                    <IconClock className="size-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {status === "todo"
-                    ? `Scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`
-                    : `Was scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`}
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-        </div>
-
-        {hasMetadata && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            {projectName ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="default"
-                    className="max-w-full px-1.5 py-0 text-3xs font-medium leading-4"
-                  >
-                    <div className="flex min-w-0 flex-row items-center gap-0.5">
-                      <IconFolder className="size-2.5 shrink-0" />
-                      <span className="truncate">{projectName}</span>
-                    </div>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>{projectName}</TooltipContent>
-              </Tooltip>
-            ) : null}
-            {tags?.map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="px-1.5 py-0 text-3xs font-medium leading-4"
-              >
-                <div className="flex flex-row gap-0.5 items-center">
-                  <IconTag className="size-2.5" />
-                  {tag}
-                </div>
-              </Badge>
-            ))}
-          </div>
+      <div className="flex min-w-0 items-start gap-1.5">
+        {isSelecting && (
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect?.()}
+            onClick={(e) => e.stopPropagation()}
+            className={cn("mt-0.5 flex-shrink-0", LIST_ROW_CONTROL_CLASS)}
+          />
         )}
-
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {createdByUser ? (
-              <>
-                <UserInitials user={createdByUser} size="sm" />
-                {creatorFirstName ? (
-                  <MarqueeOnHover className="min-w-0 text-3xs text-subtle-foreground">
-                    <span data-pii>{creatorFirstName}</span>
-                  </MarqueeOnHover>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-3xs tabular-nums text-subtle-foreground">
-              {compactRelativeTime(createdAt)}
+        <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
+          {taskNumber !== undefined && (
+            <span className="mr-1.5 font-mono text-xs tabular-nums text-subtle-foreground">
+              #{taskNumber}
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]"
-                  onClick={(e) => e.stopPropagation()}
+          )}
+          {title}
+        </MarqueeOnHover>
+
+        <div className="flex shrink-0 items-center gap-1">
+          {priority ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center">
+                  <PriorityIcon level={priority} size={14} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{PRIORITY_LABELS[priority]}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {sandboxStatus ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    SANDBOX_STATUS_STYLES[sandboxStatus].dot,
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {SANDBOX_STATUS_STYLES[sandboxStatus].label}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+          {scheduledAt ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center text-primary">
+                  <IconClock className="size-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {status === "todo"
+                  ? `Scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`
+                  : `Was scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      </div>
+
+      {hasMetadata && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {projectName ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="default"
+                  className="max-w-full px-1.5 py-0 text-3xs font-medium leading-4"
                 >
-                  <IconDots className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
+                  <div className="flex min-w-0 flex-row items-center gap-0.5">
+                    <IconFolder className="size-2.5 shrink-0" />
+                    <span className="truncate">{projectName}</span>
+                  </div>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>{projectName}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {tags?.map((tag) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="px-1.5 py-0 text-3xs font-medium leading-4"
+            >
+              <div className="flex flex-row gap-0.5 items-center">
+                <IconTag className="size-2.5" />
+                {tag}
+              </div>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {createdByUser ? (
+            <>
+              <UserInitials user={createdByUser} size="sm" />
+              {creatorFirstName ? (
+                <MarqueeOnHover className="min-w-0 text-3xs text-subtle-foreground">
+                  <span data-pii>{creatorFirstName}</span>
+                </MarqueeOnHover>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-3xs tabular-nums text-subtle-foreground">
+            {compactRelativeTime(createdAt)}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]",
+                  LIST_ROW_CONTROL_CLASS,
+                )}
                 onClick={(e) => e.stopPropagation()}
               >
-                <TaskCardMenuItems variant="dropdown" {...menuProps} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                <IconDots className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <TaskCardMenuItems variant="dropdown" {...menuProps} />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </ListRow>
   );
 
   const wrappedCard = isInProgress ? (

@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  Skeleton,
 } from "@eva/ui";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
@@ -164,10 +165,7 @@ export function TeamsClient() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {teams === undefined
           ? Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-36 animate-pulse rounded-surface border border-border bg-muted/60"
-              />
+              <Skeleton key={i} className="h-36 border border-border" />
             ))
           : teams.map((team) => (
               <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />

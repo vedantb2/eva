@@ -1,5 +1,21 @@
 # Changelog
 
+## The design system gains the layer below its tokens - 2026-08-02
+
+Eva never lacked a design system — it lacked the layer that stops one drifting. Colour and surface tokens existed, but nothing below them did, so every screen improvised: 220 hand-typed font sizes across ten undocumented steps, nine ad-hoc greys standing in for a missing tertiary text tone, two icon libraries at two stroke weights, and thirty hand-rolled copies of the card recipe spanning two radii and five paddings. Four tokens now absorb almost all of it, the icon set is one library at one weight sized by class, and the radius scale is bounded at both ends so the "no corners" and "fully round" theme options can no longer compute a negative radius or flatten every step into the same pill. Twelve font families each carry their own optical corrections rather than sharing Inter's.
+
+## Three primitives replace what kept being rebuilt - 2026-08-02
+
+Loading skeletons, card surfaces, and selectable list rows had been rebuilt by hand at roughly seventy call sites, and every copy had drifted — project and quick-task rows differed on title weight, transition duration, accent-bar width, and whether pressing them gave any feedback at all. `Skeleton`, `Surface`, and `ListRow` settle each of those once. `ListRow` also retires the `role="button"` hand-roll the old rows needed: a real link or button stretched across the row supplies keyboard behaviour, screen-reader naming, and middle-click and Cmd-click for free, while checkboxes and menus nested inside it still receive their own clicks.
+
+## Design drift now fails the build - 2026-08-02
+
+A design system holds only if something checks it. Three mechanisms now do: source-text tests that assert the token contract itself — that dark mode's shadows genuinely differ from light's, that reduced-motion support is live rather than commented out, that every radius survives both extremes of the theme picker — a `design-check` gate that catches drift at the call site, and a `/design-review` skill for the judgement calls no regex makes. The gate runs against a baseline like the existing compiler check, so it is a ratchet rather than a wall: the 650 violations it found on day one are down to 120, and a new one fails the build. Also swept out: 431 files carrying a `"use client"` directive that has never meant anything in this app.
+
+## The inbox reads without emptying itself - 2026-08-02
+
+Opening a notification navigated straight to its target, so the inbox cleared itself on every read and working through a backlog meant using the back button as a scrollbar. The body now opens in a detail pane beside the list, on the same resizable split the project, session, and quick-task views use, and following the link is a separate deliberate action. Rows move onto the shared row contract and gain four real levels of hierarchy — they previously ran three lines at two sizes in one colour, which read as a grey slab with nothing leading. Separately, every page's top-level heading was hidden below desktop widths, taking it out of the accessibility tree on tablets and phones; it now truncates instead.
+
 ## Past changelogs are readable at /changelog - 2026-08-01
 
 Each week's changelog was shown once, in a dialog that dismissed permanently, so anyone who clicked through it lost the entry and anyone who joined later never saw the earlier ones. A new `/changelog` route in the home sidebar lists every published entry newest-first as a timeline, rendered with the same Streamdown setup as the dialog so the two cannot disagree on how a table or diagram looks. Both read the "Eva Weekly Changelog" automation's successful runs, now through one shared automation lookup rather than two copies of the same title scan. Successful runs that finished without a summary are dropped instead of rendering as empty cards, and the list caps at fifty entries — about a year of a weekly automation, deep enough that paging is not needed.

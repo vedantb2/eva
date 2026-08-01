@@ -271,8 +271,17 @@ export const launchSeedRun = internalAction({
       // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
       // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
       // still completes if the mirror is unavailable.
-      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
-      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      //
+      // Gate on `ffmpeg -version`, NOT `command -v ffmpeg`: SPAL's ffmpeg links
+      // against libjack.so.0 without depending on the package that ships it, so
+      // the binary can exist and still die with a missing-shared-object error.
+      // `command -v` would call that healthy and skip the libjack repair below.
+      "ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+      "ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      // libjack.so.0. Asked for by capability first because the providing
+      // package was renamed (jack-audio-connection-kit → …-libs) and differs by
+      // AL2023/SPAL revision; the two literal names are the fallback.
+      'ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y "libjack.so.0()(64bit)" >/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit-libs >>/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit >>/tmp/libjack-dnf.log 2>&1 || true',
       'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
       'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
       'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',

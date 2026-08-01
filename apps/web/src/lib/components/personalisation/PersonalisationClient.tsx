@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery, useMutation } from "convex/react";
 import { api, PERSONALISATION_PRESETS } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";

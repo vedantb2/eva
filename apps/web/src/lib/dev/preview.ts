@@ -1,5 +1,3 @@
-"use client";
-
 import { useRouterState } from "@tanstack/react-router";
 
 /** Subscribes to URL search changes so preview dialogs react to client navigation. */

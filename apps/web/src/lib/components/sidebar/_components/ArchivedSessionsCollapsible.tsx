@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";

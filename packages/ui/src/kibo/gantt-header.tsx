@@ -1,5 +1,3 @@
-"use client";
-
 import dayjs from "../utils/dayjs";
 import type { FC, ReactNode } from "react";
 import { useId } from "react";

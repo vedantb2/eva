@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";

@@ -1,5 +1,3 @@
-"use client";
-
 import type { MouseEvent, ReactNode } from "react";
 import { Children } from "react";
 import { useNavigate } from "@tanstack/react-router";

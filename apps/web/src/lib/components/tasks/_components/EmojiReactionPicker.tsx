@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { EmojiPicker } from "frimousse";
 import { Popover, PopoverContent, PopoverTrigger, cn } from "@eva/ui";

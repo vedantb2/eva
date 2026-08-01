@@ -1,5 +1,3 @@
-"use client";
-
 import { IconBrandGithub } from "@tabler/icons-react";
 import {
   EVA_GITHUB_URL,

@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { Card, CardContent, cn } from "@eva/ui";
 import {

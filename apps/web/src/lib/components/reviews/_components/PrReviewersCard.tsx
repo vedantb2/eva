@@ -1,5 +1,3 @@
-"use client";
-
 import { IconClock } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { OverviewCard } from "./OverviewCard";

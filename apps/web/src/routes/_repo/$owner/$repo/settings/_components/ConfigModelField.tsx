@@ -1,5 +1,3 @@
-"use client";
-
 import { ModelSelect } from "@eva/ui";
 import type { AIModel } from "@eva/backend";
 import type { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";

@@ -1,5 +1,3 @@
-"use client";
-
 import type { ComponentProps, HTMLAttributes } from "react";
 import type { Icon as TablerIconType } from "@tabler/icons-react";
 import { IconX } from "@tabler/icons-react";

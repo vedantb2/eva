@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";

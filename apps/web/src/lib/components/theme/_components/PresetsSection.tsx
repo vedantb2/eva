@@ -1,5 +1,3 @@
-"use client";
-
 import type { CustomTheme } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";

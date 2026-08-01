@@ -1,5 +1,3 @@
-"use client";
-
 import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";

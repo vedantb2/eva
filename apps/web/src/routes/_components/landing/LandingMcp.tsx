@@ -1,5 +1,3 @@
-"use client";
-
 import { IconArrowRight, IconBrowser, IconCheck } from "@tabler/icons-react";
 import { m, useReducedMotion, type Variants } from "motion/react";
 import { LANDING_MCP_CALLS, LANDING_MCP_CARDS } from "./landingContent";

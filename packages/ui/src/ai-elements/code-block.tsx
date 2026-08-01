@@ -1,5 +1,3 @@
-"use client";
-
 import type { HTMLAttributes } from "react";
 import { createContext, useContext, useState } from "react";
 import { IconCheck, IconCopy } from "@tabler/icons-react";

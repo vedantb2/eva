@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Popover, PopoverTrigger, PopoverContent, Button } from "@eva/ui";
 import { useMutation } from "convex/react";

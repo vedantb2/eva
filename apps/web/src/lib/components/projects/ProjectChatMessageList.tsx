@@ -1,5 +1,3 @@
-"use client";
-
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import {
   StreamingActivityDisplay,

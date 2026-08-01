@@ -1,5 +1,3 @@
-"use client";
-
 import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useMutation, useConvex } from "convex/react";
 import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";

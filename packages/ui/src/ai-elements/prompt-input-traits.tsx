@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { Button } from "../ui/button";

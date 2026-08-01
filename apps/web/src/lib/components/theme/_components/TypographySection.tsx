@@ -1,5 +1,3 @@
-"use client";
-
 import {
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,

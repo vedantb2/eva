@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef } from "react";
 import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";

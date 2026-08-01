@@ -1,5 +1,3 @@
-"use client";
-
 import type { FunctionReturnType } from "convex/server";
 import { type api } from "@eva/backend";
 import type { DocViewerTab } from "@/lib/search-params";

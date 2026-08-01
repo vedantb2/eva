@@ -1,5 +1,3 @@
-"use client";
-
 import { IconDots } from "@tabler/icons-react";
 
 interface SessionListShowMoreProps {

@@ -1,5 +1,3 @@
-"use client";
-
 import type { Id } from "@eva/backend";
 import { PersonaDropdown } from "./PersonaSelector";
 import { NumDesignsControl } from "./NumDesignsControl";

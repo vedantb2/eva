@@ -1,5 +1,3 @@
-"use client";
-
 import { type api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";

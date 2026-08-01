@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, type RefObject } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";

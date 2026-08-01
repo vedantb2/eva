@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";

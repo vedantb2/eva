@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { cn } from "@eva/ui";
 import type { TypingUser } from "@/lib/hooks/useTypingPresence";

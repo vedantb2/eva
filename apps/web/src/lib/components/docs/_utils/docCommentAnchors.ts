@@ -1,5 +1,3 @@
-"use client";
-
 import { Mark, Extension, type Editor } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";

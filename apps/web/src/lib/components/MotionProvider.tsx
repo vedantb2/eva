@@ -1,5 +1,3 @@
-"use client";
-
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 

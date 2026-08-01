@@ -1,5 +1,3 @@
-"use client";
-
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { OverviewCard } from "./OverviewCard";
 import { shortSha, type PrCommit } from "./prOverviewMeta";

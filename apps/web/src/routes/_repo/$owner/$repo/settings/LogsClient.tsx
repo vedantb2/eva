@@ -1,5 +1,3 @@
-"use client";
-
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";

@@ -1,5 +1,3 @@
-"use client";
-
 import { IconPlus } from "@tabler/icons-react";
 import { Button, cn } from "@eva/ui";
 import { m, useReducedMotion, type Variants } from "motion/react";

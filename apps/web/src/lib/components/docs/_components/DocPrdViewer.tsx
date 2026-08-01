@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { OptimisticLocalStore } from "convex/browser";

@@ -1,5 +1,3 @@
-"use client";
-
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import { BrandMark } from "./BrandMark";

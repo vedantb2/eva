@@ -1,5 +1,3 @@
-"use client";
-
 import { IconArchive } from "@tabler/icons-react";
 
 interface ChatPageWrapperProps {

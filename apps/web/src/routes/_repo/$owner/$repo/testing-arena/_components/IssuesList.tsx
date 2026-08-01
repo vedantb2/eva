@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";

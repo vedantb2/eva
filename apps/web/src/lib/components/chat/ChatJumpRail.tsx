@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";

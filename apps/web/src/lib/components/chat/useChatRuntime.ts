@@ -1,5 +1,3 @@
-"use client";
-
 import { api, type Doc, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";

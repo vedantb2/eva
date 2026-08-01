@@ -1,5 +1,3 @@
-"use client";
-
 import { Link, useLocation } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam } from "@/lib/utils/repoUrl";

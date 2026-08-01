@@ -1,5 +1,3 @@
-"use client";
-
 import type { LandingPillar } from "./landingContent";
 import { LandingShowcase } from "./LandingShowcase";
 import {

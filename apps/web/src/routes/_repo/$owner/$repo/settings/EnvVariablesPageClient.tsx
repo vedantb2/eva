@@ -1,5 +1,3 @@
-"use client";
-
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import type { EnvVarScope } from "@/lib/search-params";

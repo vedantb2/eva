@@ -1,5 +1,3 @@
-"use client";
-
 import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";

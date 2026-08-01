@@ -1,5 +1,3 @@
-"use client";
-
 import { Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import {
   IconDeviceDesktop,

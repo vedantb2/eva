@@ -1,5 +1,3 @@
-"use client";
-
 import { useQueryState } from "nuqs";
 import { docModeParser, type DocMode } from "@/lib/search-params";
 import {

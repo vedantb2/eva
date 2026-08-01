@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button, Input, Card, CardContent, Badge } from "@eva/ui";
 import {

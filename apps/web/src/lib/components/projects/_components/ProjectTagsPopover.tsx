@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useState } from "react";
 import { Badge, Input, Popover, PopoverTrigger, PopoverContent } from "@eva/ui";
 import { IconTags } from "@tabler/icons-react";

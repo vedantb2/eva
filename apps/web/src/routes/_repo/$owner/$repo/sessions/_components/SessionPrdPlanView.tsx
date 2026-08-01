@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useConvex } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";

@@ -1,5 +1,3 @@
-"use client";
-
 import { IconStar, IconUser } from "@tabler/icons-react";
 import { Widget } from "@/lib/components/Widget";
 import type { FunctionReturnType } from "convex/server";

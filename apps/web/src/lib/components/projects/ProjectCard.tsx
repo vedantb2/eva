@@ -1,5 +1,3 @@
-"use client";
-
 import type { Id } from "@eva/backend";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";

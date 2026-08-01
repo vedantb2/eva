@@ -1,5 +1,3 @@
-"use client";
-
 import { createContext, useContext, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate, useLocation } from "@tanstack/react-router";

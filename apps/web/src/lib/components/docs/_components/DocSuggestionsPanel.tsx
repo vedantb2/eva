@@ -1,5 +1,3 @@
-"use client";
-
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import { useQuery } from "convex-helpers/react/cache/hooks";

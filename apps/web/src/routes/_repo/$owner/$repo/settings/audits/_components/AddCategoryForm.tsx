@@ -1,5 +1,3 @@
-"use client";
-
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Button, Input, Textarea } from "@eva/ui";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";

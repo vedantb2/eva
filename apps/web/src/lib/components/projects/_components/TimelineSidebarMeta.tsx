@@ -1,5 +1,3 @@
-"use client";
-
 import type { FunctionReturnType } from "convex/server";
 import type { api, Id } from "@eva/backend";
 import { AvatarStack, Tooltip, TooltipTrigger, TooltipContent } from "@eva/ui";

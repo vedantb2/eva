@@ -1,5 +1,3 @@
-"use client";
-
 import type { Doc, Id } from "@eva/backend";
 import { cn } from "@eva/ui";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";

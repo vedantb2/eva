@@ -1,5 +1,3 @@
-"use client";
-
 import { Input } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { isAppRepo } from "../_utils";

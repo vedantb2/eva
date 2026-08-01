@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@eva/ui";
 import {

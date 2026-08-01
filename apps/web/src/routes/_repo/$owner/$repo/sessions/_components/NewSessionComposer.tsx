@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@clerk/clerk-react";

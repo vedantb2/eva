@@ -1,5 +1,3 @@
-"use client";
-
 import { Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import { IconMessage, IconX } from "@tabler/icons-react";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";

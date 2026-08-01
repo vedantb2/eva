@@ -1,5 +1,3 @@
-"use client";
-
 import { Mark, Extension, type Editor, type Content } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";

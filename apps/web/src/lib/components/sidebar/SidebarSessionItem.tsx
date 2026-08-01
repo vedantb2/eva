@@ -1,5 +1,3 @@
-"use client";
-
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@eva/backend";
 import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";

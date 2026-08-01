@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { FunctionReturnType } from "convex/server";

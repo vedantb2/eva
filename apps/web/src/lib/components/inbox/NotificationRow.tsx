@@ -1,5 +1,3 @@
-"use client";
-
 import { Button, cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";

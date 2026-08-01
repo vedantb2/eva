@@ -1,5 +1,3 @@
-"use client";
-
 import { forwardRef } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserProfileHoverCardBody } from "@eva/shared";

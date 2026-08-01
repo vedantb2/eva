@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { Button } from "@eva/ui";
 import { IconArrowLeft } from "@tabler/icons-react";

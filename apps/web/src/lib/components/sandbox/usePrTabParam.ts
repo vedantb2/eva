@@ -1,5 +1,3 @@
-"use client";
-
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { isReviewTab, type ReviewTab } from "@/lib/search-params";
 

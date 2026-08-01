@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef } from "react";
 import type { api, Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";

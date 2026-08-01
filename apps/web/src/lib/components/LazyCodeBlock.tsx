@@ -1,5 +1,3 @@
-"use client";
-
 import { use } from "react";
 
 const cache = new Map<string, Promise<string>>();

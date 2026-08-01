@@ -1,5 +1,3 @@
-"use client";
-
 import { SignInButton } from "@clerk/clerk-react";
 import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@eva/ui";

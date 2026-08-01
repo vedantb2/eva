@@ -1,5 +1,3 @@
-"use client";
-
 import dayjs from "../utils/dayjs";
 import {
   DndContext,

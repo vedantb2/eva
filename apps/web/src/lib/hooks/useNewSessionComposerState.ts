@@ -1,5 +1,3 @@
-"use client";
-
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {

@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";

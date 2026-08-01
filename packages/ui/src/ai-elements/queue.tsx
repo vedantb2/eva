@@ -1,5 +1,3 @@
-"use client";
-
 import { forwardRef, type ComponentProps, type ReactNode } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { Button } from "../ui/button";

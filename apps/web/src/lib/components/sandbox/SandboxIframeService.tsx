@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useAction } from "convex/react";
 import { useSessionStorage } from "usehooks-ts";

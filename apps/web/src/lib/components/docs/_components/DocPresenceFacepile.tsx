@@ -1,5 +1,3 @@
-"use client";
-
 import usePresence from "@convex-dev/presence/react";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";

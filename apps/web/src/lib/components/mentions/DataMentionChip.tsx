@@ -1,5 +1,3 @@
-"use client";
-
 import type { MouseEvent } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import type { Id } from "@eva/backend";

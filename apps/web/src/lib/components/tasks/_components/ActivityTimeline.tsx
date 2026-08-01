@@ -1,5 +1,3 @@
-"use client";
-
 import { lazy, Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import {

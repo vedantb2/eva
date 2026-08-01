@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useQuery } from "convex-helpers/react/cache/hooks";

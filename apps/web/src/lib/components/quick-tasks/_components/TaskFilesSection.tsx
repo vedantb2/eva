@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { IconPaperclip } from "@tabler/icons-react";

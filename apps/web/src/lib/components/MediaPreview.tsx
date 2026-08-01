@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
 import {

@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense, use, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";

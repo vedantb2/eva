@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api, type AIProvider, type Id } from "@eva/backend";

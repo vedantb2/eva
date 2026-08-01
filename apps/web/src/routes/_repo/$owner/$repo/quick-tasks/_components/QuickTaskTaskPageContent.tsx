@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";

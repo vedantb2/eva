@@ -1,5 +1,3 @@
-"use client";
-
 import { LANDING_PILLARS } from "./landingContent";
 import {
   LandingLattice,

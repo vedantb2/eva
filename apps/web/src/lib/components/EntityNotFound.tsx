@@ -1,5 +1,3 @@
-"use client";
-
 import { Link } from "@tanstack/react-router";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@eva/ui";

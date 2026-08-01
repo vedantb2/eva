@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef } from "react";
 import { useQueryStates } from "nuqs";
 import { designVariationParser, viewModeParser } from "@/lib/search-params";

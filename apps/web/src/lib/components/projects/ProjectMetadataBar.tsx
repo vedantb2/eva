@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, getAIModelProvider, normalizeAIModel } from "@eva/backend";

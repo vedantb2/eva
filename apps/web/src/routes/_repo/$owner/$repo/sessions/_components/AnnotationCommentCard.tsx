@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Button, Textarea } from "@eva/ui";
 import type { PreviewAnnotationContext } from "../_utils/-previewAnnotation";

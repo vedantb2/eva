@@ -1,5 +1,3 @@
-"use client";
-
 import { IconExternalLink } from "@tabler/icons-react";
 import { OverviewCard } from "./OverviewCard";
 import { checkTone, ToneIcon, type PrCheck } from "./prOverviewMeta";

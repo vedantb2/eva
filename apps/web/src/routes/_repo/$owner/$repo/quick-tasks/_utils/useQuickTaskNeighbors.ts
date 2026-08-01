@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";

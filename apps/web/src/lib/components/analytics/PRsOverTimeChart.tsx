@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense, use } from "react";
 import { Widget } from "@/lib/components/Widget";
 import dayjs from "@eva/shared/dates";

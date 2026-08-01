@@ -1,5 +1,3 @@
-"use client";
-
 import { IconChecklist } from "@tabler/icons-react";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";

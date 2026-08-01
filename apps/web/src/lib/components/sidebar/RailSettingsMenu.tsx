@@ -1,5 +1,3 @@
-"use client";
-
 import { Link, useLocation } from "@tanstack/react-router";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { IconSettings } from "@tabler/icons-react";

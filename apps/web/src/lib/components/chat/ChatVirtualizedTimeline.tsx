@@ -1,5 +1,3 @@
-"use client";
-
 import { Button, Spinner } from "@eva/ui";
 import { IconArrowDown } from "@tabler/icons-react";
 // eslint-disable-next-line no-restricted-imports -- A submitted local turn must scroll after Virtuoso commits its row.

@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge, KanbanBoard } from "@eva/ui";
 import { useCallback, type ReactNode, type RefCallback } from "react";
 

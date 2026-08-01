@@ -1,5 +1,3 @@
-"use client";
-
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";

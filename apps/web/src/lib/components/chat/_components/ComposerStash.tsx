@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { m } from "motion/react";

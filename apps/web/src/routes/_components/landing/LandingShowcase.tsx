@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, type ReactNode } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { m, useReducedMotion } from "motion/react";

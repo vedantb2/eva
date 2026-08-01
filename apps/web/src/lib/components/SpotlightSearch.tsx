@@ -1,5 +1,3 @@
-"use client";
-
 import { useDeferredValue, useState } from "react";
 import {
   Command,

@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge, cn } from "@eva/ui";
 import type { InboxFilter } from "@/lib/search-params";
 

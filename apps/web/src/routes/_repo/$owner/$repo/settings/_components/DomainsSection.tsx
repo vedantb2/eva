@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Input, Button } from "@eva/ui";
 import type { Id } from "@eva/backend";

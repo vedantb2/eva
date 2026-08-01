@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { Button, cn } from "@eva/ui";

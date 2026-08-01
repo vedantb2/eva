@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef, type RefObject } from "react";
 import {
   Input,

@@ -1,5 +1,3 @@
-"use client";
-
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Separator, Surface, cn } from "@eva/ui";

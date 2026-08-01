@@ -1,5 +1,3 @@
-"use client";
-
 import { Switch } from "@eva/ui";
 import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";

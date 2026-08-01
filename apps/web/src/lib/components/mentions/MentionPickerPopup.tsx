@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, type ReactNode } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import type { MentionPopupPlacement } from "./mentionPopupPosition";

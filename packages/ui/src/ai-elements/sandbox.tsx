@@ -1,5 +1,3 @@
-"use client";
-
 import type { ComponentProps, HTMLAttributes } from "react";
 import { createContext, useContext } from "react";
 import { Badge } from "../ui/badge";

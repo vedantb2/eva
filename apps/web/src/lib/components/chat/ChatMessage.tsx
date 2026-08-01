@@ -11,7 +11,6 @@ import {
 } from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
-import { m } from "motion/react";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
@@ -164,12 +163,7 @@ export const ChatMessage = memo(function ChatMessage({
 
   return (
     <ChatMessageContextMenu content={copySource}>
-      <m.div
-        data-message-id={message._id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-      >
+      <div data-message-id={message._id}>
         <AIMessage
           from={message.role}
           className={
@@ -350,7 +344,7 @@ export const ChatMessage = memo(function ChatMessage({
             </div>
           )}
         </AIMessage>
-      </m.div>
+      </div>
     </ChatMessageContextMenu>
   );
 });

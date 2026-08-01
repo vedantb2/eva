@@ -4,7 +4,7 @@ import { Button, Spinner } from "@eva/ui";
 import { IconArrowDown } from "@tabler/icons-react";
 // eslint-disable-next-line no-restricted-imports -- A submitted local turn must scroll after Virtuoso commits its row.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { Virtuoso, type Components, type VirtuosoHandle } from "react-virtuoso";
 import { ChatJumpRail } from "./ChatJumpRail";
 import type { ChatJumpAnchor, ChatTimelineRow } from "./chatTimeline";
 
@@ -21,6 +21,46 @@ interface ChatVirtualizedTimelineProps {
   footer?: ReactNode;
   renderRow: (row: ChatTimelineRow, index: number) => ReactNode;
 }
+
+interface ChatTimelineContext {
+  canLoadOlder: boolean;
+  isLoadingOlder: boolean;
+  onLoadOlder: () => void;
+  footer?: ReactNode;
+}
+
+// Keep component identities stable so Virtuoso does not remount its structure
+// whenever scrolling updates this timeline's visible range.
+const TIMELINE_COMPONENTS: Components<ChatTimelineRow, ChatTimelineContext> = {
+  Header: ({ context }) => {
+    if (!context.canLoadOlder && !context.isLoadingOlder) {
+      return (
+        <div className="mx-auto w-full max-w-3xl px-3 py-2 text-center text-xs text-muted-foreground">
+          Start of conversation
+        </div>
+      );
+    }
+
+    return (
+      <div className="mx-auto flex w-full max-w-3xl justify-center px-3 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={context.isLoadingOlder}
+          onClick={context.onLoadOlder}
+        >
+          {context.isLoadingOlder ? <Spinner size="sm" /> : null}
+          {context.isLoadingOlder ? "Loading history…" : "Load older messages"}
+        </Button>
+      </div>
+    );
+  },
+  Footer: ({ context }) =>
+    context.footer ? (
+      <div className="mx-auto w-full max-w-3xl px-3 pb-3">{context.footer}</div>
+    ) : null,
+};
 
 /** Virtuoso owns the chat viewport, prepend anchor, bottom-follow, and jumps. */
 export function ChatVirtualizedTimeline({
@@ -56,35 +96,6 @@ export function ChatVirtualizedTimeline({
     return <div className="flex min-h-0 flex-1">{emptyState}</div>;
   }
 
-  const Header = () => {
-    if (!canLoadOlder && !isLoadingOlder) {
-      return (
-        <div className="mx-auto w-full max-w-3xl px-3 py-2 text-center text-xs text-muted-foreground">
-          Start of conversation
-        </div>
-      );
-    }
-    return (
-      <div className="mx-auto flex w-full max-w-3xl justify-center px-3 py-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={isLoadingOlder}
-          onClick={onLoadOlder}
-        >
-          {isLoadingOlder ? <Spinner size="sm" /> : null}
-          {isLoadingOlder ? "Loading history…" : "Load older messages"}
-        </Button>
-      </div>
-    );
-  };
-
-  const Footer = () =>
-    footer ? (
-      <div className="mx-auto w-full max-w-3xl px-3 pb-3">{footer}</div>
-    ) : null;
-
   return (
     <div className="relative min-h-0 flex-1">
       <Virtuoso
@@ -95,7 +106,13 @@ export function ChatVirtualizedTimeline({
         firstItemIndex={firstItemIndex}
         initialTopMostItemIndex={{ index: "LAST", align: "end" }}
         computeItemKey={(_index, row) => row.id}
-        components={{ Header, Footer }}
+        components={TIMELINE_COMPONENTS}
+        context={{
+          canLoadOlder,
+          isLoadingOlder,
+          onLoadOlder,
+          footer,
+        }}
         itemContent={(index, row) => (
           <div className="mx-auto w-full max-w-3xl px-3 pb-3">
             {renderRow(row, index - firstItemIndex)}

@@ -164,10 +164,10 @@ export function ProjectCard({
   // also fire for focusable descendants inside the card body.
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] has-[[data-slot=card-control]:focus-visible]:ring-2 has-[[data-slot=card-control]:focus-visible]:ring-ring/35 ${
+      className={`group relative shrink-0 overflow-hidden rounded-surface smooth-shadow-ring-sm transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] has-[[data-slot=card-control]:focus-visible]:ring-2 has-[[data-slot=card-control]:focus-visible]:ring-ring/35 ${
         isActive
-          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
-          : "border-border bg-card shadow-sm hover:bg-muted/40"
+          ? "[--smooth-ring-color:rgb(var(--primary)/0.4)] bg-primary/5"
+          : "bg-card hover:bg-muted/40"
       }`}
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

@@ -165,7 +165,7 @@ export function NotificationToastStream() {
               transition={toastTransition}
               className="pointer-events-auto"
             >
-              <Card className="bg-popover shadow-lg">
+              <Card className="bg-popover smooth-shadow-ring-lg">
                 <CardContent className="p-3">
                   <div className="flex items-start gap-3">
                     <NotificationIcon notification={notification} />

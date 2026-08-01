@@ -190,7 +190,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
             if (e.key === "Enter" || e.key === " ") handleClick();
           }}
           className={cn(
-            "flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm",
+            "flex h-full cursor-pointer flex-col gap-2 rounded-surface bg-card p-4 smooth-shadow-ring-sm",
             "hover:bg-muted/40 transition-colors duration-100",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}

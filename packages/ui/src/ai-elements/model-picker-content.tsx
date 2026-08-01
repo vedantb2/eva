@@ -286,7 +286,7 @@ export function ModelPickerContent<TModel extends string>({
   return (
     <TooltipProvider delayDuration={300}>
       <div
-        className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg"
+        className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg bg-popover smooth-shadow-ring-lg"
         data-model-picker-content
       >
         {!isSearching ? (

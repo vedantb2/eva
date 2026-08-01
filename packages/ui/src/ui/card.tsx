@@ -10,7 +10,7 @@ const Card = React.forwardRef<
     ref={ref}
     className={cn(
       SURFACE_RADIUS_CLASS,
-      "border border-border bg-card text-card-foreground shadow-sm",
+      "bg-card text-card-foreground smooth-shadow-ring-sm",
       className,
     )}
     {...props}

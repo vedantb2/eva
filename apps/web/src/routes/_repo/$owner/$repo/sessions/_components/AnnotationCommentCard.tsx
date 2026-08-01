@@ -37,7 +37,7 @@ export function AnnotationCommentCard({
 
   return (
     <div
-      className="pointer-events-auto absolute z-20 w-80 rounded-lg border border-border bg-popover p-3 shadow-lg"
+      className="pointer-events-auto absolute z-20 w-80 rounded-lg bg-popover p-3 smooth-shadow-ring-lg"
       style={{ left: position.left, top: position.top }}
     >
       <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">

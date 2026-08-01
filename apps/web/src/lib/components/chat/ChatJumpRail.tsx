@@ -187,7 +187,7 @@ export function ChatJumpRail({
           })}
           {activeTick ? (
             <span
-              className="pointer-events-none absolute left-8 w-80 rounded-xl border border-border/70 bg-popover/95 p-3 text-left text-popover-foreground shadow-xl shadow-black/25 backdrop-blur"
+              className="pointer-events-none absolute left-8 w-80 rounded-xl bg-popover/95 p-3 text-left text-popover-foreground smooth-shadow-ring-xl backdrop-blur"
               style={{
                 top: `${activeTopPercent}%`,
                 transform: `translateY(${activeTooltipTranslate})`,

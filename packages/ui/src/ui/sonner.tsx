@@ -14,7 +14,7 @@ function Toaster(props: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            "group toast rounded-surface border border-border bg-card text-foreground shadow-lg",
+            "group toast rounded-surface bg-card text-foreground smooth-shadow-ring-lg",
           description: "text-muted-foreground",
           actionButton: "bg-primary text-primary-foreground",
           cancelButton: "bg-muted text-muted-foreground",

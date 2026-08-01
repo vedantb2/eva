@@ -304,11 +304,14 @@ html {
 }
 
 @layer components {
+  /* Elevated surface: the hairline lives inside the shadow (see
+   * tailwind-smooth-shadow.js), so no `border` here — a real border on top of
+   * it would draw a second edge. `ring-*` still composes for focus/selection. */
   .ui-surface {
-    @apply rounded-surface border border-border bg-card shadow-sm;
+    @apply rounded-surface bg-card smooth-shadow-ring-sm;
   }
   .ui-surface-strong {
-    @apply rounded-surface border border-border bg-card shadow-sm;
+    @apply rounded-surface bg-card smooth-shadow-ring-md;
   }
   .ui-surface-interactive {
     @apply ui-surface motion-base hover:bg-muted/60;

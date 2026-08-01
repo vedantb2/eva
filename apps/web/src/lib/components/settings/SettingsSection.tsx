@@ -40,10 +40,7 @@ export function SettingsSection({
 
   return (
     <section
-      className={cn(
-        "rounded-surface border border-border bg-card shadow-sm",
-        className,
-      )}
+      className={cn("rounded-surface bg-card smooth-shadow-ring-sm", className)}
     >
       <header
         className={cn(

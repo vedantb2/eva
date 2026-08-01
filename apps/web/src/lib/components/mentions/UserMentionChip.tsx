@@ -22,7 +22,7 @@ export function UserMentionChip({ userId, label }: UserMentionChipProps) {
       <HoverCardContent
         align="start"
         side="top"
-        className="w-72 border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
+        className="w-72 bg-transparent p-0 smooth-shadow-none backdrop-blur-none"
       >
         <UserProfileHoverCardBody userId={userId} />
       </HoverCardContent>

@@ -164,13 +164,13 @@ export function QuickTaskCard({
     <Card
       className={`group relative overflow-hidden transition-[transform,background-color] duration-150 ${
         showError
-          ? "border-destructive/30 bg-destructive/5"
+          ? "[--smooth-ring-color:rgb(var(--destructive)/0.4)] bg-destructive/5"
           : isInProgress
             ? "bg-card"
             : isActive
-              ? "border-primary/30 bg-primary/5"
+              ? "[--smooth-ring-color:rgb(var(--primary)/0.4)] bg-primary/5"
               : "bg-card hover:bg-muted/40"
-      } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
+      } ${isSelected ? "ring-2 ring-primary/40" : ""} ${
         onClick
           ? "motion-press cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""

@@ -97,7 +97,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
         }}
       >
         <DialogContent
-          className="h-[92vh] max-w-[96vw] overflow-hidden border-0 bg-black/90 p-0 shadow-none sm:max-w-[96vw]"
+          className="h-[92vh] max-w-[96vw] overflow-hidden bg-black/90 p-0 smooth-shadow-none sm:max-w-[96vw]"
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") step(-1);
             if (event.key === "ArrowRight") step(1);

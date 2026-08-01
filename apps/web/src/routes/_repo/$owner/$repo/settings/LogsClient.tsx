@@ -223,7 +223,7 @@ export function LogsClient() {
           <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
-        <div className="rounded-surface border border-border bg-card shadow-sm">
+        <div className="rounded-surface bg-card smooth-shadow-ring-sm">
           <SettingsEmptyState
             icon={IconFileOff}
             title={

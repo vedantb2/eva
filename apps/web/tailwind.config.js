@@ -1,5 +1,6 @@
 import tailwindcssAnimate from "tailwindcss-animate";
 import tailwindcssTypography from "@tailwindcss/typography";
+import smoothShadow from "./tailwind-smooth-shadow.js";
 
 function c(name) {
   return `rgb(var(--${name}) / <alpha-value>)`;
@@ -156,6 +157,6 @@ const config = {
     "../../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: { extend: themeExtend },
-  plugins: [tailwindcssAnimate, tailwindcssTypography],
+  plugins: [tailwindcssAnimate, tailwindcssTypography, smoothShadow],
 };
 export default config;

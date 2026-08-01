@@ -8,19 +8,22 @@ Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `
 
 Borders:
 
-- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
-- Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
+- Layout regions (sidebar edge, list/detail dividers, table/menu separators) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
 - Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
 - Inputs/selects keep their form-affordance border.
+- Accent bars and inset rules (`border-l` status stripes) keep a real border.
 
-Shadows:
+Shadows and elevated surfaces:
 
-- Cards/surfaces may carry a subtle `shadow-sm`. Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get larger shadows for layering.
+- Elevated surfaces (cards, dialogs, popovers, dropdowns, menus, tooltips, toasts) get their hairline from `smooth-shadow-ring-{size}`, never `border` + `shadow-*` — the two together draw a double edge. See the `smooth-shadow-ring` skill and `apps/web/tailwind-smooth-shadow.js`.
+- `smooth-shadow-ring-sm` for resting cards, `-md`/`-lg` for menus and popovers, `-xl` for dialogs. Use plain `smooth-shadow-{size}` when the surface should have no edge stroke.
+- Never put a `shadow-*` and a `smooth-shadow-*` on the same element — `tailwind-merge` cannot dedupe them. `ring-*` does compose, so focus and selection rings still work.
+- Recolour the hairline per state with `[--smooth-ring-color:rgb(var(--primary)/0.4)]`, not by re-adding a border.
 
 Layout & Surface Colors:
 
 - Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
-- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
+- Hierarchy comes from: hairlines (region borders and surface rings) + surface tone steps > whitespace > typography weight/size.
 
 Hover & Interaction States:
 

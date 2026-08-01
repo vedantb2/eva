@@ -130,7 +130,7 @@ export function UserInitials({
         <HoverCardContent
           align="start"
           side="top"
-          className="w-72 border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
+          className="w-72 bg-transparent p-0 smooth-shadow-none backdrop-blur-none"
         >
           <UserProfileHoverCardBody userId={userId} />
         </HoverCardContent>
@@ -199,7 +199,7 @@ function MailIcon({ className }: { className?: string }) {
 /** Floating glass shell shared by every profile-card state. */
 function ProfileCardShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-surface border border-border bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-md">
+    <div className="overflow-hidden rounded-surface bg-popover/95 text-popover-foreground smooth-shadow-ring-lg backdrop-blur-md">
       {children}
     </div>
   );

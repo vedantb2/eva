@@ -42,7 +42,7 @@ function NotificationSourceAvatar({
         }
       />
       <span
-        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md border border-border bg-card shadow-sm"
+        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md bg-card smooth-shadow-ring-sm"
         aria-hidden
       >
         <TypeIcon size={11} className={appearance.iconColor} />

@@ -72,7 +72,7 @@ export function LandingMcp() {
           })}
         </LandingLattice>
 
-        <div className="mt-4 flex items-start gap-4 rounded-surface border border-border bg-card p-6 shadow-sm">
+        <div className="mt-4 flex items-start gap-4 rounded-surface bg-card p-6 smooth-shadow-ring-sm">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
             <IconBrowser size={17} className="text-primary" aria-hidden />
           </div>
@@ -97,7 +97,7 @@ function McpCallPanel() {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <div className="overflow-hidden rounded-surface border border-border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-surface bg-card smooth-shadow-ring-sm">
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
         <p className="font-mono text-[11px] text-muted-foreground">
           Claude Desktop

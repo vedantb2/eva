@@ -106,7 +106,9 @@ export const CommentMentionInput = forwardRef<
           return (
             <div className="flex w-full min-w-0 items-center gap-2">
               <UserInitials userId={person.id} size="sm" hideLastSeen />
-              <span className="min-w-0 flex-1 truncate">{person.label}</span>
+              <span data-pii className="min-w-0 flex-1 truncate">
+                {person.label}
+              </span>
               <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
                 Person
               </span>

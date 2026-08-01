@@ -348,7 +348,7 @@ export function StatusFieldsSection({
                 ) : (
                   <IconUserPlus size={14} className="text-muted-foreground" />
                 )}
-                <span>
+                <span data-pii={Boolean(task?.assignedTo) || undefined}>
                   {task?.assignedTo ? assignedDisplayName : "Code Reviewer"}
                 </span>
               </div>
@@ -366,7 +366,7 @@ export function StatusFieldsSection({
                       name={getUserInitials(user)}
                       enableBlink
                     />
-                    <span>{getUserDisplayName(user)}</span>
+                    <span data-pii>{getUserDisplayName(user)}</span>
                   </div>
                 </SelectItem>
               ))}

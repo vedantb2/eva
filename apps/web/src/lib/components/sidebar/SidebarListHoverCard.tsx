@@ -58,7 +58,7 @@ export function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
         hideLastSeen
         disableProfileCard
       />
-      <span className="truncate text-xs text-muted-foreground">
+      <span data-pii className="truncate text-xs text-muted-foreground">
         {authorDisplayName(user)}
       </span>
     </div>

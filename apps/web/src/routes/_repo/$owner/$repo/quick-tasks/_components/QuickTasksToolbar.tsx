@@ -130,11 +130,15 @@ export function QuickTasksToolbar({
         : (projects?.find((p) => p._id === projectFilter)?.title ?? "Project");
 
   const userFilterLabel =
-    userFilter === "all"
-      ? "All Users"
-      : (users?.find((u) => u._id === userFilter)?.fullName ??
-        users?.find((u) => u._id === userFilter)?.firstName ??
-        "User");
+    userFilter === "all" ? (
+      "All Users"
+    ) : (
+      <span data-pii>
+        {users?.find((u) => u._id === userFilter)?.fullName ??
+          users?.find((u) => u._id === userFilter)?.firstName ??
+          "User"}
+      </span>
+    );
 
   const [
     { statuses, assignee, tags, sortField, sortDir, timeRange },
@@ -146,13 +150,17 @@ export function QuickTasksToolbar({
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
 
   const assigneeLabel =
-    assignee === "all"
-      ? "All Code Reviewers"
-      : assignee === "unassigned"
-        ? "Unassigned"
-        : (users?.find((u) => u._id === assignee)?.fullName ??
+    assignee === "all" ? (
+      "All Code Reviewers"
+    ) : assignee === "unassigned" ? (
+      "Unassigned"
+    ) : (
+      <span data-pii>
+        {users?.find((u) => u._id === assignee)?.fullName ??
           users?.find((u) => u._id === assignee)?.firstName ??
-          "Code Reviewer");
+          "Code Reviewer"}
+      </span>
+    );
 
   const handleStatusToggle = (status: DisplayTaskStatus) => {
     const next = new Set(visibleStatuses);
@@ -357,7 +365,9 @@ export function QuickTasksToolbar({
                       <DropdownMenuSeparator />
                       {users.map((u) => (
                         <DropdownMenuRadioItem key={u._id} value={u._id}>
-                          {u.fullName ?? u.firstName ?? "Unknown"}
+                          <span data-pii>
+                            {u.fullName ?? u.firstName ?? "Unknown"}
+                          </span>
                         </DropdownMenuRadioItem>
                       ))}
                     </>
@@ -386,7 +396,9 @@ export function QuickTasksToolbar({
                       <DropdownMenuSeparator />
                       {reviewers.map((u) => (
                         <DropdownMenuRadioItem key={u._id} value={u._id}>
-                          {u.fullName ?? u.firstName ?? "Unknown"}
+                          <span data-pii>
+                            {u.fullName ?? u.firstName ?? "Unknown"}
+                          </span>
                         </DropdownMenuRadioItem>
                       ))}
                     </>

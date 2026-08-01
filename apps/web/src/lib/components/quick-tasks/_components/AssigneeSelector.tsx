@@ -45,7 +45,7 @@ export function AssigneeSelector({
           {assignedUser ? (
             <>
               <UserInitials user={assignedUser} size="sm" hideLastSeen />
-              <span className="text-foreground">
+              <span data-pii className="text-foreground">
                 {getUserDisplayName(assignedUser)}
               </span>
             </>
@@ -82,7 +82,7 @@ export function AssigneeSelector({
                     name={getUserInitials(user)}
                     enableBlink
                   />
-                  {getUserDisplayName(user)}
+                  <span data-pii>{getUserDisplayName(user)}</span>
                   {assignedTo === user._id && (
                     <IconCheck size={14} className="ml-auto" />
                   )}

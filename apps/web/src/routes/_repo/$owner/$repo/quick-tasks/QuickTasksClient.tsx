@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -144,7 +144,7 @@ export function QuickTasksClient() {
   };
 
   const activeFilterLabels = (() => {
-    const labels: Array<{ key: string; label: string }> = [];
+    const labels: Array<{ key: string; label: ReactNode }> = [];
     if (project === "all") {
       labels.push({ key: "project", label: "All Projects" });
     } else if (project !== "none") {
@@ -153,9 +153,14 @@ export function QuickTasksClient() {
     }
     if (user !== "all") {
       const u = users?.find((u) => u._id === user);
+      const name = u?.fullName ?? u?.firstName ?? "User";
       labels.push({
         key: "user",
-        label: `Created by: ${u?.fullName ?? u?.firstName ?? "User"}`,
+        label: (
+          <>
+            Created by: <span data-pii>{name}</span>
+          </>
+        ),
       });
     }
     if (assignee !== "all") {
@@ -165,7 +170,17 @@ export function QuickTasksClient() {
           : (users?.find((u) => u._id === assignee)?.fullName ??
             users?.find((u) => u._id === assignee)?.firstName ??
             "Code Reviewer");
-      labels.push({ key: "assignee", label: `Code reviewer: ${name}` });
+      labels.push({
+        key: "assignee",
+        label:
+          assignee === "unassigned" ? (
+            `Code reviewer: ${name}`
+          ) : (
+            <>
+              Code reviewer: <span data-pii>{name}</span>
+            </>
+          ),
+      });
     }
     if (statuses.length !== TASK_STATUSES.length) {
       labels.push({

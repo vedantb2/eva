@@ -374,7 +374,7 @@ export function ProjectCard({
               ) : null}
               <ContextMenuRadioItem value="none">No lead</ContextMenuRadioItem>
               {(users ?? []).map((user) => (
-                <ContextMenuRadioItem key={user._id} value={user._id}>
+                <ContextMenuRadioItem data-pii key={user._id} value={user._id}>
                   {user.fullName ?? user.firstName ?? "Unknown"}
                 </ContextMenuRadioItem>
               ))}

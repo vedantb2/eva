@@ -1,5 +1,9 @@
 # Changelog
 
+## Identifiable info can blur from one global preference - 2026-08-01
+
+Names and emails appeared in tooltips, hover cards, and other portals where a per-component prop could not reach them, which made demos and screenshots risky. A persisted blur-PID toggle now drives a single `data-blur-pid` rule on `<html>` that blurs every `[data-pii]` node app-wide, including portaled UI, without threading props through every call site.
+
 ## Chat execution feedback starts in the optimistic frame - 2026-08-01
 
 The Convex optimistic send path previously projected only the user bubble, while the Stop control and empty assistant “Thinking…” row still depended on the server-confirmed active turn. Idle sends now project both canonical-shaped rows through the same `withOptimisticUpdate` cache entry and treat that pending turn as executing immediately. A turn-id-only cancellation is resolved against the server's canonical active identity, so Stop is functional even when clicked before the submit round trip finishes without weakening stale-turn protection.

@@ -549,6 +549,18 @@ html {
 }
 
 /* ───────────────────────────────────────────────────────────────────
+ * Blur PID — Settings → Experimental toggles `data-blur-pid` on <html>
+ * (see BlurPidEffect.tsx). Every element rendering a user name or email
+ * address carries `data-pii`, so one rule covers all of them, including
+ * portalled tooltips and hover cards. Stays blurred on hover by design:
+ * the point is that nothing leaks while screen recording.
+ * ─────────────────────────────────────────────────────────────────── */
+html[data-blur-pid] [data-pii] {
+  filter: blur(4px);
+  user-select: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────
  * Segmented tabs — opt in with `tabs-segmented` on a Radix Tabs.List.
  * Renders a recessed neutral trough with a lighter, raised active pill,
  * correct in BOTH light and dark.

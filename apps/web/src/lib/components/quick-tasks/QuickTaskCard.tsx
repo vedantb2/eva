@@ -301,7 +301,7 @@ export function QuickTaskCard({
                 <UserInitials user={createdByUser} size="sm" />
                 {creatorFirstName ? (
                   <MarqueeOnHover className="min-w-0 text-[10px] text-muted-foreground/70">
-                    {creatorFirstName}
+                    <span data-pii>{creatorFirstName}</span>
                   </MarqueeOnHover>
                 ) : null}
               </>

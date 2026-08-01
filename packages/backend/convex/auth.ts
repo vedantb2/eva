@@ -216,6 +216,29 @@ export const setExperimentalSessionTabsEnabled = authMutation({
   },
 });
 
+/**
+ * Returns whether personally identifiable text (user names, email addresses) is
+ * blurred across the UI. Defaults to false.
+ */
+export const getBlurPidEnabled = authQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.blurPidEnabled ?? false;
+  },
+});
+
+/** Updates the current user's blur-PID preference. */
+export const setBlurPidEnabled = authMutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, { blurPidEnabled: args.enabled });
+    return null;
+  },
+});
+
 /** Returns the current user's custom theme configuration. */
 export const getCustomTheme = authQuery({
   args: {},

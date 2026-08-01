@@ -179,7 +179,7 @@ type UserProfile = FunctionReturnType<typeof api.users.get>;
 function SuggestionAuthorName({ userId }: { userId: Id<"users"> | null }) {
   const user = useQuery(api.users.get, userId ? { id: userId } : "skip");
   return (
-    <span className="truncate text-xs font-medium">
+    <span data-pii className="truncate text-xs font-medium">
       {authorName(userId, user)}
     </span>
   );

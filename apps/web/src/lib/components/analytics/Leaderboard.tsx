@@ -49,7 +49,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <MarqueeOnHover className="text-sm font-medium text-foreground">
-                      {entry.fullName || "Unknown User"}
+                      <span data-pii>{entry.fullName || "Unknown User"}</span>
                     </MarqueeOnHover>
                     <p className="text-xs text-muted-foreground">
                       {entry.prsCreated} PRs · {entry.tasksCompleted} tasks

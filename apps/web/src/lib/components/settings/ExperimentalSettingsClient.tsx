@@ -18,7 +18,14 @@ export function ExperimentalSettingsClient() {
     );
   });
 
-  if (enabled === undefined) {
+  const blurPid = useQuery(api.auth.getBlurPidEnabled);
+  const setBlurPid = useMutation(
+    api.auth.setBlurPidEnabled,
+  ).withOptimisticUpdate((localStore, args) => {
+    localStore.setQuery(api.auth.getBlurPidEnabled, {}, args.enabled);
+  });
+
+  if (enabled === undefined || blurPid === undefined) {
     return (
       <PageWrapper title="Experimental" comfortable>
         <div className="flex items-center justify-center py-12">
@@ -39,6 +46,17 @@ export function ExperimentalSettingsClient() {
               checked={enabled}
               onCheckedChange={(checked) => setEnabled({ enabled: checked })}
               aria-label="Chrome-style session tabs"
+            />
+          }
+        />
+        <SettingsSection
+          title="Blur personal info"
+          description="Blur user names and email addresses across the app. Useful when screen recording. Avatars stay visible so you can still tell people apart. Off by default."
+          action={
+            <Switch
+              checked={blurPid}
+              onCheckedChange={(checked) => setBlurPid({ enabled: checked })}
+              aria-label="Blur personal info"
             />
           }
         />

@@ -1,5 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="108" ry="108" fill="#ffffff" />
+  <!-- Full-bleed mark: apple-touch-icon, manifest icon, and any raw <img>.
+       Geometry mirrors src/lib/utils/evaMark.ts. The favicon uses favicon.svg
+       instead, which reserves a gutter for the unread badge. -->
+  <style>
+    .eva-disc { fill: #FFFFFF }
+    @media (prefers-color-scheme: dark) { .eva-disc { fill: #17181A } }
+  </style>
+  <circle class="eva-disc" cx="256" cy="256" r="256" />
   <polygon points="0,256 217,237 256,64 295,237 512,256" fill="#8B3FB8" />
   <polygon points="0,256 217,275 256,449 295,275 512,256" fill="#3B7DD8" />
 </svg>

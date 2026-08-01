@@ -1,6 +1,7 @@
 import { SignInButton } from "@clerk/clerk-react";
 import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import { BrandMark } from "./BrandMark";
 import {
   LANDING_HERO_CAPABILITIES,
@@ -29,13 +30,7 @@ export function LandingCompact() {
       <header className="border-b border-border">
         <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
           <span className="flex items-center gap-2.5">
-            <img
-              src="/icon.svg"
-              alt=""
-              width={24}
-              height={24}
-              className="size-6"
-            />
+            <EvaIcon size={24} label={null} className="size-6 rounded-full" />
             <span className="text-sm font-semibold tracking-tight text-foreground">
               Eva
             </span>

@@ -1,4 +1,5 @@
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
@@ -11,11 +12,8 @@ interface ProjectChatMessageListProps {
 }
 
 const evaIcon = (
-  <img
-    src="/icon.svg"
-    alt="Eva"
-    width={20}
-    height={20}
+  <EvaIcon
+    size={20}
     className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
   />
 );

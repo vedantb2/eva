@@ -1,4 +1,5 @@
 import { IconBrandGithub } from "@tabler/icons-react";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   EVA_GITHUB_URL,
   EVA_SETUP_URL,
@@ -11,13 +12,7 @@ export function LandingFooter() {
     <footer className="border-t border-border">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <div className="flex items-center gap-2.5">
-          <img
-            src="/icon.svg"
-            alt=""
-            width={20}
-            height={20}
-            className="size-5"
-          />
+          <EvaIcon size={20} label={null} className="size-5 rounded-full" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Eva</span> — MIT
             licensed and free to self-host.

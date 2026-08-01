@@ -79,7 +79,11 @@ export const me = authQuery({
   },
 });
 
-/** Creates a new user record if one doesn't exist for the current Clerk identity, or returns the existing one. */
+/**
+ * Resolves the current Clerk identity to a user record, creating one only as a
+ * last resort. Lookup order: Clerk ID, then email (rebinding that record's
+ * Clerk ID), then insert.
+ */
 export const ensureUserExists = mutation({
   args: {},
   returns: v.object({
@@ -131,6 +135,41 @@ export const ensureUserExists = mutation({
         userId: existingUser._id,
         wasCreated: false,
       };
+    }
+
+    // No record for this Clerk ID. Before creating one, check whether this
+    // person already exists under a stale Clerk ID from a different Clerk
+    // instance — copying a prod snapshot into dev carries prod's Clerk IDs,
+    // which never match the dev instance's IDs for the same human. Rebinding
+    // the existing record beats stranding its data behind an orphaned ID.
+    //
+    // Email is the only identifier shared across instances. Clerk keeps
+    // addresses unique per instance, so within one instance this can only fire
+    // after an account is deleted and recreated, where reclaiming the record is
+    // also what you want.
+    if (email) {
+      const userWithSameEmail = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+
+      if (userWithSameEmail) {
+        console.warn(
+          `Rebinding user ${userWithSameEmail._id} from Clerk ID ${userWithSameEmail.clerkId ?? "(none)"} to ${clerkUserId} via email match`,
+        );
+
+        await ctx.db.patch(userWithSameEmail._id, {
+          clerkId: clerkUserId,
+          firstName,
+          lastName,
+          fullName,
+        });
+
+        return {
+          userId: userWithSameEmail._id,
+          wasCreated: false,
+        };
+      }
     }
 
     const userId = await ctx.db.insert("users", {

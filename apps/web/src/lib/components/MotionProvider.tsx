@@ -1,6 +1,6 @@
 "use client";
 
-import { LazyMotion, domMax } from "motion/react";
+import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 
 /**
@@ -15,8 +15,15 @@ import type { ReactNode } from "react";
  */
 export function MotionProvider({ children }: { children: ReactNode }) {
   return (
-    <LazyMotion features={domMax} strict>
-      {children}
-    </LazyMotion>
+    // `reducedMotion="user"` is the app-wide honouring of the OS setting: Motion
+    // drops transform/layout animation and keeps only opacity. The CSS-side
+    // counterpart lives in the `prefers-reduced-motion` block in globals.css —
+    // that one cannot reach JS-driven animation, and this one cannot reach CSS
+    // keyframes, so both are needed.
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={domMax} strict>
+        {children}
+      </LazyMotion>
+    </MotionConfig>
   );
 }

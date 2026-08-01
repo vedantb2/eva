@@ -21,7 +21,10 @@ export function DocHistoryPanel({
   onSelectVersion: (id: Id<"docVersions"> | null) => void;
   onClose: () => void;
 }) {
-  const versions = useQuery(api.docVersions.list, { docId }) ?? [];
+  // Kept nullable so the empty state can tell "loaded, none" from "still
+  // loading" — collapsing straight to `[]` flashes the empty copy mid-fetch.
+  const versionsResult = useQuery(api.docVersions.list, { docId });
+  const versions = versionsResult ?? [];
   const isRecap = docKind === "pr-recap";
 
   return (
@@ -32,6 +35,7 @@ export function DocHistoryPanel({
           size="icon-sm"
           variant="ghost"
           className="hit-target"
+          aria-label="Close version history"
           onClick={onClose}
         >
           <IconX size={14} />
@@ -39,7 +43,7 @@ export function DocHistoryPanel({
       </div>
 
       <div className="scrollbar flex-1 overflow-y-auto">
-        {versions.length === 0 && (
+        {versionsResult !== undefined && versions.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {isRecap
               ? "No prior recap versions yet. Versions are saved when the recap updates on a new push."

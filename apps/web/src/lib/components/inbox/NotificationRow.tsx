@@ -69,9 +69,15 @@ export function NotificationRow({
   const unread = !notification.read;
 
   return (
-    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
+    // Ring on the row rather than the open button so keyboard focus highlights
+    // the whole row, matching what a click targets. Inset because the row is
+    // full-bleed — an outset ring would be clipped by the scroll container.
+    // Scoped to the control's data-slot so the trailing mark-read button, which
+    // draws its own ring, does not also light up the row.
+    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-inset has-[[data-slot=row-control]:focus-visible]:ring-ring/35">
       <button
         onClick={onOpen}
+        data-slot="row-control"
         className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-none"
       >
         {/* Fixed-width dot slot so read and unread rows stay aligned. */}

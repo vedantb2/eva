@@ -101,19 +101,24 @@ html {
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
     --radius: 1rem;
-    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    /* Eight ascending steps. Every step used to reuse the same `0 1px 3px` first
+     * layer, so `lg` and `xl` read almost exactly like `sm` — floating elements
+     * did not float. Spread now grows with the step, as elevation implies. */
+    --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.04);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.07);
     --shadow-sm:
       0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
     --shadow:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 6px -2px hsl(0 0% 0% / 0.08);
     --shadow-md:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+      0 2px 6px -1px hsl(0 0% 0% / 0.1), 0 4px 10px -3px hsl(0 0% 0% / 0.08);
     --shadow-lg:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+      0 4px 10px -2px hsl(0 0% 0% / 0.1), 0 10px 20px -5px hsl(0 0% 0% / 0.1);
     --shadow-xl:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+      0 8px 16px -4px hsl(0 0% 0% / 0.12), 0 20px 32px -8px hsl(0 0% 0% / 0.12);
+    --shadow-2xl:
+      0 12px 24px -6px hsl(0 0% 0% / 0.16),
+      0 32px 48px -12px hsl(0 0% 0% / 0.16);
     --tracking-normal: -0.012em;
     --motion-fast: 150ms;
     --motion-base: 220ms;
@@ -191,19 +196,23 @@ html {
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
     --radius: 1rem;
-    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    /* Same geometry as light, ~4-5x the alpha. These used to be byte-identical
+     * to the light values — pure black at 10% over a `5 6 6` canvas is nothing,
+     * so every shadow utility was a no-op in the default theme. */
+    --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.3);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.4);
     --shadow-sm:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+      0 1px 3px 0px hsl(0 0% 0% / 0.45), 0 1px 2px -1px hsl(0 0% 0% / 0.45);
     --shadow:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+      0 1px 3px 0px hsl(0 0% 0% / 0.5), 0 2px 6px -2px hsl(0 0% 0% / 0.45);
     --shadow-md:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+      0 2px 6px -1px hsl(0 0% 0% / 0.5), 0 4px 10px -3px hsl(0 0% 0% / 0.45);
     --shadow-lg:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+      0 4px 10px -2px hsl(0 0% 0% / 0.55), 0 10px 20px -5px hsl(0 0% 0% / 0.5);
     --shadow-xl:
-      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+      0 8px 16px -4px hsl(0 0% 0% / 0.6), 0 20px 32px -8px hsl(0 0% 0% / 0.55);
+    --shadow-2xl:
+      0 12px 24px -6px hsl(0 0% 0% / 0.7), 0 32px 48px -12px hsl(0 0% 0% / 0.6);
   }
 
   /* Neutral — soft-dark surfaces only. Applied as `<html class="dark neutral">`.
@@ -230,6 +239,23 @@ html {
     --sidebar-foreground: 251 252 253;
     --sidebar-accent: 58 59 62;
     --sidebar-border: 78 79 82;
+    /* Neutral's canvas sits between light and dark, so its shadows do too —
+     * inheriting `.dark`'s alphas here would read as soot around every card. */
+    --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.22);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.3);
+    --shadow-sm:
+      0 1px 3px 0px hsl(0 0% 0% / 0.34), 0 1px 2px -1px hsl(0 0% 0% / 0.34);
+    --shadow:
+      0 1px 3px 0px hsl(0 0% 0% / 0.38), 0 2px 6px -2px hsl(0 0% 0% / 0.34);
+    --shadow-md:
+      0 2px 6px -1px hsl(0 0% 0% / 0.38), 0 4px 10px -3px hsl(0 0% 0% / 0.34);
+    --shadow-lg:
+      0 4px 10px -2px hsl(0 0% 0% / 0.42), 0 10px 20px -5px hsl(0 0% 0% / 0.38);
+    --shadow-xl:
+      0 8px 16px -4px hsl(0 0% 0% / 0.46), 0 20px 32px -8px hsl(0 0% 0% / 0.42);
+    --shadow-2xl:
+      0 12px 24px -6px hsl(0 0% 0% / 0.55),
+      0 32px 48px -12px hsl(0 0% 0% / 0.46);
   }
   * {
     @apply border-border;
@@ -1169,7 +1195,11 @@ html[data-blur-pid] [data-pii] {
   animation: nav-icon-gear-core-pulse 0.6s ease-in-out infinite;
 }
 
-/* Temporarily disabled to allow full animations during development.
+/* Reduced motion. `animation-iteration-count: 1` is the load-bearing line: the
+ * nav-icon choreography above runs `infinite`, and a looping spin/pulse is the
+ * exact pattern WCAG 2.3.3 is about. Durations collapse rather than going to 0
+ * so transitionend still fires — `modalTransition.ts` waits on it.
+ * JS-driven animation is handled separately by <MotionConfig reducedMotion="user">. */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
@@ -1178,7 +1208,6 @@ html[data-blur-pid] [data-pii] {
     scroll-behavior: auto !important;
   }
 }
-*/
 
 /* ───────────────────────────────────────────────────────────────────
  * Eva logo draw-on (used by <LogoMark/> — plays on mount, replays on

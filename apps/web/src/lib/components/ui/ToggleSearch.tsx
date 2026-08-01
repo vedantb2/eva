@@ -74,10 +74,13 @@ export function ToggleSearch({
                   setIsOpen(false);
                 }
               }}
+              // No focus-visible overrides: Input already ships a real ring
+              // (`ring-2 ring-ring/35`). This used to cancel it with `ring-0`
+              // and substitute a shadow, which is invisible on a dark canvas.
               className={cn(
                 isLarge
-                  ? "h-9 rounded-control pl-9 pr-8 text-sm shadow-sm focus-visible:border-border focus-visible:shadow-md focus-visible:ring-0"
-                  : "h-8 pl-7 pr-7 text-sm focus-visible:border-border focus-visible:shadow-lg focus-visible:ring-0",
+                  ? "h-9 rounded-control pl-9 pr-8 text-sm shadow-sm"
+                  : "h-8 pl-7 pr-7 text-sm",
               )}
             />
             {value && (

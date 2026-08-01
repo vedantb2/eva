@@ -56,6 +56,7 @@ export function DocSuggestionsPanel({
           size="icon"
           variant="ghost"
           className="size-6"
+          aria-label="Close suggestions"
           onClick={onClose}
         >
           <IconX size={14} />

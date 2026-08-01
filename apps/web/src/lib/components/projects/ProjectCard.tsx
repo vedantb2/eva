@@ -156,9 +156,15 @@ export function ProjectCard({
   const shownAvatarIds = allAvatarIds.slice(0, MAX_AVATARS);
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
+  // The focus ring lives on the outer element, not on the control inside it:
+  // `overflow-hidden` here is load-bearing (it clips the blur decoration), and a
+  // ring is a box-shadow, so a ring on any child is clipped away entirely. An
+  // element is not clipped by its own overflow, so hoisting it makes it visible.
+  // Scoped to the control's data-slot — an unscoped `has-[:focus-visible]` would
+  // also fire for focusable descendants inside the card body.
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
+      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] has-[[data-slot=card-control]:focus-visible]:ring-2 has-[[data-slot=card-control]:focus-visible]:ring-ring/35 ${
         isActive
           ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
           : "border-border bg-card shadow-sm hover:bg-muted/40"
@@ -171,7 +177,8 @@ export function ProjectCard({
       <div
         role="button"
         tabIndex={0}
-        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        data-slot="card-control"
+        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none"
         onClick={(event) => {
           if (href && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();

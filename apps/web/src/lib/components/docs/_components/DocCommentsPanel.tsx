@@ -37,7 +37,10 @@ export function DocCommentsPanel({
   presentAnchorIds: ReadonlySet<string>;
 }) {
   const [filter, setFilter] = useQueryState("comments", docCommentFilterParser);
-  const comments = useQuery(api.docComments.listByDoc, { docId }) ?? [];
+  // Kept nullable so the empty state can tell "loaded, none" from "still
+  // loading" — collapsing straight to `[]` flashes the empty copy mid-fetch.
+  const commentsResult = useQuery(api.docComments.listByDoc, { docId });
+  const comments = commentsResult ?? [];
 
   const roots = comments.filter((c) => !c.parentId);
   const openRoots = roots.filter((c) => c.resolvedAt === undefined);
@@ -66,6 +69,7 @@ export function DocCommentsPanel({
           size="icon"
           variant="ghost"
           className="size-6"
+          aria-label="Close comments"
           onClick={onClose}
         >
           <IconX size={14} />
@@ -113,13 +117,15 @@ export function DocCommentsPanel({
           </div>
         )}
 
-        {displayRoots.length === 0 && !composingAnchorId && (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            {filter === "open"
-              ? "No open comments. Select text to comment."
-              : "No resolved comments."}
-          </p>
-        )}
+        {commentsResult !== undefined &&
+          displayRoots.length === 0 &&
+          !composingAnchorId && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {filter === "open"
+                ? "No open comments. Select text to comment."
+                : "No resolved comments."}
+            </p>
+          )}
 
         {displayRoots.map((root) => (
           <DocCommentThread

@@ -58,6 +58,12 @@ export function TeamDetailClient({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
 
+  // `undefined` is Convex's loading sentinel, `null` is a genuine miss. Treating
+  // them alike flashed "team not found" on every load before the fetch resolved.
+  if (team === undefined) {
+    return <PageWrapper title="Team">{null}</PageWrapper>;
+  }
+
   if (!team) {
     return (
       <PageWrapper title="Team">

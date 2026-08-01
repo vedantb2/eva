@@ -350,6 +350,9 @@ export function DocInterviewDialog({
                           <Button
                             size="icon"
                             variant={isListening ? "destructive" : "secondary"}
+                            aria-label={
+                              isListening ? "Stop dictation" : "Start dictation"
+                            }
                             onClick={() => toggleSpeech(dictation)}
                             disabled={isLoading}
                             className="h-9 w-9 sm:h-8 sm:w-8"
@@ -363,6 +366,7 @@ export function DocInterviewDialog({
                           <Button
                             size="icon"
                             variant="default"
+                            aria-label="Send dictated answer"
                             onClick={handleDictationSubmit}
                             disabled={isLoading || !dictation.trim()}
                             className="h-9 w-9 sm:h-8 sm:w-8"

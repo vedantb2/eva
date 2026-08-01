@@ -53,6 +53,7 @@ export function PageWrapper({
                 <Button
                   size="icon"
                   variant="outline"
+                  aria-label="Go back"
                   onClick={onBack ?? (() => window.history.back())}
                   className="motion-press h-9 w-9 flex-shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
                 >

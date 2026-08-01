@@ -3,6 +3,7 @@
 import { Link } from "@tanstack/react-router";
 import {
   IconLayoutDashboard,
+  IconSparkles,
   IconStack2,
   IconUsers,
 } from "@tabler/icons-react";
@@ -20,6 +21,7 @@ const HOME_NAV = [
   { name: "Codebases", href: "/home", icon: IconStack2 },
   { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
+  { name: "Changelog", href: "/changelog", icon: IconSparkles },
 ];
 
 interface HomeSidebarProps {
@@ -27,7 +29,7 @@ interface HomeSidebarProps {
   onNavigate?: () => void;
 }
 
-/** Second sidebar column for the global home routes (/home, /teams, /artifacts). */
+/** Second sidebar column for the global home routes (see `HOME_ROOTS`). */
 export function HomeSidebar({ pathname, onNavigate }: HomeSidebarProps) {
   return (
     <SharedLayoutNav layoutId="home-nav" className="space-y-1">

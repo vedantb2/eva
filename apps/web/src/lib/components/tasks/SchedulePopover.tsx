@@ -67,7 +67,7 @@ export function SchedulePopover({
             disabled={disabled}
             className={isScheduled ? "text-primary" : undefined}
           >
-            <IconCalendarClock size={18} />
+            <IconCalendarClock className="size-5" />
             {isScheduled
               ? dayjs(scheduledAt).format("MMM D, h:mm A")
               : "Schedule"}

@@ -59,7 +59,7 @@ export function SessionModeDropdown({
             const ModeIcon = option.icon;
             return (
               <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <ModeIcon size={14} />
+                <ModeIcon className="size-3.5" />
                 {option.label}
               </DropdownMenuRadioItem>
             );

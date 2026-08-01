@@ -165,7 +165,7 @@ function CategoryRow({
         aria-label={`Remove ${category.name}`}
         onClick={onRemove}
       >
-        <IconTrash size={14} />
+        <IconTrash className="size-3.5" />
       </Button>
     </div>
   );

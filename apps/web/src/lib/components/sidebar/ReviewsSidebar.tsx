@@ -158,8 +158,8 @@ export function ReviewsSidebar({
                   >
                     <span className="flex w-full min-w-0 items-center gap-1.5">
                       <IconGitPullRequest
-                        size={14}
                         className={cn(
+                          "size-3.5",
                           "shrink-0",
                           pr.draft || pr.state !== "open"
                             ? "text-muted-foreground"
@@ -170,7 +170,7 @@ export function ReviewsSidebar({
                         {pr.title}
                       </span>
                     </span>
-                    <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
+                    <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-2xs text-muted-foreground">
                       <span className="shrink-0">#{pr.number}</span>
                       {pr.authorLogin ? (
                         <span className="truncate">{pr.authorLogin}</span>

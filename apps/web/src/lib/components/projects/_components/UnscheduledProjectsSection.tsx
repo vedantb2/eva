@@ -31,10 +31,7 @@ export function UnscheduledProjectsSection({
   return (
     <details className="group shrink-0 rounded-surface bg-card smooth-shadow-ring-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground">
-        <IconChevronRight
-          size={14}
-          className="shrink-0 transition-transform group-open:rotate-90"
-        />
+        <IconChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
         No target date
         <span className="tabular-nums">({projects.length})</span>
       </summary>

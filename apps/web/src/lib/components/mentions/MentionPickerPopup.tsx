@@ -75,11 +75,11 @@ export function MentionPickerPopup<TItem extends { id: string }>({
           onRefocusEditor();
         }}
       >
-        <IconSearch size={13} className="shrink-0 text-muted-foreground" />
+        <IconSearch className="size-3 shrink-0 text-muted-foreground" />
         <span
           className={
             "min-w-0 flex-1 truncate text-sm " +
-            (query ? "text-foreground" : "text-muted-foreground/70")
+            (query ? "text-foreground" : "text-subtle-foreground")
           }
         >
           {query || `Search ${title.toLowerCase()}…`}

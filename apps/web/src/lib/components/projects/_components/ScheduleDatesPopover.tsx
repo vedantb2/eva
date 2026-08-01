@@ -31,7 +31,7 @@ export function ScheduleDatesPopover({
           size="sm"
           className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
-          <IconCalendarPlus size={14} />
+          <IconCalendarPlus className="size-3.5" />
           Set dates
         </Button>
       </PopoverTrigger>

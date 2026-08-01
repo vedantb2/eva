@@ -110,7 +110,7 @@ export function ReviewDetailClient({
               className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               View on GitHub
-              <IconExternalLink size={12} />
+              <IconExternalLink className="size-3" />
             </a>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

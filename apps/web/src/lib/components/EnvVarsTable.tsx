@@ -262,7 +262,7 @@ export function EnvVarsTable({
               title="Save"
               className="text-primary hover:text-primary"
             >
-              <IconCheck size={14} />
+              <IconCheck className="size-3.5" />
             </Button>
             <Button
               size="icon-sm"
@@ -270,7 +270,7 @@ export function EnvVarsTable({
               onClick={cancelEdit}
               title="Cancel"
             >
-              <IconX size={14} />
+              <IconX className="size-3.5" />
             </Button>
           </div>
         ) : (
@@ -292,8 +292,8 @@ export function EnvVarsTable({
                 trueKey="hide"
                 falseKey="reveal"
                 className="relative flex size-3.5 items-center justify-center"
-                whenTrue={<IconEyeOff size={14} />}
-                whenFalse={<IconEye size={14} />}
+                whenTrue={<IconEyeOff className="size-3.5" />}
+                whenFalse={<IconEye className="size-3.5" />}
               />
             </Button>
             <Button
@@ -308,8 +308,8 @@ export function EnvVarsTable({
                 trueKey="copied"
                 falseKey="copy"
                 className="relative flex size-3.5 items-center justify-center"
-                whenTrue={<IconCheck size={14} className="text-primary" />}
-                whenFalse={<IconCopy size={14} />}
+                whenTrue={<IconCheck className="size-3.5 text-primary" />}
+                whenFalse={<IconCopy className="size-3.5" />}
               />
             </Button>
             {!readOnly && (
@@ -328,9 +328,9 @@ export function EnvVarsTable({
                     }
                   >
                     {v.sandboxExclude ? (
-                      <IconLock size={14} className="text-warning" />
+                      <IconLock className="size-3.5 text-warning" />
                     ) : (
-                      <IconLockOpen size={14} />
+                      <IconLockOpen className="size-3.5" />
                     )}
                   </Button>
                 )}
@@ -340,7 +340,7 @@ export function EnvVarsTable({
                   onClick={() => startEdit(v.key)}
                   title="Edit"
                 >
-                  <IconPencil size={14} />
+                  <IconPencil className="size-3.5" />
                 </Button>
                 <Button
                   size="icon-sm"
@@ -349,7 +349,7 @@ export function EnvVarsTable({
                   title="Delete"
                   className="text-destructive hover:text-destructive"
                 >
-                  <IconTrash size={14} />
+                  <IconTrash className="size-3.5" />
                 </Button>
               </>
             )}
@@ -406,7 +406,7 @@ export function EnvVarsTable({
             title="Save"
             className="text-primary hover:text-primary"
           >
-            <IconCheck size={14} />
+            <IconCheck className="size-3.5" />
           </Button>
           <Button
             size="icon-sm"
@@ -414,7 +414,7 @@ export function EnvVarsTable({
             onClick={cancelAdd}
             title="Cancel"
           >
-            <IconX size={14} />
+            <IconX className="size-3.5" />
           </Button>
         </div>
       </TableCell>
@@ -429,11 +429,11 @@ export function EnvVarsTable({
         variant="outline"
         onClick={() => setShowBulkPaste(true)}
       >
-        <IconClipboard size={14} />
+        <IconClipboard className="size-3.5" />
         Paste
       </Button>
       <Button size="sm" onClick={startAdd} disabled={adding}>
-        <IconPlus size={14} />
+        <IconPlus className="size-3.5" />
         Add Variable
       </Button>
     </div>
@@ -527,7 +527,7 @@ export function EnvVarsTable({
             <SettingsSection
               title={
                 <span className="flex items-center gap-1.5">
-                  <IconLock size={14} className="text-warning" />
+                  <IconLock className="size-3.5 text-warning" />
                   Excluded from Sandbox
                 </span>
               }

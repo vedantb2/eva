@@ -58,7 +58,7 @@ export function SessionsSidebarOptionsMenu() {
               className="motion-press h-8 w-8 shrink-0 text-sidebar-primary hover:scale-[1.03] active:scale-[0.96]"
               aria-label="Sidebar options"
             >
-              <IconAdjustmentsHorizontal size={16} />
+              <IconAdjustmentsHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -67,7 +67,7 @@ export function SessionsSidebarOptionsMenu() {
       <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <IconSortDescending size={16} />
+            <IconSortDescending className="size-4" />
             Sort projects
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -88,7 +88,7 @@ export function SessionsSidebarOptionsMenu() {
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <IconList size={16} />
+            <IconList className="size-4" />
             Sort threads
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -124,7 +124,7 @@ export function SessionsSidebarOptionsMenu() {
               setSessionPreviewCount(settings.sessionPreviewCount - 1);
             }}
           >
-            <IconMinus size={16} />
+            <IconMinus className="size-4" />
           </Button>
           <span className="min-w-8 flex-1 text-center text-sm tabular-nums text-foreground">
             {settings.sessionPreviewCount}
@@ -142,7 +142,7 @@ export function SessionsSidebarOptionsMenu() {
               setSessionPreviewCount(settings.sessionPreviewCount + 1);
             }}
           >
-            <IconPlus size={16} />
+            <IconPlus className="size-4" />
           </Button>
         </div>
       </DropdownMenuContent>

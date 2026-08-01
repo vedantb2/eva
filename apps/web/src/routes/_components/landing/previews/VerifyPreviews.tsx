@@ -48,7 +48,7 @@ export function ReviewsPreview() {
     <MockWindow
       title="acme/web · pull request #142"
       trailing={
-        <span className="flex items-center gap-2 font-mono text-[10px]">
+        <span className="flex items-center gap-2 font-mono text-3xs">
           <span className="text-success">+142</span>
           <span className="text-destructive">−38</span>
         </span>
@@ -57,18 +57,18 @@ export function ReviewsPreview() {
     >
       <div className="flex items-center gap-2">
         <MockChip tone="success">Open</MockChip>
-        <p className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Fix checkout postcode validation
         </p>
       </div>
 
       <div className="mt-3 overflow-hidden rounded-md border border-border">
         <div className="border-b border-border bg-muted/40 px-2.5 py-1.5">
-          <p className="truncate font-mono text-[9.5px] text-muted-foreground">
+          <p className="truncate font-mono text-3xs text-muted-foreground">
             src/checkout/validate.ts
           </p>
         </div>
-        <div className="divide-y divide-border/50 font-mono text-[9.5px] leading-[1.7]">
+        <div className="divide-y divide-border/50 font-mono text-3xs leading-[1.7]">
           {DIFF_LINES.map((line) => (
             <p
               key={line.text}
@@ -83,7 +83,7 @@ export function ReviewsPreview() {
 
       <div className="mt-3 space-y-1.5 rounded-md border border-primary/25 bg-primary/5 p-2.5">
         <div className="flex items-center gap-1.5">
-          <IconSparkles size={12} className="text-primary" aria-hidden />
+          <IconSparkles className="size-3 text-primary" aria-hidden />
           <MockLabel>Eva recap · sticky comment</MockLabel>
         </div>
         <MockLine width="w-[94%]" />
@@ -141,18 +141,17 @@ export function ArenaPreview() {
             className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2"
           >
             <IconAlertTriangle
-              size={13}
               className={cn(
-                "shrink-0",
+                "size-3 shrink-0",
                 gap.tone === "danger" ? "text-destructive" : "text-warning",
               )}
               aria-hidden
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[11.5px] font-medium text-foreground">
+              <p className="truncate text-2xs font-medium text-foreground">
                 {gap.title}
               </p>
-              <p className="truncate text-[10px] text-muted-foreground">
+              <p className="truncate text-3xs text-muted-foreground">
                 {gap.where}
               </p>
             </div>
@@ -161,7 +160,7 @@ export function ArenaPreview() {
         ))}
       </div>
 
-      <p className="mt-3 text-center text-[10.5px] text-muted-foreground">
+      <p className="mt-3 text-center text-3xs text-muted-foreground">
         Turn any gap into a task without leaving the page.
       </p>
     </MockWindow>
@@ -206,15 +205,15 @@ export function AuditsPreview() {
               )}
             >
               {category.pass ? (
-                <IconCheck size={10} className="text-success" aria-hidden />
+                <IconCheck className="size-2.5 text-success" aria-hidden />
               ) : (
-                <IconX size={10} className="text-destructive" aria-hidden />
+                <IconX className="size-2.5 text-destructive" aria-hidden />
               )}
             </span>
-            <p className="shrink-0 text-[11.5px] font-medium text-foreground">
+            <p className="shrink-0 text-2xs font-medium text-foreground">
               {category.name}
             </p>
-            <p className="min-w-0 flex-1 truncate text-[10.5px] text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate text-3xs text-muted-foreground">
               {category.detail}
             </p>
           </div>
@@ -223,7 +222,7 @@ export function AuditsPreview() {
 
       <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2">
         <MockDot tone="primary" pulse />
-        <p className="truncate text-[10.5px] text-muted-foreground">
+        <p className="truncate text-3xs text-muted-foreground">
           Sending the accessibility finding back to the agent…
         </p>
       </div>
@@ -245,7 +244,7 @@ export function ProofPreview() {
             <span className="size-1.5 rounded-full bg-border" />
             <span className="size-1.5 rounded-full bg-border" />
           </span>
-          <span className="truncate rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+          <span className="truncate rounded-sm bg-muted px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
             127.0.0.1:3000/checkout
           </span>
         </div>
@@ -268,8 +267,7 @@ export function ProofPreview() {
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="flex size-9 items-center justify-center rounded-full bg-card/90 smooth-shadow-ring-sm backdrop-blur-sm">
             <IconPlayerPlayFilled
-              size={13}
-              className="translate-x-px text-foreground"
+              className="size-3 translate-x-px text-foreground"
               aria-hidden
             />
           </span>
@@ -278,10 +276,10 @@ export function ProofPreview() {
 
       <div className="mt-3 flex items-center gap-2">
         <MockDot tone="danger" pulse />
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-3xs text-muted-foreground">
           00:12 / 00:31
         </span>
-        <span className="ml-auto text-[10px] text-muted-foreground">
+        <span className="ml-auto text-3xs text-muted-foreground">
           Recorded in the sandbox, not on your machine
         </span>
       </div>

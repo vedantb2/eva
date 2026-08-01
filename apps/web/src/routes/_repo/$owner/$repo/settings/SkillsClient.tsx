@@ -54,7 +54,9 @@ export function SkillsClient() {
       comfortable
       headerRight={
         <Button size="sm" onClick={handleSync} disabled={syncing}>
-          <IconRefresh size={14} className={syncing ? "animate-spin" : ""} />
+          <IconRefresh
+            className={`size-3.5 ${syncing ? "animate-spin" : ""}`}
+          />
           {syncing ? "Syncing..." : "Sync from GitHub"}
         </Button>
       }

@@ -174,7 +174,7 @@ export function TaskDetailInline({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <IconLoader2 size={20} className="animate-spin text-muted-foreground" />
+        <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -267,7 +267,7 @@ export function TaskDetailInline({
                             variant="outline"
                             className="gap-1 text-xs font-normal text-muted-foreground"
                           >
-                            <IconClock size={11} />
+                            <IconClock className="size-2.5" />
                             {status === "todo"
                               ? "Scheduled for"
                               : "Was scheduled for"}{" "}

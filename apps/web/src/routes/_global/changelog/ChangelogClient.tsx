@@ -34,7 +34,7 @@ export function ChangelogClient() {
         </div>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-surface bg-card py-16 text-center smooth-shadow-ring-sm">
-          <IconSparkles size={20} className="text-muted-foreground" />
+          <IconSparkles className="size-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             No changelog entries yet.
           </p>
@@ -58,7 +58,7 @@ export function ChangelogClient() {
                     Week of {dayjs(entry.publishedAt).format("MMM D, YYYY")}
                   </h2>
                   {index === 0 ? (
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-3xs font-medium text-primary">
                       Latest
                     </span>
                   ) : null}

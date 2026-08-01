@@ -55,7 +55,7 @@ export function LandingNav() {
               rel="noreferrer"
               aria-label="Eva on GitHub"
             >
-              <IconBrandGithub size={18} />
+              <IconBrandGithub className="size-5" />
             </a>
           </Button>
           <SignInButton mode="modal">

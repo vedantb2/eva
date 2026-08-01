@@ -146,8 +146,7 @@ export function ModelSelect<TModel extends string>({
               : "Select model"}
           </span>
           <IconChevronDown
-            size={12}
-            className="ml-auto shrink-0 opacity-60"
+            className="ml-auto size-3 shrink-0 opacity-60"
             aria-hidden
           />
         </button>

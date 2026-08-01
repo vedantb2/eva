@@ -153,7 +153,7 @@ export function TeamReposTab({
           <Dialog open={dialog.open} onOpenChange={handleDialogChange}>
             <DialogTrigger asChild>
               <Button size="sm">
-                <IconPlus size={16} className="mr-1.5" />
+                <IconPlus className="size-4 mr-1.5" />
                 Add Repository
               </Button>
             </DialogTrigger>

@@ -74,7 +74,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           to="/artifacts"
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <IconArrowLeft size={16} />
+          <IconArrowLeft className="size-4" />
           Artifacts
         </Link>
         <span className="text-muted-foreground">/</span>
@@ -88,7 +88,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           }
           className="ml-auto flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <IconExternalLink size={16} />
+          <IconExternalLink className="size-4" />
           Open in new tab
         </button>
       </div>

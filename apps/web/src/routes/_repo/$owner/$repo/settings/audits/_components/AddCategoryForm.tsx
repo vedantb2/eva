@@ -56,7 +56,7 @@ export function AddCategoryForm(props: {
         disabled={!name.trim() || !description.trim()}
         className="w-fit"
       >
-        <IconPlus size={14} />
+        <IconPlus className="size-3.5" />
         Add Category
       </Button>
     </div>

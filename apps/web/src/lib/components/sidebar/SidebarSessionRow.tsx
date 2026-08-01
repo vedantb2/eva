@@ -99,7 +99,7 @@ export function SidebarSessionRow<T extends SessionItem>({
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         {onRename && (
           <ContextMenuItem onSelect={() => onRenameRequest(session)}>
-            <IconPencil size={16} />
+            <IconPencil className="size-4" />
             Rename
           </ContextMenuItem>
         )}
@@ -111,7 +111,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               });
             }}
           >
-            <IconCopy size={16} />
+            <IconCopy className="size-4" />
             Duplicate
           </ContextMenuItem>
         )}
@@ -120,7 +120,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             void navigator.clipboard.writeText(session.title);
           }}
         >
-          <IconClipboard size={16} />
+          <IconClipboard className="size-4" />
           Copy title
         </ContextMenuItem>
         <ContextMenuItem
@@ -128,7 +128,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             void navigator.clipboard.writeText(window.location.origin + href);
           }}
         >
-          <IconLink size={16} />
+          <IconLink className="size-4" />
           Copy link
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -136,7 +136,7 @@ export function SidebarSessionRow<T extends SessionItem>({
           className="text-warning"
           onSelect={() => onArchiveRequest(session)}
         >
-          <IconArchive size={16} />
+          <IconArchive className="size-4" />
           Archive
         </ContextMenuItem>
       </ContextMenuContent>

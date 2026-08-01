@@ -193,15 +193,9 @@ function RunAccordion({
         className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
-          <IconChevronDown
-            size={14}
-            className="shrink-0 text-muted-foreground"
-          />
+          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         ) : (
-          <IconChevronRight
-            size={14}
-            className="shrink-0 text-muted-foreground"
-          />
+          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
         )}
         <Badge variant={badgeVariant}>{run.status}</Badge>
         <span className="text-xs text-muted-foreground sm:text-sm">
@@ -229,7 +223,7 @@ function RunAccordion({
               cancelRun({ runId: run._id });
             }}
           >
-            <IconPlayerStop size={12} />
+            <IconPlayerStop className="size-3" />
             Stop
           </Button>
         )}
@@ -245,7 +239,7 @@ function RunAccordion({
                 onAcknowledge();
               }}
             >
-              <IconCheck size={12} />
+              <IconCheck className="size-3" />
               Read
             </Button>
           )}
@@ -273,10 +267,7 @@ function RunAccordion({
                 !run.findings &&
                 run.status === "success" && (
                   <div className="flex items-center gap-2 rounded-surface bg-warning/10 px-3 py-2">
-                    <IconAlertTriangle
-                      size={14}
-                      className="shrink-0 text-warning"
-                    />
+                    <IconAlertTriangle className="size-3.5 shrink-0 text-warning" />
                     <p className="text-xs text-warning">
                       Could not parse findings from report
                     </p>
@@ -310,7 +301,7 @@ function RunAccordion({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
-                <IconExternalLink size={14} />
+                <IconExternalLink className="size-3.5" />
                 View Pull Request
               </a>
             </div>

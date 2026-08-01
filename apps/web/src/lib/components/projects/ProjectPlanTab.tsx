@@ -146,7 +146,7 @@ export function ProjectPlanTab({
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <IconCircleCheck size={20} className="text-success" />
+            <IconCircleCheck className="size-5 text-success" />
             <h2 className="text-xl font-bold text-balance">
               {parsedSpec.title}
             </h2>
@@ -217,7 +217,7 @@ export function ProjectPlanTab({
                   disabled={isLoading}
                   className="w-full sm:w-auto"
                 >
-                  <IconArrowBack size={18} />
+                  <IconArrowBack className="size-5" />
                   Keep Interviewing
                 </Button>
                 <Button
@@ -225,7 +225,7 @@ export function ProjectPlanTab({
                   disabled={isLoading}
                   className="w-full sm:w-auto"
                 >
-                  <IconRocket size={18} />
+                  <IconRocket className="size-5" />
                   {isLoading ? "Starting..." : "Accept Plan"}
                 </Button>
               </div>

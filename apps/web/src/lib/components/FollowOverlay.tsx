@@ -95,7 +95,7 @@ function FollowOverlayInner({
             className="h-5 w-5 rounded-full text-primary-foreground/80 hover:bg-primary/80 hover:text-primary-foreground"
             onClick={stopFollowing}
           >
-            <IconX size={14} />
+            <IconX className="size-3.5" />
           </Button>
         </div>
       </div>

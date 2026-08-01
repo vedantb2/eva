@@ -31,7 +31,7 @@ function typingLabel(users: TypingUser[]): ReactNode {
 
 function TypingAvatar({ firstName }: { firstName: string }) {
   return (
-    <span className="flex size-5 items-center justify-center rounded-full border-2 border-background bg-primary text-[9px] font-medium text-primary-foreground">
+    <span className="flex size-5 items-center justify-center rounded-full border-2 border-background bg-primary text-3xs font-medium text-primary-foreground">
       {firstName.charAt(0).toUpperCase()}
     </span>
   );

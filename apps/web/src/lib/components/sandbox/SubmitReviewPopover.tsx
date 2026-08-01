@@ -118,7 +118,7 @@ export function SubmitReviewPopover({
           <IconMessage className="size-3.5" />
           Review changes
           {review.comments.length > 0 ? (
-            <span className="ml-0.5 rounded bg-primary px-1.5 text-[10px] font-medium tabular-nums text-primary-foreground">
+            <span className="ml-0.5 rounded bg-primary px-1.5 text-3xs font-medium tabular-nums text-primary-foreground">
               {review.comments.length}
             </span>
           ) : null}
@@ -171,7 +171,7 @@ export function SubmitReviewPopover({
                 )}
                 {option.label}
               </span>
-              <span className="pl-5 text-[11px] text-muted-foreground">
+              <span className="pl-5 text-2xs text-muted-foreground">
                 {option.hint}
               </span>
             </button>

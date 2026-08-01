@@ -65,7 +65,7 @@ export function LandingCompact() {
           {LANDING_HERO_CAPABILITIES.map((capability) => (
             <li
               key={capability}
-              className="rounded-full border border-border bg-card/60 px-2.5 py-1 font-mono text-[11px] text-muted-foreground"
+              className="rounded-full border border-border bg-card/60 px-2.5 py-1 font-mono text-2xs text-muted-foreground"
             >
               {capability}
             </li>
@@ -76,7 +76,7 @@ export function LandingCompact() {
           <SignInButton mode="modal">
             <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
               Sign in
-              <IconArrowRight size={16} aria-hidden />
+              <IconArrowRight className="size-4" aria-hidden />
             </Button>
           </SignInButton>
         </div>
@@ -90,7 +90,7 @@ export function LandingCompact() {
         <ul className="mt-12 grid gap-px overflow-hidden rounded-surface border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {LANDING_PILLARS.map((pillar) => (
             <li key={pillar.id} className="bg-background p-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              <p className="font-mono text-2xs uppercase tracking-[0.22em] text-subtle-foreground">
                 {pillar.step} · {pillar.label}
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
@@ -98,7 +98,7 @@ export function LandingCompact() {
               </p>
               <dl className="mt-4 space-y-3">
                 {pillar.features.map((feature) => (
-                  <div key={feature.name} className="text-[13px] leading-snug">
+                  <div key={feature.name} className="text-sm leading-snug">
                     <dt className="flex items-center gap-1.5 font-medium text-foreground">
                       <feature.icon
                         size={15}

@@ -21,7 +21,7 @@ function Stat({
 }) {
   return (
     <div className="min-w-0 px-3 py-2">
-      <div className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="truncate text-2xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className={cn("text-lg font-semibold tabular-nums", className)}>
@@ -60,9 +60,9 @@ export function PrSummaryCard({ overview }: { overview: PrOverview }) {
           ) : null}
 
           <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-0.5 font-mono text-muted-foreground">
-            <IconGitBranch size={12} className="shrink-0" />
+            <IconGitBranch className="size-3 shrink-0" />
             <span className="truncate">{overview.headRef}</span>
-            <IconArrowRight size={12} className="shrink-0" />
+            <IconArrowRight className="size-3 shrink-0" />
             <span className="truncate">{overview.baseRef}</span>
           </span>
 
@@ -87,7 +87,7 @@ export function PrSummaryCard({ overview }: { overview: PrOverview }) {
             rel="noopener noreferrer"
             className="ml-auto inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
           >
-            <IconExternalLink size={12} />
+            <IconExternalLink className="size-3" />
             GitHub
           </a>
         </div>

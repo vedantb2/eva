@@ -296,7 +296,7 @@ export function SandboxTabBar({
                 onTabChange("editor");
               }}
             >
-              <IconCode size={14} />
+              <IconCode className="size-3.5" />
               Editor
             </DropdownMenuItem>
           ) : null}
@@ -310,7 +310,7 @@ export function SandboxTabBar({
                 onTabChange("computer");
               }}
             >
-              <IconDeviceDesktop size={14} />
+              <IconDeviceDesktop className="size-3.5" />
               Computer
             </DropdownMenuItem>
           ) : null}
@@ -318,14 +318,14 @@ export function SandboxTabBar({
             onClick={onNewPreview}
             disabled={newPreviewDisabled}
           >
-            <IconWorld size={14} />
+            <IconWorld className="size-3.5" />
             New Preview
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onNewTerminal}
             disabled={newTerminalDisabled}
           >
-            <IconTerminal2 size={14} />
+            <IconTerminal2 className="size-3.5" />
             New Terminal
           </DropdownMenuItem>
         </DropdownMenuContent>

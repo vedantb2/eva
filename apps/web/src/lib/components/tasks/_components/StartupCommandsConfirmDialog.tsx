@@ -42,7 +42,7 @@ export function StartupCommandsConfirmDialog({
             }}
             disabled={isStarting}
           >
-            {isStarting && <IconLoader2 size={16} className="animate-spin" />}
+            {isStarting && <IconLoader2 className="size-4 animate-spin" />}
             Run Startup Commands
           </Button>
         </DialogFooter>

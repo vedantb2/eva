@@ -211,7 +211,7 @@ export function QuickTaskCard({
           )}
           <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {taskNumber !== undefined && (
-              <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
+              <span className="mr-1.5 font-mono text-xs tabular-nums text-subtle-foreground">
                 #{taskNumber}
               </span>
             )}
@@ -248,7 +248,7 @@ export function QuickTaskCard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="flex items-center text-primary">
-                    <IconClock size={14} />
+                    <IconClock className="size-3.5" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -268,10 +268,10 @@ export function QuickTaskCard({
                 <TooltipTrigger asChild>
                   <Badge
                     variant="default"
-                    className="max-w-full px-1.5 py-0 text-[10px] font-medium leading-4"
+                    className="max-w-full px-1.5 py-0 text-3xs font-medium leading-4"
                   >
                     <div className="flex min-w-0 flex-row items-center gap-0.5">
-                      <IconFolder size={10} className="shrink-0" />
+                      <IconFolder className="size-2.5 shrink-0" />
                       <span className="truncate">{projectName}</span>
                     </div>
                   </Badge>
@@ -283,10 +283,10 @@ export function QuickTaskCard({
               <Badge
                 key={tag}
                 variant="secondary"
-                className="px-1.5 py-0 text-[10px] font-medium leading-4"
+                className="px-1.5 py-0 text-3xs font-medium leading-4"
               >
                 <div className="flex flex-row gap-0.5 items-center">
-                  <IconTag size={10} />
+                  <IconTag className="size-2.5" />
                   {tag}
                 </div>
               </Badge>
@@ -300,7 +300,7 @@ export function QuickTaskCard({
               <>
                 <UserInitials user={createdByUser} size="sm" />
                 {creatorFirstName ? (
-                  <MarqueeOnHover className="min-w-0 text-[10px] text-muted-foreground/70">
+                  <MarqueeOnHover className="min-w-0 text-3xs text-subtle-foreground">
                     <span data-pii>{creatorFirstName}</span>
                   </MarqueeOnHover>
                 ) : null}
@@ -308,7 +308,7 @@ export function QuickTaskCard({
             ) : null}
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] tabular-nums text-muted-foreground/70">
+            <span className="text-3xs tabular-nums text-subtle-foreground">
               {compactRelativeTime(createdAt)}
             </span>
             <DropdownMenu>
@@ -317,7 +317,7 @@ export function QuickTaskCard({
                   className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <IconDots size={14} />
+                  <IconDots className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent

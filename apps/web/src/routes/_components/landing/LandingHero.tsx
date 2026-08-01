@@ -64,7 +64,7 @@ export function LandingHero() {
           >
             <span className="landing-pulse-dot size-1.5 rounded-full bg-primary" />
             Open source and MIT licensed
-            <IconArrowRight size={13} aria-hidden />
+            <IconArrowRight className="size-3" aria-hidden />
           </m.a>
 
           <m.h1
@@ -91,7 +91,7 @@ export function LandingHero() {
             <SignUpButton mode="modal">
               <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
                 Get started
-                <IconArrowRight size={16} aria-hidden />
+                <IconArrowRight className="size-4" aria-hidden />
               </Button>
             </SignUpButton>
             <Button
@@ -101,7 +101,7 @@ export function LandingHero() {
               className="w-full sm:w-auto"
             >
               <a href={EVA_GITHUB_URL} target="_blank" rel="noreferrer">
-                <IconBrandGithub size={16} aria-hidden />
+                <IconBrandGithub className="size-4" aria-hidden />
                 View on GitHub
               </a>
             </Button>
@@ -114,7 +114,7 @@ export function LandingHero() {
             {LANDING_HERO_CAPABILITIES.map((capability) => (
               <li
                 key={capability}
-                className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground"
+                className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-2xs text-muted-foreground"
               >
                 {capability}
               </li>

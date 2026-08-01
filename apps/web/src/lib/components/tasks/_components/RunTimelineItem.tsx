@@ -188,7 +188,7 @@ export function RunTimelineItem({
                       {run.credentialSourceLabel}
                     </Badge>
                   ) : null}
-                  <span className="text-muted-foreground/50" aria-hidden>
+                  <span className="text-subtle-foreground" aria-hidden>
                     ·
                   </span>
                   <RelativeDateTime
@@ -214,9 +214,9 @@ export function RunTimelineItem({
                       disabled={isStopping}
                     >
                       {isStopping ? (
-                        <IconLoader2 size={14} className="animate-spin" />
+                        <IconLoader2 className="size-3.5 animate-spin" />
                       ) : (
-                        <IconPlayerStop size={14} />
+                        <IconPlayerStop className="size-3.5" />
                       )}
                       Stop
                     </Button>

@@ -47,7 +47,7 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-          <IconUsers size={20} className="text-muted-foreground" />
+          <IconUsers className="size-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Nobody from this team is online right now.
           </p>
@@ -76,7 +76,7 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
                       {name}
                     </span>
                     {isSelf ? (
-                      <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                      <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-3xs font-normal text-muted-foreground">
                         You
                       </span>
                     ) : null}
@@ -97,7 +97,7 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
                   className="shrink-0"
                   onClick={stopFollowing}
                 >
-                  <IconEyeOff size={14} className="mr-1.5" />
+                  <IconEyeOff className="size-3.5 mr-1.5" />
                   Stop following
                 </Button>
               ) : canFollow ? (
@@ -107,7 +107,7 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
                   className="shrink-0"
                   onClick={() => startFollowing(member.userId, name)}
                 >
-                  <IconEye size={14} className="mr-1.5" />
+                  <IconEye className="size-3.5 mr-1.5" />
                   Follow
                 </Button>
               ) : null}

@@ -61,7 +61,7 @@ export function TeamCard({
                         size={32}
                         fallback={
                           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                            <IconUsers size={16} className="text-primary" />
+                            <IconUsers className="size-4 text-primary" />
                           </div>
                         }
                       />
@@ -78,12 +78,12 @@ export function TeamCard({
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
-            <IconPhoto size={16} />
+            <IconPhoto className="size-4" />
             {team.logoUrl ? "Change logo" : "Set logo"}
           </ContextMenuItem>
           {team.logoUrl ? (
             <ContextMenuItem onClick={() => void removeLogo(team._id)}>
-              <IconPhotoOff size={16} />
+              <IconPhotoOff className="size-4" />
               Remove logo
             </ContextMenuItem>
           ) : null}
@@ -94,7 +94,7 @@ export function TeamCard({
                 className="text-destructive"
                 onClick={() => onDelete({ id: team._id, name: displayName })}
               >
-                <IconTrash size={16} />
+                <IconTrash className="size-4" />
                 Delete team
               </ContextMenuItem>
             </>

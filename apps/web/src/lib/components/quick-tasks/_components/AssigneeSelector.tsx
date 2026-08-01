@@ -51,7 +51,7 @@ export function AssigneeSelector({
             </>
           ) : (
             <>
-              <IconUserPlus size={14} />
+              <IconUserPlus className="size-3.5" />
               <span>Code Reviewer</span>
             </>
           )}
@@ -67,9 +67,9 @@ export function AssigneeSelector({
                 value="unassigned"
                 onSelect={() => setAssignedTo(undefined)}
               >
-                <IconUserPlus size={14} className="text-muted-foreground" />
+                <IconUserPlus className="size-3.5 text-muted-foreground" />
                 Unassigned
-                {!assignedTo && <IconCheck size={14} className="ml-auto" />}
+                {!assignedTo && <IconCheck className="size-3.5 ml-auto" />}
               </CommandItem>
               {reviewers.map((user) => (
                 <CommandItem
@@ -84,7 +84,7 @@ export function AssigneeSelector({
                   />
                   <span data-pii>{getUserDisplayName(user)}</span>
                   {assignedTo === user._id && (
-                    <IconCheck size={14} className="ml-auto" />
+                    <IconCheck className="size-3.5 ml-auto" />
                   )}
                 </CommandItem>
               ))}

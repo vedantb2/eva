@@ -32,10 +32,7 @@ function SearchInput({
       wrapperClassName={cn("w-full max-w-sm", className)}
       className={cn("h-9 pl-8 text-sm", inputClassName)}
       leading={
-        <IconSearch
-          size={15}
-          className="pointer-events-none absolute left-3 top-1/2 z-[3] -translate-y-1/2 text-muted-foreground"
-        />
+        <IconSearch className="pointer-events-none absolute left-3 top-1/2 z-[3] size-3.5 -translate-y-1/2 text-muted-foreground" />
       }
     />
   );

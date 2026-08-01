@@ -90,7 +90,7 @@ export function PrReviewersCard({
             >
               <Person login={reviewer.login} avatarUrl={reviewer.avatarUrl} />
               <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <IconClock size={14} />
+                <IconClock className="size-3.5" />
                 Awaiting review
               </span>
             </li>

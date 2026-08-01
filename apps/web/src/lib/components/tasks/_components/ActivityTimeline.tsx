@@ -404,7 +404,7 @@ export function ActivityTimeline({
               disabled={isDeletingComment}
             >
               {isDeletingComment && (
-                <IconLoader2 size={16} className="animate-spin" />
+                <IconLoader2 className="size-4 animate-spin" />
               )}
               Delete
             </Button>

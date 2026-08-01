@@ -375,7 +375,7 @@ export function DocContentTab({
                     className="h-7 px-2 text-xs"
                     onClick={handleStartComment}
                   >
-                    <IconMessage size={14} />
+                    <IconMessage className="size-3.5" />
                     Comment
                   </Button>
                 </BubbleMenu>

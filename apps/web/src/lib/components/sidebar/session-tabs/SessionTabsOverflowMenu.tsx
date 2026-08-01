@@ -62,7 +62,7 @@ export function SessionTabsOverflowMenu({
           aria-label="All sessions"
           className="flex h-full w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
-          <IconChevronDown size={16} />
+          <IconChevronDown className="size-4" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -85,7 +85,7 @@ export function SessionTabsOverflowMenu({
                     logoUrl={repo.logoUrl}
                     size={16}
                     fallback={
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-3xs font-semibold text-muted-foreground">
                         {label.charAt(0).toUpperCase()}
                       </span>
                     }
@@ -126,7 +126,7 @@ export function SessionTabsOverflowMenu({
                       navigate({ to: repoSessionsIndexPath(repo) });
                     }}
                   >
-                    <IconPlus size={14} />
+                    <IconPlus className="size-3.5" />
                     New session
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>

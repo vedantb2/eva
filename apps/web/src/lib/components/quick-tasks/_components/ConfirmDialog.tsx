@@ -48,7 +48,7 @@ export function ConfirmDialog({
             Cancel
           </Button>
           <Button variant={variant} onClick={onConfirm} disabled={isLoading}>
-            {isLoading && <IconLoader2 size={16} className="animate-spin" />}
+            {isLoading && <IconLoader2 className="size-4 animate-spin" />}
             {confirmLabel}
           </Button>
         </DialogFooter>

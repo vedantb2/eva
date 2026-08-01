@@ -101,7 +101,7 @@ export function ChatMessage({
           <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
             {startedAt !== undefined ? (
               <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[11px] text-muted-foreground/60">
+                <span className="text-2xs text-subtle-foreground">
                   {dayjs(startedAt).format("h:mm A")}
                 </span>
               </div>

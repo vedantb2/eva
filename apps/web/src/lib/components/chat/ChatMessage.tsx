@@ -70,7 +70,7 @@ function MessageModelIcon({
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/70"
+          className="inline-flex size-4 shrink-0 items-center justify-center text-subtle-foreground"
           aria-label={tooltip}
         >
           <ProviderIcon provider={option.provider} size={12} />
@@ -173,7 +173,7 @@ export const ChatMessage = memo(function ChatMessage({
           {isOtherUser && senderFirstName ? (
             <span
               data-pii
-              className="px-1 text-[11px] font-medium text-muted-foreground"
+              className="px-1 text-2xs font-medium text-muted-foreground"
             >
               {senderFirstName}
             </span>
@@ -300,7 +300,7 @@ export const ChatMessage = memo(function ChatMessage({
                     revealOnHover={false}
                   />
                   {message.finishedAt && message.timestamp ? (
-                    <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                    <span className="text-2xs tabular-nums text-subtle-foreground">
                       {dayjs(message.timestamp).format("h:mm A")} ·{" "}
                       {formatDuration(message.timestamp, message.finishedAt)}
                     </span>
@@ -327,7 +327,7 @@ export const ChatMessage = memo(function ChatMessage({
                   />
                 ) : null}
                 {message.mode && (
-                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                  <div className="flex items-center gap-1 text-2xs text-subtle-foreground">
                     {message.mode === "plan" ? (
                       <>
                         <IconClipboardList className="w-2.5 h-2.5" /> Plan
@@ -340,7 +340,7 @@ export const ChatMessage = memo(function ChatMessage({
                   </div>
                 )}
                 {message.timestamp && (
-                  <span className="text-[11px] text-muted-foreground/60">
+                  <span className="text-2xs text-subtle-foreground">
                     {dayjs(message.timestamp).format("h:mm A")}
                   </span>
                 )}

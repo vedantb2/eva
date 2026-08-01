@@ -263,10 +263,10 @@ export function Sidebar() {
           onClick={() => setMobileOpen(true)}
           className="-ml-1"
         >
-          <IconMenu2 size={20} className="text-muted-foreground" />
+          <IconMenu2 className="size-5 text-muted-foreground" />
         </Button>
         {pageTitle ? (
-          <h1 className="mx-auto truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
+          <h1 className="mx-auto truncate text-base font-semibold tracking-heading text-foreground text-balance">
             {pageTitle}
           </h1>
         ) : (
@@ -275,7 +275,7 @@ export function Sidebar() {
             className="mx-auto flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
           >
             <LogoMark size={26} />
-            <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
+            <span className="text-sm font-semibold tracking-heading text-primary">
               Eva
             </span>
           </Link>
@@ -287,11 +287,11 @@ export function Sidebar() {
           aria-label="Toggle theme"
         >
           {theme === "dark" ? (
-            <IconSun size={18} className="text-muted-foreground" />
+            <IconSun className="size-5 text-muted-foreground" />
           ) : theme === "neutral" ? (
-            <IconMoon size={18} className="text-muted-foreground" />
+            <IconMoon className="size-5 text-muted-foreground" />
           ) : (
-            <IconCircleHalf size={18} className="text-muted-foreground" />
+            <IconCircleHalf className="size-5 text-muted-foreground" />
           )}
         </Button>
       </header>
@@ -385,7 +385,7 @@ export function Sidebar() {
                     >
                       {isFlatPanel ? (
                         <>
-                          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-heading text-sidebar-primary">
                             {flatPanelTitle}
                           </span>
                           <div className="flex shrink-0 items-center gap-0.5">
@@ -398,10 +398,7 @@ export function Sidebar() {
                               className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
                             >
-                              <IconX
-                                size={18}
-                                className="text-muted-foreground"
-                              />
+                              <IconX className="size-5 text-muted-foreground" />
                             </Button>
                           </div>
                         </>
@@ -414,7 +411,7 @@ export function Sidebar() {
                             className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                             title="Back to main sidebar"
                           >
-                            <IconChevronLeft size={16} />
+                            <IconChevronLeft className="size-4" />
                           </Button>
                           <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
                             {contextSidebarTitle}
@@ -427,10 +424,7 @@ export function Sidebar() {
                               className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
                             >
-                              <IconX
-                                size={18}
-                                className="text-muted-foreground"
-                              />
+                              <IconX className="size-5 text-muted-foreground" />
                             </Button>
                           </div>
                         </>
@@ -478,10 +472,7 @@ export function Sidebar() {
                             className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                             onClick={closeMobileSidebar}
                           >
-                            <IconX
-                              size={18}
-                              className="text-muted-foreground"
-                            />
+                            <IconX className="size-5 text-muted-foreground" />
                           </Button>
                         </>
                       )}

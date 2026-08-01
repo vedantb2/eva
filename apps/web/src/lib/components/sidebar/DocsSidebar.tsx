@@ -318,7 +318,7 @@ export function DocsSidebar({
                           setDocToDelete({ id: doc._id, title: doc.title })
                         }
                       >
-                        <IconTrash size={16} />
+                        <IconTrash className="size-4" />
                         Delete
                       </ContextMenuItem>
                     ) : null}
@@ -361,7 +361,7 @@ export function DocsSidebar({
                   {isUploading ? (
                     <Spinner size="sm" />
                   ) : (
-                    <IconUpload size={14} />
+                    <IconUpload className="size-3.5" />
                   )}
                   Click to upload
                 </Button>
@@ -413,7 +413,7 @@ export function DocsSidebar({
                 className="flex w-full items-center gap-2 rounded-control border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 onClick={() => setShowUploadSection(true)}
               >
-                <IconUpload size={14} />
+                <IconUpload className="size-3.5" />
                 Upload PRD instead
               </button>
               <DialogFooter>

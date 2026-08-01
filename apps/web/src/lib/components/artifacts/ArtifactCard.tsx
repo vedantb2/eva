@@ -51,10 +51,7 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
             className="flex flex-col gap-2 rounded-surface bg-card p-4 smooth-shadow-ring-sm transition-colors hover:bg-muted"
           >
             <div className="flex items-center gap-2">
-              <IconLayoutDashboard
-                size={18}
-                className="shrink-0 text-muted-foreground"
-              />
+              <IconLayoutDashboard className="size-5 shrink-0 text-muted-foreground" />
               <span className="truncate font-medium text-foreground">
                 {artifact.name}
               </span>
@@ -78,18 +75,18 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
               })
             }
           >
-            <IconLayoutDashboard size={16} />
+            <IconLayoutDashboard className="size-4" />
             Open
           </ContextMenuItem>
           <ContextMenuItem onClick={openInNewTab}>
-            <IconExternalLink size={16} />
+            <IconExternalLink className="size-4" />
             Open in new tab
           </ContextMenuItem>
           <ContextMenuItem
             className="text-destructive"
             onClick={() => setConfirmDeleteOpen(true)}
           >
-            <IconTrash size={16} />
+            <IconTrash className="size-4" />
             Delete
           </ContextMenuItem>
         </ContextMenuContent>

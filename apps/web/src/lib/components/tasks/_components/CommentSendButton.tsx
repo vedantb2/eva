@@ -39,8 +39,8 @@ export function CommentSendButton({
         trueKey="loading"
         falseKey="send"
         className="relative flex size-4 items-center justify-center"
-        whenTrue={<IconLoader2 size={16} className="animate-spin" />}
-        whenFalse={<IconArrowUp size={16} />}
+        whenTrue={<IconLoader2 className="size-4 animate-spin" />}
+        whenFalse={<IconArrowUp className="size-4" />}
       />
     </Button>
   );

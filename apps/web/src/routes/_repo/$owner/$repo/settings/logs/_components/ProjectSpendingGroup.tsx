@@ -34,8 +34,7 @@ interface ProjectSpendingGroupProps {
 
 function EntityTypeIcon({ entityType }: { entityType: string }) {
   return createElement(iconFor(entityType), {
-    size: 14,
-    className: "shrink-0 text-muted-foreground",
+    className: "size-3.5 shrink-0 text-muted-foreground",
   });
 }
 
@@ -47,15 +46,12 @@ function LogRow({ log }: { log: LogEntry }) {
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <EntityTypeIcon entityType={log.entityType} />
           <span className="truncate text-sm">{log.entityTitle}</span>
-          <Badge
-            variant="secondary"
-            className="shrink-0 text-[10px] font-normal"
-          >
+          <Badge variant="secondary" className="shrink-0 text-3xs font-normal">
             {labelFor(log.entityType)}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <Badge variant="outline" className="font-mono text-[11px]">
+          <Badge variant="outline" className="font-mono text-2xs">
             {evt.provider && (
               <ProviderIcon
                 provider={evt.provider}
@@ -77,7 +73,7 @@ function LogRow({ log }: { log: LogEntry }) {
           <span className="font-mono text-xs font-medium tabular-nums">
             {formatCost(evt.costUsd)}
           </span>
-          <span className="text-xs text-muted-foreground/70">
+          <span className="text-xs text-subtle-foreground">
             {dayjs(log.createdAt).format("MMM D, HH:mm")}
           </span>
         </div>
@@ -96,18 +92,12 @@ export function ProjectSpendingGroup({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
-        <IconChevronRight
-          size={14}
-          className="chevron-icon shrink-0 text-muted-foreground transition-transform"
-        />
-        <IconLayoutKanban
-          size={16}
-          className="shrink-0 text-muted-foreground"
-        />
+        <IconChevronRight className="chevron-icon size-3.5 shrink-0 text-muted-foreground transition-transform" />
+        <IconLayoutKanban className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate tracking-[-0.01em]">
           {projectTitle}
         </span>
-        <Badge variant="secondary" className="ml-1 text-[10px] font-normal">
+        <Badge variant="secondary" className="ml-1 text-3xs font-normal">
           {logs.length} {logs.length === 1 ? "log" : "logs"}
         </Badge>
         <span className="ml-auto font-mono text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, type ComponentProps, type ReactNode } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { IconChevronDown } from "@tabler/icons-react";
 import { Button } from "../ui/button";
 import {
   Collapsible,
@@ -68,7 +68,7 @@ export const QueueSectionLabel = ({
   ...props
 }: QueueSectionLabelProps) => (
   <span className={cn("flex items-center gap-1.5", className)} {...props}>
-    <ChevronDownIcon className="size-3.5 opacity-70 transition-transform group-data-[state=closed]:-rotate-90" />
+    <IconChevronDown className="size-3.5 opacity-70 transition-transform group-data-[state=closed]:-rotate-90" />
     {icon}
     <span>
       {count} {label}
@@ -151,9 +151,7 @@ export const QueueItemContent = ({
   <span
     className={cn(
       "line-clamp-2 min-w-0 grow break-words leading-snug",
-      completed
-        ? "text-muted-foreground/50 line-through"
-        : "text-foreground/90",
+      completed ? "text-subtle-foreground line-through" : "text-foreground/90",
       className,
     )}
     {...props}

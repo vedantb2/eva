@@ -105,7 +105,7 @@ export function TaskFilesSection({
           onClick={() => inputRef.current?.click()}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
-          <IconPaperclip size={14} />
+          <IconPaperclip className="size-3.5" />
           <span>Attach files</span>
         </button>
         <input

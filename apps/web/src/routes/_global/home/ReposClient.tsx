@@ -119,18 +119,18 @@ export function ReposClient() {
                     disabled={repos === undefined}
                     className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
                   >
-                    <IconDots size={16} />
+                    <IconDots className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onClick={() => navigate({ to: "/settings/sync" })}
                   >
-                    <IconSettings size={16} />
+                    <IconSettings className="size-4" />
                     Sync Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setHiddenOpen(true)}>
-                    <IconEyeOff size={16} />
+                    <IconEyeOff className="size-4" />
                     Hidden Codebases
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -138,8 +138,7 @@ export function ReposClient() {
                     onClick={() => setSyncConfirmOpen(true)}
                   >
                     <IconRefresh
-                      size={16}
-                      className={syncing ? "animate-spin" : ""}
+                      className={syncing ? "size-4 animate-spin" : "size-4"}
                     />
                     {syncing ? "Syncing..." : "Sync Repos"}
                   </DropdownMenuItem>
@@ -174,8 +173,7 @@ export function ReposClient() {
                       }}
                     >
                       <IconRefresh
-                        size={16}
-                        className={syncing ? "animate-spin" : ""}
+                        className={syncing ? "size-4 animate-spin" : "size-4"}
                       />
                       Sync
                     </Button>
@@ -195,7 +193,7 @@ export function ReposClient() {
                 target={hasRepos ? "_blank" : undefined}
                 rel={hasRepos ? "noopener noreferrer" : undefined}
               >
-                <IconPlus size={16} />
+                <IconPlus className="size-4" />
                 <span className="hidden sm:inline">{primaryLabel}</span>
               </a>
             </Button>
@@ -205,7 +203,7 @@ export function ReposClient() {
               disabled
               className="motion-press bg-foreground font-medium text-background"
             >
-              <IconPlus size={16} />
+              <IconPlus className="size-4" />
               <span className="hidden sm:inline">{primaryLabel}</span>
             </Button>
           )}

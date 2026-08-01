@@ -22,7 +22,7 @@ export function PrConversationCard({
       <div className="flex items-center justify-between gap-2 px-1">
         <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Conversation
-          <span className="tabular-nums text-muted-foreground/70">
+          <span className="tabular-nums text-subtle-foreground">
             {comments.length}
           </span>
         </h2>
@@ -77,7 +77,7 @@ export function PrConversationCard({
                   rel="noopener noreferrer"
                   className="hover:text-foreground"
                 >
-                  <IconExternalLink size={12} />
+                  <IconExternalLink className="size-3" />
                 </a>
               </div>
               <div className="p-3">

@@ -96,7 +96,7 @@ export function TeamDetailClient({
             size={28}
             fallback={
               <div className="flex size-7 items-center justify-center rounded-md bg-primary/10">
-                <IconUsers size={14} className="text-primary" />
+                <IconUsers className="size-3.5 text-primary" />
               </div>
             }
           />
@@ -111,7 +111,7 @@ export function TeamDetailClient({
             disabled={logoUploading}
             onClick={() => logoInputRef.current?.click()}
           >
-            <IconPhoto size={14} className="mr-1.5" />
+            <IconPhoto className="size-3.5 mr-1.5" />
             {team.logoUrl ? "Change logo" : "Set logo"}
           </Button>
           {team.logoUrl ? (
@@ -122,7 +122,7 @@ export function TeamDetailClient({
               disabled={logoUploading}
               onClick={() => void removeLogo(team._id)}
             >
-              <IconPhotoOff size={14} />
+              <IconPhotoOff className="size-3.5" />
             </Button>
           ) : null}
           <input
@@ -145,7 +145,7 @@ export function TeamDetailClient({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <IconPhoto size={16} />
+              <IconPhoto className="size-4" />
               No sidebar background
             </div>
           )}
@@ -168,7 +168,7 @@ export function TeamDetailClient({
                 disabled={backgroundUploading}
                 onClick={() => backgroundInputRef.current?.click()}
               >
-                <IconPhoto size={14} className="mr-1.5" />
+                <IconPhoto className="size-3.5 mr-1.5" />
                 {team.backgroundUrl ? "Change" : "Upload"}
               </Button>
               {team.backgroundUrl ? (
@@ -180,7 +180,7 @@ export function TeamDetailClient({
                   disabled={backgroundUploading}
                   onClick={() => void removeBackground(team._id)}
                 >
-                  <IconPhotoOff size={14} />
+                  <IconPhotoOff className="size-3.5" />
                 </Button>
               ) : null}
             </div>

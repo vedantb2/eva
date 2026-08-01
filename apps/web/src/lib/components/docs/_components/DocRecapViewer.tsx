@@ -160,7 +160,7 @@ export function DocRecapViewer({
                 variant="secondary"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings size={16} />
+                <IconSettings className="size-4" />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -172,14 +172,14 @@ export function DocRecapViewer({
                 }}
               >
                 {copied ? (
-                  <IconCheck size={16} className="text-success" />
+                  <IconCheck className="size-4 text-success" />
                 ) : (
-                  <IconCopy size={16} />
+                  <IconCopy className="size-4" />
                 )}
                 Copy recap
               </DropdownMenuItem>
               <DropdownMenuItem onClick={toggleHistory}>
-                <IconHistory size={16} />
+                <IconHistory className="size-4" />
                 Version History
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -200,7 +200,7 @@ export function DocRecapViewer({
               className="ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
             >
               View on GitHub
-              <IconExternalLink size={12} />
+              <IconExternalLink className="size-3" />
             </a>
           ) : null}
           {isRecapErrored && doc.prRecapError ? (
@@ -266,7 +266,7 @@ export function DocRecapViewer({
                     className="h-7 px-2"
                     onClick={toggleSuggestions}
                   >
-                    <IconPencilCheck size={14} />
+                    <IconPencilCheck className="size-3.5" />
                     <span className="text-xs">Suggestions</span>
                     {suggestionCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ export function DocRecapViewer({
                     className="h-7 px-2"
                     onClick={toggleComments}
                   >
-                    <IconMessage size={14} />
+                    <IconMessage className="size-3.5" />
                     <span className="text-xs">Comments</span>
                     {openCommentCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">

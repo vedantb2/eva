@@ -20,7 +20,7 @@ export function SessionListShowMore({
       onClick={onToggle}
       className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-sidebar-foreground"
     >
-      <IconDots size={14} />
+      <IconDots className="size-3.5" />
       {expanded
         ? "Show less"
         : hiddenCount > 0

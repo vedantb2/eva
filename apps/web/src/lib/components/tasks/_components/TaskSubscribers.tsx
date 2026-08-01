@@ -61,7 +61,11 @@ export function TaskSubscribers({
           void setSubscription({ taskId, subscribed: !isSubscribed })
         }
       >
-        {isSubscribed ? <IconBellOff size={14} /> : <IconBell size={14} />}
+        {isSubscribed ? (
+          <IconBellOff className="size-3.5" />
+        ) : (
+          <IconBell className="size-3.5" />
+        )}
         {isSubscribed ? "Subscribed" : "Subscribe"}
       </Button>
 
@@ -81,7 +85,7 @@ export function TaskSubscribers({
             className="h-7 w-7 text-muted-foreground"
             aria-label="Manage subscribers"
           >
-            <IconUserPlus size={15} />
+            <IconUserPlus className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

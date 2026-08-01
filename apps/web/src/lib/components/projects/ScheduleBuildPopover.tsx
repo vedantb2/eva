@@ -68,7 +68,7 @@ export function ScheduleBuildPopover({
             disabled={disabled}
             className={isScheduled ? "text-primary" : undefined}
           >
-            <IconCalendarClock size={16} />
+            <IconCalendarClock className="size-4" />
             {isScheduled
               ? `Scheduled: ${dayjs(scheduledBuildAt).format("MMM D, h:mm A")}`
               : "Schedule Build"}

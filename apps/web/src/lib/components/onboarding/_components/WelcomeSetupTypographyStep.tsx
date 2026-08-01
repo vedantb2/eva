@@ -51,7 +51,7 @@ export function WelcomeSetupTypographyStep({
         onClick={onOpenThemeSettings}
       >
         More theme options in settings
-        <IconArrowRight size={14} />
+        <IconArrowRight className="size-3.5" />
       </Button>
     </div>
   );

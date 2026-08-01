@@ -200,9 +200,9 @@ export function TaskFooter({
                     disabled={isStarting}
                   >
                     {isStarting ? (
-                      <IconLoader2 size={14} className="animate-spin" />
+                      <IconLoader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <IconHammer size={14} />
+                      <IconHammer className="size-3.5" />
                     )}
                     Resolve Conflicts
                   </DropdownMenuItem>
@@ -216,9 +216,9 @@ export function TaskFooter({
                     disabled={isRetryingStartupCommands}
                   >
                     {isRetryingStartupCommands ? (
-                      <IconLoader2 size={14} className="animate-spin" />
+                      <IconLoader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <IconRefresh size={14} />
+                      <IconRefresh className="size-3.5" />
                     )}
                     Run Startup Commands
                   </DropdownMenuItem>
@@ -229,9 +229,9 @@ export function TaskFooter({
                     disabled={isRunningDevServer}
                   >
                     {isRunningDevServer ? (
-                      <IconLoader2 size={14} className="animate-spin" />
+                      <IconLoader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <IconPlayerPlay size={14} />
+                      <IconPlayerPlay className="size-3.5" />
                     )}
                     Run Dev Server
                   </DropdownMenuItem>
@@ -242,9 +242,9 @@ export function TaskFooter({
                     disabled={isRunningBackgroundCommands}
                   >
                     {isRunningBackgroundCommands ? (
-                      <IconLoader2 size={14} className="animate-spin" />
+                      <IconLoader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <IconServerBolt size={14} />
+                      <IconServerBolt className="size-3.5" />
                     )}
                     Run Background Commands
                   </DropdownMenuItem>
@@ -259,9 +259,9 @@ export function TaskFooter({
                     disabled={isCreatingPr}
                   >
                     {isCreatingPr ? (
-                      <IconLoader2 size={14} className="animate-spin" />
+                      <IconLoader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <IconGitPullRequest size={14} />
+                      <IconGitPullRequest className="size-3.5" />
                     )}
                     Create PR
                   </DropdownMenuItem>
@@ -273,7 +273,7 @@ export function TaskFooter({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <IconGitPullRequest size={14} />
+                      <IconGitPullRequest className="size-3.5" />
                       View PR
                     </a>
                   </DropdownMenuItem>
@@ -283,7 +283,7 @@ export function TaskFooter({
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuItem disabled>
-                          <IconBrandVercel size={14} />
+                          <IconBrandVercel className="size-3.5" />
                           View Preview
                         </DropdownMenuItem>
                       </div>
@@ -302,7 +302,7 @@ export function TaskFooter({
                 ) : null}
                 {showRequestChanges && (
                   <DropdownMenuItem onClick={onRequestChanges}>
-                    <IconMessagePlus size={14} />
+                    <IconMessagePlus className="size-3.5" />
                     Request Changes
                   </DropdownMenuItem>
                 )}
@@ -429,7 +429,7 @@ function SplitRunButton({
             size={size}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
-            <IconChevronDown size={14} />
+            <IconChevronDown className="size-3.5" />
           </Button>
         }
       />

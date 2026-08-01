@@ -217,7 +217,7 @@ export function ProjectCard({
         </div>
         {previewText ? (
           <p
-            className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
+            className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground"}`}
           >
             {previewText}
           </p>
@@ -227,12 +227,12 @@ export function ProjectCard({
             <TooltipTrigger asChild>
               <Badge
                 variant="secondary"
-                className="gap-0.5 px-1.5 py-0 text-[10px] font-medium leading-4"
+                className="gap-0.5 px-1.5 py-0 text-3xs font-medium leading-4"
               >
                 {planningMode === "interview" ? (
-                  <IconSparkles size={10} className="shrink-0" />
+                  <IconSparkles className="size-2.5 shrink-0" />
                 ) : (
-                  <IconListCheck size={10} className="shrink-0" />
+                  <IconListCheck className="size-2.5 shrink-0" />
                 )}
                 {planningMode === "interview" ? "Interview" : "Tasks only"}
               </Badge>
@@ -255,7 +255,7 @@ export function ProjectCard({
             ))}
           </AvatarStack>
           {hiddenCount > 0 ? (
-            <span className="text-[11px] font-medium leading-none text-muted-foreground">
+            <span className="text-2xs font-medium leading-none text-muted-foreground">
               +{hiddenCount}
             </span>
           ) : null}
@@ -353,7 +353,7 @@ export function ProjectCard({
         </ContextMenuSub>
         <ContextMenuSub>
           <ContextMenuSubTrigger>
-            <IconUserPlus size={16} />
+            <IconUserPlus className="size-4" />
             Project Lead
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
@@ -395,7 +395,7 @@ export function ProjectCard({
               window.open(href, "_blank");
             }}
           >
-            <IconExternalLink size={16} />
+            <IconExternalLink className="size-4" />
             Open in new tab
           </ContextMenuItem>
         ) : null}
@@ -406,7 +406,7 @@ export function ProjectCard({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <IconGitBranch size={16} />
+              <IconGitBranch className="size-4" />
               View Branch
             </a>
           </ContextMenuItem>
@@ -418,7 +418,7 @@ export function ProjectCard({
             setEditOpen(true);
           }}
         >
-          <IconPencil size={16} />
+          <IconPencil className="size-4" />
           Edit Details
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -427,7 +427,7 @@ export function ProjectCard({
             void navigator.clipboard.writeText(title);
           }}
         >
-          <IconClipboard size={16} />
+          <IconClipboard className="size-4" />
           Copy title
         </ContextMenuItem>
         {branchName ? (
@@ -436,13 +436,13 @@ export function ProjectCard({
               void navigator.clipboard.writeText(branchName);
             }}
           >
-            <IconCopy size={16} />
+            <IconCopy className="size-4" />
             Copy branch name
           </ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem className="text-destructive" onClick={onDelete}>
-          <IconTrash size={16} />
+          <IconTrash className="size-4" />
           Delete
         </ContextMenuItem>
       </ContextMenuContent>

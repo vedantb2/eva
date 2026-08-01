@@ -45,7 +45,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
               className="shrink-0"
               onClick={() => setContentOpen(true)}
             >
-              <IconFileText size={14} />
+              <IconFileText className="size-3.5" />
               View contents
             </Button>
           ) : null}

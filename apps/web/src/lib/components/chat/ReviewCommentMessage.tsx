@@ -34,7 +34,7 @@ function ReviewCommentCard({
     <div className="space-y-2 rounded-lg border border-border bg-card p-3">
       <div className="space-y-1">
         <div className="text-xs font-medium text-foreground">{filePath}</div>
-        <div className="text-[11px] text-muted-foreground">{rangeLabel}</div>
+        <div className="text-2xs text-muted-foreground">{rangeLabel}</div>
       </div>
       {text.length > 0 ? (
         <MarkdownMentionText

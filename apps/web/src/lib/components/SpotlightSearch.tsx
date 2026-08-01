@@ -188,7 +188,7 @@ export function SpotlightSearch() {
                       value={`${hit.type} ${hit.title} ${hit.subtitle} ${hit.href}`}
                       onSelect={() => handleSelect(hit.href)}
                     >
-                      <Icon size={16} className="text-muted-foreground" />
+                      <Icon className="size-4 text-muted-foreground" />
                       <MarqueeOnHover className="min-w-0 flex-1">
                         {hit.title}
                       </MarqueeOnHover>

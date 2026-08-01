@@ -72,7 +72,7 @@ export function DocCommentsPanel({
           aria-label="Close comments"
           onClick={onClose}
         >
-          <IconX size={14} />
+          <IconX className="size-3.5" />
         </Button>
       </div>
 

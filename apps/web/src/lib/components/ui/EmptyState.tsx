@@ -85,7 +85,7 @@ export function EmptyState({
       {actionLabel && onAction ? (
         <m.div variants={shouldAnimate ? itemVariants : undefined}>
           <Button size="sm" onClick={onAction} className="mt-5">
-            <IconPlus size={16} />
+            <IconPlus className="size-4" />
             {actionLabel}
           </Button>
         </m.div>

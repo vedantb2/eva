@@ -169,7 +169,7 @@ export function SessionChromeTab({
               ) : null}
               <DynamicLink
                 to={href}
-                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
+                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-sm [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
               >
                 {/* Sandbox status fills Chrome's favicon slot — stays visible when
                     the tab is fully squeezed. App logo lives on the group pill. */}
@@ -185,8 +185,8 @@ export function SessionChromeTab({
                 </span>
                 {session.prUrl ? (
                   <IconGitPullRequest
-                    size={14}
                     className={cn(
+                      "size-3.5",
                       "shrink-0 [@container(max-width:11rem)]:hidden",
                       prStateIconColor(session.prState),
                     )}
@@ -209,14 +209,14 @@ export function SessionChromeTab({
                   onArchiveRequest();
                 }}
               >
-                <IconX size={14} />
+                <IconX className="size-3.5" />
               </button>
             </div>
           </HoverCardTrigger>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onSelect={onRenameRequest}>
-            <IconPencil size={16} />
+            <IconPencil className="size-4" />
             Rename
           </ContextMenuItem>
           <ContextMenuItem
@@ -226,7 +226,7 @@ export function SessionChromeTab({
               });
             }}
           >
-            <IconCopy size={16} />
+            <IconCopy className="size-4" />
             Duplicate
           </ContextMenuItem>
           <ContextMenuItem
@@ -234,7 +234,7 @@ export function SessionChromeTab({
               void navigator.clipboard.writeText(session.title);
             }}
           >
-            <IconClipboard size={16} />
+            <IconClipboard className="size-4" />
             Copy title
           </ContextMenuItem>
           <ContextMenuItem
@@ -242,12 +242,12 @@ export function SessionChromeTab({
               void navigator.clipboard.writeText(window.location.origin + href);
             }}
           >
-            <IconLink size={16} />
+            <IconLink className="size-4" />
             Copy link
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem className="text-warning" onSelect={onArchiveRequest}>
-            <IconArchive size={16} />
+            <IconArchive className="size-4" />
             Archive
           </ContextMenuItem>
         </ContextMenuContent>

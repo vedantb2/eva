@@ -142,7 +142,7 @@ function FileRow({ file }: { file: ChangedFile }) {
       {file.dir ? (
         <span
           className={cn(
-            "min-w-0 truncate text-xs text-muted-foreground/70",
+            "min-w-0 truncate text-xs text-subtle-foreground",
             "hidden sm:inline",
           )}
         >

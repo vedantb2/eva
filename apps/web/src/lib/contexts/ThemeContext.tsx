@@ -114,69 +114,96 @@ interface ThemeContextType {
   setCustomTheme: (customTheme: CustomTheme) => void;
 }
 
+/**
+ * The twelve selectable families, plus the per-family tracking correction that
+ * keeps them optically comparable.
+ *
+ * `--tracking-normal` is a single user-chosen value, but the same negative
+ * tracking that suits Inter crowds a geometric face such as Poppins, whose
+ * circular bowls need the room, and a text serif such as Source Serif, which is
+ * drawn for looser setting at UI sizes. `trackingAdjust` is an em delta added to
+ * the user's choice; Inter is the baseline the type scale was drawn against, so
+ * it and the other neutral grotesques stay at zero.
+ *
+ * Deliberately no x-height normalisation. Correcting optical size properly means
+ * per-family metrics this repo does not have, and guessed values would shift
+ * every layout without being verifiably better.
+ */
 export const FONT_FAMILIES: Record<
   FontFamily,
-  { label: string; variable: string; stack: string }
+  { label: string; variable: string; stack: string; trackingAdjust: string }
 > = {
   inter: {
     label: "Inter",
     variable: "--font-inter",
     stack: "Inter, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0em",
   },
   roboto: {
     label: "Roboto",
     variable: "--font-roboto",
     stack: "Roboto, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0em",
   },
   poppins: {
     label: "Poppins",
     variable: "--font-poppins",
     stack: "Poppins, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.008em",
   },
   "dm-sans": {
     label: "DM Sans",
     variable: "--font-dm-sans",
     stack: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0em",
   },
   "space-grotesk": {
     label: "Space Grotesk",
     variable: "--font-space-grotesk",
     stack: "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.006em",
   },
   geist: {
     label: "Geist",
     variable: "--font-geist-sans",
     stack: "'Geist Sans', ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0em",
   },
   "source-serif": {
     label: "Source Serif",
     variable: "--font-source-serif",
     stack: "'Source Serif 4', Georgia, 'Times New Roman', serif",
+    trackingAdjust: "0.008em",
   },
   jakarta: {
     label: "Jakarta Sans",
     variable: "--font-jakarta",
     stack: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.004em",
   },
   outfit: {
     label: "Outfit",
     variable: "--font-outfit",
     stack: "Outfit, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.008em",
   },
   nunito: {
     label: "Nunito",
     variable: "--font-nunito",
     stack: "Nunito, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.006em",
   },
   "ibm-plex": {
     label: "IBM Plex Sans",
     variable: "--font-ibm-plex",
     stack: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0.004em",
   },
   figtree: {
     label: "Figtree",
     variable: "--font-figtree",
     stack: "Figtree, ui-sans-serif, system-ui, sans-serif",
+    trackingAdjust: "0em",
   },
 };
 
@@ -705,14 +732,14 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
 
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
 
-  document.documentElement.style.setProperty(
-    "--font-sans",
-    FONT_FAMILIES[fontFamily].stack,
-  );
+  const font = FONT_FAMILIES[fontFamily];
 
+  document.documentElement.style.setProperty("--font-sans", font.stack);
+
+  // The user picks the tracking; the family corrects it. See FONT_FAMILIES.
   document.documentElement.style.setProperty(
     "--tracking-normal",
-    LETTER_SPACING_VALUES[letterSpacing].value,
+    `calc(${LETTER_SPACING_VALUES[letterSpacing].value} + ${font.trackingAdjust})`,
   );
 
   // Persist hint so the next document paint can apply fonts/radius before React.

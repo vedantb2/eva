@@ -359,7 +359,7 @@ export function TaskActivityComposerForm({
                         <IconAdjustmentsHorizontal className="size-3.5" />
                         Options
                         {changeRequestOptionCount > 0 ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs leading-none text-primary-foreground">
                             {changeRequestOptionCount}
                           </span>
                         ) : null}

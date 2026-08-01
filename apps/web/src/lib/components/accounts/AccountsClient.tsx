@@ -60,7 +60,7 @@ export function AccountsClient() {
         description="Tasks, sessions, and projects you create default to your account for that provider, otherwise Team. Collaborators' Make changes still bill your sticky account."
         action={
           <Button size="sm" onClick={openCreate}>
-            <IconPlus size={16} className="mr-1.5" />
+            <IconPlus className="size-4 mr-1.5" />
             Add account
           </Button>
         }
@@ -100,7 +100,7 @@ export function AccountsClient() {
                   onClick={() => openEdit(account)}
                   title="Edit"
                 >
-                  <IconPencil size={14} />
+                  <IconPencil className="size-3.5" />
                 </Button>
                 <Button
                   size="icon-sm"
@@ -109,7 +109,7 @@ export function AccountsClient() {
                   title="Delete"
                   className="text-destructive hover:text-destructive"
                 >
-                  <IconTrash size={14} />
+                  <IconTrash className="size-3.5" />
                 </Button>
               </div>
             ))}

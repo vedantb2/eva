@@ -11,7 +11,7 @@ function DocsIndexPage() {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center">
       <EmptyState
-        icon={<IconFileText size={24} className="text-muted-foreground" />}
+        icon={<IconFileText className="size-6 text-muted-foreground" />}
         title="Select a document to view"
       />
     </div>

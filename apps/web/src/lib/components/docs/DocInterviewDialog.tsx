@@ -358,9 +358,9 @@ export function DocInterviewDialog({
                             className="h-9 w-9 sm:h-8 sm:w-8"
                           >
                             {isListening ? (
-                              <IconPlayerStop size={14} />
+                              <IconPlayerStop className="size-3.5" />
                             ) : (
-                              <IconMicrophone size={14} />
+                              <IconMicrophone className="size-3.5" />
                             )}
                           </Button>
                           <Button
@@ -371,7 +371,7 @@ export function DocInterviewDialog({
                             disabled={isLoading || !dictation.trim()}
                             className="h-9 w-9 sm:h-8 sm:w-8"
                           >
-                            <IconArrowRight size={14} />
+                            <IconArrowRight className="size-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -389,7 +389,7 @@ export function DocInterviewDialog({
                   onClick={() => setConfirmClear(true)}
                   disabled={isLoading || messages.length === 0}
                 >
-                  <IconTrash size={16} />
+                  <IconTrash className="size-4" />
                   Clear
                 </Button>
               </div>

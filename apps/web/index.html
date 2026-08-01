@@ -126,6 +126,17 @@
             wide: "0.01em",
             wider: "0.03em",
           };
+          // Mirrors FONT_FAMILIES[].trackingAdjust in ThemeContext.tsx. Keep in
+          // step: a mismatch shows up as text reflowing on hydration.
+          var trackingAdjust = {
+            poppins: "0.008em",
+            "space-grotesk": "0.006em",
+            "source-serif": "0.008em",
+            jakarta: "0.004em",
+            outfit: "0.008em",
+            nunito: "0.006em",
+            "ibm-plex": "0.004em",
+          };
           var root = document.documentElement.style;
           if (hint.fontFamily && fonts[hint.fontFamily]) {
             root.setProperty("--font-sans", fonts[hint.fontFamily]);
@@ -134,7 +145,11 @@
             root.setProperty("--radius", radii[hint.radius]);
           }
           if (hint.letterSpacing && tracking[hint.letterSpacing]) {
-            root.setProperty("--tracking-normal", tracking[hint.letterSpacing]);
+            var adjust = trackingAdjust[hint.fontFamily] || "0em";
+            root.setProperty(
+              "--tracking-normal",
+              "calc(" + tracking[hint.letterSpacing] + " + " + adjust + ")",
+            );
           }
         } catch (e) {}
       })();

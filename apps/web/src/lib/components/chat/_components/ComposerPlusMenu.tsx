@@ -53,7 +53,7 @@ function MentionMenuRow({
           <span className="truncate">{label}</span>
         </span>
         {badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-3xs font-medium leading-none text-muted-foreground">
             {badge}
           </span>
         ) : null}

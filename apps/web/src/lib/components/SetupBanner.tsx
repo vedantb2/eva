@@ -98,7 +98,7 @@ export function SetupBanner() {
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/10">
-              <IconAlertTriangle size={20} className="text-warning" />
+              <IconAlertTriangle className="size-5 text-warning" />
             </div>
             <DialogTitle>Setup Required</DialogTitle>
           </div>
@@ -125,11 +125,11 @@ export function SetupBanner() {
                       {entry.keys.join(" or ")}
                     </code>
                     {entry.required ? (
-                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-3xs font-medium text-destructive">
                         Required
                       </span>
                     ) : (
-                      <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning">
+                      <span className="rounded-full bg-warning/10 px-2 py-0.5 text-3xs font-medium text-warning">
                         Optional
                       </span>
                     )}

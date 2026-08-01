@@ -49,7 +49,7 @@ export function PrCommitsCard({
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {commit.message}
                 </span>
-                <code className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-[11px] text-muted-foreground">
+                <code className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-2xs text-muted-foreground">
                   {shortSha(commit.sha)}
                 </code>
                 {commit.committedAt ? (

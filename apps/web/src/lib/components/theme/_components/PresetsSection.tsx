@@ -92,7 +92,7 @@ export function PresetsSection({
           >
             {active && (
               <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <IconCheck size={10} strokeWidth={3} />
+                <IconCheck className="size-2.5" strokeWidth={3} />
               </span>
             )}
             <span

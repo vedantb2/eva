@@ -192,7 +192,7 @@ export function DocPrdViewer({
                 variant="secondary"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings size={16} />
+                <IconSettings className="size-4" />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -204,14 +204,14 @@ export function DocPrdViewer({
                 }}
               >
                 {copied ? (
-                  <IconCheck size={16} className="text-success" />
+                  <IconCheck className="size-4 text-success" />
                 ) : (
-                  <IconCopy size={16} />
+                  <IconCopy className="size-4" />
                 )}
                 Copy PRD
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
-                <IconMessageChatbot size={16} />
+                <IconMessageChatbot className="size-4" />
                 Interview Me
               </DropdownMenuItem>
               {doc.testGenStatus === "completed" && doc.testPrUrl ? (
@@ -221,7 +221,7 @@ export function DocPrdViewer({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <IconExternalLink size={16} />
+                    <IconExternalLink className="size-4" />
                     View Tests PR
                   </a>
                 </DropdownMenuItem>
@@ -230,17 +230,17 @@ export function DocPrdViewer({
                   onClick={() => setTestGenConfirmOpen(true)}
                   disabled={isGeneratingTests}
                 >
-                  <IconTestPipe size={16} />
+                  <IconTestPipe className="size-4" />
                   Generate Tests
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={toggleHistory}>
-                <IconHistory size={16} />
+                <IconHistory className="size-4" />
                 Version History
               </DropdownMenuItem>
               {(doc.interviewHistory ?? []).length > 0 && (
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
-                  <IconHistory size={16} />
+                  <IconHistory className="size-4" />
                   Interview History
                 </DropdownMenuItem>
               )}
@@ -284,7 +284,7 @@ export function DocPrdViewer({
                 {isStopping ? (
                   <Spinner size="sm" />
                 ) : (
-                  <IconPlayerStop size={14} />
+                  <IconPlayerStop className="size-3.5" />
                 )}
                 Stop
               </Button>
@@ -313,7 +313,7 @@ export function DocPrdViewer({
                     className="h-7 px-2"
                     onClick={toggleSuggestions}
                   >
-                    <IconPencilCheck size={14} />
+                    <IconPencilCheck className="size-3.5" />
                     <span className="text-xs">Suggestions</span>
                     {suggestionCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -327,7 +327,7 @@ export function DocPrdViewer({
                     className="h-7 px-2"
                     onClick={toggleComments}
                   >
-                    <IconMessage size={14} />
+                    <IconMessage className="size-3.5" />
                     <span className="text-xs">Comments</span>
                     {openCommentCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">

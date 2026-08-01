@@ -145,7 +145,7 @@ export function ArtifactUploadDialog({
     >
       <DialogTrigger asChild>
         <Button size="sm">
-          <IconUpload size={16} />
+          <IconUpload className="size-4" />
           Upload artifact
         </Button>
       </DialogTrigger>

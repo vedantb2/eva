@@ -125,7 +125,7 @@ export function GlobalSessionGroup({
               logoUrl={repo.logoUrl}
               size={18}
               fallback={
-                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-3xs font-semibold text-muted-foreground">
                   {label.charAt(0).toUpperCase()}
                 </span>
               }
@@ -140,14 +140,14 @@ export function GlobalSessionGroup({
                   className="shrink-0 gap-1 border-none bg-sidebar-accent/50 px-1.5 py-0"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                  <span className="text-2xs font-medium text-muted-foreground tabular-nums">
                     {runningCount}
                   </span>
                 </Badge>
               ) : null}
               <IconChevronDown
-                size={14}
                 className={cn(
+                  "size-3.5",
                   "shrink-0 text-muted-foreground transition-transform duration-200",
                   !open && "-rotate-90",
                 )}
@@ -167,7 +167,7 @@ export function GlobalSessionGroup({
             onNavigate?.();
           }}
         >
-          <IconPlus size={14} />
+          <IconPlus className="size-3.5" />
         </button>
       </div>
       <CollapsibleContent>

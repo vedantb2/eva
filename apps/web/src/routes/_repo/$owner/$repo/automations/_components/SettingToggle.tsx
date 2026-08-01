@@ -22,9 +22,7 @@ export function SettingToggle({
     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-sm font-medium">{title}</h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          {description}
-        </p>
+        <p className="text-2xs text-muted-foreground mt-0.5">{description}</p>
       </div>
       <button
         type="button"

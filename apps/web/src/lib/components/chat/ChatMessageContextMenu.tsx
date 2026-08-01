@@ -43,7 +43,7 @@ export function ChatMessageContextMenu({
             void copyText(plain);
           }}
         >
-          <IconCopy size={16} />
+          <IconCopy className="size-4" />
           Copy message
         </ContextMenuItem>
         <ContextMenuItem
@@ -51,7 +51,7 @@ export function ChatMessageContextMenu({
             void copyText(content);
           }}
         >
-          <IconMarkdown size={16} />
+          <IconMarkdown className="size-4" />
           Copy as markdown
         </ContextMenuItem>
       </ContextMenuContent>

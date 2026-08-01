@@ -98,7 +98,7 @@ export function sidebarNavLinkClass(
 
 /** Section group label above a cluster of sidebar nav rows (Build / Ship / …). */
 export const sidebarSectionLabelClass =
-  "px-4 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground/55";
+  "px-4 py-1 text-2xs font-medium tracking-[-0.01em] text-subtle-foreground";
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(

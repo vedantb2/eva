@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { IconChevronDown } from "@tabler/icons-react";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -150,12 +150,12 @@ export function TraitsMenu({
           variant="ghost"
           disabled={disabled}
           className={cn(
-            "shrink-0 whitespace-nowrap px-2 text-muted-foreground/70 hover:text-foreground/80 sm:px-3",
+            "shrink-0 whitespace-nowrap px-2 text-subtle-foreground hover:text-foreground/80 sm:px-3",
             className,
           )}
         >
           <span>{triggerLabels.join(" · ")}</span>
-          <ChevronDownIcon aria-hidden="true" className="size-3 opacity-60" />
+          <IconChevronDown aria-hidden="true" className="size-3 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-44">
@@ -165,7 +165,7 @@ export function TraitsMenu({
               Reasoning
             </DropdownMenuLabel>
             {ultrathinkInBodyText ? (
-              <p className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
+              <p className="px-2 pb-1.5 text-muted-foreground text-xs">
                 Your prompt contains &quot;ultrathink&quot; in the text. Remove
                 it to change this option.
               </p>

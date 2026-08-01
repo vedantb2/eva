@@ -9,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
-import { ChevronDownIcon, DotIcon } from "lucide-react";
+import { IconChevronDown, IconPointFilled } from "@tabler/icons-react";
 import { createContext, memo, useContext, useMemo } from "react";
 
 interface ChainOfThoughtContextValue {
@@ -98,7 +98,7 @@ export const ChainOfThoughtHeader = memo(
           <span className="flex-1 text-left tabular-nums">
             {children ?? "Chain of Thought"}
           </span>
-          <ChevronDownIcon
+          <IconChevronDown
             className={cn(
               "size-4 transition-transform",
               isOpen ? "rotate-180" : "rotate-0",
@@ -120,13 +120,13 @@ export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
 const stepStatusStyles = {
   active: "text-foreground",
   complete: "text-muted-foreground",
-  pending: "text-muted-foreground/50",
+  pending: "text-subtle-foreground",
 };
 
 export const ChainOfThoughtStep = memo(
   ({
     className,
-    icon: Icon = DotIcon,
+    icon: Icon = IconPointFilled,
     label,
     description,
     status = "complete",

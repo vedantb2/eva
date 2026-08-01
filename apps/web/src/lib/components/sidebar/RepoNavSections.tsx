@@ -187,7 +187,7 @@ export function RepoNavSections({
             }}
             title={`Open ${item.name.toLowerCase()} sidebar`}
           >
-            <IconChevronRight size={14} className="text-muted-foreground" />
+            <IconChevronRight className="size-3.5 text-muted-foreground" />
           </Button>
         </SharedLayoutNavSurface>
       );

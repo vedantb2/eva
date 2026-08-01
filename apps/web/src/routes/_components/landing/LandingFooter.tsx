@@ -51,7 +51,7 @@ export function LandingFooter() {
             aria-label="Eva on GitHub"
             className="motion-base text-muted-foreground hover:text-foreground"
           >
-            <IconBrandGithub size={18} />
+            <IconBrandGithub className="size-5" />
           </a>
         </nav>
       </div>

@@ -30,7 +30,7 @@ export function MockWindow({
           <span className="size-2 rounded-full bg-border" />
           <span className="size-2 rounded-full bg-border" />
         </span>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">
+        <p className="truncate font-mono text-2xs text-muted-foreground">
           {title}
         </p>
         {trailing ? <div className="ml-auto shrink-0">{trailing}</div> : null}
@@ -78,7 +78,7 @@ export function MockChip({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-3xs font-medium",
         TONE_CHIP[tone],
       )}
     >
@@ -131,11 +131,9 @@ export function MockRow({
     >
       {leading}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] font-medium text-foreground">
-          {label}
-        </p>
+        <p className="truncate text-xs font-medium text-foreground">{label}</p>
         {meta ? (
-          <p className="truncate text-[10.5px] text-muted-foreground">{meta}</p>
+          <p className="truncate text-3xs text-muted-foreground">{meta}</p>
         ) : null}
       </div>
       {trailing ? <div className="shrink-0">{trailing}</div> : null}
@@ -173,7 +171,7 @@ export function MockAvatar({
   return (
     <span
       className={cn(
-        "flex size-6 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold",
+        "flex size-6 shrink-0 items-center justify-center rounded-full border text-3xs font-semibold",
         TONE_CHIP[tone],
       )}
     >
@@ -185,7 +183,7 @@ export function MockAvatar({
 /** Section label inside a mock panel. */
 export function MockLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-muted-foreground">
+    <p className="font-mono text-3xs uppercase tracking-[0.18em] text-muted-foreground">
       {children}
     </p>
   );

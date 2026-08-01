@@ -116,7 +116,7 @@ export function ToggleSearch({
                 className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => setIsOpen(true)}
               >
-                <IconSearch size={16} />
+                <IconSearch className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{tooltipLabel}</TooltipContent>

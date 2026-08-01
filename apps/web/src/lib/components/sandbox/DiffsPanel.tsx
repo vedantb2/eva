@@ -146,7 +146,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   if (!prUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
+        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
         <div className="max-w-md space-y-1">
           <p className="text-sm font-medium">No pull request yet</p>
           <p className="text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
         </div>
       ) : state.status === "error" ? (
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
+          <IconAlertTriangle className="h-8 w-8 text-subtle-foreground" />
           <p className="text-sm text-muted-foreground">
             Could not load the pull request diff.
           </p>

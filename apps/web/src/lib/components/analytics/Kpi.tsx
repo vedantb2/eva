@@ -51,7 +51,7 @@ function TrendBadge({
   if (diff === 0) {
     return (
       <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
-        <IconMinus size={12} />
+        <IconMinus className="size-3" />
         0%
       </span>
     );
@@ -67,9 +67,9 @@ function TrendBadge({
       }`}
     >
       {isPositive ? (
-        <IconTrendingUp size={12} />
+        <IconTrendingUp className="size-3" />
       ) : (
-        <IconTrendingDown size={12} />
+        <IconTrendingDown className="size-3" />
       )}
       {isPositive ? "+" : ""}
       {diff}%
@@ -117,7 +117,7 @@ export function Kpi({
                 {label}
               </p>
               {subtitle && (
-                <span className="text-xs text-muted-foreground/60">
+                <span className="text-xs text-subtle-foreground">
                   {subtitle}
                 </span>
               )}

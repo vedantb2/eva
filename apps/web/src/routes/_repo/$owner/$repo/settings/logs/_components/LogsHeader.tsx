@@ -63,7 +63,7 @@ export function LogsHeader({
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <IconList size={14} className="inline-block" />
+          <IconList className="inline-block size-3.5" />
           <span className="ml-1 hidden sm:inline">By Type</span>
         </button>
         <button
@@ -74,7 +74,7 @@ export function LogsHeader({
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <IconLayoutKanban size={14} className="inline-block" />
+          <IconLayoutKanban className="inline-block size-3.5" />
           <span className="ml-1 hidden sm:inline">By Project</span>
         </button>
       </div>
@@ -83,7 +83,7 @@ export function LogsHeader({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="sm" className="motion-press">
-              <IconFilter size={14} />
+              <IconFilter className="size-3.5" />
               <span className="hidden sm:inline">
                 {filterActive
                   ? `${visibleTypes.size} of ${availableTypes.length} Types`
@@ -97,7 +97,7 @@ export function LogsHeader({
               {filterActive && (
                 <Badge
                   variant="default"
-                  className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+                  className="ml-0.5 h-4 min-w-4 px-1 text-3xs"
                 >
                   {visibleTypes.size}
                 </Badge>

@@ -68,7 +68,7 @@ export function SandboxFileTree({
           {paths.length.toLocaleString()} files
           {truncated ? (
             <span
-              className="text-muted-foreground/80"
+              className="text-muted-foreground"
               title="File list capped at 20,000 entries"
             >
               {" "}

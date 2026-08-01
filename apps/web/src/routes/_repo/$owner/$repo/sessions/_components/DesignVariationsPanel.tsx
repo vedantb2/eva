@@ -77,7 +77,7 @@ export function DesignVariationsPanel({
       <div className="flex h-full min-w-0 flex-col">
         <div className="flex h-full items-center justify-center text-muted-foreground">
           <div className="max-w-md space-y-3 px-6 text-center">
-            <IconPalette className="mx-auto h-10 w-10 text-muted-foreground/60" />
+            <IconPalette className="mx-auto h-10 w-10 text-subtle-foreground" />
             <p className="text-sm">
               {isExecuting
                 ? "Generating designs..."
@@ -125,10 +125,10 @@ export function DesignVariationsPanel({
           >
             <TabsList className="h-8">
               <TabsTrigger value="desktop" className="px-2 text-xs">
-                <IconDeviceDesktop size={14} />
+                <IconDeviceDesktop className="size-3.5" />
               </TabsTrigger>
               <TabsTrigger value="mobile" className="px-2 text-xs">
-                <IconDeviceMobile size={14} />
+                <IconDeviceMobile className="size-3.5" />
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -181,7 +181,7 @@ export function DesignVariationsPanel({
                             onClick={onStartSandbox}
                             disabled={isSandboxStarting}
                           >
-                            <IconPlayerPlay size={14} />
+                            <IconPlayerPlay className="size-3.5" />
                             {isSandboxStarting
                               ? "Starting..."
                               : "Start sandbox"}
@@ -204,7 +204,7 @@ export function DesignVariationsPanel({
               onClick={() => onSelectVariation(activeTabIndex)}
               disabled={selectedVariationIndex === activeTabIndex}
             >
-              <IconCheck size={14} />
+              <IconCheck className="size-3.5" />
               {selectedVariationIndex === activeTabIndex
                 ? "Selected"
                 : "Use this design"}

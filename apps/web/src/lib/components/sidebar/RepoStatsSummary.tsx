@@ -95,7 +95,7 @@ export function RepoStatsSummary({
                 className="flex flex-col items-center rounded-surface px-1 py-0.5 transition-colors hover:bg-muted/50"
               >
                 <item.icon size={14} className="text-muted-foreground" />
-                <span className="text-[11px] font-semibold tabular-nums leading-tight text-sidebar-foreground">
+                <span className="text-2xs font-semibold tabular-nums leading-tight text-sidebar-foreground">
                   {item.value}
                 </span>
               </Link>
@@ -122,7 +122,7 @@ export function RepoStatsSummary({
                 <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
                   {item.value}
                 </p>
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                <p className="mt-0.5 truncate text-3xs text-muted-foreground">
                   {item.label}
                 </p>
               </div>

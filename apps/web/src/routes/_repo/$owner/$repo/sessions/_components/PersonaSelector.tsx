@@ -187,7 +187,7 @@ export function ManagePersonasModal({
           className="motion-press text-primary hover:scale-[1.01] active:scale-[0.96]"
           onClick={() => setOpen(true)}
         >
-          <IconUsers size={14} />
+          <IconUsers className="size-3.5" />
           Personas
         </Button>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
@@ -218,7 +218,7 @@ export function ManagePersonasModal({
                       className="h-7 w-7 p-0"
                       onClick={() => handleStartEdit(persona)}
                     >
-                      <IconEdit size={14} />
+                      <IconEdit className="size-3.5" />
                     </Button>
                     <Button
                       size="sm"
@@ -226,7 +226,7 @@ export function ManagePersonasModal({
                       className="h-7 w-7 p-0 text-destructive"
                       onClick={() => setDeletingId(persona._id)}
                     >
-                      <IconTrash size={14} />
+                      <IconTrash className="size-3.5" />
                     </Button>
                   </div>
                 </div>

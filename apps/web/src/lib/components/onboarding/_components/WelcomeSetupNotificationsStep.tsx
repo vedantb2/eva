@@ -98,10 +98,10 @@ export function WelcomeSetupNotificationsStep({
         />
         <div>
           <div className="flex items-center gap-2">
-            <IconMail size={14} className="text-primary" />
+            <IconMail className="size-3.5 text-primary" />
             <h3 className="text-sm font-medium">Email me these updates</h3>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-2xs text-muted-foreground">
             {enabled
               ? "You're subscribed. Manage email preferences in settings anytime."
               : "Includes the weekly changelog and daily unread digest. Off by default."}
@@ -116,7 +116,7 @@ export function WelcomeSetupNotificationsStep({
         onClick={onOpenNotificationSettings}
       >
         Notification settings
-        <IconArrowRight size={14} />
+        <IconArrowRight className="size-3.5" />
       </Button>
     </div>
   );

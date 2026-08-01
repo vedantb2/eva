@@ -30,7 +30,7 @@ export function DocModeSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size="sm" variant="secondary">
-          <Icon size={14} />
+          <Icon className="size-3.5" />
           <span className="hidden sm:inline">{current.label}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -44,7 +44,7 @@ export function DocModeSwitcher() {
               onClick={() => setMode(m)}
               className={m === mode ? "bg-accent" : undefined}
             >
-              <ModeIcon size={16} />
+              <ModeIcon className="size-4" />
               {config.label}
             </DropdownMenuItem>
           );

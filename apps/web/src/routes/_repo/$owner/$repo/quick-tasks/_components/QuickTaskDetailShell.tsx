@@ -61,10 +61,7 @@ export function QuickTaskDetailShell({
               >
                 Quick Tasks
               </button>
-              <IconChevronRight
-                size={14}
-                className="text-muted-foreground/50 shrink-0"
-              />
+              <IconChevronRight className="size-3.5 text-subtle-foreground shrink-0" />
             </div>
             {selectedTask?.numId !== undefined ? (
               <span className="shrink-0 font-semibold font-mono tabular-nums text-muted-foreground">
@@ -86,7 +83,7 @@ export function QuickTaskDetailShell({
                   className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Previous task"
                 >
-                  <IconChevronLeft size={16} />
+                  <IconChevronLeft className="size-4" />
                 </button>
                 <button
                   onClick={handleNavigateNext}
@@ -94,7 +91,7 @@ export function QuickTaskDetailShell({
                   className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Next task"
                 >
-                  <IconChevronRight size={16} />
+                  <IconChevronRight className="size-4" />
                 </button>
               </div>
             </div>

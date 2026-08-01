@@ -346,7 +346,7 @@ export function StatusFieldsSection({
                 {assignedUser ? (
                   <UserInitials user={assignedUser} size="sm" hideLastSeen />
                 ) : (
-                  <IconUserPlus size={14} className="text-muted-foreground" />
+                  <IconUserPlus className="size-3.5 text-muted-foreground" />
                 )}
                 <span data-pii={Boolean(task?.assignedTo) || undefined}>
                   {task?.assignedTo ? assignedDisplayName : "Code Reviewer"}
@@ -385,18 +385,15 @@ export function StatusFieldsSection({
                   setBaseBranch(val);
                   updateTask({ id: taskId, baseBranch: val });
                 }}
-                className="h-7 border-0 shadow-none bg-transparent px-0 hover:bg-transparent text-[13px] [&>svg:last-child]:hidden"
+                className="h-7 border-0 shadow-none bg-transparent px-0 hover:bg-transparent text-sm [&>svg:last-child]:hidden"
               />
             ) : (
-              <div className="flex items-center gap-1.5 text-[13px]">
-                <IconGitBranch size={14} className="text-muted-foreground" />
+              <div className="flex items-center gap-1.5 text-sm">
+                <IconGitBranch className="size-3.5 text-muted-foreground" />
                 <span>{baseBranch}</span>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={12}
-                      className="text-muted-foreground cursor-help"
-                    />
+                    <IconInfoCircle className="size-3 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     Cannot be modified after task has run
@@ -408,7 +405,7 @@ export function StatusFieldsSection({
         )}
 
         {latestDeployment?.deploymentStatus && (
-          <div className="flex items-center h-10 rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+          <div className="flex items-center h-10 rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-sm">
             <IconBrandVercelFilled
               size={14}
               className={
@@ -429,7 +426,7 @@ export function StatusFieldsSection({
           className="group/tags flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
           onClick={() => tagDraftRef.current?.focus()}
         >
-          <IconTags size={14} className="text-muted-foreground shrink-0" />
+          <IconTags className="size-3.5 text-muted-foreground shrink-0" />
           {task?.tags?.map((tag) => (
             <Badge
               key={tag}
@@ -455,7 +452,7 @@ export function StatusFieldsSection({
             placeholder={
               (task?.tags?.length ?? 0) === 0 ? "Tags" : "Add tag..."
             }
-            className="h-7 border-0 shadow-none bg-transparent px-0 focus-visible:ring-0 text-[13px] min-w-16 flex-1 placeholder:text-muted-foreground"
+            className="h-7 border-0 shadow-none bg-transparent px-0 focus-visible:ring-0 text-sm min-w-16 flex-1 placeholder:text-muted-foreground"
             onChange={(e) => setTagDraft(e.target.value)}
             onBlur={() => {
               if (tagDraft.trim()) {
@@ -473,7 +470,7 @@ export function StatusFieldsSection({
                   className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <IconChevronDown size={14} />
+                  <IconChevronDown className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -528,7 +525,7 @@ export function StatusFieldsSection({
               <div
                 className={`flex items-center gap-1.5 ${selectedProjectValue === NO_PROJECT_VALUE ? "text-muted-foreground" : ""}`}
               >
-                <IconFolder size={14} className="text-muted-foreground" />
+                <IconFolder className="size-3.5 text-muted-foreground" />
                 <span>{selectedProjectTitle}</span>
               </div>
             </SelectValue>
@@ -540,7 +537,7 @@ export function StatusFieldsSection({
               {task?.projectId && !hasSelectedProject && (
                 <SelectItem value={task.projectId}>
                   <div className="flex items-center gap-1.5">
-                    <IconFolder size={14} className="text-muted-foreground" />
+                    <IconFolder className="size-3.5 text-muted-foreground" />
                     <span>Current project</span>
                   </div>
                 </SelectItem>
@@ -548,14 +545,14 @@ export function StatusFieldsSection({
               {projectOptions.map((project) => (
                 <SelectItem key={project._id} value={project._id}>
                   <div className="flex items-center gap-1.5">
-                    <IconFolder size={14} className="text-muted-foreground" />
+                    <IconFolder className="size-3.5 text-muted-foreground" />
                     <span>{project.title}</span>
                   </div>
                 </SelectItem>
               ))}
               <SelectItem value={NEW_PROJECT_VALUE}>
                 <div className="flex items-center gap-1.5">
-                  <IconFolderPlus size={14} className="text-muted-foreground" />
+                  <IconFolderPlus className="size-3.5 text-muted-foreground" />
                   <span>New project...</span>
                 </div>
               </SelectItem>

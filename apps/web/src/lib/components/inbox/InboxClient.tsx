@@ -137,7 +137,7 @@ export function InboxClient() {
               aria-label="Mark all as read"
               className="h-7 text-xs text-muted-foreground"
             >
-              <IconChecks size={14} />
+              <IconChecks className="size-3.5" />
               {/* The label is noise on narrow screens; the icon carries it. */}
               <span className="hidden sm:inline">Mark all read</span>
             </Button>
@@ -162,7 +162,7 @@ export function InboxClient() {
       ) : groups === undefined || groups.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <EmptyState
-            icon={<IconInbox size={24} className="text-muted-foreground" />}
+            icon={<IconInbox className="size-6 text-muted-foreground" />}
             title={
               filter === "unread"
                 ? "No unread notifications"

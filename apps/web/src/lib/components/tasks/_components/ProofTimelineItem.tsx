@@ -110,7 +110,7 @@ function ProofCaptureGallery({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <IconExternalLink size={14} />
+            <IconExternalLink className="size-3.5" />
             Open in new tab
           </a>
         </DialogHeader>
@@ -126,7 +126,7 @@ function ProofCaptureGallery({
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
                 aria-label="Previous capture"
               >
-                <IconChevronLeft size={16} />
+                <IconChevronLeft className="size-4" />
               </Button>
               <Button
                 type="button"
@@ -139,7 +139,7 @@ function ProofCaptureGallery({
                 }
                 aria-label="Next capture"
               >
-                <IconChevronRight size={16} />
+                <IconChevronRight className="size-4" />
               </Button>
             </>
           ) : null}
@@ -217,14 +217,11 @@ export function ProofTimelineItem({
       ) : null}
       {showTimestamp ? (
         <>
-          <span className="text-muted-foreground/50" aria-hidden>
+          <span className="text-subtle-foreground" aria-hidden>
             {" "}
             ·{" "}
           </span>
-          <RelativeDateTime
-            at={timestamp}
-            className="text-muted-foreground/70"
-          />
+          <RelativeDateTime at={timestamp} className="text-subtle-foreground" />
         </>
       ) : null}
     </div>

@@ -46,7 +46,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
         onClick={() => setOpen((p) => !p)}
         className="motion-base flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
       >
-        <IconCode size={12} />
+        <IconCode className="size-3" />
         {open ? "Hide raw" : "View raw"}
       </button>
       <AnimatePresence initial={false}>
@@ -71,8 +71,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 
 function LogTypeIcon({ type }: { type: string }) {
   return createElement(iconFor(type), {
-    size: 16,
-    className: "shrink-0 text-muted-foreground",
+    className: "size-4 shrink-0 text-muted-foreground",
   });
 }
 
@@ -80,10 +79,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
-        <IconChevronRight
-          size={14}
-          className="chevron-icon shrink-0 text-muted-foreground transition-transform"
-        />
+        <IconChevronRight className="chevron-icon size-3.5 shrink-0 text-muted-foreground transition-transform" />
         <LogTypeIcon type={type} />
         <span className="tracking-[-0.01em]">{labelFor(type)}</span>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
@@ -104,7 +100,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                     {log.entityTitle}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <Badge variant="outline" className="font-mono text-[11px]">
+                    <Badge variant="outline" className="font-mono text-2xs">
                       {evt.provider && (
                         <ProviderIcon
                           provider={evt.provider}
@@ -126,7 +122,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                     <span className="font-mono text-xs font-medium tabular-nums">
                       {formatCost(evt.costUsd)}
                     </span>
-                    <span className="text-xs text-muted-foreground/70">
+                    <span className="text-xs text-subtle-foreground">
                       {dayjs(log.createdAt).format("MMM D, HH:mm")}
                     </span>
                   </div>

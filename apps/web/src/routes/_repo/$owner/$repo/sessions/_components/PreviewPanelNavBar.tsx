@@ -62,7 +62,7 @@ export function PreviewPanelNavBar({
           )}
           onClick={() => onAnnotationModeChange(!annotationMode)}
         >
-          <IconClick size={16} />
+          <IconClick className="size-4" />
         </WebPreviewNavigationButton>
       ) : null}
       <PreviewNavBar

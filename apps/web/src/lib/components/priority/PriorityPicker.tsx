@@ -65,7 +65,7 @@ export function PriorityPicker({
                 <PriorityIcon level={undefined} size={14} />
                 No priority
                 {value === undefined && (
-                  <IconCheck size={14} className="ml-auto" />
+                  <IconCheck className="size-3.5 ml-auto" />
                 )}
               </CommandItem>
               {PRIORITY_ORDER.map((p) => (

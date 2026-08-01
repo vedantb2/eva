@@ -152,7 +152,7 @@ export function QuickTasksKanbanBoard({
               {isRunningAll ? (
                 <Spinner size="sm" />
               ) : (
-                <IconPlayerPlay size={14} />
+                <IconPlayerPlay className="size-3.5" />
               )}
               Run All
             </Button>

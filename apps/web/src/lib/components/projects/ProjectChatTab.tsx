@@ -199,7 +199,7 @@ export function ProjectChatTab({
                     initialMessages.length === 0
                   }
                 >
-                  <IconTrash size={16} />
+                  <IconTrash className="size-4" />
                   Clear
                 </Button>
               </>

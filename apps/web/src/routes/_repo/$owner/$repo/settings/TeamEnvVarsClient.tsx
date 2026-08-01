@@ -73,7 +73,7 @@ export function TeamEnvVarsClient() {
     <div className="space-y-4">
       {/* Which team these variables belong to reads before the variables. */}
       <div className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-muted px-3 py-2">
-        <IconUsers size={16} className="text-muted-foreground" />
+        <IconUsers className="size-4 text-muted-foreground" />
         <p className="text-xs">
           Team:{" "}
           <span className="font-medium">{team.displayName ?? team.name}</span>

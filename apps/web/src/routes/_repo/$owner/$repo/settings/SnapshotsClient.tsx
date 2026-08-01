@@ -225,7 +225,7 @@ export function SnapshotsClient({
           {snapshot && (
             <div className="flex justify-end">
               <Button size="sm" variant="destructive" onClick={handleDelete}>
-                <IconTrash size={14} className="mr-1.5" />
+                <IconTrash className="mr-1.5 size-3.5" />
                 Delete Config
               </Button>
             </div>
@@ -398,7 +398,7 @@ export function SnapshotsClient({
                   {building || isRunning || isSeeding ? (
                     <Spinner size="sm" className="mr-1.5" />
                   ) : (
-                    <IconPlayerPlay size={14} className="mr-1.5" />
+                    <IconPlayerPlay className="mr-1.5 size-3.5" />
                   )}
                   {building || isRunning
                     ? "Building..."
@@ -427,7 +427,7 @@ export function SnapshotsClient({
               >
                 {baseImageReady ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck size={12} className="mt-0.5 shrink-0" />
+                    <IconCheck className="mt-0.5 size-3 shrink-0" />
                     <span className="min-w-0">
                       <span className="mr-1 text-muted-foreground">
                         Active:
@@ -481,7 +481,7 @@ export function SnapshotsClient({
                   </span>
                 ) : sharedSeededSnapshotName ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck size={12} className="mt-0.5 shrink-0" />
+                    <IconCheck className="mt-0.5 size-3 shrink-0" />
                     <span className="min-w-0">
                       <span className="mr-1 text-muted-foreground">
                         Active:
@@ -785,14 +785,14 @@ function ConfigFilesSection({
               </>
             ) : (
               <>
-                <IconUpload size={14} className="mr-1.5" />
+                <IconUpload className="mr-1.5 size-3.5" />
                 Upload File
               </>
             )}
           </Button>
           {snapshotId && files && files.length > 0 && (
             <Button size="sm" onClick={handleRebuild}>
-              <IconPlayerPlay size={14} className="mr-1.5" />
+              <IconPlayerPlay className="mr-1.5 size-3.5" />
               Rebuild Snapshot
             </Button>
           )}
@@ -831,7 +831,7 @@ function ConfigFilesSection({
                         onClick={() => removeFile({ id: file._id })}
                         className="h-6 w-6 p-0"
                       >
-                        <IconTrash size={14} />
+                        <IconTrash className="size-3.5" />
                       </Button>
                     </td>
                   </tr>

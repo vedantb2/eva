@@ -24,7 +24,7 @@ export function LandingCta() {
             <SignUpButton mode="modal">
               <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
                 Get started
-                <IconArrowRight size={16} aria-hidden />
+                <IconArrowRight className="size-4" aria-hidden />
               </Button>
             </SignUpButton>
             <Button
@@ -34,7 +34,7 @@ export function LandingCta() {
               className="w-full sm:w-auto"
             >
               <a href={EVA_GITHUB_URL} target="_blank" rel="noreferrer">
-                <IconBrandGithub size={16} aria-hidden />
+                <IconBrandGithub className="size-4" aria-hidden />
                 Self-host it
               </a>
             </Button>

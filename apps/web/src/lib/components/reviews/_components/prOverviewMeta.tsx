@@ -101,7 +101,7 @@ export function reviewStateMeta(state: string): {
 export function ReviewStateIcon({ state }: { state: string }) {
   if (state === "COMMENTED") {
     return (
-      <IconMessageCircle size={14} className="shrink-0 text-muted-foreground" />
+      <IconMessageCircle className="size-3.5 shrink-0 text-muted-foreground" />
     );
   }
   return <ToneIcon tone={reviewStateMeta(state).tone} />;

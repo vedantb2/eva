@@ -118,7 +118,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
         <div className="flex items-center gap-4">
           {currentStreak > 0 && (
             <div className="flex items-center gap-1.5">
-              <IconFlame size={18} className="text-warning" />
+              <IconFlame className="size-5 text-warning" />
               <p className="text-sm font-semibold tabular-nums text-foreground">
                 {currentStreak} day streak
               </p>

@@ -91,7 +91,7 @@ export function AutomationClient({
           disabled={hasActiveRun === true || !automation.description}
           onClick={() => runNow({ automationId: automation._id })}
         >
-          <IconPlayerPlay size={14} />
+          <IconPlayerPlay className="size-3.5" />
           Run Now
         </Button>
       }
@@ -264,7 +264,7 @@ function SettingsForm({
               if (val !== automation.description) commit({ description: val });
             }}
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-2xs text-muted-foreground">
             The prompt that will be executed on each run.
           </p>
         </div>
@@ -336,7 +336,7 @@ function SettingsForm({
             <h3 className="text-sm font-medium text-destructive">
               Delete Automation
             </h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-2xs text-muted-foreground mt-0.5">
               Permanently remove this automation and all its run history
             </p>
           </div>
@@ -345,7 +345,7 @@ function SettingsForm({
             size="sm"
             onClick={() => setShowDeleteDialog(true)}
           >
-            <IconTrash size={14} />
+            <IconTrash className="size-3.5" />
             Delete
           </Button>
         </div>

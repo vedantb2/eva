@@ -202,10 +202,7 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                                 className="flex items-start gap-2 text-sm"
                               >
                                 {item.passed ? (
-                                  <IconCheck
-                                    size={16}
-                                    className="text-success mt-0.5 flex-shrink-0"
-                                  />
+                                  <IconCheck className="size-4 text-success mt-0.5 flex-shrink-0" />
                                 ) : isFixing ? (
                                   <SeverityBadge severity={severity} />
                                 ) : (
@@ -281,7 +278,7 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0",
+        "inline-flex items-center rounded-md px-1.5 py-0.5 text-3xs font-medium shrink-0",
         SEVERITY_COLORS[severity],
       )}
     >

@@ -73,7 +73,7 @@ export function PromptInputSettings<TModel extends string>({
           )}
           disabled={disabled}
         >
-          {icon ?? <IconDots size={16} />}
+          {icon ?? <IconDots className="size-4" />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">

@@ -33,7 +33,7 @@ export function ChatPageWrapper({
     <div className="flex h-full min-h-0 flex-col w-full">
       {bannerMessage ? (
         <div className="w-full flex items-center gap-2 px-3 py-3 bg-muted/50 animate-in fade-in duration-300 sm:px-4 sm:py-5">
-          <IconArchive size={16} className="text-muted-foreground" />
+          <IconArchive className="size-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">{bannerMessage}</span>
         </div>
       ) : (

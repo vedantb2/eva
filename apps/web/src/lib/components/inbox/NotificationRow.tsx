@@ -128,7 +128,7 @@ export function NotificationRow({
           aria-label="Mark as read"
           className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <IconCheck size={14} />
+          <IconCheck className="size-3.5" />
           Dismiss
         </Button>
       ) : null}

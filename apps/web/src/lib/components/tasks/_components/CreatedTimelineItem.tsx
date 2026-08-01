@@ -42,11 +42,11 @@ export function CreatedTimelineItem({
           {actorName}
         </span>
         {` ${actionLabel}`}
-        <span className="text-muted-foreground/50" aria-hidden>
+        <span className="text-subtle-foreground" aria-hidden>
           {" "}
           ·{" "}
         </span>
-        <RelativeDateTime at={createdAt} className="text-muted-foreground/70" />
+        <RelativeDateTime at={createdAt} className="text-subtle-foreground" />
       </span>
     </div>
   );

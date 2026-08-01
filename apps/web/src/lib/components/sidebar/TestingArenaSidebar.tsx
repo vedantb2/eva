@@ -129,8 +129,8 @@ export function TestingArenaSidebar({
                     className={sidebarNavLinkClass(isSelected)}
                   >
                     <IconFileText
-                      size={16}
                       className={cn(
+                        "size-4",
                         "shrink-0",
                         isSelected
                           ? "text-sidebar-primary"

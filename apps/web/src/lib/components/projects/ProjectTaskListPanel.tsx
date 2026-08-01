@@ -82,7 +82,7 @@ function SortableTaskWrapper({
         {...attributes}
         {...listeners}
       >
-        <IconGripVertical size={14} />
+        <IconGripVertical className="size-3.5" />
       </button>
       <div className="flex-1 min-w-0">
         <QuickTaskCard
@@ -245,7 +245,7 @@ export function ProjectTaskListPanel({
                       <span className={`text-sm font-medium ${config.text}`}>
                         {config.label}
                       </span>
-                      <span className="text-xs text-muted-foreground/60 tabular-nums">
+                      <span className="text-xs text-subtle-foreground tabular-nums">
                         {statusTasks.length}
                       </span>
                     </div>
@@ -258,7 +258,7 @@ export function ProjectTaskListPanel({
                         onCreateTask();
                       }}
                     >
-                      <IconPlus size={12} />
+                      <IconPlus className="size-3" />
                     </Button>
                   </div>
                 </AccordionTrigger>
@@ -300,7 +300,7 @@ export function ProjectTaskListPanel({
                     <span className={`text-sm font-medium ${config.text}`}>
                       {config.label}
                     </span>
-                    <span className="text-xs text-muted-foreground/60 tabular-nums">
+                    <span className="text-xs text-subtle-foreground tabular-nums">
                       {statusTasks.length}
                     </span>
                   </div>
@@ -314,7 +314,7 @@ export function ProjectTaskListPanel({
                         onCreateTask();
                       }}
                     >
-                      <IconPlus size={12} />
+                      <IconPlus className="size-3" />
                     </Button>
                   )}
                 </div>

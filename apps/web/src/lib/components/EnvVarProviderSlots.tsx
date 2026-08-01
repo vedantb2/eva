@@ -189,7 +189,7 @@ export function EnvVarProviderSlots({
                   <span className="text-sm font-medium">{entry.label}</span>
                   {configured && (
                     <Badge variant="secondary" className="gap-1 text-xs">
-                      <IconCheck size={10} /> Configured
+                      <IconCheck className="size-2.5" /> Configured
                     </Badge>
                   )}
                 </div>
@@ -243,7 +243,7 @@ export function EnvVarProviderSlots({
                       title="Save"
                       className="text-primary hover:text-primary"
                     >
-                      <IconCheck size={14} />
+                      <IconCheck className="size-3.5" />
                     </Button>
                     <Button
                       size="icon-sm"
@@ -254,7 +254,7 @@ export function EnvVarProviderSlots({
                       }}
                       title="Cancel"
                     >
-                      <IconX size={14} />
+                      <IconX className="size-3.5" />
                     </Button>
                   </div>
                 )}
@@ -291,8 +291,8 @@ export function EnvVarProviderSlots({
                       trueKey="hide"
                       falseKey="reveal"
                       className="relative flex size-3.5 items-center justify-center"
-                      whenTrue={<IconEyeOff size={14} />}
-                      whenFalse={<IconEye size={14} />}
+                      whenTrue={<IconEyeOff className="size-3.5" />}
+                      whenFalse={<IconEye className="size-3.5" />}
                     />
                   </Button>
                   <Button
@@ -306,10 +306,8 @@ export function EnvVarProviderSlots({
                       trueKey="copied"
                       falseKey="copy"
                       className="relative flex size-3.5 items-center justify-center"
-                      whenTrue={
-                        <IconCheck size={14} className="text-primary" />
-                      }
-                      whenFalse={<IconCopy size={14} />}
+                      whenTrue={<IconCheck className="size-3.5 text-primary" />}
+                      whenFalse={<IconCopy className="size-3.5" />}
                     />
                   </Button>
                   {!readOnly && (
@@ -323,7 +321,7 @@ export function EnvVarProviderSlots({
                         }}
                         title="Replace value"
                       >
-                        <IconPencil size={14} />
+                        <IconPencil className="size-3.5" />
                       </Button>
                       <Button
                         size="icon-sm"
@@ -332,7 +330,7 @@ export function EnvVarProviderSlots({
                         title="Remove"
                         className="text-destructive hover:text-destructive"
                       >
-                        <IconTrash size={14} />
+                        <IconTrash className="size-3.5" />
                       </Button>
                     </>
                   )}

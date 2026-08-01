@@ -59,7 +59,7 @@ export function DocSuggestionsPanel({
           aria-label="Close suggestions"
           onClick={onClose}
         >
-          <IconX size={14} />
+          <IconX className="size-3.5" />
         </Button>
       </div>
 
@@ -71,7 +71,7 @@ export function DocSuggestionsPanel({
             className="h-6 px-1.5 text-xs"
             onClick={() => acceptAllSuggestions(editor)}
           >
-            <IconCheck size={12} />
+            <IconCheck className="size-3" />
             Accept all
           </Button>
           <Button
@@ -80,7 +80,7 @@ export function DocSuggestionsPanel({
             className="h-6 px-1.5 text-xs"
             onClick={() => rejectAllSuggestions(editor)}
           >
-            <IconArrowBackUp size={12} />
+            <IconArrowBackUp className="size-3" />
             Reject all
           </Button>
         </div>
@@ -124,13 +124,13 @@ function SuggestionRow({
         />
         {userId ? <UserInitials userId={userId} size="sm" /> : null}
         <SuggestionAuthorName userId={userId} />
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-3xs text-muted-foreground">
           {KIND_LABEL[suggestion.kind]}
         </span>
         {suggestion.createdAt !== null && (
           <RelativeDateTime
             at={suggestion.createdAt}
-            className="ml-auto text-[10px] text-muted-foreground"
+            className="ml-auto text-3xs text-muted-foreground"
           />
         )}
       </div>
@@ -158,7 +158,7 @@ function SuggestionRow({
           className="h-6 px-1.5 text-xs"
           onClick={() => acceptSuggestion(editor, suggestion.id)}
         >
-          <IconCheck size={12} />
+          <IconCheck className="size-3" />
           Accept
         </Button>
         <Button
@@ -167,7 +167,7 @@ function SuggestionRow({
           className="h-6 px-1.5 text-xs"
           onClick={() => rejectSuggestion(editor, suggestion.id)}
         >
-          <IconArrowBackUp size={12} />
+          <IconArrowBackUp className="size-3" />
           Reject
         </Button>
       </div>

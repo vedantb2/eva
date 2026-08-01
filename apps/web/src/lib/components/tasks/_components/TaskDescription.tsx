@@ -152,7 +152,7 @@ export function TaskDescription({
             className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
           />
         ) : (
-          <p className="text-sm text-muted-foreground/60">
+          <p className="text-sm text-subtle-foreground">
             {canEditTaskText ? "Click to add description..." : "No description"}
           </p>
         )}

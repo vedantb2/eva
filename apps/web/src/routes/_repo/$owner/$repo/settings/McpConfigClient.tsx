@@ -70,7 +70,7 @@ export function McpConfigClient() {
                   className="h-7 shrink-0"
                   onClick={handleOpen}
                 >
-                  <IconPencil size={14} />
+                  <IconPencil className="size-3.5" />
                   Edit
                 </Button>
               </DialogTrigger>

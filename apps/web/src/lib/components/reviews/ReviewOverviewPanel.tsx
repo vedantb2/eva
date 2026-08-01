@@ -108,7 +108,7 @@ export function ReviewOverviewPanel({
             {refreshing ? (
               <Spinner size="sm" />
             ) : (
-              <IconRefresh size={14} aria-hidden />
+              <IconRefresh className="size-3.5" aria-hidden />
             )}
             Refresh
           </Button>

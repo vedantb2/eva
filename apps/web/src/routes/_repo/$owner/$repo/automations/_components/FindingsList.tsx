@@ -165,19 +165,13 @@ function FindingRow({
           className="flex flex-1 items-center gap-2 text-left min-w-0"
         >
           {expanded ? (
-            <IconChevronDown
-              size={14}
-              className="shrink-0 text-muted-foreground"
-            />
+            <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           ) : (
-            <IconChevronRight
-              size={14}
-              className="shrink-0 text-muted-foreground"
-            />
+            <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
           )}
           <span
             className={cn(
-              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+              "inline-flex items-center rounded-md px-1.5 py-0.5 text-3xs font-medium",
               SEVERITY_COLORS[finding.severity],
             )}
           >
@@ -192,7 +186,7 @@ function FindingRow({
             href={taskUrl}
             className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
           >
-            <IconExternalLink size={12} />
+            <IconExternalLink className="size-3" />
             Task created
           </a>
         )}

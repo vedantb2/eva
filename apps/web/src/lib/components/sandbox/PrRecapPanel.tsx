@@ -73,7 +73,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   if (!prUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
+        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
         <div className="max-w-md space-y-1">
           <p className="text-sm font-medium">No pull request yet</p>
           <p className="text-sm text-muted-foreground">
@@ -96,7 +96,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   if (recapDoc === null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
+        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
         <div className="max-w-md space-y-2">
           <p className="text-sm font-medium">No recap yet</p>
           <p className="text-sm text-muted-foreground">
@@ -151,7 +151,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               className="inline-flex items-center gap-1 hover:text-foreground"
             >
               View on GitHub
-              <IconExternalLink size={12} />
+              <IconExternalLink className="size-3" />
             </a>
             {recapDoc.prNumber !== undefined ? (
               <DynamicLink
@@ -177,7 +177,11 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               }}
               disabled={isGenerating || isPending}
             >
-              {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
+              {isGenerating ? (
+                <Spinner size="sm" />
+              ) : (
+                <IconRefresh className="size-3.5" />
+              )}
               {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
             </Button>
           </div>
@@ -191,7 +195,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
       {isErrored ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <IconAlertTriangle className="size-4 mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">Recap failed</p>
             <p className="text-destructive/80">

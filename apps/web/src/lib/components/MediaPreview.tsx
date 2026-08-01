@@ -85,7 +85,7 @@ export function ScreenshotPreview({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              <IconExternalLink size={14} />
+              <IconExternalLink className="size-3.5" />
               Open in new tab
             </a>
           </DialogHeader>

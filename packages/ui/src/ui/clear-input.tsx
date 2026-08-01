@@ -68,7 +68,7 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
           }}
           placeholder={placeholder}
           className={cn(
-            "flex h-10 w-full border border-input bg-card px-3.5 py-2 text-sm transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/90 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full border border-input bg-card px-3.5 py-2 text-sm transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50",
             CONTROL_RADIUS_CLASS,
             value.length > 0 && "pr-9",
             className,
@@ -84,7 +84,7 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
             onMouseDown={preventFocusSteal}
             onClick={handleClear}
           >
-            <IconX size={14} stroke={1.75} />
+            <IconX className="size-3.5" stroke={1.75} />
           </button>
         ) : null}
       </div>

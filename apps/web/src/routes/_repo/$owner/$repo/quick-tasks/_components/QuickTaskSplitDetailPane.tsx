@@ -66,7 +66,7 @@ export function QuickTaskSplitDetailPane({
               className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Previous task"
             >
-              <IconChevronLeft size={16} />
+              <IconChevronLeft className="size-4" />
             </button>
             <button
               onClick={handleNavigateNext}
@@ -74,7 +74,7 @@ export function QuickTaskSplitDetailPane({
               className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Next task"
             >
-              <IconChevronRight size={16} />
+              <IconChevronRight className="size-4" />
             </button>
           </div>
         </div>

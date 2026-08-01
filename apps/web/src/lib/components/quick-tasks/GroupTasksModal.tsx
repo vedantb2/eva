@@ -83,7 +83,7 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
         {...attributes}
         {...listeners}
       >
-        <IconGripVertical size={16} />
+        <IconGripVertical className="size-4" />
       </button>
       <span className="text-xs font-mono text-muted-foreground w-5 text-right shrink-0">
         {index + 1}

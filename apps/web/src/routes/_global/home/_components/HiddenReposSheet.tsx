@@ -57,10 +57,7 @@ export function HiddenReposSheet({
                 className="flex items-center justify-between rounded-surface border border-border bg-card p-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <IconBrandGithub
-                    size={18}
-                    className="shrink-0 text-muted-foreground"
-                  />
+                  <IconBrandGithub className="size-5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">
                       {repo.rootDirectory
@@ -80,7 +77,7 @@ export function HiddenReposSheet({
                   }
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                 >
-                  <IconEye size={16} />
+                  <IconEye className="size-4" />
                   Show
                 </Button>
               </div>

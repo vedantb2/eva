@@ -367,7 +367,7 @@ export function ModelPickerContent<TModel extends string>({
           <div className="px-4 pt-2.5">
             <div className="flex items-center gap-2 border-b border-border/70 pb-2.5 transition-colors focus-within:border-ring">
               <IconSearch
-                className="size-4 shrink-0 text-muted-foreground/55"
+                className="size-4 shrink-0 text-subtle-foreground"
                 aria-hidden
               />
               <CommandPrimitive.Input
@@ -456,7 +456,7 @@ export function ModelPickerContent<TModel extends string>({
                               />
                             ) : null}
                           </div>
-                          <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground/70">
+                          <div className="flex min-w-0 items-center gap-1.5 text-xs text-subtle-foreground">
                             <InstanceIcon
                               instance={row.instance}
                               size={12}

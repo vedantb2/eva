@@ -64,10 +64,7 @@ export function PrChecksCard({
                   </span>
                 ) : null}
                 {check.htmlUrl ? (
-                  <IconExternalLink
-                    size={12}
-                    className="shrink-0 text-muted-foreground"
-                  />
+                  <IconExternalLink className="size-3 shrink-0 text-muted-foreground" />
                 ) : null}
               </span>
             );

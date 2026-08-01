@@ -81,8 +81,11 @@ export function SidebarSessionItem({
             </div>
             {prUrl ? (
               <IconGitPullRequest
-                size={14}
-                className={cn("shrink-0", prStateIconColor(prState))}
+                className={cn(
+                  "size-3.5",
+                  "shrink-0",
+                  prStateIconColor(prState),
+                )}
                 title={`PR: ${prState || "unknown"}`}
               />
             ) : null}

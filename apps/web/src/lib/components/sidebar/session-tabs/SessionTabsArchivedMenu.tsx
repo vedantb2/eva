@@ -61,7 +61,7 @@ export function SessionTabsArchivedMenu({
           aria-label="Archived sessions"
           className="flex h-full shrink-0 items-center gap-2 border-l border-border px-3.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
-          <IconArchive size={14} />
+          <IconArchive className="size-3.5" />
           <span className="tabular-nums">{total}</span>
         </button>
       </DropdownMenuTrigger>
@@ -84,13 +84,13 @@ export function SessionTabsArchivedMenu({
                     logoUrl={group.repo.logoUrl}
                     size={16}
                     fallback={
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-3xs font-semibold text-muted-foreground">
                         {label.charAt(0).toUpperCase()}
                       </span>
                     }
                   />
                   <span className="truncate">{label}</span>
-                  <span className="tabular-nums text-[10px] text-muted-foreground">
+                  <span className="tabular-nums text-3xs text-muted-foreground">
                     {group.sessions.length}
                   </span>
                 </DropdownMenuSubTrigger>
@@ -125,7 +125,7 @@ export function SessionTabsArchivedMenu({
                             <span className="min-w-0 flex-1 truncate">
                               {session.title}
                             </span>
-                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                            <span className="shrink-0 text-3xs text-muted-foreground">
                               {subtitle}
                             </span>
                           </DynamicLink>
@@ -140,7 +140,7 @@ export function SessionTabsArchivedMenu({
                               void unarchiveSession({ id: session._id });
                             }}
                           >
-                            <IconArchiveOff size={14} />
+                            <IconArchiveOff className="size-3.5" />
                           </button>
                         ) : null}
                       </div>

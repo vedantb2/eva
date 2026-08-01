@@ -26,13 +26,13 @@ export function PreviewDeviceToggle({
     >
       <TabsList className="h-8">
         <TabsTrigger value="desktop" className="px-2 text-xs" title="Desktop">
-          <IconDeviceDesktop size={14} />
+          <IconDeviceDesktop className="size-3.5" />
         </TabsTrigger>
         <TabsTrigger value="tablet" className="px-2 text-xs" title="Tablet">
-          <IconDeviceTablet size={14} />
+          <IconDeviceTablet className="size-3.5" />
         </TabsTrigger>
         <TabsTrigger value="mobile" className="px-2 text-xs" title="Mobile">
-          <IconDeviceMobile size={14} />
+          <IconDeviceMobile className="size-3.5" />
         </TabsTrigger>
       </TabsList>
     </Tabs>

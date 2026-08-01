@@ -39,12 +39,12 @@ export function SystemAlertMessage({
           {content}
           {timestamp !== undefined ? (
             <>
-              <span className="ml-1.5 text-muted-foreground/70 font-normal">
+              <span className="ml-1.5 text-subtle-foreground font-normal">
                 ·
               </span>
               <RelativeDateTime
                 at={timestamp}
-                className="ml-1 text-muted-foreground/70 font-normal"
+                className="ml-1 text-subtle-foreground font-normal"
               />
             </>
           ) : null}
@@ -64,7 +64,7 @@ export function SystemAlertMessage({
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <IconAlertTriangle size={16} className="text-destructive" />
+                <IconAlertTriangle className="size-4 text-destructive" />
                 Sandbox Error
               </DialogTitle>
             </DialogHeader>

@@ -119,7 +119,7 @@ function QueueRowHandle({
         <button
           type="button"
           aria-label={draggable ? `Drag to reorder · ${tooltip}` : tooltip}
-          className={`${buttonClass} text-muted-foreground/70`}
+          className={`${buttonClass} text-subtle-foreground`}
           {...dragProps}
         >
           <ProviderIcon provider={option.provider} size={14} />
@@ -192,7 +192,7 @@ function SortableQueuedItem({
               aria-label="Edit queued message"
               onClick={() => onEditClick(item)}
             >
-              <IconPencil size={14} />
+              <IconPencil className="size-3.5" />
             </QueueItemAction>
           ) : null}
           {onMoveToFront && index > 0 ? (
@@ -200,7 +200,7 @@ function SortableQueuedItem({
               aria-label="Move queued message to front"
               onClick={() => onMoveToFront(item)}
             >
-              <IconArrowUp size={14} />
+              <IconArrowUp className="size-3.5" />
             </QueueItemAction>
           ) : null}
           {onDeleteClick ? (
@@ -208,7 +208,7 @@ function SortableQueuedItem({
               aria-label="Delete queued message"
               onClick={() => onDeleteClick(item)}
             >
-              <IconTrash size={14} />
+              <IconTrash className="size-3.5" />
             </QueueItemAction>
           ) : null}
         </QueueItemActions>

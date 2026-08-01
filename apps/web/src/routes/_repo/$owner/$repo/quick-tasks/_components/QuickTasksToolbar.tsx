@@ -218,7 +218,7 @@ export function QuickTasksToolbar({
                 className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("kanban")}
               >
-                <IconLayoutKanban size={16} />
+                <IconLayoutKanban className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Kanban view</TooltipContent>
@@ -231,7 +231,7 @@ export function QuickTasksToolbar({
                 className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("list")}
               >
-                <IconList size={16} />
+                <IconList className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>List view</TooltipContent>
@@ -255,7 +255,7 @@ export function QuickTasksToolbar({
                   className="motion-press hover:scale-[1.01] active:scale-[0.96]"
                   onClick={onStartSelecting}
                 >
-                  <IconCheckbox size={16} />
+                  <IconCheckbox className="size-4" />
                   <span className="hidden sm:inline">Select</span>
                 </Button>
               </TooltipTrigger>
@@ -272,19 +272,19 @@ export function QuickTasksToolbar({
               variant="secondary"
               className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
-              <IconSettings size={16} />
+              <IconSettings className="size-4" />
               <span className="hidden sm:inline">Options</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onSelect={onImport}>
-              <IconFileImport size={16} className="mr-2" />
+              <IconFileImport className="size-4 mr-2" />
               Import from Linear
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconSortDescending size={16} className="mr-2" />
+                <IconSortDescending className="size-4 mr-2" />
                 Sort: {SORT_FIELD_LABELS[sortField]}{" "}
                 {sortDir === "asc" ? "↑" : "↓"}
               </DropdownMenuSubTrigger>
@@ -320,7 +320,7 @@ export function QuickTasksToolbar({
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconFolder size={16} className="mr-2" />
+                <IconFolder className="size-4 mr-2" />
                 {filterLabel}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -349,7 +349,7 @@ export function QuickTasksToolbar({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconUser size={16} className="mr-2" />
+                <IconUser className="size-4 mr-2" />
                 {userFilterLabel}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -377,7 +377,7 @@ export function QuickTasksToolbar({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconUserCheck size={16} className="mr-2" />
+                <IconUserCheck className="size-4 mr-2" />
                 {assigneeLabel}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -408,7 +408,7 @@ export function QuickTasksToolbar({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconFilter size={16} className="mr-2" />
+                <IconFilter className="size-4 mr-2" />
                 {visibleStatuses.size === TASK_STATUSES.length
                   ? "All Statuses"
                   : `${visibleStatuses.size} Statuses`}
@@ -423,7 +423,7 @@ export function QuickTasksToolbar({
                       onCheckedChange={() => handleStatusToggle(s)}
                       onSelect={(e) => e.preventDefault()}
                     >
-                      <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                      <cfg.icon className={"size-4 " + cfg.text + " mr-2"} />
                       <span className={cfg.text}>{cfg.label}</span>
                     </DropdownMenuCheckboxItem>
                   );
@@ -433,7 +433,7 @@ export function QuickTasksToolbar({
             {allTags.length > 0 && (
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  <IconTag size={16} className="mr-2" />
+                  <IconTag className="size-4 mr-2" />
                   {selectedTags.size === 0
                     ? "All Tags"
                     : `${selectedTags.size} Tag${selectedTags.size > 1 ? "s" : ""}`}
@@ -454,7 +454,7 @@ export function QuickTasksToolbar({
             )}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconClock size={16} className="mr-2" />
+                <IconClock className="size-4 mr-2" />
                 {TIME_RANGE_LABELS[timeRange]}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -476,7 +476,7 @@ export function QuickTasksToolbar({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={clearAllFilters}>
-                  <IconX size={16} className="mr-2" />
+                  <IconX className="size-4 mr-2" />
                   Clear all filters
                 </DropdownMenuItem>
               </>
@@ -489,7 +489,7 @@ export function QuickTasksToolbar({
         className="motion-press hover:scale-[1.01] active:scale-[0.96]"
         onClick={onCreateTask}
       >
-        <IconPlus size={16} />
+        <IconPlus className="size-4" />
         <span className="hidden sm:inline">New Task</span>
       </Button>
     </div>

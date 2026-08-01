@@ -18,7 +18,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                  <IconSparkles size={14} className="text-primary" />
+                  <IconSparkles className="size-3.5 text-primary" />
                 </div>
                 <p className="text-sm font-semibold text-foreground">
                   Getting started with Eva
@@ -31,7 +31,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                 onClick={onDismiss}
                 className="-mr-1 h-7 w-7 text-muted-foreground hover:text-foreground relative after:absolute after:inset-[-6px]"
               >
-                <IconX size={14} />
+                <IconX className="size-3.5" />
               </Button>
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
@@ -50,7 +50,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                   <p className="text-xs font-medium text-foreground">
                     {section.label}
                   </p>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  <p className="text-2xs leading-relaxed text-muted-foreground">
                     {section.shortDesc}
                   </p>
                 </div>

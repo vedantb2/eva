@@ -65,10 +65,10 @@ export function LandingSandbox() {
                     key={group.label}
                     className="flex flex-col gap-1 bg-background px-5 py-3.5 sm:flex-row sm:items-baseline sm:gap-5"
                   >
-                    <p className="w-24 shrink-0 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                    <p className="w-24 shrink-0 font-mono text-2xs uppercase tracking-[0.18em] text-subtle-foreground">
                       {group.label}
                     </p>
-                    <p className="text-pretty text-[13px] leading-relaxed text-foreground">
+                    <p className="text-pretty text-sm leading-relaxed text-foreground">
                       {group.items}
                     </p>
                   </div>
@@ -100,7 +100,7 @@ function SandboxTerminal() {
           <span className="size-2 rounded-full bg-border" />
           <span className="size-2 rounded-full bg-border" />
         </span>
-        <p className="font-mono text-[11px] text-muted-foreground">
+        <p className="font-mono text-2xs text-muted-foreground">
           acme/web — sandbox
         </p>
         <span className="ml-auto flex items-center gap-1.5">
@@ -108,12 +108,12 @@ function SandboxTerminal() {
             className="landing-pulse-dot size-1.5 rounded-full bg-success"
             aria-hidden
           />
-          <span className="text-[10px] text-muted-foreground">running</span>
+          <span className="text-3xs text-muted-foreground">running</span>
         </span>
       </div>
 
       <m.div
-        className="space-y-1.5 p-4 font-mono text-[11.5px] leading-relaxed sm:p-5"
+        className="space-y-1.5 p-4 font-mono text-2xs leading-relaxed sm:p-5"
         variants={prefersReducedMotion ? BOOT_CONTAINER_STILL : BOOT_CONTAINER}
         initial="hidden"
         whileInView="show"
@@ -128,7 +128,7 @@ function SandboxTerminal() {
             {line.kind === "command" ? (
               <span className="text-primary">$ </span>
             ) : (
-              <span className="text-muted-foreground/40">{"  "}</span>
+              <span className="text-subtle-foreground">{"  "}</span>
             )}
             {line.text}
           </m.p>

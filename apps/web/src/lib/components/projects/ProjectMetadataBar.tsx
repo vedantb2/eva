@@ -59,7 +59,7 @@ import { ScreenshotsToggle } from "@/lib/components/quick-tasks/ScreenshotsToggl
 import { AuditToggle } from "@/lib/components/quick-tasks/AuditToggle";
 
 const GHOST_TRIGGER_CLASS =
-  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
+  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-sm [&>svg:last-child]:hidden shrink-0";
 
 interface ProjectMetadataBarProps {
   projectId: Id<"projects">;
@@ -171,12 +171,12 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           />
         )}
       </div>
-      <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-[13px] text-muted-foreground">
-        <IconGitBranch size={14} />
+      <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-sm text-muted-foreground">
+        <IconGitBranch className="size-3.5" />
         <span className="text-foreground">{displayBaseBranch}</span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <IconInfoCircle size={12} className="cursor-help" />
+            <IconInfoCircle className="size-3 cursor-help" />
           </TooltipTrigger>
           <TooltipContent>
             Base branch for all tasks in this project
@@ -208,7 +208,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
             <div
               className={`flex items-center gap-1.5 ${!project.projectLead ? "text-muted-foreground" : ""}`}
             >
-              <IconUser size={14} className="text-muted-foreground" />
+              <IconUser className="size-3.5 text-muted-foreground" />
               <span data-pii={Boolean(project.projectLead) || undefined}>
                 {project.projectLead
                   ? (() => {
@@ -259,7 +259,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
                   enableBlink
                 />
               ) : (
-                <IconUserPlus size={14} className="text-muted-foreground" />
+                <IconUserPlus className="size-3.5 text-muted-foreground" />
               )}
               <span data-pii={Boolean(reviewerUser) || undefined}>
                 {reviewerUser ? displayName(reviewerUser) : "Code Reviewer"}
@@ -290,9 +290,9 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
+            className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-sm shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
           >
-            <IconUsers size={14} className="text-muted-foreground shrink-0" />
+            <IconUsers className="size-3.5 text-muted-foreground shrink-0" />
             <span>
               {project.members?.length
                 ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
@@ -484,7 +484,7 @@ function DatePickerField({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
+          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-sm shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
         >
           <Icon
             size={14}

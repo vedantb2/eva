@@ -90,15 +90,12 @@ export function BranchSelect({
           className={cn("w-full justify-between", className ?? "h-8 text-sm")}
         >
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <IconGitBranch
-              size={14}
-              className="text-muted-foreground shrink-0"
-            />
+            <IconGitBranch className="size-3.5 text-muted-foreground shrink-0" />
             <span className={cn("truncate", !value && "text-muted-foreground")}>
               {value || placeholder}
             </span>
           </div>
-          <IconChevronDown size={14} className="ml-2 opacity-60 shrink-0" />
+          <IconChevronDown className="size-3.5 ml-2 opacity-60 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -118,7 +115,7 @@ export function BranchSelect({
           >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                <IconLoader2 size={14} className="animate-spin" />
+                <IconLoader2 className="size-3.5 animate-spin" />
                 <span>Loading branches...</span>
               </div>
             ) : (
@@ -134,15 +131,11 @@ export function BranchSelect({
                         setOpen(false);
                       }}
                     >
-                      <IconGitBranch
-                        size={14}
-                        className="text-muted-foreground"
-                      />
+                      <IconGitBranch className="size-3.5 text-muted-foreground" />
                       {branch.name}
                       <IconCheck
-                        size={14}
                         className={cn(
-                          "ml-auto",
+                          "size-3.5 ml-auto",
                           value === branch.name ? "opacity-100" : "opacity-0",
                         )}
                       />

@@ -27,7 +27,7 @@ export function DocumentsPreview() {
       </p>
       <div className="mt-1.5 flex items-center gap-2">
         <MockDot tone="success" pulse />
-        <span className="text-[10.5px] text-muted-foreground">
+        <span className="text-3xs text-muted-foreground">
           2 people editing · saved just now
         </span>
       </div>
@@ -40,7 +40,7 @@ export function DocumentsPreview() {
           <span className="relative block">
             <MockLine width="w-[60%]" />
             <span className="absolute -top-0.5 left-[60%] h-3 w-px bg-primary" />
-            <span className="absolute -top-3 left-[60%] rounded-sm bg-primary px-1 py-px text-[8px] font-medium text-primary-foreground">
+            <span className="absolute -top-3 left-[60%] rounded-sm bg-primary px-1 py-px text-3xs font-medium text-primary-foreground">
               Riya
             </span>
           </span>
@@ -57,7 +57,7 @@ export function DocumentsPreview() {
 
       <div className="mt-5 flex items-center gap-2 rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2">
         <MockChip tone="primary">In agent context</MockChip>
-        <span className="truncate text-[10.5px] text-muted-foreground">
+        <span className="truncate text-3xs text-muted-foreground">
           Read by 3 tasks in this repository
         </span>
       </div>
@@ -102,7 +102,7 @@ export function ProjectsPreview() {
           >
             <div className="flex items-center justify-between">
               <MockLabel>{column.name}</MockLabel>
-              <span className="text-[9.5px] text-muted-foreground">
+              <span className="text-3xs text-muted-foreground">
                 {column.cards.length}
               </span>
             </div>
@@ -111,7 +111,7 @@ export function ProjectsPreview() {
                 key={card.title}
                 className="space-y-2 rounded-md bg-card p-2 smooth-shadow-ring-sm"
               >
-                <p className="text-[11px] font-medium leading-tight text-foreground">
+                <p className="text-2xs font-medium leading-tight text-foreground">
                   {card.title}
                 </p>
                 <div className="flex items-center justify-between">
@@ -148,8 +148,7 @@ export function DraftsPreview() {
             active={index === 0}
             leading={
               <IconNotes
-                size={15}
-                className="shrink-0 text-muted-foreground"
+                className="size-3.5 shrink-0 text-muted-foreground"
                 aria-hidden
               />
             }
@@ -157,9 +156,9 @@ export function DraftsPreview() {
             meta={draft.meta}
             trailing={
               index === 0 ? (
-                <span className="flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-1.5 py-1 text-[10px] font-medium text-primary">
+                <span className="flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-1.5 py-1 text-3xs font-medium text-primary">
                   Promote
-                  <IconArrowRight size={11} aria-hidden />
+                  <IconArrowRight className="size-2.5" aria-hidden />
                 </span>
               ) : null
             }
@@ -168,7 +167,7 @@ export function DraftsPreview() {
       </div>
 
       <div className="mt-4 rounded-md border border-dashed border-border px-3 py-6 text-center">
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Write it down now, specify it later.
         </p>
       </div>

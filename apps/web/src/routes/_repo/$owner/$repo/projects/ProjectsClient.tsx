@@ -248,7 +248,7 @@ export function ProjectsClient() {
                   className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                   onClick={() => setParams({ view: opt.key })}
                 >
-                  <opt.icon size={16} />
+                  <opt.icon className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{opt.label}</TooltipContent>
@@ -264,14 +264,14 @@ export function ProjectsClient() {
               variant="secondary"
               className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
-              <IconSettings size={16} />
+              <IconSettings className="size-4" />
               <span className="hidden sm:inline">Options</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconSortDescending size={16} className="mr-2" />
+                <IconSortDescending className="size-4 mr-2" />
                 Sort: {SORT_FIELD_LABELS[sortField]}{" "}
                 {sortDir === "asc" ? "↑" : "↓"}
               </DropdownMenuSubTrigger>
@@ -311,7 +311,7 @@ export function ProjectsClient() {
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <IconFilter size={16} className="mr-2" />
+                <IconFilter className="size-4 mr-2" />
                 {visiblePhases.size === PROJECT_PHASES.length
                   ? "All Phases"
                   : `${visiblePhases.size} Phases`}
@@ -326,7 +326,7 @@ export function ProjectsClient() {
                       onCheckedChange={() => handlePhaseToggle(p)}
                       onSelect={(e) => e.preventDefault()}
                     >
-                      <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                      <cfg.icon className={"size-4 " + cfg.text + " mr-2"} />
                       <span className={cfg.text}>{cfg.label}</span>
                     </DropdownMenuCheckboxItem>
                   );
@@ -337,7 +337,7 @@ export function ProjectsClient() {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={clearAllFilters}>
-                  <IconX size={16} className="mr-2" />
+                  <IconX className="size-4 mr-2" />
                   Clear all filters
                 </DropdownMenuItem>
               </>
@@ -350,7 +350,7 @@ export function ProjectsClient() {
         className="motion-press hover:scale-[1.01] active:scale-[0.96]"
         onClick={() => setIsCreating(true)}
       >
-        <IconPlus size={16} />
+        <IconPlus className="size-4" />
         <span className="hidden sm:inline">New Project</span>
       </Button>
     </div>
@@ -391,10 +391,7 @@ export function ProjectsClient() {
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <EmptyState
                 icon={
-                  <IconLayoutKanban
-                    size={24}
-                    className="text-muted-foreground"
-                  />
+                  <IconLayoutKanban className="size-6 text-muted-foreground" />
                 }
                 title="No projects yet"
                 description="Create a project to describe a feature and let AI help you break it down into tasks"

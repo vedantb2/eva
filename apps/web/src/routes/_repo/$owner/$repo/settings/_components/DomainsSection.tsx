@@ -61,7 +61,7 @@ export function DomainsSection({
                 className="hit-target motion-press ml-0.5 rounded p-0.5 active:scale-[0.96] hover:bg-muted-foreground/20"
                 aria-label={`Remove ${domain}`}
               >
-                <IconX size={12} />
+                <IconX className="size-3" />
               </button>
             </span>
           ))}
@@ -85,7 +85,7 @@ export function DomainsSection({
           onClick={addDomain}
           disabled={!newDomain.trim()}
         >
-          <IconPlus size={14} />
+          <IconPlus className="size-3.5" />
           Add
         </Button>
       </div>

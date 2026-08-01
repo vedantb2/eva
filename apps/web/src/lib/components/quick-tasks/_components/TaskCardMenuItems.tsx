@@ -180,7 +180,7 @@ export function TaskCardMenuItems({
               void startExecution({ id });
             }}
           >
-            <IconPlayerPlay size={16} />
+            <IconPlayerPlay className="size-4" />
             Run Eva on this task
           </Item>
           <MenuSeparator />
@@ -194,7 +194,7 @@ export function TaskCardMenuItems({
               window.open(href, "_blank");
             }}
           >
-            <IconExternalLink size={16} />
+            <IconExternalLink className="size-4" />
             Open in new tab
           </Item>
           <MenuSeparator />
@@ -231,7 +231,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger>
-          <IconUserPlus size={16} />
+          <IconUserPlus className="size-4" />
           Code Reviewer
         </SubTrigger>
         <SubContent>
@@ -271,7 +271,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger disabled={!canEditTaskModel(status)}>
-          <IconBrain size={16} />
+          <IconBrain className="size-4" />
           Model
         </SubTrigger>
         <SubContent className={modelPickerSurfaceClass}>
@@ -299,7 +299,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger>
-          <IconFolder size={16} />
+          <IconFolder className="size-4" />
           Project
         </SubTrigger>
         <SubContent>
@@ -331,7 +331,7 @@ export function TaskCardMenuItems({
         <>
           <Sub>
             <SubTrigger>
-              <IconArrowMoveRight size={16} />
+              <IconArrowMoveRight className="size-4" />
               Move to codebase
             </SubTrigger>
             <SubContent className="max-h-80 overflow-y-auto">
@@ -391,7 +391,7 @@ export function TaskCardMenuItems({
           navigator.clipboard.writeText(title);
         }}
       >
-        <IconClipboard size={16} />
+        <IconClipboard className="size-4" />
         Copy title
       </Item>
       <Item
@@ -401,7 +401,7 @@ export function TaskCardMenuItems({
           );
         }}
       >
-        <IconLink size={16} />
+        <IconLink className="size-4" />
         Copy task link
       </Item>
 
@@ -413,7 +413,7 @@ export function TaskCardMenuItems({
           onDelete();
         }}
       >
-        <IconTrash size={16} />
+        <IconTrash className="size-4" />
         Delete
       </Item>
     </>

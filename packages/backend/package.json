@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
+    "sync:prod-to-dev": "node scripts/sync-prod-to-dev.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "predeploy": "pnpm run build:callback",

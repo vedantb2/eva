@@ -59,8 +59,14 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
+                // A string title used to be `hidden … lg:block`, which took the
+                // page's only `<h1>` out of the accessibility tree on every
+                // tablet and phone, and made the `sm:`/`md:` sizes dead code —
+                // they applied only at widths where the element was
+                // `display: none`. Truncating keeps the heading present and
+                // single-line at every width.
                 <h1
-                  className={`min-w-0 flex-1 text-base font-semibold tracking-heading text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden whitespace-nowrap lg:block" : ""}`}
+                  className={`min-w-0 flex-1 text-base font-semibold tracking-heading text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "truncate" : ""}`}
                 >
                   {title}
                 </h1>

@@ -1,4 +1,4 @@
-import { Button, cn } from "@eva/ui";
+import { Button, cn, ListRow, LIST_ROW_CONTROL_CLASS } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -43,7 +43,7 @@ function NotificationSourceAvatar({
         className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md bg-card smooth-shadow-ring-sm"
         aria-hidden
       >
-        <TypeIcon size={11} className={appearance.iconColor} />
+        <TypeIcon className={cn("size-3", appearance.iconColor)} />
       </span>
     </div>
   );
@@ -52,84 +52,104 @@ function NotificationSourceAvatar({
 interface NotificationRowProps {
   notification: Notification;
   repo: RepoWithLogo | undefined;
-  onOpen: () => void;
+  /** Row is the one open in the detail pane. */
+  selected: boolean;
+  onSelect: () => void;
   onMarkRead: () => void;
 }
 
-/** One inbox row. The parent list owns the border, so the row is padding only. */
+/**
+ * One inbox row, on the shared `<ListRow>` contract so it is pixel-identical to
+ * a project card and a quick-task card.
+ *
+ * ## Four type tiers
+ *
+ * The row previously stacked three lines at `text-xs`/`text-sm`/`text-xs` and
+ * dropped the title of a read row to `text-muted-foreground` — which left four
+ * elements at one colour and two at one size, flattening the row into a grey
+ * slab where nothing led. It now runs four genuinely distinct tiers:
+ *
+ * 1. title — `text-sm`, semibold when unread
+ * 2. context — `text-xs` muted
+ * 3. source — `text-2xs` uppercase subtle
+ * 4. timestamp — `text-2xs` tabular subtle
+ *
+ * Unread is carried by the leading accent stripe and the title's weight, so a
+ * read row loses emphasis without every line of it going the same grey.
+ */
 export function NotificationRow({
   notification,
   repo,
-  onOpen,
+  selected,
+  onSelect,
   onMarkRead,
 }: NotificationRowProps) {
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
   const unread = !notification.read;
+  const context = notification.contextLabel ?? notification.message;
 
   return (
-    // Ring on the row rather than the open button so keyboard focus highlights
-    // the whole row, matching what a click targets. Inset because the row is
-    // full-bleed — an outset ring would be clipped by the scroll container.
-    // Scoped to the control's data-slot so the trailing mark-read button, which
-    // draws its own ring, does not also light up the row.
-    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-inset has-[[data-slot=row-control]:focus-visible]:ring-ring/35">
-      <button
-        onClick={onOpen}
-        data-slot="row-control"
-        className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-none"
-      >
-        {/* Fixed-width dot slot so read and unread rows stay aligned. */}
-        <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>
-          {unread ? (
-            <span className="size-1.5 rounded-full bg-primary" />
-          ) : null}
-        </span>
+    <ListRow
+      selected={selected}
+      onClick={onSelect}
+      aria-label={notification.title}
+      accentClassName={unread ? "bg-primary" : undefined}
+      className={unread ? undefined : "bg-card/60"}
+      contentClassName="p-3 pl-3.5"
+    >
+      <div className="flex min-w-0 items-start gap-3">
         <NotificationSourceAvatar notification={notification} repo={repo} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          {sourceLabel ? (
-            <span className="truncate text-xs text-muted-foreground">
-              {sourceLabel}
-            </span>
-          ) : null}
-          {/* Read rows drop to the muted tone rather than fading the whole row,
-              so logos and timestamps stay legible. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 items-center gap-2">
+            {sourceLabel ? (
+              <span className="truncate text-2xs font-medium uppercase tracking-wide text-subtle-foreground">
+                {sourceLabel}
+              </span>
+            ) : null}
+            {/* Timestamp and Dismiss share the trailing slot: hovering an
+                unread row swaps one for the other. */}
+            <RelativeDateTime
+              at={notification.createdAt}
+              className={cn(
+                "ml-auto shrink-0 text-2xs tabular-nums text-subtle-foreground",
+                unread && "group-hover:invisible",
+              )}
+            />
+          </div>
           <span
             className={cn(
-              "truncate text-sm",
-              unread ? "font-medium text-foreground" : "text-muted-foreground",
+              "truncate text-sm text-foreground",
+              unread ? "font-semibold" : "font-medium",
             )}
           >
             {notification.title}
           </span>
-          {notification.contextLabel ? (
-            <span className="truncate text-xs leading-relaxed text-muted-foreground">
-              {notification.contextLabel}
+          {context ? (
+            <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {context}
             </span>
           ) : null}
         </div>
-      </button>
-      {/* Timestamp and Dismiss share the trailing slot: hovering an unread row
-          swaps one for the other. */}
-      <RelativeDateTime
-        at={notification.createdAt}
-        className={cn(
-          "shrink-0 text-xs tabular-nums text-muted-foreground",
-          unread && "group-hover:invisible",
-        )}
-      />
+      </div>
       {unread ? (
         <Button
-          size="sm"
+          size="xs"
           variant="ghost"
           onClick={onMarkRead}
           title="Mark as read"
           aria-label="Mark as read"
-          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+          // `absolute` overrides the control class's `relative` — both are
+          // position utilities, so the later one wins the merge. The `z-[2]`
+          // that lifts it above the row's click overlay still applies.
+          className={cn(
+            LIST_ROW_CONTROL_CLASS,
+            "absolute right-2 top-2 gap-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+          )}
         >
-          <IconCheck className="size-3.5" />
+          <IconCheck />
           Dismiss
         </Button>
       ) : null}
-    </div>
+    </ListRow>
   );
 }

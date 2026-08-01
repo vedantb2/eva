@@ -117,10 +117,7 @@ describe("ChatTimelineProjector", () => {
       messages: [],
       optimisticTurn: turn,
     });
-    expect(optimistic.rows.map((row) => row.id)).toEqual([
-      "turn:turn-1:user",
-      "turn:turn-1:assistant",
-    ]);
+    expect(optimistic.rows.map((row) => row.id)).toEqual(["turn:turn-1:user"]);
 
     const canonical = projector.project({
       messages: [

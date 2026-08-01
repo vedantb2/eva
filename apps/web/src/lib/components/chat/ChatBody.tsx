@@ -100,39 +100,23 @@ function OptimisticMessage({
   row,
   repoBasePath,
 }: {
-  row: Extract<
-    ChatTimelineRow,
-    { kind: "optimisticUser" | "optimisticAssistant" }
-  >;
+  row: Extract<ChatTimelineRow, { kind: "optimisticUser" }>;
   repoBasePath: string;
 }) {
-  const isUser = row.kind === "optimisticUser";
   return (
     <div data-message-id={row.id} aria-busy="true">
-      <AIMessage from={isUser ? "user" : "assistant"}>
-        <MessageContent
-          className={
-            isUser
-              ? "group rounded-surface bg-secondary px-4 py-3 text-foreground opacity-80"
-              : "px-1 py-2 text-sm text-muted-foreground"
-          }
-        >
-          {isUser ? (
-            <>
-              <ReviewCommentMessage
-                text={row.turn.content}
-                repoBasePath={repoBasePath}
-              />
-              {row.turn.attachmentStorageIds?.length ? (
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {row.turn.attachmentStorageIds.length} attachment
-                  {row.turn.attachmentStorageIds.length === 1 ? "" : "s"}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <span className="animate-pulse">Submitting turn…</span>
-          )}
+      <AIMessage from="user">
+        <MessageContent className="group rounded-surface bg-secondary px-4 py-3 text-foreground">
+          <ReviewCommentMessage
+            text={row.turn.content}
+            repoBasePath={repoBasePath}
+          />
+          {row.turn.attachmentStorageIds?.length ? (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {row.turn.attachmentStorageIds.length} attachment
+              {row.turn.attachmentStorageIds.length === 1 ? "" : "s"}
+            </div>
+          ) : null}
         </MessageContent>
       </AIMessage>
     </div>

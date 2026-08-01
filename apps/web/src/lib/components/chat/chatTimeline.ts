@@ -60,22 +60,12 @@ export interface OptimisticUserTimelineRow {
   kind: "optimisticUser";
   id: string;
   turn: OptimisticChatTurn;
-  isLast: false;
-}
-
-export interface OptimisticAssistantTimelineRow {
-  kind: "optimisticAssistant";
-  id: string;
-  turn: OptimisticChatTurn;
   isLast: true;
 }
 
 export type ChatTimelineRow<
   TMessage extends TimelineMessage = ChatBodyMessage,
-> =
-  | CanonicalTimelineRow<TMessage>
-  | OptimisticUserTimelineRow
-  | OptimisticAssistantTimelineRow;
+> = CanonicalTimelineRow<TMessage> | OptimisticUserTimelineRow;
 
 export interface ChatTimelineProjection<
   TMessage extends TimelineMessage = ChatBodyMessage,
@@ -146,12 +136,6 @@ function sameRow<TMessage extends TimelineMessage>(
     );
   }
   if (left.kind === "optimisticUser" && right.kind === "optimisticUser") {
-    return left.turn === right.turn;
-  }
-  if (
-    left.kind === "optimisticAssistant" &&
-    right.kind === "optimisticAssistant"
-  ) {
     return left.turn === right.turn;
   }
   return false;
@@ -259,21 +243,13 @@ export class ChatTimelineProjector<
         kind: "optimisticUser",
         id: `turn:${optimisticTurn.turnId}:user`,
         turn: optimisticTurn,
-        isLast: false,
-      };
-      const assistantCandidate: OptimisticAssistantTimelineRow = {
-        kind: "optimisticAssistant",
-        id: `turn:${optimisticTurn.turnId}:assistant`,
-        turn: optimisticTurn,
         isLast: true,
       };
-      for (const candidate of [userCandidate, assistantCandidate]) {
-        const previous = this.previousRows.get(candidate.id);
-        const row =
-          previous && sameRow(previous, candidate) ? previous : candidate;
-        nextRows.push(row);
-        nextRowCache.set(row.id, row);
-      }
+      const previous = this.previousRows.get(userCandidate.id);
+      const row =
+        previous && sameRow(previous, userCandidate) ? previous : userCandidate;
+      nextRows.push(row);
+      nextRowCache.set(row.id, row);
       chronologicalHistory.push(
         tokenizedToEditable(
           stripReviewCommentBlocks(optimisticTurn.content).text,
@@ -281,7 +257,7 @@ export class ChatTimelineProjector<
       );
       jumpAnchors.push({
         id: userCandidate.id,
-        rowIndex: nextRows.length - 2,
+        rowIndex: nextRows.length - 1,
         content: optimisticTurn.content,
       });
     }

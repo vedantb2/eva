@@ -872,6 +872,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           renderItem={renderSlashItem}
           onSelectItem={insertSlashItem}
           emptyContent={emptySlashContent}
+          query={trigger.query}
+          onRefocusEditor={() => editorRef.current?.focus()}
         />
       ) : (
         <MentionPickerPopup
@@ -881,6 +883,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           selectedIndex={selectedIndex}
           renderItem={renderItem}
           onSelectItem={insertMentionItem}
+          query={trigger.query}
+          onRefocusEditor={() => editorRef.current?.focus()}
         />
       )
     ) : null;

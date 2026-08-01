@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { IconSearch } from "@tabler/icons-react";
 import type { MentionPopupPlacement } from "./mentionPopupPosition";
 
 interface MentionPickerPopupProps<TItem extends { id: string }> {
@@ -11,6 +12,10 @@ interface MentionPickerPopupProps<TItem extends { id: string }> {
   renderItem: (item: TItem, isSelected: boolean) => ReactNode;
   onSelectItem: (item: TItem) => void;
   emptyContent?: ReactNode;
+  /** Text typed after the `@`/`/` trigger, i.e. what the list is filtered by. */
+  query: string;
+  /** Returns the caret to the editor, so clicking the search row keeps typing alive. */
+  onRefocusEditor: () => void;
 }
 
 export function MentionPickerPopup<TItem extends { id: string }>({
@@ -21,6 +26,8 @@ export function MentionPickerPopup<TItem extends { id: string }>({
   renderItem,
   onSelectItem,
   emptyContent,
+  query,
+  onRefocusEditor,
 }: MentionPickerPopupProps<TItem>) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -57,9 +64,27 @@ export function MentionPickerPopup<TItem extends { id: string }>({
           placement.placement === "above" ? "translateY(-100%)" : undefined,
       }}
     >
-      <p className="shrink-0 px-2.5 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
-        {title}
-      </p>
+      {/* The caret has to stay in the editor — that is where the query is being
+          typed and where the chip will be inserted — so this is a live view of
+          the filter rather than a focusable field. Clicking it hands focus back
+          to the editor so typing continues to narrow the list. */}
+      <div
+        className="flex shrink-0 items-center gap-2 border-b border-border px-2.5 py-2"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onRefocusEditor();
+        }}
+      >
+        <IconSearch size={13} className="shrink-0 text-muted-foreground" />
+        <span
+          className={
+            "min-w-0 flex-1 truncate text-sm " +
+            (query ? "text-foreground" : "text-muted-foreground/70")
+          }
+        >
+          {query || `Search ${title.toLowerCase()}…`}
+        </span>
+      </div>
       {items.length > 0 ? (
         <div
           ref={listRef}

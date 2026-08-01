@@ -1,11 +1,42 @@
-export function EvaIcon({ size = 20 }: { size?: number }) {
+import {
+  EVA_MARK_BLUE,
+  EVA_MARK_BOTTOM_POINTS,
+  EVA_MARK_PURPLE,
+  EVA_MARK_TOP_POINTS,
+} from "@/lib/utils/evaMark";
+
+interface EvaIconProps {
+  size?: number;
+  className?: string;
+  /**
+   * Pass `null` where a visible "Eva" wordmark sits beside the icon, so screen
+   * readers do not announce the name twice.
+   */
+  label?: string | null;
+}
+
+/**
+ * Eva's mark, inline so the disc can track `--card` and sit flush with whatever
+ * surface it lands on. Full-bleed — the badge gutter is a favicon-only concern
+ * (see `evaMark.ts`).
+ */
+export function EvaIcon({ size = 20, className, label = "Eva" }: EvaIconProps) {
+  const a11y =
+    label === null
+      ? { "aria-hidden": true }
+      : { role: "img", "aria-label": label };
+
   return (
-    <img
-      src="/icon.svg"
-      alt="Eva"
+    <svg
+      viewBox="0 0 512 512"
       width={size}
       height={size}
-      className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-    />
+      className={className}
+      {...a11y}
+    >
+      <circle cx="256" cy="256" r="256" className="fill-card" />
+      <polygon points={EVA_MARK_TOP_POINTS} fill={EVA_MARK_PURPLE} />
+      <polygon points={EVA_MARK_BOTTOM_POINTS} fill={EVA_MARK_BLUE} />
+    </svg>
   );
 }

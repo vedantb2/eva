@@ -89,9 +89,9 @@ report screenshot.
 9. **Confidentiality.** Use the user's own repo `vvedantb/eva`. Never client repos
    (`evalucom/carepulse`, `eprocurement`) and never the "Codebases" home that lists them. Check
    doc/task/session lists in frame for client-named items — stage a clean demo row if the list is
-   dirty. **Don't raise personal-data concerns about the app's own users** — accounts are
-   first-name-only by design and the demo email is fake (confirmed twice; raising it again is noise).
-   Do flag third-party names, real customer data, and error panels leaking env var names or project ids.
+   dirty. **Never raise personal-data concerns about names or emails on screen** — Settings →
+   Experimental has a blur-PID toggle that blurs every `[data-pii]` element, so this is handled in
+   the product. Do flag error panels leaking env var names or project ids.
 
 ## Workflow
 

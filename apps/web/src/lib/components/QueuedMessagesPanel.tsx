@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Id } from "@eva/backend";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
+import { UserInitials } from "@eva/shared";
 import {
   Button,
   Dialog,
@@ -52,6 +53,8 @@ export interface QueuedMessageItem {
   content: string;
   model?: string;
   reasoningLevel?: string;
+  /** Who queued it — a shared chat's queue mixes several teammates' prompts. */
+  userId?: Id<"users">;
 }
 
 interface QueuedMessagesPanelProps {
@@ -166,6 +169,14 @@ function SortableQueuedItem({
       className={isDragging ? "opacity-50" : undefined}
     >
       <div className="flex items-center gap-2.5">
+        {/* Author then model, reading left to right as "who asked, on what".
+            Fixed box because `UserInitials` renders nothing until the profile
+            query resolves, which would otherwise shift the row. */}
+        {item.userId ? (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <UserInitials userId={item.userId} hideLastSeen />
+          </span>
+        ) : null}
         <QueueRowHandle
           item={item}
           draggable={draggable}

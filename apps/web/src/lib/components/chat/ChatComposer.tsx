@@ -188,6 +188,7 @@ export function ChatComposer({
       content: message.displayContent ?? message.content,
       model: message.model,
       reasoningLevel: message.reasoningLevel,
+      userId: message.userId,
     }),
   );
   for (const pendingMessage of pendingQueuedMessages) {
@@ -197,6 +198,7 @@ export function ChatComposer({
       content: pendingMessage.content,
       model: pendingMessage.model,
       reasoningLevel: pendingMessage.reasoningLevel,
+      userId: pendingMessage.userId,
     });
   }
 

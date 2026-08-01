@@ -246,7 +246,14 @@ export const ChatMessage = memo(function ChatMessage({
                       />
                     ) : null}
                     {videoMedia.map((entry, index) => (
-                      <VideoPreview key={index} url={entry.url} />
+                      // Capped to the same width `ImageGalleryPreview` uses, so
+                      // a video and a screenshot in the same reply line up
+                      // instead of the video spanning the whole pane.
+                      <VideoPreview
+                        key={index}
+                        url={entry.url}
+                        className="max-w-lg"
+                      />
                     ))}
                     {imageMedia.length > 0 ? (
                       <ImageGalleryPreview images={imageMedia} />

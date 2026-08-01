@@ -6,11 +6,11 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  Button,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from "@eva/ui";
 import {
   IconUsers,
@@ -23,7 +23,7 @@ import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 
 type Team = FunctionReturnType<typeof api.teams.list>[number];
 
-/** Team list card with logo display and context-menu set/change/remove. */
+/** Team list card with logo display and a right-click menu for logo and delete. */
 export function TeamCard({
   team,
   onDelete,
@@ -67,25 +67,9 @@ export function TeamCard({
                       />
                       <CardTitle className="text-base">{displayName}</CardTitle>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {canDelete && onDelete ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDelete({ id: team._id, name: displayName });
-                          }}
-                        >
-                          <IconTrash size={14} />
-                        </Button>
-                      ) : null}
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                        {team.userRole}
-                      </span>
-                    </div>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
+                      {team.userRole}
+                    </span>
                   </div>
                 </CardHeader>
               </Card>
@@ -102,6 +86,18 @@ export function TeamCard({
               <IconPhotoOff size={16} />
               Remove logo
             </ContextMenuItem>
+          ) : null}
+          {canDelete && onDelete ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                className="text-destructive"
+                onClick={() => onDelete({ id: team._id, name: displayName })}
+              >
+                <IconTrash size={16} />
+                Delete team
+              </ContextMenuItem>
+            </>
           ) : null}
         </ContextMenuContent>
       </ContextMenu>

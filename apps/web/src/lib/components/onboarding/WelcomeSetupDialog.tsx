@@ -174,7 +174,7 @@ export function WelcomeSetupDialog() {
           <div className="mb-6 flex shrink-0 justify-center">
             <WelcomeSetupStepIndicator currentStep={step} />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar pr-1">
             {step === 1 ? <WelcomeSetupIntroStep /> : null}
             {step === 2 ? (
               <WelcomeSetupRoleStep

@@ -117,7 +117,7 @@ export function BuildRow({
               </div>
             )}
             {build.logs ? (
-              <pre className="max-h-64 overflow-y-auto overflow-x-hidden rounded bg-muted/50 p-2 font-mono text-3xs leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-2xs">
+              <pre className="max-h-64 overflow-y-auto overflow-x-hidden scrollbar rounded bg-muted/50 p-2 font-mono text-3xs leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-2xs">
                 {build.logs}
               </pre>
             ) : (

@@ -180,7 +180,7 @@ function CronGuide() {
         </p>
       </div>
       <div className="p-2 flex flex-col gap-3 sm:flex-row sm:gap-6 sm:p-3">
-        <pre className="overflow-x-auto font-mono text-2xs text-muted-foreground leading-relaxed shrink-0">
+        <pre className="scrollbar scrollbar-x overflow-x-auto font-mono text-2xs text-muted-foreground leading-relaxed shrink-0">
           {"┌─ minute (0-59)\n"}
           {"│ ┌─ hour (0-23)\n"}
           {"│ │ ┌─ day of month (1-31)\n"}

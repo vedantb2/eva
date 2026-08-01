@@ -512,7 +512,7 @@ export function SnapshotsClient({
           {snapshot && builds && builds.length > 0 ? (
             // Rows own their padding so the table spans the card's full width.
             <SettingsSection title="Build History" bodyClassName="p-0">
-              <div className="overflow-x-auto">
+              <div className="scrollbar scrollbar-x overflow-x-auto">
                 <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
                     <tr className="text-left text-muted-foreground">
@@ -799,7 +799,7 @@ function ConfigFilesSection({
 
         {/* Files table */}
         {files && files.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="scrollbar scrollbar-x overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground">

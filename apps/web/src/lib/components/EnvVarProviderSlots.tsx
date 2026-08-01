@@ -260,7 +260,7 @@ export function EnvVarProviderSlots({
                 {configured && matched && !isEditing && (
                   <div className="mt-1.5">
                     {revealed[matched.key] !== undefined && (
-                      <pre className="mb-1 max-h-24 overflow-auto rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
+                      <pre className="mb-1 max-h-24 overflow-auto scrollbar rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
                         {revealed[matched.key]}
                       </pre>
                     )}

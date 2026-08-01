@@ -332,7 +332,7 @@ export function TaskCardMenuItems({
               <IconArrowMoveRight className="size-4" />
               Move to codebase
             </SubTrigger>
-            <SubContent className="max-h-80 overflow-y-auto">
+            <SubContent className="max-h-80 overflow-y-auto scrollbar">
               {moveTargets.map((codebase) => {
                 // Filter out current repo from apps
                 const availableApps = codebase.apps.filter(

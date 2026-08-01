@@ -38,7 +38,7 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="max-h-80 w-64 overflow-y-auto"
+        className="max-h-80 w-64 overflow-y-auto scrollbar"
       >
         {repos.map((repo) => {
           const displayName = repoDisplayLabel(repo);

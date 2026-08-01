@@ -147,7 +147,7 @@ export function ComposerPlusMenu({
             <IconSparkles className="mr-2 size-4" />
             Skills
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto scrollbar">
             {availableSkills.length === 0 ? (
               <DropdownMenuItem disabled>No available skills</DropdownMenuItem>
             ) : (
@@ -179,7 +179,7 @@ export function ComposerPlusMenu({
             <IconDatabase className="mr-2 size-4" />
             Data
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto scrollbar">
             {dataItems.length === 0 ? (
               <DropdownMenuItem disabled>No data to mention</DropdownMenuItem>
             ) : (

@@ -1,5 +1,9 @@
 # Changelog
 
+## Scroll surfaces stop re-wrapping their own text - 2026-08-02
+
+A `.scrollbar` utility had existed for a while, but only 36 of the app's 79 scroll containers used it, so every dropdown, diff panel, file viewer, and error `<pre>` fell back to the thick high-contrast native scrollbar that Windows and Linux draw. It now reaches all of them, and it reserves its own gutter: a panel whose content grows past its box no longer steals width from the text and re-wraps every line at the moment the scrollbar appears. Only `<html>` reserved that space before, which left each inner panel to shift on its own. Horizontal-only scrollers — tab rows, wide tables, code blocks — opt out through a new `.scrollbar-x`, since no vertical scrollbar can appear there and a reserved gutter would be dead space. Two tab rows had been asking for `scrollbar-thin`, a class from a Tailwind plugin this app does not install, and so had been styling nothing at all.
+
 ## The design system gains the layer below its tokens - 2026-08-02
 
 Eva never lacked a design system — it lacked the layer that stops one drifting. Colour and surface tokens existed, but nothing below them did, so every screen improvised: 220 hand-typed font sizes across ten undocumented steps, nine ad-hoc greys standing in for a missing tertiary text tone, two icon libraries at two stroke weights, and thirty hand-rolled copies of the card recipe spanning two radii and five paddings. Four tokens now absorb almost all of it, the icon set is one library at one weight sized by class, and the radius scale is bounded at both ends so the "no corners" and "fully round" theme options can no longer compute a negative radius or flatten every step into the same pill. Twelve font families each carry their own optical corrections rather than sharing Inter's.

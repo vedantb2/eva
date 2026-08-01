@@ -26,7 +26,7 @@ export function TerminalPaneTabs({
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/40 px-2 py-1.5 scrollbar-thin"
+      className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/40 px-2 py-1.5 scrollbar scrollbar-x"
       role="tablist"
     >
       {termIds.map((id, index) => {

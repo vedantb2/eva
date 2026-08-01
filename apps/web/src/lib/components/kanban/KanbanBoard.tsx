@@ -184,7 +184,7 @@ export function KanbanBoard<T extends BaseTask>({
           className={fillHeight ? "min-h-0 min-w-0 flex-1" : "w-full"}
           contentClassName={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
             fillHeight
-              ? "h-full min-h-0 min-w-0 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
+              ? "h-full min-h-0 min-w-0 overflow-x-auto overflow-y-hidden scrollbar scrollbar-x snap-x snap-mandatory sm:snap-none"
               : ""
           }`}
         >

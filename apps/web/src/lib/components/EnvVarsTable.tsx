@@ -493,7 +493,7 @@ export function EnvVarsTable({
             bodyClassName="p-0"
           >
             {showTable ? (
-              <div className="overflow-x-auto">
+              <div className="scrollbar scrollbar-x overflow-x-auto">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>
@@ -532,7 +532,7 @@ export function EnvVarsTable({
               description="Held for the platform only — these are never injected into a sandbox."
               bodyClassName="p-0"
             >
-              <div className="overflow-x-auto">
+              <div className="scrollbar scrollbar-x overflow-x-auto">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>{excludedVars.map(renderRow)}</TableBody>

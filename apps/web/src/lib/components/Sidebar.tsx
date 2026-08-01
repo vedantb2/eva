@@ -589,7 +589,7 @@ export function Sidebar() {
                   </nav>
 
                   {isRepoRoute && repoBasePath && !showGlobalSessionsPanel ? (
-                    <div className="px-3 py-1">
+                    <div className="px-6 py-3">
                       <RepoStatsSummary
                         repo={repo}
                         repoBasePath={repoBasePath}

@@ -6,6 +6,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { optimisticallySubmitSessionTurn } from "@/lib/components/chat/chatOptimisticUpdates";
 
 /**
  * Sends an annotation as chat display text + rich agent prompt.
@@ -33,7 +34,9 @@ export function useSessionAnnotationSend(
     });
   const { resolveId: resolveAccountId } = useProviderAccounts();
 
-  const submitTurn = useMutation(api.sessionWorkflow.submitTurn);
+  const submitTurn = useMutation(
+    api.sessionWorkflow.submitTurn,
+  ).withOptimisticUpdate(optimisticallySubmitSessionTurn);
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);

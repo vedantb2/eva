@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
+import { z } from "zod";
 import { CursorAcpEventAdapter } from "../providers/cursorAcpEvents.js";
+import { cursorAcpResultEvent } from "../providers/cursorAcpResult.js";
 import {
   autoApproveCursorPermission,
   cursorGeneratedImageToCanonical,
@@ -38,6 +40,105 @@ test("Cursor ACP ignores load replay and foreign-session updates", () => {
     }),
   ).toEqual([]);
   expect(adapter.getFinalText()).toBe("");
+});
+
+test("Cursor ACP retains usage updates without emitting chat events", () => {
+  const adapter = new CursorAcpEventAdapter();
+  adapter.setSession("session-current");
+  adapter.beginReplay();
+  expect(
+    adapter.handle({
+      sessionId: "session-current",
+      update: {
+        sessionUpdate: "usage_update",
+        used: 800,
+        size: 200_000,
+        cost: { amount: 0.25, currency: "USD" },
+      },
+    }),
+  ).toEqual([]);
+  adapter.endReplay();
+  expect(adapter.getContextUsage()).toEqual({
+    sessionUpdate: "usage_update",
+    used: 800,
+    size: 200_000,
+    cost: { amount: 0.25, currency: "USD" },
+  });
+});
+
+test("Cursor ACP accepts initial usage before session creation resolves", () => {
+  const adapter = new CursorAcpEventAdapter();
+  expect(
+    adapter.handle({
+      sessionId: "session-new",
+      update: {
+        sessionUpdate: "usage_update",
+        used: 100,
+        size: 200_000,
+      },
+    }),
+  ).toEqual([]);
+  adapter.setSession("session-new");
+  expect(adapter.getContextUsage()).toEqual({
+    sessionUpdate: "usage_update",
+    used: 100,
+    size: 200_000,
+  });
+});
+
+test("Cursor ACP result events preserve token and context accounting", () => {
+  const resultEvent = cursorAcpResultEvent({
+    transport: "acp-v1",
+    sessionId: "session-current",
+    stopReason: "end_turn",
+    result: "done",
+    events: [],
+    durationMs: 500,
+    usage: {
+      totalTokens: 1550,
+      inputTokens: 1000,
+      outputTokens: 200,
+      thoughtTokens: 50,
+      cachedReadTokens: 250,
+      cachedWriteTokens: 50,
+    },
+    contextUsage: {
+      sessionUpdate: "usage_update",
+      used: 800,
+      size: 200_000,
+      cost: { amount: 0.25, currency: "USD" },
+    },
+    promptSubmitted: true,
+    cancellationAcknowledged: false,
+    childExitCode: 0,
+    childSignal: null,
+    stderrTail: "",
+  });
+  const raw = z
+    .object({
+      provider: z.string(),
+      usage: z.object({
+        input_tokens: z.number(),
+        output_tokens: z.number(),
+        cache_read_input_tokens: z.number(),
+        cache_creation_input_tokens: z.number(),
+      }),
+      context_used_tokens: z.number(),
+      context_window_size: z.number(),
+      total_cost_usd: z.number(),
+    })
+    .parse(JSON.parse(resultEvent.rawResultEvent));
+
+  expect(raw.provider).toBe("cursor");
+  expect(raw.usage).toEqual({
+    input_tokens: 1000,
+    output_tokens: 250,
+    cache_read_input_tokens: 250,
+    cache_creation_input_tokens: 50,
+  });
+  expect(raw.context_used_tokens).toBe(800);
+  expect(raw.context_window_size).toBe(200_000);
+  expect(raw.total_cost_usd).toBe(0.25);
 });
 
 test("Cursor ACP assembles current agent messages without thought leakage", () => {

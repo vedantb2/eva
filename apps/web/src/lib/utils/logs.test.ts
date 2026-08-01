@@ -26,7 +26,39 @@ test("parseResultEvent keeps input vs cache token categories separate", () => {
   expect(event.cacheCreationTokens).toBe(200);
   expect(event.outputTokens).toBe(50);
   expect(event.model).toBe("claude-sonnet");
+  expect(event.usageAvailable).toBe(true);
+  expect(event.usageScope).toBe("turn");
   expect(getTotalInputTokens(event)).toBe(1300);
+});
+
+test("parseResultEvent exposes Cursor ACP usage and context metadata", () => {
+  const event = parseResultEvent(
+    JSON.stringify({
+      provider: "cursor",
+      duration_ms: 500,
+      usage_available: true,
+      usage_scope: "session",
+      acp_session_id: "cursor-session",
+      total_tokens: 1500,
+      context_used_tokens: 800,
+      context_window_size: 200_000,
+      usage: {
+        input_tokens: 1000,
+        output_tokens: 200,
+        cache_read_input_tokens: 250,
+        cache_creation_input_tokens: 50,
+      },
+      modelUsage: { "cursor-model": {} },
+    }),
+  );
+
+  expect(event.provider).toBe("cursor");
+  expect(event.sessionId).toBe("cursor-session");
+  expect(event.usageAvailable).toBe(true);
+  expect(event.usageScope).toBe("session");
+  expect(event.reportedTotalTokens).toBe(1500);
+  expect(event.contextUsedTokens).toBe(800);
+  expect(event.contextWindowSize).toBe(200_000);
 });
 
 test("parseResultEvent returns empty defaults for invalid JSON", () => {

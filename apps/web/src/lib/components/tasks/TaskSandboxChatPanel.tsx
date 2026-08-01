@@ -15,6 +15,7 @@ import {
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatRuntime } from "@/lib/components/chat/useChatRuntime";
+import { optimisticallySubmitTaskTurn } from "@/lib/components/chat/chatOptimisticUpdates";
 import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
@@ -43,7 +44,9 @@ export function TaskSandboxChatPanel({
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const task = useQuery(api.agentTasks.get, { id: taskId });
-  const submitTurn = useMutation(api.agentTaskChatWorkflow.submitTurn);
+  const submitTurn = useMutation(
+    api.agentTaskChatWorkflow.submitTurn,
+  ).withOptimisticUpdate(optimisticallySubmitTaskTurn);
   const cancelExecution = useMutation(
     api.agentTaskChatWorkflow.cancelExecution,
   );
@@ -162,10 +165,6 @@ export function TaskSandboxChatPanel({
       String(executionTraits.use1mContext ?? ""),
       providerAccountId ?? "",
     ].join("|"),
-    optimisticMetadata: {
-      model,
-      reasoningLevel: displayTraits.effortLevel,
-    },
     submitAction: ({ turnId, content, attachmentStorageIds }) =>
       submitTurn({
         taskId,
@@ -214,10 +213,11 @@ export function TaskSandboxChatPanel({
         conversationId={taskId}
         messages={runtime.messages}
         queuedMessages={runtime.queuedMessages}
+        pendingQueuedMessages={runtime.pendingQueuedMessages}
         activeTurn={task?.activeTurn}
         streaming={runtime.streaming ?? undefined}
         blockingQuestion={runtime.activeQuestion ?? undefined}
-        optimisticTurn={runtime.optimisticTurn}
+        localTurnId={runtime.localTurnId}
         history={{
           firstItemIndex: runtime.firstItemIndex,
           canLoadOlder: runtime.canLoadOlder,

@@ -181,7 +181,6 @@ export function ChatPanel({
     reasoningLevel: displayTraits.effortLevel,
     providerAccountId,
     resolveAccountId,
-    accounts,
     activeTurn: session?.activeTurn,
     legacyBusy:
       session?.activeTurn === undefined &&
@@ -340,10 +339,11 @@ export function ChatPanel({
         conversationId={sessionId}
         messages={runtime.messages}
         queuedMessages={runtime.queuedMessages}
+        pendingQueuedMessages={runtime.pendingQueuedMessages}
         activeTurn={session?.activeTurn}
         streaming={runtime.streaming ?? undefined}
         blockingQuestion={runtime.activeQuestion ?? undefined}
-        optimisticTurn={runtime.optimisticTurn}
+        localTurnId={runtime.localTurnId}
         history={{
           firstItemIndex: runtime.firstItemIndex,
           canLoadOlder: runtime.canLoadOlder,

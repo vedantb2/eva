@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -15,10 +16,7 @@ import {
 
 const parentIdValidator = messageFields.parentId;
 
-const messageValidator = v.object({
-  _id: v.id("messages"),
-  _creationTime: v.number(),
-  ...messageFields,
+const resolvedMessageFields = {
   // Resolved agent proof media (recordings/screenshots), in capture order.
   media: v.optional(
     v.array(
@@ -40,6 +38,21 @@ const messageValidator = v.object({
       }),
     ),
   ),
+};
+
+const messageValidator = v.object({
+  _id: v.id("messages"),
+  _creationTime: v.number(),
+  ...messageFields,
+  ...resolvedMessageFields,
+});
+
+const pendingMessageValidator = v.object({
+  _id: v.string(),
+  _creationTime: v.number(),
+  ...messageFields,
+  ...resolvedMessageFields,
+  placement: v.union(v.literal("active"), v.literal("queued")),
 });
 
 /** Temporary upload URL for a composer image attachment (client POSTs the file, then sends the message). */
@@ -116,6 +129,17 @@ export const listByParentPaginated = authQuery({
       page: await resolveMessagesUrls(ctx, result.page),
     };
   },
+});
+
+/**
+ * Client-only cache anchor for pending submissions. The server is deliberately
+ * empty: submit mutations populate this query through withOptimisticUpdate,
+ * then Convex reconciles it with the canonical messages or queue transaction.
+ */
+export const listPendingByParent = authQuery({
+  args: { parentId: parentIdValidator },
+  returns: v.array(pendingMessageValidator),
+  handler: (): Array<Infer<typeof pendingMessageValidator>> => [],
 });
 
 /** Narrow sandbox-panel read: the newest assistant turn containing designs. */

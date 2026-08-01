@@ -154,6 +154,7 @@ export function NewSessionComposer() {
           repoBasePath={basePath}
           conversationId={`new-session-${repo._id}`}
           queuedMessages={[]}
+          pendingQueuedMessages={[]}
           messageHistory={[]}
           isExecuting={false}
           isInputDisabled={isSubmitting}

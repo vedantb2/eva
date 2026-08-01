@@ -1,7 +1,5 @@
 import {
   ConversationEmptyState,
-  Message as AIMessage,
-  MessageContent,
   type ModelOption,
   type ModelAccount,
 } from "@eva/ui";
@@ -27,11 +25,11 @@ import {
   isOtherUserChatMessage,
   parsePendingQuestion,
   type ChatBodyMessage,
+  type ChatBodyPendingMessage,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
 import { ChatTimelineProjector, type ChatTimelineRow } from "./chatTimeline";
-import type { ChatActiveTurn, OptimisticChatTurn } from "./useChatRuntime";
-import { ReviewCommentMessage } from "./ReviewCommentMessage";
+import type { ChatActiveTurn } from "./useChatRuntime";
 
 export type { ChatBodyMessage };
 
@@ -47,10 +45,11 @@ interface ChatBodyProps {
   conversationId: string;
   messages: ChatBodyMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
+  pendingQueuedMessages: ChatBodyPendingMessage[];
   activeTurn?: ChatActiveTurn;
   streaming?: StreamingState;
   blockingQuestion?: ActiveQuestion;
-  optimisticTurn?: OptimisticChatTurn | null;
+  localTurnId?: string;
   history: {
     firstItemIndex: number;
     canLoadOlder: boolean;
@@ -96,43 +95,17 @@ interface ChatBodyProps {
   attachmentMode?: ChatAttachmentMode;
 }
 
-function OptimisticMessage({
-  row,
-  repoBasePath,
-}: {
-  row: Extract<ChatTimelineRow, { kind: "optimisticUser" }>;
-  repoBasePath: string;
-}) {
-  return (
-    <div data-message-id={row.id} aria-busy="true">
-      <AIMessage from="user">
-        <MessageContent className="group rounded-surface bg-secondary px-4 py-3 text-foreground">
-          <ReviewCommentMessage
-            text={row.turn.content}
-            repoBasePath={repoBasePath}
-          />
-          {row.turn.attachmentStorageIds?.length ? (
-            <div className="mt-2 text-xs text-muted-foreground">
-              {row.turn.attachmentStorageIds.length} attachment
-              {row.turn.attachmentStorageIds.length === 1 ? "" : "s"}
-            </div>
-          ) : null}
-        </MessageContent>
-      </AIMessage>
-    </div>
-  );
-}
-
 export function ChatBody({
   repoId,
   repoBasePath,
   conversationId,
   messages,
   queuedMessages,
+  pendingQueuedMessages,
   activeTurn,
   streaming,
   blockingQuestion,
-  optimisticTurn,
+  localTurnId,
   history,
   onAnswerBlockingQuestion,
   availability,
@@ -172,7 +145,6 @@ export function ChatBody({
     streaming,
     activeQuestion: blockingQuestion,
     activeTurn,
-    optimisticTurn,
   });
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
@@ -208,9 +180,6 @@ export function ChatBody({
   }
 
   const renderRow = (row: ChatTimelineRow) => {
-    if (row.kind !== "message") {
-      return <OptimisticMessage row={row} repoBasePath={repoBasePath} />;
-    }
     const isOtherUser = isOtherUserChatMessage(row.message, currentUserId);
     const senderFirstName =
       isOtherUser && row.message.userId
@@ -259,7 +228,7 @@ export function ChatBody({
         canLoadOlder={canLoadOlder}
         isLoadingOlder={isLoadingOlder}
         onLoadOlder={onLoadOlder}
-        localTurnId={optimisticTurn?.turnId}
+        localTurnId={localTurnId}
         emptyState={
           emptyStateOverride ?? (
             <ConversationEmptyState title={emptyStateTitle} />
@@ -274,7 +243,7 @@ export function ChatBody({
           repoBasePath={repoBasePath}
           conversationId={conversationId}
           queuedMessages={queuedMessages}
-          optimisticTurn={optimisticTurn}
+          pendingQueuedMessages={pendingQueuedMessages}
           messageHistory={timeline.messageHistory}
           isExecuting={isExecuting}
           isInputDisabled={isInputDisabled}

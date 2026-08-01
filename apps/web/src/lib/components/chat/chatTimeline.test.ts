@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { ChatTimelineProjector, type TimelineMessage } from "./chatTimeline";
-import type { OptimisticChatTurn } from "./useChatRuntime";
 
 function message(
   id: string,
@@ -105,17 +104,10 @@ describe("ChatTimelineProjector", () => {
     expect(staleAssistant.question).toBeUndefined();
   });
 
-  test("uses logical turn keys before and after optimistic reconciliation", () => {
-    const turn: OptimisticChatTurn = {
-      turnId: "turn-1",
-      placement: "active",
-      content: "Build it",
-      submittedAt: 1,
-    };
+  test("keeps the logical key when Convex reconciles an optimistic message", () => {
     const projector = new ChatTimelineProjector<TimelineMessage>();
     const optimistic = projector.project({
-      messages: [],
-      optimisticTurn: turn,
+      messages: [message("turn:turn-1:user", "user", "Build it", "turn-1")],
     });
     expect(optimistic.rows.map((row) => row.id)).toEqual(["turn:turn-1:user"]);
 
@@ -124,7 +116,6 @@ describe("ChatTimelineProjector", () => {
         message("m1", "user", "Build it", "turn-1"),
         message("m2", "assistant", "", "turn-1"),
       ],
-      optimisticTurn: turn,
     });
     expect(canonical.rows.map((row) => row.id)).toEqual([
       "turn:turn-1:user",

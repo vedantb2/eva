@@ -132,7 +132,6 @@ export const ChatMessage = memo(function ChatMessage({
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
-        key={message._id}
         content={message.content ?? ""}
         errorDetail={message.errorDetail}
         timestamp={message.timestamp}
@@ -166,7 +165,6 @@ export const ChatMessage = memo(function ChatMessage({
   return (
     <ChatMessageContextMenu content={copySource}>
       <m.div
-        key={message._id}
         data-message-id={message._id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

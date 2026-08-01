@@ -3,7 +3,7 @@
 import { api, type Doc, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { usePaginatedChatMessages } from "./usePaginatedChatMessages";
@@ -19,18 +19,6 @@ type SubmitTurnResult =
 
 export type ChatActiveTurn = NonNullable<Doc<"sessions">["activeTurn"]>;
 
-export interface OptimisticChatTurn {
-  turnId: string;
-  placement: "active" | "queued";
-  content: string;
-  submittedAt: number;
-  attachmentStorageIds?: Id<"_storage">[];
-  model?: Doc<"messages">["model"];
-  reasoningLevel?: Doc<"messages">["reasoningLevel"];
-  mode?: Doc<"messages">["mode"];
-  credentialSourceLabel?: string;
-}
-
 interface SubmitActionArgs {
   turnId: string;
   content: string;
@@ -45,10 +33,6 @@ interface UseChatRuntimeArgs {
   /** Compatibility-only display state for a pre-v2 workflow still draining. */
   legacyBusy?: boolean;
   submissionKey: string;
-  optimisticMetadata?: Pick<
-    OptimisticChatTurn,
-    "model" | "reasoningLevel" | "mode" | "credentialSourceLabel"
-  >;
   submitAction: (args: SubmitActionArgs) => Promise<SubmitTurnResult>;
   cancelAction: (activeTurn: ChatActiveTurn | undefined) => Promise<void>;
 }
@@ -73,10 +57,6 @@ function sameAttachments(
   return true;
 }
 
-function isQueuedResult(result: SubmitTurnResult): boolean {
-  return "queuedMessageId" in result;
-}
-
 /** Shared reactive runtime for session, task, and project sandbox chats. */
 export function useChatRuntime({
   parentId,
@@ -85,13 +65,14 @@ export function useChatRuntime({
   activeTurn,
   legacyBusy = false,
   submissionKey,
-  optimisticMetadata,
   submitAction,
   cancelAction,
 }: UseChatRuntimeArgs) {
   const pagination = usePaginatedChatMessages(parentId);
   const queuedMessages =
     useQuery(api.queuedMessages.listByParent, { parentId }) ?? [];
+  const pendingMessages =
+    useQuery(api.messages.listPendingByParent, { parentId }) ?? [];
   const streaming = useQuery(api.streaming.get, {
     entityId: streamingEntityId,
   });
@@ -99,18 +80,23 @@ export function useChatRuntime({
     entityId: questionEntityId,
   });
   const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const [optimisticTurn, setOptimisticTurn] =
-    useState<OptimisticChatTurn | null>(null);
   const retrySubmissionRef = useRef<RetrySubmission | null>(null);
 
-  const visibleOptimisticTurn =
-    optimisticTurn !== null &&
-    !pagination.messages.some(
-      (message) => message.turnId === optimisticTurn.turnId,
-    ) &&
-    !queuedMessages.some((message) => message.turnId === optimisticTurn.turnId)
-      ? optimisticTurn
-      : null;
+  const canonicalTurnIds = new Set(
+    [...pagination.messages, ...queuedMessages].flatMap((message) =>
+      message.turnId ? [message.turnId] : [],
+    ),
+  );
+  const visiblePendingMessages = pendingMessages.filter(
+    (message) =>
+      message.turnId !== undefined && !canonicalTurnIds.has(message.turnId),
+  );
+  const activePendingMessages = visiblePendingMessages.filter(
+    (message) => message.placement === "active",
+  );
+  const pendingQueuedMessages = visiblePendingMessages.filter(
+    (message) => message.placement === "queued",
+  );
 
   const handleSend = async (
     content: string,
@@ -123,8 +109,6 @@ export function useChatRuntime({
       retry.submissionKey === submissionKey &&
       sameAttachments(retry.attachmentStorageIds, attachmentStorageIds);
     const turnId = canReuseTurn ? retry.turnId : crypto.randomUUID();
-    const placement =
-      activeTurn !== undefined || legacyBusy ? "queued" : "active";
     const submission: RetrySubmission = {
       turnId,
       content,
@@ -132,38 +116,20 @@ export function useChatRuntime({
       attachmentStorageIds,
     };
     retrySubmissionRef.current = submission;
-    setOptimisticTurn({
-      turnId,
-      placement,
-      content,
-      submittedAt: Date.now(),
-      attachmentStorageIds,
-      ...optimisticMetadata,
-    });
 
-    let result: Awaited<ReturnType<typeof submitAction>>;
     try {
-      result = await submitAction({
+      await submitAction({
         turnId,
         content,
         attachmentStorageIds,
       });
     } catch (error) {
-      setOptimisticTurn((current) =>
-        current?.turnId === turnId ? null : current,
-      );
       toast.error(
         error instanceof Error ? error.message : "Message could not be sent.",
       );
       throw error;
     }
     retrySubmissionRef.current = null;
-    const authoritativePlacement = isQueuedResult(result) ? "queued" : "active";
-    setOptimisticTurn((current) =>
-      current?.turnId === turnId
-        ? { ...current, placement: authoritativePlacement }
-        : current,
-    );
   };
 
   const handleCancel = async () => {
@@ -198,10 +164,13 @@ export function useChatRuntime({
 
   return {
     ...pagination,
+    messages: [...pagination.messages, ...activePendingMessages],
     queuedMessages,
+    pendingQueuedMessages,
     streaming,
     activeQuestion,
-    optimisticTurn: visibleOptimisticTurn,
+    localTurnId:
+      activePendingMessages[activePendingMessages.length - 1]?.turnId,
     isExecuting: activeTurn !== undefined || legacyBusy,
     handleSend,
     handleCancel,

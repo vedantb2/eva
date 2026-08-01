@@ -5,6 +5,7 @@ import type {
   ToolCall,
   ToolCallContent,
   ToolCallUpdate,
+  UsageUpdate,
 } from "@agentclientprotocol/sdk";
 import type {
   CanonicalEvent,
@@ -108,8 +109,10 @@ export class CursorAcpEventAdapter {
   private readonly terminalToolIds = new Set<string>();
   private readonly emittedEvents: CanonicalEvent[] = [];
   private replayNotificationCount = 0;
+  private contextUsage: UsageUpdate | null = null;
 
   setSession(sessionId: string): void {
+    if (sessionId !== this.activeSessionId) this.contextUsage = null;
     this.activeSessionId = sessionId;
   }
 
@@ -151,6 +154,10 @@ export class CursorAcpEventAdapter {
     return [...this.emittedEvents];
   }
 
+  getContextUsage(): UsageUpdate | null {
+    return this.contextUsage;
+  }
+
   record(events: CanonicalEvent[]): CanonicalEvent[] {
     if (this.replaying || !this.turnActive) return [];
     this.emittedEvents.push(...events);
@@ -171,7 +178,19 @@ export class CursorAcpEventAdapter {
   }
 
   handle(notification: SessionNotification): CanonicalEvent[] {
+    if (
+      !this.activeSessionId &&
+      notification.update.sessionUpdate === "usage_update"
+    ) {
+      // An agent may publish initial context state before session/new resolves.
+      this.activeSessionId = notification.sessionId;
+    }
     if (notification.sessionId !== this.activeSessionId) return [];
+    if (notification.update.sessionUpdate === "usage_update") {
+      this.contextUsage = notification.update;
+      if (this.replaying) this.replayNotificationCount += 1;
+      return [];
+    }
     if (this.replaying) {
       this.replayNotificationCount += 1;
       return [];

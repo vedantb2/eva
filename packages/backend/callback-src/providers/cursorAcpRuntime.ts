@@ -532,6 +532,8 @@ export async function withCursorAcpSession<T>(
               result: adapter.getFinalText(),
               events: adapter.getEvents(),
               durationMs: Date.now() - promptStartedAt,
+              usage: response.usage ?? null,
+              contextUsage: adapter.getContextUsage(),
               promptSubmitted: true,
               cancellationAcknowledged: stopReason === "cancelled",
               childExitCode,

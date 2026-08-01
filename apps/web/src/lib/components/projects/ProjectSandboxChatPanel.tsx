@@ -16,6 +16,7 @@ import {
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatRuntime } from "@/lib/components/chat/useChatRuntime";
+import { optimisticallySubmitProjectTurn } from "@/lib/components/chat/chatOptimisticUpdates";
 import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
@@ -44,7 +45,9 @@ export function ProjectSandboxChatPanel({
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
-  const submitTurn = useMutation(api.projectChatWorkflow.submitTurn);
+  const submitTurn = useMutation(
+    api.projectChatWorkflow.submitTurn,
+  ).withOptimisticUpdate(optimisticallySubmitProjectTurn);
   const cancelExecution = useMutation(api.projectChatWorkflow.cancelExecution);
   const requestStopBackgroundAgent = useMutation(
     api.projectChatWorkflow.requestStopBackgroundAgent,
@@ -195,10 +198,6 @@ export function ProjectSandboxChatPanel({
       String(executionTraits.use1mContext ?? ""),
       providerAccountId ?? "",
     ].join("|"),
-    optimisticMetadata: {
-      model,
-      reasoningLevel: displayTraits.effortLevel,
-    },
     submitAction: ({ turnId, content, attachmentStorageIds }) =>
       submitTurn({
         projectId,
@@ -247,10 +246,11 @@ export function ProjectSandboxChatPanel({
         conversationId={projectId}
         messages={runtime.messages}
         queuedMessages={runtime.queuedMessages}
+        pendingQueuedMessages={runtime.pendingQueuedMessages}
         activeTurn={project?.activeTurn}
         streaming={runtime.streaming ?? undefined}
         blockingQuestion={runtime.activeQuestion ?? undefined}
-        optimisticTurn={runtime.optimisticTurn}
+        localTurnId={runtime.localTurnId}
         history={{
           firstItemIndex: runtime.firstItemIndex,
           canLoadOlder: runtime.canLoadOlder,

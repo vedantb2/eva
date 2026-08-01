@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import type { ChatBodyMessage } from "./chatBodyUtils";
-import type { ChatActiveTurn, OptimisticChatTurn } from "./useChatRuntime";
+import type { ChatActiveTurn } from "./useChatRuntime";
 
 type ConvexStreamingState = NonNullable<
   FunctionReturnType<typeof api.streaming.get>
@@ -56,16 +56,9 @@ export interface CanonicalTimelineRow<
   isLast: boolean;
 }
 
-export interface OptimisticUserTimelineRow {
-  kind: "optimisticUser";
-  id: string;
-  turn: OptimisticChatTurn;
-  isLast: true;
-}
-
 export type ChatTimelineRow<
   TMessage extends TimelineMessage = ChatBodyMessage,
-> = CanonicalTimelineRow<TMessage> | OptimisticUserTimelineRow;
+> = CanonicalTimelineRow<TMessage>;
 
 export interface ChatTimelineProjection<
   TMessage extends TimelineMessage = ChatBodyMessage,
@@ -82,7 +75,6 @@ interface ProjectTimelineArgs<TMessage extends TimelineMessage> {
   streaming?: TimelineStreamingState;
   activeQuestion?: TimelineActiveQuestion;
   activeTurn?: TimelineActiveTurn;
-  optimisticTurn?: OptimisticChatTurn | null;
 }
 
 function logicalMessageId(message: TimelineMessage): string {
@@ -125,20 +117,13 @@ function sameRow<TMessage extends TimelineMessage>(
   left: ChatTimelineRow<TMessage>,
   right: ChatTimelineRow<TMessage>,
 ): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind === "message" && right.kind === "message") {
-    return (
-      left.message === right.message &&
-      left.precedingUser === right.precedingUser &&
-      left.stream === right.stream &&
-      left.question === right.question &&
-      left.isLast === right.isLast
-    );
-  }
-  if (left.kind === "optimisticUser" && right.kind === "optimisticUser") {
-    return left.turn === right.turn;
-  }
-  return false;
+  return (
+    left.message === right.message &&
+    left.precedingUser === right.precedingUser &&
+    left.stream === right.stream &&
+    left.question === right.question &&
+    left.isLast === right.isLast
+  );
 }
 
 /**
@@ -156,7 +141,6 @@ export class ChatTimelineProjector<
     streaming,
     activeQuestion,
     activeTurn,
-    optimisticTurn,
   }: ProjectTimelineArgs<TMessage>): ChatTimelineProjection<TMessage> {
     const nextRows: ChatTimelineRow<TMessage>[] = [];
     const nextRowCache = new Map<string, ChatTimelineRow<TMessage>>();
@@ -167,14 +151,10 @@ export class ChatTimelineProjector<
     let legacyPrecedingUser: TMessage | undefined;
     let legacyAnchor: ChatJumpAnchor | undefined;
     let questionAttached = false;
-    let optimisticCanonicalSeen = false;
 
     for (let index = 0; index < messages.length; index++) {
       const message = messages[index];
       if (!message) continue;
-      if (optimisticTurn?.turnId === message.turnId) {
-        optimisticCanonicalSeen = true;
-      }
 
       let precedingUser: TMessage | undefined;
       if (!message.isSystemAlert && message.role === "user") {
@@ -227,39 +207,6 @@ export class ChatTimelineProjector<
         previous && sameRow(previous, candidate) ? previous : candidate;
       nextRows.push(row);
       nextRowCache.set(row.id, row);
-    }
-
-    if (optimisticTurn?.placement === "active" && !optimisticCanonicalSeen) {
-      const canonicalLast = nextRows[nextRows.length - 1];
-      if (canonicalLast?.kind === "message" && canonicalLast.isLast) {
-        const candidate = { ...canonicalLast, isLast: false };
-        const previous = this.previousRows.get(candidate.id);
-        const row =
-          previous && sameRow(previous, candidate) ? previous : candidate;
-        nextRows[nextRows.length - 1] = row;
-        nextRowCache.set(row.id, row);
-      }
-      const userCandidate: OptimisticUserTimelineRow = {
-        kind: "optimisticUser",
-        id: `turn:${optimisticTurn.turnId}:user`,
-        turn: optimisticTurn,
-        isLast: true,
-      };
-      const previous = this.previousRows.get(userCandidate.id);
-      const row =
-        previous && sameRow(previous, userCandidate) ? previous : userCandidate;
-      nextRows.push(row);
-      nextRowCache.set(row.id, row);
-      chronologicalHistory.push(
-        tokenizedToEditable(
-          stripReviewCommentBlocks(optimisticTurn.content).text,
-        ).displayText,
-      );
-      jumpAnchors.push({
-        id: userCandidate.id,
-        rowIndex: nextRows.length - 1,
-        content: optimisticTurn.content,
-      });
     }
 
     this.previousRows = nextRowCache;

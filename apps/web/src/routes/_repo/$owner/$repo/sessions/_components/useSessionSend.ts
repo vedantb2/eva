@@ -1,10 +1,8 @@
 import { api } from "@eva/backend";
 import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
-import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
 
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import {
   appendReviewCommentsToPrompt,
   stripReviewCommentBlocks,
@@ -14,6 +12,7 @@ import {
   useChatRuntime,
   type ChatActiveTurn,
 } from "@/lib/components/chat/useChatRuntime";
+import { optimisticallySubmitSessionTurn } from "@/lib/components/chat/chatOptimisticUpdates";
 
 interface UseSessionSendParams {
   sessionId: Id<"sessions">;
@@ -26,7 +25,6 @@ interface UseSessionSendParams {
   resolveAccountId: (
     id: string | null,
   ) => Id<"userProviderAccounts"> | undefined;
-  accounts: ReadonlyArray<ModelAccount>;
   activeTurn?: ChatActiveTurn;
   legacyBusy: boolean;
   personaId?: Id<"designPersonas">;
@@ -41,14 +39,15 @@ export function useSessionSend({
   reasoningLevel,
   providerAccountId,
   resolveAccountId,
-  accounts,
   activeTurn,
   legacyBusy,
   personaId,
   numDesigns,
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
-  const submitTurn = useMutation(api.sessionWorkflow.submitTurn);
+  const submitTurn = useMutation(
+    api.sessionWorkflow.submitTurn,
+  ).withOptimisticUpdate(optimisticallySubmitSessionTurn);
   const cancelExecution = useMutation(api.sessionWorkflow.cancelExecution);
   const accountId = resolveAccountId(providerAccountId);
   const effectiveReasoningLevel =
@@ -70,12 +69,6 @@ export function useSessionSend({
       personaId ?? "",
       String(numDesigns ?? ""),
     ].join("|"),
-    optimisticMetadata: {
-      mode,
-      model,
-      reasoningLevel: effectiveReasoningLevel,
-      credentialSourceLabel: resolveCredentialSourceLabel(accountId, accounts),
-    },
     submitAction: ({ turnId, content, attachmentStorageIds }) =>
       submitTurn({
         sessionId,

@@ -1,5 +1,13 @@
 # Changelog
 
+## Cursor context accounting is ACP-native and honest when unavailable - 2026-08-01
+
+Cursor sessions previously wrote result logs without token, cache, cost, model, or context-window fields, so the session header silently presented incomplete historical totals as current context usage. Eva now consumes both standardized ACP reporting paths: prompt-response token totals and `usage_update` context/cost notifications. Cursor's cumulative per-session reports are de-duplicated during log aggregation, authoritative context sizes override model guesses, and the header explicitly says when Cursor has not reported context instead of showing a misleading percentage. This is forward-compatible with Cursor emitting the optional ACP fields without inventing token estimates while its current CLI omits them.
+
+## Chat sends reconcile through Convex without changing bubble layout - 2026-08-01
+
+Pending session, task, project, and preview-annotation sends previously lived in a React-only object that rendered a reduced bubble, so the canonical Convex message later remounted with its avatar and metadata and visibly shifted the timeline. Submit mutations now use Convex `withOptimisticUpdate` against a typed pending-turn cache view, active and queued projections share the same turn identity as the server transaction, and active pending rows render through the normal message component with the authenticated user from the first frame. Convex now owns optimistic rollback and reconciliation; the bespoke React optimistic state and special-case timeline row are gone.
+
 ## Grok 4.5 is one model; effort lives on the reasoning control - 2026-08-01
 
 The model picker still offered Grok 4.5 Low/Medium/High even after Cursor moved effort onto a separate ACP trait. Those variants are gone from the selector in favor of a single `cursor:grok-4.5`, with low/medium/high chosen from the reasoning control. Stored variant ids keep loading and normalize to the base model.

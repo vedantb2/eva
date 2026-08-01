@@ -53,9 +53,11 @@ import {
   QueuedMessagesPanel,
   type QueuedMessageItem,
 } from "@/lib/components/QueuedMessagesPanel";
-import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
+import type {
+  ChatBodyPendingMessage,
+  ChatBodyQueuedMessage,
+} from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
-import type { OptimisticChatTurn } from "./useChatRuntime";
 import { ComposerCapabilityControls } from "./ComposerCapabilityControls";
 
 /** localStorage-backed draft seed (no Convex row yet — e.g. new session). */
@@ -71,7 +73,7 @@ interface ChatComposerProps {
   repoBasePath: string;
   conversationId: string;
   queuedMessages: ChatBodyQueuedMessage[];
-  optimisticTurn?: OptimisticChatTurn | null;
+  pendingQueuedMessages: ChatBodyPendingMessage[];
   messageHistory: string[];
   isExecuting: boolean;
   isInputDisabled: boolean;
@@ -115,7 +117,7 @@ export function ChatComposer({
   repoBasePath,
   conversationId,
   queuedMessages,
-  optimisticTurn,
+  pendingQueuedMessages,
   messageHistory,
   isExecuting,
   isInputDisabled,
@@ -188,16 +190,13 @@ export function ChatComposer({
       reasoningLevel: message.reasoningLevel,
     }),
   );
-  const hasCanonicalOptimisticTurn = queuedMessages.some(
-    (message) => message.turnId === optimisticTurn?.turnId,
-  );
-  if (optimisticTurn?.placement === "queued" && !hasCanonicalOptimisticTurn) {
+  for (const pendingMessage of pendingQueuedMessages) {
     queuedMessageItems.push({
-      id: `turn:${optimisticTurn.turnId}:queue`,
+      id: `turn:${pendingMessage.turnId}:queue`,
       serverId: undefined,
-      content: optimisticTurn.content,
-      model: optimisticTurn.model,
-      reasoningLevel: optimisticTurn.reasoningLevel,
+      content: pendingMessage.content,
+      model: pendingMessage.model,
+      reasoningLevel: pendingMessage.reasoningLevel,
     });
   }
 

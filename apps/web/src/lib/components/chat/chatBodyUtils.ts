@@ -11,7 +11,13 @@ type PaginatedMessages = FunctionReturnType<
   typeof api.messages.listByParentPaginated
 >;
 
-export type ChatBodyMessage = PaginatedMessages["page"][number];
+export type ChatBodyPendingMessage = FunctionReturnType<
+  typeof api.messages.listPendingByParent
+>[number];
+
+export type ChatBodyMessage =
+  | PaginatedMessages["page"][number]
+  | ChatBodyPendingMessage;
 
 export type ChatBodyQueuedMessage = FunctionReturnType<
   typeof api.queuedMessages.listByParent

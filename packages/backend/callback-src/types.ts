@@ -1,3 +1,5 @@
+import type { Usage, UsageUpdate } from "@agentclientprotocol/sdk";
+
 /** JSON-compatible value for Convex HTTP payloads and stream events. */
 export type JsonValue =
   | string
@@ -133,6 +135,10 @@ export type CursorAcpAttemptResult = {
   result: string;
   events: CanonicalEvent[];
   durationMs: number;
+  /** ACP token totals. Cursor currently omits these, so absence is explicit. */
+  usage: Usage | null;
+  /** Last ACP-reported context occupancy/cost for this session. */
+  contextUsage: UsageUpdate | null;
   promptSubmitted: boolean;
   cancellationAcknowledged: boolean;
   childExitCode: number | null;

@@ -1,5 +1,9 @@
 # Changelog
 
+## New notifications chime, background tabs included - 2026-08-01
+
+A backgrounded tab gave no sign that anything had arrived beyond the favicon count, which only helps if you happen to look. New unread notifications now play a short two-note chime, hung off the arrival detection `NotificationToastStream` already runs so it costs no extra subscription and can never disagree with the toasts. The tones are synthesised through the Web Audio API rather than loaded from a file: nothing to fetch or cache, and no silent first notification while a request is in flight. Scheduling goes through the audio clock, which browsers keep accurate in hidden tabs even while they throttle timers, so a chime queued by a background tab still plays on time. One chime per batch however many land together, and only for unread arrivals, so pruning an old notification into the 100-item window stays silent. Autoplay policy keeps a context suspended until the user has interacted with the page at least once, which signing in and navigating satisfies well before the first notification.
+
 ## Voice dictation streams through AI Gateway - 2026-08-02
 
 Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.

@@ -336,13 +336,13 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
  * update both together.
  */
 export const LANDING_SANDBOX_SPEC = [
-  { label: "Runtime", items: "Node 24 · pnpm · Docker Engine 28.3.3" },
+  { label: "Runtime", items: "Node 24 · pnpm · Docker Engine" },
   { label: "Agent CLIs", items: "Claude Code · Codex · opencode · Cursor" },
   {
     label: "Tooling",
     items: "git · git-lfs · gh · ripgrep · fd · jq · ffmpeg",
   },
-  { label: "Desktop", items: "Xvfb · XFCE · x11vnc · noVNC · Google Chrome" },
+  { label: "Desktop", items: "TigerVNC · noVNC · websockify · Google Chrome" },
   {
     label: "Data",
     items: "Convex CLI · Supabase CLI 2.90.0 · seeded databases",

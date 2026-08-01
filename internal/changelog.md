@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox snapshots regain ripgrep, fd, and Git LFS - 2026-08-01
+
+The deleted Daytona image workflow installed ripgrep, fd, and Git LFS, and none of the three were carried over when the toolchain install moved into `launchSeedRun`. Agent CLIs had been silently falling back to `grep -r` and `find` for months, and cloning a repo that uses LFS produced pointer stubs where the real files should be, which reads as corrupt content rather than a missing tool. All three now install from pinned upstream tarballs alongside `gh`, since the Amazon Linux repos carry none of them, and Git LFS additionally registers its `--system` filters so checkout actually resolves pointers. The README and the landing page's sandbox spec claimed all three the whole time; those lists are now true, and their stale Daytona-era desktop stack (Xvfb, XFCE, x11vnc) is corrected to the TigerVNC one that Vercel sandboxes really run.
+
 ## Unread inbox count reaches the browser tab - 2026-08-01
 
 The unread count lived only in the sidebar rail, so a backgrounded tab gave no sign that anything had arrived. The favicon now carries that count as a bottom-right badge, drawn as an SVG data URI from the same cached `countUnread` subscription the rail already holds, so it inherits that query's optimistic updates and adds no server load. Only the SVG icon link is rewritten, which means browsers that prefer it show the badge while Safari, which ignores SVG favicons outright, keeps showing the plain PNG.

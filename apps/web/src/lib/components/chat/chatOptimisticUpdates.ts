@@ -21,34 +21,67 @@ type PendingMessageDraft = Omit<
   turnId: NonNullable<PendingMessage["turnId"]>;
 };
 
-function writePendingMessage(
+function buildOptimisticPendingTurn(args: {
+  current: ReadonlyArray<PendingMessage>;
+  userMessage: PendingMessageDraft;
+  userId: NonNullable<PendingMessage["userId"]>;
+  submittedAt: number;
+  parentIsBusy: boolean;
+}): PendingMessage[] {
+  const retained = args.current.filter(
+    (candidate) => candidate.turnId !== args.userMessage.turnId,
+  );
+  const placement =
+    args.parentIsBusy || retained.length > 0 ? "queued" : "active";
+  const userMessage: PendingMessage = {
+    ...args.userMessage,
+    _id: `turn:${args.userMessage.turnId}:user`,
+    _creationTime: args.submittedAt,
+    timestamp: args.submittedAt,
+    userId: args.userId,
+    placement,
+  };
+  if (placement === "queued") return [...retained, userMessage];
+
+  // Match the server-created assistant row so reconciliation keeps one stable
+  // timeline key while showing the standard Thinking UI immediately.
+  const assistantMessage: PendingMessage = {
+    _id: `turn:${args.userMessage.turnId}:assistant`,
+    _creationTime: args.submittedAt + 1,
+    parentId: args.userMessage.parentId,
+    role: "assistant",
+    content: "",
+    timestamp: args.submittedAt + 1,
+    activityLog: "",
+    turnId: args.userMessage.turnId,
+    mode: args.userMessage.mode,
+    placement: "active",
+  };
+  return [...retained, userMessage, assistantMessage];
+}
+
+function writePendingTurn(
   localStore: OptimisticLocalStore,
-  message: PendingMessageDraft,
+  userMessage: PendingMessageDraft,
   parentIsBusy: boolean,
 ): void {
   const current =
     localStore.getQuery(api.messages.listPendingByParent, {
-      parentId: message.parentId,
+      parentId: userMessage.parentId,
     }) ?? [];
   const userId = localStore.getQuery(api.auth.me, {});
   if (userId === undefined) return;
 
-  const submittedAt = Date.now();
-  const pendingMessage: PendingMessage = {
-    ...message,
-    _id: `turn:${message.turnId}:user`,
-    _creationTime: submittedAt,
-    timestamp: submittedAt,
-    userId,
-    placement: parentIsBusy || current.length > 0 ? "queued" : "active",
-  };
   localStore.setQuery(
     api.messages.listPendingByParent,
-    { parentId: message.parentId },
-    [
-      ...current.filter((candidate) => candidate.turnId !== message.turnId),
-      pendingMessage,
-    ],
+    { parentId: userMessage.parentId },
+    buildOptimisticPendingTurn({
+      current,
+      userMessage,
+      userId,
+      submittedAt: Date.now(),
+      parentIsBusy,
+    }),
   );
 }
 
@@ -58,7 +91,7 @@ export function optimisticallySubmitSessionTurn(
   args: SessionSubmitArgs,
 ): void {
   const session = localStore.getQuery(api.sessions.get, { id: args.sessionId });
-  writePendingMessage(
+  writePendingTurn(
     localStore,
     {
       parentId: args.sessionId,
@@ -85,7 +118,7 @@ export function optimisticallySubmitTaskTurn(
   args: TaskSubmitArgs,
 ): void {
   const task = localStore.getQuery(api.agentTasks.get, { id: args.taskId });
-  writePendingMessage(
+  writePendingTurn(
     localStore,
     {
       parentId: args.taskId,
@@ -110,7 +143,7 @@ export function optimisticallySubmitProjectTurn(
   args: ProjectSubmitArgs,
 ): void {
   const project = localStore.getQuery(api.projects.get, { id: args.projectId });
-  writePendingMessage(
+  writePendingTurn(
     localStore,
     {
       parentId: args.projectId,

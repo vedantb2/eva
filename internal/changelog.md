@@ -1,5 +1,9 @@
 # Changelog
 
+## Chat execution feedback starts in the optimistic frame - 2026-08-01
+
+The Convex optimistic send path previously projected only the user bubble, while the Stop control and empty assistant “Thinking…” row still depended on the server-confirmed active turn. Idle sends now project both canonical-shaped rows through the same `withOptimisticUpdate` cache entry and treat that pending turn as executing immediately. A turn-id-only cancellation is resolved against the server's canonical active identity, so Stop is functional even when clicked before the submit round trip finishes without weakening stale-turn protection.
+
 ## Cursor context accounting is ACP-native and honest when unavailable - 2026-08-01
 
 Cursor sessions previously wrote result logs without token, cache, cost, model, or context-window fields, so the session header silently presented incomplete historical totals as current context usage. Eva now consumes both standardized ACP reporting paths: prompt-response token totals and `usage_update` context/cost notifications. Cursor's cumulative per-session reports are de-duplicated during log aggregation, authoritative context sizes override model guesses, and the header explicitly says when Cursor has not reported context instead of showing a misleading percentage. This is forward-compatible with Cursor emitting the optional ACP fields without inventing token estimates while its current CLI omits them.

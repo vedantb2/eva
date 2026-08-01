@@ -55,6 +55,29 @@ export function exactTurnIdentity(
   };
 }
 
+/**
+ * Resolves an immediate client-side cancellation. Before the submit mutation
+ * returns, the client only knows its turnId; the server fills in the canonical
+ * assistant id and attempt while preserving stale-turn protection.
+ */
+export function cancellationTurnIdentity(
+  activeTurn: ExactTurnIdentity | undefined,
+  requested: OptionalTurnIdentity,
+): ExactTurnIdentity | null {
+  if (activeTurn === undefined) return null;
+  const exact = exactTurnIdentity(requested);
+  if (exact !== null) {
+    return turnIdentityMatches(activeTurn, exact) ? exact : null;
+  }
+  const isTurnIdOnly =
+    requested.turnId !== undefined &&
+    requested.assistantMessageId === undefined &&
+    requested.attempt === undefined;
+  return isTurnIdOnly && requested.turnId === activeTurn.turnId
+    ? activeTurn
+    : null;
+}
+
 export function turnIdentityMatches(
   expected: OptionalTurnIdentity,
   received: OptionalTurnIdentity,

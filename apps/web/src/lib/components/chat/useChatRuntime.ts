@@ -19,6 +19,10 @@ type SubmitTurnResult =
 
 export type ChatActiveTurn = NonNullable<Doc<"sessions">["activeTurn"]>;
 
+export type ChatCancellationTarget =
+  | { kind: "active"; turn: ChatActiveTurn }
+  | { kind: "pending"; turnId: string };
+
 interface SubmitActionArgs {
   turnId: string;
   content: string;
@@ -34,7 +38,7 @@ interface UseChatRuntimeArgs {
   legacyBusy?: boolean;
   submissionKey: string;
   submitAction: (args: SubmitActionArgs) => Promise<SubmitTurnResult>;
-  cancelAction: (activeTurn: ChatActiveTurn | undefined) => Promise<void>;
+  cancelAction: (target: ChatCancellationTarget | undefined) => Promise<void>;
 }
 
 interface RetrySubmission {
@@ -97,6 +101,9 @@ export function useChatRuntime({
   const pendingQueuedMessages = visiblePendingMessages.filter(
     (message) => message.placement === "queued",
   );
+  const optimisticActiveTurnId = activePendingMessages.find(
+    (message) => message.turnId !== undefined,
+  )?.turnId;
 
   const handleSend = async (
     content: string,
@@ -133,7 +140,12 @@ export function useChatRuntime({
   };
 
   const handleCancel = async () => {
-    await cancelAction(activeTurn);
+    const target: ChatCancellationTarget | undefined = activeTurn
+      ? { kind: "active", turn: activeTurn }
+      : optimisticActiveTurnId
+        ? { kind: "pending", turnId: optimisticActiveTurnId }
+        : undefined;
+    await cancelAction(target);
   };
 
   const handleAnswerBlockingQuestion = async (
@@ -171,7 +183,10 @@ export function useChatRuntime({
     activeQuestion,
     localTurnId:
       activePendingMessages[activePendingMessages.length - 1]?.turnId,
-    isExecuting: activeTurn !== undefined || legacyBusy,
+    isExecuting:
+      activeTurn !== undefined ||
+      optimisticActiveTurnId !== undefined ||
+      legacyBusy,
     handleSend,
     handleCancel,
     handleAnswerBlockingQuestion,

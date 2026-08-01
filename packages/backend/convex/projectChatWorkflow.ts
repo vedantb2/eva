@@ -42,6 +42,7 @@ import { clearPendingQuestionsForTurn } from "./pendingQuestions";
 import { usesChatDaemon } from "./_chat/daemonTransport";
 import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
 import {
+  cancellationTurnIdentity,
   callbackMatchesActiveTurn,
   exactTurnIdentity,
   turnIdentityMatches,
@@ -322,14 +323,9 @@ export const cancelExecution = authMutation({
       throw new Error("Not authorized");
     }
 
-    const turnIdentity = exactTurnIdentity(args);
+    const turnIdentity = cancellationTurnIdentity(project.activeTurn, args);
     if (project.activeTurn !== undefined) {
-      if (
-        turnIdentity === null ||
-        !callbackMatchesActiveTurn(project, turnIdentity)
-      ) {
-        return null;
-      }
+      if (turnIdentity === null) return null;
       await clearPendingQuestionsForTurn(
         ctx.db,
         String(args.projectId),

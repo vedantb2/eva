@@ -104,12 +104,20 @@ describe("ChatTimelineProjector", () => {
     expect(staleAssistant.question).toBeUndefined();
   });
 
-  test("keeps the logical key when Convex reconciles an optimistic message", () => {
+  test("keeps both logical keys when Convex reconciles an optimistic turn", () => {
     const projector = new ChatTimelineProjector<TimelineMessage>();
     const optimistic = projector.project({
-      messages: [message("turn:turn-1:user", "user", "Build it", "turn-1")],
+      messages: [
+        message("turn:turn-1:user", "user", "Build it", "turn-1"),
+        message("turn:turn-1:assistant", "assistant", "", "turn-1"),
+      ],
     });
-    expect(optimistic.rows.map((row) => row.id)).toEqual(["turn:turn-1:user"]);
+    expect(optimistic.rows.map((row) => row.id)).toEqual([
+      "turn:turn-1:user",
+      "turn:turn-1:assistant",
+    ]);
+    expect(optimistic.rows[1]?.message.role).toBe("assistant");
+    expect(optimistic.rows[1]?.message.content).toBe("");
 
     const canonical = projector.project({
       messages: [

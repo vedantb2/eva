@@ -83,16 +83,18 @@ export function useSessionSend({
         attachmentStorageIds,
         ...(mode === "design" ? { personaId, numDesigns } : {}),
       }),
-    cancelAction: async (turn) => {
+    cancelAction: async (target) => {
       await cancelExecution({
         sessionId,
-        ...(turn === undefined
+        ...(target === undefined
           ? {}
-          : {
-              turnId: turn.turnId,
-              assistantMessageId: turn.assistantMessageId,
-              attempt: turn.attempt,
-            }),
+          : target.kind === "pending"
+            ? { turnId: target.turnId }
+            : {
+                turnId: target.turn.turnId,
+                assistantMessageId: target.turn.assistantMessageId,
+                attempt: target.turn.attempt,
+              }),
       });
     },
   });

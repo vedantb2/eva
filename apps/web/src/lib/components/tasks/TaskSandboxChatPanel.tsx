@@ -177,16 +177,18 @@ export function TaskSandboxChatPanel({
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       }),
-    cancelAction: async (activeTurn) => {
+    cancelAction: async (target) => {
       await cancelExecution({
         taskId,
-        ...(activeTurn === undefined
+        ...(target === undefined
           ? {}
-          : {
-              turnId: activeTurn.turnId,
-              assistantMessageId: activeTurn.assistantMessageId,
-              attempt: activeTurn.attempt,
-            }),
+          : target.kind === "pending"
+            ? { turnId: target.turnId }
+            : {
+                turnId: target.turn.turnId,
+                assistantMessageId: target.turn.assistantMessageId,
+                attempt: target.turn.attempt,
+              }),
       });
     },
   });

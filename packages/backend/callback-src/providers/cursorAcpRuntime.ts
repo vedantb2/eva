@@ -38,6 +38,7 @@ import {
 } from "./cursorAcpCapabilities.js";
 import {
   cursorModeIdForEva,
+  cursorReasoningLevelForEvaModel,
   resolveCursorConfigUpdates,
   type CursorAdvertisedMode,
   type CursorReasoningLevel,
@@ -199,7 +200,7 @@ function cursorReasoningLevel(): CursorReasoningLevel | undefined {
     case "max":
       return REASONING_EFFORT;
     default:
-      return undefined;
+      return cursorReasoningLevelForEvaModel(MODEL);
   }
 }
 
@@ -219,8 +220,9 @@ async function configurePrompt(
   mode: EvaSessionMode | undefined,
 ): Promise<void> {
   await configureModelForPrompt(context, setup);
+  const reasoningLevel = cursorReasoningLevel();
   const requestedTraits = {
-    ...(REASONING_EFFORT ? { reasoningLevel: cursorReasoningLevel() } : {}),
+    ...(reasoningLevel ? { reasoningLevel } : {}),
     ...(AI_THINKING_ENABLED
       ? { thinkingEnabled: AI_THINKING_ENABLED !== "0" }
       : {}),
@@ -324,6 +326,12 @@ async function startOrRestoreSession(
         modes: loaded?.modes,
         configOptions: loaded?.configOptions,
       };
+    } catch (error) {
+      log(
+        `cursor_acp session restore failed; creating new session: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     } finally {
       adapter.endReplay();
     }
@@ -462,9 +470,10 @@ export async function withCursorAcpSession<T>(
           `Cursor negotiated unsupported ACP version ${initialized.protocolVersion}`,
         );
       }
-      await context.request(acp.methods.agent.authenticate, {
-        methodId: "cursor_login",
-      });
+      // cursor-agent consumes CURSOR_API_KEY from its environment. The advertised
+      // cursor_login method is for an existing interactive CLI login and does not
+      // complete in our headless sandbox.
+      log("cursor_acp initialize=complete auth=api_key");
       const discoveredModels = await discoverCursorModels(context);
 
       const setup = await startOrRestoreSession(

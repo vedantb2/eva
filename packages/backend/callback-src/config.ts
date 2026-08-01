@@ -283,8 +283,7 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
-// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
+// Eva keeps variant-style ids; Cursor ACP now uses a base model plus traits.
 export const normalizedCursorModel = cursorModelIdForEva(MODEL);
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)

@@ -12,7 +12,7 @@ import {
 import {
   cursorComposerCapabilities,
   cursorModelIdForEva,
-  evaModelIdForCursor,
+  evaModelIdsForCursor,
 } from "../cursorCapabilities";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -123,16 +123,19 @@ export const getCursor = authQuery({
       .first();
     if (!snapshot || snapshot.expiresAt <= args.now) return null;
 
-    const availableModels = snapshot.models.flatMap((model) => {
-      const mapped = evaModelIdForCursor(model.value);
-      return mapped ? [mapped] : [];
-    });
+    const availableModels = [
+      ...new Set(
+        snapshot.models.flatMap((model) => evaModelIdsForCursor(model.value)),
+      ),
+    ];
     const normalizedModel = normalizeAIModel(args.model);
     const rawModelId = cursorModelIdForEva(normalizedModel);
     const advertisedModel = snapshot.models.find(
       (model) =>
         model.value === rawModelId ||
-        evaModelIdForCursor(model.value) === normalizedModel,
+        evaModelIdsForCursor(model.value).some(
+          (candidate) => candidate === normalizedModel,
+        ),
     );
     const controls =
       getAIModelProvider(normalizedModel) === "cursor"

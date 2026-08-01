@@ -1,5 +1,6 @@
 "use node";
 
+import { randomUUID } from "node:crypto";
 import { v, type Infer } from "convex/values";
 import type { SandboxHandle } from "../_sandbox/provider";
 import type { ActionCtx } from "../_generated/server";
@@ -29,8 +30,10 @@ import {
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
+  buildAcquireDaemonLaunchLockCmd,
   buildDaemonAliveCheckCmd,
   buildKillEntityDaemonCmd,
+  buildReleaseDaemonLaunchLockCmd,
   SESSION_DAEMON_MUTATIONS,
 } from "./daemonPaths";
 import { uploadCallbackScriptBundle } from "./launch";
@@ -1230,109 +1233,144 @@ async function runPrewarmEntityDaemon(
         use1mContext: args.use1mContext,
       },
     );
-    const alive = await execHandle(
+    const launchLockOwner = randomUUID();
+    const launchLock = await execHandle(
       sandbox,
-      buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
+      buildAcquireDaemonLaunchLockCmd(
+        args.entityIdField,
+        entityIdStr,
+        launchLockOwner,
+      ),
       10,
     );
-    const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
-    if (aliveState === "alive") {
+    if (launchLock.trim().split("\n").pop()?.trim() !== "acquired") {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+        `[sandbox][execution] prewarmEntityDaemon: launch already in progress entityId=${entityIdStr}`,
       );
       return { prewarmed: false };
     }
-    if (aliveState === "stale") {
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
-      );
-      await uploadCallbackScriptBundle(sandbox);
-      return { prewarmed: false };
-    }
-    if (aliveState === "optsmismatch") {
-      const snapshot = await ctx.runQuery(
-        internal.sandboxDaemon.readDaemonEntitySnapshot,
-        {
-          entityTable: args.entityTable,
-          entityId: entityIdStr,
-        },
-      );
-      const freshPending = snapshot.pendingTurn;
-      const activeWorkflow = snapshot.activeWorkflow;
-      const syntheticTurnMessageId = snapshot.syntheticTurnMessageId;
-      const midTurnNoPending =
-        freshPending === undefined &&
-        (activeWorkflow !== undefined || syntheticTurnMessageId !== undefined);
-      if (midTurnNoPending) {
-        console.log(
-          `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
-        );
-        return { prewarmed: false };
-      }
-      const pendingModel = freshPending?.model;
-      if (
-        pendingModel !== undefined &&
-        normalizeAIModel(pendingModel) !== normalizedModel
-      ) {
-        console.log(
-          `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
-        );
-        return { prewarmed: false };
-      }
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
-      );
-      await execHandle(
+    try {
+      const alive = await execHandle(
         sandbox,
-        buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+        buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
         10,
       );
-    }
+      const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
+      if (aliveState === "alive") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+        );
+        return { prewarmed: false };
+      }
+      if (aliveState === "stale") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
+        );
+        await uploadCallbackScriptBundle(sandbox);
+        return { prewarmed: false };
+      }
+      if (aliveState === "optsmismatch") {
+        const snapshot = await ctx.runQuery(
+          internal.sandboxDaemon.readDaemonEntitySnapshot,
+          {
+            entityTable: args.entityTable,
+            entityId: entityIdStr,
+          },
+        );
+        const freshPending = snapshot.pendingTurn;
+        const activeWorkflow = snapshot.activeWorkflow;
+        const syntheticTurnMessageId = snapshot.syntheticTurnMessageId;
+        const midTurnNoPending =
+          freshPending === undefined &&
+          (activeWorkflow !== undefined ||
+            syntheticTurnMessageId !== undefined);
+        if (midTurnNoPending) {
+          console.log(
+            `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
+          );
+          return { prewarmed: false };
+        }
+        const pendingModel = freshPending?.model;
+        if (
+          pendingModel !== undefined &&
+          normalizeAIModel(pendingModel) !== normalizedModel
+        ) {
+          console.log(
+            `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
+          );
+          return { prewarmed: false };
+        }
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
+        );
+        await execHandle(
+          sandbox,
+          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+          10,
+        );
+      }
 
-    await ensureSandboxRunning(sandbox, {
-      timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-    });
+      await ensureSandboxRunning(sandbox, {
+        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+      });
 
-    const claudeSessionId =
-      getAIModelProvider(normalizedModel) === "claude" &&
-      args.sessionPersistenceId
-        ? sessionClaudeUuid(args.sessionPersistenceId)
-        : undefined;
+      const claudeSessionId =
+        getAIModelProvider(normalizedModel) === "claude" &&
+        args.sessionPersistenceId
+          ? sessionClaudeUuid(args.sessionPersistenceId)
+          : undefined;
 
-    await signAndLaunchScript(
-      ctx,
-      sandbox,
-      args.userId,
-      "",
-      args.completionMutation,
-      args.entityIdField,
-      entityIdStr,
-      args.repoId,
-      {
-        model: normalizedModel,
-        allowedTools: args.allowedTools,
-        claimMutation: args.claimMutation,
-        openSyntheticTurnMutation: args.openSyntheticTurnMutation,
-        completeSyntheticTurnMutation: args.completeSyntheticTurnMutation,
-        updateBackgroundAgentsMutation: args.updateBackgroundAgentsMutation,
-        extraEnvVars: {
-          EVA_DAEMON_OPTS: optsSig,
-          ...buildTraitEnvVars({
-            reasoningLevel: args.reasoningLevel,
-            thinkingEnabled: args.thinkingEnabled,
-            use1mContext: args.use1mContext,
-          }),
+      await signAndLaunchScript(
+        ctx,
+        sandbox,
+        args.userId,
+        "",
+        args.completionMutation,
+        args.entityIdField,
+        entityIdStr,
+        args.repoId,
+        {
+          model: normalizedModel,
+          allowedTools: args.allowedTools,
+          claimMutation: args.claimMutation,
+          openSyntheticTurnMutation: args.openSyntheticTurnMutation,
+          completeSyntheticTurnMutation: args.completeSyntheticTurnMutation,
+          updateBackgroundAgentsMutation: args.updateBackgroundAgentsMutation,
+          extraEnvVars: {
+            EVA_DAEMON_OPTS: optsSig,
+            ...buildTraitEnvVars({
+              reasoningLevel: args.reasoningLevel,
+              thinkingEnabled: args.thinkingEnabled,
+              use1mContext: args.use1mContext,
+            }),
+          },
+          claudeSessionId,
+          providerAccountId: args.providerAccountId,
+          credentialOwnerUserId: args.credentialOwnerUserId,
+          enableMcp: true,
         },
-        claudeSessionId,
-        providerAccountId: args.providerAccountId,
-        credentialOwnerUserId: args.credentialOwnerUserId,
-        enableMcp: true,
-      },
-    );
-    console.log(
-      `[sandbox][execution] prewarmEntityDaemon: launched in ${Date.now() - startedAt}ms entityId=${entityIdStr}`,
-    );
-    return { prewarmed: true };
+      );
+      console.log(
+        `[sandbox][execution] prewarmEntityDaemon: launched in ${Date.now() - startedAt}ms entityId=${entityIdStr}`,
+      );
+      return { prewarmed: true };
+    } finally {
+      try {
+        await execHandle(
+          sandbox,
+          buildReleaseDaemonLaunchLockCmd(
+            args.entityIdField,
+            entityIdStr,
+            launchLockOwner,
+          ),
+          10,
+        );
+      } catch {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: failed to release launch lock entityId=${entityIdStr}`,
+        );
+      }
+    }
   } catch (error) {
     console.log(
       `[sandbox][execution] prewarmEntityDaemon: skipped in ${Date.now() - startedAt}ms entityId=${args.entityId}: ${error instanceof Error ? error.message : String(error)}`,

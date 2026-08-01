@@ -87,11 +87,33 @@ export interface CursorConfigUpdate {
 const cursorModelPairs: ReadonlyArray<{
   eva: CursorEvaModel;
   cursor: string;
+  legacyCursor?: string;
+  reasoningLevel?: CursorReasoningLevel;
 }> = [
-  { eva: "cursor:grok-4.5-low", cursor: "cursor-grok-4.5-low" },
-  { eva: "cursor:grok-4.5-medium", cursor: "cursor-grok-4.5-medium" },
-  { eva: "cursor:grok-4.5-high", cursor: "cursor-grok-4.5-high" },
-  { eva: "cursor:gpt-5.5-low", cursor: "gpt-5.5-low" },
+  {
+    eva: "cursor:grok-4.5-low",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-low",
+    reasoningLevel: "low",
+  },
+  {
+    eva: "cursor:grok-4.5-medium",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-medium",
+    reasoningLevel: "medium",
+  },
+  {
+    eva: "cursor:grok-4.5-high",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-high",
+    reasoningLevel: "high",
+  },
+  {
+    eva: "cursor:gpt-5.5-low",
+    cursor: "gpt-5.5",
+    legacyCursor: "gpt-5.5-low",
+    reasoningLevel: "low",
+  },
   { eva: "cursor:gemini-3.1-pro", cursor: "gemini-3.1-pro" },
   { eva: "cursor:composer-2.5", cursor: "composer-2.5" },
 ];
@@ -108,14 +130,34 @@ export function cursorModelIdForEva(model: string): string {
   return match?.cursor ?? normalized;
 }
 
-export function evaModelIdForCursor(model: string): CursorEvaModel | undefined {
+/** All Eva variants backed by one Cursor ACP model. */
+export function evaModelIdsForCursor(model: string): CursorEvaModel[] {
   const normalized = stripCursorPrefix(model).trim().toLowerCase();
-  const match = cursorModelPairs.find((entry) => {
-    const cursor = stripCursorPrefix(entry.cursor).toLowerCase();
+  const exactMatch = cursorModelPairs.find((entry) => {
     const eva = stripCursorPrefix(entry.eva).toLowerCase();
-    return normalized === cursor || normalized === eva;
+    const legacyCursor = entry.legacyCursor?.toLowerCase();
+    return normalized === eva || normalized === legacyCursor;
   });
-  return match?.eva;
+  if (exactMatch) return [exactMatch.eva];
+
+  const cursorModel = normalized.split("[")[0]?.trim() ?? normalized;
+  return cursorModelPairs
+    .filter((entry) => entry.cursor.toLowerCase() === cursorModel)
+    .map((entry) => entry.eva);
+}
+
+export function evaModelIdForCursor(model: string): CursorEvaModel | undefined {
+  return evaModelIdsForCursor(model)[0];
+}
+
+/** Reasoning encoded in Eva's legacy variant-style Cursor model ids. */
+export function cursorReasoningLevelForEvaModel(
+  model: string,
+): CursorReasoningLevel | undefined {
+  const normalized = stripCursorPrefix(model).trim().toLowerCase();
+  return cursorModelPairs.find(
+    (entry) => stripCursorPrefix(entry.eva).toLowerCase() === normalized,
+  )?.reasoningLevel;
 }
 
 function normalizedToken(value: string): string {

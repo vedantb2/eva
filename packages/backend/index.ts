@@ -30,6 +30,8 @@ export {
 export {
   cursorModelIdForEva,
   evaModelIdForCursor,
+  evaModelIdsForCursor,
+  cursorReasoningLevelForEvaModel,
   type CursorComposerCapability as ProviderComposerCapability,
   type CursorEvaModel,
 } from "./cursorCapabilities";

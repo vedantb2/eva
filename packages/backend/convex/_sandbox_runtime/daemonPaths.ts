@@ -18,6 +18,13 @@ export function entityDaemonPaths(
   };
 }
 
+function entityDaemonLaunchLockPath(
+  entityIdField: string,
+  entityId: string,
+): string {
+  return `/tmp/eva-daemon.${entityIdField}-${entityId}.launch-lock`;
+}
+
 const LEGACY_SESSION_DAEMON_PATHS: DaemonPaths = {
   pid: "/tmp/eva-daemon.pid",
   entity: "/tmp/eva-daemon.entity",
@@ -62,6 +69,45 @@ export function buildDaemonAliveCheckCmd(
     return `${branch(scoped)}; ${branch(LEGACY_SESSION_DAEMON_PATHS).replace(/^if /, "elif ")}; else echo cold; fi`;
   }
   return `${branch(scoped)}; else echo cold; fi`;
+}
+
+/**
+ * Atomically leases daemon inspection + launch to one concurrent prewarm.
+ * The timestamp lets a later request recover if an action dies before release.
+ */
+export function buildAcquireDaemonLaunchLockCmd(
+  entityIdField: string,
+  entityId: string,
+  ownerToken: string,
+): string {
+  const lock = shellQuote(entityDaemonLaunchLockPath(entityIdField, entityId));
+  const owner = shellQuote(ownerToken);
+  return (
+    `lock=${lock}; owner=${owner}; now=$(date +%s); ` +
+    'if mkdir "$lock" 2>/dev/null; then ' +
+    'printf "%s" "$now" > "$lock/created-at"; printf "%s" "$owner" > "$lock/owner"; echo acquired; ' +
+    'else created_at=$(cat "$lock/created-at" 2>/dev/null || printf "%s" "$now"); ' +
+    'if [ "$((now - created_at))" -gt 120 ]; then ' +
+    'rm -f "$lock/created-at" "$lock/owner"; rmdir "$lock" 2>/dev/null || true; ' +
+    'if mkdir "$lock" 2>/dev/null; then ' +
+    'printf "%s" "$now" > "$lock/created-at"; printf "%s" "$owner" > "$lock/owner"; echo acquired; ' +
+    "else echo busy; fi; else echo busy; fi; fi"
+  );
+}
+
+/** Releases an entity's daemon-launch lease after the owner finishes. */
+export function buildReleaseDaemonLaunchLockCmd(
+  entityIdField: string,
+  entityId: string,
+  ownerToken: string,
+): string {
+  const lock = shellQuote(entityDaemonLaunchLockPath(entityIdField, entityId));
+  const owner = shellQuote(ownerToken);
+  return (
+    `lock=${lock}; owner=${owner}; ` +
+    'if [ "$(cat "$lock/owner" 2>/dev/null)" = "$owner" ]; then ' +
+    'rm -f "$lock/created-at" "$lock/owner"; rmdir "$lock" 2>/dev/null || true; fi'
+  );
 }
 
 /** Kills the entity-scoped daemon (and legacy session markers when applicable). */

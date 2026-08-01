@@ -23,10 +23,30 @@ var CHAT_TURN_PROTOCOL_VERSION = 2;
 
 // cursorCapabilities.ts
 var cursorModelPairs = [
-  { eva: "cursor:grok-4.5-low", cursor: "cursor-grok-4.5-low" },
-  { eva: "cursor:grok-4.5-medium", cursor: "cursor-grok-4.5-medium" },
-  { eva: "cursor:grok-4.5-high", cursor: "cursor-grok-4.5-high" },
-  { eva: "cursor:gpt-5.5-low", cursor: "gpt-5.5-low" },
+  {
+    eva: "cursor:grok-4.5-low",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-low",
+    reasoningLevel: "low"
+  },
+  {
+    eva: "cursor:grok-4.5-medium",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-medium",
+    reasoningLevel: "medium"
+  },
+  {
+    eva: "cursor:grok-4.5-high",
+    cursor: "grok-4.5",
+    legacyCursor: "cursor-grok-4.5-high",
+    reasoningLevel: "high"
+  },
+  {
+    eva: "cursor:gpt-5.5-low",
+    cursor: "gpt-5.5",
+    legacyCursor: "gpt-5.5-low",
+    reasoningLevel: "low"
+  },
   { eva: "cursor:gemini-3.1-pro", cursor: "gemini-3.1-pro" },
   { eva: "cursor:composer-2.5", cursor: "composer-2.5" }
 ];
@@ -39,6 +59,12 @@ function cursorModelIdForEva(model) {
     (entry) => stripCursorPrefix(entry.eva) === normalized
   );
   return match?.cursor ?? normalized;
+}
+function cursorReasoningLevelForEvaModel(model) {
+  const normalized = stripCursorPrefix(model).trim().toLowerCase();
+  return cursorModelPairs.find(
+    (entry) => stripCursorPrefix(entry.eva).toLowerCase() === normalized
+  )?.reasoningLevel;
 }
 function normalizedToken(value) {
   return value.trim().toLowerCase().replace(/[\\s_-]+/g, "-");
@@ -25060,7 +25086,7 @@ function cursorReasoningLevel() {
     case "max":
       return REASONING_EFFORT;
     default:
-      return void 0;
+      return cursorReasoningLevelForEvaModel(MODEL);
   }
 }
 function advertisedModes(state) {
@@ -25072,8 +25098,9 @@ function advertisedModes(state) {
 }
 async function configurePrompt(context, setup, mode) {
   await configureModelForPrompt(context, setup);
+  const reasoningLevel = cursorReasoningLevel();
   const requestedTraits = {
-    ...REASONING_EFFORT ? { reasoningLevel: cursorReasoningLevel() } : {},
+    ...reasoningLevel ? { reasoningLevel } : {},
     ...AI_THINKING_ENABLED ? { thinkingEnabled: AI_THINKING_ENABLED !== "0" } : {},
     ...AI_CONTEXT_1M ? { use1mContext: AI_CONTEXT_1M === "1" } : {}
   };
@@ -25162,6 +25189,10 @@ async function startOrRestoreSession(context, capabilities, sessionMode, mcpServ
         modes: loaded?.modes,
         configOptions: loaded?.configOptions
       };
+    } catch (error40) {
+      log(
+        \`cursor_acp session restore failed; creating new session: \${error40 instanceof Error ? error40.message : String(error40)}\`
+      );
     } finally {
       adapter.endReplay();
     }
@@ -25279,9 +25310,7 @@ async function withCursorAcpSession(options, operation) {
           \`Cursor negotiated unsupported ACP version \${initialized.protocolVersion}\`
         );
       }
-      await context.request(methods.agent.authenticate, {
-        methodId: "cursor_login"
-      });
+      log("cursor_acp initialize=complete auth=api_key");
       const discoveredModels = await discoverCursorModels(context);
       const setup = await startOrRestoreSession(
         context,

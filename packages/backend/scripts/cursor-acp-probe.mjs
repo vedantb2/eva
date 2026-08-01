@@ -45,28 +45,24 @@ const client = acp
       textBytes += Buffer.byteLength(params.update.content.text);
     }
   })
-  .onRequest(
-    acp.methods.client.session.requestPermission,
-    ({ params }) => {
-      observedPermissionKinds.push(...params.options.map((option) => option.kind));
-      const selected =
-        params.options.find((option) => option.kind === "allow_always") ??
-        params.options.find((option) => option.kind === "allow_once");
-      if (!selected) {
-        return { outcome: { outcome: "cancelled" } };
-      }
-      return {
-        outcome: { outcome: "selected", optionId: selected.optionId },
-      };
-    },
-  );
+  .onRequest(acp.methods.client.session.requestPermission, ({ params }) => {
+    observedPermissionKinds.push(
+      ...params.options.map((option) => option.kind),
+    );
+    const selected =
+      params.options.find((option) => option.kind === "allow_always") ??
+      params.options.find((option) => option.kind === "allow_once");
+    if (!selected) {
+      return { outcome: { outcome: "cancelled" } };
+    }
+    return {
+      outcome: { outcome: "selected", optionId: selected.optionId },
+    };
+  });
 
 try {
   const result = await client.connectWith(
-    acp.ndJsonStream(
-      Writable.toWeb(child.stdin),
-      Readable.toWeb(child.stdout),
-    ),
+    acp.ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)),
     async (context) => {
       const initialized = await context.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
@@ -76,9 +72,6 @@ try {
           plan: {},
         },
         clientInfo: { name: "eva-cursor-acp-probe", version: "1.0.0" },
-      });
-      await context.request(acp.methods.agent.authenticate, {
-        methodId: "cursor_login",
       });
       const session = await context.request(acp.methods.agent.session.new, {
         cwd,
@@ -93,8 +86,12 @@ try {
       );
       return {
         protocolVersion: initialized.protocolVersion,
-        agentCapabilities: Object.keys(initialized.agentCapabilities ?? {}).sort(),
-        authMethodIds: (initialized.authMethods ?? []).map((method) => method.id),
+        agentCapabilities: Object.keys(
+          initialized.agentCapabilities ?? {},
+        ).sort(),
+        authMethodIds: (initialized.authMethods ?? []).map(
+          (method) => method.id,
+        ),
         sessionIdPresent: session.sessionId.length > 0,
         modeIds: (session.modes?.availableModes ?? []).map((mode) => mode.id),
         configOptions: (session.configOptions ?? []).map((option) => ({

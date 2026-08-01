@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor ACP messages complete through one recoverable daemon - 2026-08-01
+
+Cursor chat could remain on Working indefinitely because every headless ACP process entered Cursor's interactive login method despite already receiving `CURSOR_API_KEY`; repeated prewarm requests could also race and launch several daemons for the same session. API-key sessions now skip interactive authentication, entity prewarm is protected by an expiring launch lease, page-open prewarm carries the same saved reasoning/thinking/context traits as the next turn, and a rejected saved-session restore falls back to a fresh ACP session. Cursor's current base-model-plus-traits contract is also normalized back to Eva's variant-style model IDs, so selections such as Grok 4.5 Low resolve to `grok-4.5` plus low effort instead of failing against an obsolete literal slug.
+
 ## Cursor and chat now share an exact, capability-aware runtime - 2026-07-31
 
 Cursor is fully ACP-only through the official SDK: chat surfaces use a warm authenticated daemon, non-chat runs use the same structured prompt boundary, and the old `-p` command, stream-JSON adapter/parser, legacy session translation, and automatic transport fallback are removed. Every prompt reapplies its exact advertised model, reasoning/context configuration, and mode; authenticated capability snapshots feed the composer so unavailable models and controls fail before execution instead of being guessed. Exact turn ownership now also covers pending-question document identity, synthetic continuations, media, stale watchdogs, cancel races, and late callbacks, with structured mismatch logs and accessible keyboard-first question controls. Architecture and operations guides preserve the no-latest-row and no-duplicate-execution rules that prevent prior replies from resurfacing.

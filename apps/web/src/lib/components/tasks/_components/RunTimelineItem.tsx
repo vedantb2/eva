@@ -44,7 +44,7 @@ const summaryPlugins = { cjk, math, mermaid };
 
 /** Matches scroll cap used for run logs inside the same accordion. */
 const RUN_ACCORDION_SCROLL_CLASS =
-  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar scroll-fade";
 
 type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>

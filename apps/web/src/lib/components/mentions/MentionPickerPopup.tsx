@@ -86,7 +86,7 @@ export function MentionPickerPopup<TItem extends { id: string }>({
       {items.length > 0 ? (
         <div
           ref={listRef}
-          className="scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain py-1"
+          className="scrollbar scroll-fade min-h-0 flex-1 overflow-y-auto overscroll-contain py-1"
         >
           {items.map((item, index) => {
             const isSelected = index === selectedIndex;

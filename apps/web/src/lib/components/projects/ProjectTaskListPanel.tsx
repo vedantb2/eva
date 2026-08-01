@@ -220,7 +220,7 @@ export function ProjectTaskListPanel({
       ref={(node) => {
         setScrollParent(node);
       }}
-      className="h-full overflow-y-auto scrollbar"
+      className="h-full overflow-y-auto scrollbar scroll-fade"
     >
       <Accordion
         type="multiple"

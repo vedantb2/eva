@@ -101,7 +101,7 @@ export function DocCommentsPanel({
         </button>
       </div>
 
-      <div className="scrollbar flex-1 overflow-y-auto">
+      <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
         {composingAnchorId && (
           <div className="border-b border-border p-3">
             <DocNewCommentComposer

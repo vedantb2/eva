@@ -35,6 +35,7 @@ import {
 } from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
@@ -217,6 +218,14 @@ export const submitTurn = authMutation({
             }),
       };
     }
+
+    // Before the accept branches below, so a mention notifies whether the turn
+    // runs now or waits in the queue.
+    await notifyChatMentions(ctx, {
+      content,
+      authorUserId: ctx.userId,
+      surface: { kind: "project", project },
+    });
 
     const busy =
       project.activeTurn !== undefined ||

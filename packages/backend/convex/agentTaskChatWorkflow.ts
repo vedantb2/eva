@@ -32,6 +32,7 @@ import {
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
@@ -212,6 +213,14 @@ export const submitTurn = authMutation({
             }),
       };
     }
+
+    // Before the accept branches below, so a mention notifies whether the turn
+    // runs now or waits in the queue.
+    await notifyChatMentions(ctx, {
+      content,
+      authorUserId: ctx.userId,
+      surface: { kind: "task", task },
+    });
 
     const busy =
       task.activeTurn !== undefined ||

@@ -20,6 +20,7 @@ import {
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
+import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 import {
   assertStickyPreviewPort,
   normalizeStickyPreviewPath,
@@ -146,6 +147,16 @@ export const create = authMutation({
         await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
           sessionId,
           message: content,
+        });
+      }
+      // The first message queues directly rather than going through
+      // `submitTurn`, so its mentions are notified here instead.
+      const session = await ctx.db.get(sessionId);
+      if (session) {
+        await notifyChatMentions(ctx, {
+          content,
+          authorUserId: ctx.userId,
+          surface: { kind: "session", session },
         });
       }
     }

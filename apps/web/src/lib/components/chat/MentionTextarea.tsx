@@ -4,6 +4,7 @@ import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
 import type { Id } from "@eva/backend";
+import { UserProfileHoverCardBody } from "@eva/shared";
 import {
   MentionEditor,
   type MentionEditorHandle,
@@ -11,8 +12,10 @@ import {
   DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
+  mergeMentionItems,
 } from "@/lib/components/mentions";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
 
@@ -74,7 +77,9 @@ export const MentionTextarea = forwardRef<
   const controller = usePromptInputController();
   const attachments = usePromptInputAttachments();
   const value = controller.textInput.value;
-  const items = useDataMentionItems(repoId);
+  const peopleItems = usePeopleMentionItems(repoId);
+  const dataItems = useDataMentionItems(repoId);
+  const { items, peopleIds } = mergeMentionItems(peopleItems, dataItems);
   const navigateToData = useDataMentionNavigate(repoBasePath, repoId);
   const { suggestion, dismiss } = useInlineSuggestion(value, completionContext);
 
@@ -116,7 +121,10 @@ export const MentionTextarea = forwardRef<
     return true;
   };
 
+  // People chips are not navigable — a mention names a teammate, it does not
+  // point at a page.
   const handleMentionChipClick = (id: string) => {
+    if (peopleIds.has(id)) return;
     void navigateToData(id);
   };
 
@@ -152,14 +160,18 @@ export const MentionTextarea = forwardRef<
       onDismissSuggestion={dismiss}
       items={items}
       slashItems={slashItems}
-      mentionPopupTitle="Data"
+      mentionPopupTitle="Mentions"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
       initialMentionMap={initialMentionMap}
       initialSkillMap={initialSkillMap}
-      renderMentionChipHoverCard={(id) => (
-        <DataMentionHoverCardBody entityId={id} repoId={repoId} />
-      )}
+      renderMentionChipHoverCard={(id) =>
+        peopleIds.has(id) ? (
+          <UserProfileHoverCardBody userId={id} />
+        ) : (
+          <DataMentionHoverCardBody entityId={id} repoId={repoId} />
+        )
+      }
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

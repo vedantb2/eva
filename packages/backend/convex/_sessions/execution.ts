@@ -38,6 +38,7 @@ import {
   cancellationTurnIdentity,
   turnIdentityMatches,
 } from "../_chat/turnIdentity";
+import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 
 const submitTurnResultValidator = v.object({
   kind: v.union(
@@ -164,6 +165,15 @@ export const submitTurn = authMutation({
             }),
       };
     }
+
+    // Before the accept branches below, so a mention notifies whether the turn
+    // runs now or waits in the queue. Uses the display text so review-comment
+    // blocks appended to the prompt stay out of the notification preview.
+    await notifyChatMentions(ctx, {
+      content: displayContent ?? content,
+      authorUserId: ctx.userId,
+      surface: { kind: "session", session },
+    });
 
     const busy =
       session.activeTurn !== undefined ||

@@ -15,3 +15,4 @@ export { DataMentionHoverCardBody } from "./DataMentionHoverCardBody";
 export { SkillMentionHoverCardBody } from "./SkillMentionHoverCardBody";
 export { tokenizedToEditable, tokenizedToDisplayText } from "./mentionToken";
 export { isSkillTokenId } from "./skillToken";
+export { mergeMentionItems } from "./mergeMentionItems";

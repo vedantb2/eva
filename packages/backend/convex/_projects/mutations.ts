@@ -79,6 +79,7 @@ export const create = authMutation({
       description: skipPlanning ? args.rawInput : undefined,
       baseBranch: args.baseBranch,
       phase: skipPlanning ? "business_review" : "draft",
+      cursorTransport: "acp-v1",
       planningMode: skipPlanning ? "tasks_only" : "interview",
       projectStartDate: Date.now(),
       priority: args.priority,
@@ -94,11 +95,17 @@ export const create = authMutation({
     } else {
       await setProjectConversation(ctx.db, projectId, [
         {
+          id: crypto.randomUUID(),
           role: "user",
           content: args.rawInput,
           userId: ctx.userId,
         },
       ]);
+      await ctx.scheduler.runAfter(
+        0,
+        internal.projectInterviewWorkflow.startInitialInterviewInternal,
+        { projectId },
+      );
     }
     return projectId;
   },
@@ -242,6 +249,7 @@ export const addMessage = authMutation({
     await setProjectConversation(ctx.db, args.id, [
       ...conversation,
       {
+        id: crypto.randomUUID(),
         role: args.role,
         content: args.content,
         activityLog: args.activityLog,

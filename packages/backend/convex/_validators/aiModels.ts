@@ -1,4 +1,8 @@
 import { v } from "convex/values";
+import type {
+  CursorComposerCapability,
+  CursorEvaModel,
+} from "../../cursorCapabilities";
 
 export const aiProviderValidator = v.union(
   v.literal("claude"),
@@ -101,6 +105,59 @@ export interface ModelTraitsExecutionArgs {
   use1mContext?: boolean;
 }
 
+export interface ModelTraitsDisplay {
+  effortLevel: ReasoningLevel | undefined;
+  thinkingEnabled: boolean;
+  use1mContext: boolean;
+}
+
+export type ModelComposerControlDescriptor =
+  | {
+      kind: "select";
+      id: "reasoningLevel";
+      label: string;
+      description: string;
+      options: ReadonlyArray<{
+        value: ReasoningLevel;
+        label: string;
+      }>;
+      currentValue: ReasoningLevel;
+      defaultValue: ReasoningLevel;
+      mutableDuringActiveTurn: boolean;
+      promptUltrathink: boolean;
+      order: number;
+    }
+  | {
+      kind: "boolean";
+      id: "thinkingEnabled" | "use1mContext";
+      label: string;
+      description: string;
+      currentValue: boolean;
+      defaultValue: boolean;
+      mutableDuringActiveTurn: boolean;
+      order: number;
+    };
+
+export const providerComposerCapabilityValidator = v.union(
+  v.object({
+    kind: v.literal("select"),
+    id: v.literal("reasoningLevel"),
+    label: v.string(),
+    description: v.string(),
+    options: v.array(
+      v.object({ value: reasoningLevelValidator, label: v.string() }),
+    ),
+    defaultValue: reasoningLevelValidator,
+  }),
+  v.object({
+    kind: v.literal("boolean"),
+    id: v.union(v.literal("thinkingEnabled"), v.literal("use1mContext")),
+    label: v.string(),
+    description: v.string(),
+    defaultValue: v.boolean(),
+  }),
+);
+
 const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
   levels: ["low", "medium", "high", "xhigh", "max"],
   default: "high",
@@ -140,12 +197,7 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:grok-4.5-low"
-  | "cursor:grok-4.5-medium"
-  | "cursor:grok-4.5-high"
-  | "cursor:gpt-5.5-low"
-  | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2.5";
+  | CursorEvaModel;
 export type PersistedAIModel =
   | AIModel
   | LegacyClaudeModel
@@ -492,11 +544,35 @@ export function getReasoningLevelLabel(level: string): string {
 export function resolveTraitsForDisplay(
   model: string | null | undefined,
   stored: StoredModelTraits,
-): {
-  effortLevel: ReasoningLevel | undefined;
-  thinkingEnabled: boolean;
-  use1mContext: boolean;
-} {
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
+): ModelTraitsDisplay {
+  if (providerCapabilities !== undefined) {
+    const reasoning = providerCapabilities.find(
+      (capability) => capability.id === "reasoningLevel",
+    );
+    const thinking = providerCapabilities.find(
+      (capability) => capability.id === "thinkingEnabled",
+    );
+    const context = providerCapabilities.find(
+      (capability) => capability.id === "use1mContext",
+    );
+    const storedEffort = stored.effortLevel;
+    const effortLevel =
+      reasoning?.kind === "select"
+        ? reasoning.options.some((option) => option.value === storedEffort)
+          ? storedEffort
+          : reasoning.defaultValue
+        : undefined;
+    return {
+      effortLevel,
+      thinkingEnabled:
+        stored.thinkingEnabled ??
+        (thinking?.kind === "boolean" ? thinking.defaultValue : true),
+      use1mContext:
+        stored.use1mContext ??
+        (context?.kind === "boolean" ? context.defaultValue : false),
+    };
+  }
   const traits = getModelTraits(model);
   return {
     effortLevel: traits.reasoning
@@ -507,6 +583,80 @@ export function resolveTraitsForDisplay(
   };
 }
 
+/** Plain provider-normalized controls consumed by the React composer. */
+export function describeModelComposerControls(
+  model: string | null | undefined,
+  display: ModelTraitsDisplay,
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
+): ReadonlyArray<ModelComposerControlDescriptor> {
+  if (providerCapabilities !== undefined) {
+    return providerCapabilities.map((capability) => {
+      if (capability.kind === "select") {
+        return {
+          ...capability,
+          currentValue: display.effortLevel ?? capability.defaultValue,
+          mutableDuringActiveTurn: true,
+          promptUltrathink: false,
+          order: 10,
+        };
+      }
+      return {
+        ...capability,
+        currentValue:
+          capability.id === "thinkingEnabled"
+            ? display.thinkingEnabled
+            : display.use1mContext,
+        mutableDuringActiveTurn: true,
+        order: capability.id === "use1mContext" ? 20 : 30,
+      };
+    });
+  }
+  const traits = getModelTraits(model);
+  const controls: ModelComposerControlDescriptor[] = [];
+  if (traits.reasoning) {
+    controls.push({
+      kind: "select",
+      id: "reasoningLevel",
+      label: "Reasoning",
+      description: "How much reasoning the provider should use.",
+      options: traits.reasoning.levels.map((level) => ({
+        value: level,
+        label: getReasoningLevelLabel(level),
+      })),
+      currentValue: display.effortLevel ?? traits.reasoning.default,
+      defaultValue: traits.reasoning.default,
+      mutableDuringActiveTurn: true,
+      promptUltrathink: traits.reasoning.ultrathink === true,
+      order: 10,
+    });
+  }
+  if (traits.contextWindow1m) {
+    controls.push({
+      kind: "boolean",
+      id: "use1mContext",
+      label: "1M context",
+      description: "Use the provider's extended context window.",
+      currentValue: display.use1mContext,
+      defaultValue: false,
+      mutableDuringActiveTurn: true,
+      order: 20,
+    });
+  }
+  if (traits.thinkingToggle) {
+    controls.push({
+      kind: "boolean",
+      id: "thinkingEnabled",
+      label: "Thinking",
+      description: "Allow the provider's extended thinking mode.",
+      currentValue: display.thinkingEnabled,
+      defaultValue: true,
+      mutableDuringActiveTurn: true,
+      order: 30,
+    });
+  }
+  return controls;
+}
+
 /**
  * Build execution payload: only non-default trait overrides are included so the
  * runner uses each model's native defaults when the user has not changed them.
@@ -514,7 +664,31 @@ export function resolveTraitsForDisplay(
 export function buildTraitsExecutionPayload(
   model: string | null | undefined,
   stored: StoredModelTraits,
+  providerCapabilities?: ReadonlyArray<CursorComposerCapability>,
 ): ModelTraitsExecutionArgs {
+  if (providerCapabilities !== undefined) {
+    const display = resolveTraitsForDisplay(
+      model,
+      stored,
+      providerCapabilities,
+    );
+    const payload: ModelTraitsExecutionArgs = {};
+    for (const capability of providerCapabilities) {
+      switch (capability.id) {
+        case "reasoningLevel":
+          payload.reasoningLevel =
+            display.effortLevel ?? capability.defaultValue;
+          break;
+        case "thinkingEnabled":
+          payload.thinkingEnabled = display.thinkingEnabled;
+          break;
+        case "use1mContext":
+          payload.use1mContext = display.use1mContext;
+          break;
+      }
+    }
+    return payload;
+  }
   const traits = getModelTraits(model);
   const payload: ModelTraitsExecutionArgs = {};
 

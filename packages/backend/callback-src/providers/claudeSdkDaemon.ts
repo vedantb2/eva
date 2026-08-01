@@ -1,10 +1,9 @@
 import { unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
   CLAIM_MUTATION,
+  CHAT_TURN_PROTOCOL_VERSION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
-  CONVEX_TOKEN,
-  CONVEX_URL,
   CALLBACK_SCRIPT_FP,
   DAEMON_OPTS_SIG,
   ENTITY_ID,
@@ -13,7 +12,6 @@ import {
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
   OPEN_SYNTHETIC_TURN_MUTATION,
-  REPO_ID,
   RUN_ID,
   UPDATE_BACKGROUND_AGENTS_MUTATION,
 } from "../config.js";
@@ -21,7 +19,7 @@ import {
   resolveDaemonPaths,
   resolveLegacySessionDaemonPaths,
 } from "./daemonPaths.js";
-import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
+import { callConvexWithRetry } from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
@@ -46,12 +44,23 @@ import {
 } from "../session/claudeSession.js";
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
-import { log, readResponseJson } from "../utils.js";
-import type { JsonObject, JsonValue } from "../types.js";
+import { log } from "../utils.js";
+import type { JsonValue } from "../types.js";
+import type { ChatTurnIdentity } from "../../shared/chatTurnProtocol.js";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
 } from "./claimPendingTurnParse.js";
+import {
+  materializeTurnAttachments,
+  readClaimedTurn,
+  type ClaimedTurn,
+} from "./daemonTurn.js";
+import { ensureDaemonGithubToken } from "./daemonAuth.js";
+import {
+  activeTurnIdentityArgs,
+  setActiveTurnIdentity,
+} from "../runtime/turnIdentity.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,14 +103,15 @@ let turnActive = false;
 let turnStartedAtMs = 0;
 let lastMessageAtMs = 0;
 
-type ClaimedTurn = {
-  prompt: string;
-  attachmentUrls: string[];
-};
-
 type DaemonMessage = Record<string, JsonValue>;
 
-type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
+type DaemonTurn =
+  | { kind: "real" }
+  | {
+      kind: "synthetic";
+      messageId: string;
+      identity: ChatTurnIdentity;
+    };
 
 type WarmRunner = {
   push: (text: string) => void;
@@ -190,6 +200,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
+      ...activeTurnIdentityArgs(),
     });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -316,46 +327,6 @@ function createPromptStream(): {
   return { push, iterable };
 }
 
-/** Sessions may push git commits; refresh the installation token like the one-shot path. */
-async function ensureGithubToken(): Promise<void> {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN,
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json",
-      }),
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-    /* non-fatal */
-  }
-}
-
-function readGithubToken(data: JsonValue | null): string | null {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value = data.value;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const payload: JsonObject = value;
-  return typeof payload.token === "string" ? payload.token : null;
-}
-
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */
 function resetTurnState(): void {
   S.accumulatedSteps.length = 0;
@@ -390,12 +361,13 @@ async function finalizeTurn(output: string): Promise<void> {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
+    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (resultEvent?.rawResultEvent) {
@@ -447,48 +419,9 @@ async function finalizeTurn(output: string): Promise<void> {
  * `{ prompt }` lives under `.value`. Falls back to the top level in case an
  * unwrapped value is ever passed.
  */
-function readClaimedPrompt(result: JsonValue): string | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  const prompt = payload.prompt;
-  return typeof prompt === "string" ? prompt : null;
-}
-
-function readClaimedAttachmentUrls(payload: {
-  [key: string]: JsonValue;
-}): string[] {
-  const field = payload.attachmentUrls;
-  if (!Array.isArray(field)) {
-    return [];
-  }
-  return field.filter((url): url is string => typeof url === "string");
-}
-function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
-  const prompt = readClaimedPrompt(result);
-  if (prompt === null) {
-    return null;
-  }
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  return {
-    prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload),
-  };
-}
-
-function readSyntheticTurnMessageId(result: JsonValue): string | null {
+function readSyntheticTurn(
+  result: JsonValue,
+): { messageId: string; identity: ChatTurnIdentity } | null {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
   }
@@ -498,7 +431,21 @@ function readSyntheticTurnMessageId(result: JsonValue): string | null {
       ? inner
       : result;
   const messageId = payload.messageId;
-  return typeof messageId === "string" ? messageId : null;
+  const turnId = payload.turnId;
+  const attempt = payload.attempt;
+  if (
+    typeof messageId !== "string" ||
+    typeof turnId !== "string" ||
+    typeof attempt !== "number" ||
+    !Number.isSafeInteger(attempt) ||
+    attempt < 1
+  ) {
+    return null;
+  }
+  return {
+    messageId,
+    identity: { turnId, assistantMessageId: messageId, attempt },
+  };
 }
 
 function readParentToolUseId(message: DaemonMessage): string | null {
@@ -782,6 +729,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...activeTurnIdentityArgs(),
       }),
     );
   } catch {
@@ -790,6 +738,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
 }
 
@@ -802,21 +751,28 @@ async function ensureSyntheticTurn(): Promise<void> {
     const result = await callConvexWithRetry(
       "mutation",
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({}),
+      entityMutationArgs({
+        callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION,
+      }),
     );
-    const messageId = readSyntheticTurnMessageId(result);
-    if (messageId === null) {
-      log("daemon: openSyntheticTurn returned no messageId");
+    const syntheticTurn = readSyntheticTurn(result);
+    if (syntheticTurn === null) {
+      log("daemon: openSyntheticTurn returned no exact turn identity");
       return;
     }
     resetTurnState();
-    daemonTurn = { kind: "synthetic", messageId };
+    setActiveTurnIdentity(syntheticTurn.identity);
+    daemonTurn = {
+      kind: "synthetic",
+      messageId: syntheticTurn.messageId,
+      identity: syntheticTurn.identity,
+    };
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
     S.activeAttemptStartedAt = agentTurnStartedAt;
     beginWatchedTurn();
-    log("daemon: synthetic turn opened messageId=" + messageId);
+    log("daemon: synthetic turn opened messageId=" + syntheticTurn.messageId);
   } finally {
     openingSyntheticTurn = false;
   }
@@ -840,6 +796,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
+    ...activeTurnIdentityArgs(),
   });
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
@@ -853,6 +810,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   endWatchedTurn();
   resetTurnState();
   daemonTurn = null;
+  setActiveTurnIdentity(null);
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
@@ -862,6 +820,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
   resetTurnState();
+  setActiveTurnIdentity(turn.identity);
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
@@ -911,7 +870,10 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL }),
+          entityMutationArgs({
+            model: MODEL,
+            callbackProtocolVersion: CHAT_TURN_PROTOCOL_VERSION,
+          }),
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -1030,6 +992,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       // the cancel. Reset per-turn state and let the pump either pick up a
       // parked turn (next loop iteration) or go idle.
       resetTurnState();
+      setActiveTurnIdentity(null);
       daemonTurn = null;
       agentTurnOutput = "";
       turnCancelInFlight = false;
@@ -1088,6 +1051,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
       daemonTurn = null;
+      setActiveTurnIdentity(null);
     }
     // Leave any already-queued SDK messages in the pump. The next loop
     // iteration will ensureSyntheticTurn() / handle them — draining here
@@ -1240,31 +1204,6 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * prompt is handed to exactly one poll and never re-executed.
  */
 /** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
-function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      if (type.startsWith("image/")) return ".png";
-      return ".bin";
-  }
-}
-
 /**
  * Downloads this turn's input attachments into the sandbox filesystem and
  * appends a note pointing the agent at them, so a claimed turn's prompt
@@ -1273,38 +1212,6 @@ function attachmentExtensionForMimeType(mimeType: string): string {
  * text as the CLI launch path (convex/_sandbox_runtime/attachments.ts). Failed
  * downloads are skipped.
  */
-async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths: string[] = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const res = await fetchWithTimeout(url, { method: "GET" });
-      if (!res.ok) {
-        log(`daemon: attachment download failed status=${res.status}`);
-        continue;
-      }
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const extension = attachmentExtensionForMimeType(
-        res.headers.get("content-type") ?? "",
-      );
-      const path = `/tmp/eva-attachment-${index}${extension}`;
-      writeFileSync(path, bytes);
-      paths.push(path);
-    } catch (error) {
-      log(
-        `daemon: attachment download error ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-  if (paths.length === 0) return;
-  const list = paths.map((p) => `- ${p}`).join("\n");
-  turn.prompt += `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
-}
-
 /**
  * Persistent warm-session daemon. Creates one `query()` and feeds it prompts
  * across turns so only the first turn pays the CLI/MCP/API boot; later turns
@@ -1334,7 +1241,7 @@ export async function runSdkDaemon(): Promise<void> {
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await ensureDaemonGithubToken();
 
   // Session mode establishes/continues the Claude session id used for resume.
   const sessionMode = prepareClaudeSessionState();
@@ -1370,6 +1277,7 @@ export async function runSdkDaemon(): Promise<void> {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...activeTurnIdentityArgs(),
       });
     } catch {
       /* ignore */

@@ -70,15 +70,15 @@ describe("every turn start clears the streaming row first", () => {
   // The three startNextQueuedX functions are now thin config bindings onto one
   // shared dequeue (startNextQueuedChatMessage in convex/_queues/helpers.ts) —
   // the clear-before-insert order is its property, not each surface's own.
-  test("the shared dequeue clears before inserting the user turn", () => {
+  test("the shared dequeue clears before staging the exact turn pair", () => {
     const body = functionBody(
       queueHelpers,
       "async function startNextQueuedChatMessage<",
     );
     const clearAt = body.indexOf("clearStreamingActivity(");
-    const insertAt = body.indexOf("config.insertUserMessage(");
+    const insertAt = body.indexOf("config.insertMessages(");
     expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
-    expect(insertAt, "the user-turn insert moved").toBeGreaterThan(-1);
+    expect(insertAt, "the exact turn-pair insert moved").toBeGreaterThan(-1);
     expect(clearAt).toBeLessThan(insertAt);
   });
 

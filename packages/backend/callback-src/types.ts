@@ -120,6 +120,26 @@ export type CliAttemptResult = {
   toolStallErrorMessage: string;
 };
 
+/** Structured result from one exact Cursor ACP prompt request. */
+export type CursorAcpAttemptResult = {
+  transport: "acp-v1";
+  sessionId: string;
+  stopReason:
+    | "end_turn"
+    | "max_tokens"
+    | "max_turn_requests"
+    | "refusal"
+    | "cancelled";
+  result: string;
+  events: CanonicalEvent[];
+  durationMs: number;
+  promptSubmitted: boolean;
+  cancellationAcknowledged: boolean;
+  childExitCode: number | null;
+  childSignal: NodeJS.Signals | null;
+  stderrTail: string;
+};
+
 export type ResultEvent = {
   result: string;
   isError: boolean;

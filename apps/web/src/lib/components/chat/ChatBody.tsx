@@ -1,134 +1,142 @@
 import {
-  Conversation,
-  ConversationContent,
   ConversationEmptyState,
-  ConversationScrollButton,
+  Message as AIMessage,
+  MessageContent,
   type ModelOption,
   type ModelAccount,
 } from "@eva/ui";
-import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
-import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import { ChatVirtualizedTimeline } from "./ChatVirtualizedTimeline";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
   type AIModel,
   type Id,
+  type ProviderComposerCapability,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
+import type { FunctionReturnType } from "convex/server";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
-  buildJumpRailTicks,
-  buildMessageHistory,
-  findLastUserMessageIndex,
-  findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
   parsePendingQuestion,
   type ChatBodyMessage,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
+import { ChatTimelineProjector, type ChatTimelineRow } from "./chatTimeline";
+import type { ChatActiveTurn, OptimisticChatTurn } from "./useChatRuntime";
+import { ReviewCommentMessage } from "./ReviewCommentMessage";
 
 export type { ChatBodyMessage };
 
+type StreamingState = NonNullable<FunctionReturnType<typeof api.streaming.get>>;
+
+type ActiveQuestion = NonNullable<
+  FunctionReturnType<typeof api.pendingQuestions.getActive>
+>;
+
 interface ChatBodyProps {
   repoId: Id<"githubRepos">;
-  /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
-  /** Conversation id (session / agent task / project) — scopes the typing-presence room. */
   conversationId: string;
   messages: ChatBodyMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
-  streamingActivity?: string;
-  streamingContent?: string;
-  streamingPendingQuestion?: string;
-  /**
-   * A blocking AskUserQuestion awaiting the user (Agent SDK `canUseTool`). When
-   * set, its interactive card replaces the fire-and-forget `streamingPendingQuestion`
-   * path and the turn stays executing until {@link onAnswerBlockingQuestion} runs.
-   */
-  blockingQuestion?: { toolUseId: string; payload: string };
-  /** Submits a structured answer for {@link blockingQuestion}, resuming the turn. */
+  activeTurn?: ChatActiveTurn;
+  streaming?: StreamingState;
+  blockingQuestion?: ActiveQuestion;
+  optimisticTurn?: OptimisticChatTurn | null;
+  history: {
+    firstItemIndex: number;
+    canLoadOlder: boolean;
+    isLoadingOlder: boolean;
+    onLoadOlder: () => void;
+  };
   onAnswerBlockingQuestion?: (
     toolUseId: string,
     answers: Record<string, string>,
   ) => Promise<void>;
-  isExecuting: boolean;
-  isInputDisabled: boolean;
-  isArchived?: boolean;
+  availability: {
+    isExecuting: boolean;
+    isInputDisabled: boolean;
+    isArchived?: boolean;
+  };
   placeholder: string;
   emptyStateTitle: string;
   model: AIModel;
   setModel: (model: AIModel) => void;
   modelOptions: ReadonlyArray<ModelOption<AIModel>>;
-  /**
-   * The user's own provider accounts. When non-empty, the model picker nests
-   * Team + account submenus under each provider; the chosen account's
-   * credentials run the turn (see `accountId`/`onAccountChange`).
-   */
   accounts?: ReadonlyArray<ModelAccount>;
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
-  /**
-   * Model trait controls (reasoning effort, thinking toggle, 1M context). When
-   * provided, a traits menu is shown after the model selector for capable models.
-   */
   displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
+  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
-  /**
-   * Called with the tokenized content and any uploaded image attachment storage
-   * ids. Caller decides whether to send or enqueue.
-   */
   onSend: (
     content: string,
     attachmentStorageIds?: Id<"_storage">[],
   ) => Promise<void>;
   onCancel: () => Promise<void>;
-  /** Optional slot inserted above the conversation (session summary accordion). */
   preConversationContent?: React.ReactNode;
-  /** Optional slot inserted above the queued messages panel (session startup streaming). */
   beforeQueuedContent?: React.ReactNode;
-  /** Optional slot inserted between the queued messages panel and the input (session PRD plan view). */
   preInputContent?: React.ReactNode;
-  /** Optional slot inserted before the model selector (session mode dropdown). */
   toolsBefore?: React.ReactNode;
-  /** Optional "Options" submenu inside the composer "+" menu. */
   optionsSubmenu?: React.ReactNode;
-  /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
-  /**
-   * Draft seed to restore. When provided, the PromptInputProvider is seeded
-   * with the stored draft text and mention maps, and a ChatDraftSync child
-   * saves keystrokes back to Convex.
-   *
-   * IMPORTANT: only pass this once the draft query has resolved — the provider
-   * reads initialInput only at mount, so it must not mount before the data is
-   * available. Use `isDraftLoading` to render a placeholder while waiting.
-   */
   draft?: ChatDraftSeed;
-  /**
-   * When true, renders a disabled placeholder in place of the real input while
-   * the draft query is in flight. This prevents the PromptInputProvider from
-   * mounting with an empty initial value before the persisted draft is known.
-   */
   isDraftLoading?: boolean;
-  /**
-   * When provided, file chips in assistant activity blocks become clickable and
-   * call this with the file's full path (sessions wire this to the File Viewer
-   * tab). Pass a stable callback — the activity renderer is memoised.
-   */
   onOpenFile?: (path: string) => void;
-  /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
-  /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
-  /** Session coding chat can attach HTML/MD/TXT; default images-only. */
   attachmentMode?: ChatAttachmentMode;
+}
+
+function OptimisticMessage({
+  row,
+  repoBasePath,
+}: {
+  row: Extract<
+    ChatTimelineRow,
+    { kind: "optimisticUser" | "optimisticAssistant" }
+  >;
+  repoBasePath: string;
+}) {
+  const isUser = row.kind === "optimisticUser";
+  return (
+    <div data-message-id={row.id} aria-busy="true">
+      <AIMessage from={isUser ? "user" : "assistant"}>
+        <MessageContent
+          className={
+            isUser
+              ? "group rounded-surface bg-secondary px-4 py-3 text-foreground opacity-80"
+              : "px-1 py-2 text-sm text-muted-foreground"
+          }
+        >
+          {isUser ? (
+            <>
+              <ReviewCommentMessage
+                text={row.turn.content}
+                repoBasePath={repoBasePath}
+              />
+              {row.turn.attachmentStorageIds?.length ? (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {row.turn.attachmentStorageIds.length} attachment
+                  {row.turn.attachmentStorageIds.length === 1 ? "" : "s"}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <span className="animate-pulse">Submitting turn…</span>
+          )}
+        </MessageContent>
+      </AIMessage>
+    </div>
+  );
 }
 
 export function ChatBody({
@@ -137,14 +145,13 @@ export function ChatBody({
   conversationId,
   messages,
   queuedMessages,
-  streamingActivity,
-  streamingContent,
-  streamingPendingQuestion,
+  activeTurn,
+  streaming,
   blockingQuestion,
+  optimisticTurn,
+  history,
   onAnswerBlockingQuestion,
-  isExecuting,
-  isInputDisabled,
-  isArchived,
+  availability,
   placeholder,
   emptyStateTitle,
   model,
@@ -154,6 +161,7 @@ export function ChatBody({
   accountId,
   onAccountChange,
   displayTraits,
+  providerCapabilities,
   onTraitsChange,
   onSend,
   onCancel,
@@ -170,150 +178,74 @@ export function ChatBody({
   hasPendingContext,
   attachmentMode = "images",
 }: ChatBodyProps) {
-  const lastMessage = messages[messages.length - 1];
-  const lastMessageId = lastMessage?._id;
-  // Prefer the unfinished Working bubble over a newer system alert so streamed
-  // tokens / pending questions stay attached to the live turn.
-  const activeAssistantTurn = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (!message || message.isSystemAlert) continue;
-      if (
-        message.role === "assistant" &&
-        !message.content &&
-        message.finishedAt === undefined
-      ) {
-        return message;
-      }
-      return undefined;
-    }
-    return undefined;
-  })();
-  const activeAssistantTurnId = activeAssistantTurn?._id;
-
-  const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
-    string | null
-  >(null);
-  // Submit-in-flight only — not turn execution. Blocking AskUserQuestion leaves
-  // the turn executing while waiting for the user; mirroring that would lock the UI.
+  const { firstItemIndex, canLoadOlder, isLoadingOlder, onLoadOlder } = history;
+  const { isExecuting, isInputDisabled, isArchived } = availability;
+  const [timelineProjector] = useState(() => new ChatTimelineProjector());
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
-  const pendingQuestionRaw =
-    streamingPendingQuestion ??
-    activeAssistantTurn?.pendingQuestion ??
-    lastMessage?.pendingQuestion;
-  const questionDismissed =
-    pendingQuestionRaw !== undefined &&
-    pendingQuestionRaw !== null &&
-    pendingQuestionRaw !== "" &&
-    dismissedQuestionKey === pendingQuestionRaw;
-  const activePendingQuestion = questionDismissed
-    ? null
-    : parsePendingQuestion(pendingQuestionRaw);
-  // A blocking AskUserQuestion (Agent SDK) takes precedence over the
-  // fire-and-forget path: it keeps the turn paused until the user answers.
+  const answeringQuestionRef = useRef<string | null>(null);
+  const timeline = timelineProjector.project({
+    messages,
+    streaming,
+    activeQuestion: blockingQuestion,
+    activeTurn,
+    optimisticTurn,
+  });
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
-  // The blocking card is normally hosted by the streaming placeholder message.
-  // If that placeholder is gone (run died, sandbox restarted) the unanswered
-  // question would otherwise be unrenderable while still hiding the composer —
-  // render it standalone so the user can always answer and unblock the chat.
-  const hasStreamingPlaceholder = messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      !message.content &&
-      message.finishedAt === undefined,
-  );
-
-  const handleQuestionAnswer = async (answer: string) => {
-    if (pendingQuestionRaw) {
-      setDismissedQuestionKey(pendingQuestionRaw);
-    }
-    setIsAnsweringQuestion(true);
-    // Reset is duplicated into the catch instead of using `finally`: React
-    // Compiler bails on the whole file when it meets a `finally` clause.
-    try {
-      await onSend(answer);
-    } catch (error) {
-      setIsAnsweringQuestion(false);
-      throw error;
-    }
-    setIsAnsweringQuestion(false);
-  };
 
   const handleBlockingAnswer = async (answers: Record<string, string>) => {
     if (!blockingQuestion || !onAnswerBlockingQuestion) return;
+    if (answeringQuestionRef.current !== null) return;
+    const toolUseId = blockingQuestion.toolUseId;
+    answeringQuestionRef.current = toolUseId;
     setIsAnsweringQuestion(true);
     try {
-      await onAnswerBlockingQuestion(blockingQuestion.toolUseId, answers);
+      await onAnswerBlockingQuestion(toolUseId, answers);
     } catch (error) {
-      setIsAnsweringQuestion(false);
+      if (answeringQuestionRef.current === toolUseId) {
+        answeringQuestionRef.current = null;
+        setIsAnsweringQuestion(false);
+      }
       throw error;
     }
-    setIsAnsweringQuestion(false);
+    if (answeringQuestionRef.current === toolUseId) {
+      answeringQuestionRef.current = null;
+      setIsAnsweringQuestion(false);
+    }
   };
-
-  const messageHistory = buildMessageHistory(messages);
-
-  const lastUserMessageIndex = findLastUserMessageIndex(messages);
-
-  const jumpRailMessages = buildJumpRailTicks(messages);
 
   const currentUserId = useQuery(api.auth.me);
   const users = useQuery(api.users.listAll);
-  const firstNameByUserId = (() => {
-    const map = new Map<Id<"users">, string>();
-    for (const user of users ?? []) {
-      const name = firstNameFromUser(user);
-      if (name) map.set(user._id, name);
+  const firstNameByUserId = new Map<Id<"users">, string>();
+  for (const user of users ?? []) {
+    const name = firstNameFromUser(user);
+    if (name) firstNameByUserId.set(user._id, name);
+  }
+
+  const renderRow = (row: ChatTimelineRow) => {
+    if (row.kind !== "message") {
+      return <OptimisticMessage row={row} repoBasePath={repoBasePath} />;
     }
-    return map;
-  })();
-
-  const renderMessage = (message: ChatBodyMessage) => {
-    const isLast = message._id === lastMessageId;
-    const isActiveAssistantTurn = message._id === activeAssistantTurnId;
-    const isStreamingPlaceholder =
-      message.role === "assistant" &&
-      !message.content &&
-      message.finishedAt === undefined;
-    const isOtherUser = isOtherUserChatMessage(message, currentUserId);
+    const isOtherUser = isOtherUserChatMessage(row.message, currentUserId);
     const senderFirstName =
-      isOtherUser && message.userId
-        ? firstNameByUserId.get(message.userId)
+      isOtherUser && row.message.userId
+        ? firstNameByUserId.get(row.message.userId)
         : undefined;
-    const precedingUser =
-      message.role === "assistant"
-        ? findPrecedingUserTurn(messages, message._id)
-        : undefined;
-
     return (
       <ChatMessage
-        key={message._id}
-        message={message}
+        message={row.message}
         repoBasePath={repoBasePath}
-        isLast={isLast}
+        isLast={row.isLast}
         isOtherUser={isOtherUser}
         senderFirstName={senderFirstName}
-        turnModel={precedingUser?.model}
-        turnReasoningLevel={precedingUser?.reasoningLevel}
-        turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
-        streamingActivity={
-          isStreamingPlaceholder ? streamingActivity : undefined
-        }
-        streamingContent={
-          isActiveAssistantTurn || isLast ? streamingContent : undefined
-        }
-        blockingQuestions={
-          isStreamingPlaceholder ? blockingQuestions : undefined
-        }
-        activePendingQuestion={
-          isStreamingPlaceholder || isActiveAssistantTurn || isLast
-            ? activePendingQuestion
-            : undefined
-        }
+        turnModel={row.precedingUser?.model}
+        turnReasoningLevel={row.precedingUser?.reasoningLevel}
+        turnCredentialSourceLabel={row.precedingUser?.credentialSourceLabel}
+        streamingActivity={row.stream?.currentActivity}
+        streamingContent={row.stream?.currentContent}
+        blockingQuestions={row.question ? blockingQuestions : undefined}
         isQuestionLoading={isAnsweringQuestion}
-        onQuestionAnswer={handleQuestionAnswer}
         onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
@@ -321,44 +253,45 @@ export function ChatBody({
     );
   };
 
+  const standaloneQuestion =
+    blockingQuestions && !timeline.questionAttached ? (
+      <MultipleChoiceQuestion
+        key={blockingQuestion?.toolUseId}
+        questions={blockingQuestions}
+        onAnswer={() => undefined}
+        onAnswerStructured={handleBlockingAnswer}
+        isLoading={isAnsweringQuestion}
+      />
+    ) : null;
+
   return (
     <>
       {preConversationContent}
-      <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0 ? (
-            (emptyStateOverride ?? (
-              <ConversationEmptyState title={emptyStateTitle} />
-            ))
-          ) : lastUserMessageIndex < 0 ? (
-            messages.map(renderMessage)
-          ) : (
-            <>
-              {messages.slice(0, lastUserMessageIndex).map(renderMessage)}
-              <ChatLastTurn>
-                {messages.slice(lastUserMessageIndex).map(renderMessage)}
-              </ChatLastTurn>
-            </>
-          )}
-          {blockingQuestions && !hasStreamingPlaceholder ? (
-            <MultipleChoiceQuestion
-              questions={blockingQuestions}
-              onAnswer={handleQuestionAnswer}
-              onAnswerStructured={handleBlockingAnswer}
-              isLoading={isAnsweringQuestion}
-            />
-          ) : null}
-        </ConversationContent>
-        <ConversationScrollButton resetKey={conversationId} />
-        <ChatJumpRail messages={jumpRailMessages} />
-      </Conversation>
-      {!isArchived && !activePendingQuestion && !blockingQuestions && (
+      <ChatVirtualizedTimeline
+        conversationId={conversationId}
+        rows={timeline.rows}
+        firstItemIndex={firstItemIndex}
+        anchors={timeline.jumpAnchors}
+        canLoadOlder={canLoadOlder}
+        isLoadingOlder={isLoadingOlder}
+        onLoadOlder={onLoadOlder}
+        localTurnId={optimisticTurn?.turnId}
+        emptyState={
+          emptyStateOverride ?? (
+            <ConversationEmptyState title={emptyStateTitle} />
+          )
+        }
+        footer={standaloneQuestion}
+        renderRow={renderRow}
+      />
+      {!isArchived && !blockingQuestions ? (
         <ChatComposer
           repoId={repoId}
           repoBasePath={repoBasePath}
           conversationId={conversationId}
           queuedMessages={queuedMessages}
-          messageHistory={messageHistory}
+          optimisticTurn={optimisticTurn}
+          messageHistory={timeline.messageHistory}
           isExecuting={isExecuting}
           isInputDisabled={isInputDisabled}
           placeholder={placeholder}
@@ -369,6 +302,7 @@ export function ChatBody({
           accountId={accountId}
           onAccountChange={onAccountChange}
           displayTraits={displayTraits}
+          providerCapabilities={providerCapabilities}
           onTraitsChange={onTraitsChange}
           onSend={onSend}
           onCancel={onCancel}
@@ -381,7 +315,7 @@ export function ChatBody({
           hasPendingContext={hasPendingContext}
           attachmentMode={attachmentMode}
         />
-      )}
+      ) : null}
     </>
   );
 }

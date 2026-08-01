@@ -11,7 +11,10 @@ import {
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
+  sessionModeValidator,
+  cursorTransportValidator,
 } from "../validators";
+import { usesChatDaemon } from "../_chat/daemonTransport";
 import {
   execHandle,
   resolveSandboxContext,
@@ -42,6 +45,7 @@ import {
 } from "./convexLocalBackend";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+import { chatTurnIdentityFields } from "../_validators/tableFields";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -1153,6 +1157,7 @@ type PrewarmEntityDaemonBaseParams = {
   completeSyntheticTurnMutation: string;
   updateBackgroundAgentsMutation: string;
   model?: string;
+  cursorTransport?: Infer<typeof cursorTransportValidator>;
   reasoningLevel?: Infer<typeof reasoningLevelValidator>;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
@@ -1209,9 +1214,9 @@ async function runPrewarmEntityDaemon(
     const entityIdStr = args.entityId;
     const fp = CALLBACK_SCRIPT_FINGERPRINT;
     const normalizedModel = normalizeAIModel(args.model);
-    if (getAIModelProvider(normalizedModel) !== "claude") {
+    if (!usesChatDaemon(normalizedModel, args.cursorTransport)) {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: skip non-claude entityId=${entityIdStr} model=${normalizedModel}`,
+        `[sandbox][execution] prewarmEntityDaemon: skip one-shot provider entityId=${entityIdStr} model=${normalizedModel}`,
       );
       return { prewarmed: false };
     }
@@ -1354,6 +1359,7 @@ export const prewarmEntityDaemon = internalAction({
     completeSyntheticTurnMutation: v.string(),
     updateBackgroundAgentsMutation: v.string(),
     model: v.optional(v.string()),
+    cursorTransport: v.optional(cursorTransportValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
@@ -1421,9 +1427,11 @@ export const prewarmSessionDaemon = internalAction({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
     model: v.optional(v.string()),
+    cursorTransport: v.optional(cursorTransportValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    mode: v.optional(sessionModeValidator),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
@@ -1448,6 +1456,7 @@ export const prewarmSessionDaemon = internalAction({
       completionMutation: "sessionWorkflow:handleCompletion",
       ...SESSION_DAEMON_MUTATIONS,
       model: args.model,
+      cursorTransport: args.cursorTransport,
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
@@ -1475,6 +1484,7 @@ export const launchOnExistingSandbox = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    mode: v.optional(sessionModeValidator),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1487,6 +1497,7 @@ export const launchOnExistingSandbox = internalAction({
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
     credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    turnIdentity: v.optional(v.object(chatTurnIdentityFields)),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1534,6 +1545,9 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
+    if (args.mode !== undefined) {
+      extraEnvVars.EVA_SESSION_MODE = args.mode;
+    }
     // Session-wide trait overrides. Only non-default values are sent from the UI;
     // the runner maps effort to each provider's native control (see config.ts).
     Object.assign(
@@ -1571,6 +1585,7 @@ export const launchOnExistingSandbox = internalAction({
         claudeSessionId,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
+        turnIdentity: args.turnIdentity,
         enableMcp: true,
       },
     );

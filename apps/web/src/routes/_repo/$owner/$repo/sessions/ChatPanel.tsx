@@ -1,10 +1,8 @@
 import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
-import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
@@ -20,10 +18,7 @@ import { SessionDesignComposerTools } from "./_components/SessionDesignComposerT
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
-import {
-  useSessionSend,
-  type SessionMessage,
-} from "./_components/useSessionSend";
+import { useSessionSend } from "./_components/useSessionSend";
 import {
   useSessionSettings,
   type SessionMode,
@@ -38,10 +33,6 @@ import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCo
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 
-type QueuedSessionMessage = NonNullable<
-  FunctionReturnType<typeof api.queuedMessages.listByParent>
->[number];
-
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
   title: string;
@@ -49,12 +40,7 @@ interface ChatPanelProps {
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
   summary?: string[];
-  messages: SessionMessage[];
-  queuedMessages: QueuedSessionMessage[];
   planContent?: string;
-  streamingActivity?: string;
-  streamingContent?: string;
-  streamingPendingQuestion?: string;
   summaryStreamingActivity?: string;
   startupStreamingActivity?: string;
   isSandboxActive: boolean;
@@ -86,12 +72,7 @@ export function ChatPanel({
   prUrl,
   prState,
   summary,
-  messages,
-  queuedMessages,
   planContent,
-  streamingActivity,
-  streamingContent,
-  streamingPendingQuestion,
   summaryStreamingActivity,
   startupStreamingActivity,
   isSandboxActive,
@@ -130,6 +111,14 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
   } = useSessionModel(sessionId, defaultModel);
+  const capabilityAccountId = stickyProviderAccountId
+    ? resolveAccountId(stickyProviderAccountId)
+    : undefined;
+  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
+    repo._id,
+    model,
+    capabilityAccountId,
+  );
   const {
     mode,
     setMode,
@@ -146,6 +135,7 @@ export function ChatPanel({
     onModeChange: setStickyMode,
     traits,
     onTraitsPersist: setTraits,
+    providerCapabilities,
     providerAccountId: stickyProviderAccountId,
     onProviderAccountChange: (next: string | null) => {
       setStickyProviderAccountId(
@@ -153,7 +143,6 @@ export function ChatPanel({
       );
     },
   });
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const currentUserId = useQuery(api.auth.me);
   const isOwner =
     currentUserId !== undefined &&
@@ -184,7 +173,7 @@ export function ChatPanel({
     setMode(AVAILABLE_MODES[nextIndex]);
   });
 
-  const { isExecuting, handleSend, handleCancel } = useSessionSend({
+  const runtime = useSessionSend({
     sessionId,
     mode,
     model,
@@ -193,25 +182,13 @@ export function ChatPanel({
     providerAccountId,
     resolveAccountId,
     accounts,
-    messages,
+    activeTurn: session?.activeTurn,
+    legacyBusy:
+      session?.activeTurn === undefined &&
+      session?.activeWorkflowId !== undefined,
     personaId: selectedPersonaId,
     numDesigns,
   });
-
-  const activeQuestion = useQuery(api.pendingQuestions.getActive, {
-    entityId: sessionId,
-  });
-  const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
-  const handleAnswerBlockingQuestion = async (
-    toolUseId: string,
-    answers: Record<string, string>,
-  ) => {
-    await answerPendingQuestion({
-      entityId: sessionId,
-      toolUseId,
-      answer: JSON.stringify(answers),
-    });
-  };
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
@@ -224,7 +201,7 @@ export function ChatPanel({
     prUrl,
     prState,
     hasSummary,
-    messageCount: messages.length,
+    messageCount: runtime.messages.length,
     isSandboxActive,
     isSandboxToggling,
     deploymentStatus,
@@ -361,16 +338,24 @@ export function ChatPanel({
         repoId={repo._id}
         repoBasePath={basePath}
         conversationId={sessionId}
-        messages={messages}
-        queuedMessages={queuedMessages}
-        streamingActivity={streamingActivity}
-        streamingContent={streamingContent}
-        streamingPendingQuestion={streamingPendingQuestion}
-        blockingQuestion={activeQuestion ?? undefined}
-        onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
-        isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
-        isArchived={isReadOnly}
+        messages={runtime.messages}
+        queuedMessages={runtime.queuedMessages}
+        activeTurn={session?.activeTurn}
+        streaming={runtime.streaming ?? undefined}
+        blockingQuestion={runtime.activeQuestion ?? undefined}
+        optimisticTurn={runtime.optimisticTurn}
+        history={{
+          firstItemIndex: runtime.firstItemIndex,
+          canLoadOlder: runtime.canLoadOlder,
+          isLoadingOlder: runtime.isLoadingOlder,
+          onLoadOlder: runtime.loadOlder,
+        }}
+        onAnswerBlockingQuestion={runtime.handleAnswerBlockingQuestion}
+        availability={{
+          isExecuting: runtime.isExecuting,
+          isInputDisabled: !isSandboxActive,
+          isArchived: isReadOnly,
+        }}
         placeholder={placeholder}
         emptyStateTitle={emptyStateTitle}
         emptyStateOverride={emptyStateOverride}
@@ -394,9 +379,10 @@ export function ChatPanel({
           setProviderAccountId(next);
         }}
         displayTraits={displayTraits}
+        providerCapabilities={providerCapabilities}
         onTraitsChange={onTraitsChange}
-        onSend={handleSend}
-        onCancel={handleCancel}
+        onSend={runtime.handleSend}
+        onCancel={runtime.handleCancel}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

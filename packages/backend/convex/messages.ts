@@ -1,9 +1,13 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { authQuery, authMutation } from "./functions";
-import { variationValidator, messageFields } from "./validators";
+import type { Doc } from "./_generated/dataModel";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { messageFields } from "./validators";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import {
   appendMediaStorageIds,
   messageMediaStorageIds,
@@ -45,15 +49,11 @@ export const generateUploadUrl = authMutation({
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
 });
 
-/** Fetches messages for a parent and resolves their image/video/attachment storage URLs. */
-async function resolveMessageUrls(
-  ctx: Pick<QueryCtx, "db" | "storage">,
-  parentId: typeof parentIdValidator.type,
+/** Resolves storage only for the documents in the current result page. */
+async function resolveMessagesUrls(
+  ctx: Pick<QueryCtx, "storage">,
+  messages: Doc<"messages">[],
 ) {
-  const messages = await ctx.db
-    .query("messages")
-    .withIndex("by_parent", (q) => q.eq("parentId", parentId))
-    .collect();
   return Promise.all(
     messages.map(async (m) => {
       const attachmentEntries = m.attachmentStorageIds
@@ -98,53 +98,83 @@ async function resolveMessageUrls(
   );
 }
 
-/** Lists all messages for a parent entity (session, doc, etc.) with resolved media URLs. */
-export const listByParent = authQuery({
-  args: { parentId: parentIdValidator },
-  returns: v.array(messageValidator),
-  handler: async (ctx, args) => resolveMessageUrls(ctx, args.parentId),
-});
-
-/** Updates the most recent message for a parent (internal use, for streaming updates). */
-export const updateLastInternal = internalMutation({
+/** Newest-first reactive pages; clients reverse loaded results for chronology. */
+export const listByParentPaginated = authQuery({
   args: {
     parentId: parentIdValidator,
-    content: v.optional(v.string()),
-    activityLog: v.optional(v.string()),
-    variations: v.optional(v.array(variationValidator)),
-    // Legacy single-media args: stale callback bundles still in flight during
-    // a deploy call with these instead of mediaStorageIds. New callers use
-    // mediaStorageIds.
-    imageStorageId: v.optional(v.id("_storage")),
-    videoStorageId: v.optional(v.id("_storage")),
-    mediaStorageIds: v.optional(v.array(v.id("_storage"))),
+    paginationOpts: paginationOptsValidator,
   },
-  returns: v.null(),
+  returns: paginationResultValidator(messageValidator),
   handler: async (ctx, args) => {
-    const last = await ctx.db
+    const result = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
       .order("desc")
-      .first();
-    if (!last) return null;
+      .paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: await resolveMessagesUrls(ctx, result.page),
+    };
+  },
+});
 
-    const patch: {
-      content?: string;
-      activityLog?: string;
-      variations?: (typeof variationValidator.type)[];
-      mediaStorageIds?: Id<"_storage">[];
-    } = {};
-    if (args.content !== undefined) patch.content = args.content;
-    if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
-    if (args.variations !== undefined) patch.variations = args.variations;
-
-    // Accumulates within a turn, so a second capture cannot orphan the first.
-    const mediaStorageIds = appendMediaStorageIds(last.mediaStorageIds, args);
-    if (mediaStorageIds !== undefined) {
-      patch.mediaStorageIds = mediaStorageIds;
+/** Narrow sandbox-panel read: the newest assistant turn containing designs. */
+export const getLatestSessionDesignMessage = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(messageValidator, v.null()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (
+      session === null ||
+      !(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))
+    ) {
+      return null;
     }
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "assistant"),
+          q.neq(q.field("variations"), undefined),
+        ),
+      )
+      .first();
+  },
+});
 
-    await ctx.db.patch(last._id, patch);
-    return null;
+/** Applies callback output to one explicitly owned assistant row. */
+export const updateExactInternal = internalMutation({
+  args: {
+    parentId: parentIdValidator,
+    turnId: v.string(),
+    assistantMessageId: v.id("messages"),
+    attempt: v.number(),
+    content: v.optional(v.string()),
+    activityLog: v.optional(v.string()),
+    mediaStorageIds: v.optional(v.array(v.id("_storage"))),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    void args.attempt;
+    const message = await ctx.db.get(args.assistantMessageId);
+    if (
+      message === null ||
+      message.parentId !== args.parentId ||
+      message.turnId !== args.turnId ||
+      message.role !== "assistant"
+    ) {
+      return false;
+    }
+    const mediaStorageIds = appendMediaStorageIds(message.mediaStorageIds, {
+      mediaStorageIds: args.mediaStorageIds,
+    });
+    await ctx.db.patch(args.assistantMessageId, {
+      content: args.content,
+      activityLog: args.activityLog,
+      mediaStorageIds,
+    });
+    return true;
   },
 });

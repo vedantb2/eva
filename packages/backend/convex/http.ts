@@ -92,18 +92,32 @@ http.route({
     }
 
     if (touchOnly) {
-      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
+      await ctx.runMutation(internal.streaming.internalTouchFromHttp, {
+        entityId,
+        turnId: params.get("turnId") ?? undefined,
+        assistantMessageId: params.get("assistantMessageId") ?? undefined,
+        attempt:
+          params.get("attempt") === null
+            ? undefined
+            : Number(params.get("attempt")),
+      });
     } else {
       if (!currentActivity) {
         return new Response("Missing required heartbeat fields", {
           status: 400,
         });
       }
-      await ctx.runMutation(internal.streaming.internalSet, {
+      await ctx.runMutation(internal.streaming.internalSetFromHttp, {
         entityId,
         currentActivity,
         currentContent: params.get("currentContent") ?? "",
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
+        turnId: params.get("turnId") ?? undefined,
+        assistantMessageId: params.get("assistantMessageId") ?? undefined,
+        attempt:
+          params.get("attempt") === null
+            ? undefined
+            : Number(params.get("attempt")),
       });
     }
 

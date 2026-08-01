@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "typecheck:callback": "tsc --noEmit -p callback-src/tsconfig.json",
     "build:callback": "node scripts/build-callback-script.mjs",
+    "probe:cursor-acp": "node scripts/cursor-acp-probe.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "predeploy": "pnpm run build:callback",
@@ -22,6 +23,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.3.0",
     "@clerk/backend": "^2.30.1",
     "@convex-dev/action-cache": "^0.3.1",
     "@convex-dev/crons": "^0.2.0",
@@ -47,7 +49,7 @@
     "octokit": "^5.0.5",
     "pg": "^8.21.0",
     "shell-quote": "^1.8.3",
-    "zod": "^3.24.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.18.5",

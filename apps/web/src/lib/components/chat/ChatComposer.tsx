@@ -7,7 +7,6 @@ import {
   PromptInputSpeech,
   PromptInputSubmit,
   ModelSelect,
-  TraitsMenu,
   usePromptInputController,
   toast,
   type PromptInputMessage,
@@ -36,12 +35,11 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
-  getModelTraits,
-  getReasoningLevelLabel,
-  modelHasTraits,
+  describeModelComposerControls,
   type AIModel,
   type Id,
   type ReasoningLevel,
+  type ProviderComposerCapability,
   type StoredModelTraits,
 } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -51,9 +49,14 @@ import {
   MentionTextarea,
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
-import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import {
+  QueuedMessagesPanel,
+  type QueuedMessageItem,
+} from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
+import type { OptimisticChatTurn } from "./useChatRuntime";
+import { ComposerCapabilityControls } from "./ComposerCapabilityControls";
 
 /** localStorage-backed draft seed (no Convex row yet — e.g. new session). */
 type LocalChatDraft = {
@@ -68,6 +71,7 @@ interface ChatComposerProps {
   repoBasePath: string;
   conversationId: string;
   queuedMessages: ChatBodyQueuedMessage[];
+  optimisticTurn?: OptimisticChatTurn | null;
   messageHistory: string[];
   isExecuting: boolean;
   isInputDisabled: boolean;
@@ -83,6 +87,7 @@ interface ChatComposerProps {
     thinkingEnabled: boolean;
     use1mContext: boolean;
   };
+  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
@@ -110,6 +115,7 @@ export function ChatComposer({
   repoBasePath,
   conversationId,
   queuedMessages,
+  optimisticTurn,
   messageHistory,
   isExecuting,
   isInputDisabled,
@@ -121,6 +127,7 @@ export function ChatComposer({
   accountId,
   onAccountChange,
   displayTraits,
+  providerCapabilities,
   onTraitsChange,
   onSend,
   onCancel,
@@ -144,6 +151,9 @@ export function ChatComposer({
     useQueuedMessageMutations(queuedMessages);
   // Convex draft wins when both are passed (existing sessions).
   const seed = draft ?? localDraft;
+  const capabilityControls = displayTraits
+    ? describeModelComposerControls(model, displayTraits, providerCapabilities)
+    : [];
 
   const handleSubmit = async (
     text: string,
@@ -169,12 +179,27 @@ export function ChatComposer({
     await handleSubmit(text, files);
   };
 
-  const queuedMessageItems = queuedMessages.map((message) => ({
-    id: message._id,
-    content: message.displayContent ?? message.content,
-    model: message.model,
-    reasoningLevel: message.reasoningLevel,
-  }));
+  const queuedMessageItems: QueuedMessageItem[] = queuedMessages.map(
+    (message) => ({
+      id: String(message._id),
+      serverId: message._id,
+      content: message.displayContent ?? message.content,
+      model: message.model,
+      reasoningLevel: message.reasoningLevel,
+    }),
+  );
+  const hasCanonicalOptimisticTurn = queuedMessages.some(
+    (message) => message.turnId === optimisticTurn?.turnId,
+  );
+  if (optimisticTurn?.placement === "queued" && !hasCanonicalOptimisticTurn) {
+    queuedMessageItems.push({
+      id: `turn:${optimisticTurn.turnId}:queue`,
+      serverId: undefined,
+      content: optimisticTurn.content,
+      model: optimisticTurn.model,
+      reasoningLevel: optimisticTurn.reasoningLevel,
+    });
+  }
 
   return (
     <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
@@ -307,37 +332,11 @@ export function ChatComposer({
                     onAccountChange={onAccountChange}
                     className="max-w-48 truncate sm:max-w-none"
                   />
-                  {onTraitsChange && displayTraits && modelHasTraits(model) ? (
-                    <TraitsMenu
-                      config={getModelTraits(model)}
-                      effortLevel={displayTraits.effortLevel}
-                      thinkingEnabled={displayTraits.thinkingEnabled}
-                      use1mContext={displayTraits.use1mContext}
-                      getLevelLabel={getReasoningLevelLabel}
-                      onEffortLevelChange={(level) => {
-                        if (level === undefined) {
-                          onTraitsChange({ effortLevel: undefined });
-                          return;
-                        }
-                        const { reasoning } = getModelTraits(model);
-                        if (!reasoning) return;
-                        const match = reasoning.levels.find(
-                          (entry) => entry === level,
-                        );
-                        if (match) {
-                          onTraitsChange({ effortLevel: match });
-                        }
-                      }}
-                      onThinkingEnabledChange={(enabled) =>
-                        onTraitsChange({
-                          thinkingEnabled: enabled ? undefined : false,
-                        })
-                      }
-                      onUse1mContextChange={(use1m) =>
-                        onTraitsChange({
-                          use1mContext: use1m ? true : undefined,
-                        })
-                      }
+                  {onTraitsChange && displayTraits ? (
+                    <ComposerCapabilityControls
+                      controls={capabilityControls}
+                      isExecuting={isExecuting}
+                      onChange={onTraitsChange}
                     />
                   ) : null}
                   <PromptInputSpeech />

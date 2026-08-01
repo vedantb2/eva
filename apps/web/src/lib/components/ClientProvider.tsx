@@ -13,6 +13,7 @@ import usePresence from "@convex-dev/presence/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/clerk-react";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
+import { InboxFaviconBadge } from "@/lib/components/InboxFaviconBadge";
 import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
@@ -142,6 +143,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <ThemeProvider>
           <TooltipProvider delayDuration={300}>
             {children}
+            <InboxFaviconBadge />
             <PresenceHeartbeat />
             <WelcomeSetupDialog />
           </TooltipProvider>

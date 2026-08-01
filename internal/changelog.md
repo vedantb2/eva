@@ -1,5 +1,9 @@
 # Changelog
 
+## Unread inbox count reaches the browser tab - 2026-08-01
+
+The unread count lived only in the sidebar rail, so a backgrounded tab gave no sign that anything had arrived. The favicon now carries that count as a bottom-right badge, drawn as an SVG data URI from the same cached `countUnread` subscription the rail already holds, so it inherits that query's optimistic updates and adds no server load. Only the SVG icon link is rewritten, which means browsers that prefer it show the badge while Safari, which ignores SVG favicons outright, keeps showing the plain PNG.
+
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
 - Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.

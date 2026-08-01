@@ -42,16 +42,12 @@ const configOptions: CursorCapabilityConfigOption[] = [
 
 describe("Cursor capability normalization", () => {
   test("maps Eva model ids to and from Cursor's advertised ids", () => {
+    expect(cursorModelIdForEva("cursor:grok-4.5")).toBe("grok-4.5");
     expect(cursorModelIdForEva("cursor:grok-4.5-high")).toBe("grok-4.5");
-    expect(evaModelIdForCursor("cursor-grok-4.5-high")).toBe(
-      "cursor:grok-4.5-high",
-    );
-    expect(evaModelIdsForCursor("grok-4.5")).toEqual([
-      "cursor:grok-4.5-low",
-      "cursor:grok-4.5-medium",
-      "cursor:grok-4.5-high",
-    ]);
+    expect(evaModelIdForCursor("cursor-grok-4.5-high")).toBe("cursor:grok-4.5");
+    expect(evaModelIdsForCursor("grok-4.5")).toEqual(["cursor:grok-4.5"]);
     expect(cursorReasoningLevelForEvaModel("cursor:grok-4.5-low")).toBe("low");
+    expect(cursorReasoningLevelForEvaModel("cursor:grok-4.5")).toBeUndefined();
     expect(evaModelIdForCursor("gpt-5.5-low")).toBe("cursor:gpt-5.5-low");
   });
 

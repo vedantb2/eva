@@ -1,7 +1,5 @@
 export type CursorEvaModel =
-  | "cursor:grok-4.5-low"
-  | "cursor:grok-4.5-medium"
-  | "cursor:grok-4.5-high"
+  | "cursor:grok-4.5"
   | "cursor:gpt-5.5-low"
   | "cursor:gemini-3.1-pro"
   | "cursor:composer-2.5";
@@ -90,24 +88,7 @@ const cursorModelPairs: ReadonlyArray<{
   legacyCursor?: string;
   reasoningLevel?: CursorReasoningLevel;
 }> = [
-  {
-    eva: "cursor:grok-4.5-low",
-    cursor: "grok-4.5",
-    legacyCursor: "cursor-grok-4.5-low",
-    reasoningLevel: "low",
-  },
-  {
-    eva: "cursor:grok-4.5-medium",
-    cursor: "grok-4.5",
-    legacyCursor: "cursor-grok-4.5-medium",
-    reasoningLevel: "medium",
-  },
-  {
-    eva: "cursor:grok-4.5-high",
-    cursor: "grok-4.5",
-    legacyCursor: "cursor-grok-4.5-high",
-    reasoningLevel: "high",
-  },
+  { eva: "cursor:grok-4.5", cursor: "grok-4.5" },
   {
     eva: "cursor:gpt-5.5-low",
     cursor: "gpt-5.5",
@@ -118,12 +99,48 @@ const cursorModelPairs: ReadonlyArray<{
   { eva: "cursor:composer-2.5", cursor: "composer-2.5" },
 ];
 
+/** Pre-reasoning-selector Grok ids; still accepted and mapped onto cursor:grok-4.5. */
+const legacyGrokEvaAliases: ReadonlyArray<{
+  alias: string;
+  legacyCursor: string;
+  reasoningLevel: CursorReasoningLevel;
+}> = [
+  {
+    alias: "cursor:grok-4.5-low",
+    legacyCursor: "cursor-grok-4.5-low",
+    reasoningLevel: "low",
+  },
+  {
+    alias: "cursor:grok-4.5-medium",
+    legacyCursor: "cursor-grok-4.5-medium",
+    reasoningLevel: "medium",
+  },
+  {
+    alias: "cursor:grok-4.5-high",
+    legacyCursor: "cursor-grok-4.5-high",
+    reasoningLevel: "high",
+  },
+];
+
 function stripCursorPrefix(model: string): string {
   return model.startsWith("cursor:") ? model.slice("cursor:".length) : model;
 }
 
+function findLegacyGrokAlias(
+  model: string,
+): (typeof legacyGrokEvaAliases)[number] | undefined {
+  const normalized = stripCursorPrefix(model).trim().toLowerCase();
+  return legacyGrokEvaAliases.find((entry) => {
+    const alias = stripCursorPrefix(entry.alias).toLowerCase();
+    return (
+      normalized === alias || normalized === entry.legacyCursor.toLowerCase()
+    );
+  });
+}
+
 export function cursorModelIdForEva(model: string): string {
   const normalized = stripCursorPrefix(model);
+  if (findLegacyGrokAlias(model)) return "grok-4.5";
   const match = cursorModelPairs.find(
     (entry) => stripCursorPrefix(entry.eva) === normalized,
   );
@@ -133,6 +150,8 @@ export function cursorModelIdForEva(model: string): string {
 /** All Eva variants backed by one Cursor ACP model. */
 export function evaModelIdsForCursor(model: string): CursorEvaModel[] {
   const normalized = stripCursorPrefix(model).trim().toLowerCase();
+  if (findLegacyGrokAlias(model)) return ["cursor:grok-4.5"];
+
   const exactMatch = cursorModelPairs.find((entry) => {
     const eva = stripCursorPrefix(entry.eva).toLowerCase();
     const legacyCursor = entry.legacyCursor?.toLowerCase();
@@ -154,6 +173,8 @@ export function evaModelIdForCursor(model: string): CursorEvaModel | undefined {
 export function cursorReasoningLevelForEvaModel(
   model: string,
 ): CursorReasoningLevel | undefined {
+  const legacy = findLegacyGrokAlias(model);
+  if (legacy) return legacy.reasoningLevel;
   const normalized = stripCursorPrefix(model).trim().toLowerCase();
   return cursorModelPairs.find(
     (entry) => stripCursorPrefix(entry.eva).toLowerCase() === normalized,

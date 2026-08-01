@@ -1,5 +1,9 @@
 # Changelog
 
+## Grok 4.5 is one model; effort lives on the reasoning control - 2026-08-01
+
+The model picker still offered Grok 4.5 Low/Medium/High even after Cursor moved effort onto a separate ACP trait. Those variants are gone from the selector in favor of a single `cursor:grok-4.5`, with low/medium/high chosen from the reasoning control. Stored variant ids keep loading and normalize to the base model.
+
 ## Cursor ACP messages complete through one recoverable daemon - 2026-08-01
 
 Cursor chat could remain on Working indefinitely because every headless ACP process entered Cursor's interactive login method despite already receiving `CURSOR_API_KEY`; repeated prewarm requests could also race and launch several daemons for the same session. API-key sessions now skip interactive authentication, entity prewarm is protected by an expiring launch lease, page-open prewarm carries the same saved reasoning/thinking/context traits as the next turn, and a rejected saved-session restore falls back to a fresh ACP session. Cursor's current base-model-plus-traits contract is also normalized back to Eva's variant-style model IDs, so selections such as Grok 4.5 Low resolve to `grok-4.5` plus low effort instead of failing against an obsolete literal slug.

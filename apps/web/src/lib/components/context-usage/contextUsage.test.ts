@@ -26,6 +26,26 @@ function cursorResult(args: {
   });
 }
 
+function turnResult(args: {
+  provider?: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+}): string {
+  return JSON.stringify({
+    provider: args.provider,
+    usage: {
+      input_tokens: args.inputTokens,
+      output_tokens: args.outputTokens,
+      cache_read_input_tokens: args.cacheReadTokens ?? 0,
+      cache_creation_input_tokens: args.cacheCreationTokens ?? 0,
+    },
+    modelUsage: { [args.model]: {} },
+  });
+}
+
 test("aggregateContextUsage counts cumulative Cursor totals once per ACP session", () => {
   const aggregated = aggregateContextUsage([
     {
@@ -50,7 +70,7 @@ test("aggregateContextUsage counts cumulative Cursor totals once per ACP session
   expect(aggregated?.usage.outputTokens).toBe(50);
   expect(aggregated?.usedTokens).toBe(125);
   expect(aggregated?.maxTokens).toBe(1000);
-  expect(aggregated?.contextUnavailable).toBe(false);
+  expect(aggregated?.reporting).toEqual({ status: "complete" });
 });
 
 test("aggregateContextUsage marks current Cursor context as unavailable", () => {
@@ -63,7 +83,80 @@ test("aggregateContextUsage marks current Cursor context as unavailable", () => 
     },
   ]);
 
-  expect(aggregated?.partial).toBe(true);
-  expect(aggregated?.contextUnavailable).toBe(true);
+  expect(aggregated?.reporting).toEqual({
+    status: "unavailable",
+    provider: "Cursor",
+  });
   expect(aggregated?.usedTokens).toBe(0);
+});
+
+test("aggregateContextUsage keeps Cursor token totals visible without exact occupancy", () => {
+  const aggregated = aggregateContextUsage([
+    {
+      rawResultEvent: cursorResult({
+        sessionId: "cursor-session",
+        inputTokens: 200,
+        outputTokens: 50,
+      }),
+    },
+  ]);
+
+  expect(aggregated?.usedTokens).toBe(250);
+  expect(aggregated?.reporting).toEqual({
+    status: "partial",
+    providers: ["Cursor"],
+  });
+});
+
+test.each([
+  ["claude", "claude-sonnet-4-20250514"],
+  ["codex", "gpt-5.5"],
+  ["opencode", "openai/gpt-5.4"],
+])("aggregateContextUsage supports %s turn usage", (provider, model) => {
+  const aggregated = aggregateContextUsage([
+    {
+      rawResultEvent: turnResult({
+        provider,
+        model,
+        inputTokens: 100,
+        outputTokens: 25,
+        cacheReadTokens: 300,
+        cacheCreationTokens: 50,
+      }),
+    },
+  ]);
+
+  expect(aggregated?.usedTokens).toBe(475);
+  expect(aggregated?.usage).toEqual({
+    inputTokens: 100,
+    outputTokens: 25,
+    cachedInputReadTokens: 300,
+    cachedInputWriteTokens: 50,
+  });
+  expect(aggregated?.reporting).toEqual({ status: "complete" });
+});
+
+test("aggregateContextUsage does not let an older Cursor log hide historical Claude usage", () => {
+  const aggregated = aggregateContextUsage([
+    {
+      // Historical Claude logs have model/usage data but no provider field.
+      rawResultEvent: turnResult({
+        model: "claude-sonnet-4-20250514",
+        inputTokens: 120,
+        outputTokens: 30,
+      }),
+    },
+    {
+      rawResultEvent: cursorResult({
+        sessionId: "older-cursor-session",
+        usageAvailable: false,
+      }),
+    },
+  ]);
+
+  expect(aggregated?.usedTokens).toBe(150);
+  expect(aggregated?.reporting).toEqual({
+    status: "partial",
+    providers: ["Cursor"],
+  });
 });

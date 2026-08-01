@@ -4,6 +4,10 @@
 
 Names and emails appeared in tooltips, hover cards, and other portals where a per-component prop could not reach them, which made demos and screenshots risky. A persisted blur-PID toggle now drives a single `data-blur-pid` rule on `<html>` that blurs every `[data-pii]` node app-wide, including portaled UI, without threading props through every call site.
 
+## Context usage remains provider-wide - 2026-08-01
+
+The context header treated an explicitly tagged Cursor log as newer than valid historical Claude logs that predated provider tags, allowing one incomplete Cursor report to hide usable context totals across a session or project. Result selection now follows actual usage metadata, supports Claude, Codex, OpenCode, and Cursor uniformly, preserves authoritative ACP occupancy when present, and represents incomplete providers as partial coverage instead of a global Cursor-only failure.
+
 ## Chat execution feedback starts in the optimistic frame - 2026-08-01
 
 The Convex optimistic send path previously projected only the user bubble, while the Stop control and empty assistant “Thinking…” row still depended on the server-confirmed active turn. Idle sends now project both canonical-shaped rows through the same `withOptimisticUpdate` cache entry and treat that pending turn as executing immediately. A turn-id-only cancellation is resolved against the server's canonical active identity, so Stop is functional even when clicked before the submit round trip finishes without weakening stale-turn protection.

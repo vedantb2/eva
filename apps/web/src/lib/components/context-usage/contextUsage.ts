@@ -22,6 +22,50 @@ function getMaxTokens(model: string): number {
 
 type AggregatableLog = { rawResultEvent: string | undefined };
 
+export type ContextUsageReporting =
+  | { status: "complete" }
+  | { status: "partial"; providers: string[] }
+  | { status: "unavailable"; provider: string };
+
+function providerName(event: ParsedResultEvent): string {
+  const provider = event.provider.toLowerCase();
+  if (provider === "claude" || provider === "anthropic") return "Claude";
+  if (provider === "codex" || provider === "openai") return "Codex";
+  if (provider === "opencode") return "OpenCode";
+  if (provider === "cursor") return "Cursor";
+
+  // Historical Claude result events predate the explicit provider field.
+  if (event.model.toLowerCase().includes("claude")) return "Claude";
+  return provider.length > 0 ? provider : "Model provider";
+}
+
+function hasResultMetadata(event: ParsedResultEvent): boolean {
+  return (
+    event.provider.length > 0 ||
+    event.model !== "-" ||
+    event.usageAvailable ||
+    event.costAvailable ||
+    event.contextUsedTokens !== undefined ||
+    event.contextWindowSize !== undefined
+  );
+}
+
+function isContextReportForLatestProvider(
+  event: ParsedResultEvent,
+  latestEvent: ParsedResultEvent,
+): boolean {
+  if (
+    event.contextUsedTokens === undefined ||
+    event.contextWindowSize === undefined
+  ) {
+    return false;
+  }
+  if (latestEvent.sessionId.length > 0) {
+    return event.sessionId === latestEvent.sessionId;
+  }
+  return event === latestEvent;
+}
+
 function addUsage(
   totals: {
     inputTokens: number;
@@ -45,20 +89,15 @@ export function aggregateContextUsage(logs: AggregatableLog[] | undefined) {
   if (!logs || logs.length === 0) return null;
 
   const events = logs.map((log) => parseResultEvent(log.rawResultEvent));
-  const latestEvent = events.find((event) => event.provider.length > 0);
+  // Provider tags were added after usage logging. Treat the newest event with
+  // real result metadata as current so a valid historical Claude event is not
+  // skipped in favour of an older, explicitly-tagged Cursor event.
+  const latestEvent = events.find(hasResultMetadata);
+  if (latestEvent === undefined) return null;
   const latestModel = events.find((event) => event.model !== "-")?.model ?? "";
-  const latestCursorSessionId =
-    latestEvent?.provider === "cursor" ? latestEvent.sessionId : "";
-  const latestContext =
-    latestEvent?.provider === "cursor"
-      ? events.find(
-          (event) =>
-            event.provider === "cursor" &&
-            event.sessionId === latestCursorSessionId &&
-            event.contextUsedTokens !== undefined &&
-            event.contextWindowSize !== undefined,
-        )
-      : undefined;
+  const latestContext = events.find((event) =>
+    isContextReportForLatestProvider(event, latestEvent),
+  );
 
   const totals = {
     inputTokens: 0,
@@ -67,9 +106,10 @@ export function aggregateContextUsage(logs: AggregatableLog[] | undefined) {
     cacheCreationTokens: 0,
   };
   const countedSessions = new Set<string>();
+  const incompleteProviders = new Set<string>();
   let totalCostUsd = 0;
   let costAvailable = false;
-  let partial = false;
+  let usageAvailable = false;
 
   for (const event of events) {
     const isSessionTotal =
@@ -78,10 +118,13 @@ export function aggregateContextUsage(logs: AggregatableLog[] | undefined) {
       if (countedSessions.has(event.sessionId)) continue;
       countedSessions.add(event.sessionId);
     }
-    if (event.provider === "cursor" && !event.usageAvailable) {
-      partial = true;
+    if (!event.usageAvailable && event.provider.length > 0) {
+      incompleteProviders.add(providerName(event));
     }
-    if (event.usageAvailable) addUsage(totals, event);
+    if (event.usageAvailable) {
+      usageAvailable = true;
+      addUsage(totals, event);
+    }
     if (event.costAvailable) {
       totalCostUsd += event.costUsd;
       costAvailable = true;
@@ -94,13 +137,29 @@ export function aggregateContextUsage(logs: AggregatableLog[] | undefined) {
     totals.cacheReadTokens +
     totals.cacheCreationTokens;
   const hasAuthoritativeContext = latestContext !== undefined;
+  if (providerName(latestEvent) === "Cursor" && !hasAuthoritativeContext) {
+    incompleteProviders.add("Cursor");
+  }
+
+  let reporting: ContextUsageReporting;
+  if (!usageAvailable && !hasAuthoritativeContext) {
+    reporting = {
+      status: "unavailable",
+      provider: providerName(latestEvent),
+    };
+  } else if (incompleteProviders.size > 0) {
+    reporting = {
+      status: "partial",
+      providers: Array.from(incompleteProviders),
+    };
+  } else {
+    reporting = { status: "complete" };
+  }
 
   return {
     usedTokens: latestContext?.contextUsedTokens ?? knownUsedTokens,
     maxTokens: latestContext?.contextWindowSize ?? getMaxTokens(latestModel),
-    contextUnavailable:
-      latestEvent?.provider === "cursor" && !hasAuthoritativeContext,
-    partial,
+    reporting,
     usage: {
       inputTokens: totals.inputTokens,
       outputTokens: totals.outputTokens,

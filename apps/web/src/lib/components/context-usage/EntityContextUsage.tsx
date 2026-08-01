@@ -32,13 +32,13 @@ function ContextUsageDisplay({
       usage={aggregated.usage}
       costs={aggregated.costs}
     >
-      {aggregated.contextUnavailable ? (
+      {aggregated.reporting.status === "unavailable" ? (
         <ContextTrigger>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            aria-label="Cursor context usage unavailable"
+            aria-label={`${aggregated.reporting.provider} context usage unavailable`}
           >
             <span className="font-medium text-muted-foreground text-xs">—</span>
             <span
@@ -51,11 +51,12 @@ function ContextUsageDisplay({
         <ContextTrigger />
       )}
       <ContextContent>
-        {aggregated.contextUnavailable ? (
+        {aggregated.reporting.status === "unavailable" ? (
           <ContextContentHeader>
             <p className="text-sm font-medium">Context usage unavailable</p>
             <p className="text-xs text-muted-foreground">
-              Cursor ACP did not report context occupancy for this session.
+              {aggregated.reporting.provider} did not report token or context
+              usage for this run.
             </p>
           </ContextContentHeader>
         ) : (
@@ -66,15 +67,18 @@ function ContextUsageDisplay({
           <ContextOutputUsage />
           <ContextCacheReadUsage />
           <ContextCacheWriteUsage />
-          {aggregated.partial ? (
+          {aggregated.reporting.status === "partial" ? (
             <p className="pt-1 text-xs text-muted-foreground">
-              Cursor did not report token totals for part of this usage.
+              {aggregated.reporting.providers.join(", ")} did not report
+              complete context or token data for part of this usage.
             </p>
           ) : null}
         </ContextContentBody>
-        {aggregated.contextUnavailable ? (
+        {aggregated.reporting.status === "unavailable" ? (
           <ContextContentFooter>
-            <span className="text-muted-foreground">Cursor ACP</span>
+            <span className="text-muted-foreground">
+              {aggregated.reporting.provider}
+            </span>
             <span>Not reported</span>
           </ContextContentFooter>
         ) : (

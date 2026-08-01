@@ -1,9 +1,27 @@
 import { v } from "convex/values";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 import { authMutation } from "./functions";
 
 export const CHANGELOG_AUTOMATION_TITLE = "Eva Weekly Changelog";
+
+/** Roughly a year of a weekly automation — deep enough to never need paging. */
+const ENTRY_LIMIT = 50;
+
+/**
+ * The changelog automation, found by title across every repo — there is exactly
+ * one, and which repo owns it is an implementation detail of how it was set up.
+ */
+async function findChangelogAutomation(
+  db: GenericDatabaseReader<DataModel>,
+): Promise<Doc<"automations"> | null> {
+  const allAutomations = await db.query("automations").collect();
+  return (
+    allAutomations.find((a) => a.title === CHANGELOG_AUTOMATION_TITLE) ?? null
+  );
+}
 
 /**
  * Returns the latest successful changelog automation run and whether the
@@ -25,11 +43,7 @@ export const getLatestChangelog = query({
     const userId = await getCurrentUserId(ctx);
     if (!userId) return null;
 
-    // Find the changelog automation by title across all repos.
-    const allAutomations = await ctx.db.query("automations").collect();
-    const automation = allAutomations.find(
-      (a) => a.title === CHANGELOG_AUTOMATION_TITLE,
-    );
+    const automation = await findChangelogAutomation(ctx.db);
     if (!automation) return null;
 
     const latestRun = await ctx.db
@@ -52,6 +66,51 @@ export const getLatestChangelog = query({
       content: latestRun.resultSummary,
       publishedAt: latestRun.finishedAt,
     };
+  },
+});
+
+/**
+ * Every published changelog entry, newest first, for the `/changelog` page.
+ * Plain query (like `getLatestChangelog`) so an unauthenticated render returns
+ * an empty list rather than throwing while auth hydrates.
+ */
+export const listChangelog = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      id: v.id("automationRuns"),
+      content: v.string(),
+      publishedAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return [];
+
+    const automation = await findChangelogAutomation(ctx.db);
+    if (!automation) return [];
+
+    const runs = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_automation_and_status", (q) =>
+        q.eq("automationId", automation._id).eq("status", "success"),
+      )
+      .order("desc")
+      .take(ENTRY_LIMIT);
+
+    // A successful run can still finish without a summary (nothing shipped that
+    // week); those have nothing to render, so drop them rather than show blanks.
+    return runs.flatMap((run) =>
+      run.resultSummary && run.finishedAt
+        ? [
+            {
+              id: run._id,
+              content: run.resultSummary,
+              publishedAt: run.finishedAt,
+            },
+          ]
+        : [],
+    );
   },
 });
 

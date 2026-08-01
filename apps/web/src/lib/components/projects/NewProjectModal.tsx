@@ -169,7 +169,7 @@ export function NewProjectModal({
           />
         </div>
 
-        <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+        <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
           <Suspense
             fallback={
               <div className="p-3">

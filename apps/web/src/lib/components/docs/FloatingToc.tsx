@@ -130,7 +130,7 @@ export function FloatingToc({
   return (
     <nav
       aria-label="On this page"
-      className={cn("min-h-0 overflow-y-auto", className)}
+      className={cn("min-h-0 overflow-y-auto scrollbar", className)}
     >
       <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         On this page

@@ -1,5 +1,9 @@
 # Changelog
 
+## Scroll surfaces stop re-wrapping their own text - 2026-08-02
+
+A `.scrollbar` utility had existed for a while, but only 36 of the app's 79 scroll containers used it, so every dropdown, diff panel, file viewer, and error `<pre>` fell back to the thick high-contrast native scrollbar that Windows and Linux draw. It now reaches all of them, and it reserves its own gutter: a panel whose content grows past its box no longer steals width from the text and re-wraps every line at the moment the scrollbar appears. Only `<html>` reserved that space before, which left each inner panel to shift on its own. Horizontal-only scrollers — tab rows, wide tables, code blocks — opt out through a new `.scrollbar-x`, since no vertical scrollbar can appear there and a reserved gutter would be dead space. Two tab rows had been asking for `scrollbar-thin`, a class from a Tailwind plugin this app does not install, and so had been styling nothing at all.
+
 ## One icon library across the app - 2026-08-02
 
 Eighteen call sites still imported from `lucide-react` while the rest of the UI already used Tabler, so the same chevron, search, and close glyphs shipped twice under different stroke weights. Those files now import from `@tabler/icons-react`, and `lucide-react` is dropped from web, UI, and the chrome extension. One library, one visual weight.

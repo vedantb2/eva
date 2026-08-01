@@ -45,7 +45,7 @@ export function HiddenReposSheet({
         <DialogHeader>
           <DialogTitle>Hidden Codebases</DialogTitle>
         </DialogHeader>
-        <div className="mt-2 space-y-2 max-h-96 overflow-y-auto">
+        <div className="mt-2 space-y-2 max-h-96 overflow-y-auto scrollbar">
           {hiddenRepos.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No hidden codebases

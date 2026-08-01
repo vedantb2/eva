@@ -162,7 +162,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const prNumber = prNumberFromGithubUrl(prUrl);
 
   const fileDiffs = (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto scrollbar">
       {state.status === "loading" ? (
         <div className="flex h-full items-center justify-center">
           <Spinner />

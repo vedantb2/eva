@@ -199,7 +199,7 @@ export function SessionPrdPlanView({
           "flex min-h-0 flex-col px-3 pb-3 pt-0 sm:px-4",
           isPanel
             ? "min-h-0 flex-1 overflow-hidden sm:pb-4"
-            : "max-h-40 overflow-y-auto sm:max-h-64 sm:pb-4",
+            : "max-h-40 overflow-y-auto scrollbar sm:max-h-64 sm:pb-4",
         )}
       >
         {editingSnapshot !== null ? (
@@ -211,7 +211,7 @@ export function SessionPrdPlanView({
         ) : (
           <div
             className={cn(
-              "overflow-y-auto",
+              "overflow-y-auto scrollbar",
               isPanel ? "min-h-0 flex-1" : "max-h-40 sm:max-h-64",
             )}
           >

@@ -6,7 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
     />
-    <meta name="theme-color" content="#0891b2" />
+    <!-- Light-theme --app-shell; the script below and FaviconController
+         retarget this to the active theme. -->
+    <meta name="theme-color" content="#F4F5F6" />
     <meta
       name="description"
       content="Meet Eva, your new AI coworker. Manage tasks, ship code, and track progress in real-time."
@@ -26,7 +28,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Eva" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="128x128" href="/favicon.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/icon.svg" />
@@ -91,6 +93,13 @@
         }
         if (appearance === "neutral") {
           document.documentElement.classList.add("neutral");
+        }
+        // Match browser chrome to --app-shell before paint (see SHELL_COLOR
+        // in src/lib/utils/evaMark.ts), so mobile does not flash light.
+        var shell = { light: "#F4F5F6", dark: "#050606", neutral: "#222325" };
+        if (shell[appearance]) {
+          var themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeMeta) themeMeta.content = shell[appearance];
         }
         // Apply last-known custom theme before React so fonts/radius don't swap (CLS).
         try {

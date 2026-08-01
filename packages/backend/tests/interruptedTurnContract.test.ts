@@ -2,8 +2,36 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { buildErrorMessage } from "../callback-src/runtime/completion";
 
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// buildErrorMessage(code, fatalHeartbeat, toolStall, maxRuntime, noOutput,
+// firstEvent, firstAssistant, afterFirstText, zombie). Under the test env
+// AI_PROVIDER is unset, so the CLI name resolves to "Claude CLI".
+function errorFor(
+  code: number,
+  timeouts: Partial<{
+    maxRuntime: boolean;
+    noOutput: boolean;
+    firstEvent: boolean;
+    firstAssistant: boolean;
+    afterFirstText: boolean;
+    zombie: boolean;
+  }> = {},
+): string {
+  return buildErrorMessage(
+    code,
+    "",
+    "",
+    timeouts.maxRuntime ?? false,
+    timeouts.noOutput ?? false,
+    timeouts.firstEvent ?? false,
+    timeouts.firstAssistant ?? false,
+    timeouts.afterFirstText ?? false,
+    timeouts.zombie ?? false,
+  );
+}
 
 const oneShotSource = readSource("callback-src/index.ts");
 const cliAttemptSource = readSource("callback-src/runtime/cliAttempt.ts");
@@ -112,6 +140,46 @@ describe("a signal-killed one-shot turn is never reported as success", () => {
       expect(signalAt).toBeLessThan(rawExitAt);
     },
   );
+});
+
+/**
+ * The structural checks above prove the signal branch exists and is ordered;
+ * these run buildErrorMessage so a refactor that keeps the branch but breaks
+ * the actual copy — or reorders it past a timeout — is caught behaviourally.
+ */
+describe("buildErrorMessage turns a bare signal kill into an interruption", () => {
+  test("SIGKILL (137) reads as an out-of-memory kill", () => {
+    const message = errorFor(137);
+    expect(message).toContain("ran out of memory");
+    expect(message).toContain("Send the request again on a running sandbox");
+    // Never leak the raw code — that is what the fix replaced.
+    expect(message).not.toContain("exited with code");
+  });
+
+  test("SIGTERM (143) reads as an interrupted run, not an OOM", () => {
+    const message = errorFor(143);
+    expect(message).toContain("the run was interrupted");
+    expect(message).not.toContain("ran out of memory");
+    expect(message).not.toContain("exited with code");
+  });
+
+  test("an ordinary non-signal exit still reports its raw code", () => {
+    // A healthy one-shot agent exits 0; a plain failure is code 1. Neither may
+    // borrow the interruption copy, or every failure would look cancellable.
+    expect(errorFor(1)).toBe("Claude CLI exited with code 1");
+    expect(errorFor(2)).toBe("Claude CLI exited with code 2");
+  });
+
+  test("a timeout that ends in a signal keeps its specific message", () => {
+    // The signal branch sits after every timeout branch: a run we already know
+    // timed out must report the timeout, even though it was torn down with 143.
+    const message = errorFor(143, { maxRuntime: true });
+    expect(message).toContain("max runtime");
+    expect(message).not.toContain("the run was interrupted");
+    const noOutput = errorFor(137, { noOutput: true });
+    expect(noOutput).toContain("no stdout");
+    expect(noOutput).not.toContain("ran out of memory");
+  });
 });
 
 describe("recording turns cannot self-interrupt or finish on a promise", () => {

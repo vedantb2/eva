@@ -14,6 +14,7 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/clerk-react";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { BlurPidEffect } from "@/lib/components/BlurPidEffect";
+import { InboxFaviconBadge } from "@/lib/components/InboxFaviconBadge";
 import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
@@ -144,6 +145,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={300}>
             {children}
             <BlurPidEffect />
+            <InboxFaviconBadge />
             <PresenceHeartbeat />
             <WelcomeSetupDialog />
           </TooltipProvider>

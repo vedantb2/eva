@@ -1,5 +1,9 @@
 # Changelog
 
+## Unread inbox count reaches the browser tab - 2026-08-01
+
+The unread count lived only in the sidebar rail, so a backgrounded tab gave no sign that anything had arrived. The favicon now carries that count as a bottom-right badge, drawn as an SVG data URI from the same cached `countUnread` subscription the rail already holds, so it inherits that query's optimistic updates and adds no server load. Only the SVG icon link is rewritten, which means browsers that prefer it show the badge while Safari, which ignores SVG favicons outright, keeps showing the plain PNG.
+
 ## Identifiable info can blur from one global preference - 2026-08-01
 
 Names and emails appeared in tooltips, hover cards, and other portals where a per-component prop could not reach them, which made demos and screenshots risky. A persisted blur-PID toggle now drives a single `data-blur-pid` rule on `<html>` that blurs every `[data-pii]` node app-wide, including portaled UI, without threading props through every call site.

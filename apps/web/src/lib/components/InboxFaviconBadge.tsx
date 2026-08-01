@@ -14,11 +14,25 @@ const MARK =
   '<polygon points="0,256 217,237 256,64 295,237 512,256" fill="#8B3FB8"/>' +
   '<polygon points="0,256 217,275 256,449 295,275 512,256" fill="#3B7DD8"/>';
 
+/**
+ * Badge geometry, in the mark's 512 viewBox units.
+ *
+ * Discord-style: large and overlapping the mark rather than tucked into a
+ * corner. A browser draws a favicon at roughly 16px, where a corner badge
+ * collapses into an unreadable smudge. These values were picked by rendering
+ * every count width at 16px through 96px — the bubble covers most of the
+ * bottom-right while the mark's top wedge still identifies the tab, and the
+ * white ring keeps the red readable where it crosses the purple and blue.
+ */
+const BADGE_CENTER = 326;
+const BADGE_RING_RADIUS = 186;
+const BADGE_RADIUS = 162;
+
 /** Shrinks the text as digits are added so "99+" still fits inside the circle. */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 140;
-  if (label.length === 2) return 190;
-  return 230;
+  if (label.length >= 3) return 122;
+  if (label.length === 2) return 186;
+  return 259;
 }
 
 /** `countUnread` saturates at 100, so anything above 99 is reported as "99+". */
@@ -26,20 +40,14 @@ function formatBadgeLabel(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
-/**
- * Eva's mark with a count bubble in the bottom-right corner, as a data URI.
- *
- * The bubble sits on a white ring so it stays legible against the mark's purple
- * and blue wedges, and is sized to reach the icon's corner — at the 16px the
- * browser actually renders, a subtler badge is unreadable.
- */
+/** Eva's mark with the count overlaid as a bubble, as a data URI. */
 function badgedIconHref(label: string): string {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
     MARK +
-    '<circle cx="352" cy="352" r="160" fill="#ffffff"/>' +
-    '<circle cx="352" cy="352" r="132" fill="#e5484d"/>' +
-    `<text x="352" y="352" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="#ffffff">${label}</text>` +
+    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RING_RADIUS}" fill="#ffffff"/>` +
+    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RADIUS}" fill="#e5484d"/>` +
+    `<text x="${BADGE_CENTER}" y="${BADGE_CENTER}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="#ffffff">${label}</text>` +
     "</svg>";
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

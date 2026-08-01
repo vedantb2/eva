@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_global/teams/$teamId/$teamTab")({
         to: "/teams/$teamId/$teamTab",
         params: {
           teamId: params.teamId,
-          teamTab: "members",
+          teamTab: "activity",
         },
       });
     }

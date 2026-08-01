@@ -43,6 +43,22 @@ export function NewSessionComposer() {
     repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
   );
 
+  // Switching apps changes this route's params without remounting, so a plain
+  // useState initializer would keep the branch it was seeded with at mount
+  // while the model and effort refresh (those key their storage on repo._id).
+  // Re-seed whenever the underlying git repository changes: a different repo
+  // has a different branch list, so carrying the name across would leave the
+  // composer naming a ref that need not exist there. Sibling apps of one
+  // monorepo share a branch list, so a deliberate pick survives moving between
+  // them. Adjusting state during render is React's documented pattern for
+  // this, and matches useTaskDetail.
+  const branchListKey = `${repo.owner}/${repo.name}`;
+  const [prevBranchListKey, setPrevBranchListKey] = useState(branchListKey);
+  if (branchListKey !== prevBranchListKey) {
+    setPrevBranchListKey(branchListKey);
+    setBaseBranch(repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH);
+  }
+
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
     draft: draftTokenized,

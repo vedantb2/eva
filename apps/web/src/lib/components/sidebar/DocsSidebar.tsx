@@ -19,6 +19,7 @@ import {
   DialogTitle,
   Input,
   Spinner,
+  Surface,
   Textarea,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
@@ -348,7 +349,7 @@ export function DocsSidebar({
           </DialogHeader>
           {showUploadSection ? (
             <div className="space-y-4">
-              <div className="rounded-surface border border-border bg-card p-3">
+              <Surface density="tight">
                 <p className="text-sm font-medium">Upload a file</p>
                 <p className="mb-3 text-sm text-muted-foreground">
                   Supported formats: .md, .txt
@@ -365,7 +366,7 @@ export function DocsSidebar({
                   )}
                   Click to upload
                 </Button>
-              </div>
+              </Surface>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Paste PRD content</label>
                 <Textarea

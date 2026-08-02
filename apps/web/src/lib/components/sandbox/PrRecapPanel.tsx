@@ -10,6 +10,7 @@ import {
   ActivityTasks,
   Button,
   Spinner,
+  Surface,
   Tabs,
   TabsBar,
   TabsList,
@@ -204,7 +205,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
       {(streaming || isPending) && (
         <div className="shrink-0 px-3 py-2">
-          <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+          <Surface density="tight" className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">Generating recap...</span>
@@ -216,7 +217,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
                 {streaming?.currentActivity ?? "Generating recap..."}
               </p>
             )}
-          </div>
+          </Surface>
         </div>
       )}
 
@@ -234,11 +235,11 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             </p>
           )
         ) : (
-          <div className="rounded-lg border border-border bg-card p-4">
+          <Surface>
             <Streamdown className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               {recapDoc.content}
             </Streamdown>
-          </div>
+          </Surface>
         )}
       </div>
     </Tabs>

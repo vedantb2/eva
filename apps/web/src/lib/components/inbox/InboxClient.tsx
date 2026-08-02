@@ -8,7 +8,7 @@ import { useQueryState } from "nuqs";
 import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button } from "@eva/ui";
+import { Button, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
@@ -151,12 +151,9 @@ export function InboxClient() {
           aria-busy="true"
           aria-label="Loading inbox"
         >
-          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          <Skeleton className="h-4 w-24" />
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-md bg-muted/60"
-            />
+            <Skeleton key={i} className="h-14" />
           ))}
         </div>
       ) : groups === undefined || groups.length === 0 ? (

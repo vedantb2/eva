@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogFooter,
   Input,
+  ListRow,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -157,102 +158,81 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   const cardContent = (
-    <div
-      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
-        isActive
-          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
-          : "border-border bg-card shadow-sm hover:bg-muted/40"
-      }`}
+    <ListRow
+      className="shrink-0"
+      accentClassName={accentColor}
+      selected={isActive}
+      href={href}
+      onClick={onClick}
+      aria-label={title}
+      decoration={
+        <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      }
     >
-      <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      <div
-        className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
-      />
-      <div
-        role="button"
-        tabIndex={0}
-        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-        onClick={(event) => {
-          if (href && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            event.stopPropagation();
-            window.open(href, "_blank");
-            return;
-          }
-          onClick?.();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onClick?.();
-          }
-        }}
-      >
-        <div className="flex min-w-0 items-start gap-1.5">
-          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
-            {title}
-          </MarqueeOnHover>
-          {sandboxStatus ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "mt-1.5 size-2 shrink-0 rounded-full",
-                    SANDBOX_STATUS_STYLES[sandboxStatus].dot,
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {SANDBOX_STATUS_STYLES[sandboxStatus].label}
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-        </div>
-        {previewText ? (
-          <p
-            className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
-          >
-            {previewText}
-          </p>
-        ) : null}
-        <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div className="flex min-w-0 items-start gap-1.5">
+        <MarqueeOnHover className="min-w-0 flex-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
+          {title}
+        </MarqueeOnHover>
+        {sandboxStatus ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge
-                variant="secondary"
-                className="gap-0.5 px-1.5 py-0 text-[10px] font-medium leading-4"
-              >
-                {planningMode === "interview" ? (
-                  <IconSparkles size={10} className="shrink-0" />
-                ) : (
-                  <IconListCheck size={10} className="shrink-0" />
+              <span
+                className={cn(
+                  "mt-1.5 size-2 shrink-0 rounded-full",
+                  SANDBOX_STATUS_STYLES[sandboxStatus].dot,
                 )}
-                {planningMode === "interview" ? "Interview" : "Tasks only"}
-              </Badge>
+              />
             </TooltipTrigger>
             <TooltipContent>
-              {planningMode === "interview"
-                ? "Created with AI interview and generated plan"
-                : "Created as a tasks-only container"}
+              {SANDBOX_STATUS_STYLES[sandboxStatus].label}
             </TooltipContent>
           </Tooltip>
-        </div>
-        <ProjectProgressBar
-          projectId={projectId}
-          className="mt-4 h-1.5 bg-secondary/75"
-        />
-        <div className="mt-3 flex items-center gap-1.5">
-          <AvatarStack size={20} className="-space-x-0.5">
-            {shownAvatarIds.map((id) => (
-              <UserInitials key={id} userId={id} hideLastSeen />
-            ))}
-          </AvatarStack>
-          {hiddenCount > 0 ? (
-            <span className="text-[11px] font-medium leading-none text-muted-foreground">
-              +{hiddenCount}
-            </span>
-          ) : null}
-        </div>
+        ) : null}
+      </div>
+      {previewText ? (
+        <p
+          className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground"}`}
+        >
+          {previewText}
+        </p>
+      ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant="secondary"
+              className="gap-0.5 px-1.5 py-0 text-[10px] font-medium leading-4"
+            >
+              {planningMode === "interview" ? (
+                <IconSparkles className="size-2.5 shrink-0" />
+              ) : (
+                <IconListCheck className="size-2.5 shrink-0" />
+              )}
+              {planningMode === "interview" ? "Interview" : "Tasks only"}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            {planningMode === "interview"
+              ? "Created with AI interview and generated plan"
+              : "Created as a tasks-only container"}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <ProjectProgressBar
+        projectId={projectId}
+        className="mt-4 h-1.5 bg-secondary/75"
+      />
+      <div className="mt-3 flex items-center gap-1.5">
+        <AvatarStack size={20} className="-space-x-0.5">
+          {shownAvatarIds.map((id) => (
+            <UserInitials key={id} userId={id} hideLastSeen />
+          ))}
+        </AvatarStack>
+        {hiddenCount > 0 ? (
+          <span className="text-[11px] font-medium leading-none text-muted-foreground">
+            +{hiddenCount}
+          </span>
+        ) : null}
       </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(event) => event.stopPropagation()}>
@@ -299,7 +279,7 @@ export function ProjectCard({
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </ListRow>
   );
 
   const wrappedCard = isBuilding ? (
@@ -346,7 +326,7 @@ export function ProjectCard({
         </ContextMenuSub>
         <ContextMenuSub>
           <ContextMenuSubTrigger>
-            <IconUserPlus size={16} />
+            <IconUserPlus className="size-4" />
             Project Lead
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
@@ -388,7 +368,7 @@ export function ProjectCard({
               window.open(href, "_blank");
             }}
           >
-            <IconExternalLink size={16} />
+            <IconExternalLink className="size-4" />
             Open in new tab
           </ContextMenuItem>
         ) : null}
@@ -399,7 +379,7 @@ export function ProjectCard({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <IconGitBranch size={16} />
+              <IconGitBranch className="size-4" />
               View Branch
             </a>
           </ContextMenuItem>
@@ -411,7 +391,7 @@ export function ProjectCard({
             setEditOpen(true);
           }}
         >
-          <IconPencil size={16} />
+          <IconPencil className="size-4" />
           Edit Details
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -420,7 +400,7 @@ export function ProjectCard({
             void navigator.clipboard.writeText(title);
           }}
         >
-          <IconClipboard size={16} />
+          <IconClipboard className="size-4" />
           Copy title
         </ContextMenuItem>
         {branchName ? (
@@ -429,13 +409,13 @@ export function ProjectCard({
               void navigator.clipboard.writeText(branchName);
             }}
           >
-            <IconCopy size={16} />
+            <IconCopy className="size-4" />
             Copy branch name
           </ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem className="text-destructive" onClick={onDelete}>
-          <IconTrash size={16} />
+          <IconTrash className="size-4" />
           Delete
         </ContextMenuItem>
       </ContextMenuContent>

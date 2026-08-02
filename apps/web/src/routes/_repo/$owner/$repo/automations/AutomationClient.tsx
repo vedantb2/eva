@@ -16,6 +16,7 @@ import {
   cn,
   ModelSelect,
   toast,
+  Surface,
 } from "@eva/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -235,7 +236,7 @@ function SettingsForm({
         }}
       />
 
-      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+      <Surface density="none" className="p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -268,20 +269,20 @@ function SettingsForm({
             The prompt that will be executed on each run.
           </p>
         </div>
-      </div>
+      </Surface>
 
       {isMonorepo && (
-        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+        <Surface density="none" className="p-3 sm:p-4">
           <SettingToggle
             title="Share across apps"
             description="Show and run this automation from every app in the monorepo"
             checked={automation.shared === true}
             onChange={(next) => commit({ contextRepoId: repoId, shared: next })}
           />
-        </div>
+        </Surface>
       )}
 
-      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+      <Surface density="none" className="p-3 sm:p-4">
         <SettingToggle
           title="Report Only"
           description="Analyze and report without making code changes, branches, or PRs"
@@ -294,29 +295,29 @@ function SettingsForm({
             )
           }
         />
-      </div>
+      </Surface>
 
       {automation.readOnly === true && (
-        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+        <Surface density="none" className="p-3 sm:p-4">
           <SettingToggle
             title="Actions"
             description="Parse findings into actionable items you can convert to tasks"
             checked={automation.actionsEnabled === true}
             onChange={(next) => commit({ actionsEnabled: next })}
           />
-        </div>
+        </Surface>
       )}
 
-      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+      <Surface density="none" className="p-3 sm:p-4">
         <SettingToggle
           title="Send email"
           description="Email this automation's run summary to all users when a run succeeds"
           checked={automation.sendEmail === true}
           onChange={(next) => commit({ sendEmail: next })}
         />
-      </div>
+      </Surface>
 
-      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+      <Surface density="none" className="p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -328,9 +329,9 @@ function SettingsForm({
             onValueChange={(m) => commit({ model: m })}
           />
         </div>
-      </div>
+      </Surface>
 
-      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+      <Surface density="none" className="p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-destructive">
@@ -349,7 +350,7 @@ function SettingsForm({
             Delete
           </Button>
         </div>
-      </div>
+      </Surface>
 
       <AutomationDeleteDialog
         automation={

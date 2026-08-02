@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
+  Surface,
 } from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
@@ -110,7 +111,7 @@ export function SetupBanner() {
             enable Codex, sign in locally with Codex once, then paste the saved
             auth JSON into `CODEX_AUTH_JSON`.
           </p>
-          <div className="rounded-surface border border-border bg-card p-4">
+          <Surface>
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>
@@ -140,7 +141,7 @@ export function SetupBanner() {
                 </div>
               ))}
             </div>
-          </div>
+          </Surface>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setDismissed(true)}>

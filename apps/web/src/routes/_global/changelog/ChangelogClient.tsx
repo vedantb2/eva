@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { cn, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
+import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -26,10 +26,7 @@ export function ChangelogClient() {
       {entries === undefined ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-surface border border-border bg-card"
-            />
+            <Skeleton key={i} className="h-32 border border-border" />
           ))}
         </div>
       ) : entries.length === 0 ? (

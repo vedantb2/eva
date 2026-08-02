@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
+  Surface,
 } from "@eva/ui";
 import { IconEye, IconBrandGithub } from "@tabler/icons-react";
 
@@ -52,9 +53,10 @@ export function HiddenReposSheet({
             </p>
           ) : (
             hiddenRepos.map((repo) => (
-              <div
+              <Surface
                 key={repo._id}
-                className="flex items-center justify-between rounded-surface border border-border bg-card p-3"
+                density="tight"
+                className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <IconBrandGithub
@@ -83,7 +85,7 @@ export function HiddenReposSheet({
                   <IconEye size={16} />
                   Show
                 </Button>
-              </div>
+              </Surface>
             ))
           )}
         </div>

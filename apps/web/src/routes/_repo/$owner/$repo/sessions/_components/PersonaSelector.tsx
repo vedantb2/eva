@@ -15,6 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Surface,
   Textarea,
 } from "@eva/ui";
 import { IconEdit, IconTrash, IconUsers } from "@tabler/icons-react";
@@ -149,7 +150,7 @@ export function ManagePersonasModal({
   };
 
   const formUI = (
-    <div className="space-y-2 rounded-surface border border-border bg-card p-3">
+    <Surface density="tight" className="space-y-2">
       <Input
         placeholder="Persona name"
         value={formName}
@@ -169,7 +170,7 @@ export function ManagePersonasModal({
           {editingId ? "Save" : "Create"}
         </Button>
       </div>
-    </div>
+    </Surface>
   );
 
   return (

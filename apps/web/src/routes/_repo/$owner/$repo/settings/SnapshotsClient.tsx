@@ -14,6 +14,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
+  Skeleton,
   Spinner,
   Switch,
   Tabs,
@@ -197,9 +198,9 @@ export function SnapshotsClient({
           aria-busy="true"
           aria-label="Loading snapshots"
         >
-          <div className="h-9 w-80 max-w-full animate-pulse rounded-md bg-muted" />
-          <div className="h-48 animate-pulse rounded-surface border border-border bg-muted/60" />
-          <div className="h-32 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <Skeleton className="h-9 w-80 max-w-full" />
+          <Skeleton className="h-48 border border-border" />
+          <Skeleton className="h-32 border border-border" />
         </div>
       </PageWrapper>
     );

@@ -9,7 +9,7 @@ import {
   IconPercentage,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
+import { Skeleton, Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import { OnlineTeamAvatars } from "@/lib/components/sidebar/TeamMembers";
 
 type RepoDoc = FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>;
@@ -45,23 +45,20 @@ export function RepoStatsSummary({
         aria-busy="true"
         aria-label="Loading stats"
       >
-        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
-        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
       </div>
     ) : (
       <div className="flex flex-col gap-2">
+        <Skeleton className="h-8" />
         <div
-          className="h-8 animate-pulse rounded-surface bg-muted/60"
-          aria-hidden
-        />
-        <div
-          className="min-h-[4.5rem] animate-pulse py-1"
+          className="min-h-[4.5rem] py-1"
           aria-busy="true"
           aria-label="Loading stats"
         >
           <div className="grid grid-cols-2 gap-2">
-            <div className="h-8 rounded bg-muted/60" />
-            <div className="h-8 rounded bg-muted/60" />
+            <Skeleton className="h-8" />
+            <Skeleton className="h-8" />
           </div>
         </div>
       </div>

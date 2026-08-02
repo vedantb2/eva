@@ -21,6 +21,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuItem,
+  Skeleton,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -380,9 +381,9 @@ export function ProjectsClient() {
             >
               <div className="flex flex-1 gap-3 overflow-hidden">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div
+                  <Skeleton
                     key={i}
-                    className="min-w-[220px] flex-1 animate-pulse rounded-surface border border-border bg-muted/60"
+                    className="min-w-[220px] flex-1 border border-border"
                   />
                 ))}
               </div>

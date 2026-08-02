@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Spinner,
+  Surface,
   Tabs,
   TabsBar,
   TabsContent,
@@ -266,7 +267,7 @@ export function DocPrdViewer({
       />
       {streaming && (
         <div className="px-4 pb-3">
-          <div className="rounded-surface border border-border bg-card p-3 space-y-2">
+          <Surface density="tight" className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">
@@ -292,7 +293,7 @@ export function DocPrdViewer({
             {streamingSteps ? (
               <ActivityTasks steps={streamingSteps} isStreaming />
             ) : null}
-          </div>
+          </Surface>
         </div>
       )}
 

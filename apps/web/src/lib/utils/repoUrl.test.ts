@@ -1,20 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  repoHref,
-  repoPublicHref,
-  toDisplayRepoHref,
-  toInternalRepoHref,
-} from "./repoUrl";
+import { repoHref, toDisplayRepoHref, toInternalRepoHref } from "./repoUrl";
 
 describe("repoUrl monorepo slash rewrite", () => {
-  it("repoHref stays internal dash form for the router", () => {
+  it("repoHref is the public slash form", () => {
     expect(repoHref("evalucom", "carepulse-ts", "apps/web")).toBe(
-      "/evalucom/carepulse-ts--web",
-    );
-  });
-
-  it("repoPublicHref is the slash form", () => {
-    expect(repoPublicHref("evalucom", "carepulse-ts", "apps/web")).toBe(
       "/evalucom/carepulse-ts/web",
     );
   });

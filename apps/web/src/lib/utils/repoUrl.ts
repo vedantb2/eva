@@ -37,9 +37,9 @@ export const NON_REPO_PATH_PREFIXES = new Set([
 ]);
 
 /**
- * Router-internal href for a repo. Monorepo apps use `name--app` so `$repo`
- * stays a single segment. Prefer this for `<Link to>` / `navigate({ to })`;
- * the address bar shows the slash form via the router rewrite.
+ * Public href for a repo. Monorepo apps use `name/app` so the address bar and
+ * raw `<a href>` never show `repo--app`. Router matching still uses the
+ * encoded form via {@link toInternalRepoHref} / the rewrite in `main.tsx`.
  */
 export function repoHref(
   owner: string,
@@ -49,16 +49,16 @@ export function repoHref(
   if (!rootDirectory) return `/${owner}/${name}`;
   const appName = rootDirectory.split("/").pop();
   if (!appName) return `/${owner}/${name}`;
-  return `/${owner}/${name}--${appName}`;
+  return `/${owner}/${name}/${appName}`;
 }
 
-/** Public slash href (emails, copied links). Same as display rewrite output. */
+/** @deprecated Alias of {@link repoHref} — both are slash form now. */
 export function repoPublicHref(
   owner: string,
   name: string,
   rootDirectory?: string,
 ): string {
-  return toDisplayRepoHref(repoHref(owner, name, rootDirectory));
+  return repoHref(owner, name, rootDirectory);
 }
 
 /** Parse the router's internal `$repo` param (`name` or `name--app`). */

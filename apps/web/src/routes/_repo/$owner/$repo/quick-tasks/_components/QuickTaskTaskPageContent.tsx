@@ -10,6 +10,7 @@ import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface QuickTaskTaskPageContentProps {
   taskId: Id<"agentTasks">;
@@ -51,26 +52,32 @@ export function QuickTaskTaskPageContent({
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
             if (tab === "review") {
               void navigate({
-                to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+                to: toInternalRepoHref(
+                  `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+                ),
                 search: true,
               });
               return;
             }
             void navigate({
-              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
+              to: toInternalRepoHref(
+                `${basePath}/quick-tasks/${pathSegment}/sandbox/${tab}`,
+              ),
               // Keep diffFile across sandbox tabs.
               search: true,
             });
           },
           onExitSandboxView: () => {
             navigate({
-              to: `${basePath}/quick-tasks/${pathSegment}`,
+              to: toInternalRepoHref(`${basePath}/quick-tasks/${pathSegment}`),
               search: (prev) => prev,
             });
           },
           onOpenFile: (path: string) => {
             navigate({
-              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/files`,
+              to: toInternalRepoHref(
+                `${basePath}/quick-tasks/${pathSegment}/sandbox/files`,
+              ),
               search: (prev) => ({ ...prev, file: path }),
             });
           },
@@ -85,20 +92,24 @@ export function QuickTaskTaskPageContent({
         detailTab,
         onDetailTabChange: (_tab: TaskDetailTab) => {
           navigate({
-            to: `${basePath}/quick-tasks/${pathSegment}`,
+            to: toInternalRepoHref(`${basePath}/quick-tasks/${pathSegment}`),
             search: (prev) => prev,
           });
         },
         onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
           if (sandboxTab === "review") {
             void navigate({
-              to: `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+              to: toInternalRepoHref(
+                `${basePath}/quick-tasks/${pathSegment}/sandbox/review/diffs/unified`,
+              ),
               search: (prev) => prev,
             });
             return;
           }
           void navigate({
-            to: `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
+            to: toInternalRepoHref(
+              `${basePath}/quick-tasks/${pathSegment}/sandbox/${sandboxTab}`,
+            ),
             search: (prev) => prev,
           });
         },
@@ -127,7 +138,10 @@ export function QuickTaskTaskPageContent({
   return (
     <TaskDetailInline
       onClose={() =>
-        navigate({ to: `${basePath}/quick-tasks`, search: (prev) => prev })
+        navigate({
+          to: toInternalRepoHref(`${basePath}/quick-tasks`),
+          search: (prev) => prev,
+        })
       }
       taskId={taskId}
       allTags={allTags}

@@ -31,6 +31,7 @@ import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { entityPathSegment } from "@/lib/numId";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -247,7 +248,7 @@ export function QuickTasksClient() {
     const segment = entityPathSegment(task);
     if (!segment) return;
     navigate({
-      to: `${basePath}/quick-tasks/${segment}`,
+      to: toInternalRepoHref(`${basePath}/quick-tasks/${segment}`),
       search: (prev) => prev,
     });
   };
@@ -382,7 +383,7 @@ export function QuickTasksClient() {
               // split); kanban shows the board, so close the task.
               if (selectedTaskId && v !== "list") {
                 navigate({
-                  to: `${basePath}/quick-tasks`,
+                  to: toInternalRepoHref(`${basePath}/quick-tasks`),
                   search: (prev) => prev,
                 });
               }

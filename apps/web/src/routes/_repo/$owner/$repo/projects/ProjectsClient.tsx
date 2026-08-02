@@ -56,6 +56,7 @@ import {
   type ProjectView,
   type SortField,
 } from "./_utils";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 const VIEW_OPTIONS: {
   key: ProjectView;
@@ -182,7 +183,7 @@ export function ProjectsClient() {
   const handleOpenProject = (project: { numId?: number }) => {
     const segment = entityPathSegment(project);
     if (!segment) return;
-    navigate({ to: `${basePath}/projects/${segment}` });
+    navigate({ to: toInternalRepoHref(`${basePath}/projects/${segment}`) });
   };
 
   const hasActiveFilters =

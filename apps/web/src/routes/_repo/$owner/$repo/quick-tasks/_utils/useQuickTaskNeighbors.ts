@@ -8,6 +8,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface UseQuickTaskNeighborsArgs {
   taskId: string;
@@ -62,19 +63,23 @@ export function useQuickTaskNeighbors({
     if (navSurface === "sandbox" && sandboxTab) {
       if (sandboxTab === "review") {
         void navigate({
-          to: `${basePath}/quick-tasks/${segment}/sandbox/review/diffs/unified`,
+          to: toInternalRepoHref(
+            `${basePath}/quick-tasks/${segment}/sandbox/review/diffs/unified`,
+          ),
           search: (prev) => prev,
         });
         return;
       }
       void navigate({
-        to: `${basePath}/quick-tasks/${segment}/sandbox/${sandboxTab}`,
+        to: toInternalRepoHref(
+          `${basePath}/quick-tasks/${segment}/sandbox/${sandboxTab}`,
+        ),
         search: (prev) => prev,
       });
       return;
     }
     navigate({
-      to: `${basePath}/quick-tasks/${segment}`,
+      to: toInternalRepoHref(`${basePath}/quick-tasks/${segment}`),
       search: (prev) => prev,
     });
   };
@@ -91,7 +96,10 @@ export function useQuickTaskNeighbors({
       if (nextTaskId) goToTask(nextTaskId);
     },
     handleBack: () => {
-      navigate({ to: `${basePath}/quick-tasks`, search: (prev) => prev });
+      navigate({
+        to: toInternalRepoHref(`${basePath}/quick-tasks`),
+        search: (prev) => prev,
+      });
     },
   };
 }

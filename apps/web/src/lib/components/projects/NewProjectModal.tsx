@@ -36,6 +36,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -131,7 +132,9 @@ export function NewProjectModal({
       if (onCreated) {
         onCreated(projectId);
       } else {
-        navigate({ to: basePath + "/projects/" + projectId });
+        navigate({
+          to: toInternalRepoHref(basePath + "/projects/" + projectId),
+        });
       }
     } catch (error) {
       setIsLoading(false);

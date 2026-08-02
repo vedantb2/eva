@@ -2,16 +2,16 @@ import { repoHref } from "@/lib/utils/repoUrl";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
 
 /**
- * Base path(s) for a repo/app row. Internal `--` form plus public slash form
- * so path matching works against both `location.href` and `publicHref`.
+ * Base path(s) for a repo/app row. Public slash form plus internal `--` form
+ * so path matching works against both `publicHref` and `location.pathname`.
  */
 export function repoSessionBasePaths(repo: RepoWithLogo): string[] {
-  const encoded = repoHref(repo.owner, repo.name, repo.rootDirectory);
-  if (!repo.rootDirectory) return [encoded];
+  const slash = repoHref(repo.owner, repo.name, repo.rootDirectory);
+  if (!repo.rootDirectory) return [slash];
   const leaf = repo.rootDirectory.split("/").pop();
-  if (!leaf) return [encoded];
-  const slash = `/${repo.owner}/${repo.name}/${leaf}`;
-  return encoded === slash ? [encoded] : [encoded, slash];
+  if (!leaf) return [slash];
+  const internal = `/${repo.owner}/${repo.name}--${leaf}`;
+  return slash === internal ? [slash] : [slash, internal];
 }
 
 /** Sessions index URL for an app (`…/sessions` composer landing). */

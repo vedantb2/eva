@@ -2,7 +2,7 @@
 
 ## Monorepo URLs stay on slash form - 2026-08-02
 
-Clicking into a monorepo app (e.g. carepulse-ts/web) sometimes flipped the tab from `/owner/repo/app/...` to `/owner/repo--app/...` because the router needs a single `$repo` segment while shareable links already used slashes. A TanStack Router rewrite now maps slash ↔ dash at the history boundary, so the address bar and link hrefs stay on slash while routing still matches `repo--app`. Backend task/session URLs and notification hrefs use slash as well.
+Clicking into a monorepo app (e.g. carepulse-ts/web) sometimes flipped the tab from `/owner/repo/app/...` to `/owner/repo--app/...` because the router needs a single `$repo` segment while shareable links already used slashes. A TanStack Router rewrite now maps slash ↔ dash at the history boundary, so the address bar stays on slash while routing still matches `repo--app`. `basePath` and raw ListRow hrefs (quick-task and project cards) are slash too, so a plain click never hard-loads the dash form; SPA navigates convert to the internal segment first. Backend task/session URLs and notification hrefs use slash as well.
 
 ## Inline scroll areas fade at their edges - 2026-08-02
 

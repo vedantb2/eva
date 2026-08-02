@@ -14,6 +14,7 @@ import { REVIEW_DEFAULT_TAB, isReviewTab } from "@/lib/search-params";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ReviewTabsPanel } from "./ReviewTabsPanel";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type PrHeader = FunctionReturnType<typeof api.github.getPullRequestHeader>;
 
@@ -72,7 +73,7 @@ export function ReviewDetailClient({
 
   const goToTab = (nextTab: string) => {
     void navigate({
-      to: `${basePath}/reviews/${prNumber}/${nextTab}`,
+      to: toInternalRepoHref(`${basePath}/reviews/${prNumber}/${nextTab}`),
       search: (prev) => prev,
     });
   };

@@ -29,6 +29,7 @@ import {
   sidebarTextPreview,
 } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment } from "@/lib/numId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface AutomationsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -71,7 +72,9 @@ export function AutomationsSidebar({
       }
       setNewTitle("");
       setIsCreateOpen(false);
-      navigate({ to: `${basePath}/automations/${segment}` });
+      navigate({
+        to: toInternalRepoHref(`${basePath}/automations/${segment}`),
+      });
       if (onNavigate) onNavigate();
     } catch (error) {
       setIsCreating(false);

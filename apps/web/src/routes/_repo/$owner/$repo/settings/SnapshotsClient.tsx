@@ -43,6 +43,7 @@ import { formatDurationMs } from "@eva/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /** Every command box on this page is a monospace, resizable textarea. */
 const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
@@ -186,7 +187,7 @@ export function SnapshotsClient({
   const handleSnapshotsTabChange = (value: string) => {
     if (!isSnapshotSettingsTab(value)) return;
     navigate({
-      to: `${basePath}/settings/snapshots/${value}`,
+      to: toInternalRepoHref(`${basePath}/settings/snapshots/${value}`),
     });
   };
 

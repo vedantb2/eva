@@ -26,6 +26,7 @@ import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 import { SessionModeDropdown } from "./SessionModeDropdown";
 import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -144,7 +145,9 @@ export function NewSessionComposer() {
         attachmentStorageIds,
       });
       clearDraft();
-      await navigate({ to: `${basePath}/sessions/${numId}` });
+      await navigate({
+        to: toInternalRepoHref(`${basePath}/sessions/${numId}`),
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Couldn't create session";

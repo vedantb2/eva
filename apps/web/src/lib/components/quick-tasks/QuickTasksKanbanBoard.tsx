@@ -180,6 +180,13 @@ export function QuickTasksKanbanBoard({
                 ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                 : `${basePath}/quick-tasks`
             }
+            onClick={() => {
+              if (isSelecting) {
+                onToggleSelect(task._id);
+              } else {
+                onOpenTask(task);
+              }
+            }}
             groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}

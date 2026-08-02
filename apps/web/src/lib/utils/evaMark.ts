@@ -36,27 +36,25 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * Discord-style: the mark stays nearly full-bleed, and the unread bubble
- * half-overlaps its bottom-right edge rather than sitting inside it. An SVG
- * viewport clips, so a thin gutter outside the disc is still carved out of the
- * canvas — enough for the badge ring to land on the edge without the mark
- * looking shrunken. The scale is permanent (with or without a count) so the
- * tab icon does not resize as notifications arrive and clear.
+ * Discord keeps the brand mark full-bleed and drops a large red count on the
+ * bottom-right so both stay readable at 16px. We do the same: the mark fills
+ * the canvas (no permanent gutter shrink), and the badge is ~half the favicon
+ * wide, half-overlapping the disc. A thin surface ring separates the red from
+ * the tab chrome where it hangs off the edge.
  *
- * Badge sizing was picked against a 16px tab: the bubble is large enough that
- * digits survive, and the ring (drawn in the theme's surface colour) separates
- * the red from both the mark it overlaps and the tab background it hangs over.
+ * The layout is the same with or without a count, so the tab icon does not
+ * resize as notifications arrive and clear.
  */
-const MARK_SCALE = 240 / 256;
-const BADGE_CENTER = 404;
-const BADGE_RING_RADIUS = 108;
-const BADGE_RADIUS = 92;
+const MARK_SCALE = 1;
+const BADGE_CENTER = 368;
+const BADGE_RING_RADIUS = 142;
+const BADGE_RADIUS = 128;
 
 /** Shrinks the text as digits are added so "99+" still fits inside the bubble. */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 70;
-  if (label.length === 2) return 105;
-  return 145;
+  if (label.length >= 3) return 95;
+  if (label.length === 2) return 155;
+  return 210;
 }
 
 /** The disc and star, scaled into the favicon's badge-gutter layout. */

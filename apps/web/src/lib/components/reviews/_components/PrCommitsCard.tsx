@@ -30,7 +30,7 @@ export function PrCommitsCard({
       {commits.length === 0 ? (
         <p className="text-sm text-muted-foreground">No commits yet.</p>
       ) : (
-        <ul className="max-h-80 space-y-0.5 overflow-y-auto scrollbar">
+        <ul className="max-h-80 space-y-0.5 overflow-y-auto scrollbar scroll-fade">
           {commits.toReversed().map((commit) => (
             <li key={commit.sha}>
               <a

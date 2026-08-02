@@ -50,7 +50,7 @@ export function PrChecksCard({
           No checks have reported yet.
         </p>
       ) : (
-        <ul className="max-h-72 space-y-0.5 overflow-y-auto scrollbar">
+        <ul className="max-h-72 space-y-0.5 overflow-y-auto scrollbar scroll-fade">
           {checks.map((check) => {
             const row = (
               <span className="flex min-w-0 items-center gap-2">

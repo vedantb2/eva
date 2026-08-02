@@ -210,7 +210,7 @@ export function FilesPanel({ sandboxId, repoId, isActive }: FilesPanelProps) {
           <ViewerNotice message="Start the sandbox to browse files" />
         ) : listState.kind === "error" ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
-            <pre className="max-h-48 max-w-full overflow-auto scrollbar whitespace-pre-wrap rounded-lg bg-destructive/5 p-3 text-sm text-destructive">
+            <pre className="max-h-48 max-w-full overflow-auto scrollbar scroll-fade whitespace-pre-wrap rounded-lg bg-destructive/5 p-3 text-sm text-destructive">
               {listState.message}
             </pre>
             <Button

@@ -32,6 +32,35 @@ html {
   scrollbar-gutter: stable;
 }
 
+/*
+ * Mask stops for `.scroll-fade` (defined in @layer utilities). Custom
+ * properties only interpolate once registered, so these cannot be plain
+ * `--vars`. Each is driven by its own range of the element's scroll timeline:
+ * the top fade grows in over the first 1.5rem of scroll, the bottom fade
+ * shrinks out over the last 1.5rem. Content flush against an edge therefore
+ * never fades — only content that continues past it does.
+ */
+@property --scroll-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-fade-top {
+  to {
+    --scroll-fade-top: 1.5rem;
+  }
+}
+@keyframes scroll-fade-bottom {
+  from {
+    --scroll-fade-bottom: 1.5rem;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -528,6 +557,7 @@ html {
   .scrollbar-x {
     scrollbar-gutter: auto;
   }
+
   .scrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -553,6 +583,42 @@ html {
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Scroll edge fade — pair with `.scrollbar` on an inline scroll area so
+ * its content does not hard-cut at the top and bottom boundary. The mask
+ * stops are the two registered properties declared near the top of this
+ * file, each driven by its own range of the element's scroll timeline, so
+ * an edge only fades while there is more content past it.
+ *
+ * Gated on scroll-driven animation support: without it the fade could not
+ * follow the scroll position, and a permanently faded edge dims content
+ * that is already fully visible — worse than the hard cut. Unsupported
+ * browsers therefore get no mask at all.
+ *
+ * Do not use on page-level scroll, on a text input (it dims the caret), on
+ * a container with a `sticky` child (the pinned child sits inside the
+ * fade), or on an element that already sets `animation` (the shorthand
+ * here would replace it — Radix menu content is the usual case).
+ * ─────────────────────────────────────────────────────────────────── */
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scroll-fade-top),
+      #000 calc(100% - var(--scroll-fade-bottom)),
+      transparent 100%
+    );
+    animation:
+      scroll-fade-top linear both,
+      scroll-fade-bottom linear both;
+    animation-timeline: scroll(self block);
+    animation-range:
+      0 1.5rem,
+      calc(100% - 1.5rem) 100%;
   }
 }
 
@@ -1187,6 +1253,19 @@ html[data-blur-pid] [data-pii] {
   }
 }
 */
+
+/*
+ * Exception: `.scroll-fade` is not motion. It tracks a scroll the user is
+ * already making, so there is nothing to reduce. The blanket reduced-motion
+ * rule above (when re-enabled) would give its scroll timeline a 0.01ms slice
+ * of the range and freeze the mask at its end state — top edge permanently
+ * faded, bottom edge never.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-fade {
+    animation-duration: auto !important;
+  }
+}
 
 /* ───────────────────────────────────────────────────────────────────
  * Eva logo draw-on (used by <LogoMark/> — plays on mount, replays on

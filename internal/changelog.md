@@ -1,5 +1,9 @@
 # Changelog
 
+## Inline scroll areas fade at their edges - 2026-08-02
+
+Inline scroll panels hard-cut their content at the boundary, so a list or log pane gave no signal that anything continued past the edge. A new `.scroll-fade` utility masks both edges from the element's own scroll timeline, so an edge only fades while there is content beyond it. Gated on `@supports (animation-timeline: scroll())` — a static fade would permanently dim fully-visible content, worse than the hard cut. Exempted from the blanket reduced-motion rule, which would otherwise collapse the scroll range and freeze the mask at its end state.
+
 ## Three primitives replace thirty hand-rolled copies - 2026-08-02
 
 Skeleton, Surface, and ListRow already existed in the codebase — about thirty times each, written from memory, no two quite alike. `<Skeleton>` owns the pulse, radius, and fill so placeholder sizes stop drifting across screens. `<Surface>` is the padded-box recipe for places that need one box rather than Card's Header/Content/Footer split, with density as a closed set of paddings. `<ListRow>` settles project, quick-task, and notification rows onto one shell with a real button or anchor stretched across it, so nested checkboxes and menus keep working without `role="button"` hacks. Button also gains an `xs` size for the row controls that were hand-sized below `sm`.

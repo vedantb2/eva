@@ -34,7 +34,7 @@ export type TaskProof = FunctionReturnType<
 
 const MESSAGE_TRUNCATE = 72;
 const PROOF_ACCORDION_SCROLL_CLASS =
-  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar scroll-fade";
 
 function truncateProofMessage(message: string): string {
   const trimmed = message.replace(/\s+/g, " ").trim();

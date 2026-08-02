@@ -63,22 +63,20 @@ const DISC_R = 210;
 /** Star geometry is authored for a 256-radius disc; scale into this disc. */
 const FAVICON_STAR_SCALE = (1.45 * DISC_R) / 256;
 /**
- * Badge centre on the disc (drawn after it = on top). Kept ≥ font/2 from the
- * canvas edge so the 2× digit is not cropped by the viewBox.
+ * Badge centre on the disc's BR (drawn after it = on top). Nudged into the
+ * corner; outer red may kiss the viewBox like Discord. Digit is slightly
+ * under 2× so it stays readable when the bubble hangs off the edge.
  */
-const BADGE_CENTER = 300;
+const BADGE_CENTER = 340;
 /** Thin dark separator only; red gets almost the whole bubble. */
-const BADGE_CUTOUT_RADIUS = 224;
-const BADGE_RADIUS = 212;
+const BADGE_CUTOUT_RADIUS = 210;
+const BADGE_RADIUS = 198;
 
-/**
- * Digit size is 2× the pre-enlarge badges (220 / 160 / 100). Badge radius
- * is sized so the glyph fills the red without clipping the viewBox.
- */
+/** Slightly under 2× the pre-enlarge badges (220 / 160 / 100). */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 200;
-  if (label.length === 2) return 320;
-  return 440;
+  if (label.length >= 3) return 180;
+  if (label.length === 2) return 290;
+  return 400;
 }
 
 /** Inset rounded-full disc + enlarged star, clipped to the disc. */

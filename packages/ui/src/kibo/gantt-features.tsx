@@ -229,7 +229,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
     ? `${dayjs(startAt).format("MMM D")} – ${dayjs(endAt).format("MMM D")}`
     : dayjs(startAt).format("MMM D");
   const indicatorClass =
-    "absolute top-1/2 z-[4] flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-control bg-background/95 px-2 py-0.5 text-3xs font-medium text-muted-foreground smooth-shadow-ring-sm backdrop-blur transition-colors hover:text-foreground";
+    "absolute top-1/2 z-[4] flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-control border border-border bg-background/95 px-2 py-0.5 text-3xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground";
 
   return (
     <div

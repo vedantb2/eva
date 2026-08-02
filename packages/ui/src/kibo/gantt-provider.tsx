@@ -572,7 +572,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     >
       <div
         className={cn(
-          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto scrollbar-none rounded-surface bg-card smooth-shadow-ring-sm",
+          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto scrollbar-none rounded-surface border border-border bg-card shadow-sm",
           range,
           className,
         )}

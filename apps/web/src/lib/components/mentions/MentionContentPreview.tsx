@@ -11,7 +11,7 @@ export function MentionContentPreview({
   children,
 }: MentionContentPreviewProps) {
   return (
-    <div className="w-72 rounded-surface bg-popover p-3 smooth-shadow-ring-lg">
+    <div className="w-72 rounded-surface border border-border bg-popover p-3 shadow-lg">
       <p className="mb-2 text-xs font-medium text-foreground">{title}</p>
       <div className="max-h-60 overflow-y-auto scrollbar scroll-fade text-xs text-muted-foreground">
         {children}

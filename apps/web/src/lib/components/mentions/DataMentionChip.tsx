@@ -32,7 +32,7 @@ export function DataMentionChip({
       <HoverCardContent
         align="start"
         side="top"
-        className="w-auto bg-transparent p-0 smooth-shadow-none backdrop-blur-none"
+        className="w-auto border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
       >
         <DataMentionHoverCardBody entityId={entityId} repoId={repoId} />
       </HoverCardContent>

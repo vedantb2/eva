@@ -11,15 +11,14 @@ import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
  * Content / Footer — which is right for a titled card and wrong for the thirty
  * places that just need one padded box. Those all re-typed
  * `rounded-surface border border-border bg-card p-N` by hand, landing on two
- * radii and five paddings, and (since the edge moved into the shadow) drawing a
- * double border.
+ * radii and five paddings.
  *
  * Density is a prop rather than a `className` so the paddings stay a closed
  * set. Anything outside the set is a layout decision worth making deliberately,
  * and `className` still overrides when it genuinely is one.
  */
 const surfaceVariants = cva(
-  `${SURFACE_RADIUS_CLASS} bg-card text-card-foreground smooth-shadow-ring-sm`,
+  `${SURFACE_RADIUS_CLASS} border border-border bg-card text-card-foreground shadow-sm`,
   {
     variants: {
       density: {

@@ -46,7 +46,7 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
           <Link
             to="/artifacts/$artifactId"
             params={{ artifactId: artifact._id }}
-            className="flex flex-col gap-2 rounded-surface bg-card p-4 smooth-shadow-ring-sm transition-colors hover:bg-muted"
+            className="flex flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted"
           >
             <div className="flex items-center gap-2">
               <IconLayoutDashboard className="size-5 shrink-0 text-muted-foreground" />

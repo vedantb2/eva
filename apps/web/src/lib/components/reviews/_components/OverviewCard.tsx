@@ -24,7 +24,10 @@ export function OverviewCard({
 }) {
   return (
     <section
-      className={cn("rounded-lg bg-card smooth-shadow-ring-sm", className)}
+      className={cn(
+        "rounded-lg border border-border bg-card shadow-sm",
+        className,
+      )}
     >
       {title ? (
         <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">

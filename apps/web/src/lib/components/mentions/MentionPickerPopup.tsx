@@ -48,8 +48,8 @@ export function MentionPickerPopup<TItem extends { id: string }>({
       role="listbox"
       aria-label={title}
       className={
-        "fixed z-50 flex flex-col overflow-hidden rounded-surface " +
-        "bg-popover text-popover-foreground smooth-shadow-ring-lg " +
+        "fixed z-50 flex flex-col overflow-hidden rounded-surface border border-border " +
+        "bg-popover text-popover-foreground shadow-lg " +
         "animate-in fade-in-0 zoom-in-95 duration-150 " +
         slideClass
       }

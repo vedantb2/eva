@@ -175,7 +175,7 @@ export function QuickTaskCard({
       contentClassName="px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
       className={cn(
         showError
-          ? "bg-destructive/5 [--smooth-ring-color:rgb(var(--destructive)/0.4)]"
+          ? "border-destructive/30 bg-destructive/5"
           : isInProgress
             ? "bg-card"
             : undefined,

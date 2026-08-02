@@ -265,7 +265,7 @@ export function ProofPreview() {
         </div>
 
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex size-9 items-center justify-center rounded-full bg-card/90 smooth-shadow-ring-sm backdrop-blur-sm">
+          <span className="flex size-9 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm">
             <IconPlayerPlayFilled
               className="size-3 translate-x-px text-foreground"
               aria-hidden

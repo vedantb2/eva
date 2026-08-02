@@ -27,7 +27,7 @@ export function UnscheduledProjectsSection({
   if (projects.length === 0) return null;
 
   return (
-    <details className="group shrink-0 rounded-surface bg-card smooth-shadow-ring-sm">
+    <details className="group shrink-0 rounded-surface border border-border bg-card shadow-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground">
         <IconChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
         No target date

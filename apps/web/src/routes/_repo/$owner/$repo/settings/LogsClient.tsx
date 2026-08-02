@@ -219,7 +219,7 @@ export function LogsClient() {
           <Skeleton className="h-64 border border-border" />
         </div>
       ) : isEmpty ? (
-        <div className="rounded-surface bg-card smooth-shadow-ring-sm">
+        <div className="rounded-surface border border-border bg-card shadow-sm">
           <SettingsEmptyState
             icon={IconFileOff}
             title={

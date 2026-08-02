@@ -51,7 +51,7 @@ const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
  */
 function NoSnapshotConfigured() {
   return (
-    <div className="rounded-surface bg-card smooth-shadow-ring-sm">
+    <div className="rounded-surface border border-border bg-card shadow-sm">
       <SettingsEmptyState
         icon={IconCamera}
         title="No snapshot configured"

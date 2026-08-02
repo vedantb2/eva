@@ -86,14 +86,14 @@ function ListRow({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden",
+        "group relative overflow-hidden border",
         SURFACE_RADIUS_CLASS,
-        "smooth-shadow-ring-sm transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)]",
+        "transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)]",
         "has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-ring/35",
         interactive && "active:scale-[0.99]",
         selected
-          ? "bg-primary/5 [--smooth-ring-color:rgb(var(--primary)/0.4)]"
-          : "bg-card hover:bg-muted/40",
+          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
+          : "border-border bg-card shadow-sm hover:bg-muted/40",
         className,
       )}
     >

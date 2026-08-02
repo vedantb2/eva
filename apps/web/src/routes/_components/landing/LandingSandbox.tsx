@@ -91,7 +91,7 @@ function SandboxTerminal() {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <div className="overflow-hidden rounded-surface bg-card smooth-shadow-ring-sm">
+    <div className="overflow-hidden rounded-surface border border-border bg-card shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
         <span className="flex gap-1.5" aria-hidden>
           <span className="size-2 rounded-full bg-border" />

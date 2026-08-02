@@ -7,6 +7,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -161,9 +162,16 @@ export function TeamReposTab({
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Repository</DialogTitle>
+                <DialogDescription>
+                  Assign a codebase to this team.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
+                {availableRepos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No unassigned codebases available.
+                  </p>
+                ) : (
                   <Select
                     value={dialog.selectedRepoId}
                     onValueChange={(value) =>
@@ -186,23 +194,28 @@ export function TeamReposTab({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                {dialog.error && (
+                )}
+                {dialog.error ? (
                   <div className="rounded-surface border border-destructive/50 bg-destructive/10 p-3">
                     <p className="text-sm text-destructive">{dialog.error}</p>
                   </div>
-                )}
+                ) : null}
               </div>
               <DialogFooter>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => handleDialogChange(false)}
                   disabled={dialog.isSubmitting}
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleAddRepo} disabled={dialog.isSubmitting}>
-                  {dialog.isSubmitting ? "Adding..." : "Add"}
+                <Button
+                  onClick={handleAddRepo}
+                  disabled={
+                    dialog.isSubmitting || availableRepos.length === 0
+                  }
+                >
+                  {dialog.isSubmitting ? "Adding…" : "Add"}
                 </Button>
               </DialogFooter>
             </DialogContent>

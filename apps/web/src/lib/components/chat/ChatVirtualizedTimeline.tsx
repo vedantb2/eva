@@ -135,7 +135,7 @@ export function ChatVirtualizedTimeline({
           type="button"
           size="icon-sm"
           variant="outline"
-          className="absolute right-4 bottom-4 z-20 rounded-full bg-background/95 shadow-md"
+          className="absolute right-4 bottom-4 z-20 rounded-md border border-border bg-background"
           aria-label="Scroll to latest message"
           onClick={() => {
             virtuosoRef.current?.scrollToIndex({

@@ -68,7 +68,7 @@ export function SessionChatHeader({
       variant={isSandboxActive ? "destructive" : "secondary"}
       onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
       disabled={isSandboxToggling}
-      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96] ${isSandboxActive ? "" : "text-success"}`}
+      className={`h-8 w-8 ${isSandboxActive ? "" : "text-success"}`}
     >
       {isSandboxToggling ? (
         <Spinner size="sm" />
@@ -86,8 +86,8 @@ export function SessionChatHeader({
       {branchName && (!prState || prState === "draft") && (
         <Button
           size="sm"
-          variant="secondary"
-          className="motion-press text-status-code-review hover:scale-[1.01] active:scale-[0.96]"
+          variant="outline"
+          className="text-status-code-review"
           onClick={onOpenReviewModal}
         >
           <IconEye size={12} />
@@ -98,9 +98,8 @@ export function SessionChatHeader({
         <DropdownMenuTrigger asChild>
           <Button
             size="icon-sm"
-            variant="secondary"
+            variant="outline"
             aria-label="More"
-            className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
             <IconDots size={14} />
           </Button>

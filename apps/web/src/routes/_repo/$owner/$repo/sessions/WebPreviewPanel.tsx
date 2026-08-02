@@ -94,22 +94,20 @@ export function WebPreviewPanel({
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <IconWorld className="w-12 h-12 opacity-50" />
-          <p className="text-sm">
-            {!isActive
-              ? "Start the sandbox to preview your app"
-              : "Waiting for sandbox..."}
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+          <IconWorld className="size-8 opacity-50" />
+          <p className="text-sm font-medium text-foreground">
+            {!isActive ? "Start the sandbox to preview" : "Waiting for sandbox…"}
           </p>
           {!isActive && onStartSandbox ? (
             <Button
               size="sm"
-              variant="secondary"
+              variant="outline"
               onClick={onStartSandbox}
               disabled={isSandboxStarting}
             >
               <IconPlayerPlay size={14} />
-              {isSandboxStarting ? "Starting..." : "Start sandbox"}
+              {isSandboxStarting ? "Starting…" : "Start sandbox"}
             </Button>
           ) : null}
         </div>
@@ -151,7 +149,7 @@ export function WebPreviewPanel({
           }
           loading={
             isLoading && !previewInfo ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
                 <Spinner size="lg" />
               </div>
             ) : error ? (

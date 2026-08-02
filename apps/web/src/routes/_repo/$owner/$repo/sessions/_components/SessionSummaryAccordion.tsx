@@ -36,12 +36,12 @@ export function SessionSummaryAccordion({
           type="single"
           collapsible
           defaultValue={showSummaryStreaming ? "summary" : undefined}
-          className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl max-w-3xl mx-auto"
+          className="mx-auto w-full min-w-0 max-w-3xl rounded-b-lg border-x border-b border-border bg-card px-3 sm:px-6"
         >
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">
-              <div className="flex flex-row gap-2 items-center text-primary">
-                <IconSparkles size={14} />
+              <div className="flex flex-row items-center gap-2 text-foreground">
+                <IconSparkles size={14} className="text-muted-foreground" />
                 <p>Session summary</p>
               </div>
             </AccordionTrigger>
@@ -49,7 +49,7 @@ export function SessionSummaryAccordion({
               {showSummaryStreaming ? (
                 <StreamingActivityDisplay activity={summaryStreamingActivity} />
               ) : hasSummary ? (
-                <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
+                <ul className="list-inside list-disc space-y-1 pl-4 text-sm text-muted-foreground">
                   {summary?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}

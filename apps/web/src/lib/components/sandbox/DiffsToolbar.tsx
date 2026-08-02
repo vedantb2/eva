@@ -70,23 +70,27 @@ export function DiffsToolbar({
     fileCount === 0 ? 0 : Math.round((viewedCount / fileCount) * 100);
 
   return (
-    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background/95 px-3 py-2 backdrop-blur">
+    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background px-3 py-2">
       <span className="text-sm font-medium">
-        {fileCount} {fileCount === 1 ? "file" : "files"} changed
+        {fileCount} {fileCount === 1 ? "file" : "files"}
       </span>
       <DiffCountBar additions={additions} deletions={deletions} />
 
-      <span className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="tabular-nums">
-          {viewedCount}/{fileCount} viewed
+      {fileCount > 0 ? (
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {viewedCount}/{fileCount} viewed
+          </span>
+          {viewedCount > 0 ? (
+            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+              <span
+                className="block h-full bg-primary transition-[width]"
+                style={{ width: `${viewedShare}%` }}
+              />
+            </span>
+          ) : null}
         </span>
-        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-          <span
-            className="block h-full bg-primary transition-[width]"
-            style={{ width: `${viewedShare}%` }}
-          />
-        </span>
-      </span>
+      ) : null}
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <SearchInput
@@ -149,17 +153,22 @@ export function DiffsToolbar({
           </TooltipContent>
         </Tooltip>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading}
-        >
-          <IconRefresh
-            className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
-          />
-          Refresh
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+              aria-label="Refresh diffs"
+            >
+              <IconRefresh
+                className={cn("size-4", isLoading && "animate-spin")}
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh</TooltipContent>
+        </Tooltip>
 
         {reviewAction}
       </div>

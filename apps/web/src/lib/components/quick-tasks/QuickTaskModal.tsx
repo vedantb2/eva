@@ -352,7 +352,7 @@ export function QuickTaskModal({
           if (!v) handleClose();
         }}
       >
-        <DialogContent className="max-w-5xl gap-0 p-0" hideCloseButton>
+        <DialogContent className="max-w-3xl gap-0 p-0">
           <div className="px-5 pt-5 pb-1">
             <Input
               placeholder="Task title"
@@ -377,7 +377,7 @@ export function QuickTaskModal({
                 ref={editorRef}
                 value={description}
                 onValueChange={setDescription}
-                placeholder="Add description... @ for data, / for skills."
+                placeholder="Add description…"
                 minHeight="min-h-[160px]"
                 className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
                 initialMentionMap={initialDescMaps.mentionMap}
@@ -403,7 +403,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
+          <div className="flex flex-col gap-1.5 border-t border-border px-5 py-3">
             <div className="flex flex-wrap items-center gap-1.5">
               {voiceEnabled === true ? (
                 <Tooltip>
@@ -629,7 +629,7 @@ export function QuickTaskModal({
             </div>
           </div>
 
-          <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">
+          <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-5 py-3 sm:flex-row sm:justify-between">
             <div>
               {drafts && drafts.length > 0 && (
                 <Popover>

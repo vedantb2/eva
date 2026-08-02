@@ -311,19 +311,19 @@ export function SandboxIframeService({
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <Icon className="w-12 h-12 opacity-50" />
-        <p className="text-sm">{inactiveLabel}</p>
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+        <Icon className="size-8 opacity-50" />
+        <p className="text-sm font-medium text-foreground">{inactiveLabel}</p>
       </div>
     );
   }
 
   if (state === "idle") {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <Icon className="w-12 h-12 opacity-50" />
-        <p className="text-sm">{idleLabel}</p>
-        <Button size="sm" variant="secondary" onClick={start}>
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Icon className="size-8 opacity-50" />
+        <p className="text-sm font-medium text-foreground">{idleLabel}</p>
+        <Button size="sm" variant="outline" onClick={start}>
           {startLabel}
         </Button>
       </div>
@@ -333,7 +333,7 @@ export function SandboxIframeService({
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       {url && state === "running" && (
-        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
+        <div className="mb-0 flex items-center justify-end gap-1 border-b border-border bg-background px-2 py-1">
           <Button
             size="icon"
             variant="ghost"
@@ -371,7 +371,7 @@ export function SandboxIframeService({
       )}
       <div className="flex-1 min-h-0 relative">
         {state === "starting" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80">
             <Spinner size="lg" />
             <p className="text-sm text-muted-foreground">{startingLabel}</p>
           </div>

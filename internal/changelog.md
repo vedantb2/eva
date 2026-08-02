@@ -1,5 +1,9 @@
 # Changelog
 
+## Session, dialog, and sandbox chrome polish - 2026-08-02
+
+Flattened session chat header/composer/chips, create modals, and sandbox/diffs toolbars to the same hairline-border, short-copy contract as settings — so the highest-traffic surfaces match when reviewing side by side.
+
 ## Product chrome consistency pass - 2026-08-02
 
 Aligned list pages, board columns, sidebar active states, empty states, and teams with the settings layout contract: quieter empties, hairline board columns, toolbar refine on Inbox, compact team hero, and shorter first-run onboarding without marketing fluff.

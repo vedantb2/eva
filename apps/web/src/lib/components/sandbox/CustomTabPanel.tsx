@@ -178,7 +178,7 @@ export function CustomTabPanel({
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       {url && state === "running" ? (
-        <div className="flex items-center justify-end gap-1 px-2 py-1">
+        <div className="flex items-center justify-end gap-1 border-b border-border bg-background px-2 py-1">
           <Button
             size="icon"
             variant="ghost"
@@ -208,10 +208,10 @@ export function CustomTabPanel({
       ) : null}
       <div className="flex-1 min-h-0 relative">
         {state === "loading" ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80">
             <Spinner size="lg" />
             <p className="text-sm text-muted-foreground">
-              Waiting for {name} on port {port}...
+              Waiting for {name} on port {port}…
             </p>
           </div>
         ) : null}

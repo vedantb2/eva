@@ -11,19 +11,19 @@ export const SANDBOX_STATUS_STYLES: Record<
   { dot: string; label: string }
 > = {
   active: {
-    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]",
-    label: "Sandbox active",
+    dot: "bg-emerald-500",
+    label: "Running",
   },
   starting: {
-    dot: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
-    label: "Sandbox starting",
+    dot: "bg-amber-400",
+    label: "Starting",
   },
   stopping: {
-    dot: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
-    label: "Sandbox stopping",
+    dot: "bg-amber-400",
+    label: "Stopping",
   },
   closed: {
     dot: "bg-muted-foreground/40",
-    label: "Sandbox stopped",
+    label: "Stopped",
   },
 };

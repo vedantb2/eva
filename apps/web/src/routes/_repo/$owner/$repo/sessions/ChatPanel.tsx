@@ -212,10 +212,10 @@ export function ChatPanel({
   });
 
   const startupStreamingNode = (
-    <div className="rounded-surface bg-secondary p-4">
+    <div className="rounded-surface border border-border bg-card p-4">
       <StreamingActivityDisplay
         activity={startupStreamingActivity}
-        thinkingLabel="Starting sandbox..."
+        thinkingLabel="Starting sandbox…"
       />
     </div>
   );
@@ -224,7 +224,7 @@ export function ChatPanel({
     <div className="flex flex-col items-center justify-center py-8">
       <StreamingActivityDisplay
         activity={startupStreamingActivity}
-        thinkingLabel="Starting sandbox..."
+        thinkingLabel="Starting sandbox…"
       />
     </div>
   ) : null;
@@ -306,20 +306,20 @@ export function ChatPanel({
   const optionsSubmenu = <SessionOptionsMenu sessionId={sessionId} />;
 
   const emptyStateTitle = isSandboxActive
-    ? "No messages yet. Start the conversation!"
+    ? "No messages yet"
     : isSandboxStopping
-      ? "Stopping sandbox..."
+      ? "Stopping sandbox…"
       : isSandboxToggling
-        ? "Starting sandbox..."
-        : "Sandbox is inactive. Start the sandbox to begin chatting.";
+        ? "Starting sandbox…"
+        : "Start the sandbox to chat";
 
   const placeholder = !isSandboxActive
-    ? "Start the sandbox to begin chatting..."
+    ? "Start the sandbox to chat…"
     : mode === "plan"
-      ? "Describe what to plan... / for skills · @ to mention"
+      ? "Describe what to plan… / skills · @ mention"
       : mode === "design"
-        ? "Describe the UI to design... / for skills · @ to mention"
-        : "Ask Eva anything... / for skills · @ to mention";
+        ? "Describe the UI… / skills · @ mention"
+        : "Ask Eva… / skills · @ mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,

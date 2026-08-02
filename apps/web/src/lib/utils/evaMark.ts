@@ -50,24 +50,30 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * Rounded-full disc (same as in-app). The unread bubble sits on top of the
- * bottom-right edge — Discord-style overlay, not a carved inset. A thin dark
- * cutout separates red from the mark; the thick white ring is gone so the
- * digit can fill the badge. Star is scaled up so the thin sparkle still has
- * brand mass at 16px. Layout is identical with or without a count so the tab
- * icon does not resize as notifications arrive and clear.
+ * Only the white disc + star are rounded-full. They sit inset toward the
+ * top-left so the unread bubble can rest on the disc's bottom-right edge
+ * without being clipped by the canvas — the badge is drawn after the mark
+ * (on top), not inside a clipped circle. Same layout with or without a
+ * count so the tab icon does not resize as notifications arrive and clear.
  */
-/** Grow the sparkle so its arms fill the disc the way Clyde fills Discord. */
-const FAVICON_STAR_SCALE = 1.45;
-/** Badge centre on the disc's BR quadrant — hangs slightly off the edge. */
-const BADGE_CENTER = 400;
+/** Disc centre nudged TL; radius leaves a BR gutter for the badge. */
+const DISC_CX = 210;
+const DISC_CY = 210;
+const DISC_R = 210;
+/** Star geometry is authored for a 256-radius disc; scale into this disc. */
+const FAVICON_STAR_SCALE = (1.45 * DISC_R) / 256;
+/**
+ * Badge centre on the disc (drawn after it = on top). Kept ≥ font/2 from the
+ * canvas edge so the 2× digit is not cropped by the viewBox.
+ */
+const BADGE_CENTER = 300;
 /** Thin dark separator only; red gets almost the whole bubble. */
-const BADGE_CUTOUT_RADIUS = 236;
-const BADGE_RADIUS = 224;
+const BADGE_CUTOUT_RADIUS = 224;
+const BADGE_RADIUS = 212;
 
 /**
  * Digit size is 2× the pre-enlarge badges (220 / 160 / 100). Badge radius
- * grew with it so the glyph still fills the red without clipping.
+ * is sized so the glyph fills the red without clipping the viewBox.
  */
 function badgeFontSize(label: string): number {
   if (label.length >= 3) return 200;
@@ -75,18 +81,19 @@ function badgeFontSize(label: string): number {
   return 440;
 }
 
-/** Full-bleed circle + enlarged star. */
+/** Inset rounded-full disc + enlarged star, clipped to the disc. */
 function markGroup(surface: string): string {
   return (
-    `<circle cx="256" cy="256" r="256" fill="${surface}"/>` +
-    `<g transform="translate(256 256) scale(${FAVICON_STAR_SCALE}) translate(-256 -256)">` +
+    `<defs><clipPath id="eva-disc"><circle cx="${DISC_CX}" cy="${DISC_CY}" r="${DISC_R}"/></clipPath></defs>` +
+    `<circle cx="${DISC_CX}" cy="${DISC_CY}" r="${DISC_R}" fill="${surface}"/>` +
+    `<g clip-path="url(#eva-disc)" transform="translate(${DISC_CX} ${DISC_CY}) scale(${FAVICON_STAR_SCALE}) translate(-256 -256)">` +
     `<polygon points="${EVA_MARK_TOP_POINTS}" fill="${EVA_MARK_PURPLE}"/>` +
     `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>` +
     `</g>`
   );
 }
 
-/** Unread bubble overlaid on the disc's bottom-right edge. */
+/** Unread bubble drawn after the mark so it sits on top of the disc edge. */
 function badgeGroup(label: string): string {
   return (
     `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_CUTOUT_RADIUS}" fill="#050606"/>` +

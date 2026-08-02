@@ -58,9 +58,7 @@ and they are the input to this review:
 
 ### Surfaces and edges
 
-- Elevated surfaces take their hairline from `smooth-shadow-ring-*`. A
-  `border` on top of one draws a second edge. See the `smooth-shadow-ring`
-  skill.
+- Elevated surfaces use `border border-border` plus a `shadow-*` step.
 - Layout regions are separated by a hairline, not by a tonal step. If the new
   panel is darker than its neighbour to distinguish itself, that is the wrong
   mechanism.

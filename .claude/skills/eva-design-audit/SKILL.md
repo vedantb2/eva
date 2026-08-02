@@ -41,10 +41,9 @@ already cost a shipped bug, catalogued in [reference/traps.md](reference/traps.m
    `text-foreground` → `text-muted-foreground` → `text-subtle-foreground` →
    the timestamp. A row where the title and the meta are both muted has one
    tier however its font sizes read.
-4. **Hairlines separate regions; tone does not.** Elevated surfaces take their
-   edge from `smooth-shadow-ring-*`. A `border` on top of one draws a second
-   edge, and `tailwind-merge` cannot dedupe `shadow-*` against
-   `smooth-shadow-*`.
+4. **Hairlines separate regions; tone does not.** Elevated surfaces use
+   `border border-border` with a `shadow-*` step. Layout dividers keep a real
+   border; do not invent a darker canvas just to separate two regions.
 5. **Every animated property is named.** `transition-all` is banned. Anything
    infinite lives under the `prefers-reduced-motion` cap.
 6. **`undefined` is not `[]`.** A Convex query in flight renders a `Skeleton`.

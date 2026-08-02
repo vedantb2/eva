@@ -69,11 +69,10 @@ it is, not what number it wants.
 Five genuinely distinct steps per appearance, with dark and neutral given their
 own values rather than a copy of light.
 
-Elevated surfaces get their hairline from **`smooth-shadow-ring-{size}`** —
-`sm` for resting cards, `md`/`lg` for menus and popovers, `xl` for dialogs.
-Plain `smooth-shadow-{size}` when the surface should have no edge stroke. Never
-a `border` on top, and never a `shadow-*` on the same element. See the
-`smooth-shadow-ring` skill and `apps/web/tailwind-smooth-shadow.js`.
+Elevated surfaces use **`border border-border`** plus a **`shadow-{size}`**
+step — `sm` for resting cards, `md`/`lg` for menus and popovers, `xl` for
+dialogs. Layout dividers, form affordances and accent bars keep a real border;
+do not invent a darker canvas just to separate two regions.
 
 ## Per-font metrics
 

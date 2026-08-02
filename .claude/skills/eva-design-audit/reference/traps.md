@@ -125,23 +125,7 @@ asserting so a commented-out rule cannot look live.
 
 ---
 
-## 8. Two stacked edge mechanisms
-
-`smooth-shadow-ring-*` bakes its hairline into the shadow. A `border` on top
-draws a second edge. And because `tailwind-merge` cannot dedupe `shadow-*`
-against `smooth-shadow-*`, putting both on one element leaves both rendering.
-
-`ring-*` _does_ compose, so focus and selection rings still work over a smooth
-ring.
-
-**Rule.** One edge mechanism per element. Recolour a hairline per state with
-`[--smooth-ring-color:rgb(var(--primary)/0.4)]`, never by re-adding a border.
-
-**Guard.** `design-check.mjs` → `double-edge-surface`, `mixed-shadow-utilities`.
-
----
-
-## 9. A prop silently overridden by a parent
+## 8. A prop silently overridden by a parent
 
 `button.tsx` forces `[&_svg]:size-4` on all children, so `size={14}` on an icon
 inside a `Button` does nothing. The prop is right there in the source, and it
@@ -158,7 +142,7 @@ intent across ~380 sites.
 
 ---
 
-## 10. The invalid pattern that "worked"
+## 9. The invalid pattern that "worked"
 
 `role="button" tabIndex={0}` on a `<div>`, with an
 `if (e.detail === 0) return` workaround to swallow the synthetic click that

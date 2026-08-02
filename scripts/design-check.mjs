@@ -83,17 +83,6 @@ const FILE_RULES = [
  */
 const STRING_RULES = [
   {
-    id: "double-edge-surface",
-    test: (s) => /\bsmooth-shadow-ring-/.test(s) && /\bborder-border\b/.test(s),
-    why: "the hairline is already baked into smooth-shadow-ring-* — a border on top draws a second edge",
-  },
-  {
-    id: "mixed-shadow-utilities",
-    test: (s) =>
-      /\bsmooth-shadow-/.test(s) && /(?:^|\s)(?:hover:|focus:)?shadow-/.test(s),
-    why: "tailwind-merge cannot dedupe shadow-* against smooth-shadow-* — keep one per element",
-  },
-  {
     id: "outline-none-without-ring",
     test: (s) =>
       /\bfocus(?:-visible)?:outline-none\b/.test(s) && !/\bring-/.test(s),

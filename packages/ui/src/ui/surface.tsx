@@ -18,7 +18,7 @@ import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
  * and `className` still overrides when it genuinely is one.
  */
 const surfaceVariants = cva(
-  `${SURFACE_RADIUS_CLASS} border border-border bg-card text-card-foreground shadow-sm`,
+  `${SURFACE_RADIUS_CLASS} border border-border bg-card text-card-foreground`,
   {
     variants: {
       density: {

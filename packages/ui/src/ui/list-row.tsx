@@ -129,7 +129,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
       className={cn(
         "group relative overflow-hidden",
         SURFACE_RADIUS_CLASS,
-        "border border-border shadow-sm transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)]",
+        "border border-border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)]",
         "has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-ring/35",
         interactive && "active:scale-[0.99]",
         selected

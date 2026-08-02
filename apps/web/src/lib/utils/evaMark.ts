@@ -43,7 +43,7 @@ const FAVICON_SURFACE: Record<ThemeAppearance, string> = {
 /** Browser/OS chrome colour per theme, mirroring `--app-shell` in globals.css. */
 export const SHELL_COLOR: Record<ThemeAppearance, string> = {
   light: "#F4F5F6",
-  dark: "#050606",
+  dark: "#020202",
   neutral: "#222325",
 };
 
@@ -94,7 +94,7 @@ function markGroup(surface: string): string {
 /** Unread bubble drawn after the mark so it sits on top of the disc edge. */
 function badgeGroup(label: string, fill: string, fg: string): string {
   return (
-    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_CUTOUT_RADIUS}" fill="#050606"/>` +
+    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_CUTOUT_RADIUS}" fill="#020202"/>` +
     `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RADIUS}" fill="${fill}"/>` +
     `<text x="${BADGE_CENTER}" y="${BADGE_CENTER}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="${fg}">${label}</text>`
   );

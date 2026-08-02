@@ -96,7 +96,7 @@
         }
         // Match browser chrome to --app-shell before paint (see SHELL_COLOR
         // in src/lib/utils/evaMark.ts), so mobile does not flash light.
-        var shell = { light: "#F4F5F6", dark: "#050606", neutral: "#222325" };
+        var shell = { light: "#F4F5F6", dark: "#020202", neutral: "#222325" };
         if (shell[appearance]) {
           var themeMeta = document.querySelector('meta[name="theme-color"]');
           if (themeMeta) themeMeta.content = shell[appearance];

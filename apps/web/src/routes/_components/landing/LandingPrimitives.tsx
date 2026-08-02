@@ -62,7 +62,7 @@ export function LandingSection({
     <section
       id={id}
       className={cn(
-        "mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28",
+        "mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-28 sm:px-8 sm:py-32 lg:px-10 lg:py-40",
         className,
       )}
     >
@@ -88,10 +88,10 @@ export function LandingSectionHeading({
       <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary">
         {eyebrow}
       </p>
-      <h2 className="landing-display mt-4 text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-4xl">
+      <h2 className="landing-display mt-5 text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-4xl">
         {heading}
       </h2>
-      <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
+      <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground">
         {intro}
       </p>
     </div>

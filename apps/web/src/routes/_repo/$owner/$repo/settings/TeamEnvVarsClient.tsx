@@ -59,7 +59,7 @@ export function TeamEnvVarsClient() {
 
   if (!repo.teamId || !team) {
     return (
-      <div className="rounded-surface border border-border bg-card shadow-sm">
+      <div className="rounded-surface border border-border bg-card">
         <SettingsEmptyState
           icon={IconUsers}
           title="No team configured"

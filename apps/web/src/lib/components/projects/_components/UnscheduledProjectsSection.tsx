@@ -30,7 +30,7 @@ export function UnscheduledProjectsSection({
   if (projects.length === 0) return null;
 
   return (
-    <details className="group shrink-0 rounded-surface border border-border bg-card shadow-sm">
+    <details className="group shrink-0 rounded-surface border border-border bg-card">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground">
         <IconChevronRight
           size={14}

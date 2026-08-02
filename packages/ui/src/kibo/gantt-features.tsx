@@ -101,7 +101,7 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
     <div
       data-gantt-no-pan
       className={cn(
-        "relative h-full w-full overflow-hidden border border-border/70 text-xs shadow-sm transition-shadow hover:shadow",
+        "relative h-full w-full overflow-hidden border border-border/70 text-xs",
         CONTROL_RADIUS_CLASS,
         className,
       )}

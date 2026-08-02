@@ -15,7 +15,7 @@ Borders:
 
 Shadows:
 
-- Cards/surfaces may carry a subtle `shadow-sm`. Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get larger shadows for layering.
+- Cards and surfaces are border + tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
 
 Layout & Surface Colors:
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Flatter dark UI language (Onyx-inspired) - 2026-08-02
+
+Dark product chrome was a soft charcoal with card shadows, so hierarchy leaned on elevation instead of hairlines. Dark surfaces now sit nearer pure black with a one-step card ladder, cards/surfaces drop `shadow-sm` (overlays keep `shadow-lg/xl`), and landing sections plus empty states get more vertical air — accents, light/neutral, and theme radius stay as they were.
+
 ## Paste-as-file for long chat pastes - 2026-08-02
 
 Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.

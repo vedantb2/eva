@@ -25,7 +25,7 @@ export function OverviewCard({
   return (
     <section
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm",
+        "rounded-lg border border-border bg-card",
         className,
       )}
     >

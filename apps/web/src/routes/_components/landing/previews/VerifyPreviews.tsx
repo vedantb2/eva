@@ -266,7 +266,7 @@ export function ProofPreview() {
         </div>
 
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex size-9 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm">
+          <span className="flex size-9 items-center justify-center rounded-full border border-border bg-card/90 backdrop-blur-sm">
             <IconPlayerPlayFilled
               size={13}
               className="translate-x-px text-foreground"

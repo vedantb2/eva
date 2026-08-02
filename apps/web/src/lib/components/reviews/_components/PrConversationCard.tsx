@@ -34,7 +34,7 @@ export function PrConversationCard({
       </div>
 
       {comments.length === 0 ? (
-        <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground shadow-sm">
+        <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
           No comments yet.
         </p>
       ) : (
@@ -42,7 +42,7 @@ export function PrConversationCard({
           {comments.map((comment) => (
             <li
               key={`${comment.kind}-${comment.id}`}
-              className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+              className="overflow-hidden rounded-lg border border-border bg-card"
             >
               <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
                 {comment.authorAvatarUrl ? (

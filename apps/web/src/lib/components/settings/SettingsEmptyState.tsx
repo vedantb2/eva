@@ -21,15 +21,15 @@ export function SettingsEmptyState({
   action,
 }: SettingsEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
-      <Icon size={28} className="mb-3 text-muted-foreground opacity-50" />
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
+      <Icon size={28} className="mb-5 text-muted-foreground opacity-50" />
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description ? (
-        <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
       ) : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );
 }

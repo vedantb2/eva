@@ -36,35 +36,34 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * Discord keeps the brand mark full-bleed and drops a large red count on the
- * bottom-right so both stay readable at 16px. We do the same: the mark fills
- * the canvas (no permanent gutter shrink), and the badge is ~half the favicon
- * wide, half-overlapping the disc. A thin surface ring separates the red from
- * the tab chrome where it hangs off the edge.
+ * Discord fills the favicon square with a rounded rect and drops a large red
+ * count on the bottom-right. A circle inscribed in the same square always
+ * looks smaller — the transparent corners read as padding even at scale 1.
+ * The favicon therefore draws a full-bleed squircle for the disc; in-app
+ * `EvaIcon` stays a circle.
  *
- * The layout is the same with or without a count, so the tab icon does not
- * resize as notifications arrive and clear.
+ * Badge ~half the canvas, parked on the BR corner so digits survive at 16px.
+ * Same layout with or without a count, so the tab icon does not resize as
+ * notifications arrive and clear.
  */
-const MARK_SCALE = 1;
-const BADGE_CENTER = 368;
-const BADGE_RING_RADIUS = 142;
-const BADGE_RADIUS = 128;
+const FAVICON_DISC_RADIUS = 96;
+const BADGE_CENTER = 384;
+const BADGE_RING_RADIUS = 146;
+const BADGE_RADIUS = 130;
 
 /** Shrinks the text as digits are added so "99+" still fits inside the bubble. */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 95;
-  if (label.length === 2) return 155;
-  return 210;
+  if (label.length >= 3) return 100;
+  if (label.length === 2) return 160;
+  return 220;
 }
 
-/** The disc and star, scaled into the favicon's badge-gutter layout. */
+/** Full-bleed disc + star. Squircle fills the canvas the way Discord's mark does. */
 function markGroup(surface: string): string {
   return (
-    `<g transform="scale(${MARK_SCALE})">` +
-    `<circle cx="256" cy="256" r="256" fill="${surface}"/>` +
+    `<rect width="512" height="512" rx="${FAVICON_DISC_RADIUS}" ry="${FAVICON_DISC_RADIUS}" fill="${surface}"/>` +
     `<polygon points="${EVA_MARK_TOP_POINTS}" fill="${EVA_MARK_PURPLE}"/>` +
-    `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>` +
-    "</g>"
+    `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>`
   );
 }
 

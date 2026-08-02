@@ -60,16 +60,19 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /** Grow the sparkle so its arms fill the disc the way Clyde fills Discord. */
 const FAVICON_STAR_SCALE = 1.45;
 /** Badge centre on the disc's BR quadrant — hangs slightly off the edge. */
-const BADGE_CENTER = 390;
+const BADGE_CENTER = 400;
 /** Thin dark separator only; red gets almost the whole bubble. */
-const BADGE_CUTOUT_RADIUS = 168;
-const BADGE_RADIUS = 156;
+const BADGE_CUTOUT_RADIUS = 236;
+const BADGE_RADIUS = 224;
 
-/** Shrinks the text as digits are added so "99+" still fits inside the bubble. */
+/**
+ * Digit size is 2× the pre-enlarge badges (220 / 160 / 100). Badge radius
+ * grew with it so the glyph still fills the red without clipping.
+ */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 130;
-  if (label.length === 2) return 210;
-  return 300;
+  if (label.length >= 3) return 200;
+  if (label.length === 2) return 320;
+  return 440;
 }
 
 /** Full-bleed circle + enlarged star. */

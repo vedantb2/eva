@@ -92,11 +92,11 @@ function markGroup(surface: string): string {
 }
 
 /** Unread bubble drawn after the mark so it sits on top of the disc edge. */
-function badgeGroup(label: string): string {
+function badgeGroup(label: string, fill: string, fg: string): string {
   return (
     `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_CUTOUT_RADIUS}" fill="#050606"/>` +
-    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RADIUS}" fill="#e5484d"/>` +
-    `<text x="${BADGE_CENTER}" y="${BADGE_CENTER}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="#ffffff">${label}</text>`
+    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RADIUS}" fill="${fill}"/>` +
+    `<text x="${BADGE_CENTER}" y="${BADGE_CENTER}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="${fg}">${label}</text>`
   );
 }
 
@@ -108,16 +108,20 @@ export function formatBadgeLabel(count: number): string {
 /**
  * Eva's mark in the active theme's surface colour, optionally carrying an
  * unread count, as a data URI ready for a `<link rel="icon">` href.
+ * `badgeFill` / `badgeFg` are the user's accent (`--primary` /
+ * `--primary-foreground`) when a count is shown.
  */
 export function evaMarkDataUri(
   appearance: ThemeAppearance,
   badgeLabel: string | null,
+  badgeFill: string,
+  badgeFg: string,
 ): string {
   const surface = FAVICON_SURFACE[appearance];
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
     markGroup(surface) +
-    (badgeLabel === null ? "" : badgeGroup(badgeLabel)) +
+    (badgeLabel === null ? "" : badgeGroup(badgeLabel, badgeFill, badgeFg)) +
     "</svg>";
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

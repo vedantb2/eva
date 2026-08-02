@@ -1,12 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Favicon: full-bleed squircle (Discord fills the square; a circle leaves
-       empty corners that read as padding). Unread badge overlays at runtime via
-       FaviconController. Mirrors evaMark.ts. -->
+  <!-- Favicon: full-bleed squircle + enlarged star (thin sparkle needs scale
+       so brand mass matches Discord's filled Clyde). Badge overlays at runtime.
+       Mirrors evaMark.ts. -->
   <style>
     .eva-disc { fill: #FFFFFF }
     @media (prefers-color-scheme: dark) { .eva-disc { fill: #17181A } }
   </style>
   <rect class="eva-disc" width="512" height="512" rx="96" ry="96" />
-  <polygon points="0,256 217,237 256,64 295,237 512,256" fill="#8B3FB8" />
-  <polygon points="0,256 217,275 256,449 295,275 512,256" fill="#3B7DD8" />
+  <g transform="translate(256 256) scale(1.45) translate(-256 -256)">
+    <polygon points="0,256 217,237 256,64 295,237 512,256" fill="#8B3FB8" />
+    <polygon points="0,256 217,275 256,449 295,275 512,256" fill="#3B7DD8" />
+  </g>
 </svg>

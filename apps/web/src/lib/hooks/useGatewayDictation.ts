@@ -11,11 +11,12 @@ export type GatewayDictationStatus =
   | "listening"
   | "error";
 
-const TARGET_SAMPLE_RATE = 24_000;
+/** xAI grok-stt native rate — avoids extra server-side resampling. */
+const TARGET_SAMPLE_RATE = 16_000;
 
 /**
- * Inline AudioWorklet: Float32 mic frames → Int16 LE mono PCM at 24 kHz,
- * resampling when the AudioContext cannot run at that rate.
+ * Inline AudioWorklet: Float32 mic frames → Int16 LE mono PCM at the target
+ * rate, resampling when the AudioContext cannot run at that rate.
  */
 const PCM_WORKLET_SOURCE = `
 class PcmProcessor extends AudioWorkletProcessor {
@@ -55,12 +56,21 @@ function stopMediaTracks(mediaStream: MediaStream) {
   }
 }
 
+function dictationErrorMessage(
+  error: object | string | number | boolean | null,
+) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.length > 0) return error;
+  return "Voice dictation stopped unexpectedly";
+}
+
 type TranscriptHandlers = {
   isCurrent: () => boolean;
+  shouldIgnoreErrors: () => boolean;
   onDelta: (delta: string) => void;
   onPartial: (text: string) => void;
   onFinal: (text: string) => void;
-  onStreamError: () => void;
+  onStreamError: (message: string) => void;
 };
 
 /**
@@ -86,7 +96,15 @@ async function consumeTranscriptionStream(
         handlers.onFinal(part.text);
       }
     } else if (part.type === "error") {
-      handlers.onStreamError();
+      if (handlers.shouldIgnoreErrors()) return;
+      let message = "Voice dictation stopped unexpectedly";
+      if ("error" in part) {
+        const err = part.error;
+        if (err instanceof Error || typeof err === "string") {
+          message = dictationErrorMessage(err);
+        }
+      }
+      handlers.onStreamError(message);
       return;
     }
   }
@@ -146,29 +164,41 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
         onTextRef.current(textPrefix + committed + pending);
       };
 
-      try {
-        const { token, modelId } = await mintToken({});
-        if (generationRef.current !== generation) return;
+      // Create the context synchronously in the click turn so browsers allow
+      // resume(); awaiting the token first leaves the context suspended and
+      // the worklet never emits PCM → Gateway closes the socket.
+      const audioContext = new AudioContext();
+      const abortController = new AbortController();
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
-        });
+      try {
+        await audioContext.resume();
+
+        const [{ token, modelId }, mediaStream] = await Promise.all([
+          mintToken({}),
+          navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+            },
+          }),
+        ]);
         if (generationRef.current !== generation) {
           stopMediaTracks(mediaStream);
+          void audioContext.close();
           return;
         }
 
-        const audioContext = new AudioContext();
+        // Resume again after the async gap — some browsers re-suspend.
+        if (audioContext.state !== "running") {
+          await audioContext.resume();
+        }
+
         const blob = new Blob([PCM_WORKLET_SOURCE], {
           type: "application/javascript",
         });
         const workletUrl = URL.createObjectURL(blob);
         const addModule = audioContext.audioWorklet.addModule(workletUrl);
-        // Revoke whether addModule succeeds or fails (avoid `finally` for React Compiler).
         void addModule.then(
           () => URL.revokeObjectURL(workletUrl),
           () => URL.revokeObjectURL(workletUrl),
@@ -181,6 +211,8 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
           "eva-pcm-processor",
         );
         sourceNode.connect(workletNode);
+        // Worklets only run when connected into the graph; mute so mic isn't
+        // played back through speakers.
         const mute = audioContext.createGain();
         mute.gain.value = 0;
         workletNode.connect(mute);
@@ -199,15 +231,12 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
           start(controller) {
             streamController = controller;
             workletNode.port.addEventListener("message", onPcmMessage);
-            // AudioWorklet ports need an explicit start when using addEventListener.
             workletNode.port.start();
           },
           cancel() {
             workletNode.port.removeEventListener("message", onPcmMessage);
           },
         });
-
-        const abortController = new AbortController();
 
         const closeAudio = () => {
           abortController.abort();
@@ -271,6 +300,9 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
           try {
             await consumeTranscriptionStream(result.fullStream, {
               isCurrent: () => generationRef.current === generation,
+              shouldIgnoreErrors: () =>
+                abortController.signal.aborted ||
+                generationRef.current !== generation,
               onDelta: (delta) => {
                 pending += delta;
                 publish();
@@ -284,9 +316,9 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
                 pending = "";
                 publish();
               },
-              onStreamError: () => {
-                console.error("[useGatewayDictation] stream error part");
-                toast.error("Voice dictation stopped unexpectedly");
+              onStreamError: (message) => {
+                console.error("[useGatewayDictation] stream error:", message);
+                toast.error(message);
                 cleanup();
                 setStatus("error");
               },
@@ -299,7 +331,11 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
               return;
             }
             console.error("[useGatewayDictation]", error);
-            toast.error("Voice dictation stopped unexpectedly");
+            toast.error(
+              error instanceof Error
+                ? dictationErrorMessage(error)
+                : "Voice dictation stopped unexpectedly",
+            );
             cleanup();
             setStatus("error");
             return;
@@ -312,11 +348,12 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
       } catch (error) {
         if (generationRef.current !== generation) return;
         console.error("[useGatewayDictation]", error);
-        if (error instanceof Error) {
-          toast.error(error.message);
-        } else {
-          toast.error("Could not start dictation");
-        }
+        void audioContext.close();
+        toast.error(
+          error instanceof Error
+            ? dictationErrorMessage(error)
+            : "Could not start dictation",
+        );
         cleanup();
         setStatus("error");
       }

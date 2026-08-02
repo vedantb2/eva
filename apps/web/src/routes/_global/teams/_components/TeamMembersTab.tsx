@@ -116,7 +116,7 @@ export function TeamMembersTab({
           <Dialog open={dialog.open} onOpenChange={handleDialogChange}>
             <DialogTrigger asChild>
               <Button size="sm">
-                <IconUserPlus className="size-4 mr-1.5" />
+                <IconUserPlus size={16} className="mr-1.5" />
                 Add Member
               </Button>
             </DialogTrigger>
@@ -213,7 +213,7 @@ export function TeamMembersTab({
                       removeMember({ teamId, userId: member.userId })
                     }
                   >
-                    <IconTrash className="size-3.5" />
+                    <IconTrash size={14} />
                   </Button>
                 )}
               </div>

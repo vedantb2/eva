@@ -1,3 +1,5 @@
+"use client";
+
 import usePresence from "@convex-dev/presence/react";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -42,7 +44,7 @@ function UserAvatar({ name }: { name?: string }) {
     <div
       title={displayName}
       className={cn(
-        "flex size-6 items-center justify-center rounded-full border-2 border-background bg-primary text-3xs font-medium text-primary-foreground",
+        "flex size-6 items-center justify-center rounded-full border-2 border-background bg-primary text-[10px] font-medium text-primary-foreground",
       )}
     >
       {initial}

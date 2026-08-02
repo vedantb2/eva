@@ -1,3 +1,5 @@
+"use client";
+
 import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -34,8 +36,11 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
         >
           {runningTasks.length > 0 && (
             <span className="flex items-center gap-1.5">
-              <IconLoader2 className="size-2.5 animate-spin text-muted-foreground" />
-              <span className="text-2xs font-medium text-muted-foreground tabular-nums">
+              <IconLoader2
+                size={11}
+                className="animate-spin text-muted-foreground"
+              />
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {runningTasks.length}
               </span>
             </span>
@@ -43,7 +48,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
           {sandboxTasks.length > 0 && (
             <span className="flex items-center gap-1.5">
               <StatusDot />
-              <span className="text-2xs font-medium text-muted-foreground tabular-nums">
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {sandboxTasks.length}
               </span>
             </span>
@@ -56,16 +61,16 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
       >
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <IconListCheck className="size-3.5 text-primary" />
-            <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            <IconListCheck size={15} className="text-primary" />
+            <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
               Active tasks
             </h3>
-            <span className="ml-auto flex items-center gap-1.5 text-2xs text-muted-foreground tabular-nums">
+            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
               {runningTasks.length > 0 && (
                 <span>{runningTasks.length} running</span>
               )}
               {runningTasks.length > 0 && sandboxTasks.length > 0 && (
-                <span aria-hidden className="text-subtle-foreground">
+                <span aria-hidden className="text-muted-foreground/40">
                   ·
                 </span>
               )}
@@ -81,7 +86,10 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                 label="Running"
                 count={runningTasks.length}
                 glyph={
-                  <IconLoader2 className="size-2.5 animate-spin text-muted-foreground" />
+                  <IconLoader2
+                    size={11}
+                    className="animate-spin text-muted-foreground"
+                  />
                 }
               >
                 {runningTasks.map((task) => (
@@ -132,10 +140,10 @@ function Section({ label, count, glyph, children }: SectionProps) {
         <span className="flex h-3 w-3 items-center justify-center">
           {glyph}
         </span>
-        <span className="text-3xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           {label}
         </span>
-        <span className="ml-auto text-3xs text-subtle-foreground tabular-nums">
+        <span className="ml-auto text-[10px] text-muted-foreground/70 tabular-nums">
           {count}
         </span>
       </div>
@@ -158,12 +166,12 @@ function TaskRow({ title, taskNumber, to }: TaskRowProps) {
     >
       <div className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm leading-tight text-foreground">
+          <p className="truncate text-[13px] leading-tight text-foreground">
             {title}
           </p>
         </div>
         {taskNumber && (
-          <span className="shrink-0 font-mono text-3xs text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/80 tabular-nums">
             #{taskNumber}
           </span>
         )}

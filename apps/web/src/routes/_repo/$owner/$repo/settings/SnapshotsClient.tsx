@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -12,7 +14,6 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  Skeleton,
   Spinner,
   Switch,
   Tabs,
@@ -196,9 +197,9 @@ export function SnapshotsClient({
           aria-busy="true"
           aria-label="Loading snapshots"
         >
-          <Skeleton className="h-9 w-80 max-w-full" />
-          <Skeleton className="h-48 border border-border" />
-          <Skeleton className="h-32 border border-border" />
+          <div className="h-9 w-80 max-w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-48 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <div className="h-32 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       </PageWrapper>
     );
@@ -224,7 +225,7 @@ export function SnapshotsClient({
           {snapshot && (
             <div className="flex justify-end">
               <Button size="sm" variant="destructive" onClick={handleDelete}>
-                <IconTrash className="mr-1.5 size-3.5" />
+                <IconTrash size={14} className="mr-1.5" />
                 Delete Config
               </Button>
             </div>
@@ -397,7 +398,7 @@ export function SnapshotsClient({
                   {building || isRunning || isSeeding ? (
                     <Spinner size="sm" className="mr-1.5" />
                   ) : (
-                    <IconPlayerPlay className="mr-1.5 size-3.5" />
+                    <IconPlayerPlay size={14} className="mr-1.5" />
                   )}
                   {building || isRunning
                     ? "Building..."
@@ -426,7 +427,7 @@ export function SnapshotsClient({
               >
                 {baseImageReady ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck className="mt-0.5 size-3 shrink-0" />
+                    <IconCheck size={12} className="mt-0.5 shrink-0" />
                     <span className="min-w-0">
                       <span className="mr-1 text-muted-foreground">
                         Active:
@@ -480,7 +481,7 @@ export function SnapshotsClient({
                   </span>
                 ) : sharedSeededSnapshotName ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck className="mt-0.5 size-3 shrink-0" />
+                    <IconCheck size={12} className="mt-0.5 shrink-0" />
                     <span className="min-w-0">
                       <span className="mr-1 text-muted-foreground">
                         Active:
@@ -512,7 +513,7 @@ export function SnapshotsClient({
           {snapshot && builds && builds.length > 0 ? (
             // Rows own their padding so the table spans the card's full width.
             <SettingsSection title="Build History" bodyClassName="p-0">
-              <div className="scrollbar scrollbar-x overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
                     <tr className="text-left text-muted-foreground">
@@ -784,14 +785,14 @@ function ConfigFilesSection({
               </>
             ) : (
               <>
-                <IconUpload className="mr-1.5 size-3.5" />
+                <IconUpload size={14} className="mr-1.5" />
                 Upload File
               </>
             )}
           </Button>
           {snapshotId && files && files.length > 0 && (
             <Button size="sm" onClick={handleRebuild}>
-              <IconPlayerPlay className="mr-1.5 size-3.5" />
+              <IconPlayerPlay size={14} className="mr-1.5" />
               Rebuild Snapshot
             </Button>
           )}
@@ -799,7 +800,7 @@ function ConfigFilesSection({
 
         {/* Files table */}
         {files && files.length > 0 ? (
-          <div className="scrollbar scrollbar-x overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-muted-foreground">
@@ -830,7 +831,7 @@ function ConfigFilesSection({
                         onClick={() => removeFile({ id: file._id })}
                         className="h-6 w-6 p-0"
                       >
-                        <IconTrash className="size-3.5" />
+                        <IconTrash size={14} />
                       </Button>
                     </td>
                   </tr>

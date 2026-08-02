@@ -1,3 +1,5 @@
+"use client";
+
 import { compactRelativeTime, formatExactDateTime } from "@eva/shared/dates";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 

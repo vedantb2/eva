@@ -1,3 +1,5 @@
+"use client";
+
 import type { ComponentProps } from "react";
 
 import { Button } from "../ui/button";
@@ -16,7 +18,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
-import { IconSelector } from "@tabler/icons-react";
+import { ChevronsUpDownIcon } from "lucide-react";
 import { createContext, useContext } from "react";
 
 import { Shimmer } from "./shimmer";
@@ -138,7 +140,7 @@ export const PlanTrigger = ({ className, ...props }: PlanTriggerProps) => (
       variant="ghost"
       {...props}
     >
-      <IconSelector className="size-4" />
+      <ChevronsUpDownIcon className="size-4" />
       <span className="sr-only">Toggle plan</span>
     </Button>
   </CollapsibleTrigger>

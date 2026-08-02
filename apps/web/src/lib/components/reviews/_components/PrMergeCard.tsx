@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
@@ -74,7 +76,7 @@ export function PrMergeCard({
     return (
       <OverviewCard title="Merge">
         <p className="flex items-center gap-2 text-sm text-violet-700 dark:text-violet-300">
-          <IconGitMerge className="size-4 shrink-0" />
+          <IconGitMerge size={16} className="shrink-0" />
           <span>
             Merged
             {overview.mergedByLogin ? ` by ${overview.mergedByLogin}` : ""}
@@ -156,13 +158,13 @@ export function PrMergeCard({
           disabled={!canMerge}
           onClick={() => setConfirming(true)}
         >
-          <IconGitMerge className="size-3.5" />
+          <IconGitMerge size={14} />
           {methodLabel}
         </Button>
 
         {reason ? (
           <p className="flex gap-1.5 text-xs text-muted-foreground">
-            <IconInfoCircle className="size-3.5 mt-px shrink-0" />
+            <IconInfoCircle size={14} className="mt-px shrink-0" />
             {reason}
           </p>
         ) : null}
@@ -187,11 +189,7 @@ export function PrMergeCard({
               Cancel
             </Button>
             <Button onClick={() => void runMerge()} disabled={merging}>
-              {merging ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconGitMerge className="size-3.5" />
-              )}
+              {merging ? <Spinner size="sm" /> : <IconGitMerge size={14} />}
               {merging ? "Merging" : methodLabel}
             </Button>
           </DialogFooter>

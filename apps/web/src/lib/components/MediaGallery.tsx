@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import {
   IconChevronLeft,
@@ -131,7 +133,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     onClick={() => step(-1)}
                     className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   >
-                    <IconChevronLeft className="size-6" />
+                    <IconChevronLeft size={22} />
                   </button>
                   <button
                     type="button"
@@ -139,7 +141,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     onClick={() => step(1)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   >
-                    <IconChevronRight className="size-6" />
+                    <IconChevronRight size={22} />
                   </button>
                   <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs tabular-nums text-white">
                     {(lightboxIndex ?? 0) + 1} / {count}
@@ -152,7 +154,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                 rel="noopener noreferrer"
                 className="absolute right-12 top-3 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 transition-colors hover:text-white"
               >
-                <IconExternalLink className="size-3.5" />
+                <IconExternalLink size={14} />
                 Open in new tab
               </a>
             </div>

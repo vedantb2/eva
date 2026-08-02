@@ -1,3 +1,5 @@
+"use client";
+
 import { SignUpButton } from "@clerk/clerk-react";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
@@ -22,7 +24,7 @@ export function LandingCta() {
             <SignUpButton mode="modal">
               <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
                 Get started
-                <IconArrowRight className="size-4" aria-hidden />
+                <IconArrowRight size={16} aria-hidden />
               </Button>
             </SignUpButton>
             <Button
@@ -32,7 +34,7 @@ export function LandingCta() {
               className="w-full sm:w-auto"
             >
               <a href={EVA_GITHUB_URL} target="_blank" rel="noreferrer">
-                <IconBrandGithub className="size-4" aria-hidden />
+                <IconBrandGithub size={16} aria-hidden />
                 Self-host it
               </a>
             </Button>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, type ReactNode } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { m, useReducedMotion } from "motion/react";
@@ -137,10 +139,11 @@ export function LandingShowcase({
             {active.points.map((point) => (
               <li key={point} className="flex items-start gap-2.5">
                 <IconCheck
-                  className="size-3.5 mt-0.5 shrink-0 text-primary/70"
+                  size={14}
+                  className="mt-0.5 shrink-0 text-primary/70"
                   aria-hidden
                 />
-                <span className="text-pretty text-sm leading-relaxed text-muted-foreground">
+                <span className="text-pretty text-[13px] leading-relaxed text-muted-foreground">
                   {point}
                 </span>
               </li>

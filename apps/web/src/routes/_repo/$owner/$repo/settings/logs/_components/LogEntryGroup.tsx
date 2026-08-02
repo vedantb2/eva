@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, createElement } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
@@ -44,7 +46,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
         onClick={() => setOpen((p) => !p)}
         className="motion-base flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
       >
-        <IconCode className="size-3" />
+        <IconCode size={12} />
         {open ? "Hide raw" : "View raw"}
       </button>
       <AnimatePresence initial={false}>
@@ -57,7 +59,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <pre className="mt-2 max-h-48 overflow-auto scrollbar scroll-fade rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+            <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
               {formatted}
             </pre>
           </m.div>
@@ -69,7 +71,8 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 
 function LogTypeIcon({ type }: { type: string }) {
   return createElement(iconFor(type), {
-    className: "size-4 shrink-0 text-muted-foreground",
+    size: 16,
+    className: "shrink-0 text-muted-foreground",
   });
 }
 
@@ -77,7 +80,10 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
-        <IconChevronRight className="chevron-icon size-3.5 shrink-0 text-muted-foreground transition-transform" />
+        <IconChevronRight
+          size={14}
+          className="chevron-icon shrink-0 text-muted-foreground transition-transform"
+        />
         <LogTypeIcon type={type} />
         <span className="tracking-[-0.01em]">{labelFor(type)}</span>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
@@ -98,7 +104,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                     {log.entityTitle}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <Badge variant="outline" className="font-mono text-2xs">
+                    <Badge variant="outline" className="font-mono text-[11px]">
                       {evt.provider && (
                         <ProviderIcon
                           provider={evt.provider}
@@ -120,7 +126,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                     <span className="font-mono text-xs font-medium tabular-nums">
                       {formatCost(evt.costUsd)}
                     </span>
-                    <span className="text-xs text-subtle-foreground">
+                    <span className="text-xs text-muted-foreground/70">
                       {dayjs(log.createdAt).format("MMM D, HH:mm")}
                     </span>
                   </div>

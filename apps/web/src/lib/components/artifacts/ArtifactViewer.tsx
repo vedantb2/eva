@@ -1,3 +1,5 @@
+"use client";
+
 import { Suspense, use, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -72,7 +74,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           to="/artifacts"
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <IconArrowLeft className="size-4" />
+          <IconArrowLeft size={16} />
           Artifacts
         </Link>
         <span className="text-muted-foreground">/</span>
@@ -86,7 +88,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           }
           className="ml-auto flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <IconExternalLink className="size-4" />
+          <IconExternalLink size={16} />
           Open in new tab
         </button>
       </div>

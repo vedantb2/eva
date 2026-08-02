@@ -1,3 +1,5 @@
+"use client";
+
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { OverviewCard } from "./OverviewCard";
 import { shortSha, type PrCommit } from "./prOverviewMeta";
@@ -28,7 +30,7 @@ export function PrCommitsCard({
       {commits.length === 0 ? (
         <p className="text-sm text-muted-foreground">No commits yet.</p>
       ) : (
-        <ul className="max-h-80 space-y-0.5 overflow-y-auto scrollbar scroll-fade">
+        <ul className="max-h-80 space-y-0.5 overflow-y-auto scrollbar">
           {commits.toReversed().map((commit) => (
             <li key={commit.sha}>
               <a
@@ -47,7 +49,7 @@ export function PrCommitsCard({
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {commit.message}
                 </span>
-                <code className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-2xs text-muted-foreground">
+                <code className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-[11px] text-muted-foreground">
                   {shortSha(commit.sha)}
                 </code>
                 {commit.committedAt ? (

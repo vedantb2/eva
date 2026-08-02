@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Calendar, Button } from "@eva/ui";
 import dayjs from "@eva/shared/dates";

@@ -1,3 +1,5 @@
+"use client";
+
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Button, Input, Textarea } from "@eva/ui";
@@ -54,7 +56,7 @@ export function AddCategoryForm(props: {
         disabled={!name.trim() || !description.trim()}
         className="w-fit"
       >
-        <IconPlus className="size-3.5" />
+        <IconPlus size={14} />
         Add Category
       </Button>
     </div>

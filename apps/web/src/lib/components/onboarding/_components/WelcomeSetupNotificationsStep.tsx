@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Button, Checkbox, Spinner, cn } from "@eva/ui";
@@ -96,10 +98,10 @@ export function WelcomeSetupNotificationsStep({
         />
         <div>
           <div className="flex items-center gap-2">
-            <IconMail className="size-3.5 text-primary" />
+            <IconMail size={14} className="text-primary" />
             <h3 className="text-sm font-medium">Email me these updates</h3>
           </div>
-          <p className="mt-1 text-2xs text-muted-foreground">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             {enabled
               ? "You're subscribed. Manage email preferences in settings anytime."
               : "Includes the weekly changelog and daily unread digest. Off by default."}
@@ -114,7 +116,7 @@ export function WelcomeSetupNotificationsStep({
         onClick={onOpenNotificationSettings}
       >
         Notification settings
-        <IconArrowRight className="size-3.5" />
+        <IconArrowRight size={14} />
       </Button>
     </div>
   );

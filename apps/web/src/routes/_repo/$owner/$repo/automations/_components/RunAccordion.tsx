@@ -10,7 +10,6 @@ import {
   useElapsedSeconds,
   formatElapsed,
   Spinner as UISpinner,
-  Surface,
 } from "@eva/ui";
 import {
   IconAlertTriangle,
@@ -56,12 +55,12 @@ export function LatestRun({
 
   if (!run) {
     return (
-      <Surface density="comfortable" className="text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
         </p>
-      </Surface>
+      </div>
     );
   }
 
@@ -100,12 +99,12 @@ export function RunHistory({
 
   if (runs.length === 0) {
     return (
-      <Surface density="comfortable" className="text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
         </p>
-      </Surface>
+      </div>
     );
   }
 
@@ -194,9 +193,15 @@ function RunAccordion({
         className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
-          <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+          <IconChevronDown
+            size={14}
+            className="shrink-0 text-muted-foreground"
+          />
         ) : (
-          <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+          <IconChevronRight
+            size={14}
+            className="shrink-0 text-muted-foreground"
+          />
         )}
         <Badge variant={badgeVariant}>{run.status}</Badge>
         <span className="text-xs text-muted-foreground sm:text-sm">
@@ -224,7 +229,7 @@ function RunAccordion({
               cancelRun({ runId: run._id });
             }}
           >
-            <IconPlayerStop className="size-3" />
+            <IconPlayerStop size={12} />
             Stop
           </Button>
         )}
@@ -240,7 +245,7 @@ function RunAccordion({
                 onAcknowledge();
               }}
             >
-              <IconCheck className="size-3" />
+              <IconCheck size={12} />
               Read
             </Button>
           )}
@@ -268,7 +273,10 @@ function RunAccordion({
                 !run.findings &&
                 run.status === "success" && (
                   <div className="flex items-center gap-2 rounded-surface bg-warning/10 px-3 py-2">
-                    <IconAlertTriangle className="size-3.5 shrink-0 text-warning" />
+                    <IconAlertTriangle
+                      size={14}
+                      className="shrink-0 text-warning"
+                    />
                     <p className="text-xs text-warning">
                       Could not parse findings from report
                     </p>
@@ -302,7 +310,7 @@ function RunAccordion({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
-                <IconExternalLink className="size-3.5" />
+                <IconExternalLink size={14} />
                 View Pull Request
               </a>
             </div>

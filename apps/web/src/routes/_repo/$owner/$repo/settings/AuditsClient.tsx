@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -163,7 +165,7 @@ function CategoryRow({
         aria-label={`Remove ${category.name}`}
         onClick={onRemove}
       >
-        <IconTrash className="size-3.5" />
+        <IconTrash size={14} />
       </Button>
     </div>
   );

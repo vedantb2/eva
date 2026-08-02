@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Accordion,
@@ -32,7 +34,7 @@ export type TaskProof = FunctionReturnType<
 
 const MESSAGE_TRUNCATE = 72;
 const PROOF_ACCORDION_SCROLL_CLASS =
-  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar scroll-fade";
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
 
 function truncateProofMessage(message: string): string {
   const trimmed = message.replace(/\s+/g, " ").trim();
@@ -108,7 +110,7 @@ function ProofCaptureGallery({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <IconExternalLink className="size-3.5" />
+            <IconExternalLink size={14} />
             Open in new tab
           </a>
         </DialogHeader>
@@ -124,7 +126,7 @@ function ProofCaptureGallery({
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
                 aria-label="Previous capture"
               >
-                <IconChevronLeft className="size-4" />
+                <IconChevronLeft size={16} />
               </Button>
               <Button
                 type="button"
@@ -137,7 +139,7 @@ function ProofCaptureGallery({
                 }
                 aria-label="Next capture"
               >
-                <IconChevronRight className="size-4" />
+                <IconChevronRight size={16} />
               </Button>
             </>
           ) : null}
@@ -215,11 +217,14 @@ export function ProofTimelineItem({
       ) : null}
       {showTimestamp ? (
         <>
-          <span className="text-subtle-foreground" aria-hidden>
+          <span className="text-muted-foreground/50" aria-hidden>
             {" "}
             ·{" "}
           </span>
-          <RelativeDateTime at={timestamp} className="text-subtle-foreground" />
+          <RelativeDateTime
+            at={timestamp}
+            className="text-muted-foreground/70"
+          />
         </>
       ) : null}
     </div>

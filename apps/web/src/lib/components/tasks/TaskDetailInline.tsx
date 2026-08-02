@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
@@ -172,7 +174,7 @@ export function TaskDetailInline({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+        <IconLoader2 size={20} className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -265,7 +267,7 @@ export function TaskDetailInline({
                             variant="outline"
                             className="gap-1 text-xs font-normal text-muted-foreground"
                           >
-                            <IconClock className="size-2.5" />
+                            <IconClock size={11} />
                             {status === "todo"
                               ? "Scheduled for"
                               : "Was scheduled for"}{" "}

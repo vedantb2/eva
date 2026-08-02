@@ -1,9 +1,3 @@
 # Call the local binary directly so `pnpm`'s verifyDepsBeforeRun cannot
 # recreate node_modules mid-commit (pnpm 11 defaults that to "install").
-#
-# `--concurrent 1` because lint-staged otherwise chunks a large commit into
-# seven parallel prettier+oxlint pairs, and fourteen concurrent node processes
-# get the prettier ones SIGKILLed — which aborts the whole commit. Serial is a
-# little slower on small commits and is the difference between working and not
-# on large ones.
-./node_modules/.bin/lint-staged --concurrent 1
+./node_modules/.bin/lint-staged

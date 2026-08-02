@@ -1,3 +1,5 @@
+"use client";
+
 import {
   PromptInputActionMenu,
   PromptInputActionMenuContent,
@@ -51,7 +53,7 @@ function MentionMenuRow({
           <span className="truncate">{label}</span>
         </span>
         {badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-3xs font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
             {badge}
           </span>
         ) : null}
@@ -147,7 +149,7 @@ export function ComposerPlusMenu({
             <IconSparkles className="mr-2 size-4" />
             Skills
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto scrollbar">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
             {availableSkills.length === 0 ? (
               <DropdownMenuItem disabled>No available skills</DropdownMenuItem>
             ) : (
@@ -179,7 +181,7 @@ export function ComposerPlusMenu({
             <IconDatabase className="mr-2 size-4" />
             Data
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto scrollbar">
+          <DropdownMenuSubContent className="min-w-56 max-w-72 max-h-64 overflow-y-auto">
             {dataItems.length === 0 ? (
               <DropdownMenuItem disabled>No data to mention</DropdownMenuItem>
             ) : (

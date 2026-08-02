@@ -98,7 +98,7 @@ function ReportCard({
         <div className="flex items-center gap-2">
           {issues.length > 0 && report.fixStatus === undefined && (
             <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
-              <IconTool className="size-3.5" />
+              <IconTool size={14} />
               {isStartingFix ? "Starting..." : "Fix issues"}
             </Button>
           )}
@@ -111,7 +111,7 @@ function ReportCard({
           {report.fixStatus === "fix_error" && (
             <>
               <span className="flex items-center gap-1.5 text-xs text-destructive">
-                <IconAlertTriangle className="size-3.5" />
+                <IconAlertTriangle size={14} />
                 Fix failed
               </span>
               <Button
@@ -120,7 +120,7 @@ function ReportCard({
                 onClick={handleFix}
                 disabled={isStartingFix}
               >
-                <IconTool className="size-3.5" />
+                <IconTool size={14} />
                 {isStartingFix ? "Starting..." : "Retry fix"}
               </Button>
             </>
@@ -132,7 +132,7 @@ function ReportCard({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
             >
-              <IconGitPullRequest className="size-3.5" />
+              <IconGitPullRequest size={14} />
               View Fix PR
             </a>
           )}
@@ -149,7 +149,7 @@ function ReportCard({
           return fixSteps ? (
             <div className="rounded-surface border border-primary/20 bg-primary/5 px-4 py-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <IconTool className="size-3.5 text-primary shrink-0" />
+                <IconTool size={14} className="text-primary shrink-0" />
                 <span className="text-xs font-medium text-primary">
                   Fixing issues...
                 </span>
@@ -158,7 +158,7 @@ function ReportCard({
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">
-              <IconTool className="size-3.5 text-primary shrink-0" />
+              <IconTool size={14} className="text-primary shrink-0" />
               <span className="text-sm text-primary">
                 {streamingActivity ||
                   "Eva is fixing the flagged issues and will create a PR automatically..."}
@@ -201,11 +201,14 @@ function RunListItem({
       {report.status === "completed" && (
         <>
           {issueCount === 0 ? (
-            <IconCheck className="size-3.5 text-success shrink-0" />
+            <IconCheck size={14} className="text-success shrink-0" />
           ) : report.prUrl ? (
-            <IconGitPullRequest className="size-3.5 text-primary shrink-0" />
+            <IconGitPullRequest size={14} className="text-primary shrink-0" />
           ) : (
-            <IconAlertTriangle className="size-3.5 text-destructive shrink-0" />
+            <IconAlertTriangle
+              size={14}
+              className="text-destructive shrink-0"
+            />
           )}
           <div className="flex flex-col min-w-0">
             <span className="text-sm tabular-nums">
@@ -223,7 +226,7 @@ function RunListItem({
       )}
       {report.status === "error" && (
         <>
-          <IconAlertTriangle className="size-3.5 text-destructive shrink-0" />
+          <IconAlertTriangle size={14} className="text-destructive shrink-0" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-destructive">Error</span>
             <RelativeDateTime
@@ -410,7 +413,7 @@ function TestingArenaDetailRoute() {
                 : undefined
             }
           >
-            <IconPlayerPlay className="size-4" />
+            <IconPlayerPlay size={16} />
             {isRunning || hasActiveRun ? "Running..." : "Run Test"}
           </Button>
         </div>

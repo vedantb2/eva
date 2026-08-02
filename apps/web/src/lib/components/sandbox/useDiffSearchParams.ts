@@ -1,3 +1,5 @@
+"use client";
+
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { isDiffView, type DiffView } from "@/lib/search-params";
 

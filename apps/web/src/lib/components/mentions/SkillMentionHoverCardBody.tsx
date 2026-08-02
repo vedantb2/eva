@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -31,7 +33,7 @@ export function SkillMentionHoverCardBody({
 
   return (
     <MentionContentPreview title={skill.title}>
-      <pre className="whitespace-pre-wrap break-words font-mono text-2xs leading-relaxed text-foreground">
+      <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-foreground">
         {skill.content}
       </pre>
     </MentionContentPreview>

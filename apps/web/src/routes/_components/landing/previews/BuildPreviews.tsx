@@ -26,7 +26,7 @@ export function SessionsPreview() {
       trailing={
         <span className="flex items-center gap-1.5">
           <MockDot tone="success" pulse />
-          <span className="text-3xs text-muted-foreground">Sandbox up</span>
+          <span className="text-[10px] text-muted-foreground">Sandbox up</span>
         </span>
       }
     >
@@ -34,7 +34,7 @@ export function SessionsPreview() {
         <div className="flex flex-col gap-2.5 border-r border-border p-3">
           <MockLabel>Chat</MockLabel>
           <div className="ml-auto max-w-[85%] rounded-lg rounded-br-sm border border-border bg-muted px-2.5 py-1.5">
-            <p className="text-3xs leading-relaxed text-foreground">
+            <p className="text-[10.5px] leading-relaxed text-foreground">
               Postcodes with a space fail validation.
             </p>
           </div>
@@ -45,7 +45,7 @@ export function SessionsPreview() {
           </div>
           <div className="mt-auto flex items-center gap-1.5">
             <MockDot tone="primary" pulse />
-            <span className="text-3xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground">
               Editing validate.ts
             </span>
           </div>
@@ -57,7 +57,7 @@ export function SessionsPreview() {
               <span
                 key={tab}
                 className={cn(
-                  "rounded-md border px-1.5 py-1 text-3xs font-medium sm:px-2",
+                  "rounded-md border px-1.5 py-1 text-[10px] font-medium sm:px-2",
                   index === 1
                     ? "border-border bg-muted text-foreground"
                     : "border-transparent text-muted-foreground",
@@ -67,7 +67,7 @@ export function SessionsPreview() {
               </span>
             ))}
           </div>
-          <div className="flex-1 space-y-1.5 bg-muted/20 p-3 font-mono text-3xs leading-relaxed">
+          <div className="flex-1 space-y-1.5 bg-muted/20 p-3 font-mono text-[10px] leading-relaxed">
             {TERMINAL_LINES.map((line) => (
               <p
                 key={line.text}
@@ -123,23 +123,25 @@ export function QuickTasksPreview() {
             >
               {task.state === "running" ? (
                 <IconLoader2
-                  className="size-3 shrink-0 animate-spin text-warning"
+                  size={13}
+                  className="shrink-0 animate-spin text-warning"
                   aria-hidden
                 />
               ) : (
                 <IconCheck
+                  size={13}
                   className={cn(
-                    "size-3 shrink-0",
+                    "shrink-0",
                     task.state === "done" ? "text-success" : "text-chart-3",
                   )}
                   aria-hidden
                 />
               )}
-              <p className="min-w-0 flex-1 truncate text-2xs font-medium text-foreground">
+              <p className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-foreground">
                 {task.title}
               </p>
-              <span className="hidden shrink-0 items-center gap-1 font-mono text-3xs text-muted-foreground sm:flex">
-                <IconGitBranch className="size-2.5" aria-hidden />
+              <span className="hidden shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground sm:flex">
+                <IconGitBranch size={11} aria-hidden />
                 {task.repo}
               </span>
               <MockChip tone={state.tone}>{state.label}</MockChip>
@@ -147,7 +149,7 @@ export function QuickTasksPreview() {
           );
         })}
       </div>
-      <p className="mt-3 text-center text-3xs text-muted-foreground">
+      <p className="mt-3 text-center text-[10.5px] text-muted-foreground">
         Every task gets its own sandbox — they do not queue behind each other.
       </p>
     </MockWindow>
@@ -193,15 +195,15 @@ export function AgentsPreview() {
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5">
                 <BrandMark name={agent.brand} size={14} />
-                <span className="truncate text-2xs font-medium text-foreground">
+                <span className="truncate text-[11.5px] font-medium text-foreground">
                   {agent.name}
                 </span>
               </span>
               {agent.selected ? (
-                <IconCheck className="size-3 text-primary" aria-hidden />
+                <IconCheck size={13} className="text-primary" aria-hidden />
               ) : null}
             </div>
-            <p className="truncate text-3xs text-muted-foreground">
+            <p className="truncate text-[10px] text-muted-foreground">
               {agent.model}
             </p>
           </div>
@@ -210,13 +212,13 @@ export function AgentsPreview() {
 
       <div className="mt-3 space-y-2 rounded-md border border-border bg-muted/25 p-3">
         <MockLabel>Credentials</MockLabel>
-        <p className="font-mono text-3xs text-muted-foreground">
+        <p className="font-mono text-[10px] text-muted-foreground">
           ANTHROPIC_API_KEY <span className="text-success">✓ set</span>
         </p>
-        <p className="font-mono text-3xs text-muted-foreground">
+        <p className="font-mono text-[10px] text-muted-foreground">
           OPENAI_API_KEY <span className="text-success">✓ set</span>
         </p>
-        <p className="text-3xs text-muted-foreground">
+        <p className="text-[10px] text-muted-foreground">
           Encrypted per team, injected into the sandbox at boot.
         </p>
       </div>

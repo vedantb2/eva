@@ -189,7 +189,7 @@ export function SandboxPanel({
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <IconClipboardList className="h-10 w-10 text-subtle-foreground" />
+              <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
               <div className="max-w-md space-y-1">
                 <p className="text-sm font-medium">No plan yet</p>
                 <p className="text-sm text-muted-foreground">

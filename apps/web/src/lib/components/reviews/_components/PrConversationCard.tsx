@@ -1,3 +1,5 @@
+"use client";
+
 import { IconExternalLink } from "@tabler/icons-react";
 import { Streamdown } from "streamdown";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -20,7 +22,7 @@ export function PrConversationCard({
       <div className="flex items-center justify-between gap-2 px-1">
         <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Conversation
-          <span className="tabular-nums text-subtle-foreground">
+          <span className="tabular-nums text-muted-foreground/70">
             {comments.length}
           </span>
         </h2>
@@ -75,7 +77,7 @@ export function PrConversationCard({
                   rel="noopener noreferrer"
                   className="hover:text-foreground"
                 >
-                  <IconExternalLink className="size-3" />
+                  <IconExternalLink size={12} />
                 </a>
               </div>
               <div className="p-3">

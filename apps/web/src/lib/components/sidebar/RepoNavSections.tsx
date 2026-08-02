@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
@@ -185,7 +187,7 @@ export function RepoNavSections({
             }}
             title={`Open ${item.name.toLowerCase()} sidebar`}
           >
-            <IconChevronRight className="size-3.5 text-muted-foreground" />
+            <IconChevronRight size={14} className="text-muted-foreground" />
           </Button>
         </SharedLayoutNavSurface>
       );

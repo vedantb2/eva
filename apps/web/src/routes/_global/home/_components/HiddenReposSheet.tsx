@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
-  Surface,
 } from "@eva/ui";
 import { IconEye, IconBrandGithub } from "@tabler/icons-react";
 
@@ -46,20 +45,22 @@ export function HiddenReposSheet({
         <DialogHeader>
           <DialogTitle>Hidden Codebases</DialogTitle>
         </DialogHeader>
-        <div className="mt-2 space-y-2 max-h-96 overflow-y-auto scrollbar">
+        <div className="mt-2 space-y-2 max-h-96 overflow-y-auto">
           {hiddenRepos.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No hidden codebases
             </p>
           ) : (
             hiddenRepos.map((repo) => (
-              <Surface
+              <div
                 key={repo._id}
-                density="tight"
-                className="flex items-center justify-between"
+                className="flex items-center justify-between rounded-surface border border-border bg-card p-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <IconBrandGithub className="size-5 shrink-0 text-muted-foreground" />
+                  <IconBrandGithub
+                    size={18}
+                    className="shrink-0 text-muted-foreground"
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">
                       {repo.rootDirectory
@@ -79,10 +80,10 @@ export function HiddenReposSheet({
                   }
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                 >
-                  <IconEye className="size-4" />
+                  <IconEye size={16} />
                   Show
                 </Button>
-              </Surface>
+              </div>
             ))
           )}
         </div>

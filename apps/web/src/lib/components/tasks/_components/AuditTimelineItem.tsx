@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionItem,
@@ -95,7 +97,7 @@ export function AuditTimelineItem({
                       {score.passed}/{score.total}
                     </Badge>
                   ) : null}
-                  <span className="text-subtle-foreground" aria-hidden>
+                  <span className="text-muted-foreground/50" aria-hidden>
                     ·
                   </span>
                   <RelativeDateTime

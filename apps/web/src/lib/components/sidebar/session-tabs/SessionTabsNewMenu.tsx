@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import {
   DropdownMenu,
@@ -33,12 +35,12 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
           title="New session"
           className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
-          <IconPlus className="size-4" />
+          <IconPlus size={16} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="max-h-80 w-64 overflow-y-auto scrollbar"
+        className="max-h-80 w-64 overflow-y-auto"
       >
         {repos.map((repo) => {
           const displayName = repoDisplayLabel(repo);
@@ -55,7 +57,7 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
                   fallback={
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded text-3xs font-semibold text-white",
+                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold text-white",
                         repoTileColor(
                           `${repo.owner}/${repo.name}/${displayName}`,
                         ),

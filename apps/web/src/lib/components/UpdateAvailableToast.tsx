@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { toast } from "@eva/ui";
 import { convex } from "@/lib/components/ClientProvider";

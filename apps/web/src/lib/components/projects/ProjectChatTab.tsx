@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Button,
@@ -5,7 +7,6 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-  Surface,
 } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -156,10 +157,7 @@ export function ProjectChatTab({
               </div>
             )}
           {canContinueInterview && (
-            <Surface
-              density="tight"
-              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-            >
+            <div className="flex flex-col gap-2 rounded-surface border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 The last interview run stopped before Eva asked the next
                 question.
@@ -172,7 +170,7 @@ export function ProjectChatTab({
               >
                 Continue interview
               </Button>
-            </Surface>
+            </div>
           )}
         </ConversationContent>
         <ConversationScrollButton resetKey={projectId} />
@@ -201,7 +199,7 @@ export function ProjectChatTab({
                     initialMessages.length === 0
                   }
                 >
-                  <IconTrash className="size-4" />
+                  <IconTrash size={16} />
                   Clear
                 </Button>
               </>

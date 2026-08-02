@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Popover,
   PopoverTrigger,
@@ -49,7 +51,7 @@ export function AssigneeSelector({
             </>
           ) : (
             <>
-              <IconUserPlus className="size-3.5" />
+              <IconUserPlus size={14} />
               <span>Code Reviewer</span>
             </>
           )}
@@ -65,9 +67,9 @@ export function AssigneeSelector({
                 value="unassigned"
                 onSelect={() => setAssignedTo(undefined)}
               >
-                <IconUserPlus className="size-3.5 text-muted-foreground" />
+                <IconUserPlus size={14} className="text-muted-foreground" />
                 Unassigned
-                {!assignedTo && <IconCheck className="size-3.5 ml-auto" />}
+                {!assignedTo && <IconCheck size={14} className="ml-auto" />}
               </CommandItem>
               {reviewers.map((user) => (
                 <CommandItem
@@ -82,7 +84,7 @@ export function AssigneeSelector({
                   />
                   <span data-pii>{getUserDisplayName(user)}</span>
                   {assignedTo === user._id && (
-                    <IconCheck className="size-3.5 ml-auto" />
+                    <IconCheck size={14} className="ml-auto" />
                   )}
                 </CommandItem>
               ))}

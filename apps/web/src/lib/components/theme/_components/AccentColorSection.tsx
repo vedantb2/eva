@@ -1,3 +1,5 @@
+"use client";
+
 import { ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
 import type { AccentColor } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";

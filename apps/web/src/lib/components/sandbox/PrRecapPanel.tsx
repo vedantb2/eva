@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -8,7 +10,6 @@ import {
   ActivityTasks,
   Button,
   Spinner,
-  Surface,
   Tabs,
   TabsBar,
   TabsList,
@@ -72,7 +73,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   if (!prUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
+        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
         <div className="max-w-md space-y-1">
           <p className="text-sm font-medium">No pull request yet</p>
           <p className="text-sm text-muted-foreground">
@@ -95,7 +96,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   if (recapDoc === null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
+        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
         <div className="max-w-md space-y-2">
           <p className="text-sm font-medium">No recap yet</p>
           <p className="text-sm text-muted-foreground">
@@ -150,7 +151,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               className="inline-flex items-center gap-1 hover:text-foreground"
             >
               View on GitHub
-              <IconExternalLink className="size-3" />
+              <IconExternalLink size={12} />
             </a>
             {recapDoc.prNumber !== undefined ? (
               <DynamicLink
@@ -176,11 +177,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               }}
               disabled={isGenerating || isPending}
             >
-              {isGenerating ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconRefresh className="size-3.5" />
-              )}
+              {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
               {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
             </Button>
           </div>
@@ -194,7 +191,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
       {isErrored ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          <IconAlertTriangle className="size-4 mt-0.5 shrink-0" />
+          <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">Recap failed</p>
             <p className="text-destructive/80">
@@ -207,7 +204,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
       {(streaming || isPending) && (
         <div className="shrink-0 px-3 py-2">
-          <Surface density="tight" className="space-y-2">
+          <div className="space-y-2 rounded-lg border border-border bg-card p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">Generating recap...</span>
@@ -219,7 +216,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
                 {streaming?.currentActivity ?? "Generating recap..."}
               </p>
             )}
-          </Surface>
+          </div>
         </div>
       )}
 
@@ -227,7 +224,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         <p className="px-3 py-1 text-sm text-destructive">{generateError}</p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto scrollbar px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
         {view === "recap" ? (
           recapDoc.html ? (
             <HtmlPreviewFrame html={recapDoc.html} title="PR recap" />
@@ -237,11 +234,11 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             </p>
           )
         ) : (
-          <Surface>
+          <div className="rounded-lg border border-border bg-card p-4">
             <Streamdown className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               {recapDoc.content}
             </Streamdown>
-          </Surface>
+          </div>
         )}
       </div>
     </Tabs>

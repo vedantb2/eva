@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Input, Button } from "@eva/ui";
 import type { Id } from "@eva/backend";
@@ -59,7 +61,7 @@ export function DomainsSection({
                 className="hit-target motion-press ml-0.5 rounded p-0.5 active:scale-[0.96] hover:bg-muted-foreground/20"
                 aria-label={`Remove ${domain}`}
               >
-                <IconX className="size-3" />
+                <IconX size={12} />
               </button>
             </span>
           ))}
@@ -83,7 +85,7 @@ export function DomainsSection({
           onClick={addDomain}
           disabled={!newDomain.trim()}
         >
-          <IconPlus className="size-3.5" />
+          <IconPlus size={14} />
           Add
         </Button>
       </div>

@@ -1,3 +1,5 @@
+"use client";
+
 import { api } from "@eva/backend";
 import { usePaginatedQuery } from "convex/react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";

@@ -1,3 +1,5 @@
+"use client";
+
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import {

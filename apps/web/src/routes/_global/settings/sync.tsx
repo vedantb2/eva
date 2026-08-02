@@ -155,9 +155,7 @@ function SyncSettingsRoute() {
           onClick={handleRefreshFromGithub}
           className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
         >
-          <IconRefresh
-            className={fetching ? "size-4 animate-spin" : "size-4"}
-          />
+          <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
           <span className="hidden sm:inline">Refresh from GitHub</span>
         </Button>
       }
@@ -180,7 +178,8 @@ function SyncSettingsRoute() {
                 onClick={handleRefreshFromGithub}
               >
                 <IconRefresh
-                  className={fetching ? "size-4 animate-spin" : "size-4"}
+                  size={16}
+                  className={fetching ? "animate-spin" : ""}
                 />
                 Fetch from GitHub
               </Button>

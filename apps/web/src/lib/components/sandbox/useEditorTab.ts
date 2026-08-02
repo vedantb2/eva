@@ -1,3 +1,5 @@
+"use client";
+
 import { usePinnedSandboxTab } from "@/lib/components/sandbox/usePinnedSandboxTab";
 
 /** Optional Editor tab from `+` — same pin/close pattern as Computer. */

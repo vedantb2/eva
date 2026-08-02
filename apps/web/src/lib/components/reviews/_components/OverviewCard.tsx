@@ -34,7 +34,7 @@ export function OverviewCard({
           <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {title}
             {count !== undefined ? (
-              <span className="tabular-nums text-subtle-foreground">
+              <span className="tabular-nums text-muted-foreground/70">
                 {count}
               </span>
             ) : null}

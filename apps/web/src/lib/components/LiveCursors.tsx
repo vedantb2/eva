@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useLocation } from "@tanstack/react-router";
 import { Cursor, CursorPointer, CursorBody, CursorName } from "@eva/ui";

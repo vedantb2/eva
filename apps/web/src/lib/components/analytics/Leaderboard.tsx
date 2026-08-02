@@ -1,3 +1,5 @@
+"use client";
+
 import { IconStar, IconUser } from "@tabler/icons-react";
 import { Widget } from "@/lib/components/Widget";
 import type { FunctionReturnType } from "convex/server";
@@ -43,7 +45,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
               <div key={entry.clerkId} className="space-y-2">
                 <div className="group flex items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-                    <IconUser className="size-4" />
+                    <IconUser size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <MarqueeOnHover className="text-sm font-medium text-foreground">

@@ -1,3 +1,5 @@
+"use client";
+
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 
@@ -15,7 +17,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import {
   createContext,
   memo,
@@ -269,7 +271,7 @@ export const MessageBranchPrevious = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <IconChevronLeft className="size-3.5" />}
+      {children ?? <ChevronLeftIcon size={14} />}
     </Button>
   );
 };
@@ -292,7 +294,7 @@ export const MessageBranchNext = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <IconChevronRight className="size-3.5" />}
+      {children ?? <ChevronRightIcon size={14} />}
     </Button>
   );
 };

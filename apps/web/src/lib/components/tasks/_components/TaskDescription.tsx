@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef } from "react";
 import { cn } from "@eva/ui";
 import { useMutation } from "convex/react";
@@ -150,7 +152,7 @@ export function TaskDescription({
             className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
           />
         ) : (
-          <p className="text-sm text-subtle-foreground">
+          <p className="text-sm text-muted-foreground/60">
             {canEditTaskText ? "Click to add description..." : "No description"}
           </p>
         )}

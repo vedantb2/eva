@@ -19,7 +19,7 @@ export function UnreadAutomationsBadge({
       variant="secondary"
       className="ml-auto border-none bg-sidebar-accent/50 px-1.5 py-0.5"
     >
-      <span className="text-2xs font-medium text-muted-foreground">
+      <span className="text-[11px] font-medium text-muted-foreground">
         {count > 99 ? "99+" : count}
       </span>
     </Badge>

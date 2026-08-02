@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconMicrophone, IconPlayerStop } from "@tabler/icons-react";
 import { PromptInputButton } from "./prompt-input";

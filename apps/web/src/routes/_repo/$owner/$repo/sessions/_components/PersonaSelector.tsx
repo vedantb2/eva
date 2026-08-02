@@ -15,7 +15,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Surface,
   Textarea,
 } from "@eva/ui";
 import { IconEdit, IconTrash, IconUsers } from "@tabler/icons-react";
@@ -150,7 +149,7 @@ export function ManagePersonasModal({
   };
 
   const formUI = (
-    <Surface density="tight" className="space-y-2">
+    <div className="space-y-2 rounded-surface border border-border bg-card p-3">
       <Input
         placeholder="Persona name"
         value={formName}
@@ -170,7 +169,7 @@ export function ManagePersonasModal({
           {editingId ? "Save" : "Create"}
         </Button>
       </div>
-    </Surface>
+    </div>
   );
 
   return (
@@ -188,14 +187,14 @@ export function ManagePersonasModal({
           className="motion-press text-primary hover:scale-[1.01] active:scale-[0.96]"
           onClick={() => setOpen(true)}
         >
-          <IconUsers className="size-3.5" />
+          <IconUsers size={14} />
           Personas
         </Button>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Manage Personas</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto scrollbar">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
             {personas?.map((persona) =>
               editingId === persona._id ? (
                 <div key={persona._id}>{formUI}</div>
@@ -219,7 +218,7 @@ export function ManagePersonasModal({
                       className="h-7 w-7 p-0"
                       onClick={() => handleStartEdit(persona)}
                     >
-                      <IconEdit className="size-3.5" />
+                      <IconEdit size={14} />
                     </Button>
                     <Button
                       size="sm"
@@ -227,7 +226,7 @@ export function ManagePersonasModal({
                       className="h-7 w-7 p-0 text-destructive"
                       onClick={() => setDeletingId(persona._id)}
                     >
-                      <IconTrash className="size-3.5" />
+                      <IconTrash size={14} />
                     </Button>
                   </div>
                 </div>

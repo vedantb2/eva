@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { Button, cn } from "@eva/ui";
@@ -66,7 +68,7 @@ export function SandboxFileTree({
           {paths.length.toLocaleString()} files
           {truncated ? (
             <span
-              className="text-muted-foreground"
+              className="text-muted-foreground/80"
               title="File list capped at 20,000 entries"
             >
               {" "}

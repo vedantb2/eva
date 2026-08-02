@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import type { GitStatus, GitStatusEntry } from "@pierre/trees";

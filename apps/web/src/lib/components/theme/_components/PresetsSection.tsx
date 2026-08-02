@@ -1,3 +1,5 @@
+"use client";
+
 import type { CustomTheme } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
@@ -90,7 +92,7 @@ export function PresetsSection({
           >
             {active && (
               <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <IconCheck className="size-2.5" strokeWidth={3} />
+                <IconCheck size={10} strokeWidth={3} />
               </span>
             )}
             <span

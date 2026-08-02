@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   Dialog,
@@ -174,7 +176,10 @@ export function SessionReviewModal({
                               damping: 20,
                             }}
                           >
-                            <IconCircleCheck className="size-5 text-success" />
+                            <IconCircleCheck
+                              size={20}
+                              className="text-success"
+                            />
                           </m.div>
                         ) : isActive ? (
                           <Spinner size="sm" />
@@ -210,7 +215,10 @@ export function SessionReviewModal({
                 transition={{ duration: 0.3, delay: 0.1 }}
                 className="rounded-surface bg-status-code-review-bg p-4 text-center"
               >
-                <IconCircleCheck className="size-6 mx-auto mb-2 text-status-code-review" />
+                <IconCircleCheck
+                  size={24}
+                  className="mx-auto mb-2 text-status-code-review"
+                />
                 <p className="text-sm font-medium text-status-code-review">
                   Sent to the team for review.
                 </p>

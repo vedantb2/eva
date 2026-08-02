@@ -1,3 +1,5 @@
+"use client";
+
 import { Children, type ReactNode } from "react";
 import { cn } from "../utils/cn";
 

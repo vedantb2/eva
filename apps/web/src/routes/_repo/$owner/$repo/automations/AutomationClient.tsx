@@ -16,7 +16,6 @@ import {
   cn,
   ModelSelect,
   toast,
-  Surface,
 } from "@eva/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
@@ -92,7 +91,7 @@ export function AutomationClient({
           disabled={hasActiveRun === true || !automation.description}
           onClick={() => runNow({ automationId: automation._id })}
         >
-          <IconPlayerPlay className="size-3.5" />
+          <IconPlayerPlay size={14} />
           Run Now
         </Button>
       }
@@ -236,7 +235,7 @@ function SettingsForm({
         }}
       />
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -265,24 +264,24 @@ function SettingsForm({
               if (val !== automation.description) commit({ description: val });
             }}
           />
-          <p className="mt-1 text-2xs text-muted-foreground">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             The prompt that will be executed on each run.
           </p>
         </div>
-      </Surface>
+      </div>
 
       {isMonorepo && (
-        <Surface density="none" className="p-3 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
           <SettingToggle
             title="Share across apps"
             description="Show and run this automation from every app in the monorepo"
             checked={automation.shared === true}
             onChange={(next) => commit({ contextRepoId: repoId, shared: next })}
           />
-        </Surface>
+        </div>
       )}
 
-      <Surface density="none" className="p-3 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
         <SettingToggle
           title="Report Only"
           description="Analyze and report without making code changes, branches, or PRs"
@@ -295,29 +294,29 @@ function SettingsForm({
             )
           }
         />
-      </Surface>
+      </div>
 
       {automation.readOnly === true && (
-        <Surface density="none" className="p-3 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
           <SettingToggle
             title="Actions"
             description="Parse findings into actionable items you can convert to tasks"
             checked={automation.actionsEnabled === true}
             onChange={(next) => commit({ actionsEnabled: next })}
           />
-        </Surface>
+        </div>
       )}
 
-      <Surface density="none" className="p-3 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
         <SettingToggle
           title="Send email"
           description="Email this automation's run summary to all users when a run succeeds"
           checked={automation.sendEmail === true}
           onChange={(next) => commit({ sendEmail: next })}
         />
-      </Surface>
+      </div>
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -329,15 +328,15 @@ function SettingsForm({
             onValueChange={(m) => commit({ model: m })}
           />
         </div>
-      </Surface>
+      </div>
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-destructive">
               Delete Automation
             </h3>
-            <p className="text-2xs text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Permanently remove this automation and all its run history
             </p>
           </div>
@@ -346,11 +345,11 @@ function SettingsForm({
             size="sm"
             onClick={() => setShowDeleteDialog(true)}
           >
-            <IconTrash className="size-3.5" />
+            <IconTrash size={14} />
             Delete
           </Button>
         </div>
-      </Surface>
+      </div>
 
       <AutomationDeleteDialog
         automation={

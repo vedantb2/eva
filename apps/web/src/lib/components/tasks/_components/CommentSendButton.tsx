@@ -1,3 +1,5 @@
+"use client";
+
 import { Button, cn } from "@eva/ui";
 import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
@@ -37,8 +39,8 @@ export function CommentSendButton({
         trueKey="loading"
         falseKey="send"
         className="relative flex size-4 items-center justify-center"
-        whenTrue={<IconLoader2 className="size-4 animate-spin" />}
-        whenFalse={<IconArrowUp className="size-4" />}
+        whenTrue={<IconLoader2 size={16} className="animate-spin" />}
+        whenFalse={<IconArrowUp size={16} />}
       />
     </Button>
   );

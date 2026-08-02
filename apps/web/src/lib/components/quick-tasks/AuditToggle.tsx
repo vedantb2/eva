@@ -1,3 +1,5 @@
+"use client";
+
 import { Switch } from "@eva/ui";
 
 interface AuditToggleProps {

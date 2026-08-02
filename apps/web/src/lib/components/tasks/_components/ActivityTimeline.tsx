@@ -1,3 +1,5 @@
+"use client";
+
 import { lazy, Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import {
@@ -402,7 +404,7 @@ export function ActivityTimeline({
               disabled={isDeletingComment}
             >
               {isDeletingComment && (
-                <IconLoader2 className="size-4 animate-spin" />
+                <IconLoader2 size={16} className="animate-spin" />
               )}
               Delete
             </Button>

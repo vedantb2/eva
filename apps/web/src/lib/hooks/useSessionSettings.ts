@@ -1,3 +1,5 @@
+"use client";
+
 import {
   DEFAULT_AI_MODEL,
   buildTraitsExecutionPayload,

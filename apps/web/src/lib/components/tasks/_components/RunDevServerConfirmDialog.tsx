@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   Dialog,
@@ -41,7 +43,7 @@ export function RunDevServerConfirmDialog({
             <p className="mt-1 font-mono text-xs break-all">
               {devCommandLabel}
             </p>
-            <p className="mt-2 text-2xs">
+            <p className="mt-2 text-[11px]">
               From App settings (Dev server). Empty override uses auto-detection
               from package.json.
             </p>
@@ -58,7 +60,7 @@ export function RunDevServerConfirmDialog({
             }}
             disabled={isRunning}
           >
-            {isRunning && <IconLoader2 className="size-4 animate-spin" />}
+            {isRunning && <IconLoader2 size={16} className="animate-spin" />}
             Run dev server
           </Button>
         </DialogFooter>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -9,7 +11,6 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
-  Surface,
 } from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
@@ -97,7 +98,7 @@ export function SetupBanner() {
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/10">
-              <IconAlertTriangle className="size-5 text-warning" />
+              <IconAlertTriangle size={20} className="text-warning" />
             </div>
             <DialogTitle>Setup Required</DialogTitle>
           </div>
@@ -109,7 +110,7 @@ export function SetupBanner() {
             enable Codex, sign in locally with Codex once, then paste the saved
             auth JSON into `CODEX_AUTH_JSON`.
           </p>
-          <Surface>
+          <div className="rounded-surface border border-border bg-card p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>
@@ -124,11 +125,11 @@ export function SetupBanner() {
                       {entry.keys.join(" or ")}
                     </code>
                     {entry.required ? (
-                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-3xs font-medium text-destructive">
+                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
                         Required
                       </span>
                     ) : (
-                      <span className="rounded-full bg-warning/10 px-2 py-0.5 text-3xs font-medium text-warning">
+                      <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning">
                         Optional
                       </span>
                     )}
@@ -139,7 +140,7 @@ export function SetupBanner() {
                 </div>
               ))}
             </div>
-          </Surface>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setDismissed(true)}>

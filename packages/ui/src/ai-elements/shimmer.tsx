@@ -1,3 +1,5 @@
+"use client";
+
 import type { MotionProps } from "motion/react";
 import type { CSSProperties, ElementType } from "react";
 

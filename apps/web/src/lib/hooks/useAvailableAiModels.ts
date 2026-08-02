@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { ModelAccount } from "@eva/ui";
 import { useState } from "react";

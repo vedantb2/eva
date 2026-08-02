@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import {
@@ -226,7 +228,7 @@ export function TaskActivityComposerForm({
             minHeight="min-h-24"
             initialMentionMap={initialMentionMap}
             initialSkillMap={initialSkillMap}
-            className={cn("overflow-y-auto scrollbar", editorClassName)}
+            className={cn("overflow-y-auto", editorClassName)}
             completionContext={`a description of further changes to request from an AI coding agent${task?.title ? ` on the task "${task.title}"` : ""}`}
           />
         ) : (
@@ -357,7 +359,7 @@ export function TaskActivityComposerForm({
                         <IconAdjustmentsHorizontal className="size-3.5" />
                         Options
                         {changeRequestOptionCount > 0 ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs leading-none text-primary-foreground">
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
                             {changeRequestOptionCount}
                           </span>
                         ) : null}

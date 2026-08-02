@@ -1,3 +1,5 @@
+"use client";
+
 import { IconClock } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { OverviewCard } from "./OverviewCard";
@@ -88,7 +90,7 @@ export function PrReviewersCard({
             >
               <Person login={reviewer.login} avatarUrl={reviewer.avatarUrl} />
               <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <IconClock className="size-3.5" />
+                <IconClock size={14} />
                 Awaiting review
               </span>
             </li>

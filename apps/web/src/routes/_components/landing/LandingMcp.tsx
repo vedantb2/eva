@@ -1,3 +1,5 @@
+"use client";
+
 import { IconArrowRight, IconBrowser, IconCheck } from "@tabler/icons-react";
 import { m, useReducedMotion, type Variants } from "motion/react";
 import { LANDING_MCP_CALLS, LANDING_MCP_CARDS } from "./landingContent";
@@ -59,7 +61,7 @@ export function LandingMcp() {
                   {card.points.map((point) => (
                     <li
                       key={point}
-                      className="text-pretty text-sm leading-relaxed text-muted-foreground"
+                      className="text-pretty text-[13px] leading-relaxed text-muted-foreground"
                     >
                       {point}
                     </li>
@@ -72,7 +74,7 @@ export function LandingMcp() {
 
         <div className="mt-4 flex items-start gap-4 rounded-surface border border-border bg-card p-6 shadow-sm">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
-            <IconBrowser className="size-4 text-primary" aria-hidden />
+            <IconBrowser size={17} className="text-primary" aria-hidden />
           </div>
           <div className="space-y-1.5">
             <h3 className="text-base font-medium text-foreground">
@@ -97,12 +99,16 @@ function McpCallPanel() {
   return (
     <div className="overflow-hidden rounded-surface border border-border bg-card shadow-sm">
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
-        <p className="font-mono text-2xs text-muted-foreground">
+        <p className="font-mono text-[11px] text-muted-foreground">
           Claude Desktop
         </p>
-        <IconArrowRight className="size-3 text-subtle-foreground" aria-hidden />
-        <p className="font-mono text-2xs text-foreground">eva</p>
-        <span className="ml-auto rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-3xs font-medium text-success">
+        <IconArrowRight
+          size={13}
+          className="text-muted-foreground/60"
+          aria-hidden
+        />
+        <p className="font-mono text-[11px] text-foreground">eva</p>
+        <span className="ml-auto rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
           OAuth 2.1
         </span>
       </div>
@@ -120,18 +126,22 @@ function McpCallPanel() {
             variants={prefersReducedMotion ? STILL : CALL_ROW}
             className="flex items-center gap-3 px-4 py-2.5"
           >
-            <IconCheck className="size-3 shrink-0 text-success" aria-hidden />
-            <code className="shrink-0 font-mono text-2xs text-foreground">
+            <IconCheck
+              size={13}
+              className="shrink-0 text-success"
+              aria-hidden
+            />
+            <code className="shrink-0 font-mono text-[11.5px] text-foreground">
               {call.tool}
             </code>
-            <span className="min-w-0 flex-1 truncate text-right text-2xs text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
               {call.result}
             </span>
           </m.div>
         ))}
       </m.div>
 
-      <p className="border-t border-border px-4 py-2.5 text-2xs text-muted-foreground">
+      <p className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
         Around 25 tools, the same ones an agent calls from inside a sandbox.
       </p>
     </div>

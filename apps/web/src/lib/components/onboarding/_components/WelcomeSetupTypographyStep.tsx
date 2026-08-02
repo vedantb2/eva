@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@eva/ui";
 import { IconArrowRight } from "@tabler/icons-react";
 import { TypographySection } from "@/lib/components/theme/_components/TypographySection";
@@ -49,7 +51,7 @@ export function WelcomeSetupTypographyStep({
         onClick={onOpenThemeSettings}
       >
         More theme options in settings
-        <IconArrowRight className="size-3.5" />
+        <IconArrowRight size={14} />
       </Button>
     </div>
   );

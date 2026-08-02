@@ -1,3 +1,5 @@
+"use client";
+
 import {
   IconWorld,
   IconBrowser,
@@ -294,7 +296,7 @@ export function SandboxTabBar({
                 onTabChange("editor");
               }}
             >
-              <IconCode className="size-3.5" />
+              <IconCode size={14} />
               Editor
             </DropdownMenuItem>
           ) : null}
@@ -308,7 +310,7 @@ export function SandboxTabBar({
                 onTabChange("computer");
               }}
             >
-              <IconDeviceDesktop className="size-3.5" />
+              <IconDeviceDesktop size={14} />
               Computer
             </DropdownMenuItem>
           ) : null}
@@ -316,14 +318,14 @@ export function SandboxTabBar({
             onClick={onNewPreview}
             disabled={newPreviewDisabled}
           >
-            <IconWorld className="size-3.5" />
+            <IconWorld size={14} />
             New Preview
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onNewTerminal}
             disabled={newTerminalDisabled}
           >
-            <IconTerminal2 className="size-3.5" />
+            <IconTerminal2 size={14} />
             New Terminal
           </DropdownMenuItem>
         </DropdownMenuContent>

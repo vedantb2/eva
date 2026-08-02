@@ -1,6 +1,6 @@
 import type { ActivityStep } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
-import { cn, Surface } from "@eva/ui";
+import { cn } from "@eva/ui";
 
 export interface ChangedFile {
   path: string;
@@ -94,7 +94,7 @@ export function ChangedFilesCard({
   };
 
   return (
-    <Surface density="none" className="mt-2">
+    <div className="mt-2 rounded-surface border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <span className="text-xs font-medium text-foreground">
           Changed files ({files.length})
@@ -128,7 +128,7 @@ export function ChangedFilesCard({
           </li>
         ))}
       </ul>
-    </Surface>
+    </div>
   );
 }
 
@@ -142,7 +142,7 @@ function FileRow({ file }: { file: ChangedFile }) {
       {file.dir ? (
         <span
           className={cn(
-            "min-w-0 truncate text-xs text-subtle-foreground",
+            "min-w-0 truncate text-xs text-muted-foreground/70",
             "hidden sm:inline",
           )}
         >

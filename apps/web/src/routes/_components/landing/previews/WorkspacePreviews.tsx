@@ -128,10 +128,10 @@ export function StatsPreview() {
           {LEADERBOARD.map((person) => (
             <div key={person.name} className="flex items-center gap-1.5">
               <MockAvatar initials={person.initials} tone="primary" />
-              <span className="min-w-0 flex-1 truncate text-3xs text-foreground">
+              <span className="min-w-0 flex-1 truncate text-[10.5px] text-foreground">
                 {person.name}
               </span>
-              <span className="font-mono text-3xs tabular-nums text-muted-foreground">
+              <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                 {person.merged}
               </span>
             </div>
@@ -190,10 +190,10 @@ export function InboxPreview() {
                 aria-hidden
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-2xs font-medium text-foreground">
+                <p className="truncate text-[11.5px] font-medium text-foreground">
                   {notification.title}
                 </p>
-                <p className="truncate text-3xs text-muted-foreground">
+                <p className="truncate text-[10px] text-muted-foreground">
                   {notification.meta}
                 </p>
               </div>
@@ -205,7 +205,7 @@ export function InboxPreview() {
 
       <div className="mt-3 space-y-1.5 rounded-md border border-border bg-muted/25 p-2.5">
         <MockLabel>Also delivered by email</MockLabel>
-        <p className="text-3xs text-muted-foreground">
+        <p className="text-[10.5px] text-muted-foreground">
           Daily digest · Weekly changelog · Both optional
         </p>
       </div>
@@ -236,7 +236,7 @@ export function TeamsPreview() {
             className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/30"
           >
             <MockAvatar initials={member.initials} tone={member.tone} />
-            <p className="min-w-0 flex-1 truncate text-2xs font-medium text-foreground">
+            <p className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-foreground">
               {member.name}
             </p>
             <MockChip tone={member.tone}>{member.role}</MockChip>
@@ -246,22 +246,22 @@ export function TeamsPreview() {
 
       <div className="mt-3 rounded-md border border-border bg-muted/25 p-2.5">
         <div className="flex items-center gap-1.5">
-          <IconLock className="size-2.5 text-muted-foreground" aria-hidden />
+          <IconLock size={11} className="text-muted-foreground" aria-hidden />
           <MockLabel>Environment variables</MockLabel>
         </div>
         <div className="mt-2 space-y-1.5">
           {SECRETS.map((secret) => (
             <div key={secret} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-3xs text-foreground">
+              <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-foreground">
                 {secret}
               </span>
-              <span className="font-mono text-3xs text-muted-foreground">
+              <span className="font-mono text-[10px] text-muted-foreground">
                 ••••••••
               </span>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-3xs text-muted-foreground">
+        <p className="mt-2 text-[10px] text-muted-foreground">
           Encrypted at rest, decrypted only inside your sandboxes.
         </p>
       </div>

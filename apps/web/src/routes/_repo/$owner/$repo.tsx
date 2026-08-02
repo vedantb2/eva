@@ -31,6 +31,10 @@ function MainContent({ children }: { children: ReactNode }) {
         {chromeSessionTabs ? (
           <SessionChromeTabsBar pathname={pathname} />
         ) : null}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
+        />
         <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
         </div>

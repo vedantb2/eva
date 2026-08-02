@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Popover,
@@ -63,7 +65,7 @@ export function PriorityPicker({
                 <PriorityIcon level={undefined} size={14} />
                 No priority
                 {value === undefined && (
-                  <IconCheck className="size-3.5 ml-auto" />
+                  <IconCheck size={14} className="ml-auto" />
                 )}
               </CommandItem>
               {PRIORITY_ORDER.map((p) => (

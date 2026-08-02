@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
@@ -108,7 +110,7 @@ export function ReviewDetailClient({
               className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               View on GitHub
-              <IconExternalLink className="size-3" />
+              <IconExternalLink size={12} />
             </a>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

@@ -1,3 +1,5 @@
+"use client";
+
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 
@@ -10,14 +12,14 @@ import {
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import {
-  IconFileText,
-  IconWorld,
-  IconPhoto,
-  IconMusic,
-  IconPaperclip,
-  IconVideo,
-  IconX,
-} from "@tabler/icons-react";
+  FileTextIcon,
+  GlobeIcon,
+  ImageIcon,
+  Music2Icon,
+  PaperclipIcon,
+  VideoIcon,
+  XIcon,
+} from "lucide-react";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
 export type AttachmentData =
@@ -34,13 +36,13 @@ export type AttachmentMediaCategory =
 
 export type AttachmentVariant = "grid" | "inline" | "list";
 
-const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof IconPhoto> = {
-  audio: IconMusic,
-  document: IconFileText,
-  image: IconPhoto,
-  source: IconWorld,
-  unknown: IconPaperclip,
-  video: IconVideo,
+const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof ImageIcon> = {
+  audio: Music2Icon,
+  document: FileTextIcon,
+  image: ImageIcon,
+  source: GlobeIcon,
+  unknown: PaperclipIcon,
+  video: VideoIcon,
 };
 
 export const getMediaCategory = (
@@ -212,7 +214,7 @@ export const AttachmentPreview = ({
 
   const iconSize = variant === "inline" ? "size-3" : "size-4";
 
-  const renderIcon = (Icon: typeof IconPhoto) => (
+  const renderIcon = (Icon: typeof ImageIcon) => (
     <Icon className={cn(iconSize, "text-muted-foreground")} />
   );
 
@@ -323,7 +325,7 @@ export const AttachmentRemove = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <IconX />}
+      {children ?? <XIcon />}
       <span className="sr-only">{label}</span>
     </Button>
   );

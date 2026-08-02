@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -50,7 +52,7 @@ export function SkillContentDialog({
               No stored contents yet. Run Sync from GitHub to fetch SKILL.md.
             </p>
           ) : (
-            <pre className="whitespace-pre-wrap break-words rounded-surface border border-border bg-muted/40 p-3 font-mono text-2xs leading-relaxed text-foreground">
+            <pre className="whitespace-pre-wrap break-words rounded-surface border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground">
               {skillContent.content}
             </pre>
           )}

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import type { OptimisticLocalStore } from "convex/browser";
@@ -16,7 +18,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Spinner,
-  Surface,
   Tabs,
   TabsBar,
   TabsContent,
@@ -191,7 +192,7 @@ export function DocPrdViewer({
                 variant="secondary"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings className="size-4" />
+                <IconSettings size={16} />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -203,14 +204,14 @@ export function DocPrdViewer({
                 }}
               >
                 {copied ? (
-                  <IconCheck className="size-4 text-success" />
+                  <IconCheck size={16} className="text-success" />
                 ) : (
-                  <IconCopy className="size-4" />
+                  <IconCopy size={16} />
                 )}
                 Copy PRD
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
-                <IconMessageChatbot className="size-4" />
+                <IconMessageChatbot size={16} />
                 Interview Me
               </DropdownMenuItem>
               {doc.testGenStatus === "completed" && doc.testPrUrl ? (
@@ -220,7 +221,7 @@ export function DocPrdViewer({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <IconExternalLink className="size-4" />
+                    <IconExternalLink size={16} />
                     View Tests PR
                   </a>
                 </DropdownMenuItem>
@@ -229,17 +230,17 @@ export function DocPrdViewer({
                   onClick={() => setTestGenConfirmOpen(true)}
                   disabled={isGeneratingTests}
                 >
-                  <IconTestPipe className="size-4" />
+                  <IconTestPipe size={16} />
                   Generate Tests
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={toggleHistory}>
-                <IconHistory className="size-4" />
+                <IconHistory size={16} />
                 Version History
               </DropdownMenuItem>
               {(doc.interviewHistory ?? []).length > 0 && (
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
-                  <IconHistory className="size-4" />
+                  <IconHistory size={16} />
                   Interview History
                 </DropdownMenuItem>
               )}
@@ -265,7 +266,7 @@ export function DocPrdViewer({
       />
       {streaming && (
         <div className="px-4 pb-3">
-          <Surface density="tight" className="space-y-2">
+          <div className="rounded-surface border border-border bg-card p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">
@@ -283,7 +284,7 @@ export function DocPrdViewer({
                 {isStopping ? (
                   <Spinner size="sm" />
                 ) : (
-                  <IconPlayerStop className="size-3.5" />
+                  <IconPlayerStop size={14} />
                 )}
                 Stop
               </Button>
@@ -291,7 +292,7 @@ export function DocPrdViewer({
             {streamingSteps ? (
               <ActivityTasks steps={streamingSteps} isStreaming />
             ) : null}
-          </Surface>
+          </div>
         </div>
       )}
 
@@ -312,7 +313,7 @@ export function DocPrdViewer({
                     className="h-7 px-2"
                     onClick={toggleSuggestions}
                   >
-                    <IconPencilCheck className="size-3.5" />
+                    <IconPencilCheck size={14} />
                     <span className="text-xs">Suggestions</span>
                     {suggestionCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -326,7 +327,7 @@ export function DocPrdViewer({
                     className="h-7 px-2"
                     onClick={toggleComments}
                   >
-                    <IconMessage className="size-3.5" />
+                    <IconMessage size={14} />
                     <span className="text-xs">Comments</span>
                     {openCommentCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">

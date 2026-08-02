@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -150,7 +152,7 @@ export function QuickTasksKanbanBoard({
               {isRunningAll ? (
                 <Spinner size="sm" />
               ) : (
-                <IconPlayerPlay className="size-3.5" />
+                <IconPlayerPlay size={14} />
               )}
               Run All
             </Button>

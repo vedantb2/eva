@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -10,7 +12,6 @@ import {
   DialogBody,
   DialogFooter,
   Button,
-  Surface,
   cn,
   STREAMDOWN_TABLE_RADIUS_CLASS,
 } from "@eva/ui";
@@ -87,8 +88,8 @@ export function ChangelogDialog() {
         </DialogHeader>
 
         <DialogBody>
-          <div className="max-h-[60vh] overflow-y-auto scrollbar">
-            <Surface>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <div className="rounded-surface border border-border bg-card p-4">
               <Streamdown
                 className={cn(
                   "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
@@ -98,7 +99,7 @@ export function ChangelogDialog() {
               >
                 {changelog.content}
               </Streamdown>
-            </Surface>
+            </div>
           </div>
         </DialogBody>
 

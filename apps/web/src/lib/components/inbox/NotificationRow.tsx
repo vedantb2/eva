@@ -1,3 +1,5 @@
+"use client";
+
 import { Button, cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -67,15 +69,9 @@ export function NotificationRow({
   const unread = !notification.read;
 
   return (
-    // Ring on the row rather than the open button so keyboard focus highlights
-    // the whole row, matching what a click targets. Inset because the row is
-    // full-bleed — an outset ring would be clipped by the scroll container.
-    // Scoped to the control's data-slot so the trailing mark-read button, which
-    // draws its own ring, does not also light up the row.
-    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:bg-muted/40 has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-inset has-[[data-slot=row-control]:focus-visible]:ring-ring/35">
+    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
       <button
         onClick={onOpen}
-        data-slot="row-control"
         className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-none"
       >
         {/* Fixed-width dot slot so read and unread rows stay aligned. */}
@@ -126,7 +122,7 @@ export function NotificationRow({
           aria-label="Mark as read"
           className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <IconCheck className="size-3.5" />
+          <IconCheck size={14} />
           Dismiss
         </Button>
       ) : null}

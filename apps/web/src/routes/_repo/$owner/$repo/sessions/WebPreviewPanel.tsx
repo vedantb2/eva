@@ -108,7 +108,7 @@ export function WebPreviewPanel({
               onClick={onStartSandbox}
               disabled={isSandboxStarting}
             >
-              <IconPlayerPlay className="size-3.5" />
+              <IconPlayerPlay size={14} />
               {isSandboxStarting ? "Starting..." : "Start sandbox"}
             </Button>
           ) : null}

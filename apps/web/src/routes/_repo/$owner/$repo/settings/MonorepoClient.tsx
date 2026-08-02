@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
@@ -114,7 +116,7 @@ export function MonorepoClient() {
           onClick={() => void runDetection()}
           className="motion-press border-border text-muted-foreground"
         >
-          <IconRefresh className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          <IconRefresh size={16} className={loading ? "animate-spin" : ""} />
           <span className="hidden sm:inline">Re-detect</span>
         </Button>
       }
@@ -133,7 +135,10 @@ export function MonorepoClient() {
                   key={app._id}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
                 >
-                  <IconFolders className="size-5 shrink-0 text-muted-foreground" />
+                  <IconFolders
+                    size={18}
+                    className="shrink-0 text-muted-foreground"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
                       {app.rootDirectory?.split("/").pop()}
@@ -155,12 +160,12 @@ export function MonorepoClient() {
                   >
                     {app.hidden ? (
                       <>
-                        <IconEyeOff className="size-3.5" />
+                        <IconEyeOff size={14} />
                         Hidden
                       </>
                     ) : (
                       <>
-                        <IconEye className="size-3.5" />
+                        <IconEye size={14} />
                         Visible
                       </>
                     )}
@@ -193,7 +198,10 @@ export function MonorepoClient() {
             </div>
           ) : error ? (
             <div className="flex items-center gap-3 px-4 py-4">
-              <IconAlertCircle className="size-5 shrink-0 text-destructive" />
+              <IconAlertCircle
+                size={20}
+                className="shrink-0 text-destructive"
+              />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">
                   Detection failed
@@ -218,7 +226,10 @@ export function MonorepoClient() {
                     key={app.path}
                     className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
                   >
-                    <IconFolders className="size-5 shrink-0 text-muted-foreground" />
+                    <IconFolders
+                      size={18}
+                      className="shrink-0 text-muted-foreground"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium text-foreground">
@@ -226,7 +237,7 @@ export function MonorepoClient() {
                         </p>
                         {app.hasDevScript && (
                           <Badge variant="secondary" className="gap-1 text-xs">
-                            <IconTerminal2 className="size-2.5" />
+                            <IconTerminal2 size={10} />
                             dev
                           </Badge>
                         )}
@@ -237,7 +248,7 @@ export function MonorepoClient() {
                     </div>
                     {isConnected ? (
                       <Badge variant="outline" className="gap-1">
-                        <IconCheck className="size-3" />
+                        <IconCheck size={12} />
                         Added
                       </Badge>
                     ) : (
@@ -251,7 +262,7 @@ export function MonorepoClient() {
                         {isAdding ? (
                           <Spinner size="sm" />
                         ) : (
-                          <IconPlus className="size-3.5" />
+                          <IconPlus size={14} />
                         )}
                         Add
                       </Button>
@@ -289,7 +300,7 @@ export function MonorepoClient() {
               }
               className="motion-press"
             >
-              <IconPlus className="size-3.5" />
+              <IconPlus size={14} />
               Add
             </Button>
           </form>

@@ -1,3 +1,5 @@
+"use client";
+
 import { Streamdown } from "streamdown";
 import { OverviewCard } from "./OverviewCard";
 import { MARKDOWN_CLASS } from "./prOverviewMeta";

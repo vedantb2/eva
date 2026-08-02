@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { m } from "motion/react";
@@ -66,7 +68,7 @@ function ComposerStashItem({
                 ) : (
                   <span
                     key={attachment.url}
-                    className="flex size-8 items-center justify-center rounded-surface border border-border bg-muted text-3xs text-muted-foreground"
+                    className="flex size-8 items-center justify-center rounded-surface border border-border bg-muted text-[10px] text-muted-foreground"
                   >
                     file
                   </span>

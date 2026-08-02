@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -48,12 +50,12 @@ export function ComposerAppSwitcher() {
             }
           />
           <span className="truncate">{repoDisplayLabel(repo)}</span>
-          <IconChevronDown className="size-4 shrink-0 no-underline" />
+          <IconChevronDown size={16} className="shrink-0 no-underline" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="center"
-        className="max-h-80 w-64 overflow-y-auto scrollbar"
+        className="max-h-80 w-64 overflow-y-auto"
       >
         {(repos ?? []).map((row) => {
           const displayName = repoDisplayLabel(row);
@@ -71,7 +73,7 @@ export function ComposerAppSwitcher() {
                   fallback={
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded text-3xs font-semibold text-white",
+                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold text-white",
                         repoTileColor(
                           `${row.owner}/${row.name}/${displayName}`,
                         ),
@@ -83,7 +85,10 @@ export function ComposerAppSwitcher() {
                 />
                 <span className="truncate">{displayName}</span>
                 {active ? (
-                  <IconCheck className="ml-auto size-3.5 shrink-0 text-primary" />
+                  <IconCheck
+                    size={14}
+                    className="ml-auto shrink-0 text-primary"
+                  />
                 ) : null}
               </Link>
             </DropdownMenuItem>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -86,7 +88,7 @@ function InboxUnreadBadge() {
   const unreadLabel = formatCountLabel(unreadCount);
   if (!unreadLabel) return null;
   return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs font-semibold leading-none text-primary-foreground">
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
       {unreadLabel}
     </span>
   );
@@ -206,7 +208,7 @@ function RepoRailView({
             >
               <SessionsIcon size={22} className="shrink-0" />
               {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-3xs font-semibold leading-none text-white">
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
                   {sessionsLabel}
                 </span>
               ) : null}
@@ -218,7 +220,7 @@ function RepoRailView({
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
-      <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
+      <div className="scrollbar flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
         {repos.map((row, index) => {
           const displayName = repoDisplayLabel(row);
           // Mirrors RailAppHotkeys: only the first nine tiles get Mod+N.
@@ -282,7 +284,7 @@ function RepoRailView({
                 >
                   {tooltip}
                   {hotkeyLabel ? (
-                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-3xs text-muted-foreground">
+                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
                       {hotkeyLabel}
                     </kbd>
                   ) : null}
@@ -290,7 +292,7 @@ function RepoRailView({
               </Tooltip>
               <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                 <ContextMenuItem onClick={() => setRenameRepo(row)}>
-                  <IconPencil className="size-4" />
+                  <IconPencil size={16} />
                   Rename
                 </ContextMenuItem>
               </ContextMenuContent>
@@ -323,9 +325,12 @@ function RepoRailView({
               )}
             >
               {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled className="size-6 shrink-0" />
+                <IconLayoutSidebarLeftCollapseFilled
+                  size={22}
+                  className="shrink-0"
+                />
               ) : (
-                <IconLayoutSidebarLeftCollapse className="size-6 shrink-0" />
+                <IconLayoutSidebarLeftCollapse size={22} className="shrink-0" />
               )}
             </button>
           </TooltipTrigger>
@@ -345,12 +350,12 @@ function RepoRailView({
                 "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
               )}
             >
-              <IconSearch className="size-6 shrink-0" />
+              <IconSearch size={22} className="shrink-0" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="flex items-center gap-2">
             Search
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-3xs text-muted-foreground">
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
               ⌘K
             </kbd>
           </TooltipContent>

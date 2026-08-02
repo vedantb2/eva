@@ -1,3 +1,5 @@
+"use client";
+
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
@@ -7,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
-import { IconChevronDown, IconPointFilled } from "@tabler/icons-react";
+import { ChevronDownIcon, DotIcon } from "lucide-react";
 import { createContext, memo, useContext, useMemo } from "react";
 
 interface ChainOfThoughtContextValue {
@@ -96,7 +98,7 @@ export const ChainOfThoughtHeader = memo(
           <span className="flex-1 text-left tabular-nums">
             {children ?? "Chain of Thought"}
           </span>
-          <IconChevronDown
+          <ChevronDownIcon
             className={cn(
               "size-4 transition-transform",
               isOpen ? "rotate-180" : "rotate-0",
@@ -118,13 +120,13 @@ export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
 const stepStatusStyles = {
   active: "text-foreground",
   complete: "text-muted-foreground",
-  pending: "text-subtle-foreground",
+  pending: "text-muted-foreground/50",
 };
 
 export const ChainOfThoughtStep = memo(
   ({
     className,
-    icon: Icon = IconPointFilled,
+    icon: Icon = DotIcon,
     label,
     description,
     status = "complete",

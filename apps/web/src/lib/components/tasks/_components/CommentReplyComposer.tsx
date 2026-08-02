@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";

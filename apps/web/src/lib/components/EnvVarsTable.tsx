@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Button,
@@ -260,7 +262,7 @@ export function EnvVarsTable({
               title="Save"
               className="text-primary hover:text-primary"
             >
-              <IconCheck className="size-3.5" />
+              <IconCheck size={14} />
             </Button>
             <Button
               size="icon-sm"
@@ -268,7 +270,7 @@ export function EnvVarsTable({
               onClick={cancelEdit}
               title="Cancel"
             >
-              <IconX className="size-3.5" />
+              <IconX size={14} />
             </Button>
           </div>
         ) : (
@@ -290,8 +292,8 @@ export function EnvVarsTable({
                 trueKey="hide"
                 falseKey="reveal"
                 className="relative flex size-3.5 items-center justify-center"
-                whenTrue={<IconEyeOff className="size-3.5" />}
-                whenFalse={<IconEye className="size-3.5" />}
+                whenTrue={<IconEyeOff size={14} />}
+                whenFalse={<IconEye size={14} />}
               />
             </Button>
             <Button
@@ -306,8 +308,8 @@ export function EnvVarsTable({
                 trueKey="copied"
                 falseKey="copy"
                 className="relative flex size-3.5 items-center justify-center"
-                whenTrue={<IconCheck className="size-3.5 text-primary" />}
-                whenFalse={<IconCopy className="size-3.5" />}
+                whenTrue={<IconCheck size={14} className="text-primary" />}
+                whenFalse={<IconCopy size={14} />}
               />
             </Button>
             {!readOnly && (
@@ -326,9 +328,9 @@ export function EnvVarsTable({
                     }
                   >
                     {v.sandboxExclude ? (
-                      <IconLock className="size-3.5 text-warning" />
+                      <IconLock size={14} className="text-warning" />
                     ) : (
-                      <IconLockOpen className="size-3.5" />
+                      <IconLockOpen size={14} />
                     )}
                   </Button>
                 )}
@@ -338,7 +340,7 @@ export function EnvVarsTable({
                   onClick={() => startEdit(v.key)}
                   title="Edit"
                 >
-                  <IconPencil className="size-3.5" />
+                  <IconPencil size={14} />
                 </Button>
                 <Button
                   size="icon-sm"
@@ -347,7 +349,7 @@ export function EnvVarsTable({
                   title="Delete"
                   className="text-destructive hover:text-destructive"
                 >
-                  <IconTrash className="size-3.5" />
+                  <IconTrash size={14} />
                 </Button>
               </>
             )}
@@ -404,7 +406,7 @@ export function EnvVarsTable({
             title="Save"
             className="text-primary hover:text-primary"
           >
-            <IconCheck className="size-3.5" />
+            <IconCheck size={14} />
           </Button>
           <Button
             size="icon-sm"
@@ -412,7 +414,7 @@ export function EnvVarsTable({
             onClick={cancelAdd}
             title="Cancel"
           >
-            <IconX className="size-3.5" />
+            <IconX size={14} />
           </Button>
         </div>
       </TableCell>
@@ -427,11 +429,11 @@ export function EnvVarsTable({
         variant="outline"
         onClick={() => setShowBulkPaste(true)}
       >
-        <IconClipboard className="size-3.5" />
+        <IconClipboard size={14} />
         Paste
       </Button>
       <Button size="sm" onClick={startAdd} disabled={adding}>
-        <IconPlus className="size-3.5" />
+        <IconPlus size={14} />
         Add Variable
       </Button>
     </div>
@@ -493,7 +495,7 @@ export function EnvVarsTable({
             bodyClassName="p-0"
           >
             {showTable ? (
-              <div className="scrollbar scrollbar-x overflow-x-auto">
+              <div className="overflow-x-auto">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>
@@ -525,14 +527,14 @@ export function EnvVarsTable({
             <SettingsSection
               title={
                 <span className="flex items-center gap-1.5">
-                  <IconLock className="size-3.5 text-warning" />
+                  <IconLock size={14} className="text-warning" />
                   Excluded from Sandbox
                 </span>
               }
               description="Held for the platform only — these are never injected into a sandbox."
               bodyClassName="p-0"
             >
-              <div className="scrollbar scrollbar-x overflow-x-auto">
+              <div className="overflow-x-auto">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>{excludedVars.map(renderRow)}</TableBody>

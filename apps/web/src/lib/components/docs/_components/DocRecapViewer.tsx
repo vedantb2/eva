@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -18,7 +20,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Spinner,
-  Surface,
   Tabs,
   TabsBar,
   TabsContent,
@@ -159,7 +160,7 @@ export function DocRecapViewer({
                 variant="secondary"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings className="size-4" />
+                <IconSettings size={16} />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -171,14 +172,14 @@ export function DocRecapViewer({
                 }}
               >
                 {copied ? (
-                  <IconCheck className="size-4 text-success" />
+                  <IconCheck size={16} className="text-success" />
                 ) : (
-                  <IconCopy className="size-4" />
+                  <IconCopy size={16} />
                 )}
                 Copy recap
               </DropdownMenuItem>
               <DropdownMenuItem onClick={toggleHistory}>
-                <IconHistory className="size-4" />
+                <IconHistory size={16} />
                 Version History
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -199,7 +200,7 @@ export function DocRecapViewer({
               className="ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
             >
               View on GitHub
-              <IconExternalLink className="size-3" />
+              <IconExternalLink size={12} />
             </a>
           ) : null}
           {isRecapErrored && doc.prRecapError ? (
@@ -232,7 +233,7 @@ export function DocRecapViewer({
       ) : null}
       {(streaming || isRecapPending) && (
         <div className="px-4 pb-3">
-          <Surface density="tight" className="space-y-2">
+          <div className="rounded-surface border border-border bg-card p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">Generating recap...</span>
@@ -244,7 +245,7 @@ export function DocRecapViewer({
                 {streaming?.currentActivity ?? "Generating recap..."}
               </p>
             )}
-          </Surface>
+          </div>
         </div>
       )}
 
@@ -265,7 +266,7 @@ export function DocRecapViewer({
                     className="h-7 px-2"
                     onClick={toggleSuggestions}
                   >
-                    <IconPencilCheck className="size-3.5" />
+                    <IconPencilCheck size={14} />
                     <span className="text-xs">Suggestions</span>
                     {suggestionCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -279,7 +280,7 @@ export function DocRecapViewer({
                     className="h-7 px-2"
                     onClick={toggleComments}
                   >
-                    <IconMessage className="size-3.5" />
+                    <IconMessage size={14} />
                     <span className="text-xs">Comments</span>
                     {openCommentCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">

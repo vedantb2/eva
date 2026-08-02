@@ -1,7 +1,8 @@
+"use client";
+
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
-import { EvaIcon } from "@/lib/components/EvaIcon";
 import { EVA_GITHUB_URL, LANDING_NAV_LINKS } from "./landingContent";
 
 /**
@@ -16,7 +17,13 @@ export function LandingNav() {
           href="#top"
           className="flex shrink-0 items-center gap-2.5 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <EvaIcon size={24} label={null} className="size-6 rounded-full" />
+          <img
+            src="/icon.svg"
+            alt=""
+            width={24}
+            height={24}
+            className="size-6"
+          />
           <span className="text-sm font-semibold tracking-tight text-foreground">
             Eva
           </span>
@@ -48,7 +55,7 @@ export function LandingNav() {
               rel="noreferrer"
               aria-label="Eva on GitHub"
             >
-              <IconBrandGithub className="size-5" />
+              <IconBrandGithub size={18} />
             </a>
           </Button>
           <SignInButton mode="modal">

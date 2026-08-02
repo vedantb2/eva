@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
@@ -97,7 +99,7 @@ export function BackgroundProcessesPanel({
                       <p className="truncate font-mono text-xs text-foreground">
                         {row.command}
                       </p>
-                      <p className="text-2xs text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         {formatElapsed(row.startedAt, now)}
                       </p>
                     </div>

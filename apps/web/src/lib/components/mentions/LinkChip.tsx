@@ -1,3 +1,5 @@
+"use client";
+
 import type { MouseEvent } from "react";
 import { IconLink } from "@tabler/icons-react";
 import { MENTION_CHIP_CLASS } from "./mentionChipStyles";

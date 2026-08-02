@@ -103,8 +103,10 @@ export function RepoCard({
                   </div>
                   {repo.connected === false && (
                     <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
-                      <IconPlugConnectedX className="size-2.5" />
-                      <span className="text-2xs font-medium">Disconnected</span>
+                      <IconPlugConnectedX size={11} />
+                      <span className="text-[11px] font-medium">
+                        Disconnected
+                      </span>
                     </div>
                   )}
                 </CardContent>
@@ -114,27 +116,27 @@ export function RepoCard({
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => setRenameOpen(true)}>
-            <IconPencil className="size-4" />
+            <IconPencil size={16} />
             Rename
           </ContextMenuItem>
           <ContextMenuItem onClick={onManageApps}>
-            <IconFolders className="size-4" />
+            <IconFolders size={16} />
             Manage apps
           </ContextMenuItem>
           <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
-            <IconPhoto className="size-4" />
+            <IconPhoto size={16} />
             {repo.logoUrl ? "Change logo" : "Set logo"}
           </ContextMenuItem>
           {repo.logoUrl && (
             <ContextMenuItem onClick={() => removeLogo(repo._id)}>
-              <IconPhotoOff className="size-4" />
+              <IconPhotoOff size={16} />
               Remove logo
             </ContextMenuItem>
           )}
           <ContextMenuItem
             onClick={() => toggleHidden({ repoId: repo._id, hidden: true })}
           >
-            <IconEyeOff className="size-4" />
+            <IconEyeOff size={16} />
             Hide
           </ContextMenuItem>
         </ContextMenuContent>

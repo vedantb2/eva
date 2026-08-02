@@ -48,9 +48,7 @@ interface ActionDef {
   label: string;
   /** Shorter label shown inline in the bar (defaults to `label`). */
   shortLabel?: string;
-  // Sized by class at the render site, not by a prop — see the icon rule in
-  // scripts/design-check.mjs.
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ size: number; className?: string }>;
   destructive?: boolean;
 }
 
@@ -113,7 +111,7 @@ function BarButton({
           : "text-background/80 hover:bg-background/10 hover:text-background"
       }`}
     >
-      <Icon className="size-4" />
+      <Icon size={17} />
       <span className="hidden sm:inline">
         {action.shortLabel ?? action.label}
       </span>
@@ -176,7 +174,7 @@ export function QuickTasksBulkBar({
                     disabled={!hasSelection}
                     className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
                   >
-                    <IconDots className="size-4" />
+                    <IconDots size={17} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" sideOffset={8}>
@@ -188,7 +186,7 @@ export function QuickTasksBulkBar({
                         disabled={!hasSelection}
                         onClick={() => onSetBulkAction(action.key)}
                       >
-                        <Icon className="size-4" />
+                        <Icon size={16} />
                         {action.label}
                       </DropdownMenuItem>
                     );
@@ -221,7 +219,7 @@ export function QuickTasksBulkBar({
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-background/70 transition-colors hover:bg-background/10 hover:text-background"
                     onClick={onExitSelect}
                   >
-                    <IconX className="size-4" />
+                    <IconX size={17} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs" sideOffset={8}>

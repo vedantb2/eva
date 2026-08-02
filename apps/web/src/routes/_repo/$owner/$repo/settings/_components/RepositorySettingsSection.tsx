@@ -1,3 +1,5 @@
+"use client";
+
 import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { BranchSelect } from "@/lib/components/BranchSelect";

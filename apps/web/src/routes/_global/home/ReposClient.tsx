@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Skeleton,
 } from "@eva/ui";
 import {
   IconDots,
@@ -120,18 +119,18 @@ export function ReposClient() {
                     disabled={repos === undefined}
                     className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
                   >
-                    <IconDots className="size-4" />
+                    <IconDots size={16} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onClick={() => navigate({ to: "/settings/sync" })}
                   >
-                    <IconSettings className="size-4" />
+                    <IconSettings size={16} />
                     Sync Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setHiddenOpen(true)}>
-                    <IconEyeOff className="size-4" />
+                    <IconEyeOff size={16} />
                     Hidden Codebases
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -139,7 +138,8 @@ export function ReposClient() {
                     onClick={() => setSyncConfirmOpen(true)}
                   >
                     <IconRefresh
-                      className={syncing ? "size-4 animate-spin" : "size-4"}
+                      size={16}
+                      className={syncing ? "animate-spin" : ""}
                     />
                     {syncing ? "Syncing..." : "Sync Repos"}
                   </DropdownMenuItem>
@@ -174,7 +174,8 @@ export function ReposClient() {
                       }}
                     >
                       <IconRefresh
-                        className={syncing ? "size-4 animate-spin" : "size-4"}
+                        size={16}
+                        className={syncing ? "animate-spin" : ""}
                       />
                       Sync
                     </Button>
@@ -194,7 +195,7 @@ export function ReposClient() {
                 target={hasRepos ? "_blank" : undefined}
                 rel={hasRepos ? "noopener noreferrer" : undefined}
               >
-                <IconPlus className="size-4" />
+                <IconPlus size={16} />
                 <span className="hidden sm:inline">{primaryLabel}</span>
               </a>
             </Button>
@@ -204,7 +205,7 @@ export function ReposClient() {
               disabled
               className="motion-press bg-foreground font-medium text-background"
             >
-              <IconPlus className="size-4" />
+              <IconPlus size={16} />
               <span className="hidden sm:inline">{primaryLabel}</span>
             </Button>
           )}
@@ -217,10 +218,13 @@ export function ReposClient() {
           aria-busy="true"
           aria-label="Loading repositories"
         >
-          <Skeleton className="h-8 w-40" />
+          <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 border border-border" />
+              <div
+                key={i}
+                className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
             ))}
           </div>
         </div>

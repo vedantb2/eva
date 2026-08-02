@@ -1,5 +1,7 @@
+"use client";
+
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "../utils/cn";
@@ -7,17 +9,17 @@ import { cn } from "../utils/cn";
 const themes = [
   {
     key: "system",
-    icon: IconDeviceDesktop,
+    icon: Monitor,
     label: "System theme",
   },
   {
     key: "light",
-    icon: IconSun,
+    icon: Sun,
     label: "Light theme",
   },
   {
     key: "dark",
-    icon: IconMoon,
+    icon: Moon,
     label: "Dark theme",
   },
 ] as const;

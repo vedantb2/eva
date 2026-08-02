@@ -1,3 +1,5 @@
+"use client";
+
 import { Progress } from "@eva/ui";
 import { Widget } from "@/lib/components/Widget";
 

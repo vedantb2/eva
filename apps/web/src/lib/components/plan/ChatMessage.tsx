@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Avatar,
   AvatarFallback,
@@ -6,7 +8,6 @@ import {
   MessageResponse,
 } from "@eva/ui";
 import { UserInitials } from "@eva/shared";
-import { EvaIcon } from "@/lib/components/EvaIcon";
 import dayjs from "@eva/shared/dates";
 import type { Id } from "@eva/backend";
 import {
@@ -41,8 +42,11 @@ export function ChatMessage({
   const isUser = role === "user";
 
   const evaIcon = (
-    <EvaIcon
-      size={20}
+    <img
+      src="/icon.svg"
+      alt="Eva"
+      width={20}
+      height={20}
       className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
     />
   );
@@ -97,7 +101,7 @@ export function ChatMessage({
           <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
             {startedAt !== undefined ? (
               <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-2xs text-subtle-foreground">
+                <span className="text-[11px] text-muted-foreground/60">
                   {dayjs(startedAt).format("h:mm A")}
                 </span>
               </div>

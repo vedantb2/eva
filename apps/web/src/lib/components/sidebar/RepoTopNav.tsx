@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";

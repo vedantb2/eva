@@ -1,3 +1,5 @@
+"use client";
+
 import { type api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
@@ -43,7 +45,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
               className="shrink-0"
               onClick={() => setContentOpen(true)}
             >
-              <IconFileText className="size-3.5" />
+              <IconFileText size={14} />
               View contents
             </Button>
           ) : null}

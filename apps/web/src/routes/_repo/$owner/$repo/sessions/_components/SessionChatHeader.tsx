@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   DropdownMenu,
@@ -88,7 +90,7 @@ export function SessionChatHeader({
           className="motion-press text-status-code-review hover:scale-[1.01] active:scale-[0.96]"
           onClick={onOpenReviewModal}
         >
-          <IconEye className="size-3" />
+          <IconEye size={12} />
           <span className="hidden sm:inline">Send for Review</span>
         </Button>
       )}
@@ -100,7 +102,7 @@ export function SessionChatHeader({
             aria-label="More"
             className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
-            <IconDots className="size-3.5" />
+            <IconDots size={14} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -108,7 +110,7 @@ export function SessionChatHeader({
             onClick={onOpenSummaryModal}
             disabled={!isSandboxActive || messageCount === 0}
           >
-            <IconSparkles className="size-3.5" />
+            <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
           {(deploymentStatus || prUrl) && <DropdownMenuSeparator />}
@@ -117,7 +119,7 @@ export function SessionChatHeader({
               <TooltipTrigger asChild>
                 <div>
                   <DropdownMenuItem disabled>
-                    <IconBrandVercel className="size-3.5" />
+                    <IconBrandVercel size={14} />
                     View Preview
                   </DropdownMenuItem>
                 </div>
@@ -135,7 +137,8 @@ export function SessionChatHeader({
               }}
             >
               <IconGitPullRequest
-                className={`size-3.5 ${prStateIconClass(prState)}`}
+                size={14}
+                className={prStateIconClass(prState)}
               />
               View PR
             </DropdownMenuItem>

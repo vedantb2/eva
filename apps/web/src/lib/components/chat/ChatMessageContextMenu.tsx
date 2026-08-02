@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactElement } from "react";
 import {
   ContextMenu,
@@ -41,7 +43,7 @@ export function ChatMessageContextMenu({
             void copyText(plain);
           }}
         >
-          <IconCopy className="size-4" />
+          <IconCopy size={16} />
           Copy message
         </ContextMenuItem>
         <ContextMenuItem
@@ -49,7 +51,7 @@ export function ChatMessageContextMenu({
             void copyText(content);
           }}
         >
-          <IconMarkdown className="size-4" />
+          <IconMarkdown size={16} />
           Copy as markdown
         </ContextMenuItem>
       </ContextMenuContent>

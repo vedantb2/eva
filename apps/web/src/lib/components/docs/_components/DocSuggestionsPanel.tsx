@@ -1,3 +1,5 @@
+"use client";
+
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -54,10 +56,9 @@ export function DocSuggestionsPanel({
           size="icon"
           variant="ghost"
           className="size-6"
-          aria-label="Close suggestions"
           onClick={onClose}
         >
-          <IconX className="size-3.5" />
+          <IconX size={14} />
         </Button>
       </div>
 
@@ -69,7 +70,7 @@ export function DocSuggestionsPanel({
             className="h-6 px-1.5 text-xs"
             onClick={() => acceptAllSuggestions(editor)}
           >
-            <IconCheck className="size-3" />
+            <IconCheck size={12} />
             Accept all
           </Button>
           <Button
@@ -78,13 +79,13 @@ export function DocSuggestionsPanel({
             className="h-6 px-1.5 text-xs"
             onClick={() => rejectAllSuggestions(editor)}
           >
-            <IconArrowBackUp className="size-3" />
+            <IconArrowBackUp size={12} />
             Reject all
           </Button>
         </div>
       )}
 
-      <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
+      <div className="scrollbar flex-1 overflow-y-auto">
         {list.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             No suggestions yet. Switch to Suggesting mode and edit to propose
@@ -122,13 +123,13 @@ function SuggestionRow({
         />
         {userId ? <UserInitials userId={userId} size="sm" /> : null}
         <SuggestionAuthorName userId={userId} />
-        <span className="text-3xs text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground">
           {KIND_LABEL[suggestion.kind]}
         </span>
         {suggestion.createdAt !== null && (
           <RelativeDateTime
             at={suggestion.createdAt}
-            className="ml-auto text-3xs text-muted-foreground"
+            className="ml-auto text-[10px] text-muted-foreground"
           />
         )}
       </div>
@@ -156,7 +157,7 @@ function SuggestionRow({
           className="h-6 px-1.5 text-xs"
           onClick={() => acceptSuggestion(editor, suggestion.id)}
         >
-          <IconCheck className="size-3" />
+          <IconCheck size={12} />
           Accept
         </Button>
         <Button
@@ -165,7 +166,7 @@ function SuggestionRow({
           className="h-6 px-1.5 text-xs"
           onClick={() => rejectSuggestion(editor, suggestion.id)}
         >
-          <IconArrowBackUp className="size-3" />
+          <IconArrowBackUp size={12} />
           Reject
         </Button>
       </div>

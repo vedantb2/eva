@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from "@eva/ui";
 import type { Doc } from "@eva/backend";
 import {

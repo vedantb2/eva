@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge, Button, cn } from "@eva/ui";
 import { IconClipboardList, IconCode } from "@tabler/icons-react";
 import { proposedPlanTitle } from "./planExport";
@@ -32,7 +34,7 @@ export function ComposerPlanReadyBanner({
     >
       <Badge
         variant="secondary"
-        className="shrink-0 rounded-md px-1.5 py-0 text-3xs font-semibold tracking-wide uppercase"
+        className="shrink-0 rounded-md px-1.5 py-0 text-[10px] font-semibold tracking-wide uppercase"
       >
         Plan Ready
       </Badge>

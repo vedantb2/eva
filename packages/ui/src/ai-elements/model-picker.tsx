@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -144,7 +146,8 @@ export function ModelSelect<TModel extends string>({
               : "Select model"}
           </span>
           <IconChevronDown
-            className="ml-auto size-3 shrink-0 opacity-60"
+            size={12}
+            className="ml-auto shrink-0 opacity-60"
             aria-hidden
           />
         </button>

@@ -1,3 +1,5 @@
+"use client";
+
 import { m, AnimatePresence, type Transition } from "motion/react";
 
 const DEFAULT_TRANSITION: Transition = {

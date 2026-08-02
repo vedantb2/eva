@@ -1,3 +1,5 @@
+"use client";
+
 import { PERSONALISATION_PRESETS } from "@eva/backend";
 import { cn } from "@eva/ui";
 import { IconBriefcase, IconCode, IconBrush } from "@tabler/icons-react";

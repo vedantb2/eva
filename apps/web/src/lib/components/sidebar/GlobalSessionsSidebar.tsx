@@ -1,3 +1,5 @@
+"use client";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueries } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -12,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Skeleton,
 } from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
@@ -109,7 +110,10 @@ export function GlobalSessionsSidebar({
             aria-label="Loading sessions"
           >
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-9" />
+              <div
+                key={i}
+                className="h-9 animate-pulse rounded-md bg-muted/60"
+              />
             ))}
           </div>
         ) : orderedRepos.length === 0 ? (

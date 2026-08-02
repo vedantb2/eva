@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Dialog,
@@ -129,7 +131,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
           </div>
           {error && (
             <div className="flex items-start gap-2 rounded-surface border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-              <IconAlertCircle className="size-4 mt-0.5 shrink-0" />
+              <IconAlertCircle size={16} className="mt-0.5 shrink-0" />
               <div>{error}</div>
             </div>
           )}

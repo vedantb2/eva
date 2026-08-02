@@ -1,3 +1,5 @@
+"use client";
+
 import { Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import {
   IconDeviceDesktop,
@@ -24,13 +26,13 @@ export function PreviewDeviceToggle({
     >
       <TabsList className="h-8">
         <TabsTrigger value="desktop" className="px-2 text-xs" title="Desktop">
-          <IconDeviceDesktop className="size-3.5" />
+          <IconDeviceDesktop size={14} />
         </TabsTrigger>
         <TabsTrigger value="tablet" className="px-2 text-xs" title="Tablet">
-          <IconDeviceTablet className="size-3.5" />
+          <IconDeviceTablet size={14} />
         </TabsTrigger>
         <TabsTrigger value="mobile" className="px-2 text-xs" title="Mobile">
-          <IconDeviceMobile className="size-3.5" />
+          <IconDeviceMobile size={14} />
         </TabsTrigger>
       </TabsList>
     </Tabs>

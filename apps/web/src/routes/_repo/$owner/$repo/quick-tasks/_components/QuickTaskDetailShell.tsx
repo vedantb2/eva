@@ -1,3 +1,5 @@
+"use client";
+
 import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -59,7 +61,10 @@ export function QuickTaskDetailShell({
               >
                 Quick Tasks
               </button>
-              <IconChevronRight className="size-3.5 text-subtle-foreground shrink-0" />
+              <IconChevronRight
+                size={14}
+                className="text-muted-foreground/50 shrink-0"
+              />
             </div>
             {selectedTask?.numId !== undefined ? (
               <span className="shrink-0 font-semibold font-mono tabular-nums text-muted-foreground">
@@ -81,7 +86,7 @@ export function QuickTaskDetailShell({
                   className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Previous task"
                 >
-                  <IconChevronLeft className="size-4" />
+                  <IconChevronLeft size={16} />
                 </button>
                 <button
                   onClick={handleNavigateNext}
@@ -89,7 +94,7 @@ export function QuickTaskDetailShell({
                   className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Next task"
                 >
-                  <IconChevronRight className="size-4" />
+                  <IconChevronRight size={16} />
                 </button>
               </div>
             </div>

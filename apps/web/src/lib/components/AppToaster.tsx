@@ -1,3 +1,5 @@
+"use client";
+
 import { Toaster } from "@eva/ui";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 

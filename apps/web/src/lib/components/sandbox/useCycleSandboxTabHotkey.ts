@@ -1,3 +1,5 @@
+"use client";
+
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { SandboxTab } from "@/lib/search-params";
 

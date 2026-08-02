@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -348,28 +350,24 @@ export function DocInterviewDialog({
                           <Button
                             size="icon"
                             variant={isListening ? "destructive" : "secondary"}
-                            aria-label={
-                              isListening ? "Stop dictation" : "Start dictation"
-                            }
                             onClick={() => toggleSpeech(dictation)}
                             disabled={isLoading}
                             className="h-9 w-9 sm:h-8 sm:w-8"
                           >
                             {isListening ? (
-                              <IconPlayerStop className="size-3.5" />
+                              <IconPlayerStop size={14} />
                             ) : (
-                              <IconMicrophone className="size-3.5" />
+                              <IconMicrophone size={14} />
                             )}
                           </Button>
                           <Button
                             size="icon"
                             variant="default"
-                            aria-label="Send dictated answer"
                             onClick={handleDictationSubmit}
                             disabled={isLoading || !dictation.trim()}
                             className="h-9 w-9 sm:h-8 sm:w-8"
                           >
-                            <IconArrowRight className="size-3.5" />
+                            <IconArrowRight size={14} />
                           </Button>
                         </div>
                       </div>
@@ -387,7 +385,7 @@ export function DocInterviewDialog({
                   onClick={() => setConfirmClear(true)}
                   disabled={isLoading || messages.length === 0}
                 >
-                  <IconTrash className="size-4" />
+                  <IconTrash size={16} />
                   Clear
                 </Button>
               </div>

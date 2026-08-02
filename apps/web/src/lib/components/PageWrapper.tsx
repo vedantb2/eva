@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { Button } from "@eva/ui";
 import { IconArrowLeft } from "@tabler/icons-react";
@@ -51,16 +53,15 @@ export function PageWrapper({
                 <Button
                   size="icon"
                   variant="outline"
-                  aria-label="Go back"
                   onClick={onBack ?? (() => window.history.back())}
                   className="motion-press h-9 w-9 flex-shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
                 >
-                  <IconArrowLeft className="size-4 text-muted-foreground" />
+                  <IconArrowLeft size={16} className="text-muted-foreground" />
                 </Button>
               )}
               {title && (
                 <h1
-                  className={`min-w-0 flex-1 text-base font-semibold tracking-heading text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden whitespace-nowrap lg:block" : ""}`}
+                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden whitespace-nowrap lg:block" : ""}`}
                 >
                   {title}
                 </h1>

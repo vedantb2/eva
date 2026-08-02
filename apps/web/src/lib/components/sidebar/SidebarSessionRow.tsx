@@ -1,3 +1,5 @@
+"use client";
+
 import { m } from "motion/react";
 import type { Id } from "@eva/backend";
 import {
@@ -97,7 +99,7 @@ export function SidebarSessionRow<T extends SessionItem>({
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         {onRename && (
           <ContextMenuItem onSelect={() => onRenameRequest(session)}>
-            <IconPencil className="size-4" />
+            <IconPencil size={16} />
             Rename
           </ContextMenuItem>
         )}
@@ -109,7 +111,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               });
             }}
           >
-            <IconCopy className="size-4" />
+            <IconCopy size={16} />
             Duplicate
           </ContextMenuItem>
         )}
@@ -118,7 +120,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             void navigator.clipboard.writeText(session.title);
           }}
         >
-          <IconClipboard className="size-4" />
+          <IconClipboard size={16} />
           Copy title
         </ContextMenuItem>
         <ContextMenuItem
@@ -126,7 +128,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             void navigator.clipboard.writeText(window.location.origin + href);
           }}
         >
-          <IconLink className="size-4" />
+          <IconLink size={16} />
           Copy link
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -134,7 +136,7 @@ export function SidebarSessionRow<T extends SessionItem>({
           className="text-warning"
           onSelect={() => onArchiveRequest(session)}
         >
-          <IconArchive className="size-4" />
+          <IconArchive size={16} />
           Archive
         </ContextMenuItem>
       </ContextMenuContent>

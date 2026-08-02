@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef } from "react";
 import type { api, Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -198,9 +200,9 @@ export function TaskFooter({
                     disabled={isStarting}
                   >
                     {isStarting ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
+                      <IconLoader2 size={14} className="animate-spin" />
                     ) : (
-                      <IconHammer className="size-3.5" />
+                      <IconHammer size={14} />
                     )}
                     Resolve Conflicts
                   </DropdownMenuItem>
@@ -214,9 +216,9 @@ export function TaskFooter({
                     disabled={isRetryingStartupCommands}
                   >
                     {isRetryingStartupCommands ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
+                      <IconLoader2 size={14} className="animate-spin" />
                     ) : (
-                      <IconRefresh className="size-3.5" />
+                      <IconRefresh size={14} />
                     )}
                     Run Startup Commands
                   </DropdownMenuItem>
@@ -227,9 +229,9 @@ export function TaskFooter({
                     disabled={isRunningDevServer}
                   >
                     {isRunningDevServer ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
+                      <IconLoader2 size={14} className="animate-spin" />
                     ) : (
-                      <IconPlayerPlay className="size-3.5" />
+                      <IconPlayerPlay size={14} />
                     )}
                     Run Dev Server
                   </DropdownMenuItem>
@@ -240,9 +242,9 @@ export function TaskFooter({
                     disabled={isRunningBackgroundCommands}
                   >
                     {isRunningBackgroundCommands ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
+                      <IconLoader2 size={14} className="animate-spin" />
                     ) : (
-                      <IconServerBolt className="size-3.5" />
+                      <IconServerBolt size={14} />
                     )}
                     Run Background Commands
                   </DropdownMenuItem>
@@ -257,9 +259,9 @@ export function TaskFooter({
                     disabled={isCreatingPr}
                   >
                     {isCreatingPr ? (
-                      <IconLoader2 className="size-3.5 animate-spin" />
+                      <IconLoader2 size={14} className="animate-spin" />
                     ) : (
-                      <IconGitPullRequest className="size-3.5" />
+                      <IconGitPullRequest size={14} />
                     )}
                     Create PR
                   </DropdownMenuItem>
@@ -271,7 +273,7 @@ export function TaskFooter({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <IconGitPullRequest className="size-3.5" />
+                      <IconGitPullRequest size={14} />
                       View PR
                     </a>
                   </DropdownMenuItem>
@@ -281,7 +283,7 @@ export function TaskFooter({
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuItem disabled>
-                          <IconBrandVercel className="size-3.5" />
+                          <IconBrandVercel size={14} />
                           View Preview
                         </DropdownMenuItem>
                       </div>
@@ -300,7 +302,7 @@ export function TaskFooter({
                 ) : null}
                 {showRequestChanges && (
                   <DropdownMenuItem onClick={onRequestChanges}>
-                    <IconMessagePlus className="size-3.5" />
+                    <IconMessagePlus size={14} />
                     Request Changes
                   </DropdownMenuItem>
                 )}
@@ -427,7 +429,7 @@ function SplitRunButton({
             size={size}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
-            <IconChevronDown className="size-3.5" />
+            <IconChevronDown size={14} />
           </Button>
         }
       />

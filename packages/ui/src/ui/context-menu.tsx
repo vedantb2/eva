@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 import {
@@ -94,7 +96,7 @@ const ContextMenuCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-2.5 flex h-3.5 w-3.5 items-center justify-center">
       <ContextMenuPrimitive.ItemIndicator>
-        <IconCheck className="size-4" />
+        <IconCheck size={16} />
       </ContextMenuPrimitive.ItemIndicator>
     </span>
     {children}

@@ -1,3 +1,5 @@
+"use client";
+
 import { forwardRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";

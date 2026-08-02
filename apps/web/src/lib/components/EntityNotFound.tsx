@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
@@ -25,7 +27,7 @@ export function EntityNotFound({
   return (
     <div className="flex h-full min-h-0 flex-1 items-center justify-center p-4">
       <EmptyState
-        icon={<IconAlertCircle className="size-6" />}
+        icon={<IconAlertCircle size={28} />}
         title={`This ${entityLabel} does not exist`}
         description={description}
         action={

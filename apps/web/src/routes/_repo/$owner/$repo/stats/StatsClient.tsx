@@ -3,7 +3,6 @@ import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Kpi, KpiGroup } from "@/lib/components/analytics/Kpi";
@@ -87,13 +86,16 @@ export function StatsClient() {
           aria-busy="true"
           aria-label="Loading stats"
         >
-          <Skeleton className="h-40 border border-border" />
+          <div className="h-40 animate-pulse rounded-surface border border-border bg-muted/60" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 border border-border" />
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
             ))}
           </div>
-          <Skeleton className="h-56 border border-border" />
+          <div className="h-56 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : (
         <div className="space-y-6">

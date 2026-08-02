@@ -1,3 +1,5 @@
+"use client";
+
 import { DropdownMenuItem } from "@eva/ui";
 import { IconLink } from "@tabler/icons-react";
 

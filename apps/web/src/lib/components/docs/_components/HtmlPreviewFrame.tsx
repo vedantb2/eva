@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Renders stored HTML (a PR-recap walkthrough or a doc's HTML field) in a
  * sandboxed iframe. `allow-scripts` WITHOUT `allow-same-origin` runs the page in

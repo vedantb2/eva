@@ -1,3 +1,5 @@
+"use client";
+
 import { IconExternalLink } from "@tabler/icons-react";
 import { OverviewCard } from "./OverviewCard";
 import { checkTone, ToneIcon, type PrCheck } from "./prOverviewMeta";
@@ -48,7 +50,7 @@ export function PrChecksCard({
           No checks have reported yet.
         </p>
       ) : (
-        <ul className="max-h-72 space-y-0.5 overflow-y-auto scrollbar scroll-fade">
+        <ul className="max-h-72 space-y-0.5 overflow-y-auto scrollbar">
           {checks.map((check) => {
             const row = (
               <span className="flex min-w-0 items-center gap-2">
@@ -62,7 +64,10 @@ export function PrChecksCard({
                   </span>
                 ) : null}
                 {check.htmlUrl ? (
-                  <IconExternalLink className="size-3 shrink-0 text-muted-foreground" />
+                  <IconExternalLink
+                    size={12}
+                    className="shrink-0 text-muted-foreground"
+                  />
                 ) : null}
               </span>
             );

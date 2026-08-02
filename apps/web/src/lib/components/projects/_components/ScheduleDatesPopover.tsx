@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Popover,
@@ -29,7 +31,7 @@ export function ScheduleDatesPopover({
           size="sm"
           className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
-          <IconCalendarPlus className="size-3.5" />
+          <IconCalendarPlus size={14} />
           Set dates
         </Button>
       </PopoverTrigger>

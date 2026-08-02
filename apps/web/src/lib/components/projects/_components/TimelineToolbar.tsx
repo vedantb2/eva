@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   Tooltip,
@@ -48,7 +50,7 @@ export function TimelineToolbar({
             className="h-8 gap-1.5"
             onClick={onToday}
           >
-            <IconCalendarEvent className="size-3.5" />
+            <IconCalendarEvent size={15} />
             <span className="hidden sm:inline">Today</span>
           </Button>
         </TooltipTrigger>
@@ -77,9 +79,9 @@ export function TimelineToolbar({
           disabled={zoom <= ZOOM_MIN}
           onClick={() => onZoomChange(Math.max(ZOOM_MIN, zoom - ZOOM_STEP))}
         >
-          <IconZoomOut className="size-3.5" />
+          <IconZoomOut size={15} />
         </Button>
-        <span className="w-10 text-center text-2xs tabular-nums text-muted-foreground">
+        <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
           {zoom}%
         </span>
         <Button
@@ -89,7 +91,7 @@ export function TimelineToolbar({
           disabled={zoom >= ZOOM_MAX}
           onClick={() => onZoomChange(Math.min(ZOOM_MAX, zoom + ZOOM_STEP))}
         >
-          <IconZoomIn className="size-3.5" />
+          <IconZoomIn size={15} />
         </Button>
       </div>
     </div>

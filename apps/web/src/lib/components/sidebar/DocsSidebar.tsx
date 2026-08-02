@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation, useConvex } from "convex/react";
@@ -17,7 +19,6 @@ import {
   DialogTitle,
   Input,
   Spinner,
-  Surface,
   Textarea,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
@@ -317,7 +318,7 @@ export function DocsSidebar({
                           setDocToDelete({ id: doc._id, title: doc.title })
                         }
                       >
-                        <IconTrash className="size-4" />
+                        <IconTrash size={16} />
                         Delete
                       </ContextMenuItem>
                     ) : null}
@@ -347,7 +348,7 @@ export function DocsSidebar({
           </DialogHeader>
           {showUploadSection ? (
             <div className="space-y-4">
-              <Surface density="tight">
+              <div className="rounded-surface border border-border bg-card p-3">
                 <p className="text-sm font-medium">Upload a file</p>
                 <p className="mb-3 text-sm text-muted-foreground">
                   Supported formats: .md, .txt
@@ -360,11 +361,11 @@ export function DocsSidebar({
                   {isUploading ? (
                     <Spinner size="sm" />
                   ) : (
-                    <IconUpload className="size-3.5" />
+                    <IconUpload size={14} />
                   )}
                   Click to upload
                 </Button>
-              </Surface>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Paste PRD content</label>
                 <Textarea
@@ -412,7 +413,7 @@ export function DocsSidebar({
                 className="flex w-full items-center gap-2 rounded-control border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 onClick={() => setShowUploadSection(true)}
               >
-                <IconUpload className="size-3.5" />
+                <IconUpload size={14} />
                 Upload PRD instead
               </button>
               <DialogFooter>

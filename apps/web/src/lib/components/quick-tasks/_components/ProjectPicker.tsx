@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Popover,
   PopoverTrigger,
@@ -41,7 +43,7 @@ export function ProjectPicker({
           type="button"
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
         >
-          <IconFolder className="size-3.5" />
+          <IconFolder size={14} />
           <span className={selectedProject ? "text-foreground" : ""}>
             {selectedProject ? selectedProject.title : "Project"}
           </span>
@@ -62,7 +64,7 @@ export function ProjectPicker({
               >
                 No project
                 {!selectedProjectId && (
-                  <IconCheck className="size-3.5 ml-auto" />
+                  <IconCheck size={14} className="ml-auto" />
                 )}
               </CommandItem>
               {(projects ?? []).map((p) => (
@@ -74,10 +76,10 @@ export function ProjectPicker({
                     setOpen(false);
                   }}
                 >
-                  <IconFolder className="size-3.5 text-muted-foreground" />
+                  <IconFolder size={14} className="text-muted-foreground" />
                   {p.title}
                   {selectedProjectId === p._id && (
-                    <IconCheck className="size-3.5 ml-auto" />
+                    <IconCheck size={14} className="ml-auto" />
                   )}
                 </CommandItem>
               ))}
@@ -90,7 +92,7 @@ export function ProjectPicker({
                   onCreateProject();
                 }}
               >
-                <IconFolderPlus className="size-3.5 text-muted-foreground" />
+                <IconFolderPlus size={14} className="text-muted-foreground" />
                 New project...
               </CommandItem>
             </CommandGroup>

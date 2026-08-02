@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   DropdownMenu,
@@ -28,7 +30,7 @@ export function TimeRangeFilter({ value, onChange }: TimeRangeFilterProps) {
           size="sm"
           className="max-w-[160px] sm:max-w-none"
         >
-          <IconCalendar className="size-3.5" />
+          <IconCalendar size={14} />
           <span className="truncate">{TIME_RANGE_LABELS[value]}</span>
         </Button>
       </DropdownMenuTrigger>

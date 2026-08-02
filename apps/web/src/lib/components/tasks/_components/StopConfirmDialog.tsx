@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Button,
   Dialog,
@@ -41,7 +43,7 @@ export function StopConfirmDialog({
             }}
             disabled={isStopping}
           >
-            {isStopping && <IconLoader2 className="size-4 animate-spin" />}
+            {isStopping && <IconLoader2 size={16} className="animate-spin" />}
             Stop Execution
           </Button>
         </DialogFooter>

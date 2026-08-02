@@ -1,3 +1,5 @@
+"use client";
+
 import { Link, useLocation } from "@tanstack/react-router";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { IconSettings } from "@tabler/icons-react";
@@ -34,7 +36,7 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
               : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
           )}
         >
-          <IconSettings className="size-6 shrink-0" />
+          <IconSettings size={22} className="shrink-0" />
         </Link>
       </TooltipTrigger>
       <TooltipContent side="right">Settings</TooltipContent>

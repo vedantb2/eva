@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import type { Layout } from "react-resizable-panels";
 import { useLocalStorage } from "usehooks-ts";

@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -373,7 +375,7 @@ export function DocContentTab({
                     className="h-7 px-2 text-xs"
                     onClick={handleStartComment}
                   >
-                    <IconMessage className="size-3.5" />
+                    <IconMessage size={14} />
                     Comment
                   </Button>
                 </BubbleMenu>

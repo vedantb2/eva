@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { m } from "motion/react";
 import {
@@ -37,12 +39,12 @@ export function SystemAlertMessage({
           {content}
           {timestamp !== undefined ? (
             <>
-              <span className="ml-1.5 text-subtle-foreground font-normal">
+              <span className="ml-1.5 text-muted-foreground/70 font-normal">
                 ·
               </span>
               <RelativeDateTime
                 at={timestamp}
-                className="ml-1 text-subtle-foreground font-normal"
+                className="ml-1 text-muted-foreground/70 font-normal"
               />
             </>
           ) : null}
@@ -62,11 +64,11 @@ export function SystemAlertMessage({
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <IconAlertTriangle className="size-4 text-destructive" />
+                <IconAlertTriangle size={16} className="text-destructive" />
                 Sandbox Error
               </DialogTitle>
             </DialogHeader>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-64 overflow-y-auto scrollbar scroll-fade">
+            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-64 overflow-y-auto">
               {errorDetail}
             </pre>
             <DialogFooter>

@@ -21,4 +21,4 @@ export const menuLabelClass =
 export const menuSeparatorClass = "-mx-0.5 my-1.5 h-px bg-border";
 
 export const menuShortcutClass =
-  "ml-auto text-2xs tracking-[0.08em] text-muted-foreground";
+  "ml-auto text-[11px] tracking-[0.08em] text-muted-foreground";

@@ -1,3 +1,5 @@
+"use client";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { repoHref } from "@/lib/utils/repoUrl";

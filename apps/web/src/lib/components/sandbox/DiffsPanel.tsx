@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { Id } from "@eva/backend";
@@ -144,7 +146,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   if (!prUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
+        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
         <div className="max-w-md space-y-1">
           <p className="text-sm font-medium">No pull request yet</p>
           <p className="text-sm text-muted-foreground">
@@ -160,14 +162,14 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const prNumber = prNumberFromGithubUrl(prUrl);
 
   const fileDiffs = (
-    <div className="min-h-0 flex-1 overflow-auto scrollbar">
+    <div className="min-h-0 flex-1 overflow-auto">
       {state.status === "loading" ? (
         <div className="flex h-full items-center justify-center">
           <Spinner />
         </div>
       ) : state.status === "error" ? (
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <IconAlertTriangle className="h-8 w-8 text-subtle-foreground" />
+          <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
           <p className="text-sm text-muted-foreground">
             Could not load the pull request diff.
           </p>

@@ -1,3 +1,5 @@
+"use client";
+
 // useEffect: subscribe to iframe postMessage + arm annotate mode on toggle/reload.
 import { useEffect, useState, type RefObject } from "react";
 import {

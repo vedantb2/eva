@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { Badge, Input, Popover, PopoverTrigger, PopoverContent } from "@eva/ui";
 import { IconTags } from "@tabler/icons-react";
@@ -40,9 +42,9 @@ export function ProjectTagsPopover({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-sm shrink-0 ${currentTags.length === 0 ? "text-muted-foreground" : ""}`}
+          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${currentTags.length === 0 ? "text-muted-foreground" : ""}`}
         >
-          <IconTags className="size-3.5 text-muted-foreground shrink-0" />
+          <IconTags size={14} className="text-muted-foreground shrink-0" />
           <span>
             {currentTags.length > 0
               ? `${currentTags.length} tag${currentTags.length > 1 ? "s" : ""}`
@@ -76,7 +78,7 @@ export function ProjectTagsPopover({
             ref={inputRef}
             value={draft}
             placeholder="Add tag..."
-            className="h-7 text-sm"
+            className="h-7 text-[13px]"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => {
               if (draft.trim()) {

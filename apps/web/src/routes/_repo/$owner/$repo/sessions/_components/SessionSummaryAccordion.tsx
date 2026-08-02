@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionContent,
@@ -39,7 +41,7 @@ export function SessionSummaryAccordion({
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">
               <div className="flex flex-row gap-2 items-center text-primary">
-                <IconSparkles className="size-3.5" />
+                <IconSparkles size={14} />
                 <p>Session summary</p>
               </div>
             </AccordionTrigger>

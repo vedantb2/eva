@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -179,19 +181,19 @@ export function CommentActivityItem({
                   className="h-7 w-7 text-muted-foreground opacity-0 transition-[opacity,background-color] group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                   aria-label="Comment options"
                 >
-                  <IconDots className="size-3.5" />
+                  <IconDots size={14} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={startEditing}>
-                  <IconPencil className="size-3.5" />
+                  <IconPencil size={14} />
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => onDeleteRequest(comment._id)}
                 >
-                  <IconTrash className="size-3.5" />
+                  <IconTrash size={14} />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -199,7 +201,7 @@ export function CommentActivityItem({
           ) : null}
           <RelativeDateTime
             at={comment.createdAt}
-            className="shrink-0 pl-1 text-2xs text-subtle-foreground"
+            className="shrink-0 pl-1 text-[11px] text-muted-foreground/60"
           />
         </div>
       </div>

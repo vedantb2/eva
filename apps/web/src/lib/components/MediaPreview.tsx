@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
 import {
@@ -83,7 +85,7 @@ export function ScreenshotPreview({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              <IconExternalLink className="size-3.5" />
+              <IconExternalLink size={14} />
               Open in new tab
             </a>
           </DialogHeader>

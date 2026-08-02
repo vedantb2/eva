@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef } from "react";
 import {
   Dialog,
@@ -418,11 +420,14 @@ export function QuickTaskModal({
                       type="button"
                       className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
                     >
-                      <IconGitBranch className="size-3.5" />
+                      <IconGitBranch size={14} />
                       <span className="text-foreground">
                         {displayBaseBranch}
                       </span>
-                      <IconInfoCircle className="size-3 cursor-help text-muted-foreground" />
+                      <IconInfoCircle
+                        size={12}
+                        className="cursor-help text-muted-foreground"
+                      />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -436,7 +441,7 @@ export function QuickTaskModal({
                       type="button"
                       className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                     >
-                      <IconGitBranch className="size-3.5" />
+                      <IconGitBranch size={14} />
                       <span className="text-foreground">{baseBranch}</span>
                     </button>
                   </PopoverTrigger>
@@ -469,7 +474,7 @@ export function QuickTaskModal({
                     type="button"
                     className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                   >
-                    <IconTag className="size-3.5" />
+                    <IconTag size={14} />
                     {selectedTags.length > 0 ? (
                       <span className="text-foreground">
                         {selectedTags.length} tag
@@ -519,10 +524,13 @@ export function QuickTaskModal({
                               value={tag}
                               onSelect={() => toggleTag(tag)}
                             >
-                              <IconTag className="size-3.5 text-muted-foreground" />
+                              <IconTag
+                                size={14}
+                                className="text-muted-foreground"
+                              />
                               {tag}
                               {selected.has(tag) && (
-                                <IconCheck className="size-3.5 ml-auto" />
+                                <IconCheck size={14} className="ml-auto" />
                               )}
                             </CommandItem>
                           ));
@@ -539,7 +547,7 @@ export function QuickTaskModal({
                     <Badge
                       key={tag}
                       variant="secondary"
-                      className="text-3xs h-5 gap-0.5 pr-0.5"
+                      className="text-[10px] h-5 gap-0.5 pr-0.5"
                     >
                       {tag}
                       <button
@@ -547,7 +555,7 @@ export function QuickTaskModal({
                         className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
                         onClick={() => toggleTag(tag)}
                       >
-                        <IconX className="size-2.5" />
+                        <IconX size={10} />
                       </button>
                     </Badge>
                   ))}
@@ -571,7 +579,7 @@ export function QuickTaskModal({
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm">
-                      <IconFileText className="size-4" />
+                      <IconFileText size={16} />
                       Drafts ({drafts.length})
                     </Button>
                   </PopoverTrigger>
@@ -631,7 +639,7 @@ export function QuickTaskModal({
                                   setConfirmDeleteId(draft._id);
                                 }}
                               >
-                                <IconTrash className="size-3.5" />
+                                <IconTrash size={14} />
                               </button>
                             </div>
                           )}

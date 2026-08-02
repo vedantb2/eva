@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
@@ -49,7 +51,10 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
             className="flex flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted"
           >
             <div className="flex items-center gap-2">
-              <IconLayoutDashboard className="size-5 shrink-0 text-muted-foreground" />
+              <IconLayoutDashboard
+                size={18}
+                className="shrink-0 text-muted-foreground"
+              />
               <span className="truncate font-medium text-foreground">
                 {artifact.name}
               </span>
@@ -73,18 +78,18 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
               })
             }
           >
-            <IconLayoutDashboard className="size-4" />
+            <IconLayoutDashboard size={16} />
             Open
           </ContextMenuItem>
           <ContextMenuItem onClick={openInNewTab}>
-            <IconExternalLink className="size-4" />
+            <IconExternalLink size={16} />
             Open in new tab
           </ContextMenuItem>
           <ContextMenuItem
             className="text-destructive"
             onClick={() => setConfirmDeleteOpen(true)}
           >
-            <IconTrash className="size-4" />
+            <IconTrash size={16} />
             Delete
           </ContextMenuItem>
         </ContextMenuContent>

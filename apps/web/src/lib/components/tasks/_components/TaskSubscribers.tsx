@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -59,11 +61,7 @@ export function TaskSubscribers({
           void setSubscription({ taskId, subscribed: !isSubscribed })
         }
       >
-        {isSubscribed ? (
-          <IconBellOff className="size-3.5" />
-        ) : (
-          <IconBell className="size-3.5" />
-        )}
+        {isSubscribed ? <IconBellOff size={14} /> : <IconBell size={14} />}
         {isSubscribed ? "Subscribed" : "Subscribe"}
       </Button>
 
@@ -83,7 +81,7 @@ export function TaskSubscribers({
             className="h-7 w-7 text-muted-foreground"
             aria-label="Manage subscribers"
           >
-            <IconUserPlus className="size-3.5" />
+            <IconUserPlus size={15} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

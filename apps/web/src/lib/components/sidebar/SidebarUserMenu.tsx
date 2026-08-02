@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -96,22 +98,22 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void openUserProfile()}>
-            <IconUserCog className="size-4 mr-2" />
+            <IconUserCog size={16} className="mr-2" />
             Manage account
           </DropdownMenuItem>
           {showSearch ? (
             <DropdownMenuItem onSelect={() => openSearch()}>
-              <IconSearch className="size-4 mr-2" />
+              <IconSearch size={16} className="mr-2" />
               Search
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => toggleTheme()}>
             {theme === "dark" ? (
-              <IconSun className="size-4 mr-2" />
+              <IconSun size={16} className="mr-2" />
             ) : theme === "neutral" ? (
-              <IconMoon className="size-4 mr-2" />
+              <IconMoon size={16} className="mr-2" />
             ) : (
-              <IconCircleHalf className="size-4 mr-2" />
+              <IconCircleHalf size={16} className="mr-2" />
             )}
             {theme === "dark"
               ? "Light mode"
@@ -124,7 +126,7 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
             onSelect={() => setConfirmOpen(true)}
             className="text-destructive focus:text-destructive"
           >
-            <IconLogout className="size-4 mr-2" />
+            <IconLogout size={16} className="mr-2" />
             Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -157,7 +159,9 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
               onClick={() => void handleSignOut()}
               disabled={isSigningOut}
             >
-              {isSigningOut && <IconLoader2 className="size-4 animate-spin" />}
+              {isSigningOut && (
+                <IconLoader2 size={16} className="animate-spin" />
+              )}
               Sign out
             </Button>
           </DialogFooter>

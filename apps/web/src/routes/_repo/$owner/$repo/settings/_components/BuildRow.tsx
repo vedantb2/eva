@@ -47,9 +47,9 @@ export function BuildRow({
       <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
         <td className="px-2 py-2 sm:px-4">
           {isExpanded ? (
-            <IconChevronDown className="size-3.5" />
+            <IconChevronDown size={14} />
           ) : (
-            <IconChevronRight className="size-3.5" />
+            <IconChevronRight size={14} />
           )}
         </td>
         <td className="px-2 py-2 sm:px-4">
@@ -89,13 +89,16 @@ export function BuildRow({
                   <div key={a.repoId} className="flex items-start gap-2">
                     {a.status === "running" ? (
                       <span className="inline-flex items-center gap-1 text-blue-500">
-                        <IconLoader2 className="size-3 shrink-0 animate-spin" />
+                        <IconLoader2
+                          size={12}
+                          className="shrink-0 animate-spin"
+                        />
                         {a.app ?? a.repoId} — seeding…
                       </span>
                     ) : a.seededSnapshotName ? (
                       <>
                         <span className="inline-flex shrink-0 items-center gap-1 text-green-500">
-                          <IconCheck className="size-3 shrink-0" />
+                          <IconCheck size={12} className="shrink-0" />
                           {a.app ?? a.repoId}
                         </span>
                         <span className="min-w-0">
@@ -106,7 +109,7 @@ export function BuildRow({
                       </>
                     ) : (
                       <span className="inline-flex items-start gap-1 text-muted-foreground">
-                        <IconX className="mt-0.5 size-3 shrink-0" />
+                        <IconX size={12} className="mt-0.5 shrink-0" />
                         <span className="break-words">
                           {a.app ?? a.repoId} — fell back to base Image
                         </span>
@@ -117,7 +120,7 @@ export function BuildRow({
               </div>
             )}
             {build.logs ? (
-              <pre className="max-h-64 overflow-y-auto overflow-x-hidden scrollbar scroll-fade rounded bg-muted/50 p-2 font-mono text-3xs leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-2xs">
+              <pre className="max-h-64 overflow-y-auto overflow-x-hidden rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-[11px]">
                 {build.logs}
               </pre>
             ) : (
@@ -140,7 +143,7 @@ export function BuildStatusBadge({
   if (status === "running") {
     return (
       <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconClock className="size-3" />
+        <IconClock size={12} />
         Running
       </span>
     );
@@ -148,14 +151,14 @@ export function BuildStatusBadge({
   if (status === "success") {
     return (
       <span className="inline-flex items-center gap-1 text-success">
-        <IconCheck className="size-3" />
+        <IconCheck size={12} />
         Success
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-destructive">
-      <IconX className="size-3" />
+      <IconX size={12} />
       Error
     </span>
   );
@@ -165,10 +168,10 @@ export function BuildStatusBadge({
 function ProviderBadge() {
   return (
     <div className="group relative inline-flex">
-      <span className="inline-flex items-center gap-1 rounded-surface border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-2xs font-medium text-blue-600">
+      <span className="inline-flex items-center gap-1 rounded-surface border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600">
         ▲ Vercel
       </span>
-      <div className="absolute bottom-full mb-1 hidden whitespace-nowrap rounded bg-foreground px-2 py-1 text-3xs text-background group-hover:block">
+      <div className="absolute bottom-full mb-1 hidden whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background group-hover:block">
         Vercel sandbox provider
       </div>
     </div>
@@ -182,13 +185,13 @@ function BuildKindBadge({ kind }: { kind?: "base" | "seeded" }) {
   }
   if (kind === "seeded") {
     return (
-      <span className="inline-flex items-center rounded-surface border border-border bg-primary/10 px-1.5 py-0.5 text-2xs font-medium text-primary">
+      <span className="inline-flex items-center rounded-surface border border-border bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
         Seeded
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-surface border border-border bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+    <span className="inline-flex items-center rounded-surface border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
       Base image
     </span>
   );
@@ -205,7 +208,7 @@ function SeededSummary({ seededApps }: { seededApps?: SeededAppResult[] }) {
   if (seededApps.some((a) => a.status === "running")) {
     return (
       <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconLoader2 className="size-3 animate-spin" />
+        <IconLoader2 size={12} className="animate-spin" />
         {seeded}/{total}
       </span>
     );

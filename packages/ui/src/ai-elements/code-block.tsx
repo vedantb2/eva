@@ -1,6 +1,8 @@
+"use client";
+
 import type { HTMLAttributes } from "react";
 import { createContext, useContext, useState } from "react";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
@@ -67,9 +69,9 @@ export const CodeBlockCopyButton = ({
       {...props}
     >
       {copied ? (
-        <IconCheck className="size-3.5" />
+        <CheckIcon className="size-3.5" />
       ) : (
-        <IconCopy className="size-3.5" />
+        <CopyIcon className="size-3.5" />
       )}
       <span className="sr-only">Copy code</span>
     </Button>

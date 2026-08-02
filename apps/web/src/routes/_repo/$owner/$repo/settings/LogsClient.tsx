@@ -1,7 +1,8 @@
+"use client";
+
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -213,10 +214,13 @@ export function LogsClient() {
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 border border-border" />
+              <div
+                key={i}
+                className="h-20 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
             ))}
           </div>
-          <Skeleton className="h-64 border border-border" />
+          <div className="h-64 animate-pulse rounded-surface border border-border bg-muted/60" />
         </div>
       ) : isEmpty ? (
         <div className="rounded-surface border border-border bg-card shadow-sm">

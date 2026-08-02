@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionContent,
@@ -39,7 +41,7 @@ function LandingMockAvatar({
   return (
     <span
       className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-3xs font-medium text-primary",
+        "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[10px] font-medium text-primary",
         className,
       )}
       aria-hidden
@@ -60,11 +62,11 @@ export function LandingTaskDetailMock() {
             <span className="size-2 rounded-full bg-foreground/15" />
             <span className="size-2 rounded-full bg-foreground/15" />
           </div>
-          <span className="truncate font-mono text-3xs text-muted-foreground">
+          <span className="truncate font-mono text-[10px] text-muted-foreground">
             {LANDING_MOCK_REPO}
           </span>
-          <span className="text-subtle-foreground">·</span>
-          <span className="truncate font-mono text-3xs tabular-nums text-muted-foreground">
+          <span className="text-muted-foreground/40">·</span>
+          <span className="truncate font-mono text-[10px] tabular-nums text-muted-foreground/80">
             QT-{LANDING_MOCK_TASK_NUMBER}
           </span>
         </div>
@@ -73,7 +75,7 @@ export function LandingTaskDetailMock() {
             className="landing-pulse-dot size-1.5 rounded-full bg-emerald-500"
             aria-hidden
           />
-          <span className="text-3xs font-medium text-muted-foreground">
+          <span className="text-[10px] font-medium text-muted-foreground">
             Sandbox live
           </span>
         </div>
@@ -135,7 +137,7 @@ export function LandingTaskDetailMock() {
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                       <LandingMockAvatar
                         initials="YO"
-                        className="size-6 text-3xs"
+                        className="size-6 text-[9px]"
                       />
                       <span className="truncate text-xs font-medium text-foreground">
                         You
@@ -192,7 +194,7 @@ function LandingMockComposer() {
           tabIndex={-1}
           aria-hidden
         >
-          <IconArrowUp className="size-4" />
+          <IconArrowUp size={16} />
         </Button>
       </div>
     </div>
@@ -206,7 +208,9 @@ function LandingMockSystemAlert() {
       <div className="h-px flex-1 bg-border" />
       <span className="max-w-[85%] truncate text-center text-xs font-medium text-muted-foreground sm:max-w-none">
         GitHub opened pull request #142
-        <span className="ml-1.5 font-normal text-subtle-foreground">· 12m</span>
+        <span className="ml-1.5 font-normal text-muted-foreground/70">
+          · 12m
+        </span>
       </span>
       <div className="h-px flex-1 bg-border" />
     </div>
@@ -231,7 +235,7 @@ function LandingMockCommentThread() {
       <div className="space-y-3 pl-4">
         <Separator className={THREAD_SEPARATOR_CLASS} />
         <div className="flex items-start gap-2">
-          <LandingMockAvatar initials="YO" className="size-6 text-3xs" />
+          <LandingMockAvatar initials="YO" className="size-6 text-[9px]" />
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-foreground">You</span>

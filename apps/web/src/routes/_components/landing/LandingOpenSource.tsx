@@ -1,3 +1,5 @@
+"use client";
+
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import { BrandMark } from "./BrandMark";
@@ -34,14 +36,14 @@ export function LandingOpenSource() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg">
                   <a href={EVA_GITHUB_URL} target="_blank" rel="noreferrer">
-                    <IconBrandGithub className="size-4" aria-hidden />
+                    <IconBrandGithub size={16} aria-hidden />
                     View on GitHub
                   </a>
                 </Button>
                 <Button asChild size="lg" variant="outline">
                   <a href={EVA_SETUP_URL} target="_blank" rel="noreferrer">
                     Read the setup guide
-                    <IconArrowRight className="size-4" aria-hidden />
+                    <IconArrowRight size={16} aria-hidden />
                   </a>
                 </Button>
               </div>
@@ -51,7 +53,7 @@ export function LandingOpenSource() {
               <LandingLattice className="sm:grid-cols-3">
                 {LANDING_OPEN_SOURCE_FACTS.map((fact) => (
                   <div key={fact.label} className="bg-background p-6">
-                    <p className="font-mono text-2xs uppercase tracking-[0.22em] text-subtle-foreground">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
                       {fact.label}
                     </p>
                     <p className="mt-2 text-lg font-medium tracking-tight text-foreground">
@@ -62,7 +64,7 @@ export function LandingOpenSource() {
               </LandingLattice>
 
               <div className="rounded-surface border border-border bg-background p-6">
-                <p className="font-mono text-2xs uppercase tracking-[0.22em] text-subtle-foreground">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
                   Built with
                 </p>
                 <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2.5">

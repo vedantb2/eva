@@ -1,9 +1,10 @@
+"use client";
+
 import { useQueries } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useMemo, useState } from "react";
-import { Skeleton } from "@eva/ui";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import {
   sessionActivityAt,
@@ -157,7 +158,10 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
               aria-label="Loading session tabs"
             >
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-9 w-52 rounded-t-[0.625rem]" />
+                <div
+                  key={i}
+                  className="h-9 w-52 animate-pulse rounded-t-[0.625rem] bg-muted"
+                />
               ))}
             </div>
           ) : orderedRepos.length === 0 ? (

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionItem,
@@ -44,7 +46,7 @@ const summaryPlugins = { cjk, math, mermaid };
 
 /** Matches scroll cap used for run logs inside the same accordion. */
 const RUN_ACCORDION_SCROLL_CLASS =
-  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar scroll-fade";
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
 
 type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -186,7 +188,7 @@ export function RunTimelineItem({
                       {run.credentialSourceLabel}
                     </Badge>
                   ) : null}
-                  <span className="text-subtle-foreground" aria-hidden>
+                  <span className="text-muted-foreground/50" aria-hidden>
                     ·
                   </span>
                   <RelativeDateTime
@@ -212,9 +214,9 @@ export function RunTimelineItem({
                       disabled={isStopping}
                     >
                       {isStopping ? (
-                        <IconLoader2 className="size-3.5 animate-spin" />
+                        <IconLoader2 size={14} className="animate-spin" />
                       ) : (
-                        <IconPlayerStop className="size-3.5" />
+                        <IconPlayerStop size={14} />
                       )}
                       Stop
                     </Button>

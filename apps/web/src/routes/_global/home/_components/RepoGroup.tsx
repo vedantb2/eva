@@ -36,7 +36,7 @@ export function RepoGroup({
             <div key={repoKey}>
               <div className="mb-2 flex items-center gap-2">
                 {isMonorepo && (
-                  <IconFolders className="size-3.5 text-subtle-foreground" />
+                  <IconFolders size={14} className="text-muted-foreground/60" />
                 )}
                 <h3 className="text-xs font-medium text-muted-foreground">
                   {repoKey}

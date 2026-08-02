@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -178,13 +180,13 @@ export function NotificationToastStream() {
                           onClick={() => dismissToast(notification._id)}
                           aria-label="Dismiss notification"
                         >
-                          <IconX className="size-3.5" />
+                          <IconX size={14} />
                         </Button>
                       </div>
                       <div className="mt-1 flex items-center gap-2">
                         <Badge
                           variant={config.badgeVariant}
-                          className="h-4 px-1.5 py-0 text-3xs"
+                          className="h-4 px-1.5 py-0 text-[10px]"
                         >
                           {config.label}
                         </Badge>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +59,7 @@ export function SessionModeDropdown({
             const ModeIcon = option.icon;
             return (
               <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <ModeIcon className="size-3.5" />
+                <ModeIcon size={14} />
                 {option.label}
               </DropdownMenuRadioItem>
             );

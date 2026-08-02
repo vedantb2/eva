@@ -24,7 +24,7 @@ export function PreviewPaneTabs({
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/40 px-2 py-1.5 scrollbar scrollbar-x"
+      className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/40 px-2 py-1.5 scrollbar-thin"
       role="tablist"
     >
       {previewIds.map((id, index) => {

@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import {
   DropdownMenu,
@@ -71,7 +73,7 @@ export function PromptInputSettings<TModel extends string>({
           )}
           disabled={disabled}
         >
-          {icon ?? <IconDots className="size-4" />}
+          {icon ?? <IconDots size={16} />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Badge,
@@ -187,7 +189,7 @@ export function EnvVarProviderSlots({
                   <span className="text-sm font-medium">{entry.label}</span>
                   {configured && (
                     <Badge variant="secondary" className="gap-1 text-xs">
-                      <IconCheck className="size-2.5" /> Configured
+                      <IconCheck size={10} /> Configured
                     </Badge>
                   )}
                 </div>
@@ -241,7 +243,7 @@ export function EnvVarProviderSlots({
                       title="Save"
                       className="text-primary hover:text-primary"
                     >
-                      <IconCheck className="size-3.5" />
+                      <IconCheck size={14} />
                     </Button>
                     <Button
                       size="icon-sm"
@@ -252,7 +254,7 @@ export function EnvVarProviderSlots({
                       }}
                       title="Cancel"
                     >
-                      <IconX className="size-3.5" />
+                      <IconX size={14} />
                     </Button>
                   </div>
                 )}
@@ -260,7 +262,7 @@ export function EnvVarProviderSlots({
                 {configured && matched && !isEditing && (
                   <div className="mt-1.5">
                     {revealed[matched.key] !== undefined && (
-                      <pre className="mb-1 max-h-24 overflow-auto scrollbar scroll-fade rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
+                      <pre className="mb-1 max-h-24 overflow-auto rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
                         {revealed[matched.key]}
                       </pre>
                     )}
@@ -289,8 +291,8 @@ export function EnvVarProviderSlots({
                       trueKey="hide"
                       falseKey="reveal"
                       className="relative flex size-3.5 items-center justify-center"
-                      whenTrue={<IconEyeOff className="size-3.5" />}
-                      whenFalse={<IconEye className="size-3.5" />}
+                      whenTrue={<IconEyeOff size={14} />}
+                      whenFalse={<IconEye size={14} />}
                     />
                   </Button>
                   <Button
@@ -304,8 +306,10 @@ export function EnvVarProviderSlots({
                       trueKey="copied"
                       falseKey="copy"
                       className="relative flex size-3.5 items-center justify-center"
-                      whenTrue={<IconCheck className="size-3.5 text-primary" />}
-                      whenFalse={<IconCopy className="size-3.5" />}
+                      whenTrue={
+                        <IconCheck size={14} className="text-primary" />
+                      }
+                      whenFalse={<IconCopy size={14} />}
                     />
                   </Button>
                   {!readOnly && (
@@ -319,7 +323,7 @@ export function EnvVarProviderSlots({
                         }}
                         title="Replace value"
                       >
-                        <IconPencil className="size-3.5" />
+                        <IconPencil size={14} />
                       </Button>
                       <Button
                         size="icon-sm"
@@ -328,7 +332,7 @@ export function EnvVarProviderSlots({
                         title="Remove"
                         className="text-destructive hover:text-destructive"
                       >
-                        <IconTrash className="size-3.5" />
+                        <IconTrash size={14} />
                       </Button>
                     </>
                   )}

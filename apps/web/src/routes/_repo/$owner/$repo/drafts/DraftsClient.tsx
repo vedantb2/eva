@@ -1,6 +1,7 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { Skeleton } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -23,7 +24,10 @@ export function DraftsClient() {
           aria-label="Loading drafts"
         >
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 border border-border" />
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-surface border border-border bg-muted/60"
+            />
           ))}
         </div>
       </PageWrapper>
@@ -37,7 +41,7 @@ export function DraftsClient() {
       {drafts.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <EmptyState
-            icon={<IconFileText className="size-6 text-muted-foreground" />}
+            icon={<IconFileText size={24} className="text-muted-foreground" />}
             title="No drafts"
             description="Drafts save automatically as you type comments, prompts, or compose quick tasks."
           />

@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef } from "react";
 import { buildArtifactSrcDoc } from "./_shim";
 import { useArtifactBridge } from "./useArtifactBridge";

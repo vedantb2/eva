@@ -1,3 +1,5 @@
+"use client";
+
 import { useMutation, useConvex } from "convex/react";
 import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -196,7 +198,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
           <div className="flex items-center gap-2">
             <Badge
               variant="secondary"
-              className="border-none bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
+              className="border-none bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
             >
               {label}
             </Badge>
@@ -215,13 +217,15 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
               {snippet}
             </p>
           ) : (
-            <p className="text-sm text-subtle-foreground italic">No content</p>
+            <p className="text-sm text-muted-foreground/50 italic">
+              No content
+            </p>
           )}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem className="text-destructive" onClick={handleDelete}>
-          <IconTrash className="size-4" />
+          <IconTrash size={16} />
           Delete draft
         </ContextMenuItem>
       </ContextMenuContent>

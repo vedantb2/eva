@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
@@ -109,7 +111,7 @@ function ReviewTabContent({
 function NoPullRequest({ detail }: { detail: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <IconGitPullRequest className="h-10 w-10 text-subtle-foreground" />
+      <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
       <div className="max-w-md space-y-1">
         <p className="text-sm font-medium">No pull request yet</p>
         <p className="text-sm text-muted-foreground">{detail}</p>

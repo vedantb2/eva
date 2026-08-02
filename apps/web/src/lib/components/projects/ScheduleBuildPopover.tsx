@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Popover, PopoverTrigger, PopoverContent, Button } from "@eva/ui";
 import { useMutation } from "convex/react";
@@ -66,7 +68,7 @@ export function ScheduleBuildPopover({
             disabled={disabled}
             className={isScheduled ? "text-primary" : undefined}
           >
-            <IconCalendarClock className="size-4" />
+            <IconCalendarClock size={16} />
             {isScheduled
               ? `Scheduled: ${dayjs(scheduledBuildAt).format("MMM D, h:mm A")}`
               : "Schedule Build"}

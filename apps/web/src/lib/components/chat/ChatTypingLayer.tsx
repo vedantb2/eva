@@ -1,3 +1,5 @@
+"use client";
+
 import type { Id } from "@eva/backend";
 import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
 import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";

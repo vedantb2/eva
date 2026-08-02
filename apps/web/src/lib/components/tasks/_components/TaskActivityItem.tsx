@@ -1,3 +1,5 @@
+"use client";
+
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
@@ -107,13 +109,13 @@ export function TaskActivityItem({
           <span className="font-medium text-foreground/80">
             {merged ? "Done" : "Cancelled"}
           </span>
-          <span className="text-subtle-foreground" aria-hidden>
+          <span className="text-muted-foreground/50" aria-hidden>
             {" "}
             ·{" "}
           </span>
           <RelativeDateTime
             at={event.createdAt}
-            className="text-subtle-foreground"
+            className="text-muted-foreground/70"
           />
         </span>
       </div>
@@ -160,7 +162,7 @@ export function TaskActivityItem({
             >
               {oldFormatted}
             </span>
-            <IconArrowRight className="size-2.5 inline mx-0.5 align-middle" />
+            <IconArrowRight size={10} className="inline mx-0.5 align-middle" />
             <span
               data-pii={event.field === "assignee" || undefined}
               className="font-medium text-foreground/80"
@@ -169,13 +171,13 @@ export function TaskActivityItem({
             </span>
           </>
         )}
-        <span className="text-subtle-foreground" aria-hidden>
+        <span className="text-muted-foreground/50" aria-hidden>
           {" "}
           ·{" "}
         </span>
         <RelativeDateTime
           at={event.createdAt}
-          className="text-subtle-foreground"
+          className="text-muted-foreground/70"
         />
       </span>
     </div>

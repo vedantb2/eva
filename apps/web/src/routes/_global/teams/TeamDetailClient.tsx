@@ -58,12 +58,6 @@ export function TeamDetailClient({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
 
-  // `undefined` is Convex's loading sentinel, `null` is a genuine miss. Treating
-  // them alike flashed "team not found" on every load before the fetch resolved.
-  if (team === undefined) {
-    return <PageWrapper title="Team">{null}</PageWrapper>;
-  }
-
   if (!team) {
     return (
       <PageWrapper title="Team">
@@ -96,7 +90,7 @@ export function TeamDetailClient({
             size={28}
             fallback={
               <div className="flex size-7 items-center justify-center rounded-md bg-primary/10">
-                <IconUsers className="size-3.5 text-primary" />
+                <IconUsers size={14} className="text-primary" />
               </div>
             }
           />
@@ -111,7 +105,7 @@ export function TeamDetailClient({
             disabled={logoUploading}
             onClick={() => logoInputRef.current?.click()}
           >
-            <IconPhoto className="size-3.5 mr-1.5" />
+            <IconPhoto size={14} className="mr-1.5" />
             {team.logoUrl ? "Change logo" : "Set logo"}
           </Button>
           {team.logoUrl ? (
@@ -122,7 +116,7 @@ export function TeamDetailClient({
               disabled={logoUploading}
               onClick={() => void removeLogo(team._id)}
             >
-              <IconPhotoOff className="size-3.5" />
+              <IconPhotoOff size={14} />
             </Button>
           ) : null}
           <input
@@ -145,7 +139,7 @@ export function TeamDetailClient({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <IconPhoto className="size-4" />
+              <IconPhoto size={16} />
               No sidebar background
             </div>
           )}
@@ -168,7 +162,7 @@ export function TeamDetailClient({
                 disabled={backgroundUploading}
                 onClick={() => backgroundInputRef.current?.click()}
               >
-                <IconPhoto className="size-3.5 mr-1.5" />
+                <IconPhoto size={14} className="mr-1.5" />
                 {team.backgroundUrl ? "Change" : "Upload"}
               </Button>
               {team.backgroundUrl ? (
@@ -180,7 +174,7 @@ export function TeamDetailClient({
                   disabled={backgroundUploading}
                   onClick={() => void removeBackground(team._id)}
                 >
-                  <IconPhotoOff className="size-3.5" />
+                  <IconPhotoOff size={14} />
                 </Button>
               ) : null}
             </div>

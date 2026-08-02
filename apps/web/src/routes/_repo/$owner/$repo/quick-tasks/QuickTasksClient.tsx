@@ -3,7 +3,6 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Skeleton } from "@eva/ui";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -296,10 +295,10 @@ export function QuickTasksClient() {
           aria-busy="true"
           aria-label="Loading quick tasks"
         >
-          <Skeleton className="h-10 w-full max-w-md" />
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
           <div className="flex flex-1 gap-3">
-            <Skeleton className="w-72 shrink-0 border border-border" />
-            <Skeleton className="min-w-0 flex-1 border border-border" />
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
           </div>
         </div>
       </PageWrapper>
@@ -321,10 +320,10 @@ export function QuickTasksClient() {
           aria-busy="true"
           aria-label="Loading task"
         >
-          <Skeleton className="h-10 w-full max-w-md" />
+          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
           <div className="flex flex-1 gap-3">
-            <Skeleton className="w-72 shrink-0 border border-border" />
-            <Skeleton className="min-w-0 flex-1 border border-border" />
+            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
           </div>
         </div>
       </PageWrapper>
@@ -425,7 +424,10 @@ export function QuickTasksClient() {
               >
                 <EmptyState
                   icon={
-                    <IconChecklist className="size-6 text-muted-foreground" />
+                    <IconChecklist
+                      size={24}
+                      className="text-muted-foreground"
+                    />
                   }
                   title="No quick tasks"
                   description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Input } from "@eva/ui";
 import { useMutation } from "convex/react";

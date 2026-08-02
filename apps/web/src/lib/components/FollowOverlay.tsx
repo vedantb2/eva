@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate } from "@tanstack/react-router";
@@ -93,7 +95,7 @@ function FollowOverlayInner({
             className="h-5 w-5 rounded-full text-primary-foreground/80 hover:bg-primary/80 hover:text-primary-foreground"
             onClick={stopFollowing}
           >
-            <IconX className="size-3.5" />
+            <IconX size={14} />
           </Button>
         </div>
       </div>

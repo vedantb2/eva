@@ -35,6 +35,7 @@
     "convex": "^1.40.0",
     "facehash": "^0.0.7",
     "highlight.js": "^11.11.1",
+    "lucide-react": "^0.563.0",
     "motion": "^12.33.0",
     "nanoid": "^5.1.6",
     "react": "^19.0.0",

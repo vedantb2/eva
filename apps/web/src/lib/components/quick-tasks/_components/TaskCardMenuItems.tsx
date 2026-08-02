@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ContextMenuItem,
   ContextMenuRadioGroup,
@@ -178,7 +180,7 @@ export function TaskCardMenuItems({
               void startExecution({ id });
             }}
           >
-            <IconPlayerPlay className="size-4" />
+            <IconPlayerPlay size={16} />
             Run Eva on this task
           </Item>
           <MenuSeparator />
@@ -192,7 +194,7 @@ export function TaskCardMenuItems({
               window.open(href, "_blank");
             }}
           >
-            <IconExternalLink className="size-4" />
+            <IconExternalLink size={16} />
             Open in new tab
           </Item>
           <MenuSeparator />
@@ -229,7 +231,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger>
-          <IconUserPlus className="size-4" />
+          <IconUserPlus size={16} />
           Code Reviewer
         </SubTrigger>
         <SubContent>
@@ -269,7 +271,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger disabled={!canEditTaskModel(status)}>
-          <IconBrain className="size-4" />
+          <IconBrain size={16} />
           Model
         </SubTrigger>
         <SubContent className={modelPickerSurfaceClass}>
@@ -297,7 +299,7 @@ export function TaskCardMenuItems({
 
       <Sub>
         <SubTrigger>
-          <IconFolder className="size-4" />
+          <IconFolder size={16} />
           Project
         </SubTrigger>
         <SubContent>
@@ -329,10 +331,10 @@ export function TaskCardMenuItems({
         <>
           <Sub>
             <SubTrigger>
-              <IconArrowMoveRight className="size-4" />
+              <IconArrowMoveRight size={16} />
               Move to codebase
             </SubTrigger>
-            <SubContent className="max-h-80 overflow-y-auto scrollbar">
+            <SubContent className="max-h-80 overflow-y-auto">
               {moveTargets.map((codebase) => {
                 // Filter out current repo from apps
                 const availableApps = codebase.apps.filter(
@@ -389,7 +391,7 @@ export function TaskCardMenuItems({
           navigator.clipboard.writeText(title);
         }}
       >
-        <IconClipboard className="size-4" />
+        <IconClipboard size={16} />
         Copy title
       </Item>
       <Item
@@ -399,7 +401,7 @@ export function TaskCardMenuItems({
           );
         }}
       >
-        <IconLink className="size-4" />
+        <IconLink size={16} />
         Copy task link
       </Item>
 
@@ -411,7 +413,7 @@ export function TaskCardMenuItems({
           onDelete();
         }}
       >
-        <IconTrash className="size-4" />
+        <IconTrash size={16} />
         Delete
       </Item>
     </>

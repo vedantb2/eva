@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -127,8 +129,8 @@ export function TestingArenaSidebar({
                     className={sidebarNavLinkClass(isSelected)}
                   >
                     <IconFileText
+                      size={16}
                       className={cn(
-                        "size-4",
                         "shrink-0",
                         isSelected
                           ? "text-sidebar-primary"

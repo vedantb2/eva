@@ -1,3 +1,5 @@
+"use client";
+
 import { useQueryState } from "nuqs";
 import { docModeParser, type DocMode } from "@/lib/search-params";
 import {
@@ -28,7 +30,7 @@ export function DocModeSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size="sm" variant="secondary">
-          <Icon className="size-3.5" />
+          <Icon size={14} />
           <span className="hidden sm:inline">{current.label}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -42,7 +44,7 @@ export function DocModeSwitcher() {
               onClick={() => setMode(m)}
               className={m === mode ? "bg-accent" : undefined}
             >
-              <ModeIcon className="size-4" />
+              <ModeIcon size={16} />
               {config.label}
             </DropdownMenuItem>
           );

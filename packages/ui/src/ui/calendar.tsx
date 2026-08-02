@@ -1,10 +1,12 @@
+"use client";
+
 import * as React from "react";
 import {
   DayPicker,
   getDefaultClassNames,
   type DayButton,
 } from "react-day-picker";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { buttonVariants } from "./button";
@@ -89,7 +91,7 @@ function Calendar({
           ...chevronProps
         }) => {
           const Icon =
-            orientation === "left" ? IconChevronLeft : IconChevronRight;
+            orientation === "left" ? ChevronLeftIcon : ChevronRightIcon;
           return (
             <Icon
               className={cn("size-4", chevronClassName)}

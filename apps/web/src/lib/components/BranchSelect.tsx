@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import {
   Popover,
@@ -88,12 +90,15 @@ export function BranchSelect({
           className={cn("w-full justify-between", className ?? "h-8 text-sm")}
         >
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <IconGitBranch className="size-3.5 text-muted-foreground shrink-0" />
+            <IconGitBranch
+              size={14}
+              className="text-muted-foreground shrink-0"
+            />
             <span className={cn("truncate", !value && "text-muted-foreground")}>
               {value || placeholder}
             </span>
           </div>
-          <IconChevronDown className="size-3.5 ml-2 opacity-60 shrink-0" />
+          <IconChevronDown size={14} className="ml-2 opacity-60 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -113,7 +118,7 @@ export function BranchSelect({
           >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                <IconLoader2 className="size-3.5 animate-spin" />
+                <IconLoader2 size={14} className="animate-spin" />
                 <span>Loading branches...</span>
               </div>
             ) : (
@@ -129,11 +134,15 @@ export function BranchSelect({
                         setOpen(false);
                       }}
                     >
-                      <IconGitBranch className="size-3.5 text-muted-foreground" />
+                      <IconGitBranch
+                        size={14}
+                        className="text-muted-foreground"
+                      />
                       {branch.name}
                       <IconCheck
+                        size={14}
                         className={cn(
-                          "size-3.5 ml-auto",
+                          "ml-auto",
                           value === branch.name ? "opacity-100" : "opacity-0",
                         )}
                       />

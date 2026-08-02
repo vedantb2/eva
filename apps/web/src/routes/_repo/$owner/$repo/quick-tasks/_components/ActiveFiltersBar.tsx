@@ -22,7 +22,10 @@ export function ActiveFiltersBar({
           className="group flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
         >
           {f.label}
-          <IconX className="size-3 opacity-50 group-hover:opacity-100 transition-opacity" />
+          <IconX
+            size={12}
+            className="opacity-50 group-hover:opacity-100 transition-opacity"
+          />
         </button>
       ))}
       {filters.length > 1 && (

@@ -58,10 +58,6 @@ export const themeExtend = {
     success: { DEFAULT: c("success"), foreground: c("success-foreground") },
     warning: { DEFAULT: c("warning"), foreground: c("warning-foreground") },
     muted: { DEFAULT: c("muted"), foreground: c("muted-foreground") },
-    // Tier below `muted-foreground`, for metadata that must recede without
-    // becoming unreadable. Replaces the nine ad-hoc `text-muted-foreground/NN`
-    // alphas, the lightest of which fell under WCAG AA at body sizes.
-    "subtle-foreground": c("subtle-foreground"),
     accent: { DEFAULT: c("accent"), foreground: c("accent-foreground") },
     popover: { DEFAULT: c("popover"), foreground: c("popover-foreground") },
     card: { DEFAULT: c("card"), foreground: c("card-foreground") },
@@ -127,31 +123,15 @@ export const themeExtend = {
     xl: "var(--shadow-xl)",
     "2xl": "var(--shadow-2xl)",
   },
-  // `--radius` is user-set and spans 0 to 9999px, so every derived step needs
-  // both ends bounded: unbounded subtraction goes negative (invalid) at
-  // `radius: none`, and unbounded addition stays a pill at `radius: full`,
-  // collapsing the scale to one value. `lg` is deliberately left raw — pill-able
-  // single-line rows are the intent, and `button.tsx` depends on it.
   borderRadius: {
     surface: "clamp(0.75rem, var(--radius), 1.25rem)",
     control: "min(var(--radius), 1.25rem)",
     "menu-item": "min(var(--radius), 0.75rem)",
-    "2xl": "min(calc(var(--radius) + 8px), 2rem)",
-    xl: "min(calc(var(--radius) + 4px), 1.5rem)",
+    "2xl": "calc(var(--radius) + 8px)",
+    xl: "calc(var(--radius) + 4px)",
     lg: "var(--radius)",
-    md: "max(0px, min(calc(var(--radius) - 2px), 0.625rem))",
-    sm: "max(0px, min(calc(var(--radius) - 4px), 0.375rem))",
-  },
-  // Tailwind ships no step below `xs` (12px), which is why 220+ call sites
-  // hand-rolled `text-[Npx]` across ten values including half-pixels. These two
-  // absorb that range; `xs` and up keep Tailwind's defaults untouched.
-  fontSize: {
-    "3xs": ["0.625rem", { lineHeight: "0.875rem" }],
-    "2xs": ["0.6875rem", { lineHeight: "1rem" }],
-  },
-  // The de-facto heading tracking, previously repeated as a literal in ~6 files.
-  letterSpacing: {
-    heading: "-0.02em",
+    md: "calc(var(--radius) - 2px)",
+    sm: "calc(var(--radius) - 4px)",
   },
   fontFamily: {
     sans: ["var(--font-sans)"],

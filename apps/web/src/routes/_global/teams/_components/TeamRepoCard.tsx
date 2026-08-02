@@ -80,7 +80,7 @@ export function TeamRepoCard({
                     title="Rename"
                     onClick={() => setRenameOpen(true)}
                   >
-                    <IconPencil className="size-3.5" />
+                    <IconPencil size={14} />
                   </Button>
                   <Button
                     size="icon"
@@ -88,7 +88,7 @@ export function TeamRepoCard({
                     title={repo.logoUrl ? "Change logo" : "Set logo"}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <IconPhoto className="size-3.5" />
+                    <IconPhoto size={14} />
                   </Button>
                   {repo.logoUrl && (
                     <Button
@@ -97,7 +97,7 @@ export function TeamRepoCard({
                       title="Remove logo"
                       onClick={() => removeLogo(repo._id)}
                     >
-                      <IconPhotoOff className="size-3.5" />
+                      <IconPhotoOff size={14} />
                     </Button>
                   )}
                   <Button
@@ -106,7 +106,7 @@ export function TeamRepoCard({
                     title="Remove from team"
                     onClick={() => onRemove(repo._id)}
                   >
-                    <IconTrash className="size-3.5" />
+                    <IconTrash size={14} />
                   </Button>
                 </div>
               )}
@@ -122,24 +122,24 @@ export function TeamRepoCard({
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => setRenameOpen(true)}>
-            <IconPencil className="size-4" />
+            <IconPencil size={16} />
             Rename
           </ContextMenuItem>
           {isOwner ? (
             <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
-              <IconPhoto className="size-4" />
+              <IconPhoto size={16} />
               {repo.logoUrl ? "Change logo" : "Set logo"}
             </ContextMenuItem>
           ) : null}
           {isOwner && repo.logoUrl ? (
             <ContextMenuItem onClick={() => removeLogo(repo._id)}>
-              <IconPhotoOff className="size-4" />
+              <IconPhotoOff size={16} />
               Remove logo
             </ContextMenuItem>
           ) : null}
           {isOwner ? (
             <ContextMenuItem onClick={() => onRemove(repo._id)}>
-              <IconTrash className="size-4" />
+              <IconTrash size={16} />
               Remove from team
             </ContextMenuItem>
           ) : null}

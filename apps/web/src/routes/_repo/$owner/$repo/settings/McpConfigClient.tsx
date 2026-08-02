@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -68,7 +70,7 @@ export function McpConfigClient() {
                   className="h-7 shrink-0"
                   onClick={handleOpen}
                 >
-                  <IconPencil className="size-3.5" />
+                  <IconPencil size={14} />
                   Edit
                 </Button>
               </DialogTrigger>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useConvex } from "convex/react";
 import { api } from "@eva/backend";

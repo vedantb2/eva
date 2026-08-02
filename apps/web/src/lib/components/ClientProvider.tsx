@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   ConvexReactClient,
@@ -12,7 +14,7 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/clerk-react";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { BlurPidEffect } from "@/lib/components/BlurPidEffect";
-import { FaviconController } from "@/lib/components/FaviconController";
+import { InboxFaviconBadge } from "@/lib/components/InboxFaviconBadge";
 import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
@@ -123,10 +125,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     <ConvexProviderWithClerk client={convex} useAuth={useStableAuth}>
       <ConvexQueryCacheProvider>
         <EnsureUser />
-        <ThemeModeProvider>
-          {children}
-          <FaviconController />
-        </ThemeModeProvider>
+        <ThemeModeProvider>{children}</ThemeModeProvider>
       </ConvexQueryCacheProvider>
     </ConvexProviderWithClerk>
   );
@@ -146,6 +145,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={300}>
             {children}
             <BlurPidEffect />
+            <InboxFaviconBadge />
             <PresenceHeartbeat />
             <WelcomeSetupDialog />
           </TooltipProvider>

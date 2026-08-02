@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import {
   GLOBAL_SETTINGS_NAV,

@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -6,7 +8,7 @@ import { useQueryState } from "nuqs";
 import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button, Skeleton } from "@eva/ui";
+import { Button } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
@@ -135,7 +137,7 @@ export function InboxClient() {
               aria-label="Mark all as read"
               className="h-7 text-xs text-muted-foreground"
             >
-              <IconChecks className="size-3.5" />
+              <IconChecks size={14} />
               {/* The label is noise on narrow screens; the icon carries it. */}
               <span className="hidden sm:inline">Mark all read</span>
             </Button>
@@ -149,15 +151,18 @@ export function InboxClient() {
           aria-busy="true"
           aria-label="Loading inbox"
         >
-          <Skeleton className="h-4 w-24" />
+          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-14" />
+            <div
+              key={i}
+              className="h-14 animate-pulse rounded-md bg-muted/60"
+            />
           ))}
         </div>
       ) : groups === undefined || groups.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <EmptyState
-            icon={<IconInbox className="size-6 text-muted-foreground" />}
+            icon={<IconInbox size={24} className="text-muted-foreground" />}
             title={
               filter === "unread"
                 ? "No unread notifications"

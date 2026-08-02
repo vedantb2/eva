@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge, KanbanBoard } from "@eva/ui";
 import { useCallback, type ReactNode, type RefCallback } from "react";
 
@@ -77,10 +79,10 @@ export function KanbanColumn({
       </div>
       <div
         ref={ref}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar scroll-fade md:p-1.5 md:pt-0"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0"
       >
         {count === 0 && (
-          <div className="flex flex-1 items-center justify-center py-6 text-xs text-subtle-foreground">
+          <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
             {emptyLabel}
           </div>
         )}

@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api, type AIProvider, type Id } from "@eva/backend";
@@ -155,7 +157,7 @@ function AddAccountForm({
               </button>
             ))}
           </div>
-          <p className="mt-1.5 text-2xs text-muted-foreground">
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
             Shown as your first name with this provider&apos;s icon.
           </p>
         </div>

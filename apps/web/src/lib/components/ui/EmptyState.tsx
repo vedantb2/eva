@@ -1,3 +1,5 @@
+"use client";
+
 import { IconPlus } from "@tabler/icons-react";
 import { Button, cn } from "@eva/ui";
 import { m, useReducedMotion, type Variants } from "motion/react";
@@ -83,7 +85,7 @@ export function EmptyState({
       {actionLabel && onAction ? (
         <m.div variants={shouldAnimate ? itemVariants : undefined}>
           <Button size="sm" onClick={onAction} className="mt-5">
-            <IconPlus className="size-4" />
+            <IconPlus size={16} />
             {actionLabel}
           </Button>
         </m.div>

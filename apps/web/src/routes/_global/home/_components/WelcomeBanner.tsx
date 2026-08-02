@@ -1,5 +1,5 @@
 import { m } from "motion/react";
-import { Card, CardContent, Button, Surface } from "@eva/ui";
+import { Card, CardContent, Button } from "@eva/ui";
 import { IconX, IconSparkles } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -18,7 +18,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                  <IconSparkles className="size-3.5 text-primary" />
+                  <IconSparkles size={14} className="text-primary" />
                 </div>
                 <p className="text-sm font-semibold text-foreground">
                   Getting started with Eva
@@ -27,11 +27,10 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
               <Button
                 size="icon"
                 variant="ghost"
-                aria-label="Dismiss getting started banner"
                 onClick={onDismiss}
                 className="-mr-1 h-7 w-7 text-muted-foreground hover:text-foreground relative after:absolute after:inset-[-6px]"
               >
-                <IconX className="size-3.5" />
+                <IconX size={14} />
               </Button>
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
@@ -40,10 +39,9 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PLATFORM_SECTIONS.map((section) => (
-                <Surface
+                <div
                   key={section.label}
-                  density="none"
-                  className="flex flex-col gap-1.5 p-2.5"
+                  className="rounded-surface flex flex-col gap-1.5 border border-border bg-card p-2.5"
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                     <section.icon size={13} className="text-primary" />
@@ -51,10 +49,10 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                   <p className="text-xs font-medium text-foreground">
                     {section.label}
                   </p>
-                  <p className="text-2xs leading-relaxed text-muted-foreground">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {section.shortDesc}
                   </p>
-                </Surface>
+                </div>
               ))}
             </div>
           </div>

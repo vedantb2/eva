@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -19,10 +21,7 @@ export function DocHistoryPanel({
   onSelectVersion: (id: Id<"docVersions"> | null) => void;
   onClose: () => void;
 }) {
-  // Kept nullable so the empty state can tell "loaded, none" from "still
-  // loading" — collapsing straight to `[]` flashes the empty copy mid-fetch.
-  const versionsResult = useQuery(api.docVersions.list, { docId });
-  const versions = versionsResult ?? [];
+  const versions = useQuery(api.docVersions.list, { docId }) ?? [];
   const isRecap = docKind === "pr-recap";
 
   return (
@@ -33,15 +32,14 @@ export function DocHistoryPanel({
           size="icon-sm"
           variant="ghost"
           className="hit-target"
-          aria-label="Close version history"
           onClick={onClose}
         >
-          <IconX className="size-3.5" />
+          <IconX size={14} />
         </Button>
       </div>
 
-      <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
-        {versionsResult !== undefined && versions.length === 0 && (
+      <div className="scrollbar flex-1 overflow-y-auto">
+        {versions.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {isRecap
               ? "No prior recap versions yet. Versions are saved when the recap updates on a new push."
@@ -65,14 +63,14 @@ export function DocHistoryPanel({
                 {ver.title}
               </MarqueeOnHover>
               {isRecap && ver.headSha ? (
-                <span className="shrink-0 font-mono text-3xs text-muted-foreground">
+                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {ver.headSha.slice(0, 7)}
                 </span>
               ) : null}
             </div>
             <RelativeDateTime
               at={ver.createdAt}
-              className="text-3xs text-muted-foreground"
+              className="text-[10px] text-muted-foreground"
             />
           </button>
         ))}

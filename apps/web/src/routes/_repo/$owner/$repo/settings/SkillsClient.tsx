@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
@@ -52,9 +54,7 @@ export function SkillsClient() {
       comfortable
       headerRight={
         <Button size="sm" onClick={handleSync} disabled={syncing}>
-          <IconRefresh
-            className={`size-3.5 ${syncing ? "animate-spin" : ""}`}
-          />
+          <IconRefresh size={14} className={syncing ? "animate-spin" : ""} />
           {syncing ? "Syncing..." : "Sync from GitHub"}
         </Button>
       }

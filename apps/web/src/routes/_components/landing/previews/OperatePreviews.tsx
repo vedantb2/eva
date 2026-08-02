@@ -44,10 +44,10 @@ export function AutomationsPreview() {
           >
             <MockDot tone="success" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-2xs font-medium text-foreground">
+              <p className="truncate text-[11.5px] font-medium text-foreground">
                 {automation.name}
               </p>
-              <p className="truncate font-mono text-3xs text-muted-foreground">
+              <p className="truncate font-mono text-[10px] text-muted-foreground">
                 {automation.schedule}
               </p>
             </div>
@@ -60,11 +60,11 @@ export function AutomationsPreview() {
 
       <div className="mt-3 rounded-md border border-border bg-muted/25 p-3">
         <MockLabel>Next run</MockLabel>
-        <p className="mt-1.5 text-2xs text-foreground">
+        <p className="mt-1.5 text-[11px] text-foreground">
           Type coverage audit —{" "}
           <span className="text-muted-foreground">in 41 minutes</span>
         </p>
-        <p className="mt-1 text-3xs text-muted-foreground">
+        <p className="mt-1 text-[10.5px] text-muted-foreground">
           Findings arrive in your inbox. Fix-mode runs open a pull request.
         </p>
       </div>
@@ -110,22 +110,27 @@ export function SnapshotsPreview() {
             className="flex items-center gap-2.5 px-0.5 py-1"
           >
             {step.done ? (
-              <IconCheck className="size-3 shrink-0 text-success" aria-hidden />
+              <IconCheck
+                size={12}
+                className="shrink-0 text-success"
+                aria-hidden
+              />
             ) : (
               <IconLoader2
-                className="size-3 shrink-0 animate-spin text-warning"
+                size={12}
+                className="shrink-0 animate-spin text-warning"
                 aria-hidden
               />
             )}
             <p
               className={cn(
-                "min-w-0 flex-1 truncate text-2xs",
+                "min-w-0 flex-1 truncate text-[11px]",
                 step.done ? "text-muted-foreground" : "text-foreground",
               )}
             >
               {step.label}
             </p>
-            <span className="shrink-0 font-mono text-3xs text-muted-foreground">
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
               {step.time}
             </span>
           </div>
@@ -151,8 +156,8 @@ export function SkillsPreview() {
       bodyClassName="p-3.5"
     >
       <div className="flex items-center gap-2 px-0.5">
-        <IconFolder className="size-3 text-muted-foreground" aria-hidden />
-        <p className="font-mono text-2xs text-foreground">.agents/skills</p>
+        <IconFolder size={13} className="text-muted-foreground" aria-hidden />
+        <p className="font-mono text-[11px] text-foreground">.agents/skills</p>
       </div>
 
       <div className="mt-2 space-y-0.5 border-l border-border pl-3.5">
@@ -162,13 +167,14 @@ export function SkillsPreview() {
             className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/30"
           >
             <IconFileCode
-              className="size-3 shrink-0 text-muted-foreground"
+              size={12}
+              className="shrink-0 text-muted-foreground"
               aria-hidden
             />
-            <p className="shrink-0 font-mono text-2xs text-foreground">
+            <p className="shrink-0 font-mono text-[11px] text-foreground">
               {file.name}
             </p>
-            <p className="min-w-0 flex-1 truncate text-3xs text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate text-[10.5px] text-muted-foreground">
               {file.detail}
             </p>
           </div>
@@ -177,7 +183,7 @@ export function SkillsPreview() {
 
       <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2">
         <MockDot tone="primary" pulse />
-        <p className="truncate text-3xs text-muted-foreground">
+        <p className="truncate text-[10.5px] text-muted-foreground">
           Re-synced on every push, and again every six hours.
         </p>
       </div>

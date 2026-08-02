@@ -1,8 +1,10 @@
+"use client";
+
 import type { ComponentProps } from "react";
 
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
-import { IconChevronDown, IconDownload } from "@tabler/icons-react";
+import { ChevronDownIcon, DownloadIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
@@ -145,7 +147,7 @@ export const ConversationScrollButton = ({
         title="Scroll to end"
         {...props}
       >
-        <IconChevronDown className="size-3.5" />
+        <ChevronDownIcon className="size-3.5" />
         Scroll to end
       </Button>
     </div>
@@ -213,7 +215,7 @@ export const ConversationDownload = ({
       variant="outline"
       {...props}
     >
-      {children ?? <IconDownload className="size-4" />}
+      {children ?? <DownloadIcon className="size-4" />}
     </Button>
   );
 };

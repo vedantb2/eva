@@ -274,12 +274,12 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
 
         <p
           data-pii
-          className="truncate text-base font-semibold leading-tight tracking-tight text-foreground"
+          className="truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground"
         >
           {name}
         </p>
         {roleLabel ? (
-          <span className="mt-1.5 inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-2xs font-medium leading-4 text-accent-foreground">
+          <span className="mt-1.5 inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium leading-4 text-accent-foreground">
             {roleLabel}
           </span>
         ) : null}
@@ -287,7 +287,7 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
         <div className="mt-3.5 space-y-2">
           {user.email ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <MailIcon className="size-3.5 shrink-0 text-subtle-foreground" />
+              <MailIcon className="size-3.5 shrink-0 text-muted-foreground/60" />
               <span data-pii className="truncate">
                 {user.email}
               </span>

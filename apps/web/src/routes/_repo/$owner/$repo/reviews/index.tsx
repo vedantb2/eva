@@ -11,7 +11,9 @@ function ReviewsIndexPage() {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center">
       <EmptyState
-        icon={<IconGitPullRequest className="size-6 text-muted-foreground" />}
+        icon={
+          <IconGitPullRequest size={24} className="text-muted-foreground" />
+        }
         title="Select a pull request to review"
       />
     </div>

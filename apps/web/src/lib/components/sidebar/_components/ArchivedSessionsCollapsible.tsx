@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -65,13 +67,13 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
         className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-sidebar-foreground"
       >
         <IconChevronDown
+          size={14}
           className={cn(
-            "size-3.5",
             "transition-transform duration-200",
             !isOpen && "-rotate-90",
           )}
         />
-        <IconArchive className="size-3.5" />
+        <IconArchive size={14} />
         Archived ({sessions.length})
       </button>
       <AnimatePresence initial={false}>
@@ -110,7 +112,7 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
                         <RelativeDateTime
                           at={session.updatedAt ?? session._creationTime}
                           className={cn(
-                            "shrink-0 text-xs text-subtle-foreground transition-opacity",
+                            "shrink-0 text-xs text-muted-foreground/60 transition-opacity",
                             isSelected
                               ? "opacity-100"
                               : "opacity-0 group-hover:opacity-100",
@@ -127,7 +129,7 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
                         void onUnarchive(session);
                       }}
                     >
-                      <IconArchiveOff className="size-4" />
+                      <IconArchiveOff size={16} />
                       Unarchive
                     </ContextMenuItem>
                   ) : null}
@@ -136,7 +138,7 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
                       void navigator.clipboard.writeText(session.title);
                     }}
                   >
-                    <IconClipboard className="size-4" />
+                    <IconClipboard size={16} />
                     Copy title
                   </ContextMenuItem>
                   <ContextMenuItem
@@ -146,7 +148,7 @@ export function ArchivedSessionsCollapsible<T extends ArchivedSessionItem>({
                       );
                     }}
                   >
-                    <IconLink className="size-4" />
+                    <IconLink size={16} />
                     Copy link
                   </ContextMenuItem>
                 </ContextMenuContent>

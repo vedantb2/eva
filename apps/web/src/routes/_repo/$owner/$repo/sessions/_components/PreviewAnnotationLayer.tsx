@@ -1,3 +1,5 @@
+"use client";
+
 import { useLayoutEffect, useRef, useState } from "react";
 import { useWebPreview } from "@eva/ui";
 import {

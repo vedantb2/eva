@@ -72,7 +72,8 @@ export function ProjectsListView({
             <CollapsibleTrigger asChild>
               <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50 sticky top-0 z-10 bg-background">
                 <IconChevronRight
-                  className={`size-3.5 text-muted-foreground transition-transform duration-200 ${
+                  size={14}
+                  className={`text-muted-foreground transition-transform duration-200 ${
                     openSections.has(phase) ? "rotate-90" : ""
                   }`}
                 />
@@ -80,7 +81,7 @@ export function ProjectsListView({
                 <span className={`text-sm font-medium ${cfg.text}`}>
                   {cfg.label}
                 </span>
-                <span className="text-xs text-subtle-foreground tabular-nums">
+                <span className="text-xs text-muted-foreground/60 tabular-nums">
                   {items.length}
                 </span>
               </button>

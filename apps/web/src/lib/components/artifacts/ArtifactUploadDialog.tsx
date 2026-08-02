@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -143,7 +145,7 @@ export function ArtifactUploadDialog({
     >
       <DialogTrigger asChild>
         <Button size="sm">
-          <IconUpload className="size-4" />
+          <IconUpload size={16} />
           Upload artifact
         </Button>
       </DialogTrigger>

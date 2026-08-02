@@ -32,35 +32,6 @@ html {
   scrollbar-gutter: stable;
 }
 
-/*
- * Mask stops for `.scroll-fade` (defined in @layer utilities). Custom
- * properties only interpolate once registered, so these cannot be plain
- * `--vars`. Each is driven by its own range of the element's scroll timeline:
- * the top fade grows in over the first 1.5rem of scroll, the bottom fade
- * shrinks out over the last 1.5rem. Content flush against an edge therefore
- * never fades — only content that continues past it does.
- */
-@property --scroll-fade-top {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@property --scroll-fade-bottom {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@keyframes scroll-fade-top {
-  to {
-    --scroll-fade-top: 1.5rem;
-  }
-}
-@keyframes scroll-fade-bottom {
-  from {
-    --scroll-fade-bottom: 1.5rem;
-  }
-}
-
 @layer base {
   :root {
     color-scheme: light;
@@ -81,10 +52,6 @@ html {
     --secondary-foreground: 23 25 27;
     --muted: 239 239 240;
     --muted-foreground: 113 114 116;
-    /* Tertiary text. Sits one visible step below --muted-foreground and holds
-     * ~3:1 against the canvas, so metadata recedes without dropping under the
-     * legibility floor the way the old /50 and /40 alphas did. */
-    --subtle-foreground: 141 142 144;
     --accent: 244 244 245;
     --accent-foreground: 24 24 27;
     --destructive: 255 55 60;
@@ -175,7 +142,6 @@ html {
     --secondary-foreground: 252 252 252;
     --muted: 34 35 36;
     --muted-foreground: 159 160 162;
-    --subtle-foreground: 126 127 129;
     --accent: 24 24 27;
     --accent-foreground: 244 244 245;
     --destructive: 219 59 62;
@@ -255,7 +221,6 @@ html {
     --secondary-foreground: 252 252 252;
     --muted: 58 59 62;
     --muted-foreground: 159 160 162;
-    --subtle-foreground: 126 127 129;
     --destructive-foreground: 252 252 252;
     --success-foreground: 22 25 23;
     --warning-foreground: 26 24 21;
@@ -282,17 +247,6 @@ html {
   }
   main {
     position: relative;
-  }
-
-  /*
-   * Tabler ships stroke-width 2, which at the 14-16px sizes this UI runs reads
-   * noticeably heavier than the surrounding text. 1.5 is the weight the type
-   * scale is drawn for. Set here rather than as a prop on ~380 call sites; the
-   * CSS property beats the `stroke-width` presentation attribute the icons
-   * emit, so per-icon overrides still need to be classes, not props.
-   */
-  .tabler-icon {
-    stroke-width: 1.5;
   }
 
   /*
@@ -560,21 +514,12 @@ html {
   }
 
   .scrollbar {
-    /* Reserve the gutter so an appearing scrollbar never re-wraps the text. */
-    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
   }
   .scrollbar:hover {
     scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
   }
-
-  /* Opt-out for horizontal-only scrollers (tab rows, wide tables, code blocks).
-     They never show a vertical scrollbar, so a reserved gutter is dead space. */
-  .scrollbar-x {
-    scrollbar-gutter: auto;
-  }
-
   .scrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -600,42 +545,6 @@ html {
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
-  }
-}
-
-/* ───────────────────────────────────────────────────────────────────
- * Scroll edge fade — pair with `.scrollbar` on an inline scroll area so
- * its content does not hard-cut at the top and bottom boundary. The mask
- * stops are the two registered properties declared near the top of this
- * file, each driven by its own range of the element's scroll timeline, so
- * an edge only fades while there is more content past it.
- *
- * Gated on scroll-driven animation support: without it the fade could not
- * follow the scroll position, and a permanently faded edge dims content
- * that is already fully visible — worse than the hard cut. Unsupported
- * browsers therefore get no mask at all.
- *
- * Do not use on page-level scroll, on a text input (it dims the caret), on
- * a container with a `sticky` child (the pinned child sits inside the
- * fade), or on an element that already sets `animation` (the shorthand
- * here would replace it — Radix menu content is the usual case).
- * ─────────────────────────────────────────────────────────────────── */
-@supports (animation-timeline: scroll()) {
-  .scroll-fade {
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0,
-      #000 var(--scroll-fade-top),
-      #000 calc(100% - var(--scroll-fade-bottom)),
-      transparent 100%
-    );
-    animation:
-      scroll-fade-top linear both,
-      scroll-fade-bottom linear both;
-    animation-timeline: scroll(self block);
-    animation-range:
-      0 1.5rem,
-      calc(100% - 1.5rem) 100%;
   }
 }
 
@@ -1267,10 +1176,6 @@ html[data-blur-pid] [data-pii] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .scroll-fade {
-    animation-duration: auto !important;
   }
 }
 */

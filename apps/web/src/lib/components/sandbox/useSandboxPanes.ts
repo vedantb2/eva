@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";

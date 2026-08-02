@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import {
@@ -72,13 +74,10 @@ export function ToggleSearch({
                   setIsOpen(false);
                 }
               }}
-              // No focus-visible overrides: Input already ships a real ring
-              // (`ring-2 ring-ring/35`). This used to cancel it with `ring-0`
-              // and substitute a shadow, which is invisible on a dark canvas.
               className={cn(
                 isLarge
-                  ? "h-9 rounded-control pl-9 pr-8 text-sm shadow-sm"
-                  : "h-8 pl-7 pr-7 text-sm",
+                  ? "h-9 rounded-control pl-9 pr-8 text-sm shadow-sm focus-visible:border-border focus-visible:shadow-md focus-visible:ring-0"
+                  : "h-8 pl-7 pr-7 text-sm focus-visible:border-border focus-visible:shadow-lg focus-visible:ring-0",
               )}
             />
             {value && (
@@ -114,7 +113,7 @@ export function ToggleSearch({
                 className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => setIsOpen(true)}
               >
-                <IconSearch className="size-4" />
+                <IconSearch size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{tooltipLabel}</TooltipContent>

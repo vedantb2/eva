@@ -1,3 +1,5 @@
+"use client";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -121,7 +123,7 @@ export function SessionChromeTabGroup({
             size={14}
             className="border-0"
             fallback={
-              <span className="flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-background/40 text-3xs font-semibold">
+              <span className="flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-background/40 text-[8px] font-semibold">
                 {label.charAt(0).toUpperCase()}
               </span>
             }

@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -7,7 +9,7 @@ import {
   IconPercentage,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { Skeleton, Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import { OnlineTeamAvatars } from "@/lib/components/sidebar/TeamMembers";
 
 type RepoDoc = FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>;
@@ -43,20 +45,23 @@ export function RepoStatsSummary({
         aria-busy="true"
         aria-label="Loading stats"
       >
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 w-8" />
+        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
+        <div className="h-8 w-8 animate-pulse rounded-surface bg-muted/60" />
       </div>
     ) : (
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-8" />
         <div
-          className="min-h-[4.5rem] py-1"
+          className="h-8 animate-pulse rounded-surface bg-muted/60"
+          aria-hidden
+        />
+        <div
+          className="min-h-[4.5rem] animate-pulse py-1"
           aria-busy="true"
           aria-label="Loading stats"
         >
           <div className="grid grid-cols-2 gap-2">
-            <Skeleton className="h-8" />
-            <Skeleton className="h-8" />
+            <div className="h-8 rounded bg-muted/60" />
+            <div className="h-8 rounded bg-muted/60" />
           </div>
         </div>
       </div>
@@ -90,7 +95,7 @@ export function RepoStatsSummary({
                 className="flex flex-col items-center rounded-surface px-1 py-0.5 transition-colors hover:bg-muted/50"
               >
                 <item.icon size={14} className="text-muted-foreground" />
-                <span className="text-2xs font-semibold tabular-nums leading-tight text-sidebar-foreground">
+                <span className="text-[11px] font-semibold tabular-nums leading-tight text-sidebar-foreground">
                   {item.value}
                 </span>
               </Link>
@@ -117,7 +122,7 @@ export function RepoStatsSummary({
                 <p className="text-sm font-semibold leading-none tabular-nums text-sidebar-foreground">
                   {item.value}
                 </p>
-                <p className="mt-0.5 truncate text-3xs text-muted-foreground">
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                   {item.label}
                 </p>
               </div>

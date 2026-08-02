@@ -337,7 +337,10 @@ export function ProjectDetailClient({
           >
             Projects
           </button>
-          <IconChevronRight className="size-3.5 text-subtle-foreground flex-shrink-0" />
+          <IconChevronRight
+            size={14}
+            className="text-muted-foreground/50 flex-shrink-0"
+          />
           <MarqueeOnHover className="min-w-0 font-semibold">
             {project.title}
           </MarqueeOnHover>
@@ -354,7 +357,7 @@ export function ProjectDetailClient({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="icon-sm" aria-label="More">
-                    <IconDots className="size-4" />
+                    <IconDots size={16} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -364,9 +367,9 @@ export function ProjectDetailClient({
                       disabled={isResolvingConflicts}
                     >
                       {isResolvingConflicts ? (
-                        <IconLoader2 className="size-3.5 animate-spin" />
+                        <IconLoader2 size={14} className="animate-spin" />
                       ) : (
-                        <IconHammer className="size-3.5" />
+                        <IconHammer size={14} />
                       )}
                       Resolve Conflicts
                     </DropdownMenuItem>
@@ -380,9 +383,9 @@ export function ProjectDetailClient({
                       disabled={isRetryingStartupCommands}
                     >
                       {isRetryingStartupCommands ? (
-                        <IconLoader2 className="size-3.5 animate-spin" />
+                        <IconLoader2 size={14} className="animate-spin" />
                       ) : (
-                        <IconRefresh className="size-3.5" />
+                        <IconRefresh size={14} />
                       )}
                       Run Startup Commands
                     </DropdownMenuItem>
@@ -393,9 +396,9 @@ export function ProjectDetailClient({
                       disabled={isRunningBackgroundCommands}
                     >
                       {isRunningBackgroundCommands ? (
-                        <IconLoader2 className="size-3.5 animate-spin" />
+                        <IconLoader2 size={14} className="animate-spin" />
                       ) : (
-                        <IconServerBolt className="size-3.5" />
+                        <IconServerBolt size={14} />
                       )}
                       Run Background Commands
                     </DropdownMenuItem>
@@ -410,9 +413,9 @@ export function ProjectDetailClient({
                       disabled={isCreatingPr}
                     >
                       {isCreatingPr ? (
-                        <IconLoader2 className="size-3.5 animate-spin" />
+                        <IconLoader2 size={14} className="animate-spin" />
                       ) : (
-                        <IconGitPullRequest className="size-3.5" />
+                        <IconGitPullRequest size={14} />
                       )}
                       Create PR
                     </DropdownMenuItem>
@@ -424,7 +427,7 @@ export function ProjectDetailClient({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <IconGitPullRequest className="size-3.5" />
+                        <IconGitPullRequest size={14} />
                         View PR
                       </a>
                     </DropdownMenuItem>
@@ -434,7 +437,7 @@ export function ProjectDetailClient({
                       <TooltipTrigger asChild>
                         <div>
                           <DropdownMenuItem disabled>
-                            <IconBrandVercel className="size-3.5" />
+                            <IconBrandVercel size={14} />
                             View Preview
                           </DropdownMenuItem>
                         </div>
@@ -451,11 +454,11 @@ export function ProjectDetailClient({
                         hasSandboxCommandItems ||
                         hasPrLinkItems) && <DropdownMenuSeparator />}
                       <DropdownMenuItem onClick={() => setShowPlanModal(true)}>
-                        <IconFileText className="size-3.5" />
+                        <IconFileText size={14} />
                         View Plan
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowChatModal(true)}>
-                        <IconMessage className="size-3.5" />
+                        <IconMessage size={14} />
                         View Interview History
                       </DropdownMenuItem>
                     </>
@@ -474,7 +477,7 @@ export function ProjectDetailClient({
                   onClick={handleStopSandbox}
                   disabled={isSandboxStopping}
                 >
-                  <IconPlayerStop className="size-4" />
+                  <IconPlayerStop size={16} />
                   <span className="hidden sm:inline">Stop Sandbox</span>
                 </Button>
               ) : null}
@@ -492,9 +495,9 @@ export function ProjectDetailClient({
                 >
                   {(isSandboxStarting && !isSandboxActive) ||
                   isSandboxStopping ? (
-                    <IconLoader2 className="size-4 animate-spin" />
+                    <IconLoader2 size={16} className="animate-spin" />
                   ) : (
-                    <IconTerminal2 className="size-4" />
+                    <IconTerminal2 size={16} />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
                     <span className="h-1.5 w-1.5 rounded-full bg-success" />
@@ -520,9 +523,9 @@ export function ProjectDetailClient({
                   disabled={isStoppingBuild}
                 >
                   {isStoppingBuild ? (
-                    <IconLoader2 className="size-4 animate-spin" />
+                    <IconLoader2 size={16} className="animate-spin" />
                   ) : (
-                    <IconPlayerStop className="size-4" />
+                    <IconPlayerStop size={16} />
                   )}
                   <span className="hidden sm:inline">Stop Build</span>
                 </Button>
@@ -611,7 +614,7 @@ export function ProjectDetailClient({
                 setIsStartingBuild(false);
               }}
             >
-              <IconHammer className="size-4" />
+              <IconHammer size={16} />
               {isStartingBuild ? "Starting..." : "Start cooking"}
             </Button>
           </DialogFooter>
@@ -680,7 +683,7 @@ export function ProjectDetailClient({
           <DialogHeader className="pb-4">
             <DialogTitle>
               <div className="flex items-center gap-2">
-                <IconMessage className="size-5" />
+                <IconMessage size={20} />
                 Interview History
                 <span className="text-sm font-normal text-muted-foreground">
                   ({project.conversationHistory.length} messages)
@@ -733,9 +736,9 @@ function SplitBuildButton({
               className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
             >
               {isScheduled ? (
-                <IconCalendarClock className="size-4" />
+                <IconCalendarClock size={16} />
               ) : (
-                <IconHammer className="size-4" />
+                <IconHammer size={16} />
               )}
               <span className="hidden sm:inline">
                 {isScheduled
@@ -760,7 +763,7 @@ function SplitBuildButton({
             disabled={hasActiveBuild}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
-            <IconChevronDown className="size-3.5" />
+            <IconChevronDown size={14} />
           </Button>
         }
       />

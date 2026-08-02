@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -215,7 +217,8 @@ export function QuickTasksListView({
                       <CollapsibleTrigger asChild>
                         <button className="flex flex-1 items-center gap-2 rounded-lg px-2 py-3 sm:px-3 sm:py-2 text-left transition-colors hover:bg-muted/50 min-h-[44px]">
                           <IconChevronRight
-                            className={`size-3.5 text-muted-foreground transition-transform duration-200 ${
+                            size={14}
+                            className={`text-muted-foreground transition-transform duration-200 ${
                               openSections.has(status) ? "rotate-90" : ""
                             }`}
                           />
@@ -223,7 +226,7 @@ export function QuickTasksListView({
                           <span className={`text-sm font-medium ${cfg.text}`}>
                             {cfg.label}
                           </span>
-                          <span className="text-xs text-subtle-foreground tabular-nums">
+                          <span className="text-xs text-muted-foreground/60 tabular-nums">
                             {items.length}
                           </span>
                         </button>
@@ -238,7 +241,7 @@ export function QuickTasksListView({
                           {isRunningAll ? (
                             <Spinner size="sm" />
                           ) : (
-                            <IconPlayerPlay className="size-3.5" />
+                            <IconPlayerPlay size={14} />
                           )}
                           <span className="hidden sm:inline">Run All</span>
                           <span className="sm:hidden">Run</span>

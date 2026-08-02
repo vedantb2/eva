@@ -1,3 +1,5 @@
+"use client";
+
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -59,13 +61,13 @@ export function SessionTabsArchivedMenu({
           aria-label="Archived sessions"
           className="flex h-full shrink-0 items-center gap-2 border-l border-border px-3.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
-          <IconArchive className="size-3.5" />
+          <IconArchive size={14} />
           <span className="tabular-nums">{total}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="max-h-80 w-56 overflow-y-auto scrollbar"
+        className="max-h-80 w-56 overflow-y-auto"
       >
         {nonEmpty.length === 0 ? (
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">
@@ -82,17 +84,17 @@ export function SessionTabsArchivedMenu({
                     logoUrl={group.repo.logoUrl}
                     size={16}
                     fallback={
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-3xs font-semibold text-muted-foreground">
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
                         {label.charAt(0).toUpperCase()}
                       </span>
                     }
                   />
                   <span className="truncate">{label}</span>
-                  <span className="tabular-nums text-3xs text-muted-foreground">
+                  <span className="tabular-nums text-[10px] text-muted-foreground">
                     {group.sessions.length}
                   </span>
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="max-h-72 w-72 overflow-y-auto scrollbar">
+                <DropdownMenuSubContent className="max-h-72 w-72 overflow-y-auto">
                   {group.sessions.map((session) => {
                     const pathSegment = entityPathSegment(session);
                     const href = pathSegment
@@ -123,7 +125,7 @@ export function SessionTabsArchivedMenu({
                             <span className="min-w-0 flex-1 truncate">
                               {session.title}
                             </span>
-                            <span className="shrink-0 text-3xs text-muted-foreground">
+                            <span className="shrink-0 text-[10px] text-muted-foreground">
                               {subtitle}
                             </span>
                           </DynamicLink>
@@ -138,7 +140,7 @@ export function SessionTabsArchivedMenu({
                               void unarchiveSession({ id: session._id });
                             }}
                           >
-                            <IconArchiveOff className="size-3.5" />
+                            <IconArchiveOff size={14} />
                           </button>
                         ) : null}
                       </div>

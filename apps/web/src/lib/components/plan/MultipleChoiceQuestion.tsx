@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button, Input, Card, CardContent, Badge } from "@eva/ui";
 import {
@@ -188,17 +190,17 @@ export function MultipleChoiceQuestion({
           : `Question ${currentStep + 1} of ${totalSteps}. Use number keys 1 through 9 to choose an option.`}
       </span>
       <div className="flex items-center justify-between">
-        <p className="text-base font-semibold leading-snug text-foreground">
+        <p className="text-[15px] font-semibold leading-snug text-foreground">
           {q.question}
         </p>
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
           {q.header && (
-            <Badge variant="secondary" className="text-3xs font-semibold">
+            <Badge variant="secondary" className="text-[10px] font-semibold">
               {q.header}
             </Badge>
           )}
           {isMultiStep && (
-            <span className="text-2xs text-muted-foreground font-medium">
+            <span className="text-[11px] text-muted-foreground font-medium">
               {currentStep + 1}/{totalSteps}
             </span>
           )}
@@ -244,7 +246,7 @@ export function MultipleChoiceQuestion({
                 <span
                   className={`
                     w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5
-                    text-2xs font-bold tracking-wide transition-[background-color,border-color,box-shadow] duration-150
+                    text-[11px] font-bold tracking-wide transition-[background-color,border-color,box-shadow] duration-150
                     ${
                       isSelected
                         ? "bg-primary text-primary-foreground"
@@ -253,7 +255,7 @@ export function MultipleChoiceQuestion({
                   `}
                 >
                   {isSelected ? (
-                    <IconCheck className="size-3" strokeWidth={3} />
+                    <IconCheck size={13} strokeWidth={3} />
                   ) : (
                     optionMarker
                   )}
@@ -303,9 +305,9 @@ export function MultipleChoiceQuestion({
                 `}
               >
                 {otherActive[currentStep] ? (
-                  <IconCheck className="size-3" strokeWidth={3} />
+                  <IconCheck size={13} strokeWidth={3} />
                 ) : (
-                  <IconPencil className="size-3" />
+                  <IconPencil size={13} />
                 )}
               </span>
               <span
@@ -352,7 +354,7 @@ export function MultipleChoiceQuestion({
             onClick={handleBack}
             disabled={isLoading}
           >
-            <IconArrowLeft strokeWidth={2.5} className="size-3.5 mr-1" />
+            <IconArrowLeft size={15} strokeWidth={2.5} className="mr-1" />
             Back
           </Button>
         )}
@@ -366,7 +368,7 @@ export function MultipleChoiceQuestion({
           ) : null}
           {isLastStep ? "Submit" : "Next"}
           {!isLoading && (
-            <IconArrowRight strokeWidth={2.5} className="size-3.5 ml-1" />
+            <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />
           )}
         </Button>
         {trailingControls}

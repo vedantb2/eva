@@ -1,3 +1,5 @@
+"use client";
+
 import type { Id } from "@eva/backend";
 import { api } from "@eva/backend";
 import { useMutation } from "convex/react";

@@ -1,3 +1,5 @@
+"use client";
+
 import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@eva/backend";
@@ -80,7 +82,7 @@ function SortableTaskWrapper({
         {...attributes}
         {...listeners}
       >
-        <IconGripVertical className="size-3.5" />
+        <IconGripVertical size={14} />
       </button>
       <div className="flex-1 min-w-0">
         <QuickTaskCard
@@ -220,7 +222,7 @@ export function ProjectTaskListPanel({
       ref={(node) => {
         setScrollParent(node);
       }}
-      className="h-full overflow-y-auto scrollbar scroll-fade"
+      className="h-full overflow-y-auto scrollbar"
     >
       <Accordion
         type="multiple"
@@ -243,7 +245,7 @@ export function ProjectTaskListPanel({
                       <span className={`text-sm font-medium ${config.text}`}>
                         {config.label}
                       </span>
-                      <span className="text-xs text-subtle-foreground tabular-nums">
+                      <span className="text-xs text-muted-foreground/60 tabular-nums">
                         {statusTasks.length}
                       </span>
                     </div>
@@ -256,7 +258,7 @@ export function ProjectTaskListPanel({
                         onCreateTask();
                       }}
                     >
-                      <IconPlus className="size-3" />
+                      <IconPlus size={12} />
                     </Button>
                   </div>
                 </AccordionTrigger>
@@ -298,7 +300,7 @@ export function ProjectTaskListPanel({
                     <span className={`text-sm font-medium ${config.text}`}>
                       {config.label}
                     </span>
-                    <span className="text-xs text-subtle-foreground tabular-nums">
+                    <span className="text-xs text-muted-foreground/60 tabular-nums">
                       {statusTasks.length}
                     </span>
                   </div>
@@ -312,7 +314,7 @@ export function ProjectTaskListPanel({
                         onCreateTask();
                       }}
                     >
-                      <IconPlus className="size-3" />
+                      <IconPlus size={12} />
                     </Button>
                   )}
                 </div>

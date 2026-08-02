@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -58,7 +60,7 @@ export function AccountsClient() {
         description="Tasks, sessions, and projects you create default to your account for that provider, otherwise Team. Collaborators' Make changes still bill your sticky account."
         action={
           <Button size="sm" onClick={openCreate}>
-            <IconPlus className="size-4 mr-1.5" />
+            <IconPlus size={16} className="mr-1.5" />
             Add account
           </Button>
         }
@@ -98,7 +100,7 @@ export function AccountsClient() {
                   onClick={() => openEdit(account)}
                   title="Edit"
                 >
-                  <IconPencil className="size-3.5" />
+                  <IconPencil size={14} />
                 </Button>
                 <Button
                   size="icon-sm"
@@ -107,7 +109,7 @@ export function AccountsClient() {
                   title="Delete"
                   className="text-destructive hover:text-destructive"
                 >
-                  <IconTrash className="size-3.5" />
+                  <IconTrash size={14} />
                 </Button>
               </div>
             ))}

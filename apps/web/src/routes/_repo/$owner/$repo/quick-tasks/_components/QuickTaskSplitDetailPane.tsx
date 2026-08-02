@@ -1,3 +1,5 @@
+"use client";
+
 import type { Id } from "@eva/backend";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
@@ -64,7 +66,7 @@ export function QuickTaskSplitDetailPane({
               className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Previous task"
             >
-              <IconChevronLeft className="size-4" />
+              <IconChevronLeft size={16} />
             </button>
             <button
               onClick={handleNavigateNext}
@@ -72,7 +74,7 @@ export function QuickTaskSplitDetailPane({
               className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Next task"
             >
-              <IconChevronRight className="size-4" />
+              <IconChevronRight size={16} />
             </button>
           </div>
         </div>

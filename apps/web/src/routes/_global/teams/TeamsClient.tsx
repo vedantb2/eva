@@ -15,7 +15,6 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  Skeleton,
 } from "@eva/ui";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
@@ -111,7 +110,7 @@ export function TeamsClient() {
         <Dialog open={createDialog.open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <IconPlus className="size-4 mr-1.5" />
+              <IconPlus size={16} className="mr-1.5" />
               New Team
             </Button>
           </DialogTrigger>
@@ -165,7 +164,10 @@ export function TeamsClient() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {teams === undefined
           ? Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-36 border border-border" />
+              <div
+                key={i}
+                className="h-36 animate-pulse rounded-surface border border-border bg-muted/60"
+              />
             ))
           : teams.map((team) => (
               <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
@@ -182,7 +184,7 @@ export function TeamsClient() {
       {teams !== undefined && teams.length === 0 && (
         <Card className="mt-8">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <IconUsers size={48} className="mb-4 text-subtle-foreground" />
+            <IconUsers size={48} className="mb-4 text-muted-foreground/50" />
             <p className="mb-2 text-sm font-medium">No teams yet</p>
             <p className="mb-4 text-xs text-muted-foreground">
               Create a team to collaborate on codebases
@@ -193,7 +195,7 @@ export function TeamsClient() {
                 setCreateDialog((prev) => ({ ...prev, open: true }))
               }
             >
-              <IconPlus className="size-4 mr-1.5" />
+              <IconPlus size={16} className="mr-1.5" />
               Create Team
             </Button>
           </CardContent>

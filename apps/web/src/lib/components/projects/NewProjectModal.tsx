@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, lazy, Suspense } from "react";
 import {
   Dialog,
@@ -167,7 +169,7 @@ export function NewProjectModal({
           />
         </div>
 
-        <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+        <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
           <Suspense
             fallback={
               <div className="p-3">
@@ -194,7 +196,7 @@ export function NewProjectModal({
                 type="button"
                 className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
-                <IconGitBranch className="size-3.5" />
+                <IconGitBranch size={14} />
                 <span className="text-foreground">{baseBranch}</span>
               </button>
             </PopoverTrigger>
@@ -220,9 +222,9 @@ export function NewProjectModal({
                 className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
                 {skipPlanning ? (
-                  <IconListCheck className="size-3.5" />
+                  <IconListCheck size={14} />
                 ) : (
-                  <IconSparkles className="size-3.5" />
+                  <IconSparkles size={14} />
                 )}
                 <span className="text-foreground">
                   {skipPlanning ? "Tasks only" : "With interview/plan"}
@@ -239,14 +241,16 @@ export function NewProjectModal({
                         setPlanningPickerOpen(false);
                       }}
                     >
-                      <IconSparkles className="size-3.5 mr-2" />
+                      <IconSparkles size={14} className="mr-2" />
                       <div className="flex-1">
                         <div className="text-sm">With interview/plan</div>
                         <div className="text-xs text-muted-foreground">
                           AI interview, then generated spec
                         </div>
                       </div>
-                      {!skipPlanning && <IconCheck className="size-3.5 ml-2" />}
+                      {!skipPlanning && (
+                        <IconCheck size={14} className="ml-2" />
+                      )}
                     </CommandItem>
                     <CommandItem
                       onSelect={() => {
@@ -254,14 +258,14 @@ export function NewProjectModal({
                         setPlanningPickerOpen(false);
                       }}
                     >
-                      <IconListCheck className="size-3.5 mr-2" />
+                      <IconListCheck size={14} className="mr-2" />
                       <div className="flex-1">
                         <div className="text-sm">Tasks only</div>
                         <div className="text-xs text-muted-foreground">
                           Skip planning, just a task container
                         </div>
                       </div>
-                      {skipPlanning && <IconCheck className="size-3.5 ml-2" />}
+                      {skipPlanning && <IconCheck size={14} className="ml-2" />}
                     </CommandItem>
                   </CommandGroup>
                 </CommandList>

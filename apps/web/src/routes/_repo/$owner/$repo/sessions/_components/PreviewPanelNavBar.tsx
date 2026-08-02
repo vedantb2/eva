@@ -1,3 +1,5 @@
+"use client";
+
 import type { RefObject } from "react";
 import {
   cn,
@@ -60,7 +62,7 @@ export function PreviewPanelNavBar({
           )}
           onClick={() => onAnnotationModeChange(!annotationMode)}
         >
-          <IconClick className="size-4" />
+          <IconClick size={16} />
         </WebPreviewNavigationButton>
       ) : null}
       <PreviewNavBar

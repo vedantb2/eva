@@ -1,22 +1,24 @@
+"use client";
+
 import { cn } from "../utils/cn";
 import {
-  IconFileSearch,
-  IconPencil,
-  IconFilePlus,
-  IconTerminal2,
-  IconFolderSearch,
-  IconFileText,
-  IconWorld,
-  IconSearch,
-  IconSitemap,
-  IconBook2,
-  IconTool,
-  IconMessage,
-  IconListCheck,
-  IconInfoCircle,
-  IconAnchor,
-  IconLoader2,
-} from "@tabler/icons-react";
+  FileSearchIcon,
+  PencilIcon,
+  FilePlusIcon,
+  TerminalIcon,
+  FolderSearchIcon,
+  FileTextIcon,
+  GlobeIcon,
+  SearchIcon,
+  WorkflowIcon,
+  BookOpenIcon,
+  WrenchIcon,
+  MessageSquareIcon,
+  ListTodoIcon,
+  InfoIcon,
+  AnchorIcon,
+  LoaderCircleIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 /** One item in a todo checklist step (type "todos"). */
@@ -108,25 +110,25 @@ export function EvaThinkingIcon({ className }: { className?: string }) {
 }
 
 export const stepConfig = {
-  read: { icon: IconFileSearch, defaultLabel: "Read file" },
-  edit: { icon: IconPencil, defaultLabel: "Edited file" },
-  write: { icon: IconFilePlus, defaultLabel: "Created file" },
-  bash: { icon: IconTerminal2, defaultLabel: "Ran command" },
-  search_files: { icon: IconFolderSearch, defaultLabel: "Found files" },
-  search_code: { icon: IconFileText, defaultLabel: "Searched code" },
-  web_fetch: { icon: IconWorld, defaultLabel: "Fetched URL" },
-  web_search: { icon: IconSearch, defaultLabel: "Web search" },
-  subtask: { icon: IconSitemap, defaultLabel: "Ran agent" },
-  notebook: { icon: IconBook2, defaultLabel: "Edited notebook" },
+  read: { icon: FileSearchIcon, defaultLabel: "Read file" },
+  edit: { icon: PencilIcon, defaultLabel: "Edited file" },
+  write: { icon: FilePlusIcon, defaultLabel: "Created file" },
+  bash: { icon: TerminalIcon, defaultLabel: "Ran command" },
+  search_files: { icon: FolderSearchIcon, defaultLabel: "Found files" },
+  search_code: { icon: FileTextIcon, defaultLabel: "Searched code" },
+  web_fetch: { icon: GlobeIcon, defaultLabel: "Fetched URL" },
+  web_search: { icon: SearchIcon, defaultLabel: "Web search" },
+  subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
+  notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
   thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
   reasoning: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
-  response: { icon: IconMessage, defaultLabel: "Response" },
-  question: { icon: IconMessage, defaultLabel: "Asked a question" },
-  todos: { icon: IconListCheck, defaultLabel: "Task list" },
-  tool: { icon: IconTool, defaultLabel: "Used tool" },
-  notice: { icon: IconInfoCircle, defaultLabel: "Notice" },
-  hook: { icon: IconAnchor, defaultLabel: "Hook" },
-  status: { icon: IconLoader2, defaultLabel: "Status" },
+  response: { icon: MessageSquareIcon, defaultLabel: "Response" },
+  question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
+  todos: { icon: ListTodoIcon, defaultLabel: "Task list" },
+  tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
+  notice: { icon: InfoIcon, defaultLabel: "Notice" },
+  hook: { icon: AnchorIcon, defaultLabel: "Hook" },
+  status: { icon: LoaderCircleIcon, defaultLabel: "Status" },
 };
 
 const SPINNER_VERBS = [

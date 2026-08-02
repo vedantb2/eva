@@ -1,3 +1,5 @@
+"use client";
+
 import type { KeyboardEvent, PointerEvent } from "react";
 import {
   SIDEBAR_MAX_WIDTH_PX,

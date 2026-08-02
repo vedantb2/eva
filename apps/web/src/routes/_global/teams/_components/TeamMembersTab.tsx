@@ -21,8 +21,9 @@ import {
   SelectItem,
   SelectValue,
 } from "@eva/ui";
-import { IconTrash, IconUserPlus } from "@tabler/icons-react";
+import { IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { UserInitials } from "@eva/shared";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 
 type Member = FunctionReturnType<typeof api.teamMembers.list>[number];
 
@@ -167,59 +168,69 @@ export function TeamMembersTab({
         )}
       </div>
       <div className="space-y-2">
-        {members.map((member) => (
-          <Card key={member._id}>
-            <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
-              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                <UserInitials userId={member.userId} hideLastSeen size="md" />
-                <div className="min-w-0">
-                  <p data-pii className="truncate text-sm font-medium">
-                    {member.user?.fullName || member.user?.email || "Unknown"}
-                  </p>
-                  <p
-                    data-pii
-                    className="truncate text-xs text-muted-foreground"
-                  >
-                    {member.user?.email}
-                  </p>
+        {members.length === 0 ? (
+          <div className="rounded-surface border border-border bg-card">
+            <SettingsEmptyState
+              icon={IconUsers}
+              title="No members yet"
+              description="Invite teammates by email to collaborate."
+            />
+          </div>
+        ) : (
+          members.map((member) => (
+            <Card key={member._id}>
+              <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                  <UserInitials userId={member.userId} hideLastSeen size="md" />
+                  <div className="min-w-0">
+                    <p data-pii className="truncate text-sm font-medium">
+                      {member.user?.fullName || member.user?.email || "Unknown"}
+                    </p>
+                    <p
+                      data-pii
+                      className="truncate text-xs text-muted-foreground"
+                    >
+                      {member.user?.email}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {isOwner && member.userId !== currentUserId ? (
-                  <Select
-                    value={member.role}
-                    onValueChange={(role: "owner" | "member") =>
-                      updateRole({ teamId, userId: member.userId, role })
-                    }
-                  >
-                    <SelectTrigger className="h-7 w-[100px] border-0 bg-secondary text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="owner">owner</SelectItem>
-                      <SelectItem value="member">member</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="rounded-full bg-secondary px-2 py-1 text-xs">
-                    {member.role}
-                  </span>
-                )}
-                {isOwner && member.userId !== currentUserId && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() =>
-                      removeMember({ teamId, userId: member.userId })
-                    }
-                  >
-                    <IconTrash size={14} />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex shrink-0 items-center gap-2">
+                  {isOwner && member.userId !== currentUserId ? (
+                    <Select
+                      value={member.role}
+                      onValueChange={(role: "owner" | "member") =>
+                        updateRole({ teamId, userId: member.userId, role })
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-[100px] border-0 bg-secondary text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="owner">owner</SelectItem>
+                        <SelectItem value="member">member</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="rounded-full bg-secondary px-2 py-1 text-xs">
+                      {member.role}
+                    </span>
+                  )}
+                  {isOwner && member.userId !== currentUserId && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() =>
+                        removeMember({ teamId, userId: member.userId })
+                      }
+                    >
+                      <IconTrash size={14} />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </>
   );

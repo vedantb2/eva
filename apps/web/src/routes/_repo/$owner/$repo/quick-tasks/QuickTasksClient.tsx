@@ -423,10 +423,22 @@ export function QuickTasksClient() {
                       className="text-muted-foreground"
                     />
                   }
-                  title="No quick tasks"
-                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-                  actionLabel="Create Quick Task"
-                  onAction={() => setIsCreating(true)}
+                  title={
+                    hasAnyTasks ? "No matching quick tasks" : "No quick tasks"
+                  }
+                  description={
+                    hasAnyTasks
+                      ? "Try clearing filters to see all tasks."
+                      : "Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+                  }
+                  actionLabel={
+                    hasAnyTasks ? "Clear filters" : "Create Quick Task"
+                  }
+                  onAction={
+                    hasAnyTasks
+                      ? clearAllFilters
+                      : () => setIsCreating(true)
+                  }
                   animate={!hasAnyTasks}
                 />
               </m.div>

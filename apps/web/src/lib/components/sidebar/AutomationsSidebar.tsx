@@ -97,12 +97,17 @@ export function AutomationsSidebar({
             <Spinner size="sm" />
           </div>
         ) : automations.length === 0 ? (
-          <div className="p-4 text-center">
+          <div className="px-4 py-8 text-center">
             <IconPlayerPlay
-              size={28}
-              className="mx-auto mb-2 text-muted-foreground"
+              size={20}
+              className="mx-auto mb-2 text-muted-foreground opacity-50"
             />
-            <p className="text-sm text-muted-foreground">No automations yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No automations yet
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Create one to get started.
+            </p>
           </div>
         ) : (
           <SharedLayoutNav layoutId="automations-nav" className="space-y-1">

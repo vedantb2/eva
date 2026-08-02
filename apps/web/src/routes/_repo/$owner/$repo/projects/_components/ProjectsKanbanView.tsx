@@ -42,7 +42,7 @@ export function ProjectsKanbanView({
               <m.div
                 key={phase}
                 layout
-                className={`flex min-h-0 self-stretch ${KANBAN_COLUMN_WIDTH_CLASS}`}
+                className={`flex min-h-0 snap-center self-stretch ${KANBAN_COLUMN_WIDTH_CLASS}`}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}

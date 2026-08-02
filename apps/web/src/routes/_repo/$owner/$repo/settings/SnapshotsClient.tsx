@@ -33,6 +33,7 @@ import {
 import {
   IconCamera,
   IconCheck,
+  IconFile,
   IconPlayerPlay,
   IconTrash,
   IconUpload,
@@ -859,9 +860,11 @@ function ConfigFilesSection({
             </table>
           </div>
         ) : files && files.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No config files uploaded yet.
-          </p>
+          <SettingsEmptyState
+            icon={IconFile}
+            title="No config files yet"
+            description="Upload files to include in snapshot builds."
+          />
         ) : (
           <div className="flex items-center justify-center py-4">
             <Spinner size="sm" />

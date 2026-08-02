@@ -75,7 +75,7 @@ export function SharedLayoutNavSurface({
         <m.div
           layoutId={layoutId}
           transition={sidebarSharedLayoutTransition}
-          className="pointer-events-none absolute inset-0 rounded-lg bg-sidebar-accent"
+          className="pointer-events-none absolute inset-0 rounded-lg border border-border bg-sidebar-accent"
         />
       ) : null}
       <div className="relative z-10">{children}</div>
@@ -102,7 +102,7 @@ export const sidebarSectionLabelClass =
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(
-    "group flex w-full items-center gap-2.5 rounded-lg px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group flex w-full items-center gap-2.5 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

@@ -519,10 +519,7 @@ export function Sidebar() {
 
                   <nav
                     ref={sidebarScrollRef}
-                    className={cn(
-                      "scrollbar scroll-fade flex min-h-0 flex-1 flex-col justify-between overflow-y-auto",
-                      showGlobalSessionsPanel ? "px-1 py-1" : "px-2 py-3",
-                    )}
+                    className="scrollbar scroll-fade flex min-h-0 flex-1 flex-col justify-between overflow-y-auto px-2 py-2"
                   >
                     <div
                       className={

@@ -17,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@eva/ui";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconFolder } from "@tabler/icons-react";
 import { TeamRepoCard } from "./TeamRepoCard";
+import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 
 type Repo = FunctionReturnType<typeof api.githubRepos.listByTeam>[number];
 
@@ -209,15 +210,25 @@ export function TeamReposTab({
         )}
       </div>
       <div className="space-y-2">
-        {repos.map((repo) => (
-          <TeamRepoCard
-            key={repo._id}
-            repo={repo}
-            teamId={teamId}
-            isOwner={isOwner}
-            onRemove={(repoId) => removeRepo({ teamId, repoId })}
-          />
-        ))}
+        {repos.length === 0 ? (
+          <div className="rounded-surface border border-border bg-card">
+            <SettingsEmptyState
+              icon={IconFolder}
+              title="No codebases yet"
+              description="Assign a repository to this team."
+            />
+          </div>
+        ) : (
+          repos.map((repo) => (
+            <TeamRepoCard
+              key={repo._id}
+              repo={repo}
+              teamId={teamId}
+              isOwner={isOwner}
+              onRemove={(repoId) => removeRepo({ teamId, repoId })}
+            />
+          ))
+        )}
       </div>
     </>
   );

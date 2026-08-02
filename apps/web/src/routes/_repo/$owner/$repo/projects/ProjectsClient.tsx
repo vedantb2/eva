@@ -392,6 +392,22 @@ export function ProjectsClient() {
                 onAction={() => setIsCreating(true)}
               />
             </div>
+          ) : filteredSorted.length === 0 ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <EmptyState
+                icon={
+                  <IconLayoutKanban
+                    size={24}
+                    className="text-muted-foreground"
+                  />
+                }
+                title="No matching projects"
+                description="Try clearing filters to see all projects."
+                actionLabel="Clear filters"
+                onAction={clearAllFilters}
+                animate={false}
+              />
+            </div>
           ) : (
             <AnimatePresence initial={false} mode="wait">
               {view === "kanban" ? (
@@ -403,7 +419,7 @@ export function ProjectsClient() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x">
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-2 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x snap-x snap-mandatory sm:gap-3 sm:snap-none">
                     <ProjectsKanbanView
                       projectsByPhase={projectsByPhase}
                       visiblePhases={visiblePhases}

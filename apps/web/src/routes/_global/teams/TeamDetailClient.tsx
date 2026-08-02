@@ -9,10 +9,8 @@ import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
 import {
   Tabs,
-  TabsBar,
   TabsList,
   TabsTrigger,
-  TabsContent,
   Button,
 } from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
@@ -89,14 +87,15 @@ export function TeamDetailClient({
             logoUrl={team.logoUrl}
             size={28}
             fallback={
-              <div className="flex size-7 items-center justify-center rounded-md bg-primary/10">
-                <IconUsers size={14} className="text-primary" />
+              <div className="flex size-7 items-center justify-center rounded-md border border-border bg-muted">
+                <IconUsers size={14} className="text-muted-foreground" />
               </div>
             }
           />
           <span className="truncate">{displayName}</span>
         </span>
       }
+      comfortable
       headerRight={
         <div className="flex items-center gap-1">
           <Button
@@ -128,116 +127,102 @@ export function TeamDetailClient({
           />
         </div>
       }
-    >
-      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card">
-        <div className="relative h-28 w-full bg-muted">
-          {team.backgroundUrl ? (
-            <img
-              src={team.backgroundUrl}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <IconPhoto size={16} />
-              No sidebar background
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                Sidebar background
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Shown behind the app name at the top of this team&apos;s
-                sidebars.
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-background/90"
-                disabled={backgroundUploading}
-                onClick={() => backgroundInputRef.current?.click()}
-              >
-                <IconPhoto size={14} className="mr-1.5" />
-                {team.backgroundUrl ? "Change" : "Upload"}
-              </Button>
-              {team.backgroundUrl ? (
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className="bg-background/90"
-                  title="Remove background"
-                  disabled={backgroundUploading}
-                  onClick={() => void removeBackground(team._id)}
-                >
-                  <IconPhotoOff size={14} />
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <input
-          ref={backgroundInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleBackgroundSelected}
-        />
-      </div>
-
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          if (isTeamDetailTab(v)) {
-            navigate({
-              to: `/teams/${teamId}/${v}`,
-            });
-          }
-        }}
-      >
-        <TabsBar className="mb-4 px-0 pt-0">
+      tabs={
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            if (isTeamDetailTab(v)) {
+              navigate({
+                to: `/teams/${teamId}/${v}`,
+              });
+            }
+          }}
+        >
           <TabsList>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="codebases">Codebases</TabsTrigger>
-            <TabsTrigger value="env">Environment Variables</TabsTrigger>
+            <TabsTrigger value="env">Env Variables</TabsTrigger>
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
           </TabsList>
-        </TabsBar>
-
-        <TabsContent value="activity">
-          <TeamActivityTab members={members} />
-        </TabsContent>
-
-        <TabsContent value="members">
-          <TeamMembersTab
-            teamId={team._id}
-            members={members}
-            isOwner={isOwner}
+        </Tabs>
+      }
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-surface border border-border bg-card px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+            {team.backgroundUrl ? (
+              <img
+                src={team.backgroundUrl}
+                alt=""
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center">
+                <IconPhoto size={14} className="text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">
+              Sidebar background
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Shown behind the team name in the sidebar.
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={backgroundUploading}
+            onClick={() => backgroundInputRef.current?.click()}
+          >
+            <IconPhoto size={14} className="mr-1.5" />
+            {team.backgroundUrl ? "Change" : "Upload"}
+          </Button>
+          {team.backgroundUrl ? (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="Remove background"
+              disabled={backgroundUploading}
+              onClick={() => void removeBackground(team._id)}
+            >
+              <IconPhotoOff size={14} />
+            </Button>
+          ) : null}
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleBackgroundSelected}
           />
-        </TabsContent>
+        </div>
+      </div>
 
-        <TabsContent value="codebases">
-          <TeamReposTab
-            teamId={team._id}
-            repos={repos}
-            allRepos={allRepos}
-            isOwner={isOwner}
-          />
-        </TabsContent>
-
-        <TabsContent value="env">
-          <TeamEnvVarsTab teamId={team._id} teamEnvVars={teamEnvVars} />
-        </TabsContent>
-
-        <TabsContent value="artifacts">
-          <TeamArtifactsTab teamId={team._id} />
-        </TabsContent>
-      </Tabs>
+      {tab === "activity" ? <TeamActivityTab members={members} /> : null}
+      {tab === "members" ? (
+        <TeamMembersTab
+          teamId={team._id}
+          members={members}
+          isOwner={isOwner}
+        />
+      ) : null}
+      {tab === "codebases" ? (
+        <TeamReposTab
+          teamId={team._id}
+          repos={repos}
+          allRepos={allRepos}
+          isOwner={isOwner}
+        />
+      ) : null}
+      {tab === "env" ? (
+        <TeamEnvVarsTab teamId={team._id} teamEnvVars={teamEnvVars} />
+      ) : null}
+      {tab === "artifacts" ? <TeamArtifactsTab teamId={team._id} /> : null}
     </PageWrapper>
   );
 }

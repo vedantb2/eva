@@ -1,5 +1,9 @@
 # Changelog
 
+## Product chrome consistency pass - 2026-08-02
+
+Aligned list pages, board columns, sidebar active states, empty states, and teams with the settings layout contract: quieter empties, hairline board columns, toolbar refine on Inbox, compact team hero, and shorter first-run onboarding without marketing fluff.
+
 ## Settings layout contract - 2026-08-02
 
 Shared `SettingsPage` / section body variants / toggle rows so global and repo settings share one reading width, title/refine/tabs chrome, and section rhythm. Pages then got shadcn-style simplification: group by job, shorter copy, progressive disclosure (PR recap model, personalisation preset prompt), and fewer one-field cards (audits add forms fold into list sections; app lifecycle commands live in one section).

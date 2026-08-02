@@ -87,13 +87,13 @@ export const KanbanBoard = ({
   return (
     <div
       className={cn(
-        "flex size-full min-h-40 flex-col overflow-hidden bg-accent/10 text-xs transition-colors",
+        "flex size-full min-h-40 flex-col overflow-hidden border border-border bg-muted text-xs transition-[background-color,border-color]",
         SURFACE_RADIUS_CLASS,
         className,
         // After `className` on purpose: callers set a column background, and
-        // tailwind-merge keeps whichever `bg-*` comes last — so the drop
-        // highlight has to be the last word or it never shows.
-        isDropTarget && "bg-primary/10 ring-1 ring-inset ring-primary/30",
+        // tailwind-merge keeps whichever `bg-*` / `border-*` comes last — so
+        // the drop highlight has to be the last word or it never shows.
+        isDropTarget && "border-primary/40 bg-muted",
       )}
       ref={setNodeRef}
     >

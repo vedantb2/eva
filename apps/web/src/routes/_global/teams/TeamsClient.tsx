@@ -3,17 +3,15 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
 import {
-  Card,
-  CardContent,
   Button,
   Input,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   Skeleton,
 } from "@eva/ui";
@@ -102,75 +100,80 @@ export function TeamsClient() {
     }
   };
 
-  return (
-    <PageWrapper title="Teams">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Manage your teams and collaborate on codebases
-        </p>
-        <Dialog open={createDialog.open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <IconPlus size={16} className="mr-1.5" />
-              New Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Team</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Input
-                  value={createDialog.name}
-                  onChange={(e) =>
-                    setCreateDialog((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                      error: "",
-                    }))
-                  }
-                  placeholder="Team name"
-                  disabled={createDialog.isSubmitting}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                />
-              </div>
-              {createDialog.error && (
-                <div className="rounded-surface border border-destructive/50 bg-destructive/10 p-3">
-                  <p className="text-sm text-destructive">
-                    {createDialog.error}
-                  </p>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={createDialog.isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreate}
-                disabled={createDialog.isSubmitting}
-              >
-                {createDialog.isSubmitting ? "Creating..." : "Create"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+  const openCreate = () => handleOpenChange(true);
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {teams === undefined
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-36 border border-border" />
-            ))
-          : teams.map((team) => (
-              <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
-            ))}
-      </div>
+  return (
+    <SettingsPage
+      title="Teams"
+      stack={false}
+      headerRight={
+        <Button size="sm" onClick={openCreate}>
+          <IconPlus size={16} />
+          New Team
+        </Button>
+      }
+    >
+      {teams === undefined ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 border border-border" />
+          ))}
+        </div>
+      ) : teams.length === 0 ? (
+        <EmptyState
+          icon={<IconUsers size={24} />}
+          title="No teams yet"
+          description="Create a team to collaborate on codebases."
+          actionLabel="Create Team"
+          onAction={openCreate}
+        />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map((team) => (
+            <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
+          ))}
+        </div>
+      )}
+
+      <Dialog open={createDialog.open} onOpenChange={handleOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Team</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={createDialog.name}
+              onChange={(e) =>
+                setCreateDialog((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                  error: "",
+                }))
+              }
+              placeholder="Team name"
+              disabled={createDialog.isSubmitting}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            />
+            {createDialog.error ? (
+              <div className="rounded-surface border border-destructive/50 bg-destructive/10 p-3">
+                <p className="text-sm text-destructive">{createDialog.error}</p>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={createDialog.isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={createDialog.isSubmitting}>
+              {createDialog.isSubmitting ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <TeamDeleteDialog
         team={deleteTarget}
@@ -178,27 +181,6 @@ export function TeamsClient() {
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
-
-      {teams !== undefined && teams.length === 0 && (
-        <Card className="mt-8">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <IconUsers size={48} className="mb-4 text-muted-foreground/50" />
-            <p className="mb-2 text-sm font-medium">No teams yet</p>
-            <p className="mb-4 text-xs text-muted-foreground">
-              Create a team to collaborate on codebases
-            </p>
-            <Button
-              size="sm"
-              onClick={() =>
-                setCreateDialog((prev) => ({ ...prev, open: true }))
-              }
-            >
-              <IconPlus size={16} className="mr-1.5" />
-              Create Team
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </PageWrapper>
+    </SettingsPage>
   );
 }

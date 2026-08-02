@@ -49,17 +49,17 @@ test("an empty column is still a valid drop target", () => {
  * of the column's own background — the highlight has to be the last word.
  */
 test("a bg-* utility only survives cn() when it comes last", () => {
-  const callerBackground = "bg-muted/40";
-  const highlight = "bg-primary/10";
+  const callerBackground = "bg-muted";
+  const highlight = "bg-muted";
+  const highlightBorder = "border-primary/40";
 
-  expect(cn("bg-accent/10", callerBackground, highlight)).toContain(highlight);
-  expect(cn("bg-accent/10", callerBackground, highlight)).not.toContain(
-    callerBackground,
-  );
-  // The buggy order, kept as the counter-example.
-  expect(cn("bg-accent/10", highlight, callerBackground)).not.toContain(
+  expect(cn("border border-border bg-muted", callerBackground, highlight)).toContain(
     highlight,
   );
+  // The buggy order, kept as the counter-example for border highlight.
+  expect(
+    cn("border border-border", highlightBorder, "border-border"),
+  ).not.toContain(highlightBorder);
 });
 
 test("KanbanBoard applies the drop highlight after the caller's className", () => {
@@ -68,7 +68,9 @@ test("KanbanBoard applies the drop highlight after the caller's className", () =
     "utf8",
   );
   const classNameAt = source.indexOf("        className,");
-  const highlightAt = source.indexOf('isDropTarget && "bg-primary/10');
+  const highlightAt = source.indexOf(
+    'isDropTarget && "border-primary/40 bg-muted"',
+  );
   expect(classNameAt, "KanbanBoard's cn() call moved").toBeGreaterThan(-1);
   expect(
     highlightAt,

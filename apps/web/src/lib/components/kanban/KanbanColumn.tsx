@@ -23,7 +23,7 @@ export const KANBAN_COLUMN_WIDTH_CLASS =
 
 interface ColumnConfig {
   bg: string;
-  /** Soft column wash tinted to the status/phase colour. */
+  /** Kept for callers; columns use a flat muted wash + hairline border. */
   cardBg?: string;
   text: string;
   label: string;
@@ -64,16 +64,16 @@ export function KanbanColumn({
     <KanbanBoard
       id={id}
       disabled={!droppable}
-      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip ${config.cardBg ?? "bg-muted/40"}`}
+      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted"
     >
-      <div className="flex flex-row items-center justify-between p-2 flex-shrink-0">
+      <div className="flex flex-shrink-0 flex-row items-center justify-between p-2">
         <Badge
           variant="outline"
-          className={`${config.bg} ${config.text} gap-1.5 border-transparent py-1`}
+          className={`${config.bg} ${config.text} gap-1.5 border-border py-1`}
         >
           <Icon size={14} className={config.text} />
           {config.label}
-          <span className="text-foreground/50 tabular-nums">{count}</span>
+          <span className="tabular-nums text-foreground/50">{count}</span>
         </Badge>
         {headerExtra}
       </div>
@@ -81,11 +81,11 @@ export function KanbanColumn({
         ref={ref}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar scroll-fade md:p-1.5 md:pt-0"
       >
-        {count === 0 && (
-          <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
+        {count === 0 ? (
+          <div className="m-1 flex flex-1 items-center justify-center rounded-md border border-dashed border-border px-3 py-8 text-xs text-muted-foreground/60">
             {emptyLabel}
           </div>
-        )}
+        ) : null}
         {children}
       </div>
     </KanbanBoard>

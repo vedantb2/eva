@@ -1,5 +1,9 @@
 # Changelog
 
+## Monorepo URLs stay on slash form - 2026-08-02
+
+Clicking into a monorepo app (e.g. carepulse-ts/web) sometimes flipped the tab from `/owner/repo/app/...` to `/owner/repo--app/...` because the router needs a single `$repo` segment while shareable links already used slashes. A TanStack Router rewrite now maps slash ↔ dash at the history boundary, so the address bar and link hrefs stay on slash while routing still matches `repo--app`. Backend task/session URLs and notification hrefs use slash as well.
+
 ## Inline scroll areas fade at their edges - 2026-08-02
 
 Inline scroll panels hard-cut their content at the boundary, so a list or log pane gave no signal that anything continued past the edge. A new `.scroll-fade` utility masks both edges from the element's own scroll timeline, so an edge only fades while there is content beyond it. Gated on `@supports (animation-timeline: scroll())` — a static fade would permanently dim fully-visible content, worse than the hard cut. Exempted from the blanket reduced-motion rule, which would otherwise collapse the scroll range and freeze the mask at its end state. The same recipe now covers the horizontal axis as `.scroll-fade-x`, replacing the JS overlay fades on the quick-task and project kanban column rows.

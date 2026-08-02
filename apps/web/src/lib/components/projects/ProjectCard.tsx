@@ -186,20 +186,32 @@ export function ProjectCard({
           : undefined
       }
       aria-label={title}
-      decoration={
-        <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      }
+      contentClassName="flex flex-col gap-1.5 px-3 py-2.5 pl-3.5"
     >
-      <div className="flex min-w-0 items-start gap-1.5">
-        <MarqueeOnHover className="min-w-0 flex-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
-          {title}
-        </MarqueeOnHover>
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <MarqueeOnHover className="min-w-0 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+            {title}
+          </MarqueeOnHover>
+          {previewText ? (
+            <p
+              className={cn(
+                "mt-1 line-clamp-2 text-xs leading-relaxed text-pretty",
+                description
+                  ? "text-muted-foreground"
+                  : "italic text-muted-foreground/80",
+              )}
+            >
+              {previewText}
+            </p>
+          ) : null}
+        </div>
         {sandboxStatus ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <span
                 className={cn(
-                  "mt-1.5 size-2 shrink-0 rounded-full",
+                  "relative mt-1.5 size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
                   SANDBOX_STATUS_STYLES[sandboxStatus].dot,
                 )}
               />
@@ -210,14 +222,8 @@ export function ProjectCard({
           </Tooltip>
         ) : null}
       </div>
-      {previewText ? (
-        <p
-          className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground"}`}
-        >
-          {previewText}
-        </p>
-      ) : null}
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+
+      <div className="flex flex-wrap items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge
@@ -239,22 +245,33 @@ export function ProjectCard({
           </TooltipContent>
         </Tooltip>
       </div>
-      <ProjectProgressBar
-        projectId={projectId}
-        className="mt-4 h-1.5 bg-secondary/75"
-      />
-      <div className="mt-3 flex items-center gap-1.5">
-        <AvatarStack size={20} className="-space-x-0.5">
-          {shownAvatarIds.map((id) => (
-            <UserInitials key={id} userId={id} hideLastSeen />
-          ))}
-        </AvatarStack>
-        {hiddenCount > 0 ? (
-          <span className="text-[11px] font-medium leading-none text-muted-foreground">
-            +{hiddenCount}
-          </span>
-        ) : null}
+
+      <div className="mt-0.5 pt-0.5">
+        <ProjectProgressBar
+          projectId={projectId}
+          className="h-1 bg-secondary/80"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <AvatarStack size={18} className="-space-x-0.5">
+              {shownAvatarIds.map((id) => (
+                <UserInitials key={id} userId={id} hideLastSeen />
+              ))}
+            </AvatarStack>
+            {hiddenCount > 0 ? (
+              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                +{hiddenCount}
+              </span>
+            ) : null}
+          </div>
+          {branchName ? (
+            <span className="max-w-[45%] truncate font-mono text-[10px] tabular-nums text-muted-foreground/65">
+              {branchName}
+            </span>
+          ) : null}
+        </div>
       </div>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(event) => event.stopPropagation()}>
           <DialogHeader>
@@ -304,9 +321,7 @@ export function ProjectCard({
   );
 
   const wrappedCard = isBuilding ? (
-    <div className="qt-in-progress-border rounded-[9px] p-px">
-      {cardContent}
-    </div>
+    <div className="qt-in-progress-border p-px">{cardContent}</div>
   ) : (
     cardContent
   );

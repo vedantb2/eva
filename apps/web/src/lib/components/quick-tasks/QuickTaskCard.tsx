@@ -188,7 +188,7 @@ export function QuickTaskCard({
           : undefined
       }
       aria-label={title}
-      contentClassName="px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
+      contentClassName="flex flex-col gap-1.5 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
       className={cn(
         showError
           ? "border-destructive/30 bg-destructive/5"
@@ -198,29 +198,29 @@ export function QuickTaskCard({
         isSelected && "ring-2 ring-primary/40",
       )}
     >
-      <div className="flex min-w-0 items-start gap-1.5">
-        {isSelecting && (
+      <div className="flex min-w-0 items-start gap-2">
+        {isSelecting ? (
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => onToggleSelect?.()}
             onClick={(e) => e.stopPropagation()}
             className={cn("mt-0.5 flex-shrink-0", LIST_ROW_CONTROL_CLASS)}
           />
-        )}
-        <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
-          {taskNumber !== undefined && (
-            <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
+        ) : null}
+        <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+          {taskNumber !== undefined ? (
+            <span className="mr-1.5 font-mono text-[11px] font-normal tabular-nums text-muted-foreground/55">
               #{taskNumber}
             </span>
-          )}
+          ) : null}
           {title}
         </MarqueeOnHover>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
           {priority ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center">
+                <span className="relative flex items-center after:absolute after:inset-[-8px]">
                   <PriorityIcon level={priority} size={14} />
                 </span>
               </TooltipTrigger>
@@ -232,7 +232,7 @@ export function QuickTaskCard({
               <TooltipTrigger asChild>
                 <span
                   className={cn(
-                    "size-2 shrink-0 rounded-full",
+                    "relative size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
                     SANDBOX_STATUS_STYLES[sandboxStatus].dot,
                   )}
                 />
@@ -245,7 +245,7 @@ export function QuickTaskCard({
           {scheduledAt ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center text-primary">
+                <span className="relative flex items-center text-primary after:absolute after:inset-[-8px]">
                   <IconClock className="size-3.5" />
                 </span>
               </TooltipTrigger>
@@ -259,8 +259,8 @@ export function QuickTaskCard({
         </div>
       </div>
 
-      {hasMetadata && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      {hasMetadata ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           {projectName ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -268,10 +268,10 @@ export function QuickTaskCard({
                   variant="default"
                   className="max-w-full px-1.5 py-0 text-[10px] font-medium leading-4"
                 >
-                  <div className="flex min-w-0 flex-row items-center gap-0.5">
+                  <span className="flex min-w-0 items-center gap-0.5">
                     <IconFolder className="size-2.5 shrink-0" />
                     <span className="truncate">{projectName}</span>
-                  </div>
+                  </span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>{projectName}</TooltipContent>
@@ -281,42 +281,44 @@ export function QuickTaskCard({
             <Badge
               key={tag}
               variant="secondary"
-              className="px-1.5 py-0 text-[10px] font-medium leading-4"
+              className="max-w-[7rem] px-1.5 py-0 text-[10px] font-medium leading-4"
             >
-              <div className="flex flex-row gap-0.5 items-center">
-                <IconTag className="size-2.5" />
-                {tag}
-              </div>
+              <span className="flex min-w-0 items-center gap-0.5">
+                <IconTag className="size-2.5 shrink-0" />
+                <span className="truncate">{tag}</span>
+              </span>
             </Badge>
           ))}
         </div>
-      )}
+      ) : null}
 
-      <div className="mt-2 flex items-center justify-between">
+      <div className="mt-0.5 flex items-center justify-between gap-2 pt-0.5">
         <div className="flex min-w-0 items-center gap-1.5">
           {createdByUser ? (
             <>
               <UserInitials user={createdByUser} size="sm" />
               {creatorFirstName ? (
-                <MarqueeOnHover className="min-w-0 text-[10px] text-muted-foreground/70">
+                <MarqueeOnHover className="min-w-0 text-[11px] text-muted-foreground/75">
                   <span data-pii>{creatorFirstName}</span>
                 </MarqueeOnHover>
               ) : null}
             </>
           ) : null}
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] tabular-nums text-muted-foreground/70">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-[11px] tabular-nums text-muted-foreground/70">
             {compactRelativeTime(createdAt)}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
+                type="button"
                 className={cn(
-                  "sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]",
+                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-[var(--motion-ease-out)] after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
                   LIST_ROW_CONTROL_CLASS,
                 )}
                 onClick={(e) => e.stopPropagation()}
+                aria-label="Task actions"
               >
                 <IconDots className="size-3.5" />
               </button>
@@ -334,7 +336,7 @@ export function QuickTaskCard({
   );
 
   const wrappedCard = isInProgress ? (
-    <div className="qt-in-progress-border rounded-[9px] p-px">{card}</div>
+    <div className="qt-in-progress-border p-px">{card}</div>
   ) : (
     card
   );

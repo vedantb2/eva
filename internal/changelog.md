@@ -1,5 +1,9 @@
 # Changelog
 
+## Dispatch-ticket project & quick-task cards - 2026-08-02
+
+Cards drop info the column already encodes (status / phase). Face keeps badges for planning mode and tags, plus people, progress, and time. Quieter type hierarchy and a concentric in-progress ring.
+
 ## Flatter dark UI language (Onyx-inspired) - 2026-08-02
 
 Dark product chrome was a soft charcoal with card shadows, so hierarchy leaned on elevation instead of hairlines. Dark surfaces now sit nearer pure black with a one-step card ladder, cards/surfaces drop `shadow-sm` (overlays keep `shadow-lg/xl`), and landing sections plus empty states get more vertical air — accents, light/neutral, and theme radius stay as they were.

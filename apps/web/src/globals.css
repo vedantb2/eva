@@ -714,6 +714,8 @@ html[data-blur-pid] [data-pii] {
 
 .qt-in-progress-border {
   --qt-border-angle: 0deg;
+  /* Outer = ListRow surface radius + 1px padding (concentric). */
+  border-radius: calc(clamp(0.75rem, var(--radius), 1.25rem) + 1px);
   animation: qt-border-spin 2.5s linear infinite;
   background-image: conic-gradient(
     from var(--qt-border-angle),

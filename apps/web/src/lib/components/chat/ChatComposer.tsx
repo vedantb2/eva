@@ -16,11 +16,10 @@ import { ComposerSpeechButton } from "@/lib/components/chat/_components/Composer
 import {
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_ATTACHMENT_BYTES,
-  chatAttachmentAccept,
+  CHAT_ATTACHMENT_ACCEPT,
   chatAttachmentErrorMessage,
   useUploadChatAttachments,
   ChatAttachmentPreview,
-  type ChatAttachmentMode,
 } from "@/lib/components/chat/imageAttachments";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import { LocalChatDraftSync } from "@/lib/components/chat/LocalChatDraftSync";
@@ -108,8 +107,6 @@ interface ChatComposerProps {
   localDraft?: LocalChatDraft;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
-  /** Session coding chat can attach HTML/MD/TXT; others stay images-only. */
-  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatComposer({
@@ -142,13 +139,12 @@ export function ChatComposer({
   localDraft,
   isDraftLoading,
   hasPendingContext = false,
-  attachmentMode = "images",
 }: ChatComposerProps) {
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
-  const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
+  const uploadChatAttachments = useUploadChatAttachments();
   const { updateQueuedMessage, deleteQueuedMessage, reorderQueuedMessages } =
     useQueuedMessageMutations(queuedMessages);
   // Convex draft wins when both are passed (existing sessions).
@@ -284,12 +280,12 @@ export function ChatComposer({
             )}
             <PromptInput
               onSubmit={handlePromptSubmit}
-              accept={chatAttachmentAccept(attachmentMode)}
+              accept={CHAT_ATTACHMENT_ACCEPT}
               multiple
               maxFiles={MAX_CHAT_ATTACHMENTS}
               maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
               onError={(err) =>
-                toast.error(chatAttachmentErrorMessage(attachmentMode, err))
+                toast.error(chatAttachmentErrorMessage(err))
               }
             >
               <ChatAttachmentPreview />
@@ -303,7 +299,7 @@ export function ChatComposer({
                 initialMentionMap={seed?.mentionMap}
                 initialSkillMap={seed?.skillMap}
                 history={messageHistory}
-                enableImagePaste
+                enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
               <PromptInputFooter>
@@ -312,14 +308,12 @@ export function ChatComposer({
                     dataItems={dataMentions}
                     skills={skills}
                     mentionRef={mentionRef}
-                    attachmentMode={attachmentMode}
                     optionsSubmenu={optionsSubmenu}
                   />
                   {toolsBefore}
                   <ComposerStash
                     repoId={repoId}
                     mentionRef={mentionRef}
-                    attachmentMode={attachmentMode}
                     disabled={isInputDisabled}
                   />
                 </PromptInputTools>

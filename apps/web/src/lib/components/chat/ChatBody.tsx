@@ -7,7 +7,6 @@ import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { ChatVirtualizedTimeline } from "./ChatVirtualizedTimeline";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
 import { useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -92,7 +91,6 @@ interface ChatBodyProps {
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
   hasPendingContext?: boolean;
-  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatBody({
@@ -133,7 +131,6 @@ export function ChatBody({
   onOpenFile,
   onViewDiff,
   hasPendingContext,
-  attachmentMode = "images",
 }: ChatBodyProps) {
   const { firstItemIndex, canLoadOlder, isLoadingOlder, onLoadOlder } = history;
   const { isExecuting, isInputDisabled, isArchived } = availability;
@@ -266,7 +263,6 @@ export function ChatBody({
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
-          attachmentMode={attachmentMode}
         />
       ) : null}
     </>

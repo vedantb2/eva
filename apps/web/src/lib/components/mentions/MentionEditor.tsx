@@ -90,6 +90,11 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
    */
   onImageFiles?: (files: File[]) => void;
   /**
+   * Called for large plain-text pastes. Return true when the paste was handled
+   * (e.g. attached as a file) so the editor skips inline insert.
+   */
+  onLargeTextPaste?: (text: string) => boolean;
+  /**
    * Called on Alt+ArrowUp / Alt+ArrowDown while the mention popup is closed.
    * Return true if the navigation was handled (e.g. a history entry was
    * applied) to suppress the browser default.
@@ -294,6 +299,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   onAcceptSuggestion,
   onDismissSuggestion,
   onImageFiles,
+  onLargeTextPaste,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
@@ -839,8 +845,13 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         return;
       }
     }
+    const plainText = e.clipboardData.getData("text/plain");
+    if (onLargeTextPaste && onLargeTextPaste(plainText)) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
+    const text = plainText;
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);

@@ -13,6 +13,8 @@ interface AttachmentCardProps {
   url: string | null;
   /** Omit to render a read-only card. */
   onRemove?: () => void;
+  /** When set, the card body opens the attachment (e.g. text modal). */
+  onOpen?: () => void;
 }
 
 /**
@@ -24,13 +26,14 @@ export function AttachmentCard({
   contentType,
   url,
   onRemove,
+  onOpen,
 }: AttachmentCardProps) {
   const label = labelForAttachment(name, contentType);
   const FileIcon = iconForAttachment(name, contentType);
   const showThumbnail = isImageContentType(contentType) && url !== null;
 
-  return (
-    <div className="group relative flex w-52 max-w-full items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5">
+  const body = (
+    <>
       {showThumbnail ? (
         <img
           src={url}
@@ -41,6 +44,22 @@ export function AttachmentCard({
         <FileIcon className="size-8 shrink-0 p-1.5 text-muted-foreground" />
       )}
       <span className="truncate text-xs text-foreground">{label}</span>
+    </>
+  );
+
+  return (
+    <div className="group relative flex w-52 max-w-full items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5">
+      {onOpen ? (
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          onClick={onOpen}
+        >
+          {body}
+        </button>
+      ) : (
+        body
+      )}
       {onRemove ? (
         <button
           type="button"

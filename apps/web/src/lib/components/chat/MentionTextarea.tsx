@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { UserProfileHoverCardBody } from "@eva/shared";
+import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
 import {
   MentionEditor,
   type MentionEditorHandle,
@@ -42,11 +43,11 @@ interface MentionTextareaProps {
    */
   history?: string[];
   /**
-   * When true, pasted images are added as attachments (via the prompt-input
-   * attachment context) instead of being inserted as text. Opt-in so surfaces
-   * that don't send attachments (e.g. design chat) keep plain-text paste.
+   * When true, pasted images and large plain-text pastes are added as
+   * attachments (via the prompt-input attachment context) instead of being
+   * inserted as text.
    */
-  enableImagePaste?: boolean;
+  enableAttachmentPaste?: boolean;
   /**
    * What this composer is for, e.g. "message to an AI coding agent working on
    * acme/web". Providing it turns on inline AI completion (Tab to accept);
@@ -68,7 +69,7 @@ export const MentionTextarea = forwardRef<
     initialMentionMap,
     initialSkillMap,
     history,
-    enableImagePaste,
+    enableAttachmentPaste,
     completionContext,
   },
   ref,
@@ -177,7 +178,17 @@ export const MentionTextarea = forwardRef<
       }
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Message input"}
-      onImageFiles={enableImagePaste ? attachments.add : undefined}
+      onImageFiles={enableAttachmentPaste ? attachments.add : undefined}
+      onLargeTextPaste={
+        enableAttachmentPaste
+          ? (text) =>
+              attachPastedTextIfLarge(
+                text,
+                attachments.files.length,
+                attachments.add,
+              )
+          : undefined
+      }
       dataSlot="input-group-control"
       className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none px-5 py-4 text-left focus-visible:outline-none"
       emptySlashContent={

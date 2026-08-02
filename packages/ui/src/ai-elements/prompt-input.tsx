@@ -102,6 +102,8 @@ export interface AttachmentsContext {
   files: (FileUIPart & { id: string })[];
   add: (files: File[] | FileList) => void;
   remove: (id: string) => void;
+  /** Replace one attachment in place (same id / position). No re-validation. */
+  replace: (id: string, file: File) => void;
   clear: () => void;
   openFileDialog: () => void;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -209,6 +211,23 @@ export const PromptInputProvider = ({
     });
   }, []);
 
+  const replace = useCallback((id: string, file: File) => {
+    setAttachmentFiles((prev) =>
+      prev.map((existing) => {
+        if (existing.id !== id) return existing;
+        if (existing.url) {
+          URL.revokeObjectURL(existing.url);
+        }
+        return {
+          ...existing,
+          filename: file.name,
+          mediaType: file.type,
+          url: URL.createObjectURL(file),
+        };
+      }),
+    );
+  }, []);
+
   const clear = useCallback(() => {
     setAttachmentFiles((prev) => {
       for (const f of prev) {
@@ -251,8 +270,9 @@ export const PromptInputProvider = ({
       files: attachmentFiles,
       openFileDialog,
       remove,
+      replace,
     }),
-    [attachmentFiles, add, remove, clear, openFileDialog],
+    [attachmentFiles, add, remove, replace, clear, openFileDialog],
   );
 
   const __registerFileInput = useCallback(
@@ -516,6 +536,23 @@ export const PromptInput = ({
     [],
   );
 
+  const replaceLocal = useCallback((id: string, file: File) => {
+    setItems((prev) =>
+      prev.map((existing) => {
+        if (existing.id !== id) return existing;
+        if (existing.url) {
+          URL.revokeObjectURL(existing.url);
+        }
+        return {
+          ...existing,
+          filename: file.name,
+          mediaType: file.type,
+          url: URL.createObjectURL(file),
+        };
+      }),
+    );
+  }, []);
+
   // Wrapper that validates files before calling provider's add
   const addWithProviderValidation = useCallback(
     (fileList: File[] | FileList) => {
@@ -582,6 +619,9 @@ export const PromptInput = ({
 
   const add = usingProvider ? addWithProviderValidation : addLocal;
   const remove = usingProvider ? controller.attachments.remove : removeLocal;
+  const replace = usingProvider
+    ? controller.attachments.replace
+    : replaceLocal;
   const openFileDialog = usingProvider
     ? controller.attachments.openFileDialog
     : openFileDialogLocal;
@@ -698,8 +738,9 @@ export const PromptInput = ({
       files: files.map((item) => ({ ...item, id: item.id })),
       openFileDialog,
       remove,
+      replace,
     }),
-    [files, add, remove, clearAttachments, openFileDialog],
+    [files, add, remove, replace, clearAttachments, openFileDialog],
   );
 
   const refsCtx = useMemo<ReferencedSourcesContext>(

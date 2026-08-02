@@ -2,16 +2,37 @@
 
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { syncTabsPill } from "./tabsSliding";
 
 const Tabs = TabsPrimitive.Root;
 
+const tabsListVariants = cva(
+  cn(
+    "relative inline-flex items-center justify-center border border-border bg-background p-1 text-muted-foreground",
+    SURFACE_RADIUS_CLASS,
+  ),
+  {
+    variants: {
+      size: {
+        default: "h-10",
+        // Shrinks list + triggers together so callers don't size each TabsTrigger.
+        sm: "h-8 [&_.t-tab]:px-2.5 [&_.t-tab]:py-1 [&_.t-tab]:text-xs",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  },
+);
+
 const TabsList = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> &
+    VariantProps<typeof tabsListVariants>
+>(({ className, children, size, ...props }, ref) => {
   const listRef = React.useRef<React.ComponentRef<
     typeof TabsPrimitive.List
   > | null>(null);
@@ -74,11 +95,7 @@ const TabsList = React.forwardRef<
   return (
     <TabsPrimitive.List
       ref={mergedRef}
-      className={cn(
-        "relative inline-flex h-10 items-center justify-center border border-border bg-background p-1 text-muted-foreground",
-        SURFACE_RADIUS_CLASS,
-        className,
-      )}
+      className={cn(tabsListVariants({ size }), className)}
       {...props}
     >
       <span
@@ -92,6 +109,21 @@ const TabsList = React.forwardRef<
 });
 TabsList.displayName = TabsPrimitive.List.displayName;
 
+const tabsBarVariants = cva(
+  "flex shrink-0 flex-wrap items-center gap-2 border-b border-border",
+  {
+    variants: {
+      size: {
+        default: "px-3 py-2",
+        sm: "px-2 py-1.5",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  },
+);
+
 /**
  * Page- and panel-level tab strip: a `TabsList` sitting on the hairline that
  * divides it from the content below, with an optional trailing slot for
@@ -99,19 +131,17 @@ TabsList.displayName = TabsPrimitive.List.displayName;
  * padding stay identical across surfaces; pass `className` only to override
  * padding (twMerge lets `px-4` win over the default `px-3`).
  *
- * Not for the folder-style sandbox tabs or the small `h-8` segmented toggles —
- * those own their own chrome.
+ * Use `size="sm"` for nested panels (e.g. session Review). Not for folder-style
+ * sandbox tabs — those own their own chrome.
  */
 const TabsBar = React.forwardRef<
   HTMLDivElement,
-  React.ComponentPropsWithoutRef<"div"> & { actions?: React.ReactNode }
->(({ className, children, actions, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<"div"> &
+    VariantProps<typeof tabsBarVariants> & { actions?: React.ReactNode }
+>(({ className, children, actions, size, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn(
-      "flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2",
-      className,
-    )}
+    className={cn(tabsBarVariants({ size }), className)}
     {...props}
   >
     {children}

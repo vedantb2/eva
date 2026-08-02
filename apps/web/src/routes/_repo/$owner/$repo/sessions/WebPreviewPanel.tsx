@@ -96,13 +96,12 @@ export function WebPreviewPanel({
       <div className="h-full flex flex-col">
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
           <IconWorld className="size-8 opacity-50" />
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-sm">
             {!isActive ? "Start the sandbox to preview" : "Waiting for sandbox…"}
           </p>
           {!isActive && onStartSandbox ? (
             <Button
               size="sm"
-              variant="outline"
               onClick={onStartSandbox}
               disabled={isSandboxStarting}
             >

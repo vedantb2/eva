@@ -19,6 +19,11 @@ interface ReviewTabsPanelProps {
   onTabChange: (tab: ReviewTab) => void;
   /** Rendered above the tab row — the standalone page puts the PR title here. */
   header?: ReactNode;
+  /**
+   * Nested surfaces (session sandbox Review) use `size="sm"` on the same
+   * TabsBar / TabsList; the standalone Reviews page keeps the default size.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -39,6 +44,7 @@ export function ReviewTabsPanel({
   activeTab,
   onTabChange,
   header,
+  compact = false,
 }: ReviewTabsPanelProps) {
   // Cached hook, so querying here as well as on a surface that needs the recap
   // to pick a default tab costs one request, not two.
@@ -46,6 +52,7 @@ export function ReviewTabsPanel({
     api.docs.getRecapByPrUrl,
     prUrl ? { repoId, prUrl } : "skip",
   );
+  const tabSize = compact ? "sm" : "default";
 
   return (
     <Tabs
@@ -56,8 +63,8 @@ export function ReviewTabsPanel({
       className="flex h-full min-h-0 flex-col"
     >
       {header}
-      <TabsBar>
-        <TabsList>
+      <TabsBar size={tabSize}>
+        <TabsList size={tabSize}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="diffs">Diffs</TabsTrigger>
           <TabsTrigger value="recap">Recap</TabsTrigger>

@@ -1,12 +1,15 @@
 "use client";
 
 import { Button, Spinner } from "@eva/ui";
-import { IconArrowDown } from "@tabler/icons-react";
+import { IconChevronDown } from "@tabler/icons-react";
 // eslint-disable-next-line no-restricted-imports -- A submitted local turn must scroll after Virtuoso commits its row.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Virtuoso, type Components, type VirtuosoHandle } from "react-virtuoso";
 import { ChatJumpRail } from "./ChatJumpRail";
 import type { ChatJumpAnchor, ChatTimelineRow } from "./chatTimeline";
+
+/** Same debounce as ConversationScrollButton — avoid flashing on brief settles. */
+const SHOW_SCROLL_TO_END_DEBOUNCE_MS = 150;
 
 interface ChatVirtualizedTimelineProps {
   conversationId: string;
@@ -77,7 +80,9 @@ export function ChatVirtualizedTimeline({
   renderRow,
 }: ChatVirtualizedTimelineProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showScrollToEnd, setShowScrollToEnd] = useState(false);
   const [visibleRange, setVisibleRange] = useState<{
     startIndex: number;
     endIndex: number;
@@ -92,8 +97,53 @@ export function ChatVirtualizedTimeline({
     });
   }, [localTurnId, rows.length]);
 
+  useEffect(() => {
+    if (showTimerRef.current !== null) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    setShowScrollToEnd(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (showTimerRef.current !== null) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+
+    if (isAtBottom) {
+      setShowScrollToEnd(false);
+      return;
+    }
+
+    showTimerRef.current = setTimeout(() => {
+      setShowScrollToEnd(true);
+      showTimerRef.current = null;
+    }, SHOW_SCROLL_TO_END_DEBOUNCE_MS);
+
+    return () => {
+      if (showTimerRef.current !== null) {
+        clearTimeout(showTimerRef.current);
+        showTimerRef.current = null;
+      }
+    };
+  }, [isAtBottom]);
+
   if (rows.length === 0) {
     return <div className="flex min-h-0 flex-1">{emptyState}</div>;
+  }
+
+  function scrollToEnd() {
+    if (showTimerRef.current !== null) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    setShowScrollToEnd(false);
+    virtuosoRef.current?.scrollToIndex({
+      index: "LAST",
+      align: "end",
+      behavior: "smooth",
+    });
   }
 
   return (
@@ -101,7 +151,7 @@ export function ChatVirtualizedTimeline({
       <Virtuoso
         key={conversationId}
         ref={virtuosoRef}
-        className="h-full"
+        className="scrollbar scroll-fade h-full"
         data={rows}
         firstItemIndex={firstItemIndex}
         initialTopMostItemIndex={{ index: "LAST", align: "end" }}
@@ -130,23 +180,21 @@ export function ChatVirtualizedTimeline({
           });
         }}
       />
-      {!isAtBottom ? (
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="outline"
-          className="absolute right-4 bottom-4 z-20 rounded-md border border-border bg-background"
-          aria-label="Scroll to latest message"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({
-              index: "LAST",
-              align: "end",
-              behavior: "smooth",
-            });
-          }}
-        >
-          <IconArrowDown className="size-4" />
-        </Button>
+      {showScrollToEnd ? (
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 justify-center">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground hover:border-border hover:bg-card hover:text-foreground"
+            aria-label="Scroll to end"
+            title="Scroll to end"
+            onClick={scrollToEnd}
+          >
+            <IconChevronDown className="size-3.5" />
+            Scroll to end
+          </Button>
+        </div>
       ) : null}
       <ChatJumpRail
         anchors={anchors}

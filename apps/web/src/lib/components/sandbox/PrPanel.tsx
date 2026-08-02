@@ -54,6 +54,7 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
       prNumber={prNumber}
       activeTab={prTab ?? resolvedDefault ?? "diffs"}
       onTabChange={setPrTab}
+      compact
     />
   );
 }

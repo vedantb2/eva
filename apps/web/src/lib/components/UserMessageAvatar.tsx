@@ -4,17 +4,19 @@ import type { Id } from "@eva/backend";
 
 export function UserMessageAvatar({
   userId,
-  className = "h-7 w-7",
+  size = "sm",
+  className = "h-4 w-4",
 }: {
   userId?: Id<"users">;
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
   if (userId) {
-    return <UserInitials userId={userId} hideLastSeen size="md" />;
+    return <UserInitials userId={userId} hideLastSeen size={size} />;
   }
   return (
     <Avatar className={className}>
-      <AvatarFallback className="bg-secondary text-xs text-muted-foreground">
+      <AvatarFallback className="bg-secondary text-[10px] text-muted-foreground">
         U
       </AvatarFallback>
     </Avatar>

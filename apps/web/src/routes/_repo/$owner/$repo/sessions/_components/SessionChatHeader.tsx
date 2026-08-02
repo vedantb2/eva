@@ -65,7 +65,7 @@ export function SessionChatHeader({
   const headerLeft = (
     <Button
       size="icon"
-      variant={isSandboxActive ? "destructive" : "secondary"}
+      variant={isSandboxActive ? "destructive" : "outline"}
       onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
       disabled={isSandboxToggling}
       className={`h-8 w-8 ${isSandboxActive ? "" : "text-success"}`}

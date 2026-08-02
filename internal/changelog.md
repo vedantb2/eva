@@ -1,5 +1,9 @@
 # Changelog
 
+## Session preview empty + sandbox tab chrome - 2026-08-02
+
+Preview empty copy stays muted and Start sandbox is primary so the cold-start CTA reads as the action. Sandbox tabs drop the bar hairline and folder stroke so the strip blends into the panel; the chat header start control shares outline chrome with the other secondary header buttons.
+
 ## Menu padding + composer plus search/people - 2026-08-02
 
 Restored inset padding on dropdown/context menus after the tighten pass left them flush. Plus-menu Skills/Data submenus now filter with search, and Data includes people like the `@` picker so both paths offer the same mention set.

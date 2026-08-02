@@ -55,7 +55,7 @@ export function SessionsSidebarOptionsMenu() {
             <Button
               size="icon-sm"
               variant="ghost"
-              className="motion-press h-8 w-8 shrink-0 text-sidebar-primary hover:scale-[1.03] active:scale-[0.96]"
+              className="h-8 w-8 shrink-0 text-muted-foreground"
               aria-label="Sidebar options"
             >
               <IconAdjustmentsHorizontal size={16} />
@@ -115,7 +115,7 @@ export function SessionsSidebarOptionsMenu() {
             type="button"
             size="icon-sm"
             variant="ghost"
-            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
+            className="h-8 w-8"
             aria-label="Decrease visible thread count"
             disabled={settings.sessionPreviewCount <= MIN_SESSION_PREVIEW_COUNT}
             onPointerDown={(e) => e.preventDefault()}
@@ -126,14 +126,14 @@ export function SessionsSidebarOptionsMenu() {
           >
             <IconMinus size={16} />
           </Button>
-          <span className="min-w-8 flex-1 text-center text-sm tabular-nums text-foreground">
+          <span className="min-w-8 flex-1 text-center text-sm tabular-nums text-muted-foreground">
             {settings.sessionPreviewCount}
           </span>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
+            className="h-8 w-8"
             aria-label="Increase visible thread count"
             disabled={settings.sessionPreviewCount >= MAX_SESSION_PREVIEW_COUNT}
             onPointerDown={(e) => e.preventDefault()}

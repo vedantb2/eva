@@ -123,7 +123,7 @@ export function sidebarNavLinkClassCompact(isActive: boolean): string {
 
 export function sidebarNavListItemClass(isActive: boolean): string {
   return cn(
-    "flex w-full items-center px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+    "flex w-full items-center rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

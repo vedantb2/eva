@@ -5,9 +5,11 @@ import {
   clampSessionPreviewCount,
   DEFAULT_SESSIONS_SIDEBAR_SETTINGS,
   isAppSortOrder,
+  isSessionListMode,
   isSessionSortOrder,
   SESSIONS_SIDEBAR_SETTINGS_KEY,
   type AppSortOrder,
+  type SessionListMode,
   type SessionSortOrder,
   type SessionsSidebarSettings,
 } from "./_utils/sessionsSidebarSettings";
@@ -19,10 +21,15 @@ function parseSettings(raw: SessionsSidebarSettings): SessionsSidebarSettings {
   const sessionSortOrder = isSessionSortOrder(raw.sessionSortOrder)
     ? raw.sessionSortOrder
     : DEFAULT_SESSIONS_SIDEBAR_SETTINGS.sessionSortOrder;
+  const listMode =
+    typeof raw.listMode === "string" && isSessionListMode(raw.listMode)
+      ? raw.listMode
+      : DEFAULT_SESSIONS_SIDEBAR_SETTINGS.listMode;
   return {
     appSortOrder,
     sessionSortOrder,
     sessionPreviewCount: clampSessionPreviewCount(raw.sessionPreviewCount),
+    listMode,
   };
 }
 
@@ -47,6 +54,9 @@ export function useSessionsSidebarSettings() {
         ...parseSettings(prev),
         sessionPreviewCount: clampSessionPreviewCount(sessionPreviewCount),
       }));
+    },
+    setListMode: (listMode: SessionListMode) => {
+      setRaw((prev) => ({ ...parseSettings(prev), listMode }));
     },
   };
 }

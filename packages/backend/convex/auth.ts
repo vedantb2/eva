@@ -278,6 +278,29 @@ export const setBlurPidEnabled = authMutation({
   },
 });
 
+/**
+ * Returns whether live voice dictation is enabled. Defaults to false
+ * (opt-in experimental). Model is hardcoded server-side.
+ */
+export const getVoiceDictationEnabled = authQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.voiceDictationEnabled ?? false;
+  },
+});
+
+/** Updates the current user's voice-dictation preference. */
+export const setVoiceDictationEnabled = authMutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, { voiceDictationEnabled: args.enabled });
+    return null;
+  },
+});
+
 /** Returns the current user's custom theme configuration. */
 export const getCustomTheme = authQuery({
   args: {},

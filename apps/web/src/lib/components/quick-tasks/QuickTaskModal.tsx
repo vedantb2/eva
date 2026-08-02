@@ -49,8 +49,12 @@ import {
   IconCheck,
   IconX,
   IconInfoCircle,
+  IconMicrophone,
+  IconPlayerStop,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
 import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
@@ -137,6 +141,9 @@ export function QuickTaskModal({
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
   const editorRef = useRef<DescriptionMentionEditorHandle>(null);
+  const voiceEnabled = useQuery(api.auth.getVoiceDictationEnabled);
+  const { isListening, isConnecting, toggle } =
+    useGatewayDictation(setDescription);
 
   // Seed the mention/skill maps from the initial draft's tokenized description
   // so that @-mention and /skill chips render correctly on deep-link open.
@@ -389,6 +396,46 @@ export function QuickTaskModal({
 
           <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
             <div className="flex flex-wrap items-center gap-1.5">
+              {voiceEnabled === true ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={
+                        isListening && !isConnecting
+                          ? "destructive"
+                          : "secondary"
+                      }
+                      onClick={() => toggle(description)}
+                      disabled={isLoading || isConnecting}
+                      className="h-8 w-8"
+                      aria-label={
+                        isConnecting
+                          ? "Connecting microphone"
+                          : isListening
+                            ? "Stop voice input"
+                            : "Voice input"
+                      }
+                    >
+                      {isConnecting ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : isListening ? (
+                        <IconPlayerStop size={14} />
+                      ) : (
+                        <IconMicrophone size={14} />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isConnecting
+                      ? "Connecting…"
+                      : isListening
+                        ? "Stop recording"
+                        : "Voice input"}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               <PriorityPicker value={priority} onChange={setPriority} />
 
               <AssigneeSelector

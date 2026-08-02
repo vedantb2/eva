@@ -61,6 +61,8 @@ export const userFields = {
   experimentalSessionTabsEnabled: v.optional(v.boolean()),
   /** Blur user names and email addresses across the UI (for screen recording). */
   blurPidEnabled: v.optional(v.boolean()),
+  /** Opt-in live voice dictation via AI Gateway streaming STT. */
+  voiceDictationEnabled: v.optional(v.boolean()),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one

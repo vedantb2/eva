@@ -25,7 +25,18 @@ export function ExperimentalSettingsClient() {
     localStore.setQuery(api.auth.getBlurPidEnabled, {}, args.enabled);
   });
 
-  if (enabled === undefined || blurPid === undefined) {
+  const voiceDictation = useQuery(api.auth.getVoiceDictationEnabled);
+  const setVoiceDictation = useMutation(
+    api.auth.setVoiceDictationEnabled,
+  ).withOptimisticUpdate((localStore, args) => {
+    localStore.setQuery(api.auth.getVoiceDictationEnabled, {}, args.enabled);
+  });
+
+  if (
+    enabled === undefined ||
+    blurPid === undefined ||
+    voiceDictation === undefined
+  ) {
     return (
       <PageWrapper title="Experimental" comfortable>
         <div className="flex items-center justify-center py-12">
@@ -57,6 +68,19 @@ export function ExperimentalSettingsClient() {
               checked={blurPid}
               onCheckedChange={(checked) => setBlurPid({ enabled: checked })}
               aria-label="Blur personal info"
+            />
+          }
+        />
+        <SettingsSection
+          title="Voice dictation"
+          description="Live speech-to-text in chat composers and the quick-task description field via AI Gateway. Off by default. Requires microphone permission."
+          action={
+            <Switch
+              checked={voiceDictation}
+              onCheckedChange={(checked) =>
+                setVoiceDictation({ enabled: checked })
+              }
+              aria-label="Voice dictation"
             />
           }
         />

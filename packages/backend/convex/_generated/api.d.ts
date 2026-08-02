@@ -312,6 +312,7 @@ import type * as teamMembers from "../teamMembers.js";
 import type * as teams from "../teams.js";
 import type * as testGenWorkflow from "../testGenWorkflow.js";
 import type * as textGen from "../textGen.js";
+import type * as transcription from "../transcription.js";
 import type * as userProviderAccounts from "../userProviderAccounts.js";
 import type * as userProviderAccountsActions from "../userProviderAccountsActions.js";
 import type * as users from "../users.js";
@@ -630,6 +631,7 @@ declare const fullApi: ApiFromModules<{
   teams: typeof teams;
   testGenWorkflow: typeof testGenWorkflow;
   textGen: typeof textGen;
+  transcription: typeof transcription;
   userProviderAccounts: typeof userProviderAccounts;
   userProviderAccountsActions: typeof userProviderAccountsActions;
   users: typeof users;

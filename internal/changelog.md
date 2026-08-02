@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick tasks get auto-tagged on create - 2026-08-02
+
+Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
+
 ## ListRow cards use the router Link - 2026-08-02
 
 Raw `<a href>` on project and quick-task cards bypassed TanStack Router's `rewrite`, so monorepo URLs could still hard-load the internal `repo--app` form. ListRow now accepts a `link` slot (Radix Slot) so cards render `DynamicLink`; the rewrite owns the address-bar href, and plain clicks SPA-navigate without a parallel `navigate()` handler.

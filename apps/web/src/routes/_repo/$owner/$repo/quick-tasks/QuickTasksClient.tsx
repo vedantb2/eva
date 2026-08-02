@@ -31,6 +31,7 @@ import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { TASK_TAGS } from "@eva/shared";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -82,12 +83,13 @@ export function QuickTasksClient() {
   })();
 
   const allTags = (() => {
-    if (!tasks) return [];
-    const tagSet = new Set<string>();
-    for (const t of tasks) {
-      if (t.tags) {
-        for (const tag of t.tags) {
-          tagSet.add(tag);
+    const tagSet = new Set<string>(TASK_TAGS);
+    if (tasks) {
+      for (const t of tasks) {
+        if (t.tags) {
+          for (const tag of t.tags) {
+            tagSet.add(tag);
+          }
         }
       }
     }

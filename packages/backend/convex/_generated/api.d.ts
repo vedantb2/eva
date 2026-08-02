@@ -70,6 +70,7 @@ import type * as _mentions_dataKinds from "../_mentions/dataKinds.js";
 import type * as _mentions_extractMentionedUserIds from "../_mentions/extractMentionedUserIds.js";
 import type * as _mentions_listData from "../_mentions/listData.js";
 import type * as _mentions_mentionToken from "../_mentions/mentionToken.js";
+import type * as _mentions_notifyChatMentions from "../_mentions/notifyChatMentions.js";
 import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMentions.js";
 import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessageTokens.js";
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
@@ -387,6 +388,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/extractMentionedUserIds": typeof _mentions_extractMentionedUserIds;
   "_mentions/listData": typeof _mentions_listData;
   "_mentions/mentionToken": typeof _mentions_mentionToken;
+  "_mentions/notifyChatMentions": typeof _mentions_notifyChatMentions;
   "_mentions/resolveDocMentions": typeof _mentions_resolveDocMentions;
   "_mentions/resolveMessageTokens": typeof _mentions_resolveMessageTokens;
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;

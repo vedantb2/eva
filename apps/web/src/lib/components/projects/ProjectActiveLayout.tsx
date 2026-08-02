@@ -20,6 +20,7 @@ import type { ProjectPhase } from "./ProjectPhaseBadge";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { TASK_TAGS } from "@eva/shared";
 
 interface Project {
   _id: Id<"projects">;
@@ -112,7 +113,7 @@ export function ProjectActiveLayout({
         } as const)
       : undefined;
 
-  const tagSet = new Set<string>();
+  const tagSet = new Set<string>(TASK_TAGS);
   if (tasks) {
     for (const t of tasks) {
       if (t.tags) {

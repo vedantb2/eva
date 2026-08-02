@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { aiModelValidator } from "../validators";
+import { internal } from "../_generated/api";
 import {
   authQuery,
   authMutation,
@@ -162,6 +163,12 @@ export const activateDraft = authMutation({
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       runAuditEnabled: args.runAuditEnabled,
       attachmentStorageIds: args.attachmentStorageIds,
+    });
+    await ctx.scheduler.runAfter(0, internal.textGen.generateTaskTags, {
+      taskId: args.id,
+      title: args.title,
+      description: args.description,
+      existingTags: normalizeTaskTags(args.tags) ?? [],
     });
     if (args.assignedTo) {
       await ensureSubscribed(ctx, args.id, args.assignedTo);

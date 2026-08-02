@@ -5,7 +5,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { repoHref } from "@/lib/utils/repoUrl";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
 
-/** Mod+1 … Mod+9 jump straight to the 1st … 9th app tile in the rail. */
+/** Alt+1 … Alt+9 jump straight to the 1st … 9th app tile in the rail. */
 const HOTKEY_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 /**
@@ -24,7 +24,7 @@ function RailAppHotkey({
   const navigate = useNavigate();
 
   useHotkey(
-    `Mod+${slot}`,
+    `Alt+${slot}`,
     (e) => {
       if (!repo) return;
       e.preventDefault();
@@ -38,8 +38,8 @@ function RailAppHotkey({
 }
 
 /**
- * Keyboard shortcuts for the vertical rail's app tiles: Mod+1 selects the first
- * app, Mod+2 the second, and so on up to Mod+9. Slots beyond the app count are
+ * Keyboard shortcuts for the vertical rail's app tiles: Alt+1 selects the first
+ * app, Alt+2 the second, and so on up to Alt+9. Slots beyond the app count are
  * inert, so the browser's own tab shortcuts still work there.
  */
 export function RailAppHotkeys({

@@ -223,8 +223,8 @@ function RepoRailView({
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
         {repos.map((row, index) => {
           const displayName = repoDisplayLabel(row);
-          // Mirrors RailAppHotkeys: only the first nine tiles get Mod+N.
-          const hotkeyLabel = index < 9 ? `⌘${index + 1}` : null;
+          // Mirrors RailAppHotkeys: only the first nine tiles get Alt+N.
+          const hotkeyLabel = index < 9 ? `⌥${index + 1}` : null;
           // While the global Sessions destination is highlighted, don't also
           // light up a repo tile — the rail should show one active target.
           const active =

@@ -1,3 +1,7 @@
+// TODO(vedant): run once and confirm end-to-end — zip in backups/,
+// dashboard table counts match prod on dev:good-mule-506, file-storage
+// records resolve, and the target's env vars are untouched.
+//
 // Replaces the cloud dev deployment's data with a fresh prod snapshot.
 //
 // Two steps, both through the Convex CLI so authentication comes from the

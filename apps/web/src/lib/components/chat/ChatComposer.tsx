@@ -206,7 +206,7 @@ export function ChatComposer({
   }
 
   return (
-    <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
+    <div className="p-3 md:p-4 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
           <m.div
@@ -309,7 +309,7 @@ export function ChatComposer({
                 enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
-              <PromptInputFooter>
+              <PromptInputFooter className="px-5 pb-5">
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}

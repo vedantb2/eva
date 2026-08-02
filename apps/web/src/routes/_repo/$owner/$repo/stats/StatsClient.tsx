@@ -102,7 +102,7 @@ export function StatsClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <KpiGroup>
+            <KpiGroup className="lg:grid-cols-3">
               <Kpi
                 icon={IconGitPullRequest}
                 label="PRs Shipped"

@@ -2,7 +2,7 @@
 
 ## Inline scroll areas fade at their edges - 2026-08-02
 
-Inline scroll panels hard-cut their content at the boundary, so a list or log pane gave no signal that anything continued past the edge. A new `.scroll-fade` utility masks both edges from the element's own scroll timeline, so an edge only fades while there is content beyond it. Gated on `@supports (animation-timeline: scroll())` — a static fade would permanently dim fully-visible content, worse than the hard cut. Exempted from the blanket reduced-motion rule, which would otherwise collapse the scroll range and freeze the mask at its end state.
+Inline scroll panels hard-cut their content at the boundary, so a list or log pane gave no signal that anything continued past the edge. A new `.scroll-fade` utility masks both edges from the element's own scroll timeline, so an edge only fades while there is content beyond it. Gated on `@supports (animation-timeline: scroll())` — a static fade would permanently dim fully-visible content, worse than the hard cut. Exempted from the blanket reduced-motion rule, which would otherwise collapse the scroll range and freeze the mask at its end state. The same recipe now covers the horizontal axis as `.scroll-fade-x`, replacing the JS overlay fades on the quick-task and project kanban column rows.
 
 ## Three primitives replace thirty hand-rolled copies - 2026-08-02
 

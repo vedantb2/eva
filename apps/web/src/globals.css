@@ -33,12 +33,12 @@ html {
 }
 
 /*
- * Mask stops for `.scroll-fade` (defined in @layer utilities). Custom
- * properties only interpolate once registered, so these cannot be plain
- * `--vars`. Each is driven by its own range of the element's scroll timeline:
- * the top fade grows in over the first 1.5rem of scroll, the bottom fade
- * shrinks out over the last 1.5rem. Content flush against an edge therefore
- * never fades — only content that continues past it does.
+ * Mask stops for `.scroll-fade` / `.scroll-fade-x` (defined in @layer
+ * utilities). Custom properties only interpolate once registered, so these
+ * cannot be plain `--vars`. Each is driven by its own range of the element's
+ * scroll timeline: the leading fade grows in over the first 1.5rem of scroll,
+ * the trailing fade shrinks out over the last 1.5rem. Content flush against an
+ * edge therefore never fades — only content that continues past it does.
  */
 @property --scroll-fade-top {
   syntax: "<length>";
@@ -46,6 +46,16 @@ html {
   initial-value: 0px;
 }
 @property --scroll-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-left {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-right {
   syntax: "<length>";
   inherits: false;
   initial-value: 0px;
@@ -58,6 +68,16 @@ html {
 @keyframes scroll-fade-bottom {
   from {
     --scroll-fade-bottom: 1.5rem;
+  }
+}
+@keyframes scroll-fade-left {
+  to {
+    --scroll-fade-left: 1.5rem;
+  }
+}
+@keyframes scroll-fade-right {
+  from {
+    --scroll-fade-right: 1.5rem;
   }
 }
 
@@ -579,10 +599,14 @@ html {
 
 /* ───────────────────────────────────────────────────────────────────
  * Scroll edge fade — pair with `.scrollbar` on an inline scroll area so
- * its content does not hard-cut at the top and bottom boundary. The mask
- * stops are the two registered properties declared near the top of this
- * file, each driven by its own range of the element's scroll timeline, so
- * an edge only fades while there is more content past it.
+ * its content does not hard-cut at the boundary. The mask stops are the
+ * registered properties declared near the top of this file, each driven
+ * by its own range of the element's scroll timeline, so an edge only
+ * fades while there is more content past it.
+ *
+ * `.scroll-fade` is the vertical (block) axis; `.scroll-fade-x` is the
+ * horizontal (inline) axis — same recipe, used by the quick-task / project
+ * kanban column row.
  *
  * Gated on scroll-driven animation support: without it the fade could not
  * follow the scroll position, and a permanently faded edge dims content
@@ -607,6 +631,23 @@ html {
       scroll-fade-top linear both,
       scroll-fade-bottom linear both;
     animation-timeline: scroll(self block);
+    animation-range:
+      0 1.5rem,
+      calc(100% - 1.5rem) 100%;
+  }
+
+  .scroll-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--scroll-fade-left),
+      #000 calc(100% - var(--scroll-fade-right)),
+      transparent 100%
+    );
+    animation:
+      scroll-fade-left linear both,
+      scroll-fade-right linear both;
+    animation-timeline: scroll(self inline);
     animation-range:
       0 1.5rem,
       calc(100% - 1.5rem) 100%;
@@ -1246,14 +1287,15 @@ html[data-blur-pid] [data-pii] {
 */
 
 /*
- * Exception: `.scroll-fade` is not motion. It tracks a scroll the user is
- * already making, so there is nothing to reduce. The blanket reduced-motion
- * rule above (when re-enabled) would give its scroll timeline a 0.01ms slice
- * of the range and freeze the mask at its end state — top edge permanently
- * faded, bottom edge never.
+ * Exception: `.scroll-fade` / `.scroll-fade-x` are not motion. They track a
+ * scroll the user is already making, so there is nothing to reduce. The
+ * blanket reduced-motion rule above (when re-enabled) would give their scroll
+ * timeline a 0.01ms slice of the range and freeze the mask at its end state —
+ * leading edge permanently faded, trailing edge never.
  */
 @media (prefers-reduced-motion: reduce) {
-  .scroll-fade {
+  .scroll-fade,
+  .scroll-fade-x {
     animation-duration: auto !important;
   }
 }

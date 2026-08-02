@@ -244,6 +244,7 @@ export const fontFamilyValidator = v.union(
   v.literal("poppins"),
   v.literal("dm-sans"),
   v.literal("space-grotesk"),
+  v.literal("host-grotesk"),
   v.literal("geist"),
   v.literal("source-serif"),
   v.literal("jakarta"),

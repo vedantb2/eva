@@ -66,6 +66,7 @@ export type FontFamily =
   | "poppins"
   | "dm-sans"
   | "space-grotesk"
+  | "host-grotesk"
   | "geist"
   | "source-serif"
   | "jakarta"
@@ -142,6 +143,11 @@ export const FONT_FAMILIES: Record<
     label: "Space Grotesk",
     variable: "--font-space-grotesk",
     stack: "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  },
+  "host-grotesk": {
+    label: "Host Grotesk",
+    variable: "--font-host-grotesk",
+    stack: "'Host Grotesk', ui-sans-serif, system-ui, sans-serif",
   },
   geist: {
     label: "Geist",

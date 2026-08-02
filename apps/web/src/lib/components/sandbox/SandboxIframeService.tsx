@@ -378,7 +378,7 @@ export function SandboxIframeService({
         )}
         {state === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 p-4">
-            <pre className="text-sm text-destructive whitespace-pre-wrap max-w-full max-h-48 overflow-auto scrollbar scroll-fade rounded-surface bg-destructive/5 p-3">
+            <pre className="text-sm text-destructive whitespace-pre-wrap max-w-full max-h-48 overflow-auto scroll-fade rounded-surface bg-destructive/5 p-3">
               {error}
             </pre>
             <Button size="sm" variant="secondary" onClick={start}>

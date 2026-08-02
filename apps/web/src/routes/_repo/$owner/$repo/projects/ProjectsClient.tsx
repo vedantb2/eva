@@ -416,7 +416,7 @@ export function ProjectsClient() {
                 >
                   <HorizontalScrollFade
                     className="min-h-0 flex-1"
-                    contentClassName="flex h-full min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar scrollbar-x"
+                    contentClassName="flex h-full min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
                   >
                     <ProjectsKanbanView
                       projectsByPhase={projectsByPhase}

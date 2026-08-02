@@ -478,7 +478,7 @@ export function StatusFieldsSection({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="max-h-56 overflow-y-auto scrollbar"
+                className="max-h-56 overflow-y-auto"
               >
                 {(() => {
                   const tagSet = new Set(task?.tags ?? []);

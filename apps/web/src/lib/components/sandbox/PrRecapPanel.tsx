@@ -225,7 +225,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         <p className="px-3 py-1 text-sm text-destructive">{generateError}</p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto scrollbar px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
         {view === "recap" ? (
           recapDoc.html ? (
             <HtmlPreviewFrame html={recapDoc.html} title="PR recap" />

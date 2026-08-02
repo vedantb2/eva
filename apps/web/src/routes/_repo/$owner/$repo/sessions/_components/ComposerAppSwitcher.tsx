@@ -55,7 +55,7 @@ export function ComposerAppSwitcher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="center"
-        className="max-h-80 w-64 overflow-y-auto scrollbar"
+        className="max-h-80 w-64 overflow-y-auto"
       >
         {(repos ?? []).map((row) => {
           const displayName = repoDisplayLabel(row);

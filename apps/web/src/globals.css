@@ -543,21 +543,12 @@ html {
   }
 
   .scrollbar {
-    /* Reserve the gutter so an appearing scrollbar never re-wraps the text. */
-    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
   }
   .scrollbar:hover {
     scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
   }
-
-  /* Opt-out for horizontal-only scrollers (tab rows, wide tables, code blocks).
-     They never show a vertical scrollbar, so a reserved gutter is dead space. */
-  .scrollbar-x {
-    scrollbar-gutter: auto;
-  }
-
   .scrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;

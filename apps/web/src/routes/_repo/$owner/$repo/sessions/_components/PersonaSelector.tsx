@@ -195,7 +195,7 @@ export function ManagePersonasModal({
           <DialogHeader>
             <DialogTitle>Manage Personas</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto scrollbar">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
             {personas?.map((persona) =>
               editingId === persona._id ? (
                 <div key={persona._id}>{formUI}</div>

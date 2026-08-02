@@ -228,7 +228,7 @@ export function TaskActivityComposerForm({
             minHeight="min-h-24"
             initialMentionMap={initialMentionMap}
             initialSkillMap={initialSkillMap}
-            className={cn("overflow-y-auto scrollbar", editorClassName)}
+            className={cn("overflow-y-auto", editorClassName)}
             completionContext={`a description of further changes to request from an AI coding agent${task?.title ? ` on the task "${task.title}"` : ""}`}
           />
         ) : (

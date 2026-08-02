@@ -67,7 +67,7 @@ export function SessionTabsArchivedMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="max-h-80 w-56 overflow-y-auto scrollbar"
+        className="max-h-80 w-56 overflow-y-auto"
       >
         {nonEmpty.length === 0 ? (
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">
@@ -94,7 +94,7 @@ export function SessionTabsArchivedMenu({
                     {group.sessions.length}
                   </span>
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="max-h-72 w-72 overflow-y-auto scrollbar">
+                <DropdownMenuSubContent className="max-h-72 w-72 overflow-y-auto">
                   {group.sessions.map((session) => {
                     const pathSegment = entityPathSegment(session);
                     const href = pathSegment

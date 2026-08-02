@@ -68,7 +68,7 @@ export function SystemAlertMessage({
                 Sandbox Error
               </DialogTitle>
             </DialogHeader>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-64 overflow-y-auto scrollbar scroll-fade">
+            <pre className="whitespace-pre-wrap text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-64 overflow-y-auto scroll-fade">
               {errorDetail}
             </pre>
             <DialogFooter>

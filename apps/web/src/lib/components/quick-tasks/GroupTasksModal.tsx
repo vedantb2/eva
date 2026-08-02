@@ -209,7 +209,7 @@ export function GroupTasksModal({
           <label className="text-sm font-medium text-muted-foreground">
             Task order (drag to reorder)
           </label>
-          <div className="max-h-48 overflow-y-auto scrollbar space-y-1">
+          <div className="max-h-48 overflow-y-auto space-y-1">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -248,7 +248,7 @@ export function GroupTasksModal({
             </div>
           </TabsContent>
           <TabsContent value="existing">
-            <div className="pt-2 space-y-2 max-h-80 overflow-y-auto scrollbar">
+            <div className="pt-2 space-y-2 max-h-80 overflow-y-auto">
               {projects?.filter(
                 (p) =>
                   p.phase === "in_progress" ||

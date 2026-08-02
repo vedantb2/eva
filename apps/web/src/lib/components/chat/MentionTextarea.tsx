@@ -179,7 +179,7 @@ export const MentionTextarea = forwardRef<
       ariaLabel={placeholder ?? "Message input"}
       onImageFiles={enableImagePaste ? attachments.add : undefined}
       dataSlot="input-group-control"
-      className="min-h-16 max-h-40 self-stretch overflow-y-auto scrollbar rounded-none px-5 py-4 text-left focus-visible:outline-none"
+      className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none px-5 py-4 text-left focus-visible:outline-none"
       emptySlashContent={
         skillsSettingsHref ? (
           <span>

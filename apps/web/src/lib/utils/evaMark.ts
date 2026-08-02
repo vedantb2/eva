@@ -19,11 +19,25 @@ export const EVA_MARK_BLUE = "#3B7DD8";
  * `documentElement` because `ThemeModeProvider` is an ancestor: its
  * class-applying effect runs after its children's, so a child reading computed
  * styles would see the previous appearance.
+ *
+ * In-app only (`EvaIcon`). The tab favicon uses `FAVICON_SURFACE` instead —
+ * card-dark `#17181A` disappears into dark browser chrome.
  */
 export const MARK_SURFACE: Record<ThemeAppearance, string> = {
   light: "#FFFFFF",
   dark: "#17181A",
   neutral: "#303134",
+};
+
+/**
+ * Favicon disc colours. Must read against OS tab chrome, not the app shell.
+ * Discord keeps one bright mark; we do the same — light tile in every theme
+ * so the squircle silhouette never vanishes on a dark tab bar.
+ */
+const FAVICON_SURFACE: Record<ThemeAppearance, string> = {
+  light: "#FFFFFF",
+  dark: "#FFFFFF",
+  neutral: "#FFFFFF",
 };
 
 /** Browser/OS chrome colour per theme, mirroring `--app-shell` in globals.css. */
@@ -93,7 +107,7 @@ export function evaMarkDataUri(
   appearance: ThemeAppearance,
   badgeLabel: string | null,
 ): string {
-  const surface = MARK_SURFACE[appearance];
+  const surface = FAVICON_SURFACE[appearance];
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
     markGroup(surface) +

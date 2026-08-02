@@ -132,10 +132,6 @@ export function QuickTasksKanbanBoard({
         items={tasks}
         visibleStatuses={visibleStatuses}
         onStatusChange={handleStatusChange}
-        onItemClick={() => {
-          // Card Link overlays own navigation (and stopPropagation). Kept as a
-          // no-op so KanbanBoard's required prop stays satisfied.
-        }}
         fillHeight
         columnExtra={(status) =>
           status === "todo" && todoTasks.length > 0 ? (

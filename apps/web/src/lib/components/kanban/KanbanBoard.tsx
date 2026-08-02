@@ -47,7 +47,6 @@ interface KanbanBoardProps<T extends BaseTask> {
   onStatusChange: (id: string, status: TaskStatus) => Promise<void>;
   renderCard: (item: T) => ReactNode;
   renderOverlay: (item: T) => ReactNode;
-  onItemClick: (item: T) => void;
   fillHeight?: boolean;
   columnExtra?: (status: TaskStatus) => ReactNode;
 }
@@ -63,7 +62,6 @@ export function KanbanBoard<T extends BaseTask>({
   onStatusChange,
   renderCard,
   renderOverlay,
-  onItemClick,
   fillHeight = false,
   columnExtra,
 }: KanbanBoardProps<T>) {
@@ -208,7 +206,6 @@ export function KanbanBoard<T extends BaseTask>({
                         count={countByStatus[status] ?? 0}
                         headerExtra={columnExtra?.(status)}
                         renderCard={renderCard}
-                        onItemClick={onItemClick}
                       />
                     </m.div>,
                   ]
@@ -227,14 +224,12 @@ function VirtualKanbanColumn<T extends BaseTask>({
   count,
   headerExtra,
   renderCard,
-  onItemClick,
 }: {
   status: TaskStatus;
   items: T[];
   count: number;
   headerExtra?: ReactNode;
   renderCard: (item: T) => ReactNode;
-  onItemClick: (item: T) => void;
 }) {
   const { owner, name } = useRepo();
   const { scrollParent, scrollRef } = usePersistedScrollParent(
@@ -261,9 +256,7 @@ function VirtualKanbanColumn<T extends BaseTask>({
               const task = items[index];
               return (
                 <div className="pb-1.5">
-                  <KanbanCard id={task._id} onClick={() => onItemClick(task)}>
-                    {renderCard(task)}
-                  </KanbanCard>
+                  <KanbanCard id={task._id}>{renderCard(task)}</KanbanCard>
                 </div>
               );
             }}

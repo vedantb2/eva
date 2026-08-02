@@ -23,7 +23,6 @@ import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import {
   IconGitPullRequest,
   IconPercentage,
-  IconUsers,
   IconChecklist,
 } from "@tabler/icons-react";
 
@@ -31,12 +30,10 @@ export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  // Every window below is measured from one of these two clocks. The analytics
-  // queries take the timestamp as an argument because they cannot read it
-  // themselves — a Convex query is cached against its data, so a clock read
-  // freezes at whatever time the result was first computed.
+  // Analytics windows are measured from this clock. Queries take the timestamp
+  // as an argument because they cannot read it themselves — a Convex query is
+  // cached against its data, so a clock read freezes at first compute time.
   const today = useQuantizedNow(DAY_MS);
-  const nowByMinute = useQuantizedNow(60_000);
 
   const startTime = getStartTime(timeRange, today);
   const bucketSize = getBucketSize(timeRange);
@@ -46,10 +43,6 @@ export function StatsClient() {
     repoId: repo._id,
     startTime,
     previousStartTime: getPreviousStartTime(timeRange, today),
-  });
-  const activeUsers = useQuery(api.analytics.getActiveUsers, {
-    repoId: repo._id,
-    now: nowByMinute,
   });
   const timeline = useQuery(api.analytics.getActivityTimeline, {
     repoId: repo._id,
@@ -68,7 +61,6 @@ export function StatsClient() {
 
   const isLoading =
     impactStats === undefined ||
-    activeUsers === undefined ||
     timeline === undefined ||
     leaderboard === undefined ||
     heatmap === undefined;
@@ -88,8 +80,8 @@ export function StatsClient() {
           aria-label="Loading stats"
         >
           <Skeleton className="h-40 border border-border" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 border border-border" />
             ))}
           </div>
@@ -133,12 +125,6 @@ export function StatsClient() {
                     ? impactStats.prevShipRate
                     : undefined
                 }
-              />
-              <Kpi
-                icon={IconUsers}
-                label="Humans Prompting"
-                value={activeUsers.count}
-                subtitle="Last 5 minutes"
               />
               <Kpi
                 icon={IconChecklist}

@@ -1,5 +1,9 @@
 # Changelog
 
+## Session chat + sandbox polish - 2026-08-02
+
+Session Review/preview chrome, Virtuoso chat scroll affordances, and teammate message layout (side avatar, name over bubble text) so the highest-traffic session surface matches the rest of the product language. Dropped the low-signal Humans Prompting KPI from app stats.
+
 ## Session preview empty + sandbox tab chrome - 2026-08-02
 
 Preview empty copy stays muted and Start sandbox is primary so the cold-start CTA reads as the action. Sandbox tabs drop the bar hairline and folder stroke so the strip blends into the panel; the chat header start control shares outline chrome with the other secondary header buttons.

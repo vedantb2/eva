@@ -224,7 +224,6 @@ export function ProjectsClient() {
         value={searchQuery}
         onChange={(v) => setParams({ q: v ?? "" })}
         placeholder="Search projects..."
-        tooltipLabel="Search projects"
         visible={hasProjects}
         variant="large"
       />

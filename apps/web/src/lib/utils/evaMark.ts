@@ -32,7 +32,7 @@ export const MARK_SURFACE: Record<ThemeAppearance, string> = {
 /**
  * Favicon disc colours. Must read against OS tab chrome, not the app shell.
  * Discord keeps one bright mark; we do the same — light tile in every theme
- * so the squircle silhouette never vanishes on a dark tab bar.
+ * so the disc silhouette never vanishes on a dark tab bar.
  */
 const FAVICON_SURFACE: Record<ThemeAppearance, string> = {
   light: "#FFFFFF",
@@ -50,34 +50,32 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * Discord looks bigger for two reasons that scale alone cannot fix: (1) its
- * mark is a rounded square that fills the favicon slot, and (2) Clyde is a
- * fat filled glyph that eats most of that square. Our sparkle is a thin
- * four-point star — even on a full-bleed squircle most of the pixels stay
- * empty disc, which reads as a tiny logo. So the favicon uses a squircle
- * disc and scales the star up from centre so the brand mass matches Clyde.
- *
- * Badge ~half the canvas on the BR corner. Same layout with or without a
- * count, so the tab icon does not resize as notifications arrive and clear.
+ * Rounded-full disc (same as in-app). The unread bubble sits on top of the
+ * bottom-right edge — Discord-style overlay, not a carved inset. A thin dark
+ * cutout separates red from the mark; the thick white ring is gone so the
+ * digit can fill the badge. Star is scaled up so the thin sparkle still has
+ * brand mass at 16px. Layout is identical with or without a count so the tab
+ * icon does not resize as notifications arrive and clear.
  */
-const FAVICON_DISC_RADIUS = 96;
-/** Grow the sparkle so its arms fill the squircle the way Clyde fills Discord. */
+/** Grow the sparkle so its arms fill the disc the way Clyde fills Discord. */
 const FAVICON_STAR_SCALE = 1.45;
-const BADGE_CENTER = 384;
-const BADGE_RING_RADIUS = 146;
-const BADGE_RADIUS = 130;
+/** Badge centre on the disc's BR quadrant — hangs slightly off the edge. */
+const BADGE_CENTER = 390;
+/** Thin dark separator only; red gets almost the whole bubble. */
+const BADGE_CUTOUT_RADIUS = 168;
+const BADGE_RADIUS = 156;
 
 /** Shrinks the text as digits are added so "99+" still fits inside the bubble. */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 100;
-  if (label.length === 2) return 160;
-  return 220;
+  if (label.length >= 3) return 130;
+  if (label.length === 2) return 210;
+  return 300;
 }
 
-/** Full-bleed squircle + enlarged star. In-app `EvaIcon` keeps the unscaled circle. */
+/** Full-bleed circle + enlarged star. */
 function markGroup(surface: string): string {
   return (
-    `<rect width="512" height="512" rx="${FAVICON_DISC_RADIUS}" ry="${FAVICON_DISC_RADIUS}" fill="${surface}"/>` +
+    `<circle cx="256" cy="256" r="256" fill="${surface}"/>` +
     `<g transform="translate(256 256) scale(${FAVICON_STAR_SCALE}) translate(-256 -256)">` +
     `<polygon points="${EVA_MARK_TOP_POINTS}" fill="${EVA_MARK_PURPLE}"/>` +
     `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>` +
@@ -85,10 +83,10 @@ function markGroup(surface: string): string {
   );
 }
 
-/** The unread bubble, straddling the disc's bottom-right edge. */
-function badgeGroup(label: string, surface: string): string {
+/** Unread bubble overlaid on the disc's bottom-right edge. */
+function badgeGroup(label: string): string {
   return (
-    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RING_RADIUS}" fill="${surface}"/>` +
+    `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_CUTOUT_RADIUS}" fill="#050606"/>` +
     `<circle cx="${BADGE_CENTER}" cy="${BADGE_CENTER}" r="${BADGE_RADIUS}" fill="#e5484d"/>` +
     `<text x="${BADGE_CENTER}" y="${BADGE_CENTER}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="${badgeFontSize(label)}" fill="#ffffff">${label}</text>`
   );
@@ -111,7 +109,7 @@ export function evaMarkDataUri(
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
     markGroup(surface) +
-    (badgeLabel === null ? "" : badgeGroup(badgeLabel, surface)) +
+    (badgeLabel === null ? "" : badgeGroup(badgeLabel)) +
     "</svg>";
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

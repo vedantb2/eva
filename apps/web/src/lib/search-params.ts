@@ -351,15 +351,6 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
-/**
- * Notification open in the inbox detail pane, or null for none. Deliberately
- * unvalidated: the id is a Convex document id whose shape is a backend detail,
- * and an id that no longer resolves already renders the "nothing selected"
- * pane. Replaces history rather than pushing, so reading ten notifications
- * does not bury the previous page under ten back presses.
- */
-export const inboxNotificationParser = parseAsString.withOptions(searchOptions);
-
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];
 export const pullRequestListStateParser = parseAsStringLiteral(

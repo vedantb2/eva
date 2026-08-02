@@ -561,6 +561,12 @@ export const createQuickTask = authMutation({
       numId,
     });
     await ensureSubscribed(ctx, taskId, ctx.userId);
+    await ctx.scheduler.runAfter(0, internal.textGen.generateTaskTags, {
+      taskId,
+      title: args.title,
+      description: args.description,
+      existingTags: normalizeTaskTags(args.tags) ?? [],
+    });
     if (args.assignedTo) {
       await ensureSubscribed(ctx, taskId, args.assignedTo);
     }

@@ -54,4 +54,5 @@ export {
   getInternal,
   getInternalByStringId,
   getBySandboxInternal,
+  applyGeneratedTags,
 } from "./_agentTasks/internal";

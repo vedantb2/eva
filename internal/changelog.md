@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick tasks get auto-tagged on create - 2026-08-02
+
+Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
+
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
 - Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.

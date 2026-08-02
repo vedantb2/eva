@@ -1,5 +1,9 @@
 # Changelog
 
+## Husky gates moved to on-demand `/preflight` - 2026-08-02
+
+Commit and push hooks (lint-staged, typecheck, compiler check, Cursor attribution strip, stray `@` guard) were slowing every git write while still often disabled. Those `.husky/` scripts are commented out in place; run `/preflight` when you want the same checks without paying on every commit.
+
 ## Voice dictation streams through AI Gateway - 2026-08-02
 
 Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.

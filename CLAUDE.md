@@ -105,7 +105,7 @@ Nuqs:
 
 Husky:
 
-- If the codebase uses Nextjs/React, make sure husky is setup with the default prettier configuration to format code before it gets committed.
+- Prefer `/preflight` occasionally over husky commit/push gates (hooks under `.husky/` are commented out).
 
 Verification Rules after implementation:
 

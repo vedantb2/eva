@@ -36,17 +36,19 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * Discord fills the favicon square with a rounded rect and drops a large red
- * count on the bottom-right. A circle inscribed in the same square always
- * looks smaller — the transparent corners read as padding even at scale 1.
- * The favicon therefore draws a full-bleed squircle for the disc; in-app
- * `EvaIcon` stays a circle.
+ * Discord looks bigger for two reasons that scale alone cannot fix: (1) its
+ * mark is a rounded square that fills the favicon slot, and (2) Clyde is a
+ * fat filled glyph that eats most of that square. Our sparkle is a thin
+ * four-point star — even on a full-bleed squircle most of the pixels stay
+ * empty disc, which reads as a tiny logo. So the favicon uses a squircle
+ * disc and scales the star up from centre so the brand mass matches Clyde.
  *
- * Badge ~half the canvas, parked on the BR corner so digits survive at 16px.
- * Same layout with or without a count, so the tab icon does not resize as
- * notifications arrive and clear.
+ * Badge ~half the canvas on the BR corner. Same layout with or without a
+ * count, so the tab icon does not resize as notifications arrive and clear.
  */
 const FAVICON_DISC_RADIUS = 96;
+/** Grow the sparkle so its arms fill the squircle the way Clyde fills Discord. */
+const FAVICON_STAR_SCALE = 1.45;
 const BADGE_CENTER = 384;
 const BADGE_RING_RADIUS = 146;
 const BADGE_RADIUS = 130;
@@ -58,12 +60,14 @@ function badgeFontSize(label: string): number {
   return 220;
 }
 
-/** Full-bleed disc + star. Squircle fills the canvas the way Discord's mark does. */
+/** Full-bleed squircle + enlarged star. In-app `EvaIcon` keeps the unscaled circle. */
 function markGroup(surface: string): string {
   return (
     `<rect width="512" height="512" rx="${FAVICON_DISC_RADIUS}" ry="${FAVICON_DISC_RADIUS}" fill="${surface}"/>` +
+    `<g transform="translate(256 256) scale(${FAVICON_STAR_SCALE}) translate(-256 -256)">` +
     `<polygon points="${EVA_MARK_TOP_POINTS}" fill="${EVA_MARK_PURPLE}"/>` +
-    `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>`
+    `<polygon points="${EVA_MARK_BOTTOM_POINTS}" fill="${EVA_MARK_BLUE}"/>` +
+    `</g>`
   );
 }
 

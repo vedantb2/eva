@@ -36,28 +36,27 @@ export const SHELL_COLOR: Record<ThemeAppearance, string> = {
 /**
  * Favicon layout, in the 512 viewBox.
  *
- * The badge half-overlaps the disc at its bottom-right rather than sitting
- * inside it, so it needs room outside the circle. An SVG viewport clips, so
- * that room is carved out of the canvas: the mark is scaled to 212/256 and the
- * badge ring lands exactly on the canvas edge (362 + 150 = 512). The scale is
- * permanent — reserving the gutter whether or not a count is showing keeps the
- * tab icon from resizing as notifications arrive and clear.
+ * Discord-style: the mark stays nearly full-bleed, and the unread bubble
+ * half-overlaps its bottom-right edge rather than sitting inside it. An SVG
+ * viewport clips, so a thin gutter outside the disc is still carved out of the
+ * canvas — enough for the badge ring to land on the edge without the mark
+ * looking shrunken. The scale is permanent (with or without a count) so the
+ * tab icon does not resize as notifications arrive and clear.
  *
- * Badge sizing was picked by rendering every count width from 16px to 96px: the
- * bubble is large enough that the digits survive a 16px favicon, and the ring
- * (drawn in the theme's surface colour) separates the red from both the mark it
- * overlaps and the tab background it hangs over.
+ * Badge sizing was picked against a 16px tab: the bubble is large enough that
+ * digits survive, and the ring (drawn in the theme's surface colour) separates
+ * the red from both the mark it overlaps and the tab background it hangs over.
  */
-const MARK_SCALE = 212 / 256;
-const BADGE_CENTER = 362;
-const BADGE_RING_RADIUS = 150;
-const BADGE_RADIUS = 126;
+const MARK_SCALE = 240 / 256;
+const BADGE_CENTER = 404;
+const BADGE_RING_RADIUS = 108;
+const BADGE_RADIUS = 92;
 
 /** Shrinks the text as digits are added so "99+" still fits inside the bubble. */
 function badgeFontSize(label: string): number {
-  if (label.length >= 3) return 95;
-  if (label.length === 2) return 145;
-  return 201;
+  if (label.length >= 3) return 70;
+  if (label.length === 2) return 105;
+  return 145;
 }
 
 /** The disc and star, scaled into the favicon's badge-gutter layout. */

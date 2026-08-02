@@ -40,8 +40,18 @@ export const LIST_ROW_CONTROL_CLASS = "relative z-[2]";
  * overlay would be clipped away and keyboard focus would be invisible. The
  * `has-[…]` selector is scoped to the overlay's `data-slot` so a focused nested
  * control does not also light up the whole row.
+ *
+ * ## Why it forwards a ref and spreads the rest
+ *
+ * Rows are the child of a `<ContextMenuTrigger asChild>`. Radix's `asChild`
+ * clones the child to inject its own ref and `onContextMenu`/`onPointerDown`
+ * handlers, so a row that neither forwards a ref nor spreads what it is handed
+ * drops every one of them and the right-click menu silently never opens.
  */
-export interface ListRowProps {
+export interface ListRowProps extends Omit<
+  React.ComponentPropsWithoutRef<"div">,
+  "onClick" | "children"
+> {
   children: React.ReactNode;
   /**
    * Background class for the 4px stripe down the leading edge — the row's
@@ -58,7 +68,11 @@ export interface ListRowProps {
   href?: string;
   /** Omit along with `href` for a row that is display-only. */
   onClick?: () => void;
-  /** Names the row for screen readers, since the overlay has no text of its own. */
+  /**
+   * Names the row for screen readers, since the overlay has no text of its own.
+   * Lands on the overlay rather than the shell, so it labels the control that
+   * actually carries the role.
+   */
   "aria-label"?: string;
   className?: string;
   /** Padding for the row body. Defaults to the standard row inset. */
@@ -67,17 +81,21 @@ export interface ListRowProps {
   decoration?: React.ReactNode;
 }
 
-function ListRow({
-  children,
-  accentClassName,
-  selected = false,
-  href,
-  onClick,
-  className,
-  contentClassName,
-  decoration,
-  "aria-label": ariaLabel,
-}: ListRowProps) {
+const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
+  {
+    children,
+    accentClassName,
+    selected = false,
+    href,
+    onClick,
+    className,
+    contentClassName,
+    decoration,
+    "aria-label": ariaLabel,
+    ...props
+  },
+  ref,
+) {
   const interactive = href !== undefined || onClick !== undefined;
 
   const overlayClasses =
@@ -85,6 +103,8 @@ function ListRow({
 
   return (
     <div
+      ref={ref}
+      {...props}
       className={cn(
         "group relative overflow-hidden",
         SURFACE_RADIUS_CLASS,
@@ -144,6 +164,6 @@ function ListRow({
       </div>
     </div>
   );
-}
+});
 
 export { ListRow };

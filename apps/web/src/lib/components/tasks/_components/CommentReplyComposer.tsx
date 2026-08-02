@@ -105,7 +105,7 @@ function CommentReplyComposerForm({
           <UserInitials userId={currentUserId} size="sm" hideLastSeen />
         ) : null}
       </span>
-      <div className="relative flex-1">
+      <div className="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-control border border-input bg-card transition-[background-color,border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35 hover:bg-muted/50">
         <CommentMentionInput
           ref={mentionRef}
           value={replyText}
@@ -114,10 +114,10 @@ function CommentReplyComposerForm({
           placeholder="Leave a reply"
           initialMentionMap={initialMentionMap}
           initialSkillMap={initialSkillMap}
-          className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color] hover:bg-muted/50"
+          className="min-h-0 max-h-36 min-w-0 flex-1 rounded-none border-0 bg-transparent py-1.5 pr-2 shadow-none focus-visible:ring-0"
         />
         <CommentSendButton
-          className="absolute right-1.5 bottom-1.5"
+          className="mr-1.5 shrink-0"
           disabled={!canSubmit}
           isSubmitting={isSubmitting}
           onClick={handleSubmit}
@@ -135,7 +135,8 @@ function CommentReplyComposerForm({
 /**
  * Persistent thread reply input, Linear-style: the current user's avatar, a
  * single-line "Leave a reply" field that grows as you type, and an always-
- * visible send button. Enter submits; Shift+Enter inserts a newline.
+ * visible send button on the same row at the trailing end. Enter submits;
+ * Shift+Enter inserts a newline.
  */
 export function CommentReplyComposer({
   taskId,
@@ -151,13 +152,13 @@ export function CommentReplyComposer({
     return (
       <div className="flex items-start gap-2">
         <span className="flex h-9 w-4 shrink-0 items-center justify-center" />
-        <div className="relative flex-1">
+        <div className="flex min-h-9 min-w-0 flex-1 items-center rounded-control border border-input bg-card">
           <CommentMentionInput
             value=""
             onValueChange={() => undefined}
             placeholder="Leave a reply"
             disabled
-            className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color]"
+            className="min-h-0 max-h-36 min-w-0 flex-1 rounded-none border-0 bg-transparent py-1.5 shadow-none focus-visible:ring-0"
           />
         </div>
       </div>

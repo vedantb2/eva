@@ -25,7 +25,8 @@ const buttonVariants = cva(
         // carry `hit-target` — it grows the pressable area by 8px on every side
         // via a pseudo-element, without touching layout. Row-level controls
         // were being hand-sized to `size-6`/`size-7` precisely because these
-        // did not exist.
+        // did not exist. (`.hit-target` must not override Tailwind `absolute` —
+        // see globals.css.)
         xs: "h-7 rounded-md px-2 text-[11px] hit-target [&_svg]:size-3.5",
         sm: "h-8 rounded-lg px-3 text-xs",
         lg: "h-11 rounded-lg px-6",

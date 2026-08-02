@@ -1,5 +1,9 @@
 # Changelog
 
+## One icon library across the app - 2026-08-02
+
+Eighteen call sites still imported from `lucide-react` while the rest of the UI already used Tabler, so the same chevron, search, and close glyphs shipped twice under different stroke weights. Those files now import from `@tabler/icons-react`, and `lucide-react` is dropped from web, UI, and the chrome extension. One library, one visual weight.
+
 ## Past changelogs are readable at /changelog - 2026-08-01
 
 Each week's changelog was shown once, in a dialog that dismissed permanently, so anyone who clicked through it lost the entry and anyone who joined later never saw the earlier ones. A new `/changelog` route in the home sidebar lists every published entry newest-first as a timeline, rendered with the same Streamdown setup as the dialog so the two cannot disagree on how a table or diagram looks. Both read the "Eva Weekly Changelog" automation's successful runs, now through one shared automation lookup rather than two copies of the same title scan. Successful runs that finished without a summary are dropped instead of rendering as empty cards, and the list caps at fifty entries — about a year of a weekly automation, deep enough that paging is not needed.

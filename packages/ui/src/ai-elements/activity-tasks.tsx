@@ -10,14 +10,14 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import {
-  ChevronDownIcon,
-  CircleIcon,
-  CircleCheckBigIcon,
-  GitBranchIcon,
-  LoaderIcon,
-  SearchIcon,
-  TerminalIcon,
-} from "lucide-react";
+  IconChevronDown,
+  IconCircle,
+  IconCircleCheck,
+  IconGitBranch,
+  IconLoader,
+  IconSearch,
+  IconTerminal2,
+} from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
 import { Shimmer } from "./shimmer";
@@ -109,16 +109,16 @@ export interface ActivityTasksProps extends ComponentProps<"div"> {
 function TodoStatusIcon({ status }: { status: TodoItem["status"] }) {
   if (status === "completed") {
     return (
-      <CircleCheckBigIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+      <IconCircleCheck className="mt-0.5 size-3.5 shrink-0 text-primary" />
     );
   }
   if (status === "in_progress") {
     return (
-      <LoaderIcon className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
+      <IconLoader className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
     );
   }
   return (
-    <CircleIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+    <IconCircle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
   );
 }
 
@@ -156,9 +156,9 @@ function TodoChecklist({
 }
 
 function bashIconForKind(kind: CommandVisualKind) {
-  if (kind === "inspect") return SearchIcon;
-  if (kind === "git") return GitBranchIcon;
-  return TerminalIcon;
+  if (kind === "inspect") return IconSearch;
+  if (kind === "git") return IconGitBranch;
+  return IconTerminal2;
 }
 
 /** One per-call activity row with Synara-style humanized label. */
@@ -288,7 +288,7 @@ function ActivityStepRow({
         <Collapsible className="group w-full">
           <CollapsibleTrigger className="flex w-full items-center gap-2 text-left transition-colors hover:text-foreground">
             {rowHeader}
-            <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            <IconChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1.5 ml-6 space-y-1 border-l border-border pl-3 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
             <ActivityStepDetail step={step} onOpenFile={onOpenFile} />
@@ -431,7 +431,7 @@ export const ActivityTasks = memo(
         >
           <CollapsibleTrigger className="flex w-full items-center gap-2 border-b border-border pb-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground">
             <span>Worked for {duration}</span>
-            <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+            <IconChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-1.5 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
             <ActivityRowList

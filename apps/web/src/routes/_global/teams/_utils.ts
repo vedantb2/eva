@@ -42,13 +42,25 @@ export function describeLocation(pathname?: string): string | null {
   const global = GLOBAL_LABELS[first];
   if (global !== undefined) return global;
 
+  // Repo routes are `/{owner}/{repo}[/section/...]` or
+  // `/{owner}/{repo}/{app}/[section/...]`. Strip a `repo--app` suffix, or a
+  // slash app segment when the next piece is a known section.
   const second = segments[1];
   if (second === undefined) return first;
 
-  // Repo routes are `/{owner}/{repo}[/section/...]`, where the repo segment may
-  // carry a sandboxed-app suffix (`repo--app`) that is noise in a label.
-  const repo = `${first}/${second.replace(/--.*$/, "")}`;
-  const third = segments[2];
-  const section = third === undefined ? undefined : REPO_SECTION_LABELS[third];
-  return section === undefined ? repo : `${repo} · ${section}`;
+  const repoLabel = `${first}/${second.replace(/--.*$/, "")}`;
+  let sectionKey = segments[2];
+  if (
+    sectionKey !== undefined &&
+    REPO_SECTION_LABELS[sectionKey] === undefined &&
+    segments[3] !== undefined &&
+    REPO_SECTION_LABELS[segments[3]] !== undefined
+  ) {
+    // /owner/repo/app/section — app is not part of the label noise we strip
+    // from `--`, but we still want the section name.
+    sectionKey = segments[3];
+  }
+  const section =
+    sectionKey === undefined ? undefined : REPO_SECTION_LABELS[sectionKey];
+  return section === undefined ? repoLabel : `${repoLabel} · ${section}`;
 }

@@ -2,7 +2,7 @@
 
 import { Link, useLocation } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { decodeRepoParam } from "@/lib/utils/repoUrl";
+import { decodeRepoParam, KNOWN_REPO_SUB_PAGES } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -45,19 +45,7 @@ import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
-const KNOWN_SUB_PAGES = new Set([
-  "projects",
-  "docs",
-  "reviews",
-  "sessions",
-  "quick-tasks",
-  "settings",
-  "testing-arena",
-  "stats",
-  "automations",
-  "inbox",
-  "drafts",
-]);
+const KNOWN_SUB_PAGES = KNOWN_REPO_SUB_PAGES;
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);

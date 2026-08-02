@@ -62,23 +62,25 @@ export function RepoProvider({
   }, [repo, navigate]);
 
   // Bare /owner/repo URLs for monorepos without a visible root row resolve to an
-  // app repo — canonicalize the path so links and basePath stay consistent.
+  // app repo — canonicalize to the internal `--` path (rewrite shows slash).
   useEffect(() => {
     if (!repo?.rootDirectory || appName) return;
     const appSegment = repo.rootDirectory.split("/").pop();
     if (!appSegment) return;
 
-    const barePrefix = `/${owner}/${repoParam}`;
+    const barePrefix = `/${owner}/${name}`;
     const canonicalPrefix = `/${owner}/${name}--${appSegment}`;
     if (!location.pathname.startsWith(barePrefix)) return;
+    const after = location.pathname.slice(barePrefix.length);
+    if (after !== "" && !after.startsWith("/")) return;
     if (barePrefix === canonicalPrefix) return;
 
     navigate({
-      to: `${canonicalPrefix}${location.pathname.slice(barePrefix.length)}`,
+      to: `${canonicalPrefix}${after}`,
       search: (prev) => prev,
       replace: true,
     });
-  }, [repo, appName, owner, name, repoParam, location.pathname, navigate]);
+  }, [repo, appName, owner, name, location.pathname, navigate]);
 
   const resolvedAppName = appName ?? repo?.rootDirectory?.split("/").pop();
   const basePath = resolvedAppName

@@ -4,11 +4,11 @@ function getEvaBaseUrl(): string {
   return url.replace(/\/$/, "");
 }
 
-function repoSegment(repoName: string, rootDirectory?: string): string {
+function repoPath(repoName: string, rootDirectory?: string): string {
   if (!rootDirectory) return repoName;
   const appName = rootDirectory.split("/").pop();
   if (!appName) return repoName;
-  return `${repoName}--${appName}`;
+  return `${repoName}/${appName}`;
 }
 
 /** Builds a link to view a task in the Eva web app. */
@@ -19,7 +19,7 @@ export function buildEvaTaskUrl(
   projectId?: string,
   rootDirectory?: string,
 ): string {
-  const segment = repoSegment(repoName, rootDirectory);
+  const segment = repoPath(repoName, rootDirectory);
   const baseUrl = getEvaBaseUrl();
   if (projectId) {
     return `${baseUrl}/${repoOwner}/${segment}/projects/${projectId}`;
@@ -34,7 +34,7 @@ export function buildEvaSessionUrl(
   sessionId: string,
   rootDirectory?: string,
 ): string {
-  const segment = repoSegment(repoName, rootDirectory);
+  const segment = repoPath(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/sessions/${sessionId}`;
 }
 
@@ -45,7 +45,7 @@ export function buildEvaProjectUrl(
   projectId: string,
   rootDirectory?: string,
 ): string {
-  const segment = repoSegment(repoName, rootDirectory);
+  const segment = repoPath(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/projects/${projectId}`;
 }
 
@@ -62,7 +62,7 @@ export function buildEvaDocUrl(
     | "user-flows" = "content",
   rootDirectory?: string,
 ): string {
-  const segment = repoSegment(repoName, rootDirectory);
+  const segment = repoPath(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/docs/${docNumId}/${docTab}`;
 }
 
@@ -74,6 +74,6 @@ export function buildEvaReviewUrl(
   reviewTab: "overview" | "recap" | "diff" = "recap",
   rootDirectory?: string,
 ): string {
-  const segment = repoSegment(repoName, rootDirectory);
+  const segment = repoPath(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/reviews/${prNumber}/${reviewTab}`;
 }

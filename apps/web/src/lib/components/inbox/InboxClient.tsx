@@ -15,26 +15,7 @@ import { inboxFilterParser } from "@/lib/search-params";
 import { type Notification } from "@/lib/components/notifications/notification-config";
 import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
 import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
-
-const KNOWN_SUB_PAGES = new Set([
-  "projects",
-  "docs",
-  "sessions",
-  "quick-tasks",
-  "settings",
-  "testing-arena",
-  "stats",
-  "automations",
-  "inbox",
-]);
-
-function transformNotificationHref(href: string): string {
-  const segments = href.split("/").filter(Boolean);
-  if (segments.length < 3) return href;
-  if (KNOWN_SUB_PAGES.has(segments[2])) return href;
-  const [owner, repo, appName, ...rest] = segments;
-  return `/${owner}/${repo}--${appName}/${rest.join("/")}`;
-}
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 function groupByDate(notifications: Notification[]) {
   const groups: { label: string; items: Notification[] }[] = [];
@@ -112,7 +93,7 @@ export function InboxClient() {
 
   const handleClick = (n: Notification) => {
     if (!n.read) markAsRead({ id: n._id });
-    if (n.href) navigate({ to: transformNotificationHref(n.href) });
+    if (n.href) navigate({ to: toInternalRepoHref(n.href) });
   };
 
   const isEmpty = groups !== undefined && groups.length === 0;

@@ -1,5 +1,13 @@
 import { cn } from "@eva/ui";
 
+type SettingsSectionBodyVariant = "form" | "list" | "compact";
+
+const BODY_VARIANT_CLASS: Record<SettingsSectionBodyVariant, string> = {
+  form: "px-4 py-4",
+  list: "p-0",
+  compact: "px-4 py-2",
+};
+
 interface SettingsSectionProps {
   /** Section heading. Kept short — the description carries the detail. */
   title: React.ReactNode;
@@ -10,7 +18,14 @@ interface SettingsSectionProps {
   /** Controls pinned to a bottom bar, e.g. a Save button. */
   footer?: React.ReactNode;
   children?: React.ReactNode;
-  /** Applied to the body wrapper, for sections that need edge-to-edge content. */
+  /**
+   * Body padding contract. Prefer this over freelancing `bodyClassName` padding.
+   * - form: default labelled fields
+   * - list: edge-to-edge divided rows (`p-0`)
+   * - compact: tighter padding for dense controls
+   */
+  bodyVariant?: SettingsSectionBodyVariant;
+  /** Applied to the body wrapper, for one-off layout (grids, etc.). */
   bodyClassName?: string;
   className?: string;
 }
@@ -33,6 +48,7 @@ export function SettingsSection({
   action,
   footer,
   children,
+  bodyVariant = "form",
   bodyClassName,
   className,
 }: SettingsSectionProps) {
@@ -63,7 +79,11 @@ export function SettingsSection({
       </header>
 
       {hasBody ? (
-        <div className={cn("px-4 py-4", bodyClassName)}>{children}</div>
+        <div
+          className={cn(BODY_VARIANT_CLASS[bodyVariant], bodyClassName)}
+        >
+          {children}
+        </div>
       ) : null}
 
       {footer ? (

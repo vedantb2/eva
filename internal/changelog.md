@@ -1,5 +1,11 @@
 # Changelog
 
+## Settings layout contract - 2026-08-02
+
+Shared `SettingsPage` / section body variants / toggle rows so global and repo settings share one reading width, title/refine/tabs chrome, and section rhythm. Pages then got shadcn-style simplification: group by job, shorter copy, progressive disclosure (PR recap model, personalisation preset prompt), and fewer one-field cards (audits add forms fold into list sections; app lifecycle commands live in one section).
+
+## Dispatch-ticket project & quick-task cards - 2026-08-02
+
 ## Dispatch-ticket project & quick-task cards - 2026-08-02
 
 Cards drop info the column already encodes (status / phase). Face keeps badges for planning mode and tags, plus people, progress, and time. Quieter type hierarchy and a concentric in-progress ring.

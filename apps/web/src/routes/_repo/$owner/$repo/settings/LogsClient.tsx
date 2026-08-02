@@ -5,7 +5,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   timeRangeParser,
   logEntityTypesParser,
@@ -14,10 +13,11 @@ import {
 } from "@/lib/search-params";
 import { getStartTime, DAY_MS } from "@/lib/components/analytics/timeRange";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
-import { Kpi } from "@/lib/components/analytics/Kpi";
 import { IconFileOff } from "@tabler/icons-react";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
-import { parseResultEvent, groupKeyFor } from "./logs/_utils";
+import { parseResultEvent, groupKeyFor, formatCost } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
@@ -189,10 +189,9 @@ export function LogsClient() {
     : filteredLogs !== undefined && filteredLogs.length === 0;
 
   return (
-    <PageWrapper
+    <SettingsPage
       title="Logs"
-      comfortable
-      headerRight={
+      toolbar={
         <LogsHeader
           visibleTypes={visibleTypes}
           availableTypes={availableTypes}
@@ -209,15 +208,11 @@ export function LogsClient() {
     >
       {isLoading ? (
         <div
-          className="min-h-[28rem] space-y-5"
+          className="min-h-[28rem] space-y-4"
           aria-busy="true"
           aria-label="Loading logs"
         >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 border border-border" />
-            ))}
-          </div>
+          <Skeleton className="h-24 border border-border" />
           <Skeleton className="h-64 border border-border" />
         </div>
       ) : isEmpty ? (
@@ -235,8 +230,8 @@ export function LogsClient() {
           />
         </div>
       ) : (
-        <div className="space-y-5">
-          {!isProjectView && (
+        <>
+          {!isProjectView ? (
             <LogsSummaryGrid
               totalCost={totalCost}
               totalDuration={totalDuration}
@@ -245,10 +240,10 @@ export function LogsClient() {
               totalCacheRead={totalCacheRead}
               totalCacheWrite={totalCacheWrite}
             />
-          )}
-          {isProjectView && projectGroups && (
+          ) : null}
+          {isProjectView && projectGroups ? (
             <ProjectSummaryCards groups={projectGroups} />
-          )}
+          ) : null}
           <div className="space-y-1">
             {isProjectView
               ? projectGroups?.map((group) => (
@@ -268,9 +263,9 @@ export function LogsClient() {
                   />
                 ))}
           </div>
-        </div>
+        </>
       )}
-    </PageWrapper>
+    </SettingsPage>
   );
 }
 
@@ -283,14 +278,27 @@ function ProjectSummaryCards({
   const totalLogs = groups.reduce((sum, g) => sum + g.logs.length, 0);
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-      <Kpi
-        layout="row"
-        label="Total Project Spending"
-        value={`£${(totalCost * 0.74).toFixed(2)}`}
-      />
-      <Kpi layout="row" label="Projects" value={String(groups.length)} />
-      <Kpi layout="row" label="Completions" value={String(totalLogs)} />
-    </div>
+    <SettingsSection title="Summary" bodyVariant="compact">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="min-w-0">
+          <p className="text-[11px] text-muted-foreground">Project spending</p>
+          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
+            {formatCost(totalCost)}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] text-muted-foreground">Projects</p>
+          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
+            {groups.length}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] text-muted-foreground">Completions</p>
+          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
+            {totalLogs}
+          </p>
+        </div>
+      </div>
+    </SettingsSection>
   );
 }

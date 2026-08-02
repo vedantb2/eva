@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
@@ -54,10 +54,10 @@ export function AccountsClient() {
   };
 
   return (
-    <PageWrapper title="Accounts" comfortable>
+    <SettingsPage title="Accounts">
       <SettingsSection
         title="Your accounts"
-        description="Tasks, sessions, and projects you create default to your account for that provider, otherwise Team. Collaborators' Make changes still bill your sticky account."
+        description="Your credentials are used before team credentials when you pick a model."
         action={
           <Button size="sm" onClick={openCreate}>
             <IconPlus size={16} className="mr-1.5" />
@@ -65,7 +65,7 @@ export function AccountsClient() {
           </Button>
         }
         // The list and its empty state manage their own padding.
-        bodyClassName="p-0"
+        bodyVariant="list"
       >
         {accounts === undefined ? (
           <div className="flex items-center justify-center py-12">
@@ -158,6 +158,6 @@ export function AccountsClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageWrapper>
+    </SettingsPage>
   );
 }

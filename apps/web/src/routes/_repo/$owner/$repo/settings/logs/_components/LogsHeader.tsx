@@ -53,12 +53,13 @@ export function LogsHeader({
         placeholder="Search logs..."
       />
 
-      <div className="flex items-center rounded-lg bg-muted/60 p-0.5">
+      <div className="flex items-center rounded-lg border border-border p-0.5">
         <button
+          type="button"
           onClick={() => onLogViewChange("type")}
-          className={`motion-base rounded px-2 py-1 text-xs font-medium ${
+          className={`motion-base rounded-md px-2 py-1 text-xs font-medium ${
             logView === "type"
-              ? "bg-background text-foreground"
+              ? "bg-secondary text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -66,10 +67,11 @@ export function LogsHeader({
           <span className="ml-1 hidden sm:inline">By Type</span>
         </button>
         <button
+          type="button"
           onClick={() => onLogViewChange("project")}
-          className={`motion-base rounded px-2 py-1 text-xs font-medium ${
+          className={`motion-base rounded-md px-2 py-1 text-xs font-medium ${
             logView === "project"
-              ? "bg-background text-foreground"
+              ? "bg-secondary text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >

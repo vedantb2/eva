@@ -6,7 +6,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { Button, Input, Spinner, Badge } from "@eva/ui";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
@@ -105,9 +105,8 @@ export function MonorepoClient() {
   };
 
   return (
-    <PageWrapper
+    <SettingsPage
       title="Monorepo Apps"
-      comfortable
       headerRight={
         <Button
           size="sm"
@@ -121,18 +120,108 @@ export function MonorepoClient() {
         </Button>
       }
     >
-      <div className="space-y-4">
-        {connectedApps.length > 0 && (
-          <SettingsSection
-            title="Connected apps"
-            description="Toggle visibility to hide apps from the sidebar and home page without removing them."
-            // Rows own their padding so the row divider spans the full width.
-            bodyClassName="p-0"
-          >
-            <div className="divide-y divide-border">
-              {connectedApps.map((app) => (
+      {connectedApps.length > 0 && (
+        <SettingsSection
+          title="Connected apps"
+          description="Hide apps without removing them."
+          // Rows own their padding so the row divider spans the full width.
+          bodyVariant="list"
+        >
+          <div className="divide-y divide-border">
+            {connectedApps.map((app) => (
+              <div
+                key={app._id}
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+              >
+                <IconFolders
+                  size={18}
+                  className="shrink-0 text-muted-foreground"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {app.rootDirectory?.split("/").pop()}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {app.rootDirectory}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={app.hidden ? "outline" : "ghost"}
+                  onClick={() =>
+                    toggleHidden({
+                      repoId: app._id,
+                      hidden: app.hidden !== true,
+                    })
+                  }
+                  className="motion-press gap-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  {app.hidden ? (
+                    <>
+                      <IconEyeOff size={14} />
+                      Hidden
+                    </>
+                  ) : (
+                    <>
+                      <IconEye size={14} />
+                      Visible
+                    </>
+                  )}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </SettingsSection>
+      )}
+
+      <SettingsSection
+        title="Detected apps"
+        description={
+          <>
+            Found in{" "}
+            <span className="font-medium text-foreground">
+              {repo.owner}/{repo.name}
+            </span>
+            . Add one as a separate codebase.
+          </>
+        }
+        bodyVariant="list"
+      >
+        {loading ? (
+          <div className="flex flex-col items-center gap-3 py-12">
+            <Spinner size="md" />
+            <p className="text-sm text-muted-foreground">
+              Scanning workspace configuration...
+            </p>
+          </div>
+        ) : error ? (
+          <div className="flex items-center gap-3 px-4 py-4">
+            <IconAlertCircle
+              size={20}
+              className="shrink-0 text-destructive"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Detection failed
+              </p>
+              <p className="text-xs text-muted-foreground">{error}</p>
+            </div>
+          </div>
+        ) : detected.length === 0 ? (
+          <SettingsEmptyState
+            icon={IconFolders}
+            title="No workspace apps detected"
+            description="This repository has no monorepo workspace configuration (package.json workspaces or pnpm-workspace.yaml)."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {detected.map((app) => {
+              const isConnected = connectedPaths.has(app.path);
+              const isAdding = addingPath === app.path;
+
+              return (
                 <div
-                  key={app._id}
+                  key={app.path}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
                 >
                   <IconFolders
@@ -140,172 +229,76 @@ export function MonorepoClient() {
                     className="shrink-0 text-muted-foreground"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {app.rootDirectory?.split("/").pop()}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {app.rootDirectory}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={app.hidden ? "outline" : "ghost"}
-                    onClick={() =>
-                      toggleHidden({
-                        repoId: app._id,
-                        hidden: app.hidden !== true,
-                      })
-                    }
-                    className="motion-press gap-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    {app.hidden ? (
-                      <>
-                        <IconEyeOff size={14} />
-                        Hidden
-                      </>
-                    ) : (
-                      <>
-                        <IconEye size={14} />
-                        Visible
-                      </>
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </SettingsSection>
-        )}
-
-        <SettingsSection
-          title="Detected apps"
-          description={
-            <>
-              Workspace apps found in{" "}
-              <span className="font-medium text-foreground">
-                {repo.owner}/{repo.name}
-              </span>
-              . Add one to manage it as a separate codebase.
-            </>
-          }
-          bodyClassName="p-0"
-        >
-          {loading ? (
-            <div className="flex flex-col items-center gap-3 py-12">
-              <Spinner size="md" />
-              <p className="text-sm text-muted-foreground">
-                Scanning workspace configuration...
-              </p>
-            </div>
-          ) : error ? (
-            <div className="flex items-center gap-3 px-4 py-4">
-              <IconAlertCircle
-                size={20}
-                className="shrink-0 text-destructive"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Detection failed
-                </p>
-                <p className="text-xs text-muted-foreground">{error}</p>
-              </div>
-            </div>
-          ) : detected.length === 0 ? (
-            <SettingsEmptyState
-              icon={IconFolders}
-              title="No workspace apps detected"
-              description="This repository has no monorepo workspace configuration (package.json workspaces or pnpm-workspace.yaml)."
-            />
-          ) : (
-            <div className="divide-y divide-border">
-              {detected.map((app) => {
-                const isConnected = connectedPaths.has(app.path);
-                const isAdding = addingPath === app.path;
-
-                return (
-                  <div
-                    key={app.path}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
-                  >
-                    <IconFolders
-                      size={18}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {app.name}
-                        </p>
-                        {app.hasDevScript && (
-                          <Badge variant="secondary" className="gap-1 text-xs">
-                            <IconTerminal2 size={10} />
-                            dev
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {app.path}
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {app.name}
                       </p>
+                      {app.hasDevScript && (
+                        <Badge variant="outline" className="gap-1 text-xs">
+                          <IconTerminal2 size={10} />
+                          dev
+                        </Badge>
+                      )}
                     </div>
-                    {isConnected ? (
-                      <Badge variant="outline" className="gap-1">
-                        <IconCheck size={12} />
-                        Added
-                      </Badge>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isAdding}
-                        onClick={() => void handleAdd(app.path)}
-                        className="motion-press"
-                      >
-                        {isAdding ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <IconPlus size={14} />
-                        )}
-                        Add
-                      </Button>
-                    )}
+                    <p className="truncate text-xs text-muted-foreground">
+                      {app.path}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </SettingsSection>
+                  {isConnected ? (
+                    <Badge variant="outline" className="gap-1">
+                      <IconCheck size={12} />
+                      Added
+                    </Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isAdding}
+                      onClick={() => void handleAdd(app.path)}
+                      className="motion-press"
+                    >
+                      {isAdding ? <Spinner size="sm" /> : <IconPlus size={14} />}
+                      Add
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsSection>
 
-        <SettingsSection
-          title="Custom root directory"
-          description="Add an app by path when detection misses it."
+      <SettingsSection
+        title="Custom root directory"
+        description="Add an app by path."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleAddCustom();
+          }}
+          className="flex items-center gap-2"
         >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleAddCustom();
-            }}
-            className="flex items-center gap-2"
+          <Input
+            placeholder="e.g. apps/api"
+            value={customPath}
+            onChange={(e) => setCustomPath(e.target.value)}
+            className="h-8 flex-1 text-xs"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={
+              !customPath.trim() ||
+              addingPath === customPath.trim().replace(/^\/+|\/+$/g, "")
+            }
+            className="motion-press"
           >
-            <Input
-              placeholder="e.g. apps/api"
-              value={customPath}
-              onChange={(e) => setCustomPath(e.target.value)}
-              className="h-8 flex-1 text-xs"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={
-                !customPath.trim() ||
-                addingPath === customPath.trim().replace(/^\/+|\/+$/g, "")
-              }
-              className="motion-press"
-            >
-              <IconPlus size={14} />
-              Add
-            </Button>
-          </form>
-        </SettingsSection>
-      </div>
-    </PageWrapper>
+            <IconPlus size={14} />
+            Add
+          </Button>
+        </form>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

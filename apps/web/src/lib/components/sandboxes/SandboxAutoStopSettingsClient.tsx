@@ -2,9 +2,11 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Input, Spinner, Switch } from "@eva/ui";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 /**
  * App-wide setting for the daily sandbox auto-stop sweep. The entered time is
@@ -27,11 +29,11 @@ export function SandboxAutoStopSettingsClient() {
 
   if (settings === undefined) {
     return (
-      <PageWrapper title="Sandboxes" comfortable>
+      <SettingsPage title="Sandboxes">
         <div className="flex items-center justify-center py-12">
           <Spinner />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
@@ -40,46 +42,53 @@ export function SandboxAutoStopSettingsClient() {
   const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
-    <PageWrapper title="Sandboxes" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Daily auto-stop"
-          description="Stop every running sandbox at a set time each day so none are left running overnight. Applies to all sandboxes across the app."
-          action={
-            <Switch
-              checked={settings.enabled}
-              onCheckedChange={(checked) =>
-                save({
-                  enabled: checked,
-                  time: settings.time,
-                  timeZone: browserTimeZone,
-                })
-              }
-              aria-label="Daily auto-stop"
-            />
-          }
-        />
-
-        {settings.enabled && (
-          <SettingsSection
-            title="Stop time"
-            description={`Sandboxes stop at this time in ${settings.timeZone}. The sweep runs within 15 minutes of the set time.`}
-          >
-            <Input
-              type="time"
-              className="w-40"
-              value={settings.time}
-              onChange={(event) =>
-                save({
-                  enabled: settings.enabled,
-                  time: event.target.value,
-                  timeZone: browserTimeZone,
-                })
-              }
-            />
-          </SettingsSection>
-        )}
-      </div>
-    </PageWrapper>
+    <SettingsPage title="Sandboxes">
+      <SettingsSection
+        title="Daily auto-stop"
+        description="Stop running sandboxes every day."
+        bodyVariant="list"
+      >
+        <div className="divide-y divide-border">
+          <SettingsToggleRow
+            title="Enabled"
+            description="Applies to all sandboxes across the app."
+            action={
+              <Switch
+                checked={settings.enabled}
+                onCheckedChange={(checked) =>
+                  save({
+                    enabled: checked,
+                    time: settings.time,
+                    timeZone: browserTimeZone,
+                  })
+                }
+                aria-label="Daily auto-stop"
+              />
+            }
+          />
+          {settings.enabled ? (
+            <div className="px-4 py-3">
+              <SettingsField
+                label="Stop time"
+                description={`Uses ${settings.timeZone}. The sweep runs within 15 minutes of this time.`}
+              >
+                <Input
+                  type="time"
+                  className="w-40"
+                  value={settings.time}
+                  onChange={(event) =>
+                    save({
+                      enabled: settings.enabled,
+                      time: event.target.value,
+                      timeZone: browserTimeZone,
+                    })
+                  }
+                />
+              </SettingsField>
+            </div>
+          ) : null}
+        </div>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

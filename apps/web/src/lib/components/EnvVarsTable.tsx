@@ -492,7 +492,7 @@ export function EnvVarsTable({
             title="Other variables"
             description="Anything not covered by a known slot above."
             action={freeformActions}
-            bodyClassName="p-0"
+            bodyVariant="list"
           >
             {showTable ? (
               <div className="overflow-x-auto">
@@ -532,7 +532,7 @@ export function EnvVarsTable({
                 </span>
               }
               description="Held for the platform only — these are never injected into a sandbox."
-              bodyClassName="p-0"
+              bodyVariant="list"
             >
               <div className="overflow-x-auto">
                 <Table className="min-w-[360px]">

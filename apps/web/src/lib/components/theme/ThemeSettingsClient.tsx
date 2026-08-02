@@ -1,6 +1,6 @@
 "use client";
 
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import {
   useThemeContext,
@@ -54,54 +54,42 @@ export function ThemeSettingsClient() {
 
   if (!mounted) {
     return (
-      <PageWrapper title="Theme" comfortable>
+      <SettingsPage title="Theme">
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
   return (
-    <PageWrapper title="Theme" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Appearance"
-          description="Use light, use dark, or follow your system setting."
-          // Capped so the three mode tiles stay a readable size on wide screens.
-          bodyClassName="max-w-2xl"
-        >
-          <AppearanceSection
-            currentMode={theme}
-            onModeChange={handleModeChange}
-          />
-        </SettingsSection>
+    <SettingsPage title="Theme">
+      <SettingsSection
+        title="Appearance"
+        description="Choose light, dark, or system."
+        // Capped so the three mode tiles stay a readable size on wide screens.
+        bodyClassName="max-w-2xl"
+      >
+        <AppearanceSection currentMode={theme} onModeChange={handleModeChange} />
+      </SettingsSection>
 
-        <SettingsSection
-          title="Presets"
-          description="Apply a ready-made combination of accent, font, radius, and spacing. Any change below moves you off the preset."
-          bodyClassName="max-w-2xl"
-        >
-          <PresetsSection
-            currentTheme={resolved}
-            onApplyPreset={handleApplyPreset}
-          />
-        </SettingsSection>
+      <SettingsSection
+        title="Presets"
+        description="Start from a ready-made look."
+        bodyClassName="max-w-2xl"
+      >
+        <PresetsSection currentTheme={resolved} onApplyPreset={handleApplyPreset} />
+      </SettingsSection>
 
-        <SettingsSection
-          title="Accent Color"
-          description="Drives buttons, links, focus rings, and charts. Zinc keeps the interface monochrome."
-        >
+      <SettingsSection
+        title="Customize"
+        description="Tune accent, type, spacing, and shape."
+      >
+        <div className="space-y-6">
           <AccentColorSection
             accentColor={accentColor}
             onAccentChange={handleAccentChange}
           />
-        </SettingsSection>
-
-        <SettingsSection
-          title="Type & Shape"
-          description="Corner radius, typeface, and letter spacing, applied across the whole interface."
-        >
           <TypographySection
             fontFamily={fontFamily}
             onFontChange={handleFontChange}
@@ -110,21 +98,21 @@ export function ThemeSettingsClient() {
             radius={radius}
             onRadiusChange={handleRadiusChange}
           />
-        </SettingsSection>
+        </div>
+      </SettingsSection>
 
-        <SettingsSection
-          title="Preview"
-          description="Your current selection, shown on the common controls."
-        >
-          <ThemePreview
-            accentColor={accentColor}
-            radius={radius}
-            fontFamily={fontFamily}
-            letterSpacing={letterSpacing}
-            currentMode={theme}
-          />
-        </SettingsSection>
-      </div>
-    </PageWrapper>
+      <SettingsSection
+        title="Preview"
+        description="See the current look on common controls."
+      >
+        <ThemePreview
+          accentColor={accentColor}
+          radius={radius}
+          fontFamily={fontFamily}
+          letterSpacing={letterSpacing}
+          currentMode={theme}
+        />
+      </SettingsSection>
+    </SettingsPage>
   );
 }

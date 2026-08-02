@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  IconCurrencyPound,
-  IconClock,
-  IconArrowDown,
-  IconArrowUp,
-} from "@tabler/icons-react";
-import { Kpi } from "@/lib/components/analytics/Kpi";
 import { formatCost, formatTokens, GBP_TO_USD } from "../_utils";
 import { formatDurationMs } from "@eva/shared/duration";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 
 interface LogsSummaryGridProps {
   totalCost: number;
@@ -19,6 +13,30 @@ interface LogsSummaryGridProps {
   totalCacheWrite: number;
 }
 
+function SummaryStat({
+  label,
+  value,
+  subtitle,
+}: {
+  label: string;
+  value: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-medium tabular-nums tracking-tight text-foreground">
+        {value}
+      </p>
+      {subtitle ? (
+        <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground/80">
+          {subtitle}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function LogsSummaryGrid({
   totalCost,
   totalDuration,
@@ -27,75 +45,26 @@ export function LogsSummaryGrid({
   totalCacheRead,
   totalCacheWrite,
 }: LogsSummaryGridProps) {
-  const primaryStats = [
-    {
-      icon: IconCurrencyPound,
-      label: "Total Cost",
-      value: formatCost(totalCost),
-      subtitle: `$${formatCost(totalCost * GBP_TO_USD).slice(1)}`,
-    },
-    {
-      icon: IconClock,
-      label: "Ran For",
-      value: formatDurationMs(totalDuration),
-      subtitle: undefined,
-    },
-  ];
-
-  const tokenStats = [
-    {
-      icon: IconArrowDown,
-      label: "Input Tokens",
-      value: formatTokens(totalInput),
-      subtitle: undefined,
-    },
-    {
-      icon: IconArrowUp,
-      label: "Output Tokens",
-      value: formatTokens(totalOutput),
-      subtitle: undefined,
-    },
-    {
-      icon: IconArrowDown,
-      label: "Cache Read",
-      value: formatTokens(totalCacheRead),
-      subtitle: undefined,
-    },
-    {
-      icon: IconArrowUp,
-      label: "Cache Write",
-      value: formatTokens(totalCacheWrite),
-      subtitle: undefined,
-    },
-  ];
-
   return (
-    <div className="space-y-2 sm:space-y-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-        {primaryStats.map((stat) => (
-          <Kpi
-            key={stat.label}
-            layout="row"
-            size="lg"
-            icon={stat.icon}
-            label={stat.label}
-            value={stat.value}
-            subtitle={stat.subtitle}
-          />
-        ))}
+    <SettingsSection title="Summary" bodyVariant="compact">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
+        <SummaryStat
+          label="Cost"
+          value={formatCost(totalCost)}
+          subtitle={`$${formatCost(totalCost * GBP_TO_USD).slice(1)}`}
+        />
+        <SummaryStat
+          label="Ran for"
+          value={formatDurationMs(totalDuration)}
+        />
+        <SummaryStat label="Input" value={formatTokens(totalInput)} />
+        <SummaryStat label="Output" value={formatTokens(totalOutput)} />
+        <SummaryStat label="Cache read" value={formatTokens(totalCacheRead)} />
+        <SummaryStat
+          label="Cache write"
+          value={formatTokens(totalCacheWrite)}
+        />
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        {tokenStats.map((stat) => (
-          <Kpi
-            key={stat.label}
-            layout="row"
-            icon={stat.icon}
-            label={stat.label}
-            value={stat.value}
-            subtitle={stat.subtitle}
-          />
-        ))}
-      </div>
-    </div>
+    </SettingsSection>
   );
 }

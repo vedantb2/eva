@@ -58,55 +58,56 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
   return (
     <SettingsSection
       title="Identity"
-      description="Display name and logo for this app. Applies to this app only."
-      bodyClassName="space-y-4"
+      description="Name and logo in the sidebar for this app."
     >
-      <SettingsField
-        label="Display name"
-        description={
-          <>
-            Shown in the sidebar instead of the GitHub name. Leave empty for{" "}
-            <span className="font-medium">{fallbackName}</span>.
-          </>
-        }
-      >
-        <Input
-          key={`label-${repoId}`}
-          className="h-8 text-xs"
-          placeholder={fallbackName}
-          defaultValue={repo.label ?? ""}
-          onBlur={handleLabelBlur}
-        />
-      </SettingsField>
+      <div className="grid gap-4">
+        <SettingsField
+          label="Display name"
+          description={
+            <>
+              Leave empty for{" "}
+              <span className="font-medium">{fallbackName}</span>.
+            </>
+          }
+        >
+          <Input
+            key={`label-${repoId}`}
+            className="h-9"
+            placeholder={fallbackName}
+            defaultValue={repo.label ?? ""}
+            onBlur={handleLabelBlur}
+          />
+        </SettingsField>
 
-      <div className="flex items-center gap-3">
-        <div className="flex size-16 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="size-full object-cover" />
-          ) : (
-            <IconPhoto size={28} className="text-muted-foreground" />
-          )}
-        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex size-14 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
+            {logoUrl ? (
+              <img src={logoUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <IconPhoto size={24} className="text-muted-foreground" />
+            )}
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? "Uploading..." : logoUrl ? "Change" : "Upload"}
-          </Button>
-          {logoUrl && (
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant="ghost"
+              variant="outline"
               disabled={uploading}
-              onClick={() => removeLogo(repoId)}
+              onClick={() => fileInputRef.current?.click()}
             >
-              Remove
+              {uploading ? "Uploading..." : logoUrl ? "Change" : "Upload"}
             </Button>
-          )}
+            {logoUrl ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={uploading}
+                onClick={() => removeLogo(repoId)}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 

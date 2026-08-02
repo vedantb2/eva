@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import {
   Textarea,
   Button,
@@ -56,11 +56,10 @@ export function McpConfigClient() {
   const isDirty = draft !== prompt;
 
   return (
-    <PageWrapper title="MCP Config" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Root Prompt"
-          description="Freeform instructions injected into MCP server context to guide the AI on your data topology. Shared across all apps in a monorepo."
+    <SettingsPage title="MCP Config">
+      <SettingsSection
+          title="Root prompt"
+          description="Shared instructions injected into MCP context."
           action={
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
@@ -77,10 +76,9 @@ export function McpConfigClient() {
 
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Edit Root Prompt</DialogTitle>
+                  <DialogTitle>Edit root prompt</DialogTitle>
                   <DialogDescription>
-                    Instructions injected into MCP server context. Shared across
-                    all apps in a monorepo.
+                    Shared instructions injected into MCP context.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -123,8 +121,7 @@ export function McpConfigClient() {
               No root prompt configured. Select Edit to add one.
             </p>
           )}
-        </SettingsSection>
-      </div>
-    </PageWrapper>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

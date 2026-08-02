@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { Button, Checkbox, Spinner } from "@eva/ui";
@@ -144,9 +144,8 @@ function SyncSettingsRoute() {
   };
 
   return (
-    <PageWrapper
+    <SettingsPage
       title="Sync Settings"
-      comfortable
       headerRight={
         <Button
           size="sm"
@@ -156,7 +155,7 @@ function SyncSettingsRoute() {
           className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
         >
           <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
-          <span className="hidden sm:inline">Refresh from GitHub</span>
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       }
     >
@@ -165,7 +164,7 @@ function SyncSettingsRoute() {
           <Spinner size="md" />
         </div>
       ) : repos.length === 0 ? (
-        <SettingsSection title="Repositories" bodyClassName="p-0">
+        <SettingsSection title="Repositories" bodyVariant="list">
           <SettingsEmptyState
             icon={IconGitBranch}
             title="No repos found"
@@ -187,11 +186,11 @@ function SyncSettingsRoute() {
           />
         </SettingsSection>
       ) : (
-        <div className="space-y-4">
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Disabled repos are skipped during sync. New repos default to
-            enabled.
-          </p>
+        <>
+          <SettingsSection
+            title="Repositories"
+            description="Disabled repos are skipped during sync. New repos default to enabled."
+          />
           {owners.map((owner) => (
             <OwnerGroup
               key={owner}
@@ -204,9 +203,9 @@ function SyncSettingsRoute() {
               onToggleRepo={handleToggleRepo}
             />
           ))}
-        </div>
+        </>
       )}
-    </PageWrapper>
+    </SettingsPage>
   );
 }
 
@@ -252,7 +251,7 @@ function OwnerGroup({
         </span>
       }
       // Rows carry their own padding so the hover fill spans the full width.
-      bodyClassName="p-2"
+      bodyVariant="compact"
     >
       {sorted.map((repo) => {
         const enabled = isRepoEnabled(repo.owner, repo.name);

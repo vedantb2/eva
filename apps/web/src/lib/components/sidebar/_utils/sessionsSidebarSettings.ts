@@ -7,6 +7,9 @@ export type AppSortOrder = (typeof APP_SORT_ORDERS)[number];
 export const SESSION_SORT_ORDERS = ["updated_at", "created_at"] as const;
 export type SessionSortOrder = (typeof SESSION_SORT_ORDERS)[number];
 
+export const SESSION_LIST_MODES = ["active", "archived"] as const;
+export type SessionListMode = (typeof SESSION_LIST_MODES)[number];
+
 export const MIN_SESSION_PREVIEW_COUNT = 2;
 export const MAX_SESSION_PREVIEW_COUNT = 10;
 export const DEFAULT_SESSION_PREVIEW_COUNT = 3;
@@ -26,12 +29,14 @@ export interface SessionsSidebarSettings {
   appSortOrder: AppSortOrder;
   sessionSortOrder: SessionSortOrder;
   sessionPreviewCount: number;
+  listMode: SessionListMode;
 }
 
 export const DEFAULT_SESSIONS_SIDEBAR_SETTINGS: SessionsSidebarSettings = {
   appSortOrder: "updated_at",
   sessionSortOrder: "updated_at",
   sessionPreviewCount: DEFAULT_SESSION_PREVIEW_COUNT,
+  listMode: "active",
 };
 
 export function isAppSortOrder(value: string): value is AppSortOrder {
@@ -44,6 +49,13 @@ export function isAppSortOrder(value: string): value is AppSortOrder {
 export function isSessionSortOrder(value: string): value is SessionSortOrder {
   for (const order of SESSION_SORT_ORDERS) {
     if (order === value) return true;
+  }
+  return false;
+}
+
+export function isSessionListMode(value: string): value is SessionListMode {
+  for (const mode of SESSION_LIST_MODES) {
+    if (mode === value) return true;
   }
   return false;
 }

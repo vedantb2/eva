@@ -1,5 +1,17 @@
 # Changelog
 
+## Menu padding + composer plus search/people - 2026-08-02
+
+Restored inset padding on dropdown/context menus after the tighten pass left them flush. Plus-menu Skills/Data submenus now filter with search, and Data includes people like the `@` picker so both paths offer the same mention set.
+
+## Sessions Active / Archived list mode - 2026-08-02
+
+Replace nested per-app Archived accordions with a top-level Active | Archived switch so the main Sessions list stays clean while archives stay one click away in the same sidebar.
+
+## Sessions sidebar chrome polish - 2026-08-02
+
+Bring the cross-repo Sessions list onto the same hairline active chips, quieter empties, and flat options controls as the rest of the shell — without changing where the list lives.
+
 ## Session, dialog, and sandbox chrome polish - 2026-08-02
 
 Flattened session chat header/composer/chips, create modals, and sandbox/diffs toolbars to the same hairline-border, short-copy contract as settings — so the highest-traffic surfaces match when reviewing side by side.

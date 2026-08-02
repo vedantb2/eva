@@ -17,6 +17,7 @@ import {
   Skeleton,
 } from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
+import { SessionsListModeTabs } from "@/lib/components/sidebar/_components/SessionsListModeTabs";
 import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import {
   sessionActivityAt,
@@ -35,15 +36,14 @@ interface GlobalSessionsSidebarProps {
 
 /**
  * Cross-repo Sessions list for the rail entry point: every accessible app as a
- * collapsible group (empty apps included), archived nested under each app
- * (default collapsed).
+ * collapsible group, with Active / Archived list modes.
  */
 export function GlobalSessionsSidebar({
   pathname,
   onNavigate,
 }: GlobalSessionsSidebarProps) {
   const navigate = useNavigate();
-  const { settings } = useSessionsSidebarSettings();
+  const { settings, setListMode } = useSessionsSidebarSettings();
   const repos = useQuery(api.githubRepos.list, {});
   const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
   const [sessionToRename, setSessionToRename] = useState<{
@@ -104,6 +104,12 @@ export function GlobalSessionsSidebar({
   return (
     <>
       <div className="flex-1 space-y-3 px-0 pb-1">
+        <div className="px-2">
+          <SessionsListModeTabs
+            mode={settings.listMode}
+            onChange={setListMode}
+          />
+        </div>
         {orderedRepos === undefined ? (
           <div
             className="min-h-[12rem] space-y-2 px-3"
@@ -115,9 +121,12 @@ export function GlobalSessionsSidebar({
             ))}
           </div>
         ) : orderedRepos.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No apps yet
-          </p>
+          <div className="px-3 py-8 text-center">
+            <p className="text-sm font-medium text-foreground">No apps yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Connect a codebase from Home.
+            </p>
+          </div>
         ) : (
           orderedRepos.map((repo) => (
             <GlobalSessionGroup
@@ -131,6 +140,7 @@ export function GlobalSessionsSidebar({
               onNavigate={onNavigate}
               sessionSortOrder={settings.sessionSortOrder}
               sessionPreviewCount={settings.sessionPreviewCount}
+              listMode={settings.listMode}
               onRenameRequest={(session, groupRepo) => {
                 setSessionToRename({ session, repo: groupRepo });
                 setRenameValue(session.title);

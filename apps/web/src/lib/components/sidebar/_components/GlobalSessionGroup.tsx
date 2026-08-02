@@ -17,7 +17,6 @@ import {
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { AnimatePresence } from "motion/react";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { ArchivedSessionsCollapsible } from "@/lib/components/sidebar/_components/ArchivedSessionsCollapsible";
 import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
@@ -28,6 +27,7 @@ import {
 import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
 import {
   sortSessionsForSidebar,
+  type SessionListMode,
   type SessionSortOrder,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { entityPathSegment } from "@/lib/numId";
@@ -46,12 +46,13 @@ interface GlobalSessionGroupProps {
   onArchiveRequest: (session: SessionListItem, repo: RepoWithLogo) => void;
   sessionSortOrder: SessionSortOrder;
   sessionPreviewCount: number;
+  listMode: SessionListMode;
 }
 
 /**
  * One collapsible app group in the global Sessions sidebar: logo + title,
- * `+` → that app's sessions composer, non-archived rows (capped with Show more),
- * then manually Archived (default collapsed).
+ * `+` → that app's sessions composer, then Active or Archived rows for the
+ * current list mode (capped with Show more).
  */
 export function GlobalSessionGroup({
   repo,
@@ -63,55 +64,51 @@ export function GlobalSessionGroup({
   onArchiveRequest,
   sessionSortOrder,
   sessionPreviewCount,
+  listMode,
 }: GlobalSessionGroupProps) {
   const navigate = useNavigate();
-  const [isActiveListExpanded, setIsActiveListExpanded] = useState(false);
-  const sessions = useQuery(api.sessions.list, { repoId: repo._id });
-  const archivedSessions = useQuery(api.sessions.listArchived, {
-    repoId: repo._id,
-  });
+  const [isListExpanded, setIsListExpanded] = useState(false);
+  const activeSessions = useQuery(
+    api.sessions.list,
+    listMode === "active" ? { repoId: repo._id } : "skip",
+  );
+  const archivedSessions = useQuery(
+    api.sessions.listArchived,
+    listMode === "archived" ? { repoId: repo._id } : "skip",
+  );
   const createSession = useMutation(api.sessions.create);
   const unarchiveSession = useMutation(api.sessions.unarchive);
   const label = repoDisplayLabel(repo);
   const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
 
-  // Main list = every non-archived session (including merged/closed PRs).
-  // Archived collapsible = manually archived only.
-  const nonArchivedSessions = sessions;
-  const isLoading =
-    nonArchivedSessions === undefined || archivedSessions === undefined;
-  const mainSessions = sortSessionsForSidebar(
-    nonArchivedSessions ?? [],
+  const sourceSessions =
+    listMode === "archived" ? archivedSessions : activeSessions;
+  const isLoading = sourceSessions === undefined;
+  const sortedSessions = sortSessionsForSidebar(
+    sourceSessions ?? [],
     sessionSortOrder,
   );
-  const archivedGroup = sortSessionsForSidebar(
-    archivedSessions ?? [],
-    sessionSortOrder,
-  );
-  const mainCount = mainSessions.length;
   const selectedSessionId =
-    mainSessions.find((session) => {
+    sortedSessions.find((session) => {
       const pathSegment = entityPathSegment(session);
       if (!pathSegment) return false;
       const href = `${baseUrl}/${pathSegment}`;
       return pathname === href || pathname.startsWith(`${href}/`);
     })?._id ?? null;
   const {
-    visible: visibleMainSessions,
-    hasOverflow: hasMainOverflow,
-    hiddenCount: hiddenMainCount,
-  } = previewSessions(mainSessions, {
-    expanded: isActiveListExpanded,
+    visible: visibleSessions,
+    hasOverflow,
+    hiddenCount,
+  } = previewSessions(sortedSessions, {
+    expanded: isListExpanded,
     selectedId: selectedSessionId,
     limit: sessionPreviewCount,
   });
-  // Live sandbox badge: only count non-archived sessions that are running.
   const runningCount =
-    nonArchivedSessions?.filter(
+    activeSessions?.filter(
       (s) => s.status === "active" && isSessionSidebarActive(s),
     ).length ?? 0;
-  const archivedCount = archivedGroup.length;
-  const hasNoResults = !isLoading && mainCount === 0 && archivedCount === 0;
+  const hasNoResults = !isLoading && sortedSessions.length === 0;
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
@@ -119,28 +116,28 @@ export function GlobalSessionGroup({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
           >
             <RepoLogo
               logoUrl={repo.logoUrl}
               size={18}
               fallback={
-                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-[18px] items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
                   {label.charAt(0).toUpperCase()}
                 </span>
               }
             />
-            <span className="flex min-w-0 items-center gap-1">
+            <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-xs font-medium text-muted-foreground">
                 {label}
               </span>
-              {runningCount > 0 ? (
+              {listMode === "active" && runningCount > 0 ? (
                 <Badge
-                  variant="secondary"
-                  className="shrink-0 gap-1 border-none bg-sidebar-accent/50 px-1.5 py-0"
+                  variant="outline"
+                  className="shrink-0 gap-1 border-border bg-transparent px-1.5 py-0"
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
                     {runningCount}
                   </span>
                 </Badge>
@@ -155,20 +152,22 @@ export function GlobalSessionGroup({
             </span>
           </button>
         </CollapsibleTrigger>
-        <button
-          type="button"
-          aria-label={`New session in ${label}`}
-          title={`New session in ${label}`}
-          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            navigate({ to: repoSessionsIndexPath(repo) });
-            onNavigate?.();
-          }}
-        >
-          <IconPlus size={14} />
-        </button>
+        {listMode === "active" ? (
+          <button
+            type="button"
+            aria-label={`New session in ${label}`}
+            title={`New session in ${label}`}
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate({ to: repoSessionsIndexPath(repo) });
+              onNavigate?.();
+            }}
+          >
+            <IconPlus size={14} />
+          </button>
+        ) : null}
       </div>
       <CollapsibleContent>
         <div className="pb-1 pl-1">
@@ -177,26 +176,45 @@ export function GlobalSessionGroup({
               <Spinner size="sm" />
             </div>
           ) : hasNoResults ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              {sessions !== undefined &&
-              sessions.length === 0 &&
-              (archivedSessions?.length ?? 0) === 0
-                ? "No sessions yet"
-                : "No matches"}
-            </p>
+            <div className="px-3 py-3 text-center">
+              <p className="text-xs font-medium text-foreground">
+                {listMode === "archived"
+                  ? "No archived sessions"
+                  : "No sessions yet"}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {listMode === "archived"
+                  ? "Archive a thread from its menu."
+                  : "Press + to start one."}
+              </p>
+            </div>
           ) : (
             <SharedLayoutNav
-              layoutId={`global-sessions-${repo._id}`}
+              layoutId={`global-sessions-${repo._id}-${listMode}`}
               className="space-y-1"
             >
               <AnimatePresence initial={false}>
-                {visibleMainSessions.map((session) => {
+                {visibleSessions.map((session) => {
                   const pathSegment = entityPathSegment(session);
                   const href = pathSegment
                     ? `${baseUrl}/${pathSegment}`
                     : baseUrl;
                   const isSelected =
                     pathname === href || pathname.startsWith(`${href}/`);
+                  if (listMode === "archived") {
+                    return (
+                      <SidebarSessionRow
+                        key={session._id}
+                        session={session}
+                        isSelected={isSelected}
+                        baseUrl={baseUrl}
+                        onNavigate={onNavigate}
+                        onUnarchive={async (s) => {
+                          await unarchiveSession({ id: s._id });
+                        }}
+                      />
+                    );
+                  }
                   return (
                     <SidebarSessionRow
                       key={session._id}
@@ -222,24 +240,11 @@ export function GlobalSessionGroup({
                   );
                 })}
               </AnimatePresence>
-              {hasMainOverflow ? (
+              {hasOverflow ? (
                 <SessionListShowMore
-                  expanded={isActiveListExpanded}
-                  hiddenCount={hiddenMainCount}
-                  onToggle={() => setIsActiveListExpanded((prev) => !prev)}
-                />
-              ) : null}
-              {archivedCount > 0 ? (
-                <ArchivedSessionsCollapsible
-                  sessions={archivedGroup}
-                  baseUrl={baseUrl}
-                  pathname={pathname}
-                  onNavigate={onNavigate}
-                  itemIdPrefix={`global-archived-${repo._id}`}
-                  onUnarchive={async (session) => {
-                    if (session.archived !== true) return;
-                    await unarchiveSession({ id: session._id });
-                  }}
+                  expanded={isListExpanded}
+                  hiddenCount={hiddenCount}
+                  onToggle={() => setIsListExpanded((prev) => !prev)}
                 />
               ) : null}
             </SharedLayoutNav>

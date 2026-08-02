@@ -8,10 +8,8 @@ import { Link } from "@tanstack/react-router";
 import { Button, Spinner, cn } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import {
-  pullRequestListStateParser,
-  type PullRequestListState,
-} from "@/lib/search-params";
+import { pullRequestListStateParser } from "@/lib/search-params";
+import { ReviewsListStateTabs } from "@/lib/components/sidebar/_components/ReviewsListStateTabs";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -89,26 +87,15 @@ export function ReviewsSidebar({
 
   const pulls = state.status === "ready" ? state.pulls : [];
 
-  const stateButtons: Array<{ value: PullRequestListState; label: string }> = [
-    { value: "open", label: "Open" },
-    { value: "closed", label: "Closed" },
-    { value: "all", label: "All" },
-  ];
-
   return (
     <>
-      <div className="flex gap-1 px-2 py-2">
-        {stateButtons.map((btn) => (
-          <Button
-            key={btn.value}
-            size="sm"
-            variant={listState === btn.value ? "secondary" : "ghost"}
-            className="h-7 flex-1 px-2 text-xs"
-            onClick={() => setListState(btn.value)}
-          >
-            {btn.label}
-          </Button>
-        ))}
+      <div className="px-2 py-2">
+        <ReviewsListStateTabs
+          state={listState}
+          onChange={(next) => {
+            void setListState(next);
+          }}
+        />
       </div>
 
       <div className="flex-1">

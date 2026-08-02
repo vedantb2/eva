@@ -28,6 +28,8 @@ import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
+import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
+import { mergeMentionItems } from "@/lib/components/mentions";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -142,6 +144,11 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
+  const peopleMentions = usePeopleMentionItems(repoId);
+  const { items: plusDataItems } = mergeMentionItems(
+    peopleMentions,
+    dataMentions,
+  );
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const uploadChatAttachments = useUploadChatAttachments();
@@ -305,7 +312,7 @@ export function ChatComposer({
               <PromptInputFooter>
                 <PromptInputTools>
                   <ComposerPlusMenu
-                    dataItems={dataMentions}
+                    dataItems={plusDataItems}
                     skills={skills}
                     mentionRef={mentionRef}
                     optionsSubmenu={optionsSubmenu}

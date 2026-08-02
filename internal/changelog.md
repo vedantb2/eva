@@ -1,5 +1,9 @@
 # Changelog
 
+## Voice dictation streams through AI Gateway - 2026-08-02
+
+Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.
+
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
 - Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.

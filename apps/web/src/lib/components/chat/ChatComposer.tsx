@@ -4,7 +4,6 @@ import {
   PromptInputProvider,
   PromptInputFooter,
   PromptInputTools,
-  PromptInputSpeech,
   PromptInputSubmit,
   ModelSelect,
   TraitsMenu,
@@ -14,6 +13,7 @@ import {
   type ModelOption,
   type ModelAccount,
 } from "@eva/ui";
+import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_ATTACHMENT_BYTES,
@@ -340,7 +340,7 @@ export function ChatComposer({
                       }
                     />
                   ) : null}
-                  <PromptInputSpeech />
+                  <ComposerSpeechButton disabled={isInputDisabled} />
                   {isExecuting ? (
                     <Button
                       size="icon-sm"

@@ -168,7 +168,6 @@ export function ChatBody({
   onOpenFile,
   onViewDiff,
   hasPendingContext,
-  attachmentMode = "images",
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
@@ -379,7 +378,6 @@ export function ChatBody({
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
-          attachmentMode={attachmentMode}
         />
       )}
     </>

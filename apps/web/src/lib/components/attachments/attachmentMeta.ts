@@ -16,19 +16,20 @@ import {
 export const MAX_CHAT_ATTACHMENTS = 5;
 export const MAX_CHAT_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 
-/** Images only — project sandbox, design chat, default ChatComposer. */
+/** Pasted plain text longer than this attaches as a `.txt` file instead. */
+export const PASTE_ATTACHMENT_THRESHOLD_CHARS = 2000;
+
+/** Images only — ComposerPlusMenu "Add photos" picker. */
 export const IMAGE_ATTACHMENT_ACCEPT = "image/*";
 
 /**
- * Session coding chat and quick tasks: images plus design/spec text files
- * (Claude Design HTML exports, markdown/txt specs).
+ * All chat composers (sessions, sandbox, quick tasks): images plus
+ * design/spec text files (Claude Design HTML exports, markdown/txt specs).
  */
-export const SESSION_ATTACHMENT_ACCEPT =
+export const CHAT_ATTACHMENT_ACCEPT =
   "image/*,text/html,text/markdown,text/plain,.html,.htm,.md,.txt";
 
 const SESSION_TEXT_EXTENSIONS = [".html", ".htm", ".md", ".txt"] as const;
-
-export type ChatAttachmentMode = "images" | "sessionFiles";
 
 /** The subset of file metadata the attachment rules need, from any source. */
 export type AttachmentFileMeta = {
@@ -36,28 +37,16 @@ export type AttachmentFileMeta = {
   filename?: string;
 };
 
-export function chatAttachmentAccept(mode: ChatAttachmentMode): string {
-  return mode === "sessionFiles"
-    ? SESSION_ATTACHMENT_ACCEPT
-    : IMAGE_ATTACHMENT_ACCEPT;
-}
-
-export function chatAttachmentErrorMessage(
-  mode: ChatAttachmentMode,
-  err: { code: "max_files" | "max_file_size" | "accept" },
-): string {
-  const noun = mode === "sessionFiles" ? "files" : "images";
+export function chatAttachmentErrorMessage(err: {
+  code: "max_files" | "max_file_size" | "accept";
+}): string {
   switch (err.code) {
     case "max_files":
-      return `You can attach up to ${MAX_CHAT_ATTACHMENTS} ${noun}.`;
+      return `You can attach up to ${MAX_CHAT_ATTACHMENTS} files.`;
     case "max_file_size":
-      return mode === "sessionFiles"
-        ? "Attachments must be 10 MB or smaller."
-        : "Images must be 10 MB or smaller.";
+      return "Attachments must be 10 MB or smaller.";
     case "accept":
-      return mode === "sessionFiles"
-        ? "Only images, HTML, Markdown, or plain text can be attached."
-        : "Only image files can be attached.";
+      return "Only images, HTML, Markdown, or plain text can be attached.";
   }
 }
 
@@ -134,13 +123,9 @@ function isSessionTextAttachment(file: AttachmentFileMeta): boolean {
   return SESSION_TEXT_EXTENSIONS.some((allowed) => allowed === ext);
 }
 
-export function isAllowedAttachmentFile(
-  mode: ChatAttachmentMode,
-  file: AttachmentFileMeta,
-): boolean {
+export function isAllowedAttachmentFile(file: AttachmentFileMeta): boolean {
   if (isImageContentType(file.mediaType)) return true;
-  if (mode === "sessionFiles") return isSessionTextAttachment(file);
-  return false;
+  return isSessionTextAttachment(file);
 }
 
 /**
@@ -165,4 +150,25 @@ export function contentTypeForUpload(
     default:
       return "application/octet-stream";
   }
+}
+
+/** Build a plain-text File for a large paste that should attach instead of inline. */
+export function buildPastedTextFile(text: string): File {
+  return new File([text], "pasted-text.txt", { type: "text/plain" });
+}
+
+/**
+ * Attach pasted text as a file when over the threshold and under the cap.
+ * Returns true when attached (caller should preventDefault); false when the
+ * caller should insert the text inline (under threshold or at attachment cap).
+ */
+export function attachPastedTextIfLarge(
+  text: string,
+  currentCount: number,
+  add: (files: File[]) => void,
+): boolean {
+  if (text.length < PASTE_ATTACHMENT_THRESHOLD_CHARS) return false;
+  if (currentCount >= MAX_CHAT_ATTACHMENTS) return false;
+  add([buildPastedTextFile(text)]);
+  return true;
 }

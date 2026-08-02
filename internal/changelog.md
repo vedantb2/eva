@@ -1,5 +1,9 @@
 # Changelog
 
+## Paste-as-file for long chat pastes - 2026-08-02
+
+Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.
+
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
 - Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.

@@ -400,7 +400,6 @@ export function ChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
-        attachmentMode="sessionFiles"
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
       />

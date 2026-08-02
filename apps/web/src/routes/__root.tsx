@@ -3,7 +3,6 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
-import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
@@ -15,6 +14,13 @@ export interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 });
+
+/** Lazy: streamdown + cjk/math/mermaid (katex) off the critical path. */
+const ChangelogDialog = lazy(() =>
+  import("@/lib/components/ChangelogDialog").then((m) => ({
+    default: m.ChangelogDialog,
+  })),
+);
 
 /** Lazy so the agentation package stays out of the production bundle. */
 const DevAgentation = import.meta.env.DEV
@@ -35,7 +41,9 @@ function RootComponent() {
           <Outlet />
         </AppShell>
       </NuqsAdapter>
-      <ChangelogDialog />
+      <Suspense fallback={null}>
+        <ChangelogDialog />
+      </Suspense>
       <AppToaster />
       <Analytics />
       {DevAgentation ? (

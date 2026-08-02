@@ -4,7 +4,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, KNOWN_REPO_SUB_PAGES } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { m, AnimatePresence } from "motion/react";
 import {
@@ -19,13 +19,6 @@ import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { api } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
-import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
-import { ReviewsSidebar } from "@/lib/components/sidebar/ReviewsSidebar";
-import { GlobalSessionsSidebar } from "@/lib/components/sidebar/GlobalSessionsSidebar";
-import { HomeSidebar } from "@/lib/components/sidebar/HomeSidebar";
-import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
-import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
@@ -38,14 +31,62 @@ import {
   isGlobalSettingsPath,
   isHomePath,
 } from "@/lib/components/sidebar/homePaths";
-import { GlobalSettingsSidebar } from "@/lib/components/sidebar/GlobalSettingsSidebar";
 import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
+
 const KNOWN_SUB_PAGES = KNOWN_REPO_SUB_PAGES;
+
+/** Panel bodies load on demand so unused modes stay off the shell chunk. */
+const SettingsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/SettingsSidebar").then((m) => ({
+    default: m.SettingsSidebar,
+  })),
+);
+const DocsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/DocsSidebar").then((m) => ({
+    default: m.DocsSidebar,
+  })),
+);
+const ReviewsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/ReviewsSidebar").then((m) => ({
+    default: m.ReviewsSidebar,
+  })),
+);
+const GlobalSessionsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/GlobalSessionsSidebar").then((m) => ({
+    default: m.GlobalSessionsSidebar,
+  })),
+);
+const HomeSidebar = lazy(() =>
+  import("@/lib/components/sidebar/HomeSidebar").then((m) => ({
+    default: m.HomeSidebar,
+  })),
+);
+const TestingArenaSidebar = lazy(() =>
+  import("@/lib/components/sidebar/TestingArenaSidebar").then((m) => ({
+    default: m.TestingArenaSidebar,
+  })),
+);
+const AutomationsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/AutomationsSidebar").then((m) => ({
+    default: m.AutomationsSidebar,
+  })),
+);
+const GlobalSettingsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/GlobalSettingsSidebar").then((m) => ({
+    default: m.GlobalSettingsSidebar,
+  })),
+);
+
+const sidebarPanelFallback = (
+  <div className="flex items-center justify-center py-8">
+    <Spinner size="sm" />
+  </div>
+);
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);
@@ -494,84 +535,84 @@ export function Sidebar() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        {showGlobalSessionsPanel ? (
-                          <GlobalSessionsSidebar
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : showHomePanel ? (
-                          <HomeSidebar
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : showGlobalSettingsPanel ? (
-                          <GlobalSettingsSidebar
-                            pathname={pathname}
-                            onNavigate={closeMobileSidebar}
-                          />
-                        ) : showContextSidebar ? (
-                          contextSidebarMode === "settings" ? (
-                            <SettingsSidebar
-                              basePath={repoBasePath ?? ""}
+                        <Suspense fallback={sidebarPanelFallback}>
+                          {showGlobalSessionsPanel ? (
+                            <GlobalSessionsSidebar
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
-                          ) : repo && repoBasePath ? (
-                            contextSidebarMode === "docs" ? (
-                              <DocsSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
+                          ) : showHomePanel ? (
+                            <HomeSidebar
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                            />
+                          ) : showGlobalSettingsPanel ? (
+                            <GlobalSettingsSidebar
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                            />
+                          ) : showContextSidebar ? (
+                            contextSidebarMode === "settings" ? (
+                              <SettingsSidebar
+                                basePath={repoBasePath ?? ""}
                                 pathname={pathname}
                                 onNavigate={closeMobileSidebar}
                               />
-                            ) : contextSidebarMode === "reviews" ? (
-                              <ReviewsSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
-                                pathname={pathname}
-                                onNavigate={closeMobileSidebar}
-                              />
-                            ) : contextSidebarMode === "testing-arena" ? (
-                              <TestingArenaSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
-                                pathname={pathname}
-                                onNavigate={closeMobileSidebar}
-                              />
+                            ) : repo && repoBasePath ? (
+                              contextSidebarMode === "docs" ? (
+                                <DocsSidebar
+                                  repoId={repo._id}
+                                  basePath={repoBasePath}
+                                  pathname={pathname}
+                                  onNavigate={closeMobileSidebar}
+                                />
+                              ) : contextSidebarMode === "reviews" ? (
+                                <ReviewsSidebar
+                                  repoId={repo._id}
+                                  basePath={repoBasePath}
+                                  pathname={pathname}
+                                  onNavigate={closeMobileSidebar}
+                                />
+                              ) : contextSidebarMode === "testing-arena" ? (
+                                <TestingArenaSidebar
+                                  repoId={repo._id}
+                                  basePath={repoBasePath}
+                                  pathname={pathname}
+                                  onNavigate={closeMobileSidebar}
+                                />
+                              ) : (
+                                <AutomationsSidebar
+                                  repoId={repo._id}
+                                  basePath={repoBasePath}
+                                  pathname={pathname}
+                                  onNavigate={closeMobileSidebar}
+                                />
+                              )
                             ) : (
-                              <AutomationsSidebar
-                                repoId={repo._id}
-                                basePath={repoBasePath}
+                              sidebarPanelFallback
+                            )
+                          ) : repoBasePath ? (
+                            <div className="space-y-4">
+                              <RepoTopNav
+                                repoBasePath={repoBasePath}
                                 pathname={pathname}
+                                collapsed={false}
+                                repo={repo}
                                 onNavigate={closeMobileSidebar}
                               />
-                            )
-                          ) : (
-                            <div className="flex items-center justify-center py-8">
-                              <Spinner size="sm" />
+                              <RepoNavSections
+                                repoBasePath={repoBasePath}
+                                pathname={pathname}
+                                collapsed={false}
+                                repo={repo}
+                                onOpenContextSidebar={(mode) => {
+                                  setContextSidebarMode(mode);
+                                }}
+                                onNavigate={closeMobileSidebar}
+                              />
                             </div>
-                          )
-                        ) : repoBasePath ? (
-                          <div className="space-y-4">
-                            <RepoTopNav
-                              repoBasePath={repoBasePath}
-                              pathname={pathname}
-                              collapsed={false}
-                              repo={repo}
-                              onNavigate={closeMobileSidebar}
-                            />
-                            <RepoNavSections
-                              repoBasePath={repoBasePath}
-                              pathname={pathname}
-                              collapsed={false}
-                              repo={repo}
-                              onOpenContextSidebar={(mode) => {
-                                setContextSidebarMode(mode);
-                              }}
-                              onNavigate={closeMobileSidebar}
-                            />
-                          </div>
-                        ) : null}
+                          ) : null}
+                        </Suspense>
                       </m.div>
                     </div>
                   </nav>

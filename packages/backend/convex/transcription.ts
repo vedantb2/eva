@@ -8,6 +8,9 @@ import { action } from "./_generated/server";
 /**
  * Hardcoded streaming STT model. Swap here based on feedback — not a user
  * setting. $0.20/hr streaming via AI Gateway.
+ *
+ * TODO: team-wide AI Gateway ZDR currently blocks this model — turn ZDR off
+ * (or add a ZDR-attested xAI BYOK key) when ready to use voice dictation.
  */
 const TRANSCRIPTION_MODEL = "xai/grok-stt";
 

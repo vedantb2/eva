@@ -19,14 +19,12 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
-  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
 export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
-  onOpenProject,
   onDelete,
 }: ProjectsListViewProps) {
   const { owner, name, basePath } = useRepo();
@@ -125,7 +123,6 @@ export function ProjectsListView({
                                   ? `${basePath}/projects/${entityPathSegment(project)}`
                                   : `${basePath}/projects`
                               }
-                              onClick={() => onOpenProject(project)}
                               onDelete={() =>
                                 onDelete(project._id, project.title)
                               }

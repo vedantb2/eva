@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@eva/backend";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -44,6 +44,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@eva/ui";
+import { DynamicLink } from "@/lib/components/DynamicLink";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import {
   phaseConfig,
   PROJECT_PHASES,
@@ -73,8 +75,13 @@ interface ProjectCardProps {
   isBuilding?: boolean;
   sandboxStatus?: SandboxStatus;
   isActive?: boolean;
+  /** Public (slash) path; rendered via router Link so rewrites own the href. */
   href?: string;
-  onClick?: () => void;
+  /**
+   * Plain-click handler. Call `event.preventDefault()` to cancel Link
+   * navigation (e.g. while a dialog is open).
+   */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   onDelete: () => void;
 }
 
@@ -162,8 +169,22 @@ export function ProjectCard({
       className="shrink-0"
       accentClassName={accentColor}
       selected={isActive}
-      href={href}
-      onClick={onClick}
+      link={
+        href ? (
+          <DynamicLink to={toInternalRepoHref(href)} search={(prev) => prev} />
+        ) : undefined
+      }
+      onClick={
+        editOpen || onClick
+          ? (event) => {
+              if (editOpen) {
+                event.preventDefault();
+                return;
+              }
+              onClick?.(event);
+            }
+          : undefined
+      }
       aria-label={title}
       decoration={
         <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

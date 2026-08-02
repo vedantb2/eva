@@ -29,7 +29,6 @@ import {
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
-import { entityPathSegment } from "@/lib/numId";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
@@ -244,15 +243,6 @@ export function QuickTasksClient() {
     });
   };
 
-  const handleOpenTask = (task: { numId?: number }) => {
-    const segment = entityPathSegment(task);
-    if (!segment) return;
-    navigate({
-      to: toInternalRepoHref(`${basePath}/quick-tasks/${segment}`),
-      search: (prev) => prev,
-    });
-  };
-
   const closeBulkAction = () => setActiveBulkAction(null);
 
   useHotkey("Alt+N", (e) => {
@@ -453,7 +443,6 @@ export function QuickTasksClient() {
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
                 />
               </m.div>
             ) : (
@@ -471,7 +460,6 @@ export function QuickTasksClient() {
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
                   selectedTaskId={selectedTaskId}
                   selectedTaskStatus={
                     numIdParam !== undefined ? taskResolve.status : undefined

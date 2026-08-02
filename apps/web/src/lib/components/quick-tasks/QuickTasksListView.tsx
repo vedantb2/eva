@@ -51,7 +51,6 @@ interface QuickTasksListViewProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (task: Task) => void;
   selectedTaskId?: string | null;
 }
 
@@ -61,7 +60,6 @@ export function QuickTasksListView({
   isSelecting,
   selectedIds,
   onToggleSelect,
-  onOpenTask,
   selectedTaskId,
 }: QuickTasksListViewProps) {
   const { repoId, basePath, owner, name } = useRepo();
@@ -295,13 +293,14 @@ export function QuickTasksListView({
                                         ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                                         : `${basePath}/quick-tasks`
                                     }
-                                    onClick={() => {
-                                      if (isSelecting) {
-                                        onToggleSelect(task._id);
-                                      } else {
-                                        onOpenTask(task);
-                                      }
-                                    }}
+                                    onClick={
+                                      isSelecting
+                                        ? (event) => {
+                                            event.preventDefault();
+                                            onToggleSelect(task._id);
+                                          }
+                                        : undefined
+                                    }
                                     isSelecting={isSelecting}
                                     isSelected={selectedIds.has(task._id)}
                                     isActive={selectedTaskId === task._id}

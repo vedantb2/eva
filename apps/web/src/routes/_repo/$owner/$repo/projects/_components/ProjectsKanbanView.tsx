@@ -23,7 +23,6 @@ interface ProjectsKanbanViewProps {
   owner: string;
   name: string;
   basePath: string;
-  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -33,7 +32,6 @@ export function ProjectsKanbanView({
   owner,
   name,
   basePath,
-  onOpenProject,
   onDelete,
 }: ProjectsKanbanViewProps) {
   return (
@@ -56,7 +54,6 @@ export function ProjectsKanbanView({
                   owner={owner}
                   name={name}
                   basePath={basePath}
-                  onOpenProject={onOpenProject}
                   onDelete={onDelete}
                 />
               </m.div>,
@@ -73,7 +70,6 @@ function VirtualProjectColumn({
   owner,
   name,
   basePath,
-  onOpenProject,
   onDelete,
 }: {
   phase: ProjectPhase;
@@ -81,7 +77,6 @@ function VirtualProjectColumn({
   owner: string;
   name: string;
   basePath: string;
-  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }) {
   const { scrollParent, scrollRef } = usePersistedScrollParent(
@@ -127,7 +122,6 @@ function VirtualProjectColumn({
                       ? `${basePath}/projects/${entityPathSegment(project)}`
                       : `${basePath}/projects`
                   }
-                  onClick={() => onOpenProject(project)}
                   onDelete={() => onDelete(project._id, project.title)}
                 />
               </div>

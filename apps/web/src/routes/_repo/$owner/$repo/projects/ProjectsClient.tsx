@@ -4,9 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { entityPathSegment } from "@/lib/numId";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -56,7 +54,6 @@ import {
   type ProjectView,
   type SortField,
 } from "./_utils";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 const VIEW_OPTIONS: {
   key: ProjectView;
@@ -91,7 +88,6 @@ export function ProjectsClient() {
       );
     }
   });
-  const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
   const [
     { q, view, hiddenPhases, sortField, sortDir, timelineRange, timelineZoom },
@@ -178,12 +174,6 @@ export function ProjectsClient() {
       hidden.add(phase);
     }
     setParams({ hiddenPhases: [...hidden] });
-  };
-
-  const handleOpenProject = (project: { numId?: number }) => {
-    const segment = entityPathSegment(project);
-    if (!segment) return;
-    navigate({ to: toInternalRepoHref(`${basePath}/projects/${segment}`) });
   };
 
   const hasActiveFilters =
@@ -421,7 +411,6 @@ export function ProjectsClient() {
                       owner={owner}
                       name={name}
                       basePath={basePath}
-                      onOpenProject={handleOpenProject}
                       onDelete={(id, title) =>
                         setProjectToDelete({ id, title })
                       }
@@ -458,7 +447,6 @@ export function ProjectsClient() {
                   <ProjectsListView
                     projectsByPhase={projectsByPhase}
                     visiblePhases={visiblePhases}
-                    onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
                 </m.div>

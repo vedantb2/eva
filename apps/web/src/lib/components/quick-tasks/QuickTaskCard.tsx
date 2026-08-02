@@ -35,7 +35,9 @@ import {
   type Priority,
 } from "@/lib/components/priority/priorityMeta";
 import dayjs, { compactRelativeTime } from "@eva/shared/dates";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
+import { DynamicLink } from "@/lib/components/DynamicLink";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
@@ -64,8 +66,13 @@ interface QuickTaskCardProps {
   deploymentStatus?: DeploymentStatus;
   sandboxStatus?: SandboxStatus;
   groupedCodebases?: GroupedCodebase[];
+  /** Public (slash) path; rendered via router Link so rewrites own the href. */
   href?: string;
-  onClick?: () => void;
+  /**
+   * Plain-click handler. Call `event.preventDefault()` to cancel Link
+   * navigation (selection mode, open dialogs).
+   */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   isSelecting?: boolean;
   isSelected?: boolean;
   isActive?: boolean;
@@ -164,12 +171,19 @@ export function QuickTaskCard({
     <ListRow
       accentClassName={accentClass}
       selected={isActive}
-      href={href}
+      link={
+        href ? (
+          <DynamicLink to={toInternalRepoHref(href)} search={(prev) => prev} />
+        ) : undefined
+      }
       onClick={
-        onClick
-          ? () => {
-              if (hasDialogOpen) return;
-              onClick();
+        hasDialogOpen || onClick
+          ? (event) => {
+              if (hasDialogOpen) {
+                event.preventDefault();
+                return;
+              }
+              onClick?.(event);
             }
           : undefined
       }

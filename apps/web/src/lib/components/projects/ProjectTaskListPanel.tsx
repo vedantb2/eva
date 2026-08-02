@@ -102,7 +102,10 @@ function SortableTaskWrapper({
               : `${basePath}/quick-tasks`
           }
           isActive={selectedTaskId === task._id}
-          onClick={() => onSelectTask(task._id)}
+          onClick={(event) => {
+            event.preventDefault();
+            onSelectTask(task._id);
+          }}
           assignedTo={task.assignedTo}
           model={task.model}
           providerAccountId={task.providerAccountId}
@@ -348,7 +351,10 @@ export function ProjectTaskListPanel({
                                 : `${basePath}/quick-tasks`
                             }
                             isActive={selectedTaskId === task._id}
-                            onClick={() => onSelectTask(task._id)}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              onSelectTask(task._id);
+                            }}
                             assignedTo={task.assignedTo}
                             model={task.model}
                             providerAccountId={task.providerAccountId}

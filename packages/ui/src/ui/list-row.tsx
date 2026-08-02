@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
@@ -29,11 +30,15 @@ export const LIST_ROW_CONTROL_CLASS = "relative z-[2]";
  * hand-written `Enter`/`Space` key handler and an `if (e.detail === 0) return`
  * guard to stop that handler firing twice.
  *
- * So the row body stays a plain `<div>`, and a real `<button>` (or `<a>`, given
- * `href`) is stretched across it at `z-[1]`. The native element supplies the
- * keyboard behaviour, the accessible role, and — for `<a>` — middle-click and
- * Cmd-click, which both cards previously reimplemented with `window.open`.
- * Nested controls opt above the overlay with {@link LIST_ROW_CONTROL_CLASS}.
+ * So the row body stays a plain `<div>`, and a real `<button>`, `<a>`, or router
+ * `<Link>` (via {@link ListRowProps.link}) is stretched across it at `z-[1]`.
+ * The native element supplies the keyboard behaviour, the accessible role, and
+ * — for anchors/links — middle-click and Cmd-click. Nested controls opt above
+ * the overlay with {@link LIST_ROW_CONTROL_CLASS}.
+ *
+ * Prefer {@link ListRowProps.link} with a router `<Link>` for in-app paths so
+ * the router's `rewrite` owns the address-bar href. Use {@link ListRowProps.href}
+ * only for external URLs (or when no router is available).
  *
  * The focus ring is drawn by the row, not the overlay. Rows clip their
  * decoration with `overflow-hidden` and a ring is a box-shadow, so a ring on the
@@ -61,13 +66,23 @@ export interface ListRowProps extends Omit<
   /** Current row. Fills the surface and recolours the hairline. */
   selected?: boolean;
   /**
-   * Renders the overlay as an `<a>`, so the row supports middle-click and
-   * Cmd-click for free. `onClick` still fires for plain clicks, which is how a
-   * row both navigates and updates local state.
+   * Router link (or any single element) used as the stretched overlay. Props
+   * are merged via Radix `Slot`. Prefer this over {@link href} for in-app
+   * navigation so rewrites apply to the rendered `href`.
+   */
+  link?: React.ReactElement;
+  /**
+   * Renders the overlay as a raw `<a>`. Use for external URLs. In-app paths
+   * should use {@link link} instead.
    */
   href?: string;
-  /** Omit along with `href` for a row that is display-only. */
-  onClick?: () => void;
+  /**
+   * Fires on plain (non-modified) clicks. With {@link link}, call
+   * `event.preventDefault()` to cancel navigation (e.g. selection mode). With
+   * {@link href}, the row always prevents the browser navigation and expects
+   * this handler to navigate in-app if needed.
+   */
+  onClick?: (event: React.MouseEvent<HTMLElement>) => void;
   /**
    * Names the row for screen readers, since the overlay has no text of its own.
    * Lands on the overlay rather than the shell, so it labels the control that
@@ -81,11 +96,16 @@ export interface ListRowProps extends Omit<
   decoration?: React.ReactNode;
 }
 
+function isModifiedClick(event: React.MouseEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+}
+
 const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
   {
     children,
     accentClassName,
     selected = false,
+    link,
     href,
     onClick,
     className,
@@ -96,7 +116,8 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
   },
   ref,
 ) {
-  const interactive = href !== undefined || onClick !== undefined;
+  const interactive =
+    link !== undefined || href !== undefined || onClick !== undefined;
 
   const overlayClasses =
     "absolute inset-0 z-[1] cursor-pointer focus-visible:outline-none";
@@ -126,7 +147,24 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
           )}
         />
       ) : null}
-      {href !== undefined ? (
+      {link !== undefined ? (
+        <Slot
+          data-slot="row-control"
+          aria-label={ariaLabel}
+          className={overlayClasses}
+          onClick={(event: React.MouseEvent<HTMLElement>) => {
+            // Modified clicks are for new tab / window — leave navigation alone.
+            if (!isModifiedClick(event)) {
+              onClick?.(event);
+            }
+            // Own the click so a wrapping parent (e.g. KanbanCard) does not
+            // also treat it as a row activation.
+            event.stopPropagation();
+          }}
+        >
+          {link}
+        </Slot>
+      ) : href !== undefined ? (
         <a
           href={href}
           onClick={(event) => {
@@ -135,16 +173,10 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
             // browser open the new tab or window itself. A plain click is
             // handled in-app, so the navigation has to be cancelled or the
             // row would also hard-reload the page out from under the router.
-            if (
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey
-            ) {
-              return;
-            }
+            if (isModifiedClick(event)) return;
             event.preventDefault();
-            onClick();
+            onClick(event);
+            event.stopPropagation();
           }}
           data-slot="row-control"
           aria-label={ariaLabel}
@@ -153,7 +185,10 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
       ) : onClick !== undefined ? (
         <button
           type="button"
-          onClick={onClick}
+          onClick={(event) => {
+            onClick(event);
+            event.stopPropagation();
+          }}
           data-slot="row-control"
           aria-label={ariaLabel}
           className={overlayClasses}

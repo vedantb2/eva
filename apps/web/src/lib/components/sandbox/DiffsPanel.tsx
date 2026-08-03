@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { Id } from "@eva/backend";
 import type { GitStatus } from "@pierre/trees";
-import { Accordion, Spinner } from "@eva/ui";
+import { Accordion, EmptyState, Spinner } from "@eva/ui";
 import { IconGitPullRequest, IconAlertTriangle } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { ResizableSidebar } from "@/lib/components/ResizableSidebar";
@@ -148,15 +148,12 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
 
   if (!prUrl) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
-        <div className="max-w-md space-y-1">
-          <p className="text-sm font-medium">No pull request yet</p>
-          <p className="text-sm text-muted-foreground">
-            Once a pull request is opened for this work, its diff will appear
-            here.
-          </p>
-        </div>
+      <div className="flex h-full items-center justify-center px-6">
+        <EmptyState
+          icon={<IconGitPullRequest />}
+          title="No pull request yet"
+          description="Once a pull request is opened for this work, its diff will appear here."
+        />
       </div>
     );
   }
@@ -171,11 +168,11 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
           <Spinner />
         </div>
       ) : state.status === "error" ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <IconAlertTriangle className="h-8 w-8 text-muted-foreground/60" />
-          <p className="text-sm text-muted-foreground">
-            Could not load the pull request diff.
-          </p>
+        <div className="flex h-full items-center justify-center px-6">
+          <EmptyState
+            icon={<IconAlertTriangle />}
+            title="Could not load the pull request diff."
+          />
         </div>
       ) : fileEntries.length === 0 ? (
         <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -188,7 +185,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
       ) : (
         <div className="flex flex-col gap-3 p-3">
           {state.truncated ? (
-            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-surface border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               Diff is large and has been truncated.
             </p>
           ) : null}

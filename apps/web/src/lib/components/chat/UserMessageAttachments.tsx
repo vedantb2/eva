@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "@eva/ui";
+import { Button, toast } from "@eva/ui";
 import {
   iconForAttachment,
   isImageContentType,
@@ -54,10 +54,11 @@ export function UserMessageAttachments({
             const FileIcon = iconForAttachment(undefined, item.contentType);
             const label = labelForAttachment(undefined, item.contentType);
             return (
-              <button
+              <Button
                 key={item.url}
                 type="button"
-                className="flex max-w-[14rem] items-center gap-2 rounded-surface border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/80"
+                variant="outline"
+                className="h-auto max-w-[14rem] justify-start gap-2 rounded-surface bg-muted px-2.5 py-1.5 text-xs font-normal text-foreground hover:bg-muted/80"
                 onClick={() => {
                   void (async () => {
                     try {
@@ -76,7 +77,7 @@ export function UserMessageAttachments({
               >
                 <FileIcon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="truncate">{label}</span>
-              </button>
+              </Button>
             );
           })}
         </div>

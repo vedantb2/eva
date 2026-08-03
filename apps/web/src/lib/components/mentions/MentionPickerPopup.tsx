@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { Button } from "@eva/ui";
 import { IconSearch } from "@tabler/icons-react";
 import type { MentionPopupPlacement } from "./mentionPopupPosition";
 
@@ -51,6 +52,7 @@ export function MentionPickerPopup<TItem extends { id: string }>({
       aria-label={title}
       className={
         "fixed z-50 flex flex-col overflow-hidden rounded-surface border border-border " +
+        // design-check-ignore-next-line — floating popover layer, not a flat surface
         "bg-popover text-popover-foreground shadow-lg " +
         "animate-in fade-in-0 zoom-in-95 duration-150 " +
         slideClass
@@ -93,9 +95,10 @@ export function MentionPickerPopup<TItem extends { id: string }>({
           {items.map((item, index) => {
             const isSelected = index === selectedIndex;
             return (
-              <button
+              <Button
                 key={item.id}
                 type="button"
+                variant="ghost"
                 role="option"
                 aria-selected={isSelected}
                 data-mention-picker-item
@@ -105,15 +108,14 @@ export function MentionPickerPopup<TItem extends { id: string }>({
                   onSelectItem(item);
                 }}
                 className={
-                  "mx-1 flex w-[calc(100%-0.5rem)] min-w-0 items-center rounded-lg px-2 py-1.5 text-left text-sm " +
-                  "transition-[background-color] " +
+                  "mx-1 h-auto w-[calc(100%-0.5rem)] min-w-0 justify-start rounded-menu-item px-2 py-1.5 text-left text-sm " +
                   (isSelected
-                    ? "bg-primary/15 font-medium text-foreground dark:bg-primary/25"
-                    : "text-foreground/90 hover:bg-muted")
+                    ? "bg-primary/15 font-medium text-foreground hover:bg-primary/15 dark:bg-primary/25 dark:hover:bg-primary/25"
+                    : "font-normal text-foreground/90 hover:bg-muted")
                 }
               >
                 {renderItem(item, isSelected)}
-              </button>
+              </Button>
             );
           })}
         </div>

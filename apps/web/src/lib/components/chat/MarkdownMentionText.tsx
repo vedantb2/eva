@@ -6,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
+import { Button } from "@eva/ui";
 import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import remarkBreaks from "remark-breaks";
 import {
@@ -201,13 +202,14 @@ export function MarkdownMentionText({
               );
             }
             return (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={navigateToSkills}
-                className={`${SKILL_CHIP_CLASS} cursor-pointer transition-[background-color] hover:bg-primary/20`}
+                className={`${SKILL_CHIP_CLASS} h-auto hover:bg-primary/20`}
               >
                 /{label}
-              </button>
+              </Button>
             );
           }
 

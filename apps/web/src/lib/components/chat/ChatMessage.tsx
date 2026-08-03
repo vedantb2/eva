@@ -180,7 +180,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <span
                   data-pii
                   className={cn(
-                    "text-[11px] font-medium text-muted-foreground",
+                    "text-2xs font-medium text-muted-foreground",
                     // Avatar (16) + gap (8) + bubble px-3 (12) → align with bubble text
                     "pl-9",
                   )}
@@ -306,7 +306,7 @@ export const ChatMessage = memo(function ChatMessage({
                       revealOnHover={false}
                     />
                     {message.finishedAt && message.timestamp ? (
-                      <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                      <span className="text-2xs tabular-nums text-muted-foreground/60">
                         {dayjs(message.timestamp).format("h:mm A")} ·{" "}
                         {formatDuration(message.timestamp, message.finishedAt)}
                       </span>
@@ -377,7 +377,7 @@ function UserMessageMeta({
         <ChatMessageActions copyText={copyPlain} revealOnHover={false} />
       ) : null}
       {mode ? (
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+        <div className="flex items-center gap-1 text-2xs text-muted-foreground/60">
           {mode === "plan" ? (
             <>
               <IconClipboardList className="h-2.5 w-2.5" /> Plan
@@ -390,7 +390,7 @@ function UserMessageMeta({
         </div>
       ) : null}
       {timestamp ? (
-        <span className="text-[11px] text-muted-foreground/60">
+        <span className="text-2xs text-muted-foreground/60">
           {dayjs(timestamp).format("h:mm A")}
         </span>
       ) : null}

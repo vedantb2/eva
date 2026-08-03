@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
-import { cn } from "@eva/ui";
+import { Button, cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import type { ChatJumpAnchor } from "./chatTimeline";
 
@@ -132,10 +132,11 @@ export function ChatJumpRail({
       data-testid="chat-jump-rail"
     >
       <div className="relative h-full w-full select-none">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-label={`Jump to message: ${activeTick?.userText ?? "User message"}`}
-          className="pointer-events-auto absolute top-1/2 left-2 w-10 -translate-y-1/2 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          className="pointer-events-auto absolute top-1/2 left-2 h-auto w-10 -translate-y-1/2 bg-transparent p-0 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring/70"
           style={{ height: resolveRailHeightStyle(ticks.length) }}
           onBlur={() => setHoverIndex(null)}
           onFocus={() => setHoverIndex((current) => current ?? 0)}
@@ -187,7 +188,8 @@ export function ChatJumpRail({
           })}
           {activeTick ? (
             <span
-              className="pointer-events-none absolute left-8 w-80 rounded-xl border border-border/70 bg-popover/95 p-3 text-left text-popover-foreground shadow-xl shadow-black/25 backdrop-blur"
+              // design-check-ignore-next-line — floating hover preview, not a flat surface
+              className="pointer-events-none absolute left-8 w-80 rounded-surface border border-border/70 bg-popover/95 p-3 text-left text-popover-foreground shadow-lg backdrop-blur"
               style={{
                 top: `${activeTopPercent}%`,
                 transform: `translateY(${activeTooltipTranslate})`,
@@ -203,7 +205,7 @@ export function ChatJumpRail({
               ) : null}
             </span>
           ) : null}
-        </button>
+        </Button>
       </div>
     </div>
   );

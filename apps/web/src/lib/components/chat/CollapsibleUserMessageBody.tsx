@@ -61,7 +61,7 @@ export function CollapsibleUserMessageBody({
             variant="ghost"
             aria-expanded={expanded}
             onClick={() => setExpanded((value) => !value)}
-            className="-ml-1.5 h-6 rounded-md px-1.5 text-xs font-normal text-muted-foreground/72 hover:bg-muted/55 hover:text-foreground/85"
+            className="-ml-1.5 h-6 rounded-control px-1.5 text-xs font-normal text-muted-foreground/72 hover:bg-muted/55 hover:text-foreground/85"
           >
             {expanded ? "Show less" : "Show full message"}
           </Button>

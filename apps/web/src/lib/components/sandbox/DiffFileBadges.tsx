@@ -4,17 +4,15 @@ import type { GitStatus } from "@pierre/trees";
 const STATUS_META: Record<GitStatus, { label: string; className: string }> = {
   added: {
     label: "Added",
-    className:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    className: "border-success/30 text-success",
   },
   modified: {
     label: "Modified",
-    className:
-      "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    className: "border-warning/30 text-warning",
   },
   deleted: {
     label: "Deleted",
-    className: "border-destructive/30 bg-destructive/10 text-destructive",
+    className: "border-destructive/30 text-destructive",
   },
   renamed: {
     label: "Renamed",
@@ -40,7 +38,7 @@ export function FileStatusChip({ status }: { status: GitStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium",
+        "inline-flex shrink-0 rounded-control border px-1.5 py-0.5 text-3xs font-medium",
         meta.className,
       )}
     >
@@ -78,7 +76,7 @@ function diffBlocks(additions: number, deletions: number): Block[] {
 }
 
 const BLOCK_CLASS: Record<Block, string> = {
-  added: "bg-emerald-500",
+  added: "bg-success",
   removed: "bg-destructive",
   neutral: "bg-muted-foreground/25",
 };
@@ -98,15 +96,13 @@ export function DiffCountBar({
       className={cn("flex shrink-0 items-center gap-1.5 text-xs", className)}
       title={`${additions} additions, ${deletions} deletions`}
     >
-      <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
-        +{additions}
-      </span>
+      <span className="tabular-nums text-success">+{additions}</span>
       <span className="tabular-nums text-destructive">−{deletions}</span>
       <span className="flex gap-px">
         {diffBlocks(additions, deletions).map((block, index) => (
           <span
             key={index}
-            className={cn("size-2 rounded-[1px]", BLOCK_CLASS[block])}
+            className={cn("size-2 rounded-none", BLOCK_CLASS[block])}
           />
         ))}
       </span>

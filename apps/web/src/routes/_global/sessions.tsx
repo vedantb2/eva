@@ -12,7 +12,7 @@ function SessionsGlobalPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
       <EmptyState
-        icon={<IconTerminal2 size={28} />}
+        icon={<IconTerminal2 className="size-6" />}
         title="Select a session"
         description="Choose a session from the sidebar, or use + on an app to start a new one."
       />

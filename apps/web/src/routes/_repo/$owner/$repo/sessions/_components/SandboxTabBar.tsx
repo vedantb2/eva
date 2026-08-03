@@ -19,6 +19,7 @@ import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
 import type { SandboxTab } from "@/lib/search-params";
 import {
+  Button,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -34,7 +35,69 @@ import {
 /** Sandbox tabs: active face is fill + type only — no folder stroke or bar
  *  hairline, so the strip blends into the panel instead of reading as chrome. */
 const TAB_TRIGGER_CLASS =
-  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-transparent px-3 py-1 text-xs font-medium data-[state=active]:z-10 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground";
+  "relative flex h-7 items-center gap-1.5 rounded-none rounded-t-control border border-transparent px-3 text-2sm font-medium data-[state=active]:z-10 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground";
+
+/**
+ * Close affordance on a pinned tab (Editor / Computer). Lives inside a
+ * `TabsTrigger`, so it has to swallow the pointer-down Radix would otherwise
+ * read as a tab selection. `disabledReason` renders the same glyph inert with
+ * a tooltip instead of a live control (Computer cannot close while running).
+ */
+function SandboxTabCloseButton({
+  label,
+  onClose,
+  disabledReason,
+}: {
+  label: string;
+  onClose?: () => void;
+  disabledReason?: string;
+}) {
+  if (disabledReason) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="ml-0.5 inline-flex">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled
+              aria-label={disabledReason}
+              className="size-5 opacity-40"
+            >
+              <IconX className="size-3.5" />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          {disabledReason}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={`Close ${label} tab`}
+      className="ml-0.5 size-5"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose?.();
+      }}
+      onPointerDown={(e) => {
+        // Keep Radix Tabs from selecting via the close hit-target.
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <IconX className="size-3.5" />
+    </Button>
+  );
+}
 
 // Editor and Computer stay in the `+` menu until opened; then they pin as
 // closable tabs. Browser is first-class (sessions) for watching agent Chrome.
@@ -154,7 +217,7 @@ export function SandboxTabBar({
                 value={tab.value}
                 className={TAB_TRIGGER_CLASS}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="size-3.5" />
                 {tab.label}
                 {tab.value === "browser" && showBrowserPulse ? (
                   <span
@@ -167,78 +230,35 @@ export function SandboxTabBar({
           })}
           {showEditorTab ? (
             <TabsTrigger value="editor" className={TAB_TRIGGER_CLASS}>
-              <IconCode className="w-3.5 h-3.5" />
+              <IconCode className="size-3.5" />
               Editor
-              <button
-                type="button"
-                aria-label="Close Editor tab"
-                className="ml-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onCloseEditor?.();
-                }}
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                <IconX className="size-3.5" />
-              </button>
+              <SandboxTabCloseButton label="Editor" onClose={onCloseEditor} />
             </TabsTrigger>
           ) : null}
           {showComputerTab ? (
             <TabsTrigger value="computer" className={TAB_TRIGGER_CLASS}>
-              <IconDeviceDesktop className="w-3.5 h-3.5" />
+              <IconDeviceDesktop className="size-3.5" />
               Computer
-              {computerRunning ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="ml-0.5 inline-flex">
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="Stop Computer before closing this tab"
-                        className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-40"
-                      >
-                        <IconX className="size-3.5" />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    Stop Computer before closing this tab
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <button
-                  type="button"
-                  aria-label="Close Computer tab"
-                  className="ml-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onCloseComputer?.();
-                  }}
-                  onPointerDown={(e) => {
-                    // Keep Radix Tabs from selecting via the close hit-target.
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <IconX className="size-3.5" />
-                </button>
-              )}
+              <SandboxTabCloseButton
+                label="Computer"
+                onClose={onCloseComputer}
+                disabledReason={
+                  computerRunning
+                    ? "Stop Computer before closing this tab"
+                    : undefined
+                }
+              />
             </TabsTrigger>
           ) : null}
           {showFilesTab ? (
             <TabsTrigger value="files" className={TAB_TRIGGER_CLASS}>
-              <IconFileText className="w-3.5 h-3.5" />
+              <IconFileText className="size-3.5" />
               Files
             </TabsTrigger>
           ) : null}
           {showPrdTab ? (
             <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
-              <IconClipboardList className="w-3.5 h-3.5" />
+              <IconClipboardList className="size-3.5" />
               Plan
               {hasPrdContent ? (
                 <span
@@ -250,7 +270,7 @@ export function SandboxTabBar({
           ) : null}
           {showDesignsTab ? (
             <TabsTrigger value="designs" className={TAB_TRIGGER_CLASS}>
-              <IconPalette className="w-3.5 h-3.5" />
+              <IconPalette className="size-3.5" />
               Designs
               {hasDesignsContent ? (
                 <span
@@ -269,7 +289,7 @@ export function SandboxTabBar({
                 value={slug}
                 className={TAB_TRIGGER_CLASS}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="size-3.5" />
                 {tab.name}
               </TabsTrigger>
             );
@@ -279,13 +299,14 @@ export function SandboxTabBar({
       {/* Outside Tabs so the menu isn't part of Radix tab focus/value sync. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="mb-px flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="Open tab menu"
+            className="h-7 w-8 shrink-0 rounded-none rounded-t-control text-muted-foreground hover:text-foreground"
           >
-            <IconPlus className="h-4 w-4" />
-          </button>
+            <IconPlus className="size-4" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-[10rem]">
           {showEditorItem ? (

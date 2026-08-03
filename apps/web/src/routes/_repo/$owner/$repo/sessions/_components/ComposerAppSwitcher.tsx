@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -35,9 +36,10 @@ export function ComposerAppSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-primary underline decoration-primary/30 decoration-1 underline-offset-4 transition-colors hover:text-primary/60 hover:decoration-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          variant="link"
+          className="h-auto min-w-0 max-w-full gap-1.5 p-0 text-xl font-semibold tracking-tight underline decoration-primary/30 decoration-1 underline-offset-4 hover:text-primary/60 hover:decoration-primary/60 sm:text-2xl"
         >
           <RepoLogo
             logoUrl={logoUrl}
@@ -51,7 +53,7 @@ export function ComposerAppSwitcher() {
           />
           <span className="truncate">{repoDisplayLabel(repo)}</span>
           <IconChevronDown size={16} className="shrink-0 no-underline" />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="center"
@@ -76,7 +78,7 @@ export function ComposerAppSwitcher() {
                   fallback={
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold",
+                        "flex size-5 items-center justify-center rounded-control text-3xs font-semibold",
                         tileColor.bg,
                         tileColor.text,
                       )}

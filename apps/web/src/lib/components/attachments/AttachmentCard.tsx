@@ -1,3 +1,4 @@
+import { Button } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import {
   iconForAttachment,
@@ -38,7 +39,7 @@ export function AttachmentCard({
         <img
           src={url}
           alt={label}
-          className="size-8 shrink-0 rounded-sm border border-border object-cover"
+          className="size-8 shrink-0 rounded-control border border-border object-cover"
         />
       ) : (
         <FileIcon className="size-8 shrink-0 p-1.5 text-muted-foreground" />
@@ -50,19 +51,22 @@ export function AttachmentCard({
   return (
     <div className="group relative flex w-52 max-w-full items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5">
       {onOpen ? (
-        <button
+        <Button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          variant="ghost"
+          className="h-auto min-w-0 flex-1 justify-start gap-2 p-0 text-left font-normal hover:bg-transparent"
           onClick={onOpen}
         >
           {body}
-        </button>
+        </Button>
       ) : (
         body
       )}
       {onRemove ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           aria-label={`Remove ${label}`}
           // The card may sit inside a link (task detail opens the blob in a new
           // tab); removing must not also navigate.
@@ -71,10 +75,10 @@ export function AttachmentCard({
             event.stopPropagation();
             onRemove();
           }}
-          className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background focus:opacity-100 group-hover:opacity-100"
+          className="absolute right-0.5 top-0.5 h-auto w-auto rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity hover:bg-background focus:opacity-100 group-hover:opacity-100"
         >
           <IconX className="size-3" />
-        </button>
+        </Button>
       ) : null}
     </div>
   );

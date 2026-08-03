@@ -11,15 +11,15 @@ export const SANDBOX_STATUS_STYLES: Record<
   { dot: string; label: string }
 > = {
   active: {
-    dot: "bg-emerald-500",
+    dot: "bg-success",
     label: "Running",
   },
   starting: {
-    dot: "bg-amber-400",
+    dot: "bg-warning",
     label: "Starting",
   },
   stopping: {
-    dot: "bg-amber-400",
+    dot: "bg-warning",
     label: "Stopping",
   },
   closed: {

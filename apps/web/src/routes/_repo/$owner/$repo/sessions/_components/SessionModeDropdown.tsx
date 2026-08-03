@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -41,10 +42,15 @@ export function SessionModeDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-secondary px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="gap-1.5 bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
           <SelectedModeIcon className="size-3.5" />
           {selectedModeOption.label}
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuRadioGroup

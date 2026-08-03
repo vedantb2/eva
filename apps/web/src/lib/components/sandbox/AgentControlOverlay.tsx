@@ -14,6 +14,7 @@ export function AgentControlOverlay({ onTakeControl }: AgentControlOverlayProps)
   return (
     <div className="absolute inset-0">
       <div className="agent-aurora-ring absolute inset-0 z-20" aria-hidden />
+      {/* design-check-ignore-next-line — full-bleed invisible click catcher; Button's padding, radius and focus ring would all be wrong here */}
       <button
         type="button"
         onClick={onTakeControl}
@@ -21,7 +22,8 @@ export function AgentControlOverlay({ onTakeControl }: AgentControlOverlayProps)
         aria-label="Take control of the browser"
       />
       <div className="absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 items-center gap-2 duration-200">
-        <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
+        {/* design-check-ignore-next-line — floating overlay bar, not a flat surface: it lifts off the live browser viewport */}
+        <div className="flex min-w-0 items-center gap-2 rounded-control border border-border bg-card px-3 py-1.5 text-2sm shadow-sm">
           <span
             className="landing-pulse-dot size-1.5 shrink-0 rounded-full bg-primary"
             aria-hidden

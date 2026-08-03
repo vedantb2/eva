@@ -5,6 +5,7 @@ import { useQueryStates } from "nuqs";
 import { designVariationParser, viewModeParser } from "@/lib/search-params";
 import {
   Button,
+  EmptyState,
   Spinner,
   Tabs,
   TabsList,
@@ -75,15 +76,15 @@ export function DesignVariationsPanel({
   if (latestVariations.length === 0) {
     return (
       <div className="flex h-full min-w-0 flex-col">
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          <div className="max-w-md space-y-3 px-6 text-center">
-            <IconPalette className="mx-auto h-10 w-10 text-muted-foreground/60" />
-            <p className="text-sm">
-              {isExecuting
+        <div className="flex h-full items-center justify-center">
+          <EmptyState
+            icon={<IconPalette />}
+            title={
+              isExecuting
                 ? "Generating designs..."
-                : "Switch to Design mode and send a prompt — variations will appear here."}
-            </p>
-          </div>
+                : "Switch to Design mode and send a prompt — variations will appear here."
+            }
+          />
         </div>
       </div>
     );
@@ -106,7 +107,7 @@ export function DesignVariationsPanel({
               <TabsTrigger
                 key={i}
                 value={String(i)}
-                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:z-10 data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=inactive]:border-transparent data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground"
+                className="relative flex items-center gap-1.5 rounded-none rounded-t-control border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:z-10 data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=inactive]:border-transparent data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground"
               >
                 Design {String.fromCharCode(65 + i)}
               </TabsTrigger>

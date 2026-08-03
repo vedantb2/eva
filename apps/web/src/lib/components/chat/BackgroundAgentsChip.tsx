@@ -65,13 +65,14 @@ export function BackgroundAgentsChip({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+          variant="secondary"
+          className="mb-2 h-auto gap-1.5 rounded-control border border-border px-2.5 py-1 text-xs font-normal text-foreground hover:bg-muted"
         >
           <IconRobot className="size-3.5 shrink-0 text-muted-foreground" />
           <span>{label}</span>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
         <ul className="divide-y divide-border">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { m } from "motion/react";
 import {
+  Button,
   Command,
   CommandEmpty,
   CommandItem,
@@ -67,7 +68,7 @@ function ComposerStashItem({
                 ) : (
                   <span
                     key={attachment.url}
-                    className="flex size-8 items-center justify-center rounded-surface border border-border bg-muted text-[10px] text-muted-foreground"
+                    className="flex size-8 items-center justify-center rounded-surface border border-border bg-muted text-3xs text-muted-foreground"
                   >
                     file
                   </span>
@@ -80,10 +81,12 @@ function ComposerStashItem({
           </span>
         </div>
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         aria-label="Delete stash"
-        className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
           onDelete();
@@ -91,7 +94,7 @@ function ComposerStashItem({
         onPointerDown={(event) => event.stopPropagation()}
       >
         <IconX className="size-3.5" />
-      </button>
+      </Button>
     </CommandItem>
   );
 }
@@ -190,7 +193,7 @@ export function ComposerStash({
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              className="inline-flex h-7 items-center gap-1 rounded-control border border-border bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               onClick={() => setOpen((prev) => !prev)}
               title="Prompt stash"
               aria-label={`Prompt stash, ${entries.length} saved`}

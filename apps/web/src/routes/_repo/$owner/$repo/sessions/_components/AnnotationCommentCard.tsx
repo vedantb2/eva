@@ -37,15 +37,16 @@ export function AnnotationCommentCard({
 
   return (
     <div
-      className="pointer-events-auto absolute z-20 w-80 rounded-lg border border-border bg-popover p-3 shadow-lg"
+      // design-check-ignore-next-line — floating annotation card over the preview, not a flat surface
+      className="pointer-events-auto absolute z-20 w-80 rounded-surface border border-border bg-popover p-3 shadow-lg"
       style={{ left: position.left, top: position.top }}
     >
       <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="rounded-md border border-border bg-card px-1.5 py-0.5 font-mono text-foreground">
+        <span className="rounded-control border border-border bg-card px-1.5 py-0.5 font-mono text-foreground">
           {elementChip(context)}
         </span>
         {reactName ? (
-          <span className="rounded-md border border-border bg-card px-1.5 py-0.5">
+          <span className="rounded-control border border-border bg-card px-1.5 py-0.5">
             {reactName}
           </span>
         ) : null}

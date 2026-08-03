@@ -9,6 +9,7 @@ import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import {
   ActivityTasks,
   Button,
+  EmptyState,
   Spinner,
   Surface,
   Tabs,
@@ -74,15 +75,12 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
   if (!prUrl) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
-        <div className="max-w-md space-y-1">
-          <p className="text-sm font-medium">No pull request yet</p>
-          <p className="text-sm text-muted-foreground">
-            Once a pull request is opened for this work, its recap will appear
-            here.
-          </p>
-        </div>
+      <div className="flex h-full items-center justify-center px-6">
+        <EmptyState
+          icon={<IconGitPullRequest />}
+          title="No pull request yet"
+          description="Once a pull request is opened for this work, its recap will appear here."
+        />
       </div>
     );
   }
@@ -97,33 +95,33 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
   if (recapDoc === null) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
-        <div className="max-w-md space-y-2">
-          <p className="text-sm font-medium">No recap yet</p>
-          <p className="text-sm text-muted-foreground">
-            Generate a recap of this pull request for reviewers.
-          </p>
-          {generateError ? (
-            <p className="text-sm text-destructive">{generateError}</p>
-          ) : null}
-          <Button
-            size="sm"
-            onClick={() => {
-              void handleGenerate();
-            }}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Spinner size="sm" />
-                Generating…
-              </>
-            ) : (
-              "Generate recap"
-            )}
-          </Button>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center px-6">
+        <EmptyState
+          icon={<IconGitPullRequest />}
+          title="No recap yet"
+          description="Generate a recap of this pull request for reviewers."
+          action={
+            <Button
+              size="sm"
+              onClick={() => {
+                void handleGenerate();
+              }}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Spinner size="sm" />
+                  Generating…
+                </>
+              ) : (
+                "Generate recap"
+              )}
+            </Button>
+          }
+        />
+        {generateError ? (
+          <p className="mt-2 text-sm text-destructive">{generateError}</p>
+        ) : null}
       </div>
     );
   }

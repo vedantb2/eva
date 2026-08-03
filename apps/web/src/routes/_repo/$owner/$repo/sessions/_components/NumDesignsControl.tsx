@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
@@ -35,12 +36,9 @@ export function NumDesignsControl({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
-        <button
-          type="button"
-          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-        >
+        <Button type="button" variant="ghost" size="xs">
           Designs: {selected}
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>Design count</DropdownMenuLabel>

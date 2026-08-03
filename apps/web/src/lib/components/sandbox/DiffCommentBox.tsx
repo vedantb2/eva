@@ -19,7 +19,7 @@ export function DiffCommentDraftBox({
 
   return (
     <div
-      className="mx-2 my-2 rounded-lg border border-border bg-card p-3"
+      className="mx-2 my-2 rounded-surface border border-border bg-card p-3"
       contentEditable={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -81,14 +81,14 @@ export function DiffCommentPendingCard({
 }: DiffCommentPendingCardProps) {
   return (
     <div
-      className="mx-2 my-2 rounded-lg border border-border bg-card p-3"
+      className="mx-2 my-2 rounded-surface border border-border bg-card p-3"
       contentEditable={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="flex items-center gap-2">
         <IconMessage className="size-4 text-muted-foreground" />
         <span className="text-xs font-medium">Review comment</span>
-        <span className="ml-auto text-[11px] text-muted-foreground">
+        <span className="ml-auto text-2xs text-muted-foreground">
           {rangeLabel}
         </span>
         <Button

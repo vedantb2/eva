@@ -1,5 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { Spinner, Button, WebPreview, WebPreviewBody } from "@eva/ui";
+import {
+  Spinner,
+  Button,
+  EmptyState,
+  WebPreview,
+  WebPreviewBody,
+} from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
 import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
 import {
@@ -93,23 +99,25 @@ export function WebPreviewPanel({
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-          <IconWorld className="size-8 opacity-50" />
-          <p className="text-sm">
-            {!isActive ? "Start the sandbox to preview" : "Waiting for sandbox…"}
-          </p>
-          {!isActive && onStartSandbox ? (
-            <Button
-              size="sm"
-              onClick={onStartSandbox}
-              disabled={isSandboxStarting}
-            >
-              <IconPlayerPlay size={14} />
-              {isSandboxStarting ? "Starting…" : "Start sandbox"}
-            </Button>
-          ) : null}
-        </div>
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={<IconWorld className="size-6" />}
+          title={
+            !isActive ? "Start the sandbox to preview" : "Waiting for sandbox…"
+          }
+          action={
+            !isActive && onStartSandbox ? (
+              <Button
+                size="sm"
+                onClick={onStartSandbox}
+                disabled={isSandboxStarting}
+              >
+                <IconPlayerPlay size={14} />
+                {isSandboxStarting ? "Starting…" : "Start sandbox"}
+              </Button>
+            ) : undefined
+          }
+        />
       </div>
     );
   }

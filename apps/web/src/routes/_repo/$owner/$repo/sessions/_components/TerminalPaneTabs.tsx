@@ -1,5 +1,5 @@
-import { IconTerminal2, IconX } from "@tabler/icons-react";
-import { cn } from "@eva/ui";
+import { IconTerminal2 } from "@tabler/icons-react";
+import { PaneTabStrip, type PaneTab } from "./PaneTabStrip";
 
 interface TerminalPaneTabsProps {
   termIds: string[];
@@ -24,50 +24,19 @@ export function TerminalPaneTabs({
     return null;
   }
 
+  const tabs: PaneTab[] = termIds.map((id, index) => ({
+    id,
+    label: paneLabel(index),
+    closable: true,
+  }));
+
   return (
-    <div
-      className="flex shrink-0 items-center gap-1 overflow-x-auto bg-muted/40 px-2 py-1.5 scrollbar-thin"
-      role="tablist"
-    >
-      {termIds.map((id, index) => {
-        const selected = id === activeId;
-        return (
-          <div
-            key={id}
-            className={cn(
-              "group flex h-8 shrink-0 items-center rounded-lg transition-[transform,background-color]",
-              selected ? "bg-card" : "hover:bg-muted/80",
-            )}
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              className={cn(
-                "flex h-full min-w-24 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-[transform,background-color] active:scale-[0.96]",
-                selected
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              onClick={() => onSelect(id)}
-            >
-              <IconTerminal2 className="size-3.5 shrink-0" />
-              {paneLabel(index)}
-            </button>
-            <button
-              type="button"
-              className="hit-target motion-press mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 transition-[transform,background-color,opacity] hover:bg-muted hover:text-foreground hover:opacity-100 active:scale-[0.96] group-hover:opacity-100"
-              aria-label={`Close ${paneLabel(index)}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose(id);
-              }}
-            >
-              <IconX className="size-3.5" />
-            </button>
-          </div>
-        );
-      })}
-    </div>
+    <PaneTabStrip
+      tabs={tabs}
+      activeId={activeId}
+      icon={IconTerminal2}
+      onSelect={onSelect}
+      onClose={onClose}
+    />
   );
 }

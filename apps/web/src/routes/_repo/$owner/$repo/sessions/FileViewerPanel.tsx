@@ -5,6 +5,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import {
   Button,
+  EmptyState,
   MessageResponse,
   PageHeader,
   PageHeaderActions,
@@ -66,11 +67,19 @@ function formatBytes(size: number): string {
 }
 
 /** Centered icon + message, matching the sandbox panels' inactive states. */
+/**
+ * Placeholder shown in place of a file's contents (nothing selected, sandbox
+ * asleep, read failed). Thin wrapper over the shared `EmptyState` so the
+ * viewer's several notices all read the same as every other empty surface.
+ */
 export function ViewerNotice({ message }: { message: string }) {
   return (
-    <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3 px-6 text-center">
-      <IconFileText className="w-12 h-12 opacity-50" />
-      <p className="text-sm">{message}</p>
+    <div className="flex h-full items-center justify-center">
+      <EmptyState
+        icon={<IconFileText className="size-6" />}
+        title={message}
+        animate={false}
+      />
     </div>
   );
 }

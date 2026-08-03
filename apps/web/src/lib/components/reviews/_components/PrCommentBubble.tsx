@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
 import { Streamdown } from "streamdown";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -17,6 +18,8 @@ interface PrCommentBubbleProps {
   line?: number | null;
   /** Shown in place of the body when there is nothing to render. */
   emptyLabel?: string;
+  /** Controls for this bubble, e.g. Edit on the description. */
+  actions?: ReactNode;
 }
 
 /**
@@ -37,6 +40,7 @@ export function PrCommentBubble({
   path,
   line,
   emptyLabel,
+  actions,
 }: PrCommentBubbleProps) {
   const hasBody = body.trim().length > 0;
 
@@ -54,6 +58,7 @@ export function PrCommentBubble({
           </span>
         ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-2">
+          {actions}
           {at ? <RelativeDateTime at={new Date(at).getTime()} /> : null}
           <a
             href={htmlUrl}

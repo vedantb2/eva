@@ -2,7 +2,13 @@
 
 import { cn } from "@eva/ui";
 import { m } from "motion/react";
-import { createContext, use, useState, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useState,
+  type ComponentPropsWithRef,
+  type ReactNode,
+} from "react";
 
 // shared-layout pill slide between sidebar rows
 const sidebarSharedLayoutTransition = {
@@ -51,23 +57,29 @@ export function SharedLayoutNav({
   );
 }
 
-/** Per-item surface; highlight follows hover, else the active route. */
+/**
+ * Per-item surface; highlight follows hover, else the active route.
+ *
+ * Remaining props land on the outer element so the surface can be the child of
+ * an `asChild` trigger (context menus, tooltips) — those pass their handlers and
+ * ref down as props, and a surface that swallowed them would never open.
+ */
 export function SharedLayoutNavSurface({
   itemId,
   isActive,
   children,
   className,
-}: {
+  ...rest
+}: ComponentPropsWithRef<"div"> & {
   itemId: string;
   isActive: boolean;
-  children: ReactNode;
-  className?: string;
 }) {
   const { layoutId, hoveredId, setHoveredId } = useSharedLayoutNav();
   const highlighted = hoveredId !== null ? hoveredId === itemId : isActive;
 
   return (
     <div
+      {...rest}
       className={cn("relative", className)}
       onMouseEnter={() => setHoveredId(itemId)}
     >

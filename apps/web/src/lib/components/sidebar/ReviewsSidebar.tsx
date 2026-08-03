@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
@@ -10,6 +11,10 @@ import { useQueryState } from "nuqs";
 import { prErrorMessage, prefetchPrReview } from "@/lib/prReviewQueries";
 import { pullRequestListStateParser } from "@/lib/search-params";
 import { ReviewsListStateTabs } from "@/lib/components/sidebar/_components/ReviewsListStateTabs";
+import {
+  PrRenameDialog,
+  type PrToRename,
+} from "@/lib/components/sidebar/_components/PrRenameDialog";
 import { ReviewsSidebarRow } from "@/lib/components/sidebar/_components/ReviewsSidebarRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 
@@ -39,6 +44,8 @@ export function ReviewsSidebar({
     header: useAction(api.github.getPullRequestHeader),
   };
   const queryClient = useQueryClient();
+  // One rename dialog serves the whole list; this is the row it is open for.
+  const [renaming, setRenaming] = useState<PrToRename | null>(null);
   const [listState, setListState] = useQueryState(
     "prState",
     pullRequestListStateParser,
@@ -110,11 +117,20 @@ export function ReviewsSidebar({
                 onPrefetch={() =>
                   prefetchPrReview(queryClient, runners, repoId, pr.number)
                 }
+                onRename={() =>
+                  setRenaming({ number: pr.number, title: pr.title })
+                }
               />
             ))}
           </SharedLayoutNav>
         )}
       </div>
+
+      <PrRenameDialog
+        repoId={repoId}
+        pr={renaming}
+        onClose={() => setRenaming(null)}
+      />
     </>
   );
 }

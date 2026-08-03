@@ -2,7 +2,9 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils/cn";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring/35 focus:ring-offset-2",
+  // `rounded-full` here is deliberate: a badge is a compact single-line chip,
+  // the same case surface-radius.ts calls out for "Full" theme pills.
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-2xs font-semibold tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring/35 focus:ring-offset-2",
   {
     variants: {
       variant: {
@@ -12,6 +14,9 @@ const badgeVariants = cva(
         outline: "border-border text-foreground",
         success: "border-success/30 bg-success/12 text-success",
         warning: "border-warning/30 bg-warning/12 text-warning",
+        // Linear-quiet: hairline only, no fill — pairs with a `StatusDot` for
+        // status chips instead of a coloured background.
+        quiet: "border-border bg-transparent text-muted-foreground",
       },
     },
     defaultVariants: {

@@ -94,6 +94,13 @@ export interface ListRowProps extends Omit<
   contentClassName?: string;
   /** Content layered behind the row body, such as a hover glow. */
   decoration?: React.ReactNode;
+  /**
+   * Row density. Default is the standard row inset used everywhere today —
+   * passing this prop is required to opt in, so no existing call site
+   * changes. `"compact"` tightens padding and text to Linear's dense-list
+   * sizing (~36–40px rows, `text-2sm` body text).
+   */
+  density?: "default" | "compact";
 }
 
 function isModifiedClick(event: React.MouseEvent): boolean {
@@ -111,6 +118,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
     className,
     contentClassName,
     decoration,
+    density = "default",
     "aria-label": ariaLabel,
     ...props
   },
@@ -194,7 +202,13 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
           className={overlayClasses}
         />
       ) : null}
-      <div className={cn("relative p-2.5 pl-3 text-left", contentClassName)}>
+      <div
+        className={cn(
+          "relative text-left",
+          density === "compact" ? "p-2 pl-2.5 text-2sm" : "p-2.5 pl-3",
+          contentClassName,
+        )}
+      >
         {children}
       </div>
     </div>

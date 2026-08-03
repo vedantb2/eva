@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@eva/ui";
+import { Badge, StatusDot, type StatusTone } from "@eva/ui";
 import type { Doc } from "@eva/backend";
 import {
   IconNotes,
@@ -54,11 +54,14 @@ export const phaseConfig: Record<
     label: "Draft",
     icon: IconNotes,
   },
+  // No status token covers "finalized", so it borrows the blue slot of the
+  // muted categorical ramp — which flips with the appearance, unlike the raw
+  // blue-500/blue-400 pair this replaces.
   finalized: {
-    bg: "bg-blue-500/10",
-    cardBg: "bg-blue-500/5",
-    bar: "bg-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
+    bg: "bg-cat-1/10",
+    cardBg: "bg-cat-1/5",
+    bar: "bg-cat-1",
+    text: "text-cat-1",
     label: "Finalized",
     icon: IconCheck,
   },
@@ -108,14 +111,26 @@ interface ProjectPhaseBadgeProps {
   phase: ProjectPhase;
 }
 
-export function ProjectPhaseBadge({ phase }: ProjectPhaseBadgeProps) {
-  const config = phaseConfig[phase];
-  const Icon = config.icon;
+/** Linear-style status glyph per phase — the dot carries the colour, the label
+ *  next to it stays neutral. "finalized" has no distinct status colour of its
+ *  own, so it reads as neutral like "draft"; the label is what tells them
+ *  apart. `phaseConfig.icon` is still used by the phase dropdown and the
+ *  kanban, just not here — a dot, an icon and a label is one glyph too many. */
+const TONE_BY_PHASE: Record<ProjectPhase, StatusTone> = {
+  draft: "neutral",
+  finalized: "neutral",
+  in_progress: "progress",
+  business_review: "business-review",
+  code_review: "code-review",
+  completed: "done",
+  cancelled: "cancelled",
+};
 
+export function ProjectPhaseBadge({ phase }: ProjectPhaseBadgeProps) {
   return (
-    <Badge className={`${config.text} ${config.bg} border-transparent`}>
-      <Icon size={14} className={`mr-1 ${config.text}`} />
-      {config.label}
+    <Badge variant="quiet" className="gap-1.5">
+      <StatusDot tone={TONE_BY_PHASE[phase]} />
+      {phaseConfig[phase].label}
     </Badge>
   );
 }

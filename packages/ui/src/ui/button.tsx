@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils/cn";
 
 const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold tracking-[-0.01em] transition-[color,background-color,border-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 active:scale-[0.96] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-control text-sm font-semibold tracking-[-0.01em] transition-[color,background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45 active:scale-[0.96] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -27,9 +27,9 @@ const buttonVariants = cva(
         // were being hand-sized to `size-6`/`size-7` precisely because these
         // did not exist. (`.hit-target` must not override Tailwind `absolute` —
         // see globals.css.)
-        xs: "h-7 rounded-md px-2 text-[11px] hit-target [&_svg]:size-3.5",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-11 rounded-lg px-6",
+        xs: "h-7 px-2 text-2xs hit-target [&_svg]:size-3.5",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-11 px-6",
         icon: "h-10 w-10",
         "icon-sm": "h-8 w-8",
         "icon-xs": "h-7 w-7 hit-target [&_svg]:size-3.5",

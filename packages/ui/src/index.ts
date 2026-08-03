@@ -31,6 +31,7 @@ export * from "./ui/sheet";
 export * from "./ui/skeleton";
 export * from "./ui/sonner";
 export * from "./ui/spinner";
+export * from "./ui/status-dot";
 export * from "./ui/surface";
 export * from "./ui/switch";
 export * from "./ui/tabs";

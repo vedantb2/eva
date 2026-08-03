@@ -14,13 +14,14 @@ export function ArtifactsGlobalClient() {
   const isEmpty = artifacts !== undefined && artifacts.length === 0;
 
   return (
-    <PageWrapper title="Artifacts" fillHeight={isEmpty}>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Hosted dashboards that read live data through the Eva connector.
-        </p>
-        <ArtifactUploadDialog />
-      </div>
+    <PageWrapper
+      title="Artifacts"
+      fillHeight={isEmpty}
+      headerRight={<ArtifactUploadDialog />}
+    >
+      <p className="text-2sm text-muted-foreground">
+        Hosted dashboards that read live data through the Eva connector.
+      </p>
       {artifacts === undefined ? (
         <div
           className="grid min-h-[20rem] gap-3 sm:grid-cols-2"

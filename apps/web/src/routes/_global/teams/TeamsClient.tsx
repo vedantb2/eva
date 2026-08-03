@@ -114,9 +114,9 @@ export function TeamsClient() {
       }
     >
       {teams === undefined ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-1">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-36 border border-border" />
+            <Skeleton key={i} className="h-9 rounded-surface border border-border" />
           ))}
         </div>
       ) : teams.length === 0 ? (
@@ -128,7 +128,7 @@ export function TeamsClient() {
           onAction={openCreate}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-1">
           {teams.map((team) => (
             <TeamCard key={team._id} team={team} onDelete={setDeleteTarget} />
           ))}

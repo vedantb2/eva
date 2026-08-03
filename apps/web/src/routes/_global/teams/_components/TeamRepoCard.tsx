@@ -3,8 +3,6 @@ import type { api, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Button,
-  Card,
-  CardContent,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -50,75 +48,70 @@ export function TeamRepoCard({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <Card>
-            <CardContent className="flex items-center justify-between p-3 sm:p-4">
-              <div className="flex min-w-0 items-center gap-2">
-                <RepoLogo
-                  logoUrl={repo.logoUrl}
-                  size={28}
-                  fallback={
-                    <IconGitBranch
-                      size={28}
-                      className="text-muted-foreground"
-                    />
-                  }
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {repoDisplayLabel(repo)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {repo.owner}/{repo.name}
-                  </p>
-                </div>
-              </div>
-              {isOwner && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Rename"
-                    onClick={() => setRenameOpen(true)}
-                  >
-                    <IconPencil size={14} />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title={repo.logoUrl ? "Change logo" : "Set logo"}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <IconPhoto size={14} />
-                  </Button>
-                  {repo.logoUrl && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      title="Remove logo"
-                      onClick={() => removeLogo(repo._id)}
-                    >
-                      <IconPhotoOff size={14} />
-                    </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Remove from team"
-                    onClick={() => onRemove(repo._id)}
-                  >
-                    <IconTrash size={14} />
-                  </Button>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoSelected}
+          <div className="flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-muted/40">
+            <div className="flex min-w-0 items-center gap-2">
+              <RepoLogo
+                logoUrl={repo.logoUrl}
+                size={28}
+                fallback={
+                  <IconGitBranch size={28} className="text-muted-foreground" />
+                }
               />
-            </CardContent>
-          </Card>
+              <div className="min-w-0">
+                <p className="truncate text-2sm font-medium">
+                  {repoDisplayLabel(repo)}
+                </p>
+                <p className="text-2xs text-muted-foreground">
+                  {repo.owner}/{repo.name}
+                </p>
+              </div>
+            </div>
+            {isOwner && (
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  title="Rename"
+                  onClick={() => setRenameOpen(true)}
+                >
+                  <IconPencil size={14} />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  title={repo.logoUrl ? "Change logo" : "Set logo"}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <IconPhoto size={14} />
+                </Button>
+                {repo.logoUrl && (
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    title="Remove logo"
+                    onClick={() => removeLogo(repo._id)}
+                  >
+                    <IconPhotoOff size={14} />
+                  </Button>
+                )}
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  title="Remove from team"
+                  onClick={() => onRemove(repo._id)}
+                >
+                  <IconTrash size={14} />
+                </Button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoSelected}
+            />
+          </div>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => setRenameOpen(true)}>

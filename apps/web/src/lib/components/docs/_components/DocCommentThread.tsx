@@ -6,7 +6,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { UserInitials } from "@eva/shared";
-import { Button, cn, Textarea } from "@eva/ui";
+import { Badge, Button, cn, Textarea } from "@eva/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { useState, useEffect, useRef } from "react";
@@ -64,17 +64,17 @@ export function DocCommentThread({
       )}
     >
       {root.anchorText && (
-        <div className="mb-2 rounded border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
+        <div className="mb-2 rounded-surface border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
           &ldquo;{root.anchorText}&rdquo;
         </div>
       )}
       {root.resolutionTarget === "agent" && !isResolved ? (
-        <div className="mb-2 inline-flex rounded border border-border bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+        <Badge variant="quiet" className="mb-2">
           For Eva
-        </div>
+        </Badge>
       ) : null}
       {isOrphaned && (
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-warning">
+        <div className="mb-2 text-3xs font-medium uppercase tracking-wide text-warning">
           Original text deleted
         </div>
       )}
@@ -197,7 +197,7 @@ function DocCommentItem({ comment }: { comment: DocComment }) {
   const name = comment.authorId ? authorDisplayName(author) : "Unknown";
 
   return (
-    <div className="text-sm">
+    <div className="text-2sm">
       <div className="flex items-center gap-1.5">
         {comment.authorId ? (
           <UserInitials userId={comment.authorId} size="sm" />
@@ -207,12 +207,12 @@ function DocCommentItem({ comment }: { comment: DocComment }) {
         </span>
         <RelativeDateTime
           at={comment.createdAt}
-          className="text-[10px] text-muted-foreground"
+          className="text-3xs text-muted-foreground"
         />
       </div>
       <p
         className={cn(
-          "mt-0.5 text-xs leading-relaxed",
+          "mt-0.5 text-2sm leading-relaxed",
           isDeleted && "italic text-muted-foreground",
         )}
       >

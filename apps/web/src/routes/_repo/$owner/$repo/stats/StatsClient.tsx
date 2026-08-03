@@ -75,7 +75,7 @@ export function StatsClient() {
     >
       {isLoading ? (
         <div
-          className="min-h-[36rem] space-y-6"
+          className="min-h-[36rem] space-y-4"
           aria-busy="true"
           aria-label="Loading stats"
         >
@@ -88,7 +88,7 @@ export function StatsClient() {
           <Skeleton className="h-56 border border-border" />
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -102,7 +102,7 @@ export function StatsClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <KpiGroup className="lg:grid-cols-3">
+            <KpiGroup className="gap-3 lg:grid-cols-3">
               <Kpi
                 icon={IconGitPullRequest}
                 label="PRs Shipped"
@@ -141,7 +141,7 @@ export function StatsClient() {
           </m.div>
 
           <m.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-3 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
@@ -156,7 +156,7 @@ export function StatsClient() {
           </m.div>
 
           <m.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-3 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.35 }}

@@ -23,6 +23,7 @@ export function ArtifactFrame({
       // origin and cannot reach eva's cookies, storage, or DOM. CDN scripts and
       // postMessage still work.
       sandbox="allow-scripts"
+      // design-check-ignore-next-line — untrusted agent HTML renders on a fixed white iframe plate, not a themed app surface
       className="h-full w-full border-0 bg-white"
     />
   );

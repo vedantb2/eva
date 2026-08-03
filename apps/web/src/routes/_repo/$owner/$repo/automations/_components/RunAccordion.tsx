@@ -182,8 +182,9 @@ function RunAccordion({
 
   return (
     <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => {
           const willExpand = !expanded;
           setExpanded(willExpand);
@@ -191,7 +192,7 @@ function RunAccordion({
             onAcknowledge();
           }
         }}
-        className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
+        className="h-auto w-full flex-wrap items-center justify-start gap-2 rounded-none px-3 py-3 text-left font-normal text-foreground hover:bg-muted/30 sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
           <IconChevronDown
@@ -253,7 +254,7 @@ function RunAccordion({
         {run.acknowledged && (
           <span className="shrink-0 text-xs text-success">Read</span>
         )}
-      </button>
+      </Button>
       {expanded && (
         <div className="px-4 py-3 space-y-3">
           {isActive && liveSteps && (

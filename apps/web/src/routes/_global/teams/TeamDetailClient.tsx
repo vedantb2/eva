@@ -88,7 +88,7 @@ export function TeamDetailClient({
             logoUrl={team.logoUrl}
             size={28}
             fallback={
-              <div className="flex size-7 items-center justify-center rounded-md border border-border bg-muted">
+              <div className="flex size-7 items-center justify-center rounded-control border border-border bg-muted">
                 <IconUsers size={14} className="text-muted-foreground" />
               </div>
             }
@@ -155,7 +155,7 @@ export function TeamDetailClient({
         className="mb-4"
       >
         <div className="flex items-center justify-between gap-3">
-          <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-control border border-border bg-muted">
             {team.backgroundUrl ? (
               <img
                 src={team.backgroundUrl}

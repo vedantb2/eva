@@ -16,6 +16,8 @@ export type StatusTone =
    * the next reader.
    */
   | "active"
+  /** Something is wrong and needs attention: a critical finding, a hard error. */
+  | "critical"
   | "neutral";
 
 // Plain Record so Tailwind's static-class scanner can see every literal
@@ -28,6 +30,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
   done: "bg-status-done-bar",
   cancelled: "bg-status-cancelled-bar",
   active: "bg-success",
+  critical: "bg-destructive",
   neutral: "bg-muted-foreground/60",
 };
 

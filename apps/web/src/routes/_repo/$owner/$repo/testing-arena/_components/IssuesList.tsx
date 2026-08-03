@@ -5,7 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { Button, Checkbox, Spinner, cn } from "@eva/ui";
+import { Button, Checkbox, Spinner, StatusDot } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -14,18 +14,12 @@ import {
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
+import { SEVERITY_TONE } from "../_utils";
 
 type EvaluationReport = FunctionReturnType<
   typeof api.evaluationReports.listByDoc
 >[number];
 type Issue = NonNullable<EvaluationReport["issues"]>[number];
-
-const SEVERITY_COLORS: Record<Issue["severity"], string> = {
-  critical: "bg-red-500/15 text-red-700 dark:text-red-400",
-  high: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-  medium: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
-  low: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
-};
 
 /**
  * Renders a run's flagged issues as a checkbox list. Selected issues (those not
@@ -158,10 +152,11 @@ function IssueRow({
           disabled={hasTaskCreated}
           onCheckedChange={onToggle}
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setExpanded((prev) => !prev)}
-          className="flex flex-1 items-center gap-2 text-left min-w-0"
+          className="h-auto flex-1 min-w-0 justify-start gap-2 rounded-control px-1.5 py-1 text-left font-normal text-foreground"
         >
           {expanded ? (
             <IconChevronDown
@@ -174,18 +169,16 @@ function IssueRow({
               className="shrink-0 text-muted-foreground"
             />
           )}
-          <span
-            className={cn(
-              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium",
-              SEVERITY_COLORS[issue.severity],
-            )}
-          >
-            {issue.severity}
+          <span className="inline-flex shrink-0 items-center gap-1.5">
+            <StatusDot tone={SEVERITY_TONE[issue.severity]} />
+            <span className="text-2xs text-muted-foreground">
+              {issue.severity}
+            </span>
           </span>
           <MarqueeOnHover className="min-w-0 text-sm font-medium">
             {issue.title}
           </MarqueeOnHover>
-        </button>
+        </Button>
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}

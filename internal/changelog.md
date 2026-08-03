@@ -1,5 +1,14 @@
 # Changelog
 
+## Reviews: act on a pull request without leaving eva - 2026-08-03
+
+- Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.
+- One set of pull request actions on the Reviews page: the duplicated header row is gone, and View on GitHub plus Refresh now sit together in the page header as buttons.
+- Comment on a pull request from the Overview tab, and edit the description in place — both write through the GitHub App, so the timeline updates without a trip to GitHub.
+- Right-click a row in the Reviews sidebar to rename the pull request. Renaming drops the cached overview and header, so the new title sticks rather than reverting when the cache revalidates.
+- The timeline showed only GitHub's first page of commits, which is the oldest — the truncation notice is now a Load more control that fetches the rest, and only a branch past GitHub's own ceiling links out.
+- Clicking a commit in the timeline opens its diff in a dialog, fetched on click and cached for the session. Commit diffs are read-only: their line numbers do not match the pull request diff, so a review comment drafted there would land on the wrong lines.
+
 ## Review tabs: sub-second loads + GitHub-style Overview - 2026-08-03
 
 - Review and Diff tabs now paint from an in-memory SWR cache, so a second visit within 30 seconds is instant and revalidates silently in the background; a failed revalidate keeps the stale view instead of dropping to an error panel.

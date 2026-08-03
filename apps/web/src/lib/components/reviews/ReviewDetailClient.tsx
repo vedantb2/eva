@@ -1,27 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
 import { api } from "@eva/backend";
 import { Spinner } from "@eva/ui";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { githubPrUrl } from "@/lib/githubPr";
-import { loadPrHeader, peekPrHeader } from "@/lib/prReviewCache";
+import { prErrorMessage, prHeaderQuery } from "@/lib/prReviewQueries";
 import { REVIEW_DEFAULT_TAB, isReviewTab } from "@/lib/search-params";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ReviewTabsPanel } from "./ReviewTabsPanel";
-
-type PrHeader = FunctionReturnType<typeof api.github.getPullRequestHeader>;
-
-type HeaderLoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; header: PrHeader };
 
 /**
  * Standalone Reviews page for one pull request. Owns the PR title block and the
@@ -46,43 +38,13 @@ export function ReviewDetailClient({
     : undefined;
 
   const getHeader = useAction(api.github.getPullRequestHeader);
-  // Seeded from the SWR cache so a warmed or revisited PR shows its title on the
-  // first paint instead of a spinner.
-  const [headerState, setHeaderState] = useState<HeaderLoadState>(() => {
-    if (!isValidPrNumber) return { status: "loading" };
-    const cached = peekPrHeader({ repoId, prNumber });
-    return cached === undefined
-      ? { status: "loading" }
-      : { status: "ready", header: cached.value };
-  });
-
-  useEffect(() => {
-    if (!isValidPrNumber) return;
-    let cancelled = false;
-    const key = { repoId, prNumber };
-    const cached = peekPrHeader(key);
-    if (cached === undefined) {
-      setHeaderState({ status: "loading" });
-    } else {
-      setHeaderState({ status: "ready", header: cached.value });
-      if (!cached.stale) return;
-    }
-    loadPrHeader(getHeader, key)
-      .then((header) => {
-        if (!cancelled) setHeaderState({ status: "ready", header });
-      })
-      .catch((error: Error) => {
-        // A failed revalidate keeps the title already on screen.
-        if (cancelled || cached !== undefined) return;
-        setHeaderState({
-          status: "error",
-          message: error.message || "Couldn't load pull request",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [repoId, prNumber, getHeader, isValidPrNumber]);
+  // Cached, so a warmed or revisited PR shows its title on the first paint
+  // instead of a spinner. Rendering `data` ahead of `isError` also means a failed
+  // revalidate keeps the title that is already on screen.
+  const headerQuery = useQuery(
+    prHeaderQuery(getHeader, repoId, isValidPrNumber ? prNumber : undefined),
+  );
+  const prHeader = headerQuery.data;
 
   const goToTab = (nextTab: string) => {
     void navigate({
@@ -102,23 +64,17 @@ export function ReviewDetailClient({
 
   const header = (
     <div className="shrink-0 space-y-2 px-3 pt-3">
-      {headerState.status === "loading" ? (
-        <div className="flex h-10 items-center">
-          <Spinner size="sm" />
-        </div>
-      ) : headerState.status === "error" ? (
-        <p className="text-sm text-destructive">{headerState.message}</p>
-      ) : (
+      {prHeader !== undefined ? (
         <>
           <div className="flex flex-wrap items-start gap-2">
             <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
-              {headerState.header.title}{" "}
+              {prHeader.title}{" "}
               <span className="font-normal text-muted-foreground">
-                #{headerState.header.number}
+                #{prHeader.number}
               </span>
             </h1>
             <a
-              href={headerState.header.htmlUrl}
+              href={prHeader.htmlUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -128,17 +84,23 @@ export function ReviewDetailClient({
             </a>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {headerState.header.authorLogin ? (
-              <span>{headerState.header.authorLogin}</span>
-            ) : null}
+            {prHeader.authorLogin ? <span>{prHeader.authorLogin}</span> : null}
             <span>
               updated{" "}
               <RelativeDateTime
-                at={new Date(headerState.header.updatedAt).getTime()}
+                at={new Date(prHeader.updatedAt).getTime()}
               />
             </span>
           </div>
         </>
+      ) : headerQuery.isError ? (
+        <p className="text-sm text-destructive">
+          {prErrorMessage(headerQuery.error, "Couldn't load pull request")}
+        </p>
+      ) : (
+        <div className="flex h-10 items-center">
+          <Spinner size="sm" />
+        </div>
       )}
     </div>
   );

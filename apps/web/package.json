@@ -51,6 +51,7 @@
     "@t3-oss/env-core": "^0.13.8",
     "@tabler/icons-react": "^3.33.0",
     "@tanstack/react-hotkeys": "^0.3.2",
+    "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.120.0",
     "@tiptap/core": "^3.20.1",
     "@tiptap/extension-underline": "^3.20.1",

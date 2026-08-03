@@ -14,7 +14,11 @@ export { getPrDiff, getPrFileContents } from "./_github/prDiff";
 
 export { listPullRequests, getPullRequestHeader } from "./_github/pullRequests";
 
-export { getPullRequestOverview, mergePullRequest } from "./_github/prOverview";
+export {
+  getPullRequestOverview,
+  getPullRequestCommits,
+  mergePullRequest,
+} from "./_github/prOverview";
 
 export { submitPrReview } from "./_github/prReview";
 

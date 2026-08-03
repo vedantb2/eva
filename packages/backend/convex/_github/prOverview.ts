@@ -11,6 +11,8 @@ const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
 const MAX_CHECKS = 40;
 const MAX_COMMITS = 30;
+/** GitHub itself serves at most 250 commits per pull request. */
+const MAX_ALL_COMMITS = 250;
 
 /** Overview GitHub payload is moderately volatile (checks/comments). */
 const PR_OVERVIEW_CACHE_TTL_MS = 60_000;
@@ -253,6 +255,24 @@ function latestReviewPerAuthor(
   return [...byAuthor.values()];
 }
 
+type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;
+/** One entry of GitHub's PR commits listing, taken from the client's own types. */
+type GithubPrCommit = Awaited<
+  ReturnType<InstallationOctokit["rest"]["pulls"]["listCommits"]>
+>["data"][number];
+
+/** Shared by the overview's first page and the full listing behind Load more. */
+function toPullRequestCommit(commit: GithubPrCommit): PullRequestCommit {
+  return {
+    sha: commit.sha,
+    message: commit.commit.message.split("\n")[0] ?? "",
+    authorLogin: commit.author?.login ?? commit.commit.author?.name ?? null,
+    authorAvatarUrl: commit.author?.avatar_url ?? null,
+    committedAt: commit.commit.author?.date ?? null,
+    htmlUrl: commit.html_url,
+  };
+}
+
 /**
  * Uncached GitHub Overview fetch — wrapped by ActionCache. Auth is enforced by
  * the public `getPullRequestOverview` wrapper before `fetch`.
@@ -391,14 +411,10 @@ export const fetchPullRequestOverview = internalAction({
       (review) => review.state !== "PENDING",
     );
 
-    const commits: PullRequestCommit[] = commitRes.data.map((commit) => ({
-      sha: commit.sha,
-      message: commit.commit.message.split("\n")[0] ?? "",
-      authorLogin: commit.author?.login ?? commit.commit.author?.name ?? null,
-      authorAvatarUrl: commit.author?.avatar_url ?? null,
-      committedAt: commit.commit.author?.date ?? null,
-      htmlUrl: commit.html_url,
-    }));
+    // GitHub serves this listing oldest-first, so the page kept here is the start
+    // of the branch: the conversation reads from the beginning, and Load more
+    // (`getPullRequestCommits`) fetches the newer ones on demand.
+    const commits: PullRequestCommit[] = commitRes.data.map(toPullRequestCommit);
 
     const comments: PullRequestComment[] = [
       ...issueRes.data.map(
@@ -510,6 +526,79 @@ export const getPullRequestOverview = action({
       { repoId: args.repoId, prNumber: args.prNumber },
       { force: args.force === true },
     );
+  },
+});
+
+const pullRequestCommitsValidator = v.object({
+  commits: v.array(pullRequestCommitValidator),
+  /** True when the pull request has more commits than GitHub will serve. */
+  truncated: v.boolean(),
+});
+
+type PullRequestCommits = {
+  commits: PullRequestCommit[];
+  truncated: boolean;
+};
+
+/**
+ * Uncached full commit listing — wrapped by ActionCache. Auth is enforced by the
+ * public `getPullRequestCommits` wrapper before `fetch`.
+ */
+export const fetchPullRequestCommits = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+  },
+  returns: pullRequestCommitsValidator,
+  handler: async (ctx, args): Promise<PullRequestCommits> => {
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const commits = await octokit.paginate(octokit.rest.pulls.listCommits, {
+      owner: repo.owner,
+      repo: repo.name,
+      pull_number: args.prNumber,
+      per_page: 100,
+    });
+
+    return {
+      commits: commits.map(toPullRequestCommit),
+      // GitHub's own ceiling: a longer branch simply cannot be listed here, so
+      // the timeline keeps its link out rather than promising the whole history.
+      truncated: commits.length >= MAX_ALL_COMMITS,
+    };
+  },
+});
+
+const prCommitsCache = new ActionCache(components.actionCache, {
+  action: internal._github.prOverview.fetchPullRequestCommits,
+  name: "prCommitsV1",
+  ttl: PR_OVERVIEW_CACHE_TTL_MS,
+});
+
+/**
+ * Every commit on a pull request, for the timeline's Load more: the overview
+ * carries only the first page, and a long branch hides its most recent work
+ * behind it. Separate from the overview so the common case still pays for one
+ * page instead of up to 250 commits.
+ */
+export const getPullRequestCommits = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+  },
+  returns: pullRequestCommitsValidator,
+  handler: async (ctx, args): Promise<PullRequestCommits> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await prCommitsCache.fetch(ctx, {
+      repoId: args.repoId,
+      prNumber: args.prNumber,
+    });
   },
 });
 

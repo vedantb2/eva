@@ -73,7 +73,7 @@ export function ReviewOverviewPanel({
 
         <div className="grid grid-cols-1 gap-5 [@container(min-width:56rem)]:grid-cols-[minmax(0,1fr)_16.5rem]">
           <div className="min-w-0 space-y-5">
-            <PrTimeline overview={overview} />
+            <PrTimeline repoId={repoId} overview={overview} />
             <PrMergeBox
               repoId={repoId}
               overview={overview}

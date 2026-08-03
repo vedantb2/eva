@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { Id } from "@eva/backend";
+import { Button, Spinner, cn } from "@eva/ui";
 import { IconGitCommit } from "@tabler/icons-react";
+import { usePrCommits } from "../usePrOverview";
 import { PrCommentBubble } from "./PrCommentBubble";
 import { PrCommitGroup } from "./PrCommitGroup";
 import { PrReviewEventItem } from "./PrReviewEventItem";
@@ -17,14 +20,28 @@ import { buildPrTimeline } from "./prTimelineItems";
  * request in order. The vertical rail and the 32px gutter are owned here, so
  * comments, review verdicts, and commits all line up however they are composed.
  */
-export function PrTimeline({ overview }: { overview: PrOverview }) {
-  const items = buildPrTimeline(overview);
-  // Any dropped page makes the timeline incomplete, and a reviewer reading it as
-  // the whole story is the failure mode worth spending a line of copy on.
-  const truncated =
+export function PrTimeline({
+  repoId,
+  overview,
+}: {
+  repoId: Id<"githubRepos">;
+  overview: PrOverview;
+}) {
+  // The overview carries GitHub's first page of commits, which is the oldest —
+  // so what a long branch hides is its most recent work, and Load more fetches
+  // the rest rather than sending the reader to GitHub.
+  const allCommits = usePrCommits(repoId, overview.number);
+  const commits = allCommits.commits ?? overview.commits;
+  const items = buildPrTimeline({ ...overview, commits });
+
+  const hiddenCommits = Math.max(0, overview.commitCount - commits.length);
+  const canLoadCommits = allCommits.commits === undefined && hiddenCommits > 0;
+  // Only what Load more cannot fix is worth a link out: capped comment pages, or
+  // a branch past GitHub's own commit ceiling.
+  const incomplete =
     overview.commentsTruncated ||
-    overview.commitsTruncated ||
-    overview.commitCount > overview.commits.length;
+    (allCommits.commits !== undefined &&
+      (allCommits.truncated || hiddenCommits > 0));
 
   return (
     <div className="relative min-w-0 space-y-3">
@@ -116,9 +133,36 @@ export function PrTimeline({ overview }: { overview: PrOverview }) {
         })}
       </ol>
 
-      {truncated ? (
+      {canLoadCommits ? (
+        <div
+          className={cn(
+            NOTICE_CLASS,
+            "flex flex-wrap items-center justify-between gap-2",
+          )}
+        >
+          <span>
+            {hiddenCommits} more recent{" "}
+            {hiddenCommits === 1 ? "commit is" : "commits are"} not shown.
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={allCommits.load}
+            disabled={allCommits.loading}
+          >
+            {allCommits.loading ? <Spinner size="sm" /> : null}
+            Load more commits
+          </Button>
+        </div>
+      ) : null}
+
+      {allCommits.error === null ? null : (
+        <p className="text-xs text-destructive">{allCommits.error}</p>
+      )}
+
+      {incomplete ? (
         <p className={NOTICE_CLASS}>
-          Older items are not shown.{" "}
+          Some items are not shown.{" "}
           <a
             href={overview.htmlUrl}
             target="_blank"

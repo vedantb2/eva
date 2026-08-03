@@ -5,9 +5,11 @@ import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import {
+  prCommitsQuery,
   prErrorMessage,
   prHeaderQuery,
   prOverviewQuery,
+  type PrCommitsData,
 } from "@/lib/prReviewQueries";
 import type { PrOverview } from "./_components/prOverviewMeta";
 
@@ -61,6 +63,47 @@ export function usePrOverview(
   })();
 
   return { state, reload: () => reload.mutate() };
+}
+
+/**
+ * The commits the overview does not carry. GitHub serves its commit listing
+ * oldest-first, so a branch longer than one page hides its most recent commits —
+ * the timeline offers Load more, and this is what that click runs.
+ *
+ * Read with `enabled: false`, so mounting the timeline never pulls up to 250
+ * commits on its own; the click goes through `fetchQuery`, which fills the same
+ * cache entry (and no-ops while it is still fresh), so the reader keeps the
+ * expanded timeline when they come back to this pull request.
+ */
+export function usePrCommits(
+  repoId: Id<"githubRepos">,
+  prNumber: number,
+): {
+  commits: PrCommitsData["commits"] | undefined;
+  /** True when even the full listing hit GitHub's own 250-commit ceiling. */
+  truncated: boolean;
+  load: () => void;
+  loading: boolean;
+  error: string | null;
+} {
+  const getCommits = useAction(api.github.getPullRequestCommits);
+  const queryClient = useQueryClient();
+
+  const options = prCommitsQuery(getCommits, repoId, prNumber);
+  const cached = useQuery({ ...options, enabled: false });
+  const load = useMutation({
+    mutationFn: () => queryClient.fetchQuery(options),
+  });
+
+  return {
+    commits: cached.data?.commits,
+    truncated: cached.data?.truncated === true,
+    load: () => load.mutate(),
+    loading: load.isPending,
+    error: load.isError
+      ? prErrorMessage(load.error, "Couldn't load commits")
+      : null,
+  };
 }
 
 /**

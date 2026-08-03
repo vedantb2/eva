@@ -30,6 +30,15 @@ type PrOverviewPayload = FunctionReturnType<
 type PrHeaderPayload = FunctionReturnType<
   typeof api.github.getPullRequestHeader
 >;
+export type PrCommitsData = FunctionReturnType<
+  typeof api.github.getPullRequestCommits
+>;
+
+/** Commits are never force-refetched, so this runner has no `force` argument. */
+export type PrCommitsRunner = (args: {
+  repoId: Id<"githubRepos">;
+  prNumber: number;
+}) => Promise<PrCommitsData>;
 
 /**
  * A PR diff as the Diffs tab consumes it. The raw diff text is split into
@@ -94,6 +103,23 @@ export function prHeaderQuery(
     queryKey: ["pr", "header", repoId, prNumber] as const,
     queryFn:
       prNumber === undefined ? skipToken : () => run({ repoId, prNumber }),
+  });
+}
+
+/**
+ * Every commit on a pull request, as opposed to the first page the overview
+ * carries. Deliberately not part of `prefetchPrReview`: a long branch would cost
+ * up to 250 commits on a hover, and most readers never ask for them. The
+ * timeline reads this entry with fetching disabled and fills it on Load more.
+ */
+export function prCommitsQuery(
+  run: PrCommitsRunner,
+  repoId: Id<"githubRepos">,
+  prNumber: number,
+) {
+  return queryOptions({
+    queryKey: ["pr", "commits", repoId, prNumber] as const,
+    queryFn: () => run({ repoId, prNumber }),
   });
 }
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Design system foundation: Linear-style geometry, quiet colour, and a gate - 2026-08-03
+
+- Controls now cap at ~10px radius and surfaces at 16px, whatever radius theme you pick. Previously the "Full" theme turned every compact row into an oval, because most components used the raw radius scale rather than the clamped one. Buttons, inputs, selects, and menu items all follow the cap now.
+- Three new type tokens (`text-3xs`, `text-2xs`, `text-2sm`) replace the arbitrary pixel sizes that had spread to 229 call sites. `text-2sm` (13px) is the UI body size the dense surfaces were already reaching for by hand.
+- Status now reads as a small coloured dot plus neutral text instead of a filled coloured pill, via a new `StatusDot` primitive. The loud filled backgrounds stay, but only for kanban column washes.
+- Session tab groups and repo tiles shared no code and used raw Tailwind palette classes that stayed the same hue in every appearance. Both now draw from one muted 8-slot categorical ramp that flips with the theme. Existing groups and tiles keep the colour they already had.
+- The soft-dark "neutral" appearance was retuned to a Linear graphite ladder; near-black "dark" is unchanged.
+- Default font is now Geist Sans. Geist Mono is declared but not yet self-hosted, so monospace falls back to the platform default.
+- Theme picker trimmed from 6 radii, 20 accents, and 13 fonts to 4, 12, and 8. Nothing was removed from the database — accounts already on a trimmed value keep rendering it.
+- New shared `PageHeader` and a quieter `EmptyState` in `@eva/ui`, replacing hand-rolled toolbars in the file viewer, quick-task detail pane, and doc history panel.
+- `internal/design/DESIGN.md` is now the single UI authority: tokens, type scale, radius rules, colour discipline, seven layout recipes, and a do/don't table. `pnpm design:check` enforces eight of those rules against a ratcheting baseline, matching how `compiler:check` already works.
+
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
 - Review caching moved from the hand-rolled SWR module onto TanStack Query, so the reviews surfaces share the same cache, devtools, and invalidation story as the rest of the app instead of a bespoke one.

@@ -1,11 +1,15 @@
 "use node";
 
+import { ActionCache } from "@convex-dev/action-cache";
 import { v } from "convex/values";
-import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { action, internalAction } from "../_generated/server";
+import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 
 const MAX_LIST_PAGES = 3;
+
+/** Title/author barely move, and this sits on the Reviews page critical path. */
+const PR_HEADER_CACHE_TTL_MS = 60_000;
 
 const pullRequestListItemValidator = v.object({
   number: v.number(),
@@ -28,6 +32,14 @@ type PullRequestListItem = {
   createdAt: string;
   htmlUrl: string;
 };
+
+const pullRequestHeaderValidator = v.object({
+  number: v.number(),
+  title: v.string(),
+  authorLogin: v.union(v.string(), v.null()),
+  htmlUrl: v.string(),
+  updatedAt: v.string(),
+});
 
 type PullRequestHeader = {
   number: number;
@@ -88,24 +100,16 @@ export const listPullRequests = action({
 });
 
 /**
- * Lightweight PR title/meta for the Reviews detail chrome (above tabs).
+ * Uncached header fetch — wrapped by ActionCache. Auth is enforced by the public
+ * `getPullRequestHeader` wrapper before `fetch`.
  */
-export const getPullRequestHeader = action({
+export const fetchPullRequestHeader = internalAction({
   args: {
     repoId: v.id("githubRepos"),
     prNumber: v.number(),
   },
-  returns: v.object({
-    number: v.number(),
-    title: v.string(),
-    authorLogin: v.union(v.string(), v.null()),
-    htmlUrl: v.string(),
-    updatedAt: v.string(),
-  }),
+  returns: pullRequestHeaderValidator,
   handler: async (ctx, args): Promise<PullRequestHeader> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
     });
@@ -125,5 +129,34 @@ export const getPullRequestHeader = action({
       htmlUrl: pr.html_url,
       updatedAt: pr.updated_at,
     };
+  },
+});
+
+const prHeaderCache = new ActionCache(components.actionCache, {
+  action: internal._github.pullRequests.fetchPullRequestHeader,
+  name: "prHeaderV1",
+  ttl: PR_HEADER_CACHE_TTL_MS,
+});
+
+/**
+ * Lightweight PR title/meta for the Reviews detail chrome (above tabs).
+ * ActionCache-backed (60s TTL); pass `force` to bypass.
+ */
+export const getPullRequestHeader = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+    force: v.optional(v.boolean()),
+  },
+  returns: pullRequestHeaderValidator,
+  handler: async (ctx, args): Promise<PullRequestHeader> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await prHeaderCache.fetch(
+      ctx,
+      { repoId: args.repoId, prNumber: args.prNumber },
+      { force: args.force === true },
+    );
   },
 });

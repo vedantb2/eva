@@ -19,8 +19,11 @@ export type PrOverview = FunctionReturnType<
 >;
 export type PrCheck = PrOverview["checks"][number];
 export type PrReview = PrOverview["reviews"][number];
+export type PrReviewEvent = PrOverview["reviewEvents"][number];
 export type PrCommit = PrOverview["commits"][number];
 export type PrComment = PrOverview["comments"][number];
+export type PrLabel = PrOverview["labels"][number];
+export type PrActor = PrOverview["assignees"][number];
 
 export type StatusTone = "success" | "failure" | "pending" | "neutral";
 
@@ -68,18 +71,44 @@ export function ToneIcon({
   return <IconMinus size={size} className="shrink-0 text-muted-foreground" />;
 }
 
-export function statusBadgeClass(
+/**
+ * The lifecycle pill, worded and coloured as GitHub does: open is green, merged
+ * is violet, closed-without-merging is red, and a draft is deliberately grey so
+ * it does not read as ready.
+ */
+export function statusMeta(
   status: PrOverview["status"],
   draft: boolean,
-): string {
+): { label: string; className: string } {
   if (status === "merged") {
-    return "border-border bg-violet-500/10 text-violet-700 dark:text-violet-300";
+    return {
+      label: "Merged",
+      className:
+        "border-border bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    };
   }
-  if (status === "open" && !draft) {
-    return "border-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (status === "closed") {
+    return {
+      label: "Closed",
+      className: "border-border bg-destructive/10 text-destructive",
+    };
   }
-  return "border-border bg-muted text-muted-foreground";
+  if (draft) {
+    return {
+      label: "Draft",
+      className: "border-border bg-muted text-muted-foreground",
+    };
+  }
+  return {
+    label: "Open",
+    className:
+      "border-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  };
 }
+
+/** Shared idiom for a quiet, non-blocking notice (truncation, empty states). */
+export const NOTICE_CLASS =
+  "rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground";
 
 /**
  * Review states as GitHub words them, plus the tone that drives the icon.

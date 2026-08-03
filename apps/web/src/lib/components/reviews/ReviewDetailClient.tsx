@@ -10,6 +10,7 @@ import { IconExternalLink } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { githubPrUrl } from "@/lib/githubPr";
+import { loadPrHeader, peekPrHeader } from "@/lib/prReviewCache";
 import { REVIEW_DEFAULT_TAB, isReviewTab } from "@/lib/search-params";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -46,25 +47,38 @@ export function ReviewDetailClient({
     : undefined;
 
   const getHeader = useAction(api.github.getPullRequestHeader);
-  const [headerState, setHeaderState] = useState<HeaderLoadState>({
-    status: "loading",
+  // Seeded from the SWR cache so a warmed or revisited PR shows its title on the
+  // first paint instead of a spinner.
+  const [headerState, setHeaderState] = useState<HeaderLoadState>(() => {
+    if (!isValidPrNumber) return { status: "loading" };
+    const cached = peekPrHeader({ repoId, prNumber });
+    return cached === undefined
+      ? { status: "loading" }
+      : { status: "ready", header: cached.value };
   });
 
   useEffect(() => {
     if (!isValidPrNumber) return;
     let cancelled = false;
-    setHeaderState({ status: "loading" });
-    getHeader({ repoId, prNumber })
+    const key = { repoId, prNumber };
+    const cached = peekPrHeader(key);
+    if (cached === undefined) {
+      setHeaderState({ status: "loading" });
+    } else {
+      setHeaderState({ status: "ready", header: cached.value });
+      if (!cached.stale) return;
+    }
+    loadPrHeader(getHeader, key)
       .then((header) => {
         if (!cancelled) setHeaderState({ status: "ready", header });
       })
       .catch((error: Error) => {
-        if (!cancelled) {
-          setHeaderState({
-            status: "error",
-            message: error.message || "Couldn't load pull request",
-          });
-        }
+        // A failed revalidate keeps the title already on screen.
+        if (cancelled || cached !== undefined) return;
+        setHeaderState({
+          status: "error",
+          message: error.message || "Couldn't load pull request",
+        });
       });
     return () => {
       cancelled = true;

@@ -37,18 +37,28 @@ function renamedFromPatch(patch: string): string | null {
 /**
  * Counts changed lines the way GitHub's file header does: `+`/`-` content
  * lines only, excluding the `+++`/`---` file markers of the patch header.
+ * Context lines and hunk count come from the same pass — they are only used to
+ * estimate a file's rendered height before it is mounted.
  */
 function diffFileStats(patch: string): {
   additions: number;
   deletions: number;
+  contextLines: number;
+  hunkCount: number;
 } {
   let additions = 0;
   let deletions = 0;
+  let contextLines = 0;
+  let hunkCount = 0;
   for (const line of patch.split("\n")) {
-    if (line.startsWith("+") && !line.startsWith("+++")) additions += 1;
+    if (line.startsWith("@@ ")) hunkCount += 1;
+    else if (line.startsWith("+") && !line.startsWith("+++")) additions += 1;
     else if (line.startsWith("-") && !line.startsWith("---")) deletions += 1;
+    // Context lines only exist inside hunks, so the leading-space test is only
+    // meaningful once a hunk header has been seen.
+    else if (hunkCount > 0 && line.startsWith(" ")) contextLines += 1;
   }
-  return { additions, deletions };
+  return { additions, deletions, contextLines, hunkCount };
 }
 
 /** One changed file, with everything the header and body need to render it. */
@@ -60,6 +70,10 @@ export interface DiffFileEntry {
   readonly status: GitStatus;
   readonly additions: number;
   readonly deletions: number;
+  /** Unchanged lines carried as hunk context — for height estimation only. */
+  readonly contextLines: number;
+  /** Number of `@@` hunks — each renders one separator row. */
+  readonly hunkCount: number;
   /** Old path when the file was renamed or moved. */
   readonly renamedFrom: string | null;
   /** GitHub does not render binary contents, and neither can we. */
@@ -86,6 +100,8 @@ export function buildDiffFileEntries(diff: string): DiffFileEntry[] {
       status: diffFileStatus(patch),
       additions: stats.additions,
       deletions: stats.deletions,
+      contextLines: stats.contextLines,
+      hunkCount: stats.hunkCount,
       renamedFrom: renamedFromPatch(patch),
       binary:
         /^GIT binary patch/m.test(patch) ||

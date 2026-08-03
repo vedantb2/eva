@@ -30,13 +30,17 @@ const STATUS_META: Record<GitStatus, { label: string; className: string }> = {
   },
 };
 
-/** GitHub-style lifecycle chip for a changed file. */
+/**
+ * GitHub-style lifecycle chip for a changed file. Ordinary modified files are
+ * left unmarked, matching GitHub's file bar.
+ */
 export function FileStatusChip({ status }: { status: GitStatus }) {
+  if (status === "modified") return null;
   const meta = STATUS_META[status];
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+        "inline-flex shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium",
         meta.className,
       )}
     >

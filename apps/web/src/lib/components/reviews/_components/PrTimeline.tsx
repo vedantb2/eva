@@ -83,7 +83,7 @@ export function PrTimeline({
                   </span>
                 }
               >
-                <PrCommitGroup commits={item.commits} />
+                <PrCommitGroup repoId={repoId} commits={item.commits} />
               </TimelineRow>
             );
           }

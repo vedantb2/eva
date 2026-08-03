@@ -123,6 +123,49 @@ export function prCommitsQuery(
   });
 }
 
+type CommitDiffPayload = FunctionReturnType<typeof api.github.getCommitDiff>;
+
+/** Commits are addressed by sha, so this runner takes no pull request number. */
+export type CommitDiffRunner = (args: {
+  repoId: Id<"githubRepos">;
+  sha: string;
+}) => Promise<CommitDiffPayload>;
+
+/** One commit's diff, split into per-file entries the same way a PR diff is. */
+export interface CommitDiffData {
+  readonly entries: readonly DiffFileEntry[];
+  readonly truncated: boolean;
+  readonly message: string;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly changedFiles: number;
+}
+
+/**
+ * The diff of a single commit, opened from a commit row in the timeline. A commit
+ * is immutable, so the entry never goes stale: reopening the dialog repaints from
+ * the cache without touching GitHub again.
+ */
+export function commitDiffQuery(
+  run: CommitDiffRunner,
+  repoId: Id<"githubRepos">,
+  sha: string,
+) {
+  return queryOptions({
+    queryKey: ["commit", "diff", repoId, sha] as const,
+    queryFn: (): Promise<CommitDiffData> =>
+      run({ repoId, sha }).then((payload) => ({
+        entries: buildDiffFileEntries(payload.diff),
+        truncated: payload.truncated,
+        message: payload.message,
+        additions: payload.additions,
+        deletions: payload.deletions,
+        changedFiles: payload.changedFiles,
+      })),
+    staleTime: Infinity,
+  });
+}
+
 /**
  * GitHub's own message where there is one, the caller's wording where there is
  * not — a rejected query can carry an empty message.

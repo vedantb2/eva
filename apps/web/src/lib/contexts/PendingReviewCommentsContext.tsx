@@ -52,6 +52,24 @@ export function PendingReviewCommentsProvider({
   );
 }
 
+/**
+ * Marks a subtree as outside the pull request review, even when a provider is
+ * mounted above it. A commit's diff has its own line numbers, so a review comment
+ * drafted against it would be submitted against the wrong lines of the PR diff —
+ * this makes those diffs read-only instead.
+ */
+export function NoPendingReviewComments({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <PendingReviewCommentsContext value={null}>
+      {children}
+    </PendingReviewCommentsContext>
+  );
+}
+
 export function usePendingReviewComments():
   | PendingReviewCommentsValue
   | undefined {

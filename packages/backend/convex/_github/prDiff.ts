@@ -140,6 +140,110 @@ export const getPrDiff = action({
   },
 });
 
+/** A commit is immutable, so its diff can be cached far longer than a PR's. */
+const COMMIT_DIFF_CACHE_TTL_MS = 30 * 60_000;
+
+const commitDiffResultValidator = v.object({
+  diff: v.string(),
+  /** True when the diff was clipped at MAX_DIFF_BYTES. */
+  truncated: v.boolean(),
+  /** The whole message, including any body the timeline row has to hide. */
+  message: v.string(),
+  additions: v.number(),
+  deletions: v.number(),
+  changedFiles: v.number(),
+});
+
+type CommitDiffResult = {
+  diff: string;
+  truncated: boolean;
+  message: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+};
+
+/**
+ * Uncached single-commit diff fetch — wrapped by ActionCache. Auth is enforced by
+ * the public `getCommitDiff` wrapper before `fetch`.
+ */
+export const fetchCommitDiff = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    sha: v.string(),
+  },
+  returns: commitDiffResultValidator,
+  handler: async (ctx, args): Promise<CommitDiffResult> => {
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const [res, meta] = await Promise.all([
+      octokit.rest.repos.getCommit({
+        owner: repo.owner,
+        repo: repo.name,
+        ref: args.sha,
+        mediaType: { format: "diff" },
+      }),
+      octokit.rest.repos.getCommit({
+        owner: repo.owner,
+        repo: repo.name,
+        ref: args.sha,
+      }),
+    ]);
+    // Same boundary as the PR diff: with the diff media type GitHub returns raw
+    // unified-diff text, but octokit types `data` as the commit object.
+    const fullDiff = z.string().parse(res.data);
+
+    const truncated = fullDiff.length > MAX_DIFF_BYTES;
+    // Clip on a line boundary so the final file stays parseable.
+    const diff = truncated
+      ? fullDiff.slice(0, fullDiff.lastIndexOf("\n", MAX_DIFF_BYTES))
+      : fullDiff;
+
+    return {
+      diff,
+      truncated,
+      message: meta.data.commit.message,
+      additions: meta.data.stats?.additions ?? 0,
+      deletions: meta.data.stats?.deletions ?? 0,
+      // GitHub itself lists at most 300 files per commit, so a vast commit
+      // reports the cap rather than its true file count.
+      changedFiles: meta.data.files?.length ?? 0,
+    };
+  },
+});
+
+const commitDiffCache = new ActionCache(components.actionCache, {
+  action: internal._github.prDiff.fetchCommitDiff,
+  name: "commitDiffV1",
+  ttl: COMMIT_DIFF_CACHE_TTL_MS,
+});
+
+/**
+ * The diff of one commit, for the dialog behind a commit row in the pull request
+ * timeline. Separate from `getPrDiff`: that answers "what does this branch change
+ * overall", this answers "what did this commit do".
+ */
+export const getCommitDiff = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    sha: v.string(),
+  },
+  returns: commitDiffResultValidator,
+  handler: async (ctx, args): Promise<CommitDiffResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await commitDiffCache.fetch(ctx, {
+      repoId: args.repoId,
+      sha: args.sha,
+    });
+  },
+});
+
 const prFileContentsValidator = v.object({
   /** File at the base commit; null when the file was added in this PR. */
   oldContents: v.union(v.string(), v.null()),

@@ -4,16 +4,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
-import { Spinner } from "@eva/ui";
-import { IconExternalLink } from "@tabler/icons-react";
+import { Button, Spinner } from "@eva/ui";
+import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { githubPrUrl } from "@/lib/githubPr";
 import { prErrorMessage, prHeaderQuery } from "@/lib/prReviewQueries";
 import { REVIEW_DEFAULT_TAB, isReviewTab } from "@/lib/search-params";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
-import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ReviewTabsPanel } from "./ReviewTabsPanel";
+import { usePrRefresh } from "./usePrOverview";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /**
  * Standalone Reviews page for one pull request. Owns the PR title block and the
@@ -45,10 +46,13 @@ export function ReviewDetailClient({
     prHeaderQuery(getHeader, repoId, isValidPrNumber ? prNumber : undefined),
   );
   const prHeader = headerQuery.data;
+  // One Refresh for the page, renewing both the title block and Overview — the
+  // tab drops its own control (`headerOwnsRefresh`) so there is only ever one.
+  const { refresh, refreshing } = usePrRefresh(repoId, prNumber);
 
   const goToTab = (nextTab: string) => {
     void navigate({
-      to: `${basePath}/reviews/${prNumber}/${nextTab}`,
+      to: toInternalRepoHref(`${basePath}/reviews/${prNumber}/${nextTab}`),
       search: (prev) => prev,
     });
   };
@@ -63,36 +67,44 @@ export function ReviewDetailClient({
   }
 
   const header = (
-    <div className="shrink-0 space-y-2 px-3 pt-3">
+    <div className="shrink-0 px-3 pt-3">
       {prHeader !== undefined ? (
-        <>
-          <div className="flex flex-wrap items-start gap-2">
-            <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
-              {prHeader.title}{" "}
-              <span className="font-normal text-muted-foreground">
-                #{prHeader.number}
-              </span>
-            </h1>
-            <a
-              href={prHeader.htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              View on GitHub
-              <IconExternalLink size={12} />
-            </a>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {prHeader.authorLogin ? <span>{prHeader.authorLogin}</span> : null}
-            <span>
-              updated{" "}
-              <RelativeDateTime
-                at={new Date(prHeader.updatedAt).getTime()}
-              />
+        // Author and last-updated live on the Overview tab's lifecycle line and
+        // in the reviews list, so the page chrome carries the title and the two
+        // controls that act on the whole pull request.
+        <div className="flex flex-wrap items-start gap-2">
+          <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
+            {prHeader.title}{" "}
+            <span className="font-normal text-muted-foreground">
+              #{prHeader.number}
             </span>
+          </h1>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button size="sm" variant="ghost" asChild>
+              <a
+                href={prHeader.htmlUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View on GitHub
+                <IconExternalLink size={14} aria-hidden />
+              </a>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={refresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <Spinner size="sm" />
+              ) : (
+                <IconRefresh size={14} aria-hidden />
+              )}
+              Refresh
+            </Button>
           </div>
-        </>
+        </div>
       ) : headerQuery.isError ? (
         <p className="text-sm text-destructive">
           {prErrorMessage(headerQuery.error, "Couldn't load pull request")}
@@ -117,6 +129,7 @@ export function ReviewDetailClient({
         activeTab={tab}
         onTabChange={goToTab}
         header={header}
+        headerOwnsRefresh
       />
     </PendingReviewCommentsProvider>
   );

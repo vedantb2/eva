@@ -4,7 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { prErrorMessage, prOverviewQuery } from "@/lib/prReviewQueries";
+import {
+  prErrorMessage,
+  prHeaderQuery,
+  prOverviewQuery,
+} from "@/lib/prReviewQueries";
 import type { PrOverview } from "./_components/prOverviewMeta";
 
 export type PrOverviewState =
@@ -57,4 +61,37 @@ export function usePrOverview(
   })();
 
   return { state, reload: () => reload.mutate() };
+}
+
+/**
+ * Refresh for a surface that owns chrome above the tabs: the standalone Reviews
+ * page shows one Refresh control, and that control has to renew both payloads
+ * visible there — the title block and the Overview tab. Forced, so the server
+ * ActionCache is bypassed as well, and written straight into the same query
+ * entries the panels read, so nothing refetches afterwards.
+ */
+export function usePrRefresh(
+  repoId: Id<"githubRepos">,
+  prNumber: number,
+): { refresh: () => void; refreshing: boolean } {
+  const getOverview = useAction(api.github.getPullRequestOverview);
+  const getHeader = useAction(api.github.getPullRequestHeader);
+  const queryClient = useQueryClient();
+
+  const overviewOptions = prOverviewQuery(getOverview, repoId, prNumber);
+  const headerOptions = prHeaderQuery(getHeader, repoId, prNumber);
+
+  const refresh = useMutation({
+    mutationFn: () =>
+      Promise.all([
+        getOverview({ repoId, prNumber, force: true }),
+        getHeader({ repoId, prNumber, force: true }),
+      ]),
+    onSuccess: ([overview, header]) => {
+      queryClient.setQueryData(overviewOptions.queryKey, overview);
+      queryClient.setQueryData(headerOptions.queryKey, header);
+    },
+  });
+
+  return { refresh: () => refresh.mutate(), refreshing: refresh.isPending };
 }

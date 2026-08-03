@@ -25,6 +25,11 @@ interface ReviewTabsPanelProps {
   /** Rendered above the tab row — the standalone page puts the PR title here. */
   header?: ReactNode;
   /**
+   * True where `header` already carries a Refresh control, so Overview drops
+   * its own rather than showing two.
+   */
+  headerOwnsRefresh?: boolean;
+  /**
    * Nested surfaces (session sandbox Review) use `size="sm"` on the same
    * TabsBar / TabsList; the standalone Reviews page keeps the default size.
    */
@@ -49,6 +54,7 @@ export function ReviewTabsPanel({
   activeTab,
   onTabChange,
   header,
+  headerOwnsRefresh = false,
   compact = false,
 }: ReviewTabsPanelProps) {
   // Cached hook, so querying here as well as on a surface that needs the recap
@@ -90,7 +96,11 @@ export function ReviewTabsPanel({
           {prNumber === undefined ? (
             <NoPullRequest detail="Once a pull request is opened for this work, its overview will appear here." />
           ) : (
-            <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
+            <ReviewOverviewPanel
+              repoId={repoId}
+              prNumber={prNumber}
+              showRefresh={!headerOwnsRefresh}
+            />
           )}
         </ReviewTabContent>
 

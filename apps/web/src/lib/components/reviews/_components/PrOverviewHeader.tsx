@@ -2,7 +2,6 @@
 
 import { Button, Spinner, cn } from "@eva/ui";
 import {
-  IconExternalLink,
   IconGitMerge,
   IconGitPullRequest,
   IconGitPullRequestClosed,
@@ -22,6 +21,9 @@ function StatusIcon({ status }: { status: PrOverview["status"] }) {
  * The line GitHub puts under a pull request title: lifecycle pill, then who is
  * merging what into where. The title itself is not here — both surfaces render
  * it in their own chrome above the tabs.
+ *
+ * `onRefresh` is absent on a surface whose chrome already carries a Refresh
+ * control (the standalone Reviews page), so the tab does not repeat it.
  */
 export function PrOverviewHeader({
   overview,
@@ -30,7 +32,7 @@ export function PrOverviewHeader({
 }: {
   overview: PrOverview;
   refreshing: boolean;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }) {
   const status = statusMeta(overview.status, overview.draft);
   const commits = overview.commitCount;
@@ -56,30 +58,22 @@ export function PrOverviewHeader({
         <BranchRef name={overview.headRef} />
       </p>
 
-      <a
-        href={overview.htmlUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        View on GitHub
-        <IconExternalLink size={12} aria-hidden />
-      </a>
-
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="shrink-0 text-muted-foreground"
-      >
-        {refreshing ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconRefresh size={14} aria-hidden />
-        )}
-        Refresh
-      </Button>
+      {onRefresh === undefined ? null : (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="shrink-0 text-muted-foreground"
+        >
+          {refreshing ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconRefresh size={14} aria-hidden />
+          )}
+          Refresh
+        </Button>
+      )}
     </div>
   );
 }

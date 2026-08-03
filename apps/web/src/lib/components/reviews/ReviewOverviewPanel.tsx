@@ -18,9 +18,15 @@ import { PrTimeline } from "./_components/PrTimeline";
 export function ReviewOverviewPanel({
   repoId,
   prNumber,
+  showRefresh = true,
 }: {
   repoId: Id<"githubRepos">;
   prNumber: number;
+  /**
+   * False where the surface's own chrome carries a Refresh control, so the tab
+   * does not show a second one.
+   */
+  showRefresh?: boolean;
 }) {
   const { state, reload } = usePrOverview(repoId, prNumber);
 
@@ -54,12 +60,16 @@ export function ReviewOverviewPanel({
       {/* Container query, not a viewport breakpoint: the same panel renders both
           full-width on /reviews and in a narrow session pane, so the layout has
           to respond to its own width. */}
-      <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 [container-type:inline-size]">
-        <PrOverviewHeader
-          overview={overview}
-          refreshing={refreshing}
-          onRefresh={reload}
-        />
+      <div className="mx-auto max-w-7xl px-4 pb-4 [container-type:inline-size]">
+        {/* Pinned: the lifecycle line says what this pull request is, which stays
+            relevant however far down the conversation you read. */}
+        <div className="sticky top-0 z-10 -mx-4 mb-5 border-b border-border bg-background px-4 py-3">
+          <PrOverviewHeader
+            overview={overview}
+            refreshing={refreshing}
+            onRefresh={showRefresh ? reload : undefined}
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-5 [@container(min-width:56rem)]:grid-cols-[minmax(0,1fr)_16.5rem]">
           <div className="min-w-0 space-y-5">

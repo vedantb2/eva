@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CURATED_FONT_FAMILIES,
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
 } from "@/lib/contexts/ThemeContext";
@@ -13,10 +14,9 @@ import { IconCheck } from "@tabler/icons-react";
 import { SectionLabel } from "./SectionLabel";
 import { OptionButton } from "./OptionButton";
 
-function isFontFamily(value: string): value is FontFamily {
-  return value in FONT_FAMILIES;
-}
-
+// Every radius the app has ever stored — kept complete so `ThemePreview` can
+// still label a legacy value (e.g. `sm`/`lg`) for a user who picked it before
+// curation. The picker below only renders `CURATED_RADIUS` of these.
 const RADIUS_OPTIONS: { value: RadiusSize; label: string }[] = [
   { value: "none", label: "None" },
   { value: "sm", label: "Small" },
@@ -25,6 +25,10 @@ const RADIUS_OPTIONS: { value: RadiusSize; label: string }[] = [
   { value: "xl", label: "X-Large" },
   { value: "full", label: "Full" },
 ];
+
+/** Radii the picker offers. `sm`/`lg` sit too close to their neighbours to be
+ * worth a choice — both keep resolving for users who already have them. */
+const CURATED_RADIUS: readonly RadiusSize[] = ["none", "md", "xl", "full"];
 
 const LETTER_SPACING_OPTIONS: { value: LetterSpacing; label: string }[] = [
   { value: "tighter", label: "Tighter" },
@@ -58,7 +62,9 @@ export function TypographySection({
       <section>
         <SectionLabel>Border Radius</SectionLabel>
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          {RADIUS_OPTIONS.map(({ value, label }) => {
+          {RADIUS_OPTIONS.filter((option) =>
+            CURATED_RADIUS.includes(option.value),
+          ).map(({ value, label }) => {
             const previewRadius =
               value === "none"
                 ? "0px"
@@ -80,6 +86,7 @@ export function TypographySection({
               >
                 <span
                   className="h-5 w-5 shrink-0 border-2 border-current"
+                  // design-check-ignore-next-line — renders the radius option itself
                   style={{ borderRadius: previewRadius }}
                 />
                 {label}
@@ -92,8 +99,8 @@ export function TypographySection({
       <section>
         <SectionLabel>Font</SectionLabel>
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          {Object.entries(FONT_FAMILIES).map(([key, font]) => {
-            if (!isFontFamily(key)) return null;
+          {CURATED_FONT_FAMILIES.map((key) => {
+            const font = FONT_FAMILIES[key];
             const isActive = fontFamily === key;
             return (
               <OptionButton

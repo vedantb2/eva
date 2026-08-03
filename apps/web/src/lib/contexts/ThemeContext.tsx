@@ -93,7 +93,7 @@ export interface ResolvedCustomTheme {
 const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
   accentColor: "zinc",
   radius: "xl",
-  fontFamily: "inter",
+  fontFamily: "geist",
   letterSpacing: "tight",
 };
 
@@ -185,6 +185,23 @@ export const FONT_FAMILIES: Record<
     stack: "Figtree, ui-sans-serif, system-ui, sans-serif",
   },
 };
+
+/**
+ * Fonts the picker offers. `FONT_FAMILIES` keeps every legacy key resolvable
+ * (roboto, poppins, dm-sans, host-grotesk, nunito included) so a user who
+ * already picked one of those keeps seeing it applied — this list only
+ * curates what is newly selectable.
+ */
+export const CURATED_FONT_FAMILIES: readonly FontFamily[] = [
+  "geist",
+  "inter",
+  "space-grotesk",
+  "jakarta",
+  "outfit",
+  "ibm-plex",
+  "figtree",
+  "source-serif",
+];
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
@@ -704,10 +721,11 @@ export function lookupAccent(accentColor: AccentColor) {
 }
 
 function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
-  const accentColor = customTheme.accentColor ?? "zinc";
-  const radius = customTheme.radius ?? "xl";
-  const fontFamily = customTheme.fontFamily ?? "inter";
-  const letterSpacing = customTheme.letterSpacing ?? "tight";
+  const accentColor = customTheme.accentColor ?? CUSTOM_THEME_DEFAULTS.accentColor;
+  const radius = customTheme.radius ?? CUSTOM_THEME_DEFAULTS.radius;
+  const fontFamily = customTheme.fontFamily ?? CUSTOM_THEME_DEFAULTS.fontFamily;
+  const letterSpacing =
+    customTheme.letterSpacing ?? CUSTOM_THEME_DEFAULTS.letterSpacing;
 
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
 
@@ -785,6 +803,28 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
 }
 
 export { ACCENT_COLORS };
+
+/**
+ * Accents the picker offers. `ACCENT_COLORS` keeps every legacy key
+ * resolvable (yellow, lime, emerald, cyan, purple, fuchsia, pink, slate,
+ * gray, neutral, taupe, mauve, mist, olive included) so a user who already
+ * picked one of those keeps seeing it applied — this list only curates what
+ * is newly selectable.
+ */
+export const CURATED_ACCENT_COLORS: readonly AccentColor[] = [
+  "zinc",
+  "stone",
+  "red",
+  "orange",
+  "amber",
+  "green",
+  "teal",
+  "sky",
+  "blue",
+  "indigo",
+  "violet",
+  "rose",
+];
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, appearance, setTheme: setNextTheme } = useThemeMode();

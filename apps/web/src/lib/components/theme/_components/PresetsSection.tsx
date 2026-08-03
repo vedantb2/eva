@@ -15,7 +15,9 @@ const PRESETS: Preset[] = [
     name: "Default",
     theme: {
       accentColor: "zinc",
-      fontFamily: "inter",
+      // Must stay in step with CUSTOM_THEME_DEFAULTS, or picking "Default"
+      // lands on a theme the app never ships to a fresh account.
+      fontFamily: "geist",
       radius: "xl",
       letterSpacing: "tight",
     },
@@ -46,7 +48,7 @@ const PRESETS: Preset[] = [
     theme: {
       accentColor: "green",
       fontFamily: "jakarta",
-      radius: "lg",
+      radius: "md",
       letterSpacing: "normal",
     },
     previewColor: "#15803D",

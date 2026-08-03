@@ -1,14 +1,10 @@
 "use client";
 
-import { ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
+import { ACCENT_COLORS, CURATED_ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
 import type { AccentColor } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { OptionButton } from "./OptionButton";
-
-function isAccentColor(value: string): value is AccentColor {
-  return value in ACCENT_COLORS;
-}
 
 export function AccentColorSection({
   accentColor,
@@ -19,8 +15,8 @@ export function AccentColorSection({
 }) {
   return (
     <div className="flex flex-wrap gap-2 sm:gap-3">
-      {Object.entries(ACCENT_COLORS).map(([key, color]) => {
-        if (!isAccentColor(key)) return null;
+      {CURATED_ACCENT_COLORS.map((key) => {
+        const color = ACCENT_COLORS[key];
         const isActive = accentColor === key;
         return (
           <OptionButton

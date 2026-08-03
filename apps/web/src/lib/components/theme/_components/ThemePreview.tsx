@@ -10,6 +10,7 @@ import type {
   LetterSpacing,
 } from "@/lib/contexts/ThemeContext";
 import type { ThemeMode } from "@/lib/hooks/useThemeMode";
+import { Button } from "@eva/ui";
 import { RADIUS_OPTIONS } from "./TypographySection";
 
 export function ThemePreview({
@@ -50,13 +51,13 @@ export function ThemePreview({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90">
+        <Button type="button" variant="default" size="sm">
           Primary button
-        </button>
-        <button className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+        </Button>
+        <Button type="button" variant="outline" size="sm">
           Secondary button
-        </button>
-        <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+        </Button>
+        <span className="rounded-control border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
           Badge
         </span>
         <span className="text-xs text-muted-foreground">Muted text</span>

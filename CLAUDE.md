@@ -2,33 +2,19 @@ FOLLOW ALL OF THESE RULES
 
 NEVER CREATE NEW BRANCH AND PUSH AND OPEN PR UNLESS USER ASKS TO. IF YOU ARE ALREADY ON MAIN AND THE USER ASKS TO SHIP, YOU DIRECTLY COMMIT AND PUSH TO MAIN.
 
-UI Design System — HeroUI (border-based):
+UI Design System:
 
-Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
-
-Borders:
-
-- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
-- Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
-- Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
-- Inputs/selects keep their form-affordance border.
-
-Shadows:
-
-- Cards and surfaces are border + tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
-
-Layout & Surface Colors:
-
-- Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
-- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
-
-Hover & Interaction States:
-
-- Hover: `hover:bg-*` (background shift). Active/selected: surface fill + `border-border` (and `ring-*` if extra emphasis is needed).
-
-Spacing:
-
-- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers for structural separation (HeroUI style).
+- Authority is `internal/design/DESIGN.md` — read it before building or changing any screen; this section is only the non-negotiables an agent must obey even without opening it.
+- Never hardcode accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, or `--font-*` — user-theme-driven, never a literal value.
+- Never a hex or `rgb()` literal in a `className` — use the colour tokens.
+- Never raw `rounded-sm|md|lg|xl|2xl` or `rounded-[...]` outside `packages/ui` — use `rounded-control` (buttons/inputs), `rounded-surface` (cards/dialogs/panels), or `rounded-menu-item` (menu rows); raw radius resolves to a pill under the "Full" radius theme.
+- Never `text-[Npx]` outside the landing page — use the type scale (`text-3xs`/`text-2xs`/`text-xs`/`text-2sm`/`text-sm`/`text-base`).
+- Never raw Tailwind palette classes (`bg-red-500`, `text-purple-600`, …) — use semantic tokens, or `cat-*` for hash-assigned identity colour.
+- Never a loud filled status pill — pair `StatusDot` (or `Badge variant="quiet"`) with neutral text instead.
+- Never a raw `<button>` outside `packages/ui` — use `Button` from `@eva/ui`.
+- No `shadow-*` on flat surfaces — border + tone only; shadows are for floating overlays (popovers, dialogs, sheets) in `packages/ui`.
+- No oversized route titles (`text-2xl font-bold` on a page) — follow the page-header recipe in `internal/design/DESIGN.md`.
+- A justified violation gets a `// design-check-ignore-next-line — <reason>` comment on the line above; no reason means no exemption.
 
 Implementation:
 

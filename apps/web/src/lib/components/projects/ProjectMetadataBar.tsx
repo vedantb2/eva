@@ -24,6 +24,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   ModelSelect,
+  Button,
 } from "@eva/ui";
 import {
   IconUsers,
@@ -59,7 +60,7 @@ import { ScreenshotsToggle } from "@/lib/components/quick-tasks/ScreenshotsToggl
 import { AuditToggle } from "@/lib/components/quick-tasks/AuditToggle";
 
 const GHOST_TRIGGER_CLASS =
-  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
+  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-control text-2sm [&>svg:last-child]:hidden shrink-0";
 
 interface ProjectMetadataBarProps {
   projectId: Id<"projects">;
@@ -171,7 +172,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           />
         )}
       </div>
-      <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-[13px] text-muted-foreground">
+      <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-2sm text-muted-foreground">
         <IconGitBranch size={14} />
         <span className="text-foreground">{displayBaseBranch}</span>
         <Tooltip>
@@ -289,8 +290,9 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
+          <Button
+            variant="ghost"
+            className={`h-8 rounded-control gap-1.5 px-2 text-2sm shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
           >
             <IconUsers size={14} className="text-muted-foreground shrink-0" />
             <span>
@@ -298,7 +300,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
                 ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
                 : "Members"}
             </span>
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {(() => {
@@ -483,8 +485,9 @@ function DatePickerField({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
+        <Button
+          variant="ghost"
+          className={`h-8 rounded-control gap-1.5 px-2 text-2sm shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
         >
           <Icon
             size={14}
@@ -493,7 +496,7 @@ function DatePickerField({
           <span>
             {selected ? dayjs(selected).format("MMM D, YYYY") : label}
           </span>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar

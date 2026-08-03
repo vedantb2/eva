@@ -15,7 +15,7 @@ export function ScreenshotsToggle({
   disabled,
 }: ScreenshotsToggleProps) {
   return (
-    <label className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground">
+    <label className="inline-flex items-center gap-1.5 rounded-control px-2 py-1 text-xs text-muted-foreground">
       <Switch
         checked={value}
         onCheckedChange={onChange}

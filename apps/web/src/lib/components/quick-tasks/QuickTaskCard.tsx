@@ -2,6 +2,7 @@
 
 import {
   Badge,
+  Button,
   Checkbox,
   cn,
   ContextMenu,
@@ -188,14 +189,15 @@ export function QuickTaskCard({
           : undefined
       }
       aria-label={title}
-      contentClassName="flex flex-col gap-1.5 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
+      density="compact"
+      contentClassName="flex flex-col gap-1 px-2.5 py-1.5 pl-3 sm:px-3 sm:py-2 sm:pl-3.5"
       className={cn(
         showError
           ? "border-destructive/30 bg-destructive/5"
           : isInProgress
             ? "bg-card"
             : undefined,
-        isSelected && "ring-2 ring-primary/40",
+        isSelected && "ring-1 ring-primary/50",
       )}
     >
       <div className="flex min-w-0 items-start gap-2">
@@ -207,9 +209,9 @@ export function QuickTaskCard({
             className={cn("mt-0.5 flex-shrink-0", LIST_ROW_CONTROL_CLASS)}
           />
         ) : null}
-        <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+        <MarqueeOnHover className="min-w-0 flex-1 text-2sm font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
           {taskNumber !== undefined ? (
-            <span className="mr-1.5 font-mono text-[11px] font-normal tabular-nums text-muted-foreground/55">
+            <span className="mr-1.5 font-mono text-2xs font-normal tabular-nums text-muted-foreground/55">
               #{taskNumber}
             </span>
           ) : null}
@@ -265,8 +267,8 @@ export function QuickTaskCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge
-                  variant="default"
-                  className="max-w-full px-1.5 py-0 text-[10px] font-medium leading-4"
+                  variant="quiet"
+                  className="max-w-full px-1.5 py-0 text-3xs font-medium leading-4"
                 >
                   <span className="flex min-w-0 items-center gap-0.5">
                     <IconFolder className="size-2.5 shrink-0" />
@@ -281,7 +283,7 @@ export function QuickTaskCard({
             <Badge
               key={tag}
               variant="secondary"
-              className="max-w-[7rem] px-1.5 py-0 text-[10px] font-medium leading-4"
+              className="max-w-[7rem] px-1.5 py-0 text-3xs font-medium leading-4"
             >
               <span className="flex min-w-0 items-center gap-0.5">
                 <IconTag className="size-2.5 shrink-0" />
@@ -298,7 +300,7 @@ export function QuickTaskCard({
             <>
               <UserInitials user={createdByUser} size="sm" />
               {creatorFirstName ? (
-                <MarqueeOnHover className="min-w-0 text-[11px] text-muted-foreground/75">
+                <MarqueeOnHover className="min-w-0 text-2xs text-muted-foreground/75">
                   <span data-pii>{creatorFirstName}</span>
                 </MarqueeOnHover>
               ) : null}
@@ -306,22 +308,21 @@ export function QuickTaskCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="text-[11px] tabular-nums text-muted-foreground/70">
+          <span className="text-2xs tabular-nums text-muted-foreground/70">
             {compactRelativeTime(createdAt)}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className={cn(
-                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-[var(--motion-ease-out)] after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
-                  LIST_ROW_CONTROL_CLASS,
-                )}
+                variant="ghost"
+                size="icon-xs"
+                className={cn("sm:hidden", LIST_ROW_CONTROL_CLASS)}
                 onClick={(e) => e.stopPropagation()}
                 aria-label="Task actions"
               >
-                <IconDots className="size-3.5" />
-              </button>
+                <IconDots />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

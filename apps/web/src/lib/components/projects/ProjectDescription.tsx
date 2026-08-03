@@ -71,7 +71,7 @@ export function ProjectDescription({
 
   return (
     <div className="px-3 pt-3 pb-2">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
+      <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
         Project context
       </div>
       <div
@@ -82,7 +82,7 @@ export function ProjectDescription({
             : "Acts as the project's system prompt for Eva chat and tasks"
         }
         className={cn(
-          "min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
+          "min-h-[1.5rem] overflow-x-hidden rounded-control px-2 py-1 -mx-2 -my-1",
           !isEditing &&
             "max-h-[20vh] overflow-y-auto scrollbar cursor-pointer hover:bg-muted/50",
         )}

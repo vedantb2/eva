@@ -165,7 +165,7 @@ export function ProjectPlanTab({
             {parsedSpec.tasks.map((task, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted"
+                className="flex items-center gap-2 py-1.5 px-2 rounded-control hover:bg-muted"
               >
                 <span className="text-muted-foreground font-mono text-sm w-6">
                   {i + 1}.

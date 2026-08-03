@@ -2,7 +2,12 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id, api } from "@eva/backend";
 import { Virtuoso } from "react-virtuoso";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@eva/ui";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+  Button,
+} from "@eva/ui";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
   phaseConfig,
@@ -68,7 +73,10 @@ export function ProjectsListView({
             onOpenChange={() => toggleSection(phase)}
           >
             <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50 sticky top-0 z-10 bg-background">
+              <Button
+                variant="ghost"
+                className="h-auto w-full justify-start rounded-control px-3 py-2 text-left sticky top-0 z-10 bg-background hover:bg-muted/50"
+              >
                 <IconChevronRight
                   size={14}
                   className={`text-muted-foreground transition-transform duration-200 ${
@@ -76,13 +84,13 @@ export function ProjectsListView({
                   }`}
                 />
                 <Icon size={14} className={cfg.text} />
-                <span className={`text-sm font-medium ${cfg.text}`}>
+                <span className="text-sm font-medium text-foreground">
                   {cfg.label}
                 </span>
                 <span className="text-xs text-muted-foreground/60 tabular-nums">
                   {items.length}
                 </span>
-              </button>
+              </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
               {items.length === 0 ? (

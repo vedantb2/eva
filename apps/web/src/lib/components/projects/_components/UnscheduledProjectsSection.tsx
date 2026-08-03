@@ -5,6 +5,7 @@ import type { api, Id } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useNavigate } from "@tanstack/react-router";
 import { IconChevronRight } from "@tabler/icons-react";
+import { Button } from "@eva/ui";
 import { phaseConfig } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ScheduleDatesPopover } from "./ScheduleDatesPopover";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -49,8 +50,9 @@ export function UnscheduledProjectsSection({
               className="flex items-center gap-2.5 border-b border-border/60 px-3 py-2 last:border-b-0 hover:bg-muted/40"
             >
               <Icon size={14} className={`shrink-0 ${config.text}`} />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() =>
                   navigate({
                     to: toInternalRepoHref(
@@ -58,10 +60,10 @@ export function UnscheduledProjectsSection({
                     ),
                   })
                 }
-                className="flex-1 truncate text-left text-xs font-medium hover:text-primary"
+                className="h-auto flex-1 justify-start truncate rounded-control p-0 text-left text-xs font-medium hover:bg-transparent hover:text-primary"
               >
                 {project.title}
-              </button>
+              </Button>
               <ScheduleDatesPopover
                 onSchedule={(start, end) => onSchedule(project._id, start, end)}
               />

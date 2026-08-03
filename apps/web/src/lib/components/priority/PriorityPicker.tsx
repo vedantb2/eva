@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Button,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -35,10 +36,12 @@ export function PriorityPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors",
+            "gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground",
             className,
           )}
           aria-label={`Priority: ${value ? PRIORITY_LABELS[value] : "No priority"}`}
@@ -49,7 +52,7 @@ export function PriorityPicker({
               {value ? PRIORITY_LABELS[value] : "Priority"}
             </span>
           )}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-44 p-0">
         <Command>

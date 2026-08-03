@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { IconPaperclip } from "@tabler/icons-react";
-import { toast } from "@eva/ui";
+import { Button, toast } from "@eva/ui";
 import { api, type Id } from "@eva/backend";
 import { AttachmentCard } from "@/lib/components/attachments/AttachmentCard";
 import {
@@ -166,14 +166,16 @@ export function TaskFilesSection({
       ) : null}
 
       <div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
         >
           <IconPaperclip size={14} />
           <span>Attach files</span>
-        </button>
+        </Button>
         <input
           ref={inputRef}
           type="file"

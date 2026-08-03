@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@eva/backend";
-import { PageHeader, PageHeaderActions } from "@eva/ui";
+import { Button, PageHeader, PageHeaderActions } from "@eva/ui";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -61,22 +61,24 @@ export function QuickTaskSplitDetailPane({
           <EntityContextUsage repoId={repo._id} entityId={taskId} />
           <QuickTaskHeaderActionsSlot />
           <div className="flex items-center gap-0.5">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleNavigatePrev}
               disabled={!prevTaskId}
-              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Previous task"
             >
-              <IconChevronLeft size={16} />
-            </button>
-            <button
+              <IconChevronLeft />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={handleNavigateNext}
               disabled={!nextTaskId}
-              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Next task"
             >
-              <IconChevronRight size={16} />
-            </button>
+              <IconChevronRight />
+            </Button>
           </div>
         </PageHeaderActions>
       </PageHeader>

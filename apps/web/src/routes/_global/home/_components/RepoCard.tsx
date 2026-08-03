@@ -10,12 +10,12 @@ import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import { appLeafName, repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import {
-  Card,
-  CardContent,
+  Badge,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ListRow,
 } from "@eva/ui";
 import {
   IconBrandGithub,
@@ -71,48 +71,47 @@ export function RepoCard({
       }}
     >
       <ContextMenu>
+        {/* The tile is a list row rather than a Card wrapped in a Link: the row
+            owns the hairline, hover tone, focus ring and the stretched link, so
+            the codebase grid and every other list in the app share one shell. */}
         <ContextMenuTrigger asChild>
-          <div className="group/card relative">
-            <Link
-              to={repoHref(repo.owner, repo.name, repo.rootDirectory)}
-              className="block rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-            >
-              <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
-                <CardContent className="flex items-center gap-3 p-3">
-                  <RepoLogo
-                    logoUrl={repo.logoUrl}
-                    size={28}
-                    fallback={
-                      <IconBrandGithub
-                        size={28}
-                        className={
-                          repo.connected === false
-                            ? "text-destructive/60"
-                            : "text-muted-foreground"
-                        }
-                      />
-                    }
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {repoDisplayLabel(repo)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {repo.owner}/{repo.name}
-                    </p>
-                  </div>
-                  {repo.connected === false && (
-                    <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
-                      <IconPlugConnectedX size={11} />
-                      <span className="text-[11px] font-medium">
-                        Disconnected
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
+          <ListRow
+            density="compact"
+            aria-label={repoDisplayLabel(repo)}
+            link={
+              <Link to={repoHref(repo.owner, repo.name, repo.rootDirectory)} />
+            }
+            contentClassName="flex items-center gap-2.5 p-2.5"
+          >
+            <RepoLogo
+              logoUrl={repo.logoUrl}
+              size={24}
+              fallback={
+                <IconBrandGithub
+                  size={24}
+                  className={
+                    repo.connected === false
+                      ? "text-destructive/60"
+                      : "text-muted-foreground"
+                  }
+                />
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-2sm font-medium text-foreground">
+                {repoDisplayLabel(repo)}
+              </p>
+              <p className="truncate text-2xs text-muted-foreground">
+                {repo.owner}/{repo.name}
+              </p>
+            </div>
+            {repo.connected === false && (
+              <Badge variant="quiet" className="shrink-0 gap-1 text-3xs">
+                <IconPlugConnectedX size={11} className="text-destructive" />
+                Disconnected
+              </Badge>
+            )}
+          </ListRow>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => setRenameOpen(true)}>

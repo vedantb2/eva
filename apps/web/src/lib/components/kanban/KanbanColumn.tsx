@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, KanbanBoard } from "@eva/ui";
+import { KanbanBoard } from "@eva/ui";
 import { useCallback, type ReactNode, type RefCallback } from "react";
 
 import type { IconCircle } from "@tabler/icons-react";
@@ -22,7 +22,8 @@ export const KANBAN_COLUMN_WIDTH_CLASS =
   "min-w-[70vw] flex-1 sm:min-w-0 sm:flex-[1_0_calc((100%-0.75rem)/2)] lg:flex-[1_0_calc((100%-1.5rem)/3)] xl:flex-[1_0_calc((100%-2.25rem)/4)] 2xl:flex-[1_0_calc((100%-3rem)/5)]";
 
 interface ColumnConfig {
-  bg: string;
+  /** Kept for callers; the column header is neutral, only the glyph is tinted. */
+  bg?: string;
   /** Kept for callers; columns use a flat muted wash + hairline border. */
   cardBg?: string;
   text: string;
@@ -66,15 +67,18 @@ export function KanbanColumn({
       disabled={!droppable}
       className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted"
     >
-      <div className="flex flex-shrink-0 flex-row items-center justify-between p-2">
-        <Badge
-          variant="outline"
-          className={`${config.bg} ${config.text} gap-1.5 border-border py-1`}
-        >
-          <Icon size={14} className={config.text} />
-          {config.label}
-          <span className="tabular-nums text-foreground/50">{count}</span>
-        </Badge>
+      {/* Column header: the status icon is the only tinted element — the label
+          and count stay neutral so a five-column board reads as one surface. */}
+      <div className="flex h-9 flex-shrink-0 flex-row items-center justify-between gap-2 px-2.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Icon size={13} className={config.text} />
+          <span className="truncate text-2sm font-medium text-foreground">
+            {config.label}
+          </span>
+          <span className="tabular-nums text-2xs text-muted-foreground">
+            {count}
+          </span>
+        </div>
         {headerExtra}
       </div>
       <div
@@ -82,7 +86,7 @@ export function KanbanColumn({
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar scroll-fade md:p-1.5 md:pt-0"
       >
         {count === 0 ? (
-          <div className="m-1 flex flex-1 items-center justify-center rounded-md border border-dashed border-border px-3 py-8 text-xs text-muted-foreground/60">
+          <div className="m-1 flex flex-1 items-center justify-center rounded-surface border border-dashed border-border px-3 py-8 text-xs text-muted-foreground/60">
             {emptyLabel}
           </div>
         ) : null}

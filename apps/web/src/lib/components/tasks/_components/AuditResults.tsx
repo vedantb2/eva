@@ -281,7 +281,7 @@ function SeverityBadge({ severity }: { severity: AuditSeverity }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0",
+        "inline-flex items-center rounded-control px-1.5 py-0.5 text-3xs font-medium shrink-0",
         SEVERITY_COLORS[severity],
       )}
     >

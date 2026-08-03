@@ -340,14 +340,15 @@ export function ProjectDetailClient({
     <PageWrapper
       title={
         <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
-          <button
+          <Button
+            variant="ghost"
             onClick={() =>
               navigate({ to: toInternalRepoHref(`${basePath}/projects`) })
             }
-            className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+            className="h-auto rounded-control p-0 text-muted-foreground hover:bg-transparent hover:text-foreground font-semibold"
           >
             Projects
-          </button>
+          </Button>
           <IconChevronRight
             size={14}
             className="text-muted-foreground/50 flex-shrink-0"
@@ -674,7 +675,7 @@ export function ProjectDetailClient({
                   {parsedSpec.tasks.map((task, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-2 p-2 bg-muted rounded"
+                      className="flex items-start gap-2 p-2 bg-muted rounded-control"
                     >
                       <span className="text-muted-foreground font-mono">
                         {i + 1}.

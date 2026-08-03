@@ -15,6 +15,7 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  EmptyState,
   Spinner,
   ListProvider,
   ListGroup,
@@ -211,9 +212,16 @@ export function QuickTasksListView({
               >
                 <ListGroup id={status}>
                   <ListHeader>
-                    <div className="flex items-center sticky top-0 z-10 bg-background pb-1.5 pt-0.5">
+                    <div className="flex items-center sticky top-0 z-10 bg-background pb-1 pt-0.5">
                       <CollapsibleTrigger asChild>
-                        <button className="flex flex-1 items-center gap-2 rounded-lg px-2 py-3 sm:px-3 sm:py-2 text-left transition-colors hover:bg-muted/50 min-h-[44px]">
+                        {/* Group header: only the status glyph carries colour,
+                            the label stays neutral. `hit-target` keeps the
+                            comfortable tap area at this denser height. */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="hit-target flex-1 justify-start gap-2 px-2 text-left font-medium"
+                        >
                           <IconChevronRight
                             size={14}
                             className={`text-muted-foreground transition-transform duration-200 ${
@@ -221,20 +229,20 @@ export function QuickTasksListView({
                             }`}
                           />
                           <Icon size={14} className={cfg.text} />
-                          <span className={`text-sm font-medium ${cfg.text}`}>
+                          <span className="text-2sm font-medium text-foreground">
                             {cfg.label}
                           </span>
-                          <span className="text-xs text-muted-foreground/60 tabular-nums">
+                          <span className="text-2xs text-muted-foreground/60 tabular-nums">
                             {items.length}
                           </span>
-                        </button>
+                        </Button>
                       </CollapsibleTrigger>
                       {status === "todo" && todoTasks.length > 0 && (
                         <Button
                           size="sm"
                           onClick={() => setIsConfirmOpen(true)}
                           disabled={isRunningAll}
-                          className="mr-2 min-h-[36px]"
+                          className="mr-2"
                         >
                           {isRunningAll ? (
                             <Spinner size="sm" />
@@ -249,9 +257,11 @@ export function QuickTasksListView({
                   </ListHeader>
                   <CollapsibleContent>
                     {items.length === 0 ? (
-                      <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
-                        No tasks
-                      </div>
+                      <EmptyState
+                        title="No tasks"
+                        animate={false}
+                        className="py-3"
+                      />
                     ) : (
                       <ListItems className="pr-1.5 pb-1.5">
                         {scrollParent && (

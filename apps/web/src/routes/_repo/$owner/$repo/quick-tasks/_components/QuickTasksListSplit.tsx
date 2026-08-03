@@ -3,7 +3,7 @@
 import { IconChecklist } from "@tabler/icons-react";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Spinner } from "@eva/ui";
+import { EmptyState, Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
@@ -104,11 +104,12 @@ export function QuickTasksListSplit({
                   navSurface={navSurface}
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
-                  <IconChecklist className="size-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Select a task to view details
-                  </p>
+                <div className="flex h-full items-center justify-center">
+                  <EmptyState
+                    icon={<IconChecklist size={24} />}
+                    title="Select a task to view details"
+                    animate={false}
+                  />
                 </div>
               )}
             </div>

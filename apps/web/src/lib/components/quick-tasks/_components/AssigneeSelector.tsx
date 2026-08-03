@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Button,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -38,9 +39,11 @@ export function AssigneeSelector({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
         >
           {assignedUser ? (
             <>
@@ -55,7 +58,7 @@ export function AssigneeSelector({
               <span>Code Reviewer</span>
             </>
           )}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-52 p-0">
         <Command>

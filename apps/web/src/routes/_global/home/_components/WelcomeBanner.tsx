@@ -20,10 +20,10 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
           </p>
         </div>
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
           onClick={onDismiss}
-          className="-mr-1 h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+          className="-mr-1 shrink-0 text-muted-foreground hover:text-foreground"
           aria-label="Dismiss"
         >
           <IconX size={14} />
@@ -38,7 +38,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                 {section.label}
               </p>
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            <p className="mt-1 text-2xs leading-snug text-muted-foreground">
               {section.shortDesc}
             </p>
           </div>

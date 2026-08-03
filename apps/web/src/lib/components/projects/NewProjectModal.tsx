@@ -195,13 +195,15 @@ export function NewProjectModal({
         <div className="flex flex-wrap items-center gap-1.5 border-t border-border px-5 py-3">
           <Popover>
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                variant="ghost"
+                size="sm"
+                className="h-auto gap-1.5 rounded-control px-2 py-1 text-xs hover:bg-muted/80"
               >
                 <IconGitBranch size={14} />
                 <span className="text-foreground">{baseBranch}</span>
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-56 p-2">
               <BranchSelect
@@ -220,9 +222,11 @@ export function NewProjectModal({
             onOpenChange={setPlanningPickerOpen}
           >
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                variant="ghost"
+                size="sm"
+                className="h-auto gap-1.5 rounded-control px-2 py-1 text-xs hover:bg-muted/80"
               >
                 {skipPlanning ? (
                   <IconListCheck size={14} />
@@ -232,7 +236,7 @@ export function NewProjectModal({
                 <span className="text-foreground">
                   {skipPlanning ? "Tasks only" : "With interview/plan"}
                 </span>
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-0">
               <Command>

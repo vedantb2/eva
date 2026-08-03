@@ -1,5 +1,6 @@
 import { m, AnimatePresence } from "motion/react";
 import {
+  Button,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -100,22 +101,24 @@ function BarButton({
 }) {
   const Icon = action.icon;
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       aria-label={action.label}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-30 ${
+      className={`shrink-0 gap-1.5 px-2 font-medium disabled:opacity-30 ${
         action.destructive
           ? "text-destructive hover:bg-destructive/20 hover:text-destructive"
           : "text-background/80 hover:bg-background/10 hover:text-background"
       }`}
     >
-      <Icon size={17} />
+      <Icon size={16} />
       <span className="hidden sm:inline">
         {action.shortLabel ?? action.label}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -140,13 +143,13 @@ export function QuickTasksBulkBar({
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <TooltipProvider delayDuration={300}>
-            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-foreground px-2.5 py-2 shadow-lg scrollbar-none">
+            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-foreground px-2 py-1.5 shadow-lg scrollbar-none">
               {/* Prefix: selection count */}
               <div className="flex shrink-0 items-center gap-2 pl-1 pr-0.5">
-                <span className="rounded-md bg-background/15 px-2 py-0.5 text-xs font-semibold text-background tabular-nums">
+                <span className="rounded-control bg-background/15 px-1.5 py-0.5 text-2xs font-semibold text-background tabular-nums">
                   {selectedCount}
                 </span>
-                <span className="hidden text-sm font-medium text-background/70 sm:inline">
+                <span className="hidden text-2sm font-medium text-background/70 sm:inline">
                   selected
                 </span>
               </div>
@@ -168,14 +171,16 @@ export function QuickTasksBulkBar({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="More actions"
                     disabled={!hasSelection}
-                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
+                    className="shrink-0 text-background/80 hover:bg-background/10 hover:text-background disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
                   >
-                    <IconDots size={17} />
-                  </button>
+                    <IconDots size={16} />
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" sideOffset={8}>
                   {moreActions.map((action) => {
@@ -213,14 +218,16 @@ export function QuickTasksBulkBar({
               {/* Suffix: dismiss selection */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="Cancel selection"
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-background/70 transition-colors hover:bg-background/10 hover:text-background"
+                    className="shrink-0 text-background/70 hover:bg-background/10 hover:text-background"
                     onClick={onExitSelect}
                   >
-                    <IconX size={17} />
-                  </button>
+                    <IconX size={16} />
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs" sideOffset={8}>
                   Cancel selection

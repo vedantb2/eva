@@ -1,7 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Badge, Input, Popover, PopoverTrigger, PopoverContent } from "@eva/ui";
+import {
+  Badge,
+  Button,
+  Input,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@eva/ui";
 import { IconTags } from "@tabler/icons-react";
 
 interface ProjectTagsPopoverProps {
@@ -41,8 +48,9 @@ export function ProjectTagsPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${currentTags.length === 0 ? "text-muted-foreground" : ""}`}
+        <Button
+          variant="ghost"
+          className={`h-8 rounded-control gap-1.5 px-2 text-2sm shrink-0 ${currentTags.length === 0 ? "text-muted-foreground" : ""}`}
         >
           <IconTags size={14} className="text-muted-foreground shrink-0" />
           <span>
@@ -50,7 +58,7 @@ export function ProjectTagsPopover({
               ? `${currentTags.length} tag${currentTags.length > 1 ? "s" : ""}`
               : "Tags"}
           </span>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3" align="start">
         <div className="space-y-2">
@@ -63,13 +71,14 @@ export function ProjectTagsPopover({
                   className="text-xs h-5 gap-0.5 pr-0.5"
                 >
                   {tag}
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                    variant="ghost"
+                    className="h-auto w-auto rounded-control p-0 opacity-50 hover:bg-transparent hover:opacity-100 ml-0.5 px-0.5"
                     onClick={() => removeTag(tag)}
                   >
                     ×
-                  </button>
+                  </Button>
                 </Badge>
               ))}
             </div>
@@ -78,7 +87,7 @@ export function ProjectTagsPopover({
             ref={inputRef}
             value={draft}
             placeholder="Add tag..."
-            className="h-7 text-[13px]"
+            className="h-7 text-2sm"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => {
               if (draft.trim()) {

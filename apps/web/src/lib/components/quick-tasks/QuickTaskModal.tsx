@@ -3,25 +3,14 @@
 import { useState, useRef } from "react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Button,
   Input,
   Spinner,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  ModelSelect,
-  Badge,
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
 } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -40,19 +29,6 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
-import { BranchSelect } from "@/lib/components/BranchSelect";
-import {
-  IconFileText,
-  IconTrash,
-  IconGitBranch,
-  IconTag,
-  IconCheck,
-  IconX,
-  IconInfoCircle,
-  IconMicrophone,
-  IconPlayerStop,
-  IconLoader2,
-} from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
 import {
@@ -61,13 +37,10 @@ import {
 } from "@/lib/components/tasks/_components/DescriptionMentionEditor";
 import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
 import { tokenizedToEditable } from "@/lib/components/mentions";
-import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
-import { ScreenshotsToggle } from "./ScreenshotsToggle";
-import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
-import { AssigneeSelector } from "./_components/AssigneeSelector";
-import { ProjectPicker } from "./_components/ProjectPicker";
+import { QuickTaskControlStrip } from "./_components/QuickTaskControlStrip";
+import { QuickTaskDraftsMenu } from "./_components/QuickTaskDraftsMenu";
 import { TaskFilesSection } from "./_components/TaskFilesSection";
 import { useTaskAttachments } from "./useTaskAttachments";
 
@@ -122,8 +95,6 @@ export function QuickTaskModal({
   const [activeDraftId, setActiveDraftId] = useState<Id<"agentTasks"> | null>(
     initialDraft?._id ?? null,
   );
-  const [confirmDeleteId, setConfirmDeleteId] =
-    useState<Id<"agentTasks"> | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<
     Id<"projects"> | undefined
   >(initialDraft?.projectId ?? projectId);
@@ -312,7 +283,6 @@ export function QuickTaskModal({
 
   const handleDeleteDraft = async (draftId: Id<"agentTasks">) => {
     await removeDraft({ id: draftId });
-    setConfirmDeleteId(null);
     if (activeDraftId === draftId) {
       resetForm();
     }
@@ -352,18 +322,24 @@ export function QuickTaskModal({
           if (!v) handleClose();
         }}
       >
+        {/* Composer dialog: the header is the title field, the body scrolls
+            (description + attachments), and the control strip and footer stay
+            pinned. `p-0` because each band owns its own edge padding and the
+            dividers have to run the full width. */}
         <DialogContent className="max-w-3xl gap-0 p-0">
-          <div className="px-5 pt-5 pb-1">
+          <DialogHeader className="gap-0 px-4 pb-1 pt-4 text-left">
+            <DialogTitle className="sr-only">New quick task</DialogTitle>
             <Input
               placeholder="Task title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
-              className="border-0 shadow-none bg-transparent px-0 text-base font-medium focus-visible:ring-0 placeholder:text-muted-foreground/60"
+              className="border-0 bg-transparent px-0 text-base font-medium shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
             />
-          </div>
+          </DialogHeader>
 
-          <div
+          <DialogBody
+            className="scrollbar mx-0 px-0"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               const dropped = Array.from(e.dataTransfer.files);
@@ -372,13 +348,13 @@ export function QuickTaskModal({
               attachments.add(dropped);
             }}
           >
-            <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+            <div className="px-4">
               <DescriptionMentionEditor
                 ref={editorRef}
                 value={description}
                 onValueChange={setDescription}
                 placeholder="Add description…"
-                minHeight="min-h-[160px]"
+                minHeight="min-h-40"
                 className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
                 initialMentionMap={initialDescMaps.mentionMap}
                 initialSkillMap={initialDescMaps.skillMap}
@@ -401,319 +377,68 @@ export function QuickTaskModal({
               onReplace={attachments.replace}
               draftTaskId={activeDraftId}
             />
-          </div>
+          </DialogBody>
 
-          <div className="flex flex-col gap-1.5 border-t border-border px-5 py-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {voiceEnabled === true ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={
-                        isListening && !isConnecting
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      onClick={() => toggle(description)}
-                      disabled={isLoading || isConnecting}
-                      className="h-8 w-8"
-                      aria-label={
-                        isConnecting
-                          ? "Connecting microphone"
-                          : isListening
-                            ? "Stop voice input"
-                            : "Voice input"
-                      }
-                    >
-                      {isConnecting ? (
-                        <IconLoader2 size={14} className="animate-spin" />
-                      ) : isListening ? (
-                        <IconPlayerStop size={14} />
-                      ) : (
-                        <IconMicrophone size={14} />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isConnecting
-                      ? "Connecting…"
-                      : isListening
-                        ? "Stop recording"
-                        : "Voice input"}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              <PriorityPicker value={priority} onChange={setPriority} />
+          <QuickTaskControlStrip
+            voiceEnabled={voiceEnabled}
+            isListening={isListening}
+            isConnecting={isConnecting}
+            onToggleVoice={() => toggle(description)}
+            isLoading={isLoading}
+            priority={priority}
+            onPriorityChange={setPriority}
+            users={users}
+            assignedTo={assignedTo}
+            onAssigneeChange={setAssignedTo}
+            model={model}
+            modelOptions={modelOptions}
+            accounts={accounts}
+            providerAccountId={providerAccountId}
+            onModelChange={(next) => {
+              setModel(next);
+              setProviderAccountId(defaultProviderAccountId(accounts, next));
+            }}
+            onProviderAccountChange={setProviderAccountId}
+            branchLockedToProject={branchLockedToProject}
+            displayBaseBranch={displayBaseBranch}
+            baseBranch={baseBranch}
+            onBaseBranchChange={setBaseBranch}
+            screenshotsVideosEnabled={screenshotsVideosEnabled}
+            onScreenshotsChange={setScreenshotsVideosEnabled}
+            runAuditEnabled={runAuditEnabled}
+            onRunAuditChange={setRunAuditEnabled}
+            allTags={allTags ?? []}
+            selectedTags={selectedTags}
+            tagSearch={tagSearch}
+            onTagSearchChange={setTagSearch}
+            onToggleTag={toggleTag}
+            onAddCustomTag={addCustomTag}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onProjectChange={setSelectedProjectId}
+            projectPickerOpen={projectPickerOpen}
+            onProjectPickerOpenChange={setProjectPickerOpen}
+            onCreateProject={() => setIsCreatingProject(true)}
+          />
 
-              <AssigneeSelector
-                users={users}
-                assignedTo={assignedTo}
-                setAssignedTo={setAssignedTo}
-              />
-
-              <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
-                <ModelSelect
-                  value={model}
-                  options={modelOptions}
-                  onValueChange={(next) => {
-                    setModel(next);
-                    setProviderAccountId(
-                      defaultProviderAccountId(accounts, next),
-                    );
-                  }}
-                  accounts={accounts}
-                  accountId={providerAccountId}
-                  onAccountChange={setProviderAccountId}
-                />
-              </div>
-
-              {branchLockedToProject ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
-                    >
-                      <IconGitBranch size={14} />
-                      <span className="text-foreground">
-                        {displayBaseBranch}
-                      </span>
-                      <IconInfoCircle
-                        size={12}
-                        className="cursor-help text-muted-foreground"
-                      />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Inherited from the project&apos;s base branch
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                    >
-                      <IconGitBranch size={14} />
-                      <span className="text-foreground">{baseBranch}</span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-56 p-2">
-                    <BranchSelect
-                      value={baseBranch}
-                      onValueChange={setBaseBranch}
-                      placeholder="Select a base branch"
-                      className="h-8 w-full"
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <ScreenshotsToggle
-                value={screenshotsVideosEnabled}
-                onChange={setScreenshotsVideosEnabled}
-              />
-
-              <AuditToggle
-                value={runAuditEnabled}
-                onChange={setRunAuditEnabled}
-              />
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                  >
-                    <IconTag size={14} />
-                    {selectedTags.length > 0 ? (
-                      <span className="text-foreground">
-                        {selectedTags.length} tag
-                        {selectedTags.length !== 1 ? "s" : ""}
-                      </span>
-                    ) : (
-                      <span>Tags</span>
-                    )}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search or create tag..."
-                      value={tagSearch}
-                      onValueChange={setTagSearch}
-                      onKeyDown={(e) => {
-                        if (
-                          (e.key === "Enter" || e.key === ",") &&
-                          tagSearch.trim()
-                        ) {
-                          e.preventDefault();
-                          addCustomTag(tagSearch);
-                        }
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>
-                        {tagSearch.trim() ? (
-                          <button
-                            type="button"
-                            className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
-                            onClick={() => addCustomTag(tagSearch)}
-                          >
-                            Create &quot;{tagSearch.trim()}&quot;
-                          </button>
-                        ) : (
-                          "No tags"
-                        )}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {(() => {
-                          const selected = new Set(selectedTags);
-                          return (allTags ?? []).map((tag) => (
-                            <CommandItem
-                              key={tag}
-                              value={tag}
-                              onSelect={() => toggleTag(tag)}
-                            >
-                              <IconTag
-                                size={14}
-                                className="text-muted-foreground"
-                              />
-                              {tag}
-                              {selected.has(tag) && (
-                                <IconCheck size={14} className="ml-auto" />
-                              )}
-                            </CommandItem>
-                          ));
-                        })()}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-
-              {selectedTags.length > 0 && (
-                <div className="flex flex-wrap gap-1 ml-1">
-                  {selectedTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="text-[10px] h-5 gap-0.5 pr-0.5"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
-                        onClick={() => toggleTag(tag)}
-                      >
-                        <IconX size={10} />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              <ProjectPicker
-                projects={projects}
-                selectedProjectId={selectedProjectId}
-                setSelectedProjectId={setSelectedProjectId}
-                open={projectPickerOpen}
-                setOpen={setProjectPickerOpen}
-                onCreateProject={() => setIsCreatingProject(true)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-5 py-3 sm:flex-row sm:justify-between">
+          <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-4 py-2.5 sm:flex-row sm:justify-between">
             <div>
               {drafts && drafts.length > 0 && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <IconFileText size={16} />
-                      Drafts ({drafts.length})
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-72 p-0">
-                    <div className="px-3 py-2 border-b border-border">
-                      <p className="text-sm font-medium">Saved Drafts</p>
-                    </div>
-                    <div className="scrollbar max-h-56 overflow-y-auto">
-                      {drafts.map((draft) => (
-                        <div key={draft._id}>
-                          {confirmDeleteId === draft._id ? (
-                            <div className="flex items-center justify-between gap-2 px-3 py-2 text-sm bg-destructive/5">
-                              <span className="text-destructive truncate">
-                                Delete draft?
-                              </span>
-                              <div className="flex gap-1 shrink-0">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => setConfirmDeleteId(null)}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => handleDeleteDraft(draft._id)}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors group cursor-pointer"
-                              onClick={() => loadDraft(draft)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ")
-                                  loadDraft(draft);
-                              }}
-                            >
-                              <span className="flex-1 truncate">
-                                {draft.title || (
-                                  <span className="text-muted-foreground italic">
-                                    Untitled
-                                  </span>
-                                )}
-                              </span>
-                              <button
-                                className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-[opacity,background-color,color]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDeleteId(draft._id);
-                                }}
-                              >
-                                <IconTrash size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <QuickTaskDraftsMenu
+                  drafts={drafts}
+                  onLoadDraft={loadDraft}
+                  onDeleteDraft={handleDeleteDraft}
+                />
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleClose}>
+              <Button variant="secondary" size="sm" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={!canSubmit}>
+              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
                 {isLoading && <Spinner size="sm" />}
                 Create Task
-                <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
+                <kbd className="ml-1.5 text-2xs opacity-60">⌘↵</kbd>
               </Button>
             </div>
           </DialogFooter>

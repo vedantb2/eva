@@ -4,6 +4,7 @@ import { api } from "@eva/backend";
 import { isTeamDetailTab, type TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
@@ -148,8 +149,12 @@ export function TeamDetailClient({
         </Tabs>
       }
     >
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-surface border border-border bg-card px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <SettingsSection
+        title="Sidebar background"
+        description="Shown behind the team name in the sidebar."
+        className="mb-4"
+      >
+        <div className="flex items-center justify-between gap-3">
           <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
             {team.backgroundUrl ? (
               <img
@@ -163,45 +168,37 @@ export function TeamDetailClient({
               </div>
             )}
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">
-              Sidebar background
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Shown behind the team name in the sidebar.
-            </p>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={backgroundUploading}
+              onClick={() => backgroundInputRef.current?.click()}
+            >
+              <IconPhoto size={14} className="mr-1.5" />
+              {team.backgroundUrl ? "Change" : "Upload"}
+            </Button>
+            {team.backgroundUrl ? (
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                title="Remove background"
+                disabled={backgroundUploading}
+                onClick={() => void removeBackground(team._id)}
+              >
+                <IconPhotoOff size={14} />
+              </Button>
+            ) : null}
+            <input
+              ref={backgroundInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBackgroundSelected}
+            />
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={backgroundUploading}
-            onClick={() => backgroundInputRef.current?.click()}
-          >
-            <IconPhoto size={14} className="mr-1.5" />
-            {team.backgroundUrl ? "Change" : "Upload"}
-          </Button>
-          {team.backgroundUrl ? (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="Remove background"
-              disabled={backgroundUploading}
-              onClick={() => void removeBackground(team._id)}
-            >
-              <IconPhotoOff size={14} />
-            </Button>
-          ) : null}
-          <input
-            ref={backgroundInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleBackgroundSelected}
-          />
-        </div>
-      </div>
+      </SettingsSection>
 
       {tab === "activity" ? <TeamActivityTab members={members} /> : null}
       {tab === "members" ? (

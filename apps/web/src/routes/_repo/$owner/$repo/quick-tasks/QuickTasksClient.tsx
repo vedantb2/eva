@@ -8,7 +8,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import {
   QuickTaskModal,

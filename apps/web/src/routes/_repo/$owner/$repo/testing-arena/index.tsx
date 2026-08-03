@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IconFileText } from "@tabler/icons-react";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/testing-arena/")({
   staticData: { title: "Testing Arena" },

@@ -6,7 +6,7 @@ import { Skeleton } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 import { DraftCard } from "./_components/DraftCard";
 import { mergeDrafts } from "./_utils";
 

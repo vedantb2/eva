@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IconTerminal2 } from "@tabler/icons-react";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 
 export const Route = createFileRoute("/_global/sessions")({
   staticData: { title: "Sessions" },

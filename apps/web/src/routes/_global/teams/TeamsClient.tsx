@@ -4,7 +4,6 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
 import {
   Button,
   Input,
@@ -13,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  EmptyState,
   Skeleton,
 } from "@eva/ui";
 import { IconPlus, IconUsers } from "@tabler/icons-react";

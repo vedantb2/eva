@@ -19,13 +19,13 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuItem,
+  EmptyState,
   Skeleton,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import {
   IconLayoutKanban,

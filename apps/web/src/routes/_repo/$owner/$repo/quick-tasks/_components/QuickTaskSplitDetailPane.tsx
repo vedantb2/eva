@@ -1,6 +1,7 @@
 "use client";
 
 import type { Id } from "@eva/backend";
+import { PageHeader, PageHeaderActions } from "@eva/ui";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -48,15 +49,15 @@ export function QuickTaskSplitDetailPane({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <PageHeader>
         {selectedTask?.numId !== undefined ? (
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold font-mono tabular-nums text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate text-2sm font-medium font-mono tabular-nums text-muted-foreground">
             #{selectedTask.numId}
           </span>
         ) : (
           <span className="flex-1" />
         )}
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <PageHeaderActions className="gap-1.5 sm:gap-2">
           <EntityContextUsage repoId={repo._id} entityId={taskId} />
           <QuickTaskHeaderActionsSlot />
           <div className="flex items-center gap-0.5">
@@ -77,8 +78,8 @@ export function QuickTaskSplitDetailPane({
               <IconChevronRight size={16} />
             </button>
           </div>
-        </div>
-      </div>
+        </PageHeaderActions>
+      </PageHeader>
       <AnimatePresence mode="wait" initial={false}>
         <m.div
           key={taskId}

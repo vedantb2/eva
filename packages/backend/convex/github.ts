@@ -20,7 +20,7 @@ export {
   mergePullRequest,
 } from "./_github/prOverview";
 
-export { submitPrReview } from "./_github/prReview";
+export { submitPrReview, addPrComment } from "./_github/prReview";
 
 export { syncRepos } from "./_github/sync";
 

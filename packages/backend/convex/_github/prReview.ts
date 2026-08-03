@@ -86,3 +86,43 @@ export const submitPrReview = action({
     };
   },
 });
+
+/**
+ * Posts a plain conversation comment, as the eva GitHub App. Pull request
+ * comments are issue comments as far as the API is concerned, which is why this
+ * does not go through the review endpoints: a comment is not a verdict, and
+ * sending it as one would show up on GitHub as a review.
+ */
+export const addPrComment = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+    body: v.string(),
+  },
+  returns: v.object({
+    id: v.number(),
+    htmlUrl: v.string(),
+  }),
+  handler: async (ctx, args): Promise<{ id: number; htmlUrl: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const body = args.body.trim();
+    if (body.length === 0) throw new Error("Comment cannot be empty");
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const { data } = await octokit.rest.issues.createComment({
+      owner: repo.owner,
+      repo: repo.name,
+      issue_number: args.prNumber,
+      body,
+    });
+
+    return { id: data.id, htmlUrl: data.html_url };
+  },
+});

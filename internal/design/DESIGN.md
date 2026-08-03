@@ -395,8 +395,12 @@ the authority; the script only catches the single-line majority.
 6. Colour: text and chrome stay neutral; at most one accent moment on the
    view. Status uses `StatusDot`/`Badge variant="quiet"`, not a filled pill.
 7. Borders, not shadows, on anything that isn't a floating overlay.
-8. Hover = background shift. Selected = fill + `border-border`. Inactive
-   siblings get `border border-transparent` so nothing shifts on selection.
+8. Hover = background shift. Selected = tonal fill, no border — a nav row or a
+   list row is a band of colour, not a bounded object, and outlining it is the
+   loudest thing in an otherwise quiet column. Add `border-border` only where
+   the selected thing genuinely reads as a discrete object (a card, a tab); when
+   you do, give inactive siblings `border border-transparent` so nothing shifts
+   on selection.
 9. Motion, if any, is 150–200ms ease-out — reuse `--motion-fast`/`-base`.
 10. If you had to break a rule above, add a `design-check-ignore-next-line`
     comment with a real reason, on the line above the violation.

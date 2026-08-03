@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Button, Spinner } from "@eva/ui";
+import { Button, EmptyState, Spinner } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { prErrorMessage, prefetchPrReview } from "@/lib/prReviewQueries";
@@ -96,15 +96,13 @@ export function ReviewsSidebar({
             </Button>
           </div>
         ) : pulls.length === 0 ? (
-          <div className="p-4 text-center">
-            <IconGitPullRequest
-              size={28}
-              className="mx-auto mb-2 text-muted-foreground"
-            />
-            <p className="text-sm text-muted-foreground">
-              No {listState === "all" ? "" : `${listState} `}pull requests
-            </p>
-          </div>
+          /* animate={false}: this swaps on every state tab, so it stays still. */
+          <EmptyState
+            animate={false}
+            className="p-4"
+            icon={<IconGitPullRequest size={20} />}
+            title={`No ${listState === "all" ? "" : `${listState} `}pull requests`}
+          />
         ) : (
           <SharedLayoutNav layoutId="reviews-sidebar-nav" className="px-2 pb-2">
             {pulls.map((pr) => (

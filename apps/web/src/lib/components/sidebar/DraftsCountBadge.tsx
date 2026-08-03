@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
+import { SidebarCountBadge } from "@/lib/components/sidebar/_components/SidebarCountBadge";
 
 interface DraftsCountBadgeProps {
   repoId: Id<"githubRepos">;
@@ -19,14 +19,5 @@ export function DraftsCountBadge({ repoId }: DraftsCountBadgeProps) {
     return null;
   }
 
-  return (
-    <Badge
-      variant="secondary"
-      className="ml-auto border-none bg-sidebar-accent/50 px-1.5 py-0.5"
-    >
-      <span className="text-[11px] font-medium text-muted-foreground">
-        {count > 99 ? "99+" : count}
-      </span>
-    </Badge>
-  );
+  return <SidebarCountBadge count={count} />;
 }

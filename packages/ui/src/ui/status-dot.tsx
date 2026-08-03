@@ -8,6 +8,14 @@ export type StatusTone =
   | "code-review"
   | "done"
   | "cancelled"
+  /**
+   * Live/online/enabled. Distinct from `done`: this is a *state* something is
+   * currently in, not a workflow stage it has reached. The two read alike by
+   * design (`--status-done-bar` sits near `--success`), but a running sandbox
+   * or an online teammate is not "done", and spelling it that way misleads
+   * the next reader.
+   */
+  | "active"
   | "neutral";
 
 // Plain Record so Tailwind's static-class scanner can see every literal
@@ -19,6 +27,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
   "code-review": "bg-status-code-review-bar",
   done: "bg-status-done-bar",
   cancelled: "bg-status-cancelled-bar",
+  active: "bg-success",
   neutral: "bg-muted-foreground/60",
 };
 

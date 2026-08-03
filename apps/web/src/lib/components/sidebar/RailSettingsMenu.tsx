@@ -5,6 +5,10 @@ import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { IconSettings } from "@tabler/icons-react";
 import { GLOBAL_SETTINGS_NAV } from "@/lib/components/sidebar/globalSettingsNav";
 import { isGlobalSettingsPath } from "@/lib/components/sidebar/homePaths";
+import {
+  RAIL_TILE_CLASS,
+  railTileActive,
+} from "@/lib/components/sidebar/_utils/railTile";
 
 /** First entry in the global Settings sidebar — rail gear lands here. */
 const SETTINGS_LANDING_HREF = GLOBAL_SETTINGS_NAV[0].href;
@@ -29,12 +33,7 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           title="Settings"
           aria-label="Settings"
-          className={cn(
-            "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
-            isActive
-              ? "border-border bg-sidebar-accent text-sidebar-primary"
-              : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
-          )}
+          className={cn(RAIL_TILE_CLASS, railTileActive(isActive))}
         >
           <IconSettings size={22} className="shrink-0" />
         </Link>

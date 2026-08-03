@@ -6,6 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import {
+  Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -29,6 +30,11 @@ import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { RailAppHotkeys } from "@/lib/components/sidebar/RailAppHotkeys";
+import {
+  RAIL_TILE_CLASS,
+  RAIL_TILE_IDLE_CLASS,
+  railTileActive,
+} from "@/lib/components/sidebar/_utils/railTile";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
@@ -69,15 +75,6 @@ function isRowActive(
   return appName === undefined;
 }
 
-const RAIL_TILE_CLASS =
-  "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
-
-function railTileActive(active: boolean): string {
-  return active
-    ? "border-border bg-sidebar-accent text-sidebar-primary"
-    : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
-}
-
 function formatCountLabel(count: number | undefined): string | null {
   if (count === undefined || count <= 0) return null;
   return count > 99 ? "99+" : String(count);
@@ -88,7 +85,7 @@ function InboxUnreadBadge() {
   const unreadLabel = formatCountLabel(unreadCount);
   if (!unreadLabel) return null;
   return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs font-semibold leading-none text-primary-foreground">
       {unreadLabel}
     </span>
   );
@@ -169,6 +166,9 @@ function RepoRailView({
                   : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
               )}
             >
+              {/* Fixed-colour brand plate: the Eva mark is drawn for a white
+                  ground, so this one disc stays white in both appearances
+                  rather than following the surface ladder. */}
               <span className="flex size-8 items-center justify-center rounded-full bg-white">
                 <LogoMark size={20} className="shrink-0" />
               </span>
@@ -208,7 +208,7 @@ function RepoRailView({
             >
               <SessionsIcon size={22} className="shrink-0" />
               {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-3xs font-semibold leading-none text-success-foreground">
                   {sessionsLabel}
                 </span>
               ) : null}
@@ -262,7 +262,7 @@ function RepoRailView({
                         fallback={
                           <span
                             className={cn(
-                              "flex size-[30px] items-center justify-center rounded-md text-sm font-semibold",
+                              "flex size-[30px] items-center justify-center rounded-control text-sm font-semibold",
                               tileColor.bg,
                               tileColor.text,
                             )}
@@ -286,7 +286,7 @@ function RepoRailView({
                 >
                   {tooltip}
                   {hotkeyLabel ? (
-                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    <kbd className="rounded-menu-item border border-border bg-muted px-1 py-0.5 font-mono text-3xs text-muted-foreground">
                       {hotkeyLabel}
                     </kbd>
                   ) : null}
@@ -316,25 +316,24 @@ function RepoRailView({
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setCollapsed(!collapsed)}
               aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
               title={collapsed ? "Show sidebar" : "Hide sidebar"}
               className={cn(
                 RAIL_TILE_CLASS,
-                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+                RAIL_TILE_IDLE_CLASS,
+                "[&_svg]:size-[22px]",
               )}
             >
               {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled
-                  size={22}
-                  className="shrink-0"
-                />
+                <IconLayoutSidebarLeftCollapseFilled className="shrink-0" />
               ) : (
-                <IconLayoutSidebarLeftCollapse size={22} className="shrink-0" />
+                <IconLayoutSidebarLeftCollapse className="shrink-0" />
               )}
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
             {collapsed ? "Show sidebar" : "Hide sidebar"}
@@ -342,22 +341,24 @@ function RepoRailView({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => openSearch()}
               aria-label="Search"
               title="Search"
               className={cn(
                 RAIL_TILE_CLASS,
-                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+                RAIL_TILE_IDLE_CLASS,
+                "[&_svg]:size-[22px]",
               )}
             >
-              <IconSearch size={22} className="shrink-0" />
-            </button>
+              <IconSearch className="shrink-0" />
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="right" className="flex items-center gap-2">
             Search
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <kbd className="rounded-menu-item border border-border bg-muted px-1 py-0.5 font-mono text-3xs text-muted-foreground">
               ⌘K
             </kbd>
           </TooltipContent>

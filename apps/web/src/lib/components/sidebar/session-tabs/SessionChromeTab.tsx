@@ -2,6 +2,7 @@
 
 import type { Id } from "@eva/backend";
 import {
+  Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -27,6 +28,7 @@ import {
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
+import { prStateIconColor } from "@/lib/components/sidebar/_utils/prState";
 import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
 
 /**
@@ -60,22 +62,6 @@ interface SessionChromeTabProps {
   onArchiveRequest: () => void;
   onDuplicate: () => Promise<string>;
   onDuplicateNavigate: (pathSegment: string) => void;
-}
-
-function prStateIconColor(
-  state: "draft" | "open" | "merged" | "closed" | undefined,
-): string {
-  switch (state) {
-    case "open":
-      return "text-success";
-    case "merged":
-      return "text-status-code-review";
-    case "closed":
-      return "text-destructive";
-    case "draft":
-    default:
-      return "text-muted-foreground";
-  }
 }
 
 /**
@@ -118,6 +104,8 @@ export function SessionChromeTab({
                 // makes the tab a query container for the detail ladder below,
                 // and drops its intrinsic width, so a long title cannot resist
                 // shrinking.
+                //
+                // design-check-ignore-next-line — the corner is locked to 10px, not the radius theme: the flared shoulders below are radial gradients hand-calibrated to an 8px arc plus the tab's 2px border, so a theme-driven corner would leave tab and shoulder out of register.
                 "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors [container-type:inline-size]",
                 isSelected
                   ? // Chrome stroke: left/top/right in the group accent — bottom
@@ -154,6 +142,7 @@ export function SessionChromeTab({
                   <span
                     aria-hidden
                     className={cn(
+                      // design-check-ignore-next-line — `rgb(var(--background))` is the token read back through rgb(), not a colour literal; an arbitrary background-image cannot use a Tailwind colour utility.
                       "pointer-events-none absolute -left-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
@@ -161,6 +150,7 @@ export function SessionChromeTab({
                   <span
                     aria-hidden
                     className={cn(
+                      // design-check-ignore-next-line — `rgb(var(--background))` is the token read back through rgb(), not a colour literal; an arbitrary background-image cannot use a Tailwind colour utility.
                       "pointer-events-none absolute -right-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
@@ -169,7 +159,7 @@ export function SessionChromeTab({
               ) : null}
               <DynamicLink
                 to={href}
-                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
+                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-2sm [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
               >
                 {/* Sandbox status fills Chrome's favicon slot — stays visible when
                     the tab is fully squeezed. App logo lives on the group pill. */}
@@ -193,12 +183,14 @@ export function SessionChromeTab({
                   />
                 ) : null}
               </DynamicLink>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={`Archive ${session.title}`}
                 title="Archive session"
                 className={cn(
-                  "mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
+                  "mr-2 shrink-0 rounded-full transition-[color,background-color,opacity] hover:bg-foreground/10 focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
                   isSelected
                     ? "opacity-100"
                     : "opacity-0 group-hover:opacity-100",
@@ -209,8 +201,8 @@ export function SessionChromeTab({
                   onArchiveRequest();
                 }}
               >
-                <IconX size={14} />
-              </button>
+                <IconX />
+              </Button>
             </div>
           </HoverCardTrigger>
         </ContextMenuTrigger>

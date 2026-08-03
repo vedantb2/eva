@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -55,15 +56,16 @@ export function SessionTabsArchivedMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           title="Archived sessions"
           aria-label="Archived sessions"
-          className="flex h-full shrink-0 items-center gap-2 border-l border-border px-3.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+          className="h-full shrink-0 gap-2 rounded-none border-l border-border px-3.5 text-xs font-normal hover:bg-foreground/[0.06]"
         >
-          <IconArchive size={14} />
+          <IconArchive />
           <span className="tabular-nums">{total}</span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -84,13 +86,13 @@ export function SessionTabsArchivedMenu({
                     logoUrl={group.repo.logoUrl}
                     size={16}
                     fallback={
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-menu-item bg-muted text-3xs font-semibold text-muted-foreground">
                         {label.charAt(0).toUpperCase()}
                       </span>
                     }
                   />
                   <span className="truncate">{label}</span>
-                  <span className="tabular-nums text-[10px] text-muted-foreground">
+                  <span className="tabular-nums text-3xs text-muted-foreground">
                     {group.sessions.length}
                   </span>
                 </DropdownMenuSubTrigger>
@@ -125,23 +127,25 @@ export function SessionTabsArchivedMenu({
                             <span className="min-w-0 flex-1 truncate">
                               {session.title}
                             </span>
-                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                            <span className="shrink-0 text-3xs text-muted-foreground">
                               {subtitle}
                             </span>
                           </DynamicLink>
                         </DropdownMenuItem>
                         {canUnarchive ? (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             title="Unarchive"
                             aria-label={`Unarchive ${session.title}`}
-                            className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="shrink-0 rounded-menu-item"
                             onClick={() => {
                               void unarchiveSession({ id: session._id });
                             }}
                           >
-                            <IconArchiveOff size={14} />
-                          </button>
+                            <IconArchiveOff />
+                          </Button>
                         ) : null}
                       </div>
                     );

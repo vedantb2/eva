@@ -1,13 +1,20 @@
 "use client";
 
-import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { IconFolder, IconLoader2 } from "@tabler/icons-react";
+import { IconFolder } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
-import { DynamicLink } from "@/lib/components/DynamicLink";
 import { entityPathSegment } from "@/lib/numId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import {
+  SidebarActivityBadge,
+  SidebarActivityBusyGlyph,
+  SidebarActivityHeader,
+  SidebarActivityRow,
+  SidebarActivitySandboxGlyph,
+  SidebarActivitySection,
+} from "@/lib/components/sidebar/_components/SidebarActivityHoverCard";
 
 interface BuildingProjectsBadgeProps {
   repoId: Id<"githubRepos">;
@@ -41,69 +48,31 @@ export function BuildingProjectsBadge({
   return (
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <Badge
-          variant="secondary"
-          className="ml-auto cursor-default items-center gap-2 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
-        >
-          {buildingProjects.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              <IconLoader2
-                size={11}
-                className="animate-spin text-muted-foreground"
-              />
-              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                {buildingProjects.length}
-              </span>
-            </span>
-          )}
-          {sandboxProjects.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              <StatusDot />
-              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                {sandboxProjects.length}
-              </span>
-            </span>
-          )}
-        </Badge>
+        <SidebarActivityBadge
+          busyCount={buildingProjects.length}
+          sandboxCount={sandboxProjects.length}
+        />
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
         className="w-[min(22rem,calc(100vw-2rem))] p-3"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <IconFolder size={15} className="text-primary" />
-            <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
-              Active projects
-            </h3>
-            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
-              {summaryParts.map((part, i) => (
-                <span key={part} className="flex items-center gap-1.5">
-                  {i > 0 && (
-                    <span aria-hidden className="text-muted-foreground/40">
-                      ·
-                    </span>
-                  )}
-                  <span>{part}</span>
-                </span>
-              ))}
-            </span>
-          </div>
+          <SidebarActivityHeader
+            icon={<IconFolder size={15} className="text-primary" />}
+            title="Active projects"
+            summaryParts={summaryParts}
+          />
 
           <div className="space-y-3">
             {buildingProjects.length > 0 && (
-              <Section
+              <SidebarActivitySection
                 label="Building"
                 count={buildingProjects.length}
-                glyph={
-                  <IconLoader2
-                    size={11}
-                    className="animate-spin text-muted-foreground"
-                  />
-                }
+                glyph={<SidebarActivityBusyGlyph />}
               >
                 {buildingProjects.map((project) => (
-                  <ProjectRow
+                  <SidebarActivityRow
                     key={project._id}
                     title={project.title}
                     to={toInternalRepoHref(
@@ -111,17 +80,17 @@ export function BuildingProjectsBadge({
                     )}
                   />
                 ))}
-              </Section>
+              </SidebarActivitySection>
             )}
 
             {sandboxProjects.length > 0 && (
-              <Section
+              <SidebarActivitySection
                 label="Sandbox"
                 count={sandboxProjects.length}
-                glyph={<StatusDot />}
+                glyph={<SidebarActivitySandboxGlyph />}
               >
                 {sandboxProjects.map((project) => (
-                  <ProjectRow
+                  <SidebarActivityRow
                     key={project._id}
                     title={project.title}
                     to={toInternalRepoHref(
@@ -129,63 +98,11 @@ export function BuildingProjectsBadge({
                     )}
                   />
                 ))}
-              </Section>
+              </SidebarActivitySection>
             )}
           </div>
         </div>
       </HoverCardContent>
     </HoverCard>
   );
-}
-
-interface SectionProps {
-  label: string;
-  count: number;
-  glyph: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function Section({ label, count, glyph, children }: SectionProps) {
-  return (
-    <div className="rounded-surface border border-border bg-muted/40 p-1">
-      <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
-        <span className="flex h-3 w-3 items-center justify-center">
-          {glyph}
-        </span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          {label}
-        </span>
-        <span className="ml-auto text-[10px] text-muted-foreground/70 tabular-nums">
-          {count}
-        </span>
-      </div>
-      <div className="space-y-px">{children}</div>
-    </div>
-  );
-}
-
-interface ProjectRowProps {
-  title: string;
-  to: string;
-}
-
-function ProjectRow({ title, to }: ProjectRowProps) {
-  return (
-    <DynamicLink
-      to={to}
-      className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-    >
-      <div className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] leading-tight text-foreground">
-            {title}
-          </p>
-        </div>
-      </div>
-    </DynamicLink>
-  );
-}
-
-function StatusDot() {
-  return <span className="h-2 w-2 rounded-full bg-success" />;
 }

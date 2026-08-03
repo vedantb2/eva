@@ -42,6 +42,16 @@ interface SessionChromeTabsBarProps {
 }
 
 /**
+ * Placeholder for one loading tab.
+ *
+ * The corner is locked to 10px rather than a radius token because it has to
+ * land on the same arc as the real tab in `SessionChromeTab`, whose flared
+ * shoulders are gradients calibrated to that exact figure.
+ */
+// design-check-ignore-next-line — pinned to SessionChromeTab's hand-calibrated 10px top corner; a theme-driven radius would put the skeleton out of register with the real tab.
+const TAB_SKELETON_CLASS = "h-9 w-52 rounded-t-[0.625rem]";
+
+/**
  * Chrome-style horizontal session tabs: repo groups of active sessions, plus
  * overflow (full active list) and Archived (archived ∪ merged/closed) menus.
  */
@@ -159,7 +169,7 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
               aria-label="Loading session tabs"
             >
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-9 w-52 rounded-t-[0.625rem]" />
+                <Skeleton key={i} className={TAB_SKELETON_CLASS} />
               ))}
             </div>
           ) : orderedRepos.length === 0 ? (

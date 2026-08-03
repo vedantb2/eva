@@ -17,6 +17,12 @@ export * from "./ui/button-group";
 export * from "./ui/calendar";
 export * from "./ui/card";
 export * from "./ui/carousel";
+// The shared menu recipe classes. Underscore-prefixed because the menu
+// primitives are the usual way to reach them, but they are also the documented
+// recipe for hand-composed menu chrome (a `<kbd>` hint in a popover that is not
+// a DropdownMenuItem), so they belong in the public surface rather than being
+// re-typed at each call site.
+export * from "./ui/_menu-classes";
 export * from "./ui/checkbox";
 export * from "./ui/clear-input";
 export * from "./ui/collapsible";

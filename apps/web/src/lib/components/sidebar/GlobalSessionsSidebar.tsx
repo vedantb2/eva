@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   Input,
   Skeleton,
 } from "@eva/ui";
@@ -121,12 +122,11 @@ export function GlobalSessionsSidebar({
             ))}
           </div>
         ) : orderedRepos.length === 0 ? (
-          <div className="px-3 py-8 text-center">
-            <p className="text-sm font-medium text-foreground">No apps yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Connect a codebase from Home.
-            </p>
-          </div>
+          <EmptyState
+            className="px-3 py-8"
+            title="No apps yet"
+            description="Connect a codebase from Home."
+          />
         ) : (
           orderedRepos.map((repo) => (
             <GlobalSessionGroup

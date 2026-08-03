@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Spinner, cn } from "@eva/ui";
+import { Button, Spinner, cn } from "@eva/ui";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { repoSessionBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
@@ -96,7 +96,7 @@ export function SessionChromeTabGroup({
         <span
           aria-hidden
           className={cn(
-            "absolute inset-x-0 bottom-0 h-[3px] rounded-t-sm",
+            "absolute inset-x-0 bottom-0 h-[3px] rounded-t-full",
             colors.underline,
           )}
         />
@@ -104,14 +104,16 @@ export function SessionChromeTabGroup({
       {/* Group label pill — Chrome puts the name first, then its tabs. The row
           is tab-height so a collapsed chip lines up with expanded groups. */}
       <div className="flex h-9 shrink-0 items-center">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
           aria-expanded={isOpen}
           title={isOpen ? `Collapse ${label}` : `Expand ${label}`}
           className={cn(
             // Never shrinks: the app name is the group's identity, so width
             // pressure goes to the tabs instead.
-            "flex max-w-[11rem] shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-85",
+            "max-w-[11rem] shrink-0 gap-1.5 rounded-full px-2.5 text-xs transition-opacity hover:opacity-85",
             colors.pill,
           )}
           onClick={() => {
@@ -123,13 +125,13 @@ export function SessionChromeTabGroup({
             size={14}
             className="border-0"
             fallback={
-              <span className="flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-background/40 text-[8px] font-semibold">
+              <span className="flex size-3.5 shrink-0 items-center justify-center rounded-menu-item bg-background/40 text-3xs font-semibold">
                 {label.charAt(0).toUpperCase()}
               </span>
             }
           />
           <span className="truncate">{label}</span>
-        </button>
+        </Button>
       </div>
       {isLoading ? (
         <div className="flex h-9 items-center px-3">

@@ -2,6 +2,7 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -56,14 +57,15 @@ export function SessionTabsOverflowMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           title="All sessions"
           aria-label="All sessions"
-          className="flex h-full w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+          className="h-full w-10 shrink-0 rounded-none px-0 hover:bg-foreground/[0.06]"
         >
-          <IconChevronDown size={16} />
-        </button>
+          <IconChevronDown />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -85,7 +87,7 @@ export function SessionTabsOverflowMenu({
                     logoUrl={repo.logoUrl}
                     size={16}
                     fallback={
-                      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-menu-item bg-muted text-3xs font-semibold text-muted-foreground">
                         {label.charAt(0).toUpperCase()}
                       </span>
                     }

@@ -84,12 +84,12 @@ export function ReviewsSidebarRow({
                   "shrink-0",
                   pr.draft || pr.state !== "open"
                     ? "text-muted-foreground"
-                    : "text-emerald-600 dark:text-emerald-400",
+                    : "text-success",
                 )}
               />
-              <span className="truncate text-sm font-medium">{pr.title}</span>
+              <span className="truncate text-2sm font-medium">{pr.title}</span>
             </span>
-            <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
+            <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-2xs text-muted-foreground">
               <span className="shrink-0">#{pr.number}</span>
               {pr.authorLogin ? (
                 <span className="truncate">{pr.authorLogin}</span>

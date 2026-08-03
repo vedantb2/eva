@@ -87,7 +87,7 @@ export function SharedLayoutNavSurface({
         <m.div
           layoutId={layoutId}
           transition={sidebarSharedLayoutTransition}
-          className="pointer-events-none absolute inset-0 rounded-lg border border-border bg-sidebar-accent"
+          className="pointer-events-none absolute inset-0 rounded-menu-item bg-sidebar-accent"
         />
       ) : null}
       <div className="relative z-10">{children}</div>
@@ -100,7 +100,7 @@ export function sidebarNavLinkClass(
   collapsed?: boolean,
 ): string {
   return cn(
-    "group motion-base flex w-full items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group motion-base flex w-full items-center gap-2 rounded-menu-item px-4 py-1.5 text-2sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     collapsed && "lg:justify-center lg:px-0",
     isActive
       ? "font-medium text-sidebar-primary"
@@ -108,13 +108,32 @@ export function sidebarNavLinkClass(
   );
 }
 
+/**
+ * Row geometry for a nav row that is a `Button` rather than a `Link`.
+ *
+ * Same shape as `sidebarNavLinkClass`, plus the button defaults a nav row does
+ * not want: the fixed control height, the semibold label, the press scale, and
+ * the ghost hover fill — hover is already drawn by the highlight pill in
+ * `SharedLayoutNavSurface`, so a second fill would stack.
+ */
+export function sidebarNavButtonClass(
+  isActive: boolean,
+  collapsed?: boolean,
+): string {
+  return cn(
+    "h-auto justify-start bg-transparent active:scale-100 hover:bg-transparent",
+    !isActive && "font-normal",
+    sidebarNavLinkClass(isActive, collapsed),
+  );
+}
+
 /** Section group label above a cluster of sidebar nav rows (Build / Ship / …). */
 export const sidebarSectionLabelClass =
-  "px-4 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground/55";
+  "px-4 py-1 text-2xs font-medium tracking-[-0.01em] text-muted-foreground/55";
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(
-    "group flex w-full items-center gap-2.5 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group flex w-full items-center gap-2.5 rounded-menu-item px-4 py-1.5 text-2sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
@@ -123,7 +142,7 @@ export function sidebarNavLinkClassCompact(isActive: boolean): string {
 
 export function sidebarNavListItemClass(isActive: boolean): string {
   return cn(
-    "flex w-full items-center rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+    "flex w-full items-center rounded-menu-item px-4 py-1.5 text-2sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

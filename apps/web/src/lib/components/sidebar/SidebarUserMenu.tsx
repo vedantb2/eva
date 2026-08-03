@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  cn,
 } from "@eva/ui";
 import { useClerk } from "@clerk/clerk-react";
 import { UserInitials } from "@eva/shared";
@@ -28,6 +29,10 @@ import {
 } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
+import {
+  RAIL_TILE_CLASS,
+  RAIL_TILE_IDLE_CLASS,
+} from "@/lib/components/sidebar/_utils/railTile";
 
 interface SidebarUserMenuProps {
   name: string;
@@ -62,11 +67,12 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
             type="button"
+            variant="ghost"
             title={name}
             aria-label={`Account menu for ${name}`}
-            className="relative flex size-11 items-center justify-center rounded-lg border border-transparent opacity-75 transition-colors hover:bg-sidebar-accent/50 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
+            className={cn(RAIL_TILE_CLASS, RAIL_TILE_IDLE_CLASS)}
           >
             <UserInitials
               user={{ fullName: name }}
@@ -74,7 +80,7 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
               size="md"
               disableProfileCard
             />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="center"

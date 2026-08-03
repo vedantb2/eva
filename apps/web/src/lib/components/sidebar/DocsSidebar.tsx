@@ -17,6 +17,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   Input,
   Spinner,
   Surface,
@@ -276,16 +277,15 @@ export function DocsSidebar({
             <Spinner size="sm" />
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <IconFile
-              size={20}
-              className="mx-auto mb-2 text-muted-foreground opacity-50"
-            />
-            <p className="text-sm font-medium text-foreground">No documents yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Create one to get started.
-            </p>
-          </div>
+          /* animate={false}: the list is also search-filtered, so this can
+             appear on every keystroke. */
+          <EmptyState
+            animate={false}
+            className="px-4 py-8"
+            icon={<IconFile size={20} className="opacity-50" />}
+            title="No documents yet"
+            description="Create one to get started."
+          />
         ) : (
           <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
@@ -420,14 +420,15 @@ export function DocsSidebar({
                   }
                 }}
               />
-              <button
+              <Button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-control border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                variant="secondary"
                 onClick={() => setShowUploadSection(true)}
+                className="h-auto w-full justify-start gap-2 border border-border bg-muted/40 px-3 py-2.5 font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground [&_svg]:size-3.5"
               >
-                <IconUpload size={14} />
+                <IconUpload />
                 Upload PRD instead
-              </button>
+              </Button>
               <DialogFooter>
                 <Button
                   variant="ghost"

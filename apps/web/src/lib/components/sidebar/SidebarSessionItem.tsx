@@ -10,40 +10,11 @@ import {
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
+import {
+  prStateIconColor,
+  prStateLabel,
+} from "@/lib/components/sidebar/_utils/prState";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
-
-function prStateLabel(
-  state: "draft" | "open" | "merged" | "closed" | undefined,
-): string {
-  switch (state) {
-    case "open":
-      return "Open";
-    case "merged":
-      return "Merged";
-    case "closed":
-      return "Closed";
-    case "draft":
-      return "Draft";
-    default:
-      return "PR";
-  }
-}
-
-function prStateIconColor(
-  state: "draft" | "open" | "merged" | "closed" | undefined,
-): string {
-  switch (state) {
-    case "open":
-      return "text-success";
-    case "merged":
-      return "text-status-code-review";
-    case "closed":
-      return "text-destructive";
-    case "draft":
-    default:
-      return "text-muted-foreground";
-  }
-}
 
 interface SidebarSessionItemProps {
   href: string;
@@ -81,7 +52,7 @@ export function SidebarSessionItem({
         <DynamicLink
           to={href}
           onClick={onNavigate}
-          className="block rounded-lg border border-transparent px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+          className="block rounded-menu-item px-4 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -90,7 +61,7 @@ export function SidebarSessionItem({
             />
             <MarqueeOnHover
               className={cn(
-                "min-w-0 flex-1 text-sm transition-colors duration-200",
+                "min-w-0 flex-1 text-2sm transition-colors duration-200",
                 isSelected
                   ? "font-medium text-sidebar-primary"
                   : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
@@ -107,7 +78,7 @@ export function SidebarSessionItem({
             ) : null}
             <RelativeDateTime
               at={activityAt}
-              className="shrink-0 text-[11px] text-muted-foreground"
+              className="shrink-0 text-2xs text-muted-foreground"
             />
           </div>
         </DynamicLink>

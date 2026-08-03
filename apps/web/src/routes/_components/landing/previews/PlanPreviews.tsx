@@ -40,6 +40,7 @@ export function DocumentsPreview() {
           <span className="relative block">
             <MockLine width="w-[60%]" />
             <span className="absolute -top-0.5 left-[60%] h-3 w-px bg-primary" />
+            {/* design-check-ignore-next-line — 4px corner on a 10px-tall collaboration cursor flag; the clamped tokens (8px and up) round a label this small into a lozenge */}
             <span className="absolute -top-3 left-[60%] rounded-sm bg-primary px-1 py-px text-[8px] font-medium text-primary-foreground">
               Riya
             </span>
@@ -55,7 +56,7 @@ export function DocumentsPreview() {
         </div>
       </div>
 
-      <div className="mt-5 flex items-center gap-2 rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2">
+      <div className="mt-5 flex items-center gap-2 rounded-control border border-primary/25 bg-primary/5 px-2.5 py-2">
         <MockChip tone="primary">In agent context</MockChip>
         <span className="truncate text-[10.5px] text-muted-foreground">
           Read by 3 tasks in this repository
@@ -91,14 +92,14 @@ export function ProjectsPreview() {
   return (
     <MockWindow
       title="projects / checkout-rework"
-      trailing={<MockChip tone="primary">5 tasks</MockChip>}
+      trailing={<MockChip>5 tasks</MockChip>}
       bodyClassName="p-4"
     >
       <div className="grid h-full grid-cols-3 gap-2">
         {PROJECT_COLUMNS.map((column) => (
           <div
             key={column.name}
-            className="flex flex-col gap-2 rounded-md border border-border bg-muted/25 p-2"
+            className="flex flex-col gap-2 rounded-surface border border-border bg-muted/25 p-2"
           >
             <div className="flex items-center justify-between">
               <MockLabel>{column.name}</MockLabel>
@@ -109,7 +110,7 @@ export function ProjectsPreview() {
             {column.cards.map((card) => (
               <div
                 key={card.title}
-                className="space-y-2 rounded-md border border-border bg-card p-2"
+                className="space-y-2 rounded-control border border-border bg-card p-2"
               >
                 <p className="text-[11px] font-medium leading-tight text-foreground">
                   {card.title}
@@ -157,7 +158,7 @@ export function DraftsPreview() {
             meta={draft.meta}
             trailing={
               index === 0 ? (
-                <span className="flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-1.5 py-1 text-[10px] font-medium text-primary">
+                <span className="flex items-center gap-1 rounded-control border border-primary/25 bg-primary/10 px-1.5 py-1 text-[10px] font-medium text-primary">
                   Promote
                   <IconArrowRight size={11} aria-hidden />
                 </span>
@@ -167,7 +168,7 @@ export function DraftsPreview() {
         ))}
       </div>
 
-      <div className="mt-4 rounded-md border border-dashed border-border px-3 py-6 text-center">
+      <div className="mt-4 rounded-surface border border-dashed border-border px-3 py-6 text-center">
         <p className="text-[11px] text-muted-foreground">
           Write it down now, specify it later.
         </p>

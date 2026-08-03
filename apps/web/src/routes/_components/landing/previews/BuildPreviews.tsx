@@ -1,7 +1,8 @@
-import { IconCheck, IconGitBranch, IconLoader2 } from "@tabler/icons-react";
+import { IconCheck, IconGitBranch } from "@tabler/icons-react";
 import { cn } from "@eva/ui";
 import { BrandMark, type BrandName } from "../BrandMark";
 import {
+  MockAccent,
   MockChip,
   MockDot,
   MockLabel,
@@ -33,12 +34,12 @@ export function SessionsPreview() {
       <div className="grid h-full grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div className="flex flex-col gap-2.5 border-r border-border p-3">
           <MockLabel>Chat</MockLabel>
-          <div className="ml-auto max-w-[85%] rounded-lg rounded-br-sm border border-border bg-muted px-2.5 py-1.5">
+          <div className="ml-auto max-w-[85%] rounded-surface border border-border bg-secondary px-2.5 py-1.5">
             <p className="text-[10.5px] leading-relaxed text-foreground">
               Postcodes with a space fail validation.
             </p>
           </div>
-          <div className="max-w-[90%] space-y-1.5 rounded-lg rounded-bl-sm border border-border bg-card px-2.5 py-2">
+          <div className="max-w-[90%] space-y-1.5 rounded-surface border border-border bg-card px-2.5 py-2">
             <MockLine width="w-full" />
             <MockLine width="w-[80%]" />
             <MockLine width="w-[55%]" />
@@ -57,7 +58,7 @@ export function SessionsPreview() {
               <span
                 key={tab}
                 className={cn(
-                  "rounded-md border px-1.5 py-1 text-[10px] font-medium sm:px-2",
+                  "rounded-control border px-1.5 py-1 text-[10px] font-medium sm:px-2",
                   index === 1
                     ? "border-border bg-muted text-foreground"
                     : "border-transparent text-muted-foreground",
@@ -105,7 +106,12 @@ const TASK_STATE = {
   done: { label: "Merged", tone: "success" as const },
 };
 
-/** Five independent tasks, each on its own sandbox and branch. */
+/**
+ * Five independent tasks, each on its own sandbox and branch.
+ *
+ * Rows mirror `QuickTaskCard`: the status is a leading accent stripe plus a
+ * quiet label, not a filled pill, and the title stays neutral text.
+ */
 export function QuickTasksPreview() {
   return (
     <MockWindow
@@ -119,24 +125,9 @@ export function QuickTasksPreview() {
           return (
             <div
               key={task.title}
-              className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2"
+              className="relative flex items-center gap-2.5 overflow-hidden rounded-control border border-border bg-card py-2 pl-3 pr-2.5"
             >
-              {task.state === "running" ? (
-                <IconLoader2
-                  size={13}
-                  className="shrink-0 animate-spin text-warning"
-                  aria-hidden
-                />
-              ) : (
-                <IconCheck
-                  size={13}
-                  className={cn(
-                    "shrink-0",
-                    task.state === "done" ? "text-success" : "text-chart-3",
-                  )}
-                  aria-hidden
-                />
-              )}
+              <MockAccent tone={state.tone} />
               <p className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-foreground">
                 {task.title}
               </p>
@@ -178,7 +169,7 @@ export function AgentsPreview() {
   return (
     <MockWindow
       title="new task · choose an agent"
-      trailing={<MockChip tone="primary">Per task</MockChip>}
+      trailing={<MockChip>Per task</MockChip>}
       bodyClassName="p-4"
     >
       <div className="grid grid-cols-2 gap-2">
@@ -186,7 +177,7 @@ export function AgentsPreview() {
           <div
             key={agent.name}
             className={cn(
-              "flex flex-col gap-1 rounded-md border p-3",
+              "flex flex-col gap-1 rounded-control border p-3",
               agent.selected
                 ? "border-primary/40 bg-primary/5"
                 : "border-border bg-card",
@@ -210,7 +201,7 @@ export function AgentsPreview() {
         ))}
       </div>
 
-      <div className="mt-3 space-y-2 rounded-md border border-border bg-muted/25 p-3">
+      <div className="mt-3 space-y-2 rounded-surface border border-border bg-muted/25 p-3">
         <MockLabel>Credentials</MockLabel>
         <p className="font-mono text-[10px] text-muted-foreground">
           ANTHROPIC_API_KEY <span className="text-success">✓ set</span>

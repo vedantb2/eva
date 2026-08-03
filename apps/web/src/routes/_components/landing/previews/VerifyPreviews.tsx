@@ -62,7 +62,7 @@ export function ReviewsPreview() {
         </p>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-md border border-border">
+      <div className="mt-3 overflow-hidden rounded-control border border-border">
         <div className="border-b border-border bg-muted/40 px-2.5 py-1.5">
           <p className="truncate font-mono text-[9.5px] text-muted-foreground">
             src/checkout/validate.ts
@@ -81,7 +81,7 @@ export function ReviewsPreview() {
         </div>
       </div>
 
-      <div className="mt-3 space-y-1.5 rounded-md border border-primary/25 bg-primary/5 p-2.5">
+      <div className="mt-3 space-y-1.5 rounded-control border border-primary/25 bg-primary/5 p-2.5">
         <div className="flex items-center gap-1.5">
           <IconSparkles size={12} className="text-primary" aria-hidden />
           <MockLabel>Eva recap · sticky comment</MockLabel>
@@ -122,7 +122,7 @@ export function ArenaPreview() {
       trailing={<MockChip tone="warning">3 gaps</MockChip>}
       bodyClassName="p-3.5"
     >
-      <div className="flex items-center gap-3 rounded-md border border-border bg-muted/25 px-3 py-2.5">
+      <div className="flex items-center gap-3 rounded-control border border-border bg-muted/25 px-3 py-2.5">
         <p className="text-2xl font-semibold tabular-nums text-foreground">
           14<span className="text-base text-muted-foreground">/17</span>
         </p>
@@ -138,7 +138,7 @@ export function ArenaPreview() {
         {GAPS.map((gap) => (
           <div
             key={gap.title}
-            className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2"
+            className="flex items-center gap-2.5 rounded-control border border-border bg-card px-2.5 py-2"
           >
             <IconAlertTriangle
               size={13}
@@ -193,7 +193,7 @@ export function AuditsPreview() {
           <div
             key={category.name}
             className={cn(
-              "flex items-center gap-2.5 rounded-md border px-2.5 py-2",
+              "flex items-center gap-2.5 rounded-control border px-2.5 py-2",
               category.pass
                 ? "border-border bg-card"
                 : "border-destructive/30 bg-destructive/5",
@@ -221,7 +221,7 @@ export function AuditsPreview() {
         ))}
       </div>
 
-      <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2">
+      <div className="mt-3 flex items-center gap-2 rounded-control border border-border bg-muted/25 px-2.5 py-2">
         <MockDot tone="primary" pulse />
         <p className="truncate text-[10.5px] text-muted-foreground">
           Sending the accessibility finding back to the agent…
@@ -239,13 +239,13 @@ export function ProofPreview() {
       trailing={<MockChip tone="success">Attached to PR</MockChip>}
       bodyClassName="p-3.5"
     >
-      <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
+      <div className="relative overflow-hidden rounded-control border border-border bg-muted/30">
         <div className="flex items-center gap-1.5 border-b border-border bg-card px-2 py-1.5">
           <span className="flex gap-1" aria-hidden>
             <span className="size-1.5 rounded-full bg-border" />
             <span className="size-1.5 rounded-full bg-border" />
           </span>
-          <span className="truncate rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+          <span className="truncate rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
             127.0.0.1:3000/checkout
           </span>
         </div>

@@ -10,7 +10,7 @@ export {
 
 export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";
 
-export { getPrDiff, getPrFileContents } from "./_github/prDiff";
+export { getPrDiff, getPrFileContents, getCommitDiff } from "./_github/prDiff";
 
 export { listPullRequests, getPullRequestHeader } from "./_github/pullRequests";
 

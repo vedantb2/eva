@@ -39,6 +39,82 @@ type PrDiffResult = {
   repoUrl: string;
 };
 
+type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;
+
+/**
+ * GitHub refuses `pulls.get` with the diff media type past ~300 files (HTTP 406,
+ * `code: too_large`). Message matching survives Convex wrapping the HttpError.
+ */
+function isPrDiffTooLargeError(error: Error): boolean {
+  return (
+    error.message.includes('"code":"too_large"') ||
+    error.message.includes("diff exceeded the maximum number of files") ||
+    error.message.includes("diff exceeded the maximum number of lines")
+  );
+}
+
+/**
+ * Rebuild one file's unified-diff section from a `pulls.listFiles` entry so
+ * `buildDiffFileEntries` / `@pierre/diffs` can parse the same shape as the
+ * media-type endpoint.
+ */
+function listFileToUnifiedDiff(file: {
+  filename: string;
+  previous_filename?: string;
+  status: string;
+  patch?: string;
+}): string {
+  const oldPath = file.previous_filename ?? file.filename;
+  const lines: string[] = [`diff --git a/${oldPath} b/${file.filename}`];
+
+  if (file.status === "added") {
+    lines.push("new file mode 100644");
+    lines.push("--- /dev/null");
+    lines.push(`+++ b/${file.filename}`);
+  } else if (file.status === "removed") {
+    lines.push("deleted file mode 100644");
+    lines.push(`--- a/${oldPath}`);
+    lines.push("+++ /dev/null");
+  } else if (file.status === "renamed") {
+    lines.push(`rename from ${oldPath}`);
+    lines.push(`rename to ${file.filename}`);
+    lines.push(`--- a/${oldPath}`);
+    lines.push(`+++ b/${file.filename}`);
+  } else {
+    lines.push(`--- a/${oldPath}`);
+    lines.push(`+++ b/${file.filename}`);
+  }
+
+  if (file.patch !== undefined && file.patch.length > 0) {
+    lines.push(file.patch);
+  } else {
+    // Binary blobs and individually oversized files omit `patch` — keep the
+    // path in the tree so the Diffs tab still lists them.
+    lines.push(`Binary files a/${oldPath} and b/${file.filename} differ`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Paginated fallback when the unified-diff media type is refused. GitHub's
+ * files listing supports up to 3000 entries (vs 300 for the media type).
+ */
+async function fetchPrDiffViaListFiles(
+  octokit: InstallationOctokit,
+  owner: string,
+  name: string,
+  prNumber: number,
+): Promise<string> {
+  const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+    owner,
+    repo: name,
+    pull_number: prNumber,
+    per_page: 100,
+  });
+  return files.map(listFileToUnifiedDiff).join("\n");
+}
+
 /**
  * Uncached GitHub PR diff fetch — wrapped by ActionCache. Auth is enforced by
  * the public `getPrDiff` wrapper before `fetch`.
@@ -56,22 +132,38 @@ export const fetchPrDiff = internalAction({
     if (!repo) throw new Error("Repo not found");
 
     const octokit = await getInstallationOctokit(repo.installationId);
-    const [res, meta] = await Promise.all([
-      octokit.rest.pulls.get({
+    // JSON PR metadata is fine for large PRs — start it alongside the diff
+    // attempt so a fallback listFiles path still reuses one meta round-trip.
+    const metaPromise = octokit.rest.pulls.get({
+      owner: repo.owner,
+      repo: repo.name,
+      pull_number: args.prNumber,
+    });
+
+    let fullDiff: string;
+    try {
+      const res = await octokit.rest.pulls.get({
         owner: repo.owner,
         repo: repo.name,
         pull_number: args.prNumber,
         mediaType: { format: "diff" },
-      }),
-      octokit.rest.pulls.get({
-        owner: repo.owner,
-        repo: repo.name,
-        pull_number: args.prNumber,
-      }),
-    ]);
-    // With the diff media type GitHub returns raw unified-diff text, but octokit
-    // types `data` as the PR object — parse to a string at the boundary.
-    const fullDiff = z.string().parse(res.data);
+      });
+      // With the diff media type GitHub returns raw unified-diff text, but
+      // octokit types `data` as the PR object — parse to a string at the boundary.
+      fullDiff = z.string().parse(res.data);
+    } catch (error) {
+      if (!(error instanceof Error) || !isPrDiffTooLargeError(error)) {
+        throw error;
+      }
+      fullDiff = await fetchPrDiffViaListFiles(
+        octokit,
+        repo.owner,
+        repo.name,
+        args.prNumber,
+      );
+    }
+
+    const meta = await metaPromise;
 
     const truncated = fullDiff.length > MAX_DIFF_BYTES;
     // Clip on a line boundary so the final file stays parseable.
@@ -100,9 +192,10 @@ const prDiffCache = new ActionCache(components.actionCache, {
 /**
  * Public action powering the sandbox "Diffs" tab. Fetches the canonical PR diff
  * from GitHub (the raw unified-diff media type) so the client can render it with
- * `@pierre/diffs`. Reflects what has been pushed to the PR, not uncommitted
- * working-tree changes. ActionCache-backed (120s TTL); pass `force` to bypass
- * (Refresh).
+ * `@pierre/diffs`. When that media type is refused past GitHub's 300-file
+ * ceiling, rebuilds the same shape from paginated `pulls.listFiles` patches.
+ * Reflects what has been pushed to the PR, not uncommitted working-tree
+ * changes. ActionCache-backed (120s TTL); pass `force` to bypass (Refresh).
  */
 export const getPrDiff = action({
   args: {

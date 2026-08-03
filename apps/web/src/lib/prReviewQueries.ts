@@ -1,0 +1,132 @@
+import { queryOptions, skipToken, type QueryClient } from "@tanstack/react-query";
+import type { FunctionReturnType } from "convex/server";
+import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
+import {
+  buildDiffFileEntries,
+  type DiffFileEntry,
+} from "./components/sandbox/diffFiles";
+
+/**
+ * Query definitions for the three pull request review payloads.
+ *
+ * Overview, diff, and header all come from Convex actions, so caching, in-flight
+ * deduplication, staleness, and prefetching are TanStack Query's job. Defining
+ * each query once here is what lets a hover over the reviews list warm exactly
+ * the entries the panels then read — the keys cannot drift apart.
+ */
+
+/** Every one of these actions takes the same arguments, so one shape covers all. */
+export type PrRunner<T> = (args: {
+  repoId: Id<"githubRepos">;
+  prNumber: number;
+  force?: boolean;
+}) => Promise<T>;
+
+type PrDiffPayload = FunctionReturnType<typeof api.github.getPrDiff>;
+type PrOverviewPayload = FunctionReturnType<
+  typeof api.github.getPullRequestOverview
+>;
+type PrHeaderPayload = FunctionReturnType<
+  typeof api.github.getPullRequestHeader
+>;
+
+/**
+ * A PR diff as the Diffs tab consumes it. The raw diff text is split into
+ * per-file entries here, once per fetch, rather than on every render.
+ */
+export interface PrDiffData {
+  readonly entries: readonly DiffFileEntry[];
+  readonly truncated: boolean;
+  readonly baseSha: string;
+  readonly headSha: string;
+  readonly repoUrl: string;
+}
+
+/** Exported because the forced-refresh path must transform the payload too. */
+export function toPrDiffData(payload: PrDiffPayload): PrDiffData {
+  return {
+    entries: buildDiffFileEntries(payload.diff),
+    truncated: payload.truncated,
+    baseSha: payload.baseSha,
+    headSha: payload.headSha,
+    repoUrl: payload.repoUrl,
+  };
+}
+
+/**
+ * A pull request number is undefined while a URL is still being resolved, or
+ * when it cannot be parsed at all. `skipToken` keeps the query idle in that case
+ * without the caller having to invent a placeholder number for the key.
+ */
+export function prDiffQuery(
+  run: PrRunner<PrDiffPayload>,
+  repoId: Id<"githubRepos">,
+  prNumber: number | undefined,
+) {
+  return queryOptions({
+    queryKey: ["pr", "diff", repoId, prNumber] as const,
+    queryFn:
+      prNumber === undefined
+        ? skipToken
+        : () => run({ repoId, prNumber }).then(toPrDiffData),
+  });
+}
+
+export function prOverviewQuery(
+  run: PrRunner<PrOverviewPayload>,
+  repoId: Id<"githubRepos">,
+  prNumber: number | undefined,
+) {
+  return queryOptions({
+    queryKey: ["pr", "overview", repoId, prNumber] as const,
+    queryFn:
+      prNumber === undefined ? skipToken : () => run({ repoId, prNumber }),
+  });
+}
+
+export function prHeaderQuery(
+  run: PrRunner<PrHeaderPayload>,
+  repoId: Id<"githubRepos">,
+  prNumber: number | undefined,
+) {
+  return queryOptions({
+    queryKey: ["pr", "header", repoId, prNumber] as const,
+    queryFn:
+      prNumber === undefined ? skipToken : () => run({ repoId, prNumber }),
+  });
+}
+
+/**
+ * GitHub's own message where there is one, the caller's wording where there is
+ * not — a rejected query can carry an empty message.
+ */
+export function prErrorMessage(error: Error | null, fallback: string): string {
+  if (error === null || error.message.length === 0) return fallback;
+  return error.message;
+}
+
+export interface PrReviewRunners {
+  readonly diff: PrRunner<PrDiffPayload>;
+  readonly overview: PrRunner<PrOverviewPayload>;
+  readonly header: PrRunner<PrHeaderPayload>;
+}
+
+/**
+ * Warms all three payloads for a pull request — called on hover intent in the
+ * reviews list so the click itself has nothing left to fetch. `prefetchQuery`
+ * already no-ops on fresh data, joins a request that is in flight, and swallows
+ * failures, so repeated hovers over one row cost nothing.
+ */
+export function prefetchPrReview(
+  client: QueryClient,
+  runners: PrReviewRunners,
+  repoId: Id<"githubRepos">,
+  prNumber: number,
+): void {
+  void client.prefetchQuery(prDiffQuery(runners.diff, repoId, prNumber));
+  void client.prefetchQuery(
+    prOverviewQuery(runners.overview, repoId, prNumber),
+  );
+  void client.prefetchQuery(prHeaderQuery(runners.header, repoId, prNumber));
+}

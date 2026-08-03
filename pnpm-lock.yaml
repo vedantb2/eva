@@ -291,6 +291,9 @@ importers:
       '@tanstack/react-hotkeys':
         specifier: ^0.3.2
         version: 0.3.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@tanstack/react-query':
+        specifier: ^5.101.4
+        version: 5.101.4(react@19.2.1)
       '@tanstack/react-router':
         specifier: ^1.120.0
         version: 1.168.22(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -4240,6 +4243,9 @@ packages:
     resolution: {integrity: sha512-ISGAnEYwzpY9tX4txu0vxsGQjtqn6kHLyhSkER3Q1L1Zb30Q5KgA5tHk9En3ax33fWatcrSRIqGsUlYeEBsoxg==}
     engines: {node: '>=18'}
 
+  '@tanstack/query-core@5.101.4':
+    resolution: {integrity: sha512-gNwcvOJcRbLWPOLG/2OBm+zM+Yv+MKsXKEOWC57USuZDEsI71hEErQsiEGx5wX9rzWWkfwM0fVSPoiIFSsxfiw==}
+
   '@tanstack/query-core@5.87.4':
     resolution: {integrity: sha512-uNsg6zMxraEPDVO2Bn+F3/ctHi+Zsk+MMpcN8h6P7ozqD088F6mFY5TfGM7zuyIrL7HKpDyu6QHfLWiDxh3cuw==}
 
@@ -4249,6 +4255,11 @@ packages:
     peerDependencies:
       react: '>=16.8'
       react-dom: '>=16.8'
+
+  '@tanstack/react-query@5.101.4':
+    resolution: {integrity: sha512-yRg2pfOCxIs4ZJW3XYYHU/WgtD04FHSnfHlpRT7h7pR77hwkdRG4wxbKe4aq6P0RvXUTBSQpQeadS1SUYUe+KA==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@tanstack/react-router@1.168.22':
     resolution: {integrity: sha512-W2LyfkfJtDCf//jOjZeUBWwOVl8iDRVTECpGHa2M28MT3T5/VVnjgicYNHR/ax0Filk1iU67MRjcjHheTYvK1Q==}
@@ -12650,6 +12661,8 @@ snapshots:
     dependencies:
       '@tanstack/store': 0.9.3
 
+  '@tanstack/query-core@5.101.4': {}
+
   '@tanstack/query-core@5.87.4': {}
 
   '@tanstack/react-hotkeys@0.3.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
@@ -12658,6 +12671,11 @@ snapshots:
       '@tanstack/react-store': 0.9.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
+
+  '@tanstack/react-query@5.101.4(react@19.2.1)':
+    dependencies:
+      '@tanstack/query-core': 5.101.4
+      react: 19.2.1
 
   '@tanstack/react-router@1.168.22(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
     dependencies:

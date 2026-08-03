@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import { prefetchPrReview } from "@/lib/prReviewCache";
+import { prErrorMessage, prefetchPrReview } from "@/lib/prReviewQueries";
 import { pullRequestListStateParser } from "@/lib/search-params";
 import { ReviewsListStateTabs } from "@/lib/components/sidebar/_components/ReviewsListStateTabs";
 import { ReviewsSidebarRow } from "@/lib/components/sidebar/_components/ReviewsSidebarRow";
@@ -20,22 +20,6 @@ interface ReviewsSidebarProps {
   onNavigate?: () => void;
 }
 
-type PullRequestListItem = {
-  number: number;
-  title: string;
-  state: "open" | "closed";
-  draft: boolean;
-  authorLogin: string | null;
-  updatedAt: string;
-  createdAt: string;
-  htmlUrl: string;
-};
-
-type ListState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; pulls: PullRequestListItem[] };
-
 /**
  * Context sidebar listing GitHub PRs for the codebase. Selection opens
  * /reviews/$prNumber/overview (and sibling tabs).
@@ -47,39 +31,23 @@ export function ReviewsSidebar({
   onNavigate,
 }: ReviewsSidebarProps) {
   const listPullRequests = useAction(api.github.listPullRequests);
-  // Bound once here so the row only needs a `() => void` — the cache module
+  // Bound once here so the row only needs a `() => void` — the query module
   // stays free of any dependency on the Convex client.
   const runners = {
     diff: useAction(api.github.getPrDiff),
     overview: useAction(api.github.getPullRequestOverview),
     header: useAction(api.github.getPullRequestHeader),
   };
+  const queryClient = useQueryClient();
   const [listState, setListState] = useQueryState(
     "prState",
     pullRequestListStateParser,
   );
-  const [state, setState] = useState<ListState>({ status: "loading" });
-  const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
-    listPullRequests({ repoId, state: listState })
-      .then((pulls) => {
-        if (!cancelled) setState({ status: "ready", pulls });
-      })
-      .catch((error: Error) => {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message: error.message || "Couldn't load pull requests",
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [repoId, listState, listPullRequests, reloadKey]);
+  const pullsQuery = useQuery({
+    queryKey: ["pr", "list", repoId, listState],
+    queryFn: () => listPullRequests({ repoId, state: listState }),
+  });
 
   const activePrNumber = (() => {
     const match = pathname.match(/\/reviews\/(\d+)(?:\/|$)/);
@@ -88,7 +56,7 @@ export function ReviewsSidebar({
     return Number.isFinite(n) ? n : null;
   })();
 
-  const pulls = state.status === "ready" ? state.pulls : [];
+  const pulls = pullsQuery.data ?? [];
 
   return (
     <>
@@ -102,17 +70,20 @@ export function ReviewsSidebar({
       </div>
 
       <div className="flex-1">
-        {state.status === "loading" ? (
+        {pullsQuery.isPending ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="sm" />
           </div>
-        ) : state.status === "error" ? (
+        ) : pullsQuery.data === undefined ? (
           <div className="space-y-2 p-4 text-center">
-            <p className="text-sm text-destructive">{state.message}</p>
+            <p className="text-sm text-destructive">
+              {prErrorMessage(pullsQuery.error, "Couldn't load pull requests")}
+            </p>
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setReloadKey((k) => k + 1)}
+              disabled={pullsQuery.isFetching}
+              onClick={() => void pullsQuery.refetch()}
             >
               Retry
             </Button>
@@ -137,7 +108,7 @@ export function ReviewsSidebar({
                 isActive={activePrNumber === pr.number}
                 onNavigate={onNavigate}
                 onPrefetch={() =>
-                  prefetchPrReview(runners, { repoId, prNumber: pr.number })
+                  prefetchPrReview(queryClient, runners, repoId, pr.number)
                 }
               />
             ))}

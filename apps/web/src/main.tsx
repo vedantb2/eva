@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { queryClient } from "./lib/queryClient";
 import { routeTree } from "./routeTree.gen";
 import { createAppHistory } from "./lib/history";
 import { toDisplayRepoHref, toInternalRepoHref } from "./lib/utils/repoUrl";
@@ -101,15 +103,17 @@ const rootElement = document.getElementById("root");
 if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
-      <MotionProvider>
-        <ClerkProvider
-          publishableKey={clientEnv.VITE_CLERK_PUBLISHABLE_KEY}
-          signInFallbackRedirectUrl="/home"
-          signUpFallbackRedirectUrl="/home"
-        >
-          <InnerApp />
-        </ClerkProvider>
-      </MotionProvider>
+      <QueryClientProvider client={queryClient}>
+        <MotionProvider>
+          <ClerkProvider
+            publishableKey={clientEnv.VITE_CLERK_PUBLISHABLE_KEY}
+            signInFallbackRedirectUrl="/home"
+            signUpFallbackRedirectUrl="/home"
+          >
+            <InnerApp />
+          </ClerkProvider>
+        </MotionProvider>
+      </QueryClientProvider>
     </StrictMode>,
   );
 }

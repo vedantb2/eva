@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, cn } from "@eva/ui";
+import { Button, LIST_ROW_CONTROL_CLASS, ListRow, cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -31,21 +31,21 @@ function NotificationSourceAvatar({
   const TypeIcon = appearance.icon;
 
   return (
-    <div className="relative size-7 shrink-0">
+    <div className="relative size-6 shrink-0">
       <RepoLogo
         logoUrl={repo.logoUrl}
-        size={28}
+        size={24}
         fallback={
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-control border border-border bg-muted text-2xs font-semibold text-muted-foreground">
             {label.charAt(0).toUpperCase()}
           </span>
         }
       />
       <span
-        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md border border-border bg-card"
+        className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full border border-border bg-card"
         aria-hidden
       >
-        <TypeIcon size={11} className={appearance.iconColor} />
+        <TypeIcon size={9} className={appearance.iconColor} />
       </span>
     </div>
   );
@@ -58,7 +58,11 @@ interface NotificationRowProps {
   onMarkRead: () => void;
 }
 
-/** One inbox row. The parent list owns the border, so the row is padding only. */
+/**
+ * One inbox row: title on the first line with the timestamp trailing it, source
+ * and context folded onto a single muted second line. Two lines rather than
+ * three, so a day's worth of notifications fits on one screen.
+ */
 export function NotificationRow({
   notification,
   repo,
@@ -67,65 +71,68 @@ export function NotificationRow({
 }: NotificationRowProps) {
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
   const unread = !notification.read;
+  const context = notification.contextLabel;
 
   return (
-    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
-      <button
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-none"
-      >
-        {/* Fixed-width dot slot so read and unread rows stay aligned. */}
-        <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>
-          {unread ? (
-            <span className="size-1.5 rounded-full bg-primary" />
-          ) : null}
-        </span>
-        <NotificationSourceAvatar notification={notification} repo={repo} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          {sourceLabel ? (
-            <span className="truncate text-xs text-muted-foreground">
-              {sourceLabel}
-            </span>
-          ) : null}
+    <ListRow
+      density="compact"
+      onClick={onOpen}
+      aria-label={notification.title}
+      contentClassName="flex items-start gap-2.5"
+    >
+      {/* Fixed-width dot slot so read and unread rows stay aligned. */}
+      <span className="mt-2 flex w-1.5 shrink-0 justify-center" aria-hidden>
+        {unread ? <span className="size-1.5 rounded-full bg-primary" /> : null}
+      </span>
+
+      <NotificationSourceAvatar notification={notification} repo={repo} />
+
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 items-baseline gap-2">
           {/* Read rows drop to the muted tone rather than fading the whole row,
               so logos and timestamps stay legible. */}
           <span
             className={cn(
-              "truncate text-sm",
+              "min-w-0 flex-1 truncate text-2sm",
               unread ? "font-medium text-foreground" : "text-muted-foreground",
             )}
           >
             {notification.title}
           </span>
-          {notification.contextLabel ? (
-            <span className="truncate text-xs leading-relaxed text-muted-foreground">
-              {notification.contextLabel}
-            </span>
-          ) : null}
+          {/* Timestamp and Dismiss share the trailing slot: hovering an unread
+              row swaps one for the other. */}
+          <span className="relative flex shrink-0 items-center justify-end">
+            <RelativeDateTime
+              at={notification.createdAt}
+              className={cn("text-2xs", unread && "group-hover:invisible")}
+            />
+            {unread ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={onMarkRead}
+                title="Mark as read"
+                aria-label="Mark as read"
+                className={cn(
+                  LIST_ROW_CONTROL_CLASS,
+                  "absolute right-0 h-6 gap-1 px-1.5 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100",
+                )}
+              >
+                <IconCheck size={12} />
+                Dismiss
+              </Button>
+            ) : null}
+          </span>
         </div>
-      </button>
-      {/* Timestamp and Dismiss share the trailing slot: hovering an unread row
-          swaps one for the other. */}
-      <RelativeDateTime
-        at={notification.createdAt}
-        className={cn(
-          "shrink-0 text-xs tabular-nums text-muted-foreground",
-          unread && "group-hover:invisible",
-        )}
-      />
-      {unread ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onMarkRead}
-          title="Mark as read"
-          aria-label="Mark as read"
-          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <IconCheck size={14} />
-          Dismiss
-        </Button>
-      ) : null}
-    </div>
+
+        {sourceLabel !== undefined || context ? (
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            {sourceLabel}
+            {sourceLabel !== undefined && context ? " · " : ""}
+            {context}
+          </p>
+        ) : null}
+      </div>
+    </ListRow>
   );
 }

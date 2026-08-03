@@ -103,7 +103,7 @@ function CommitDiffBody({
 
   if (query.data === undefined) {
     return (
-      <p className="py-10 text-center text-sm text-destructive">
+      <p className="py-10 text-center text-2sm text-destructive">
         {prErrorMessage(query.error, "Couldn't load this commit")}
       </p>
     );
@@ -127,7 +127,7 @@ function CommitDiffBody({
           {entries.map((entry) => (
             <div
               key={entry.path}
-              className="overflow-hidden rounded-md border border-border"
+              className="overflow-hidden rounded-surface border border-border"
             >
               <div className="flex min-w-0 items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
                 <span

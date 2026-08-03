@@ -66,14 +66,15 @@ function pragmaReason(line, marker) {
 }
 
 // --- pattern definitions ---------------------------------------------------
-// Tag-only check: not scoped to a string, since JSX tags aren't quoted.
-const RAW_BUTTON_RE = /<button(?=[\s/>])/;
+// Tag-only check: not scoped to a string, since JSX tags aren't quoted. The
+// `|$` matters: prettier puts `<button` alone on a line whenever the attribute
+// list wraps, which is most of them, so without it the check missed the common
+// case and only caught single-line buttons.
+const RAW_BUTTON_RE = /<button(?=[\s/>]|$)/;
 
 // Quoted string literal contents on a single line. Deliberately naive: it
 // does not track matching quote-character pairs across an escaped
-// apostrophe (e.g. "it's" mid-string), and it never follows a call across
-// multiple lines — a `className={cn(\n "a",\n "b"\n)}` spread over lines is
-// invisible to this per-line scan. Accepted tradeoff, same spirit as
+// apostrophe (e.g. "it's" mid-string). Accepted tradeoff, same spirit as
 // compiler-check.mjs: text-based and okay to miss some, not okay to cry wolf.
 const QUOTED_STRING_RE = /["'`]([^"'`]*)["'`]/g;
 
@@ -82,6 +83,27 @@ const QUOTED_STRING_RE = /["'`]([^"'`]*)["'`]/g;
 // literals in ordinary TS — theme tables, SVG fills, chart configs, canvas
 // drawing — out of the hardcoded-colour and palette checks below.
 const CLASS_CONTEXT_RE = /\b(?:className|class)\s*=|\b(?:cva|cn|clsx)\s*\(/;
+
+/**
+ * Net unclosed parentheses in `s`, ignoring anything inside a quoted string.
+ * Used to carry class context across lines: prettier wraps almost every
+ * multi-class `cn(...)` call, so a per-line scan that stopped at the line
+ * holding `className={cn(` would miss the majority of real class strings —
+ * exactly the lines most likely to carry drift.
+ *
+ * Parens only, deliberately. Counting braces too would keep the context open
+ * across a wrapped `style={{ ... }}` object, where a hex literal is correct
+ * and would false-positive as a hardcoded colour.
+ */
+function openParenDelta(s) {
+  const bare = s.replace(QUOTED_STRING_RE, '""');
+  let delta = 0;
+  for (const ch of bare) {
+    if (ch === "(") delta++;
+    else if (ch === ")") delta--;
+  }
+  return delta;
+}
 
 const VARIANT_PREFIX = "(?:[a-z0-9_-]+:)*"; // hover:, sm:, group-hover:, dark:, ...
 
@@ -166,19 +188,39 @@ for (const file of SCAN_ROOTS.flatMap((root) => walk(root))) {
   );
   const isPackagesUi = relPath.startsWith("packages/ui/src/");
 
+  // Unclosed parens from a class-helper call on an earlier line. While this is
+  // above zero, every quoted string we meet is still part of that call.
+  let classDepth = 0;
+
   for (let i = 0; i < lines.length; i++) {
     const lineNumber = i + 1;
-    if (ignoredLines.has(lineNumber)) continue;
     const line = lines[i];
+    const ignored = ignoredLines.has(lineNumber);
 
     // raw-button: apps/web/src only — packages/ui/src is where the Button
     // primitive itself lives, so a literal <button> there is expected.
-    if (!isPackagesUi && RAW_BUTTON_RE.test(line)) {
+    if (!ignored && !isPackagesUi && RAW_BUTTON_RE.test(line)) {
       addViolation(relPath, "raw-button", lineNumber);
     }
 
-    if (!CLASS_CONTEXT_RE.test(line)) continue;
-    const classText = [...line.matchAll(QUOTED_STRING_RE)]
+    // Work out whether this line is class context, and from which column, then
+    // update the carried depth. This must run even for an ignored line, or the
+    // pragma would silently swallow the rest of the call.
+    let scanFrom = 0;
+    let inClassContext = classDepth > 0;
+    if (!inClassContext) {
+      const match = CLASS_CONTEXT_RE.exec(line);
+      if (match) {
+        inClassContext = true;
+        scanFrom = match.index;
+      }
+    }
+    if (inClassContext) {
+      classDepth = Math.max(0, classDepth + openParenDelta(line.slice(scanFrom)));
+    }
+
+    if (!inClassContext || ignored) continue;
+    const classText = [...line.slice(scanFrom).matchAll(QUOTED_STRING_RE)]
       .map((m) => m[1])
       .join(" ");
     if (!classText) continue;

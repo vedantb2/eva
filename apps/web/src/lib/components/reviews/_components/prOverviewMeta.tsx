@@ -58,12 +58,7 @@ export function ToneIcon({
     );
   }
   if (tone === "success") {
-    return (
-      <IconCircleCheck
-        size={size}
-        className="shrink-0 text-emerald-600 dark:text-emerald-400"
-      />
-    );
+    return <IconCircleCheck size={size} className="shrink-0 text-success" />;
   }
   if (tone === "failure") {
     return <IconCircleX size={size} className="shrink-0 text-destructive" />;
@@ -72,43 +67,30 @@ export function ToneIcon({
 }
 
 /**
- * The lifecycle pill, worded and coloured as GitHub does: open is green, merged
- * is violet, closed-without-merging is red, and a draft is deliberately grey so
- * it does not read as ready.
+ * The lifecycle label plus the tone its glyph carries. Same vocabulary GitHub
+ * uses, but the colour lives on the icon only — merged reads violet through the
+ * code-review status token, open green, closed red, and a draft stays grey so it
+ * does not look ready. The label itself is neutral text in a quiet badge.
  */
 export function statusMeta(
   status: PrOverview["status"],
   draft: boolean,
-): { label: string; className: string } {
+): { label: string; glyphClassName: string } {
   if (status === "merged") {
-    return {
-      label: "Merged",
-      className:
-        "border-border bg-violet-500/10 text-violet-700 dark:text-violet-300",
-    };
+    return { label: "Merged", glyphClassName: "text-status-code-review" };
   }
   if (status === "closed") {
-    return {
-      label: "Closed",
-      className: "border-border bg-destructive/10 text-destructive",
-    };
+    return { label: "Closed", glyphClassName: "text-destructive" };
   }
   if (draft) {
-    return {
-      label: "Draft",
-      className: "border-border bg-muted text-muted-foreground",
-    };
+    return { label: "Draft", glyphClassName: "text-muted-foreground" };
   }
-  return {
-    label: "Open",
-    className:
-      "border-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  };
+  return { label: "Open", glyphClassName: "text-success" };
 }
 
 /** Shared idiom for a quiet, non-blocking notice (truncation, empty states). */
 export const NOTICE_CLASS =
-  "rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground";
+  "rounded-control border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground";
 
 /**
  * Review states as GitHub words them, plus the tone that drives the icon.

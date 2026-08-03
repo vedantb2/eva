@@ -65,7 +65,7 @@ export function PrMergeBoxChecks({
 
   if (checks.length === 0) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 px-3 py-2.5 text-2sm text-muted-foreground">
         <ToneIcon tone="neutral" size={16} />
         No checks have reported yet.
       </div>
@@ -76,11 +76,11 @@ export function PrMergeBoxChecks({
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-2 px-3 py-2">
         <ToneIcon tone={overallTone(counts)} size={16} />
-        <span className="min-w-0 flex-1 truncate text-sm">
+        <span className="min-w-0 flex-1 truncate text-2sm">
           {headline(counts)}
         </span>
         <CollapsibleTrigger asChild>
-          <Button size="sm" variant="ghost" className="text-muted-foreground">
+          <Button size="xs" variant="ghost" className="text-muted-foreground">
             {open ? "Hide" : "Show"} all checks
           </Button>
         </CollapsibleTrigger>
@@ -92,7 +92,7 @@ export function PrMergeBoxChecks({
             const row = (
               <span className="flex min-w-0 items-center gap-2">
                 <ToneIcon tone={checkTone(check)} />
-                <span className="min-w-0 flex-1 truncate text-sm">
+                <span className="min-w-0 flex-1 truncate text-2sm">
                   {check.name}
                 </span>
                 {check.description ? (
@@ -116,7 +116,7 @@ export function PrMergeBoxChecks({
                     href={check.htmlUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block rounded-md px-1.5 py-1 hover:bg-muted/60"
+                    className="block rounded-menu-item px-1.5 py-1 hover:bg-muted/60"
                   >
                     {row}
                   </a>

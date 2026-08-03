@@ -3,7 +3,15 @@
 import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
-import { Tabs, TabsBar, TabsContent, TabsList, TabsTrigger, cn } from "@eva/ui";
+import {
+  EmptyState,
+  Tabs,
+  TabsBar,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  cn,
+} from "@eva/ui";
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { isReviewTab, type ReviewTab } from "@/lib/search-params";
@@ -141,12 +149,12 @@ function ReviewTabContent({
 
 function NoPullRequest({ detail }: { detail: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <IconGitPullRequest className="h-10 w-10 text-muted-foreground/60" />
-      <div className="max-w-md space-y-1">
-        <p className="text-sm font-medium">No pull request yet</p>
-        <p className="text-sm text-muted-foreground">{detail}</p>
-      </div>
+    <div className="flex h-full items-center justify-center">
+      <EmptyState
+        icon={<IconGitPullRequest size={24} />}
+        title="No pull request yet"
+        description={detail}
+      />
     </div>
   );
 }

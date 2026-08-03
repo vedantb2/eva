@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@eva/backend";
-import { Button, Spinner } from "@eva/ui";
+import { Button, EmptyState, Spinner } from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { usePrOverview } from "./usePrOverview";
 import { PrCommentComposer } from "./_components/PrCommentComposer";
@@ -41,12 +41,18 @@ export function ReviewOverviewPanel({
 
   if (state.status === "error") {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <IconAlertTriangle className="h-8 w-8 text-destructive" />
-        <p className="text-sm text-destructive">{state.message}</p>
-        <Button size="sm" variant="secondary" onClick={reload}>
-          Retry
-        </Button>
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={<IconAlertTriangle size={24} className="text-destructive" />}
+          title="Couldn't load this pull request"
+          description={state.message}
+          animate={false}
+          action={
+            <Button size="sm" variant="secondary" onClick={reload}>
+              Retry
+            </Button>
+          }
+        />
       </div>
     );
   }

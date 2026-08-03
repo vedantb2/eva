@@ -11,7 +11,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  cn,
+  ListRow,
 } from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
@@ -93,6 +93,11 @@ async function resolveTaskChatPath(
   return `${root}/sandbox/preview`;
 }
 
+/**
+ * One draft as a dense list row: what kind of draft it is, the surface it
+ * belongs to, and the first couple of lines of what was written. Clicking a row
+ * reopens that surface; right-clicking discards the draft.
+ */
 export function DraftCard({ model, basePath }: DraftCardProps) {
   const navigate = useNavigate();
   const convex = useConvex();
@@ -182,51 +187,39 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const snippet = snippetText(model);
   const label = kindLabel(model);
   const title = contextTitle(model);
-  const ts = model.row.updatedAt;
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div
-          role="button"
-          tabIndex={0}
+        <ListRow
+          density="compact"
           onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") handleClick();
-          }}
-          className={cn(
-            "flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4",
-            "hover:bg-muted/40 transition-colors duration-100",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
+          aria-label={title}
+          contentClassName="flex flex-col gap-1"
         >
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="secondary"
-              className="border-none bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-            >
+          <div className="flex min-w-0 items-center gap-2">
+            <Badge variant="quiet" className="shrink-0 px-1.5 font-medium">
               {label}
             </Badge>
+            <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+              {title}
+            </span>
             <RelativeDateTime
-              at={ts}
-              className="min-w-0 flex-1 truncate text-xs"
+              at={model.row.updatedAt}
+              className="shrink-0 text-2xs"
             />
           </div>
 
-          <p className="line-clamp-2 text-sm font-medium text-foreground">
-            {title}
-          </p>
-
           {snippet ? (
-            <p className="line-clamp-3 text-sm text-muted-foreground">
+            <p className="line-clamp-2 text-xs text-muted-foreground">
               {snippet}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground/50 italic">
+            <p className="text-xs italic text-muted-foreground/60">
               No content
             </p>
           )}
-        </div>
+        </ListRow>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem className="text-destructive" onClick={handleDelete}>

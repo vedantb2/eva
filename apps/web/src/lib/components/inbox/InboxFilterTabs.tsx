@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, cn } from "@eva/ui";
+import { Button, cn } from "@eva/ui";
 import type { InboxFilter } from "@/lib/search-params";
 
 const OPTIONS: { value: InboxFilter; label: string }[] = [
@@ -16,7 +16,9 @@ interface InboxFilterTabsProps {
 
 /**
  * Segmented All / Unread switch. One bordered control instead of two loose
- * buttons, so the pair reads as a single choice.
+ * buttons, so the pair reads as a single choice. The unread count rides along as
+ * plain muted digits rather than a filled pill — the tab it sits in is already
+ * the thing being counted.
  */
 export function InboxFilterTabs({
   filter,
@@ -28,26 +30,27 @@ export function InboxFilterTabs({
       {OPTIONS.map((option) => {
         const isActive = filter === option.value;
         return (
-          <button
+          <Button
             key={option.value}
-            type="button"
+            size="xs"
+            variant="ghost"
             onClick={() => onChange(option.value)}
             aria-pressed={isActive}
             className={cn(
               // Inactive keeps a transparent border so selecting does not shift layout.
-              "flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
+              "h-6 gap-1.5 border px-2 font-medium",
               isActive
-                ? "border-border bg-card font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "border-border bg-card text-foreground hover:bg-card"
+                : "border-transparent",
             )}
           >
             {option.label}
             {option.value === "unread" && unreadCount > 0 ? (
-              <Badge className="h-4 min-w-4 justify-center rounded-full px-1 text-xs">
+              <span className="tabular-nums text-muted-foreground">
                 {unreadCount}
-              </Badge>
+              </span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </div>

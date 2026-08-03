@@ -136,7 +136,7 @@ export function PrMergeBox({
   };
 
   return (
-    <section className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+    <section className="divide-y divide-border overflow-hidden rounded-surface border border-border bg-card">
       <MergeHeaderRow overview={overview} />
 
       <ReviewsRow overview={overview} />
@@ -155,7 +155,7 @@ export function PrMergeBox({
               if (next) setMethod(next.value);
             }}
           >
-            <SelectTrigger className="h-8 w-[13.5rem] text-xs">
+            <SelectTrigger className="h-8 w-[13.5rem] text-2sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -218,8 +218,14 @@ export function PrMergeBox({
 function MergeHeaderRow({ overview }: { overview: PrOverview }) {
   if (overview.status === "merged") {
     return (
-      <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-violet-700 dark:text-violet-300">
-        <IconGitMerge size={16} className="shrink-0" aria-hidden />
+      // Neutral text with a violet glyph: "merged" is the resting state of a
+      // finished pull request, not something that needs to shout.
+      <p className="flex items-center gap-2 px-3 py-2.5 text-2sm">
+        <IconGitMerge
+          size={16}
+          className="shrink-0 text-status-code-review"
+          aria-hidden
+        />
         <span>
           Merged
           {overview.mergedByLogin ? ` by ${overview.mergedByLogin}` : ""}
@@ -234,7 +240,7 @@ function MergeHeaderRow({ overview }: { overview: PrOverview }) {
 
   if (overview.status === "closed") {
     return (
-      <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 px-3 py-2.5 text-2sm text-muted-foreground">
         <IconGitPullRequestClosed
           size={16}
           className="shrink-0 text-destructive"
@@ -247,7 +253,7 @@ function MergeHeaderRow({ overview }: { overview: PrOverview }) {
 
   const { tone, text } = mergeStateHeadline(overview);
   return (
-    <p className="flex items-center gap-2 px-3 py-2.5 text-sm">
+    <p className="flex items-center gap-2 px-3 py-2.5 text-2sm">
       <ToneIcon tone={tone} size={16} />
       {text}
     </p>
@@ -281,7 +287,7 @@ function ReviewsRow({ overview }: { overview: PrOverview }) {
     changesRequested > 0 ? "failure" : approvals > 0 ? "success" : "neutral";
 
   return (
-    <p className="flex items-center gap-2 px-3 py-2.5 text-sm">
+    <p className="flex items-center gap-2 px-3 py-2.5 text-2sm">
       <ToneIcon tone={tone} size={16} />
       <span className="min-w-0 truncate">
         {parts.length === 0 ? "No reviews yet" : parts.join(" · ")}

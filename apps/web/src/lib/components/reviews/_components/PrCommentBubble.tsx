@@ -45,14 +45,14 @@ export function PrCommentBubble({
   const hasBody = body.trim().length > 0;
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-card">
+    <div className="overflow-hidden rounded-surface border border-border bg-card">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           {authorLogin ?? "unknown"}
         </span>
         <span>{action}</span>
         {path ? (
-          <span className="min-w-0 truncate rounded border border-border bg-card px-1 py-0.5 font-mono">
+          <span className="min-w-0 truncate rounded-control border border-border bg-card px-1 py-0.5 font-mono">
             {path}
             {line === undefined || line === null ? "" : `:${line}`}
           </span>
@@ -76,7 +76,7 @@ export function PrCommentBubble({
         {hasBody ? (
           <Streamdown className={MARKDOWN_CLASS}>{body}</Streamdown>
         ) : (
-          <p className="text-sm italic text-muted-foreground">
+          <p className="text-2sm italic text-muted-foreground">
             {emptyLabel ?? "No description provided."}
           </p>
         )}

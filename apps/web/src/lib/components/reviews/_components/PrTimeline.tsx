@@ -140,7 +140,7 @@ export function PrTimeline({
             {hiddenCommits === 1 ? "commit is" : "commits are"} not shown.
           </span>
           <Button
-            size="sm"
+            size="xs"
             variant="secondary"
             onClick={allCommits.load}
             disabled={allCommits.loading}
@@ -205,7 +205,7 @@ function TimelineAvatar({
     );
   }
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-medium uppercase text-muted-foreground ring-2 ring-background">
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-3xs font-medium uppercase text-muted-foreground ring-2 ring-background">
       {login === null ? "?" : login.slice(0, 2)}
     </span>
   );

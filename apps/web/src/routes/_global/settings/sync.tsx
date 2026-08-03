@@ -152,7 +152,7 @@ function SyncSettingsRoute() {
           variant="outline"
           disabled={fetching}
           onClick={handleRefreshFromGithub}
-          className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
+          className="motion-press text-muted-foreground active:scale-[0.96]"
         >
           <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
           <span className="hidden sm:inline">Refresh</span>
@@ -258,7 +258,7 @@ function OwnerGroup({
         return (
           <label
             key={repo.name}
-            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+            className="flex cursor-pointer items-center gap-2.5 rounded-menu-item px-2 py-1.5 text-2sm transition-colors hover:bg-muted/60"
           >
             <Checkbox
               checked={enabled}

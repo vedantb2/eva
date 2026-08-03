@@ -160,7 +160,7 @@ export function WelcomeSetupDialog() {
       >
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-control bg-muted/50">
               <LogoMark size={22} />
             </div>
             <div>

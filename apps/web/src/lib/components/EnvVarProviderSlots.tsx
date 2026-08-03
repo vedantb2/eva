@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  StatusDot,
   Textarea,
 } from "@eva/ui";
 import {
@@ -169,7 +170,7 @@ export function EnvVarProviderSlots({
     );
 
   return (
-    <div className="space-y-2">
+    <div>
       {entries.map((entry) => {
         const matched = matchOf(entry);
         const configured = matched !== undefined;
@@ -178,9 +179,11 @@ export function EnvVarProviderSlots({
         const Logo = entry.Logo;
 
         return (
+          // One row of the parent SettingsSection's card, not a card of its
+          // own — a hairline between slots, no nested border box.
           <div
             key={entry.id}
-            className="rounded-surface border border-border px-3 py-2.5"
+            className="border-b border-border px-4 py-3 last:border-b-0"
           >
             <div className="flex items-start gap-3">
               <Logo size={20} className="mt-0.5 shrink-0" />
@@ -188,8 +191,9 @@ export function EnvVarProviderSlots({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{entry.label}</span>
                   {configured && (
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <IconCheck size={10} /> Configured
+                    <Badge variant="quiet" className="gap-1.5">
+                      <StatusDot tone="done" size="sm" />
+                      Configured
                     </Badge>
                   )}
                 </div>
@@ -262,7 +266,7 @@ export function EnvVarProviderSlots({
                 {configured && matched && !isEditing && (
                   <div className="mt-1.5">
                     {revealed[matched.key] !== undefined && (
-                      <pre className="mb-1 max-h-24 overflow-auto scroll-fade rounded-control border border-border bg-background px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
+                      <pre className="mb-1 max-h-24 overflow-auto scroll-fade rounded-control border border-border bg-muted px-2 py-1 font-mono text-xs break-all whitespace-pre-wrap">
                         {revealed[matched.key]}
                       </pre>
                     )}
@@ -353,7 +357,7 @@ export function EnvVarProviderSlots({
           <DialogHeader>
             <DialogTitle>Remove Variable</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-2sm text-muted-foreground">
             Remove{" "}
             <span className="font-mono font-medium text-foreground">
               {deleteKey}

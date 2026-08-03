@@ -42,20 +42,20 @@ function EntityTypeIcon({ entityType }: { entityType: string }) {
 function LogRow({ log }: { log: LogEntry }) {
   const evt = parseResultEvent(log.rawResultEvent);
   return (
-    <div className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/25">
+    <div className="motion-base rounded-menu-item px-3 py-2.5 transition-colors hover:bg-muted/25">
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <EntityTypeIcon entityType={log.entityType} />
-          <span className="truncate text-sm">{log.entityTitle}</span>
+          <span className="truncate text-2sm">{log.entityTitle}</span>
           <Badge
             variant="secondary"
-            className="shrink-0 text-[10px] font-normal"
+            className="shrink-0 text-3xs font-normal"
           >
             {labelFor(log.entityType)}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <Badge variant="outline" className="font-mono text-[11px]">
+          <Badge variant="outline" className="font-mono text-2xs">
             {evt.provider && (
               <ProviderIcon
                 provider={evt.provider}
@@ -95,7 +95,7 @@ export function ProjectSpendingGroup({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
+      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-menu-item px-3 py-2.5 text-2sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
         <IconChevronRight
           size={14}
           className="chevron-icon shrink-0 text-muted-foreground transition-transform"
@@ -107,7 +107,7 @@ export function ProjectSpendingGroup({
         <span className="min-w-0 truncate tracking-[-0.01em]">
           {projectTitle}
         </span>
-        <Badge variant="secondary" className="ml-1 text-[10px] font-normal">
+        <Badge variant="secondary" className="ml-1 text-3xs font-normal">
           {logs.length} {logs.length === 1 ? "log" : "logs"}
         </Badge>
         <span className="ml-auto font-mono text-xs text-muted-foreground">

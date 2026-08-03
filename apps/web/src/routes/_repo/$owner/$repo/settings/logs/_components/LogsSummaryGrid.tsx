@@ -3,6 +3,7 @@
 import { formatCost, formatTokens, GBP_TO_USD } from "../_utils";
 import { formatDurationMs } from "@eva/shared/duration";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SummaryStat } from "./SummaryStat";
 
 interface LogsSummaryGridProps {
   totalCost: number;
@@ -11,30 +12,6 @@ interface LogsSummaryGridProps {
   totalOutput: number;
   totalCacheRead: number;
   totalCacheWrite: number;
-}
-
-function SummaryStat({
-  label,
-  value,
-  subtitle,
-}: {
-  label: string;
-  value: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-medium tabular-nums tracking-tight text-foreground">
-        {value}
-      </p>
-      {subtitle ? (
-        <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground/80">
-          {subtitle}
-        </p>
-      ) : null}
-    </div>
-  );
 }
 
 export function LogsSummaryGrid({

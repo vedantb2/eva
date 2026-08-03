@@ -7,6 +7,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@eva/ui";
 import { IconFilter, IconList, IconLayoutKanban } from "@tabler/icons-react";
 import {
@@ -53,32 +56,23 @@ export function LogsHeader({
         placeholder="Search logs..."
       />
 
-      <div className="flex items-center rounded-lg border border-border p-0.5">
-        <button
-          type="button"
-          onClick={() => onLogViewChange("type")}
-          className={`motion-base rounded-md px-2 py-1 text-xs font-medium ${
-            logView === "type"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <IconList size={14} className="inline-block" />
-          <span className="ml-1 hidden sm:inline">By Type</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onLogViewChange("project")}
-          className={`motion-base rounded-md px-2 py-1 text-xs font-medium ${
-            logView === "project"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <IconLayoutKanban size={14} className="inline-block" />
-          <span className="ml-1 hidden sm:inline">By Project</span>
-        </button>
-      </div>
+      <Tabs
+        value={logView}
+        onValueChange={(value) => {
+          if (value === "type" || value === "project") onLogViewChange(value);
+        }}
+      >
+        <TabsList className="tabs-segmented h-8">
+          <TabsTrigger value="type" className="gap-1 px-2 py-1 text-xs">
+            <IconList size={14} />
+            <span className="hidden sm:inline">By Type</span>
+          </TabsTrigger>
+          <TabsTrigger value="project" className="gap-1 px-2 py-1 text-xs">
+            <IconLayoutKanban size={14} />
+            <span className="hidden sm:inline">By Project</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {showTypeFilter && (
         <DropdownMenu>
@@ -98,7 +92,7 @@ export function LogsHeader({
               {filterActive && (
                 <Badge
                   variant="default"
-                  className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+                  className="ml-0.5 h-4 min-w-4 px-1 text-3xs"
                 >
                   {visibleTypes.size}
                 </Badge>

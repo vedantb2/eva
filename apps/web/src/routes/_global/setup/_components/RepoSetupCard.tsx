@@ -1,7 +1,6 @@
-import { Button } from "@eva/ui";
+import { Button, StatusDot } from "@eva/ui";
 import {
   IconBrandGithub,
-  IconCheck,
   IconChevronDown,
   IconChevronRight,
 } from "@tabler/icons-react";
@@ -33,23 +32,26 @@ export function RepoSetupCard({
   children,
 }: RepoSetupCardProps) {
   return (
-    <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
-      <div className="flex items-center justify-between p-3 sm:p-4 bg-card">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <IconBrandGithub className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+    <div className="overflow-hidden rounded-surface border border-border bg-card">
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <IconBrandGithub
+            size={18}
+            className="shrink-0 text-muted-foreground"
+          />
           <div className="min-w-0">
-            <p className="font-medium text-sm sm:text-base text-foreground truncate">
+            <p className="truncate text-2sm font-medium text-foreground">
               {repo.name}
             </p>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+            <p className="truncate text-xs text-muted-foreground">
               {repo.owner}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {isAdded ? (
-            <span className="flex items-center gap-1 text-success text-xs sm:text-sm">
-              <IconCheck className="w-4 h-4" />
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <StatusDot tone="done" size="sm" />
               <span className="hidden sm:inline">Added</span>
             </span>
           ) : (
@@ -57,18 +59,27 @@ export function RepoSetupCard({
               Add
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={onToggleExpand}>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={onToggleExpand}
+            aria-label={isExpanded ? "Hide apps" : "Show apps"}
+          >
             {isExpanded ? (
-              <IconChevronDown className="w-4 h-4" />
+              <IconChevronDown size={16} />
             ) : (
-              <IconChevronRight className="w-4 h-4" />
+              <IconChevronRight size={16} />
             )}
           </Button>
         </div>
       </div>
 
+      {/* Nested content steps to `bg-muted` and is separated by a hairline —
+          previously an `mt-6` left a bare band above the panel. */}
       {isExpanded && (
-        <div className="mt-6 bg-muted/30 p-3 sm:p-4 space-y-2">{children}</div>
+        <div className="space-y-2 border-t border-border bg-muted/40 px-4 py-3">
+          {children}
+        </div>
       )}
     </div>
   );

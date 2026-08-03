@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Button, Spinner, Surface } from "@eva/ui";
-import { IconCheck, IconFolder } from "@tabler/icons-react";
+import { Button, Input, Spinner, StatusDot, Surface } from "@eva/ui";
+import { IconFolder } from "@tabler/icons-react";
 
 export interface MonorepoApp {
   name: string;
@@ -57,28 +57,28 @@ export function MonorepoAppsPanel({
             density="none"
             className="flex items-center justify-between p-2"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <IconFolder className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <div className="flex min-w-0 items-center gap-2">
+              <IconFolder size={16} className="shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="truncate text-2sm font-medium text-foreground">
                   {app.name}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="truncate text-xs text-muted-foreground">
                   {app.path}
                   {app.hasDevScript && " · has dev script"}
                 </p>
               </div>
             </div>
             {addedRepos.has(key) ? (
-              <span className="flex items-center gap-1 text-success text-xs flex-shrink-0">
-                <IconCheck className="w-3 h-3" />
+              <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <StatusDot tone="done" size="sm" />
                 Added
               </span>
             ) : (
               <Button
                 size="sm"
                 variant="secondary"
-                className="flex-shrink-0"
+                className="shrink-0"
                 onClick={() => onAddApp(app.path)}
               >
                 Add
@@ -88,12 +88,12 @@ export function MonorepoAppsPanel({
         );
       })}
       <div className="flex items-center gap-2 pt-2">
-        <input
+        <Input
           type="text"
           placeholder="Custom root directory..."
           value={customRootDir}
           onChange={(e) => setCustomRootDir(e.target.value)}
-          className="flex-1 rounded-control border border-border bg-background px-2 py-1.5 text-sm"
+          className="h-8 flex-1 text-2sm"
         />
         <Button
           size="sm"

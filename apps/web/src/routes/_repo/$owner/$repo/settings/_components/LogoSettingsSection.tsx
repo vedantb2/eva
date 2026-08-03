@@ -80,7 +80,7 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
         </SettingsField>
 
         <div className="flex items-center gap-3">
-          <div className="flex size-14 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
+          <div className="flex size-14 items-center justify-center overflow-hidden rounded-control border border-border bg-background">
             {logoUrl ? (
               <img src={logoUrl} alt="" className="size-full object-cover" />
             ) : (

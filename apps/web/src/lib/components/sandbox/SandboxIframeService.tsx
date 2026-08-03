@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { useAction } from "convex/react";
 import { useSessionStorage } from "usehooks-ts";
 import { api } from "@eva/backend";
@@ -86,6 +92,8 @@ interface SandboxIframeServiceProps {
   iframeAllow?: string;
   /** Fires whenever the service state machine changes. */
   onStateChange?: (state: SandboxIframeServiceState) => void;
+  /** Rendered inside the viewport box, above the iframe (e.g. agent lock overlay). */
+  viewportOverlay?: ReactNode;
 }
 
 /**
@@ -117,6 +125,7 @@ export function SandboxIframeService({
   loadFailedError,
   iframeAllow,
   onStateChange,
+  viewportOverlay,
 }: SandboxIframeServiceProps) {
   // Scope the cache key by sandboxId — Vercel signed URLs embed the sandbox
   // ID in the domain, so a URL cached against a destroyed sandbox would
@@ -395,6 +404,7 @@ export function SandboxIframeService({
             allow={iframeAllow}
           />
         )}
+        {viewportOverlay}
       </div>
     </div>
   );

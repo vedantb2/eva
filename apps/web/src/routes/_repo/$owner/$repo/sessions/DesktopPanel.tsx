@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
+import { AgentControlOverlay } from "@/lib/components/sandbox/AgentControlOverlay";
 import {
   SandboxIframeService,
   type SandboxIframeServiceState,
@@ -78,9 +80,12 @@ function appendNoVncParams(baseUrl: string): string {
   return url.toString();
 }
 
-function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
+function isAgentBrowsingActive(
+  agentBrowsingAt: number | undefined,
+  now: number,
+): boolean {
   if (agentBrowsingAt === undefined) return false;
-  return Date.now() - agentBrowsingAt < AGENT_BROWSING_LOCK_TTL_MS;
+  return now - agentBrowsingAt < AGENT_BROWSING_LOCK_TTL_MS;
 }
 
 export function DesktopPanel({
@@ -96,6 +101,24 @@ export function DesktopPanel({
   const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
   const launchChromeInDesktop = useAction(api.sandbox.launchChromeInDesktop);
+
+  // Re-render when the soft-lock TTL elapses so the overlay does not stick
+  // until some unrelated update. Tick only schedules when a lock is active.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (agentBrowsingAt === undefined) return;
+    const remaining = agentBrowsingAt + AGENT_BROWSING_LOCK_TTL_MS - Date.now();
+    if (remaining <= 0) {
+      setNow(Date.now());
+      return;
+    }
+    const id = window.setTimeout(() => {
+      setNow(Date.now());
+    }, remaining);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [agentBrowsingAt]);
 
   const startAction = async (): Promise<StartResult> => {
     if (!sandboxId) return { success: false, message: "No sandbox" };
@@ -118,14 +141,14 @@ export function DesktopPanel({
   };
 
   const showLockOverlay =
-    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt);
+    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt, now);
 
   const handleTakeControl = () => {
     onReleaseLock?.();
   };
 
   return (
-    <div className="relative h-full min-h-0">
+    <div className="h-full min-h-0">
       <SandboxIframeService
         cacheNamespace="desktop-scale"
         cacheKey={cacheKey}
@@ -149,18 +172,12 @@ export function DesktopPanel({
         loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
         onStateChange={handleStateChange}
+        viewportOverlay={
+          showLockOverlay ? (
+            <AgentControlOverlay onTakeControl={handleTakeControl} />
+          ) : undefined
+        }
       />
-      {showLockOverlay ? (
-        <button
-          type="button"
-          onClick={handleTakeControl}
-          className="absolute inset-0 z-10 flex cursor-pointer flex-col items-center justify-center gap-2 bg-background/55 px-4 text-center backdrop-blur-[1px]"
-        >
-          <span className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-            Agent is browsing — click to take control
-          </span>
-        </button>
-      ) : null}
     </div>
   );
 }

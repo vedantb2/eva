@@ -1,5 +1,9 @@
 # Changelog
 
+## Agent browser lock aurora overlay - 2026-08-02
+
+Replaced the full-panel grey scrim with a viewport aurora ring and floating “Take control” bar so users can watch the agent drive Chrome while still reaching the sandbox toolbar. Soft-lock TTL now clears the overlay on expiry without waiting for an unrelated re-render.
+
 ## Session chat + sandbox polish - 2026-08-02
 
 Session Review/preview chrome, Virtuoso chat scroll affordances, and teammate message layout (side avatar, name over bubble text) so the highest-traffic session surface matches the rest of the product language. Dropped the low-signal Humans Prompting KPI from app stats.
